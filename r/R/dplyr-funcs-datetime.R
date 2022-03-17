@@ -105,17 +105,38 @@ register_bindings_datetime <- function() {
     (call_binding("yday", x) - 1) %/% 7 + 1
   })
 
-  register_binding("month", function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+  register_binding("month", function(x,
+                                     label = FALSE,
+                                     abbr = TRUE,
+                                     locale = Sys.getlocale("LC_TIME")) {
+
+    if (call_binding("is.integer", x)) {
+      x <- call_binding("if_else",
+                        call_binding("between", x, 1, 12),
+                        x,
+                        NA_integer_)
+      if (!label) {
+        # if we don't need a label we can return the integer itself (already
+        # constrained to 1:12)
+        return(x)
+      }
+        # make the integer into a date32() - which interprets integers as
+        # days from epoch (we multiply by 28 to be able to later extract the
+        # month with label) - NB this builds a false date (to be used by strftime)
+        # since we only know and care about the month
+        x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
+    }
+
     if (label) {
       if (abbr) {
         format <- "%b"
       } else {
         format <- "%B"
       }
-      return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+      return(build_expr("strftime", x, options = list(format = format, locale = locale)))
     }
 
-    Expression$create("month", x)
+    build_expr("month", x)
   })
 
   register_binding("is.Date", function(x) {
@@ -136,8 +157,7 @@ register_bindings_datetime <- function() {
   })
 
   register_binding("leap_year", function(date) {
-    year <- Expression$create("year", date)
-    (year %% 4 == 0) & ((year %% 100 != 0) | (year %% 400 == 0))
+    Expression$create("is_leap_year", date)
   })
 
   register_binding("am", function(x) {
@@ -147,5 +167,44 @@ register_bindings_datetime <- function() {
   register_binding("pm", function(x) {
     !call_binding("am", x)
   })
+  register_binding("tz", function(x) {
+    if (!call_binding("is.POSIXct", x)) {
+      abort(paste0("timezone extraction for objects of class `", type(x)$ToString(), "` not supported in Arrow"))
+    }
 
+    x$type()$timezone()
+  })
+  register_binding("semester", function(x, with_year = FALSE) {
+    month <- call_binding("month", x)
+    semester <- call_binding("if_else", month <= 6, 1L, 2L)
+    if (with_year) {
+      year <- call_binding("year", x)
+      return(year + semester / 10)
+    } else {
+      return(semester)
+    }
+  })
+  register_binding("date", function(x) {
+    build_expr("cast", x, options = list(to_type = date32()))
+  })
+}
+
+binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (usetz) {
+    format <- paste(format, "%Z")
+  }
+
+  if (call_binding("is.POSIXct", x)) {
+    # the casting part might not be required once
+    # https://issues.apache.org/jira/browse/ARROW-14442 is solved
+    # TODO revisit the steps below once the PR for that issue is merged
+    if (tz == "" && x$type()$timezone() != "") {
+      tz <- x$type()$timezone()
+    } else if (tz == "") {
+      tz <- Sys.timezone()
+    }
+    x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
+  }
+
+  build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }

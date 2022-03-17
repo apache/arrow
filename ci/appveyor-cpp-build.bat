@@ -26,6 +26,8 @@ git submodule update --init || exit /B
 set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
+set ARROW_DEBUG_MEMORY_POOL=trap
+
 @rem
 @rem In the configurations below we disable building the Arrow static library
 @rem to save some time.  Unfortunately this will still build the Parquet static
@@ -144,6 +146,7 @@ set PYARROW_WITH_DATASET=ON
 set PYARROW_WITH_FLIGHT=%ARROW_BUILD_FLIGHT%
 set PYARROW_WITH_GANDIVA=%ARROW_BUILD_GANDIVA%
 set PYARROW_WITH_PARQUET=ON
+set PYARROW_WITH_PARQUET_ENCRYPTION=ON
 set PYARROW_WITH_S3=%ARROW_S3%
 set PYARROW_WITH_STATIC_BOOST=ON
 

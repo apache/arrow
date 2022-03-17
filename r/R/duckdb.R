@@ -57,6 +57,10 @@ to_duckdb <- function(.data,
                       table_name = unique_arrow_tablename(),
                       auto_disconnect = TRUE) {
   .data <- as_adq(.data)
+  if (!requireNamespace("duckdb", quietly = TRUE)) {
+    abort("Please install the `duckdb` package to pass data with `to_duckdb()`.")
+  }
+
   duckdb::duckdb_register_arrow(con, table_name, .data)
 
   tbl <- dplyr::tbl(con, table_name)
@@ -104,12 +108,11 @@ unique_arrow_tablename <- function() {
 
 # Creates an environment that disconnects the database when it's GC'd
 duckdb_disconnector <- function(con, tbl_name) {
+  force(tbl_name)
   reg.finalizer(environment(), function(...) {
     # remote the table we ephemerally created (though only if the connection is
     # still valid)
-    if (DBI::dbIsValid(con)) {
-      duckdb::duckdb_unregister_arrow(con, tbl_name)
-    }
+    duckdb::duckdb_unregister_arrow(con, tbl_name)
   })
   environment()
 }
@@ -120,8 +123,11 @@ duckdb_disconnector <- function(con, tbl_name) {
 #' other processes (like DuckDB).
 #'
 #' @param .data the object to be converted
+#' @param as_arrow_query should the returned object be wrapped as an
+#' `arrow_dplyr_query`? (logical, default: `TRUE`)
 #'
-#' @return an `arrow_dplyr_query` object, to be used in dplyr pipelines.
+#' @return a `RecordBatchReader` object, wrapped as an arrow dplyr query which
+#'  can be used in dplyr pipelines.
 #' @export
 #'
 #' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
@@ -136,7 +142,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
 #'   to_arrow() %>%
 #'   collect()
-to_arrow <- function(.data) {
+to_arrow <- function(.data, as_arrow_query = TRUE) {
   # If this is an Arrow object already, return quickly since we're already Arrow
   if (inherits(.data, c("arrow_dplyr_query", "ArrowObject"))) {
     return(.data)
@@ -155,6 +161,9 @@ to_arrow <- function(.data) {
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  # TODO: we shouldn't need $read_table(), but we get segfaults when we do.
-  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res)$read_table())
+  if (as_arrow_query) {
+    arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
+  } else {
+    duckdb::duckdb_fetch_record_batch(res)
+  }
 }

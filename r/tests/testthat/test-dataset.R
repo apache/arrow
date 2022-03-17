@@ -582,17 +582,25 @@ test_that("map_batches", {
 test_that("head/tail", {
   # head/tail with no query are still deterministic order
   ds <- open_dataset(dataset_dir)
-  expect_equal(as.data.frame(head(ds)), head(df1))
-  expect_equal(
-    as.data.frame(head(ds, 12)),
-    rbind(df1, df2[1:2, ])
-  )
+  big_df <- rbind(df1, df2)
 
+  # No n provided (default is 6, all from one batch)
+  expect_equal(as.data.frame(head(ds)), head(df1))
   expect_equal(as.data.frame(tail(ds)), tail(df2))
-  expect_equal(
-    as.data.frame(tail(ds, 12)),
-    rbind(df1[9:10, ], df2)
-  )
+
+  # n = 0: have to drop `fct` because factor levels don't come through from
+  # arrow when there are 0 rows
+  zero_df <- big_df[FALSE, names(big_df) != "fct"]
+  expect_equal(as.data.frame(head(ds, 0))[, names(ds) != "fct"], zero_df)
+  expect_equal(as.data.frame(tail(ds, 0))[, names(ds) != "fct"], zero_df)
+
+  # Two more cases: more than 1 batch, and more than nrow
+  for (n in c(12, 1000)) {
+    expect_equal(as.data.frame(head(ds, n)), head(big_df, n))
+    expect_equal(as.data.frame(tail(ds, n)), tail(big_df, n))
+  }
+  expect_error(head(ds, -1)) # Not yet implemented
+  expect_error(tail(ds, -1)) # Not yet implemented
 })
 
 test_that("Dataset [ (take by index)", {
@@ -829,6 +837,10 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_scan_result(ds, schm)
 })
 
+# By default, snappy encoding will be used, and
+# Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
+skip_on_linux_devel()
+
 # see https://issues.apache.org/jira/browse/ARROW-11328
 test_that("Collecting zero columns from a dataset doesn't return entire dataset", {
   tmp <- tempfile()
@@ -839,13 +851,46 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
   )
 })
 
-
 test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
-  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
+  ds <- open_dataset(hive_dir)
 
   # export the RecordBatchReader via the C-interface
   stream_ptr <- allocate_arrow_array_stream()
   scan <- Scanner$create(ds)
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  expect_equal(
+    RecordBatchStreamReader$import_from_c(stream_ptr) %>%
+      filter(int < 8 | int > 55) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect(),
+    ds %>%
+      filter(int < 8 | int > 55) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect()
+  )
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
+})
+
+test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
+  ds <- open_dataset(hive_dir)
+
+  # filter the dataset
+  ds <- ds %>%
+    filter(int > 2)
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  scan <- Scanner$create(
+    ds,
+    projection = names(ds),
+    filter = Expression$create("less", Expression$field_ref("int"), Expression$scalar(8L))
+  )
   reader <- scan$ToRecordBatchReader()
   reader$export_to_c(stream_ptr)
 
@@ -855,19 +900,16 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
   # create an arrow_dplyr_query() from the recordbatch reader
   reader_adq <- arrow_dplyr_query(circle)
 
-  # TODO: ARROW-14321 should be able to arrange then collect
-  tab_from_c_new <- reader_adq %>%
-    filter(int < 8, int > 55) %>%
-    mutate(part_plus = part + 6) %>%
-    collect()
   expect_equal(
-    tab_from_c_new %>%
-      arrange(dbl),
+    reader_adq %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect(),
     ds %>%
-      filter(int < 8, int > 55) %>%
-      mutate(part_plus = part + 6) %>%
-      collect() %>%
-      arrange(dbl)
+      filter(int < 8, int > 2) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect()
   )
 
   # must clean up the pointer or we leak

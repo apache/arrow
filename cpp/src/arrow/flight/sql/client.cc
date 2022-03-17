@@ -92,7 +92,7 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
 
-  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, NULLPTR, &writer, &reader));
+  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, arrow::schema({}), &writer, &reader));
 
   std::shared_ptr<Buffer> metadata;
 
@@ -410,6 +410,8 @@ Status PreparedStatement::Close() {
 
   return Status::OK();
 }
+
+Status FlightSqlClient::Close() { return impl_->Close(); }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSqlInfo(
     const FlightCallOptions& options, const std::vector<int>& sql_info) {

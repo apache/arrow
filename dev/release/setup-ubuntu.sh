@@ -25,6 +25,7 @@ apt-get -y install \
   cmake \
   curl \
   git \
+  libcurl4-openssl-dev \
   libgirepository1.0-dev \
   libglib2.0-dev \
   libsqlite3-dev \
@@ -35,5 +36,6 @@ apt-get -y install \
   openjdk-11-jdk \
   pkg-config \
   python3-pip \
+  python3-venv \
   ruby-dev \
   wget

@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -27,6 +28,7 @@
 #include <vector>
 
 #include "arrow/flight/server_auth.h"
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"       // IWYU pragma: keep
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
@@ -39,9 +41,6 @@ class Schema;
 class Status;
 
 namespace flight {
-
-class ServerMiddleware;
-class ServerMiddlewareFactory;
 
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
@@ -60,7 +59,7 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
 };
 
 /// \brief A basic implementation of FlightDataStream that will provide
-/// a sequence of FlightData messages to be written to a gRPC stream
+/// a sequence of FlightData messages to be written to a stream
 class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
@@ -183,6 +182,10 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// domain socket).
   int port() const;
 
+  /// \brief Get the address that the Flight server is listening on.
+  /// This method must only be called after Init().
+  Location location() const;
+
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.
   /// This method must be called before Serve().
@@ -200,10 +203,11 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   int GotSignal() const;
 
   /// \brief Shut down the server. Can be called from signal handler or another
-  /// thread while Serve() blocks.
+  /// thread while Serve() blocks. Optionally a deadline can be set. Once the
+  /// the deadline expires server will wait until remaining running calls
+  /// complete.
   ///
-  /// TODO(wesm): Shutdown with deadline
-  Status Shutdown();
+  Status Shutdown(const std::chrono::system_clock::time_point* deadline = NULLPTR);
 
   /// \brief Block until server is terminated with Shutdown.
   Status Wait();

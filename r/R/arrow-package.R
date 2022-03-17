@@ -23,7 +23,7 @@
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
-#' @importFrom rlang is_list call2
+#' @importFrom rlang is_list call2 is_empty
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -41,7 +41,7 @@
       "semi_join", "anti_join", "count", "tally"
     )
   )
-  for (cl in c("Dataset", "ArrowTabular", "arrow_dplyr_query")) {
+  for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {
     for (m in dplyr_methods) {
       s3_register(m, cl)
     }
@@ -125,10 +125,7 @@ arrow_available <- function() {
 #' @rdname arrow_available
 #' @export
 arrow_with_dataset <- function() {
-  is_32bit <- .Machine$sizeof.pointer < 8
-  is_old_r <- getRversion() < "4.0.0"
-  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-  if (is_32bit && is_old_r && is_windows) {
+  if (on_old_windows()) {
     # 32-bit rtools 3.5 does not properly implement the std::thread expectations
     # but we can't just disable ARROW_DATASET in that build,
     # so report it as "off" here.
@@ -137,6 +134,14 @@ arrow_with_dataset <- function() {
   tryCatch(.Call(`_dataset_available`), error = function(e) {
     return(FALSE)
   })
+}
+
+on_old_windows <- function() {
+  is_32bit <- .Machine$sizeof.pointer < 8
+  is_old_r <- getRversion() < "4.0.0"
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+
+  is_32bit && is_old_r && is_windows
 }
 
 #' @rdname arrow_available
@@ -327,9 +332,6 @@ ArrowObject <- R6Class("ArrowObject",
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
-    },
-    invalidate = function() {
-      assign(".:xp:.", NULL, envir = self)
     }
   )
 )

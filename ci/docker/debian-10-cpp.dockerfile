@@ -62,6 +62,7 @@ RUN apt-get update -y -q && \
         llvm-${llvm}-dev \
         make \
         ninja-build \
+        nlohmann-json3-dev \
         pkg-config \
         protobuf-compiler \
         python3-pip \
@@ -89,6 +90,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
+    ARROW_WITH_OPENTELEMETRY=OFF \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \

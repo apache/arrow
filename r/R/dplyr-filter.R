@@ -67,7 +67,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
 
   set_filters(.data, filters)
 }
-filter.Dataset <- filter.ArrowTabular <- filter.arrow_dplyr_query
+filter.Dataset <- filter.ArrowTabular <- filter.RecordBatchReader <- filter.arrow_dplyr_query
 
 set_filters <- function(.data, expressions) {
   if (length(expressions)) {

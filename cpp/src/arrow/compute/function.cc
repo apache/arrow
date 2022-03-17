@@ -31,6 +31,7 @@
 #include "arrow/datum.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -213,6 +214,12 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     return Execute(args, options, &default_ctx);
   }
 
+  util::tracing::Span span;
+  START_SPAN(span, name(),
+             {{"function.name", name()},
+              {"function.options", options ? options->ToString() : "<NULLPTR>"},
+              {"function.kind", kind()}});
+
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
   RETURN_NOT_OK(detail::CheckAllValues(args));
@@ -254,7 +261,6 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
 }
 
 namespace {
-
 Status ValidateFunctionSummary(const std::string& s) {
   if (s.find('\n') != s.npos) {
     return Status::Invalid("summary contains a newline");

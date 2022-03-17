@@ -23,31 +23,33 @@ from .tester import Tester
 from .util import run_cmd, log
 
 
+# FIXME(sbinet): revisit for Go modules
+_HOME = os.getenv("HOME", "~")
+_GOPATH = os.getenv("GOPATH", os.path.join(_HOME, "go"))
+_GOBIN = os.environ.get("GOBIN", os.path.join(_GOPATH, "bin"))
+
+_GO_INTEGRATION_EXE = os.path.join(_GOBIN, "arrow-json-integration-test")
+_STREAM_TO_FILE = os.path.join(_GOBIN, "arrow-stream-to-file")
+_FILE_TO_STREAM = os.path.join(_GOBIN, "arrow-file-to-stream")
+
+_FLIGHT_SERVER_CMD = [os.path.join(_GOBIN, "arrow-flight-integration-server")]
+_FLIGHT_CLIENT_CMD = [
+    os.path.join(_GOBIN, "arrow-flight-integration-client"),
+    "-host",
+    "localhost",
+]
+
+
 class GoTester(Tester):
     PRODUCER = True
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
 
-    # FIXME(sbinet): revisit for Go modules
-    HOME = os.getenv('HOME', '~')
-    GOPATH = os.getenv('GOPATH', os.path.join(HOME, 'go'))
-    GOBIN = os.environ.get('GOBIN', os.path.join(GOPATH, 'bin'))
-
-    GO_INTEGRATION_EXE = os.path.join(GOBIN, 'arrow-json-integration-test')
-    STREAM_TO_FILE = os.path.join(GOBIN, 'arrow-stream-to-file')
-    FILE_TO_STREAM = os.path.join(GOBIN, 'arrow-file-to-stream')
-
-    FLIGHT_SERVER_CMD = [
-        os.path.join(GOBIN, 'arrow-flight-integration-server')]
-    FLIGHT_CLIENT_CMD = [
-        os.path.join(GOBIN, 'arrow-flight-integration-client'),
-        '-host', 'localhost']
-
     name = 'Go'
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
-        cmd = [self.GO_INTEGRATION_EXE]
+        cmd = [_GO_INTEGRATION_EXE]
 
         if arrow_path is not None:
             cmd.extend(['-arrow', arrow_path])
@@ -69,42 +71,42 @@ class GoTester(Tester):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = [self.STREAM_TO_FILE, '<', stream_path, '>', file_path]
+        cmd = [_STREAM_TO_FILE, '<', stream_path, '>', file_path]
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = [self.FILE_TO_STREAM, file_path, '>', stream_path]
+        cmd = [_FILE_TO_STREAM, file_path, '>', stream_path]
         self.run_shell_command(cmd)
 
     @contextlib.contextmanager
     def flight_server(self, scenario_name=None):
-        cmd = self.FLIGHT_SERVER_CMD + ['-port=0']
+        cmd = _FLIGHT_SERVER_CMD + ['-port=0']
         if scenario_name:
             cmd = cmd + ['-scenario', scenario_name]
         if self.debug:
             log(' '.join(cmd))
-        server = subprocess.Popen(cmd,
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE)
+        server = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             output = server.stdout.readline().decode()
-            if not output.startswith("Server listening on localhost:"):
+            if not output.startswith('Server listening on localhost:'):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
-                    "Flight-Go server did not start properly, "
-                    "stdout: \n{}\n\nstderr:\n{}\n"
-                    .format(output + out.decode(), err.decode())
+                    'Flight-Go server did not start properly, '
+                    'stdout: \n{}\n\nstderr:\n{}\n'.format(
+                        output + out.decode(), err.decode()
+                    )
                 )
-            port = int(output.split(":")[1])
+            port = int(output.split(':')[1])
             yield port
         finally:
             server.kill()
             server.wait(5)
 
     def flight_request(self, port, json_path=None, scenario_name=None):
-        cmd = self.FLIGHT_CLIENT_CMD + [
+        cmd = _FLIGHT_CLIENT_CMD + [
             '-port=' + str(port),
         ]
         if json_path:
@@ -112,7 +114,7 @@ class GoTester(Tester):
         elif scenario_name:
             cmd.extend(('-scenario', scenario_name))
         else:
-            raise TypeError("Must provide one of json_path or scenario_name")
+            raise TypeError('Must provide one of json_path or scenario_name')
 
         if self.debug:
             log(' '.join(cmd))

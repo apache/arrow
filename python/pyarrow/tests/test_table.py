@@ -342,22 +342,56 @@ def test_chunked_array_to_pandas_preserve_name():
         tm.assert_series_equal(result, expected)
 
 
-@pytest.mark.xfail
 @pytest.mark.pandas
 def test_table_roundtrip_to_pandas_empty_dataframe():
     # https://issues.apache.org/jira/browse/ARROW-10643
+    # The conversion should not results in a table with 0 rows if the original
+    # DataFrame has a RangeIndex but is empty.
     import pandas as pd
 
     data = pd.DataFrame(index=pd.RangeIndex(0, 10, 1))
     table = pa.table(data)
     result = table.to_pandas()
 
-    # TODO the conversion results in a table with 0 rows if the original
-    # DataFrame has a RangeIndex (i.e. no index column in the converted
-    # Arrow table)
     assert table.num_rows == 10
     assert data.shape == (10, 0)
     assert result.shape == (10, 0)
+    assert result.index.equals(data.index)
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 3))
+    table = pa.table(data)
+    result = table.to_pandas()
+
+    assert table.num_rows == 4
+    assert data.shape == (4, 0)
+    assert result.shape == (4, 0)
+    assert result.index.equals(data.index)
+
+
+@pytest.mark.pandas
+def test_recordbatch_roundtrip_to_pandas_empty_dataframe():
+    # https://issues.apache.org/jira/browse/ARROW-10643
+    # The conversion should not results in a RecordBatch with 0 rows if
+    #  the original DataFrame has a RangeIndex but is empty.
+    import pandas as pd
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 1))
+    batch = pa.RecordBatch.from_pandas(data)
+    result = batch.to_pandas()
+
+    assert batch.num_rows == 10
+    assert data.shape == (10, 0)
+    assert result.shape == (10, 0)
+    assert result.index.equals(data.index)
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 3))
+    batch = pa.RecordBatch.from_pandas(data)
+    result = batch.to_pandas()
+
+    assert batch.num_rows == 4
+    assert data.shape == (4, 0)
+    assert result.shape == (4, 0)
+    assert result.index.equals(data.index)
 
 
 @pytest.mark.pandas
@@ -1767,8 +1801,8 @@ def test_table_repr_to_string_ellipsis():
 c0: int16
 c1: int32
 ----
-c0: [[1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]]
-c1: [[10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30,40]]"""
+c0: [[1,2,3,4,1,...,4,1,2,3,4]]
+c1: [[10,20,30,40,10,...,40,10,20,30,40]]"""
 
 
 def test_table_function_unicode_schema():
@@ -1998,3 +2032,14 @@ def test_table_sort_by():
         "keys": ["c", "b", "b", "a", "a"],
         "values": [5, 4, 3, 2, 1]
     }
+
+
+def test_table_to_recordbatchreader():
+    table = pa.Table.from_pydict({'x': [1, 2, 3]})
+    reader = table.to_reader()
+    assert table.schema == reader.schema
+    assert table == reader.read_all()
+
+    reader = table.to_reader(max_chunksize=2)
+    assert reader.read_next_batch().num_rows == 2
+    assert reader.read_next_batch().num_rows == 1

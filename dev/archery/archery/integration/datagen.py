@@ -221,6 +221,30 @@ class DateField(IntegerField):
             ('unit', 'DAY' if self.unit == self.DAY else 'MILLISECOND')
         ])
 
+    def generate_range(self, size, lower, upper, name=None,
+                       include_extremes=False):
+        if self.unit == self.DAY:
+            return super().generate_range(size, lower, upper, name)
+
+        full_day_millis = 1000 * 60 * 60 * 24
+        lower = -1 * (abs(lower) // full_day_millis)
+        upper //= full_day_millis
+
+        values = [val * full_day_millis for val in np.random.randint(
+            lower, upper, size=size, dtype=np.int64)]
+        lower *= full_day_millis
+        upper *= full_day_millis
+
+        if include_extremes and size >= 2:
+            values[:2] = [lower, upper]
+        values = list(map(int if self.bit_width < 64 else str, values))
+
+        is_valid = self._make_is_valid(size)
+
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
+
 
 TIMEUNIT_NAMES = {
     's': 'SECOND',
@@ -260,6 +284,11 @@ class TimeField(IntegerField):
             ('unit', TIMEUNIT_NAMES[self.unit]),
             ('bitWidth', self.bit_width)
         ])
+
+    def generate_column(self, size, name=None):
+        lower_bound, upper_bound = self._get_generated_data_bounds()
+        return self.generate_range(size, lower_bound, upper_bound,
+                                   name=name)
 
 
 class TimestampField(IntegerField):

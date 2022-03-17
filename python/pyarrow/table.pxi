@@ -63,7 +63,7 @@ cdef class ChunkedArray(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, *, int indent=0, int window=10,
+    def to_string(self, *, int indent=0, int window=5, int container_window=2,
                   c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
@@ -74,9 +74,14 @@ cdef class ChunkedArray(_PandasConvertible):
             How much to indent right the content of the array,
             by default ``0``.
         window : int
-            How many items to preview at the begin and end
-            of the array when the arrays is bigger than the window.
+            How many items to preview within each chunk at the begin and end
+            of the chunk when the chunk is bigger than the window.
             The other elements will be ellipsed.
+        container_window : int
+            How many chunks to preview at the begin and end
+            of the array when the array is bigger than the window.
+            The other elements will be ellipsed.
+            This setting also applies to list columns.
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
@@ -88,6 +93,7 @@ cdef class ChunkedArray(_PandasConvertible):
         with nogil:
             options = PrettyPrintOptions(indent, window)
             options.skip_new_lines = skip_new_lines
+            options.container_window = container_window
             check_status(
                 PrettyPrint(
                     deref(self.chunked_array),
@@ -277,8 +283,8 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return result
 
-    def _to_pandas(self, options, **kwargs):
-        return _array_like_to_pandas(self, options)
+    def _to_pandas(self, options, types_mapper=None, **kwargs):
+        return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def to_numpy(self):
         """
@@ -1177,10 +1183,17 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        arrays, schema = dataframe_to_arrays(
+        arrays, schema, n_rows = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
-        return cls.from_arrays(arrays, schema=schema)
+
+        # If df is empty but row index is not, create empty RecordBatch with rows >0
+        cdef vector[shared_ptr[CArray]] c_arrays
+        if n_rows:
+            return pyarrow_wrap_batch(CRecordBatch.Make((<Schema> schema).sp_schema,
+                                                        n_rows, c_arrays))
+        else:
+            return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
     def from_arrays(list arrays, names=None, schema=None, metadata=None):
@@ -1779,7 +1792,7 @@ cdef class Table(_PandasConvertible):
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        arrays, schema = dataframe_to_arrays(
+        arrays, schema, n_rows = dataframe_to_arrays(
             df,
             schema=schema,
             preserve_index=preserve_index,
@@ -1787,7 +1800,14 @@ cdef class Table(_PandasConvertible):
             columns=columns,
             safe=safe
         )
-        return cls.from_arrays(arrays, schema=schema)
+
+        # If df is empty but row index is not, create empty Table with rows >0
+        cdef vector[shared_ptr[CChunkedArray]] c_arrays
+        if n_rows:
+            return pyarrow_wrap_table(
+                CTable.MakeWithRows((<Schema> schema).sp_schema, c_arrays, n_rows))
+        else:
+            return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):
@@ -1989,6 +2009,28 @@ cdef class Table(_PandasConvertible):
             result.append(pyarrow_wrap_batch(batch))
 
         return result
+
+    def to_reader(self, max_chunksize=None):
+        """
+        Convert a Table to RecordBatchReader
+        Returns
+        -------
+        RecordBatchReader        
+        """
+        cdef:
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader reader
+            shared_ptr[TableBatchReader] t_reader
+        t_reader = make_shared[TableBatchReader](self.sp_table)
+
+        if max_chunksize is not None:
+            t_reader.get().set_chunksize(max_chunksize)
+
+        c_reader = dynamic_pointer_cast[CRecordBatchReader, TableBatchReader](
+            t_reader)
+        reader = RecordBatchReader.__new__(RecordBatchReader)
+        reader.reader = c_reader
+        return reader
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):

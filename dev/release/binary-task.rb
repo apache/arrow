@@ -887,7 +887,8 @@ class BinaryTask
       rm(destination_path, verbose: false)
     end
     sh("gpg",
-       "--detach-sig",
+       "--armor",
+       "--detach-sign",
        "--local-user", gpg_key_id,
        "--output", destination_path,
        source_path,
@@ -1086,7 +1087,6 @@ class BinaryTask
       ["debian", "bookworm", "main"],
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
-      ["ubuntu", "hirsute", "main"],
       ["ubuntu", "impish", "main"],
     ]
   end
@@ -1457,6 +1457,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     [
       ["almalinux", "8"],
       ["amazon-linux", "2"],
+      ["centos", "8-stream"],
       ["centos", "7"],
     ]
   end

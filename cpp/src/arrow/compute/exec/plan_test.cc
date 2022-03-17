@@ -238,6 +238,45 @@ TEST(ExecPlanExecution, SourceSink) {
   }
 }
 
+TEST(ExecPlanExecution, TableSourceSink) {
+  for (int batch_size : {1, 4}) {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    auto exp_batches = MakeBasicBatches();
+    ASSERT_OK_AND_ASSIGN(auto table,
+                         TableFromExecBatches(exp_batches.schema, exp_batches.batches));
+
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"table_source", TableSourceNodeOptions{table, batch_size}},
+                      {"sink", SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
+
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+    ASSERT_OK_AND_ASSIGN(auto out_table, TableFromExecBatches(exp_batches.schema, res));
+    AssertTablesEqual(table, out_table);
+  }
+}
+
+TEST(ExecPlanExecution, TableSourceSinkError) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  auto exp_batches = MakeBasicBatches();
+  ASSERT_OK_AND_ASSIGN(auto table,
+                       TableFromExecBatches(exp_batches.schema, exp_batches.batches));
+
+  auto null_table_options = TableSourceNodeOptions{NULLPTR, 1};
+  ASSERT_THAT(MakeExecNode("table_source", plan.get(), {}, null_table_options),
+              Raises(StatusCode::Invalid, HasSubstr("not null")));
+
+  auto negative_batch_size_options = TableSourceNodeOptions{table, -1};
+  ASSERT_THAT(MakeExecNode("table_source", plan.get(), {}, negative_batch_size_options),
+              Raises(StatusCode::Invalid, HasSubstr("batch_size > 0")));
+}
+
 TEST(ExecPlanExecution, SinkNodeBackpressure) {
   constexpr uint32_t kPauseIfAbove = 4;
   constexpr uint32_t kResumeIfBelow = 2;
@@ -483,6 +522,38 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
       AssertNotFinished(plan->finished());
       // Mark consumption complete, plan should finish
       finish.MarkFinished();
+      ASSERT_FINISHES_OK(plan->finished());
+    }
+  }
+}
+
+TEST(ExecPlanExecution, SourceTableConsumingSink) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+      std::shared_ptr<Table> out;
+
+      auto basic_data = MakeBasicBatches();
+
+      TableSinkNodeOptions options{&out, basic_data.schema};
+
+      ASSERT_OK_AND_ASSIGN(
+          auto source, MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions(basic_data.schema,
+                                                      basic_data.gen(parallel, slow))));
+      ASSERT_OK(MakeExecNode("table_sink", plan.get(), {source}, options));
+      ASSERT_OK(plan->StartProducing());
+      // Source should finish fairly quickly
+      ASSERT_FINISHES_OK(source->finished());
+      SleepABit();
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           TableFromExecBatches(basic_data.schema, basic_data.batches));
+      ASSERT_EQ(5, out->num_rows());
+      AssertTablesEqual(*actual, *out);
       ASSERT_FINISHES_OK(plan->finished());
     }
   }

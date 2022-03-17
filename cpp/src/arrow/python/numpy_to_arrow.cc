@@ -787,20 +787,9 @@ Status NumPyConverter::Visit(const StructType& type) {
   for (auto& converter : sub_converters) {
     RETURN_NOT_OK(converter.Convert());
     groups.push_back(converter.result());
-    const auto& group = groups.back();
-    int64_t n = 0;
-    for (const auto& array : group) {
-      n += array->length();
-    }
   }
   // Ensure the different array groups are chunked consistently
   groups = ::arrow::internal::RechunkArraysConsistently(groups);
-  for (const auto& group : groups) {
-    int64_t n = 0;
-    for (const auto& array : group) {
-      n += array->length();
-    }
-  }
 
   // Make struct array chunks by combining groups
   size_t ngroups = groups.size();

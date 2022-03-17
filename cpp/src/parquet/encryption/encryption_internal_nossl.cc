@@ -52,7 +52,8 @@ int AesEncryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, const uin
   return -1;
 }
 
-AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata) {
+AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+                           bool write_length) {
   ThrowOpenSSLRequiredException();
 }
 
@@ -74,7 +75,14 @@ AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool m
   return NULLPTR;
 }
 
-AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata) {
+AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                                 bool write_length,
+                                 std::vector<AesEncryptor*>* all_encryptors) {
+  return NULLPTR;
+}
+
+AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+                           bool contains_length) {
   ThrowOpenSSLRequiredException();
 }
 

@@ -274,6 +274,8 @@ def arrays(draw, type, size=None, nullable=True):
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):
         value = st.timedeltas()
+    elif pa.types.is_interval(ty):
+        value = st.timedeltas()
     elif pa.types.is_binary(ty) or pa.types.is_large_binary(ty):
         value = st.binary()
     elif pa.types.is_string(ty) or pa.types.is_large_string(ty):

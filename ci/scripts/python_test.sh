@@ -30,6 +30,9 @@ export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
 # Enable some checks inside Python itself
 export PYTHONDEVMODE=1
 
+# Enable memory debug checks.
+export ARROW_DEBUG_MEMORY_POOL=trap
+
 # By default, force-test all optional components
 : ${PYARROW_TEST_CUDA:=${ARROW_CUDA:-ON}}
 : ${PYARROW_TEST_DATASET:=${ARROW_DATASET:-ON}}
@@ -49,4 +52,4 @@ export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
-pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow.tests.test_orc
+pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow

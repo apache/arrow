@@ -149,9 +149,17 @@ struct ARROW_EXPORT Datum {
   template <typename T, bool IsArray = std::is_base_of<Array, T>::value,
             bool IsScalar = std::is_base_of<Scalar, T>::value,
             typename = enable_if_t<IsArray || IsScalar>>
-  Datum(const std::shared_ptr<T>& value)  // NOLINT implicit conversion
+  Datum(std::shared_ptr<T> value)  // NOLINT implicit conversion
       : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
-            value)) {}
+            std::move(value))) {}
+
+  // Cast from subtypes of Array or Scalar to Datum
+  template <typename T, typename TV = typename std::remove_reference<T>::type,
+            bool IsArray = std::is_base_of<Array, T>::value,
+            bool IsScalar = std::is_base_of<Scalar, T>::value,
+            typename = enable_if_t<IsArray || IsScalar>>
+  Datum(T&& value)  // NOLINT implicit conversion
+      : Datum(std::make_shared<TV>(std::forward<T>(value))) {}
 
   // Convenience constructors
   explicit Datum(bool value);

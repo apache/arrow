@@ -33,6 +33,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -43,7 +44,9 @@ namespace compute {
 namespace {
 
 struct ExecPlanImpl : public ExecPlan {
-  explicit ExecPlanImpl(ExecContext* exec_context) : ExecPlan(exec_context) {}
+  explicit ExecPlanImpl(ExecContext* exec_context,
+                        std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
+      : ExecPlan(exec_context), metadata_(std::move(metadata)) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
@@ -78,6 +81,16 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
+    START_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
+#ifdef ARROW_WITH_OPENTELEMETRY
+    if (HasMetadata()) {
+      auto pairs = metadata().get()->sorted_pairs();
+      std::for_each(std::begin(pairs), std::end(pairs),
+                    [this](std::pair<std::string, std::string> const& pair) {
+                      span_.Get().span->SetAttribute(pair.first, pair.second);
+                    });
+    }
+#endif
     if (started_) {
       return Status::Invalid("restarted ExecPlan");
     }
@@ -94,7 +107,10 @@ struct ExecPlanImpl : public ExecPlan {
     for (rev_it it(sorted_nodes_.end()), end(sorted_nodes_.begin()); it != end; ++it) {
       auto node = *it;
 
+      EVENT(span_, "StartProducing:" + node->label(),
+            {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
       st = node->StartProducing();
+      EVENT(span_, "StartProducing:" + node->label(), {{"status", st.ToString()}});
       if (!st.ok()) {
         // Stop nodes that successfully started, in reverse order
         stopped_ = true;
@@ -106,11 +122,13 @@ struct ExecPlanImpl : public ExecPlan {
     }
 
     finished_ = AllFinished(futures);
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return st;
   }
 
   void StopProducing() {
     DCHECK(started_) << "stopped an ExecPlan which never started";
+    EVENT(span_, "StopProducing");
     stopped_ = true;
 
     StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end());
@@ -120,6 +138,8 @@ struct ExecPlanImpl : public ExecPlan {
   void StopProducingImpl(It begin, It end) {
     for (auto it = begin; it != end; ++it) {
       auto node = *it;
+      EVENT(span_, "StopProducing:" + node->label(),
+            {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
       node->StopProducing();
     }
   }
@@ -223,6 +243,8 @@ struct ExecPlanImpl : public ExecPlan {
   NodeVector sources_, sinks_;
   NodeVector sorted_nodes_;
   uint32_t auto_label_counter_ = 0;
+  util::tracing::Span span_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -241,8 +263,9 @@ util::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
 
 }  // namespace
 
-Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(ExecContext* ctx) {
-  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx});
+Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
+    ExecContext* ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx, metadata});
 }
 
 ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
@@ -262,6 +285,12 @@ Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
 void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
 
 Future<> ExecPlan::finished() { return ToDerived(this)->finished_; }
+
+bool ExecPlan::HasMetadata() const { return !!(ToDerived(this)->metadata_); }
+
+std::shared_ptr<const KeyValueMetadata> ExecPlan::metadata() const {
+  return ToDerived(this)->metadata_;
+}
 
 std::string ExecPlan::ToString() const { return ToDerived(this)->ToString(); }
 
@@ -344,22 +373,31 @@ MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
 
 void MapNode::ErrorReceived(ExecNode* input, Status error) {
   DCHECK_EQ(input, inputs_[0]);
+  EVENT(span_, "ErrorReceived", {{"error.message", error.message()}});
   outputs_[0]->ErrorReceived(this, std::move(error));
 }
 
 void MapNode::InputFinished(ExecNode* input, int total_batches) {
   DCHECK_EQ(input, inputs_[0]);
+  EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
   outputs_[0]->InputFinished(this, total_batches);
   if (input_counter_.SetTotal(total_batches)) {
     this->Finish();
   }
 }
 
-Status MapNode::StartProducing() { return Status::OK(); }
+Status MapNode::StartProducing() {
+  START_SPAN(
+      span_, std::string(kind_name()) + ":" + label(),
+      {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
+  finished_ = Future<>::Make();
+  END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
+  return Status::OK();
+}
 
-void MapNode::PauseProducing(ExecNode* output) {}
+void MapNode::PauseProducing(ExecNode* output) { EVENT(span_, "PauseProducing"); }
 
-void MapNode::ResumeProducing(ExecNode* output) {}
+void MapNode::ResumeProducing(ExecNode* output) { EVENT(span_, "ResumeProducing"); }
 
 void MapNode::StopProducing(ExecNode* output) {
   DCHECK_EQ(output, outputs_[0]);
@@ -367,6 +405,7 @@ void MapNode::StopProducing(ExecNode* output) {
 }
 
 void MapNode::StopProducing() {
+  EVENT(span_, "StopProducing");
   if (executor_) {
     this->stop_source_.RequestStop();
   }

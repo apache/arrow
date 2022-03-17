@@ -55,6 +55,20 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()> generator;
 };
 
+/// \brief An extended Source node which accepts a table
+class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
+ public:
+  TableSourceNodeOptions(std::shared_ptr<Table> table, int64_t batch_size)
+      : table(table), batch_size(batch_size) {}
+
+  // arrow table which acts as the data source
+  std::shared_ptr<Table> table;
+  // Size of batches to emit from this node
+  // If the table is larger the node will emit multiple batches from the
+  // the table to be processed in parallel.
+  int64_t batch_size;
+};
+
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to
@@ -169,6 +183,8 @@ enum class JoinType {
   FULL_OUTER
 };
 
+std::string ToString(JoinType t);
+
 enum class JoinKeyCmp { EQ, IS };
 
 /// \addtogroup execnode-options
@@ -177,19 +193,19 @@ enum class JoinKeyCmp { EQ, IS };
 /// \brief Make a node which implements join operation using hash join strategy.
 class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
  public:
-  static constexpr const char* default_output_prefix_for_left = "";
-  static constexpr const char* default_output_prefix_for_right = "";
+  static constexpr const char* default_output_suffix_for_left = "";
+  static constexpr const char* default_output_suffix_for_right = "";
   HashJoinNodeOptions(
       JoinType in_join_type, std::vector<FieldRef> in_left_keys,
       std::vector<FieldRef> in_right_keys, Expression filter = literal(true),
-      std::string output_prefix_for_left = default_output_prefix_for_left,
-      std::string output_prefix_for_right = default_output_prefix_for_right)
+      std::string output_suffix_for_left = default_output_suffix_for_left,
+      std::string output_suffix_for_right = default_output_suffix_for_right)
       : join_type(in_join_type),
         left_keys(std::move(in_left_keys)),
         right_keys(std::move(in_right_keys)),
         output_all(true),
-        output_prefix_for_left(std::move(output_prefix_for_left)),
-        output_prefix_for_right(std::move(output_prefix_for_right)),
+        output_suffix_for_left(std::move(output_suffix_for_left)),
+        output_suffix_for_right(std::move(output_suffix_for_right)),
         filter(std::move(filter)) {
     this->key_cmp.resize(this->left_keys.size());
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
@@ -200,16 +216,16 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       JoinType join_type, std::vector<FieldRef> left_keys,
       std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
       std::vector<FieldRef> right_output, Expression filter = literal(true),
-      std::string output_prefix_for_left = default_output_prefix_for_left,
-      std::string output_prefix_for_right = default_output_prefix_for_right)
+      std::string output_suffix_for_left = default_output_suffix_for_left,
+      std::string output_suffix_for_right = default_output_suffix_for_right)
       : join_type(join_type),
         left_keys(std::move(left_keys)),
         right_keys(std::move(right_keys)),
         output_all(false),
         left_output(std::move(left_output)),
         right_output(std::move(right_output)),
-        output_prefix_for_left(std::move(output_prefix_for_left)),
-        output_prefix_for_right(std::move(output_prefix_for_right)),
+        output_suffix_for_left(std::move(output_suffix_for_left)),
+        output_suffix_for_right(std::move(output_suffix_for_right)),
         filter(std::move(filter)) {
     this->key_cmp.resize(this->left_keys.size());
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
@@ -221,8 +237,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
       std::vector<FieldRef> right_output, std::vector<JoinKeyCmp> key_cmp,
       Expression filter = literal(true),
-      std::string output_prefix_for_left = default_output_prefix_for_left,
-      std::string output_prefix_for_right = default_output_prefix_for_right)
+      std::string output_suffix_for_left = default_output_suffix_for_left,
+      std::string output_suffix_for_right = default_output_suffix_for_right)
       : join_type(join_type),
         left_keys(std::move(left_keys)),
         right_keys(std::move(right_keys)),
@@ -230,8 +246,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         left_output(std::move(left_output)),
         right_output(std::move(right_output)),
         key_cmp(std::move(key_cmp)),
-        output_prefix_for_left(std::move(output_prefix_for_left)),
-        output_prefix_for_right(std::move(output_prefix_for_right)),
+        output_suffix_for_left(std::move(output_suffix_for_left)),
+        output_suffix_for_right(std::move(output_suffix_for_right)),
         filter(std::move(filter)) {}
 
   // type of join (inner, left, semi...)
@@ -247,15 +263,15 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   std::vector<FieldRef> left_output;
   // output fields passed from right input
   std::vector<FieldRef> right_output;
-  // key comparison function (determines whether a null key is equal another null key or
-  // not)
+  // key comparison function (determines whether a null key is equal another null
+  // key or not)
   std::vector<JoinKeyCmp> key_cmp;
-  // prefix added to names of output fields coming from left input (used to distinguish,
+  // suffix added to names of output fields coming from left input (used to distinguish,
   // if necessary, between fields of the same name in left and right input and can be left
   // empty if there are no name collisions)
-  std::string output_prefix_for_left;
-  // prefix added to names of output fields coming from right input
-  std::string output_prefix_for_right;
+  std::string output_suffix_for_left;
+  // suffix added to names of output fields coming from right input
+  std::string output_suffix_for_right;
   // residual filter which is applied to matching rows.  Rows that do not match
   // the filter are not included.  The filter is applied against the
   // concatenated input schema (left fields then right fields) and can reference
@@ -279,6 +295,20 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 };
 
 /// @}
+
+/// \brief Adapt an Table as a sink node
+///
+/// obtains the output of a execution plan to
+/// a table pointer.
+class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
+ public:
+  TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
+                       std::shared_ptr<Schema> output_schema)
+      : output_table(output_table), output_schema(std::move(output_schema)) {}
+
+  std::shared_ptr<Table>* output_table;
+  std::shared_ptr<Schema> output_schema;
+};
 
 }  // namespace compute
 }  // namespace arrow

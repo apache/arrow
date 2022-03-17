@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
@@ -330,6 +330,15 @@ test_that("extract isoyear from timestamp", {
   )
 })
 
+test_that("extract epiyear from timestamp", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = epiyear(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract quarter from timestamp", {
   compare_dplyr_binding(
     .input %>%
@@ -506,6 +515,15 @@ test_that("extract isoyear from date", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = isoyear(date)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract epiyear from date", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = epiyear(date)) %>%
       collect(),
     test_df
   )
@@ -710,4 +728,249 @@ test_that("am/pm mirror lubridate", {
     )
   )
 
+})
+
+test_that("extract tz", {
+  df <- tibble(
+    posixct_date = as.POSIXct(c("2022-02-07", "2022-02-10"), tz = "Pacific/Marquesas"),
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(timezone_posixct_date = tz(posixct_date)) %>%
+      collect(),
+    df
+  )
+
+  # test a few types directly from R objects
+  expect_error(
+    call_binding("tz", "2020-10-01"),
+    "timezone extraction for objects of class `string` not supported in Arrow"
+  )
+  expect_error(
+    call_binding("tz", as.Date("2020-10-01")),
+    "timezone extraction for objects of class `date32[day]` not supported in Arrow",
+    fixed = TRUE
+  )
+  expect_error(
+    call_binding("tz", 1L),
+    "timezone extraction for objects of class `int32` not supported in Arrow"
+  )
+   expect_error(
+    call_binding("tz", 1.1),
+    "timezone extraction for objects of class `double` not supported in Arrow"
+  )
+
+  # Test one expression
+   expect_error(
+     call_binding("tz", Expression$scalar("2020-10-01")),
+     "timezone extraction for objects of class `string` not supported in Arrow"
+   )
+})
+
+test_that("semester works with temporal types and integers", {
+  test_df <- tibble(
+    month_as_int = c(1:12, NA),
+    month_as_char_pad = sprintf("%02i", month_as_int),
+    dates = as.Date(paste0("2021-", month_as_char_pad, "-15"))
+  )
+
+  # semester extraction from dates
+  compare_dplyr_binding(
+     .input %>%
+      mutate(sem_wo_year = semester(dates),
+             sem_w_year = semester(dates, with_year = TRUE)) %>%
+      collect(),
+     test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(sem_month_as_int = semester(month_as_int)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(sem_month_as_char_pad = semester(month_as_char_pad)) %>%
+      collect(),
+    regexp = "NotImplemented: Function 'month' has no kernel matching input types (array[string])",
+    fixed = TRUE
+  )
+})
+
+test_that("dst extracts daylight savings time correctly", {
+  test_df <- tibble(
+    dates = as.POSIXct(c("2021-02-20", "2021-07-31", "2021-10-31", "2021-01-31"), tz = "Europe/London")
+  )
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(dst = dst(dates)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("month() supports integer input", {
+    test_df_month <- tibble(
+      month_as_int = c(1:12, NA)
+    )
+
+    compare_dplyr_binding(
+      .input %>%
+        mutate(month_int_input = month(month_as_int)) %>%
+        collect(),
+      test_df_month
+    )
+
+    skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+    compare_dplyr_binding(
+      .input %>%
+        # R returns ordered factor whereas Arrow returns character
+        mutate(
+          month_int_input = as.character(month(month_as_int, label = TRUE))
+        ) %>%
+        collect(),
+      test_df_month
+    )
+
+    compare_dplyr_binding(
+      .input %>%
+        # R returns ordered factor whereas Arrow returns character
+        mutate(
+          month_int_input = as.character(
+            month(month_as_int, label = TRUE, abbr = FALSE)
+          )
+        ) %>%
+        collect(),
+      test_df_month
+    )
+  })
+
+test_that("month() errors with double input and returns NA with int outside 1:12", {
+  test_df_month <- tibble(
+    month_as_int = c(-1L, 1L, 13L, NA),
+    month_as_double = month_as_int + 0.1
+  )
+
+  expect_equal(
+    test_df_month %>%
+      arrow_table() %>%
+      select(month_as_int) %>%
+      mutate(month_int_input = month(month_as_int)) %>%
+      collect(),
+    tibble(
+      month_as_int = c(-1L, 1L, 13L, NA),
+      month_int_input = c(NA, 1L, NA, NA)
+    )
+  )
+
+  expect_error(
+    test_df_month %>%
+      arrow_table() %>%
+      mutate(month_dbl_input = month(month_as_double)) %>%
+      collect(),
+    regexp = "Function 'month' has no kernel matching input types (array[double])",
+    fixed = TRUE
+  )
+
+  expect_error(
+    test_df_month %>%
+      record_batch() %>%
+      mutate(month_dbl_input = month(month_as_double)) %>%
+      collect(),
+    regexp = "Function 'month' has no kernel matching input types (array[double])",
+    fixed = TRUE
+  )
+})
+
+test_that("date works in arrow", {
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
+  # this date is specific since lubridate::date() is different from base::as.Date()
+  # since as.Date returns the UTC date and date() doesn't
+  test_df <- tibble(
+    posixct_date = as.POSIXct(c("2012-03-26 23:12:13", NA), tz = "America/New_York"),
+    integer_var = c(32L, NA))
+
+  r_date_object <- lubridate::ymd_hms("2012-03-26 23:12:13")
+
+  # we can't (for now) use namespacing, so we need to make sure lubridate::date()
+  # and not base::date() is being used. This is due to the way testthat runs and
+  # normal use of arrow would not have to do this explicitly.
+  # TODO remove once https://issues.apache.org/jira/browse/ARROW-14575 is done
+  date <- lubridate::date
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(a_date = date(posixct_date)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(a_date_base = as.Date(posixct_date)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_from_r_object = date(r_date_object)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(as_date_from_r_object = as.Date(r_date_object)) %>%
+      collect(),
+    test_df
+  )
+
+  # date from integer supported in arrow (similar to base::as.Date()), but in
+  # Arrow it assumes a fixed origin "1970-01-01". However this is not supported
+  # by lubridate. lubridate::date(integer_var) errors without an `origin`
+  expect_equal(
+    test_df %>%
+      arrow_table() %>%
+      select(integer_var) %>%
+      mutate(date_int = date(integer_var)) %>%
+      collect(),
+    tibble(integer_var = c(32L, NA),
+           date_int = as.Date(c("1970-02-02", NA)))
+  )
+})
+
+test_that("date() errors with unsupported inputs", {
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      mutate(date_char = date("2022-02-25 00:00:01")) %>%
+      collect(),
+    regexp = "Unsupported cast from string to date32 using function cast_date32"
+  )
+
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      mutate(date_bool = date(TRUE)) %>%
+      collect(),
+    regexp = "Unsupported cast from bool to date32 using function cast_date32"
+  )
+
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      mutate(date_double = date(34.56)) %>%
+      collect(),
+    regexp = "Unsupported cast from double to date32 using function cast_date32"
+  )
 })

@@ -113,12 +113,14 @@ In general on Python side, the options are set with CMake flags and
 paths with environment variables. In R the environment variables are used
 for all things connected to the build, also for setting CMake flags.
 
+.. _build_libraries_guide:
+
 Building other Arrow libraries
 ==============================
 
 .. tabs::
 
-   .. tab:: Building Pyarrow
+   .. tab:: Building PyArrow
 
       After building the Arrow C++ library, you need to build PyArrow on top
       of it also. The reason is the same; so you can edit the code and run
@@ -144,6 +146,27 @@ Building other Arrow libraries
 
          - :ref:`build_pyarrow_win`
 
+      When you will make change to the code, you may need to recompile
+      PyArrow or Arrow C++:
+
+      **Recompiling Cython**
+
+      If you only make changes to ``.py`` files, you do not need to
+      recompile PyArrow. However, you should recompile it if you make
+      changes in ``.pyx`` or ``.pxd`` files.
+
+      To do that run this command again:
+
+      .. code:: console
+
+         $ python setup.py build_ext --inplace
+
+      **Recompiling C++**
+
+      Similarly, you will need to recompile the C++ code if you have
+      made changes to any C++ files. In this case,
+      re-run the build commands again.
+
    .. tab:: Building the R package
 
      When working on code in the R package, depending on your OS and planned
@@ -154,6 +177,24 @@ Building other Arrow libraries
      library and Arrow R package can be found in the
      `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
 
+
+     **Reinstalling R package and running 'make clean'**
+
+     If you make changes to the Arrow C++ part of the code, also
+     called libarrow, you will need to:
+
+     #. reinstall libarrow,
+     #. run ``make clean``,
+     #. reinstall the R package.
+
+     The ``make clean`` function is defined in ``r/Makefile`` and will
+     remove any cached object code in the ``r/src/`` directory, ensuring
+     you have a clean reinstall. The ``Makefile`` also includes functions
+     like ``make test``, ``make doc``, etc. and was added to help with
+     common tasks from the command line.
+
+     See more in the `Troubleshooting <https://arrow.apache.org/docs/dev/r/articles/developers/setup.html#troubleshooting>`_
+     section of the R Developer environment setup article.
 
 **Building from source vs. using binaries**
 

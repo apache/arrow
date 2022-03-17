@@ -29,6 +29,9 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
       Dir.chdir(@test_git_repository) do
+        unless git_tags.include?("apache-arrow-#{@release_version}")
+          git("tag", "apache-arrow-#{@release_version}")
+        end
         yield
       end
       FileUtils.rm_rf(@test_git_repository)
@@ -113,6 +116,21 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "docs/source/_static/versions.json",
+        hunks: [
+          [
+            "-        \"name\": \"#{@release_compatible_version} (dev)\",",
+            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
+            "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
+            "+        \"name\": \"#{@release_compatible_version} (stable)\",",
+            "+    {",
+            "+        \"name\": \"#{@previous_compatible_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version}/\"",
+            "+    },",
+          ]
+        ]
+      },
+      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
@@ -148,6 +166,20 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+",
            "+# arrow #{@release_version}",],
         ],
+      },
+      {
+        path: "r/pkgdown/assets/versions.json",
+        hunks: [
+          [ "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+            "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+            "-        \"name\": \"#{@previous_version} (release)\",",
+            "+        \"name\": \"#{@release_version} (release)\",",
+            "+    {",
+            "+        \"name\": \"#{@previous_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version}/\"",
+            "+    },"
+          ]
+        ]
       },
     ]
 

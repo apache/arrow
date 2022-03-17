@@ -78,6 +78,7 @@ groups:
   r:
     - test*-r-*
     - homebrew-r-autobrew
+    - homebrew-r-brew
     # r-conda tasks
     - conda-linux-gcc-py*-cpu-r*
     - conda-osx-clang-py*-r*
@@ -95,8 +96,7 @@ groups:
     - test-*kartothek*
     - test-*pandas*
     - test-*spark*
-    # TEMP disable because those are failing due to needing upstream fix (ARROW-13594)
-    # - test-*turbodbc*
+    - test-*turbodbc*
 
   example:
     - example-*
@@ -114,10 +114,10 @@ groups:
     - verify-rc-binaries-*
 
   verify-rc-jars:
-    - verify-rc-jars-*
+    - verify-rc-binaries-jars-*
 
   verify-rc-wheels:
-    - verify-rc-wheels-*
+    - verify-rc-binaries-wheels-*
 
   verify-rc-source:
     - verify-rc-source-*
@@ -131,6 +131,7 @@ groups:
 {######################## Tasks to run regularly #############################}
 
   nightly:
+    - verify-rc-source-*
     - almalinux-*
     - amazon-linux-*
     - debian-*
@@ -141,27 +142,12 @@ groups:
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
     - homebrew-r-autobrew
+    - homebrew-r-brew
     - nuget
     - test-*
     - example-*
     - wheel-*
     - python-sdist
-    # ARROW-14256
-    - ~conda-linux-gcc-py310-arm64
-    - ~conda-linux-gcc-py310-cuda
-    - ~conda-linux-gcc-py37-arm64
-    - ~conda-linux-gcc-py37-cpu-r41
-    - ~conda-linux-gcc-py37-cuda
-    - ~conda-linux-gcc-py38-arm64
-    - ~conda-linux-gcc-py38-cpu
-    - ~conda-linux-gcc-py38-cuda
-    - ~conda-linux-gcc-py39-arm64
-    - ~conda-linux-gcc-py39-cpu
-    - ~conda-linux-gcc-py39-cuda
-    - ~conda-win-vs2017-py37-r41
-    # ARROW-14215
-    - ~conda-win-vs2017-py38
-    - ~conda-win-vs2017-py39
 
 tasks:
   # arbitrary_task_name:
@@ -194,7 +180,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.7.____cpython
       r_config: linux_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -204,7 +190,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.7.____cpython
       r_config: linux_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -214,7 +200,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.17python3.8.____cpython
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.8.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -223,13 +209,22 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.19python3.9.____cpython
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.19python3.9.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
-{% for python_version, numpy_version in [("3.7", "1.17"),
-                                         ("3.8", "1.17"),
+  conda-linux-gcc-py310-cpu:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.21python3.10.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+
+{% for python_version, numpy_version in [("3.7", "1.18"),
+                                         ("3.8", "1.18"),
                                          ("3.9", "1.19"),
                                          ("3.10", "1.21")] %}
   {% set pyver = python_version | replace(".", "") %}
@@ -238,7 +233,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_version10.2numpy{{ numpy_version }}python{{ python_version }}.____cpython
+      config: linux_64_c_compiler_version7cuda_compiler_version10.2cxx_compiler_version7numpy{{ numpy_version }}python{{ python_version }}.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cuda.tar.bz2
       - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cuda.tar.bz2
@@ -252,6 +247,15 @@ tasks:
       - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-linux-gcc-py{{ pyver }}-ppc64le:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_ppc64le_numpy{{ numpy_version }}python{{ python_version }}.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
+
 {% endfor %}
 
   ############################## Conda OSX ####################################
@@ -260,7 +264,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.17python3.7.____cpython
+      config:  osx_64_numpy1.18python3.7.____cpython
       r_config: osx_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -270,7 +274,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.17python3.7.____cpython
+      config: osx_64_numpy1.18python3.7.____cpython
       r_config: osx_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -280,7 +284,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.17python3.8.____cpython
+      config: osx_64_numpy1.18python3.8.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -294,11 +298,20 @@ tasks:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-osx-clang-py310:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_64_numpy1.21python3.10.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+
   conda-osx-arm64-clang-py38:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_arm64_python3.8.____cpython
+      config: osx_arm64_numpy1.19python3.8.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -307,10 +320,19 @@ tasks:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_arm64_python3.9.____cpython
+      config: osx_arm64_numpy1.19python3.9.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+
+  conda-osx-arm64-clang-py310:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_arm64_numpy1.21python3.10.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
 
   ############################## Conda Windows ################################
 
@@ -318,7 +340,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
+      config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
       r_config: win_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -328,7 +350,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
+      config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
       r_config: win_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -338,7 +360,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.17python3.8.____cpython
+      config: win_64_cuda_compiler_versionNonenumpy1.18python3.8.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -349,9 +371,19 @@ tasks:
     params:
       config: win_64_cuda_compiler_versionNonenumpy1.19python3.9.____cpython
     artifacts:
-      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-win-vs2017-py310:
+    ci: azure
+    template: conda-recipes/azure.win.yml
+    params:
+      config: win_64_cuda_compiler_versionNonenumpy1.21python3.10.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+
+# TODO: Windows CUDA
 
 {% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
                                                ("3.8", "cp38", "cp38"),
@@ -462,7 +494,6 @@ tasks:
                   "debian-bookworm",
                   "ubuntu-bionic",
                   "ubuntu-focal",
-                  "ubuntu-hirsute",
                   "ubuntu-impish"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
@@ -504,60 +535,60 @@ tasks:
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset800_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight800_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib800_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python-flight700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-python-flight700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-python700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python-flight800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-python-flight800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-python800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow800_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva800_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet800_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda800_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libplasma-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libplasma800_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
@@ -566,8 +597,9 @@ tasks:
 
 {% for target in ["almalinux-8",
                   "amazon-linux-2",
+                  "centos-8-stream",
                   "centos-7"] %}
-  {% set is_rhel8_based = (target == "almalinux-8") %}
+  {% set is_rhel8_based = (target in ["almalinux-8", "centos-8-stream"]) %}
   {% for architecture in ["amd64", "arm64"] %}
     {% if not (target in ["amazon-linux-2", "centos-7"] and architecture == "arm64") %}
   {{ target }}-{{ architecture }}:
@@ -698,6 +730,13 @@ tasks:
     ci: github
     template: r/github.macos.autobrew.yml
 
+  homebrew-r-brew:
+    # This tests that the autobrew formula + script work in practice
+    ci: github
+    template: r/github.macos.brew.yml
+    params:
+      formula: apache-arrow.rb
+
   ############################## Arrow JAR's ##################################
 
   java-jars:
@@ -730,6 +769,7 @@ tasks:
       - arrow-dataset-{no_rc_version}-tests.jar
       - arrow-dataset-{no_rc_version}.jar
       - arrow-dataset-{no_rc_version}.pom
+      - arrow-flight-{no_rc_version}.pom
       - arrow-format-{no_rc_version}-javadoc.jar
       - arrow-format-{no_rc_version}-sources.jar
       - arrow-format-{no_rc_version}-tests.jar
@@ -802,6 +842,17 @@ tasks:
       - flight-grpc-{no_rc_version}-tests.jar
       - flight-grpc-{no_rc_version}.jar
       - flight-grpc-{no_rc_version}.pom
+      - flight-integration-tests-{no_rc_version}-jar-with-dependencies.jar
+      - flight-integration-tests-{no_rc_version}-javadoc.jar
+      - flight-integration-tests-{no_rc_version}-sources.jar
+      - flight-integration-tests-{no_rc_version}-tests.jar
+      - flight-integration-tests-{no_rc_version}.jar
+      - flight-integration-tests-{no_rc_version}.pom
+      - flight-sql-{no_rc_version}-javadoc.jar
+      - flight-sql-{no_rc_version}-sources.jar
+      - flight-sql-{no_rc_version}-tests.jar
+      - flight-sql-{no_rc_version}.jar
+      - flight-sql-{no_rc_version}.pom
 
   ############################## NuGet packages ###############################
 
@@ -820,49 +871,10 @@ tasks:
 
   ########################### Release verification ############################
 
-{% for target in ["binary", "yum", "apt"] %}
-  verify-rc-binaries-{{ target }}-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_{{ target|upper }}: 1
-      artifact: binaries
-{% endfor %}
+  ######################## Linux verification #################################
 
-  verify-rc-jars-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_JARS: 1
-      artifact: jars
-
-{% for platform, arch, runner in [("macos", "amd64", "macos-10.15")] %}
-  {% for target in ["cpp",
-                    "csharp",
-                    "go",
-                    "integration",
-                    "java",
-                    "js",
-                    "python",
-                    "ruby"] %}
-
-  verify-rc-source-{{ target }}-{{ platform }}-{{ arch }}:
-    ci: github
-    template: verify-rc/github.{{ platform }}.{{ arch }}.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_{{ target|upper }}: 1
-      artifact: "source"
-      github_runner: "{{ runner }}"
-  {% endfor %}
-{% endfor %}
-
-{% for distribution, version in [("almalinux", "8"),
+{% for distribution, version in [("conda", "latest"),
+                                 ("almalinux", "8"),
                                  ("ubuntu", "18.04"),
                                  ("ubuntu", "20.04")] %}
   {% for target in ["cpp",
@@ -873,19 +885,67 @@ tasks:
                     "js",
                     "python",
                     "ruby"] %}
-
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
-    template: docker-tests/github.linux.yml
+    template: verify-rc/github.linux.amd64.docker.yml
     params:
-      flags: >-
-        -e TEST_DEFAULT=0
-        -e TEST_{{ target|upper }}=1
-      image: {{ distribution }}-verify-rc-source
+      env:
+        {{ distribution.upper() }}: "{{ version }}"
+      target: {{ target }}
+      distro: {{ distribution }}
   {% endfor %}
+
+  {% for target in ["jars", "wheels"] %}
+  verify-rc-binaries-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
+    ci: github
+    template: verify-rc/github.linux.amd64.docker.yml
+    params:
+      target: {{ target }}
+      distro: {{ distribution }}
+  {% endfor %}
+
 {% endfor %}
 
-{% for platform, arch, runner in [("macos", "arm64", "self-hosted")] %}
+  # Separated these tasks from the loop above due to:
+  # - 'binary' verification is not platform dependent
+  # - 'yum' and 'apt' requires docker so we need to run the verification script
+  #   directly on the host
+  {% for target in ["binary", "yum", "apt"] %}
+  verify-rc-binaries-{{ target }}-linux-amd64:
+    ci: github
+    template: verify-rc/github.linux.amd64.yml
+    params:
+      target: {{ target }}
+  {% endfor %}
+
+  ######################## macOS verification ################################
+
+  {% for target in ["cpp", "integration", "python"] %}
+  verify-rc-source-{{ target }}-macos-conda-amd64:
+    ci: github
+    template: verify-rc/github.macos.amd64.yml
+    params:
+      target: {{ target }}
+      use_conda: True
+      github_runner: "macos-10.15"
+  {% endfor %}
+
+  {% for target in ["cpp",
+                    "csharp",
+                    "go",
+                    "integration",
+                    "java",
+                    "js",
+                    "python",
+                    "ruby"] %}
+  verify-rc-source-{{ target }}-macos-amd64:
+    ci: github
+    template: verify-rc/github.macos.amd64.yml
+    params:
+      target: {{ target }}
+      github_runner: "macos-10.15"
+  {% endfor %}
+
   {% for target in ["cpp",
                     "csharp",
                     "go",
@@ -893,63 +953,51 @@ tasks:
                     "js",
                     "python",
                     "ruby"] %}
-
-  verify-rc-source-{{ target }}-{{ platform }}-{{ arch }}:
+  verify-rc-source-{{ target }}-macos-arm64:
     ci: github
-    template: verify-rc/github.{{ platform }}.{{ arch }}.yml
+    template: verify-rc/github.macos.arm64.yml
     params:
       env:
+        ARROW_PLASMA: 0
         ARROW_FLIGHT: 0
         ARROW_GANDIVA: 0
-        TEST_DEFAULT: 0
         TEST_INTEGRATION_JAVA: 0
-        TEST_{{ target|upper }}: 1
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      artifact: "source"
-      github_runner: "{{ runner }}"
+      target: {{ target }}
+      github_runner: "self-hosted"
   {% endfor %}
-{% endfor %}
 
-  verify-rc-wheels-linux-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-      artifact: "wheels"
-
-  verify-rc-wheels-macos-10.15-amd64:
+  verify-rc-binaries-wheels-macos-10.15-amd64:
     ci: github
     template: verify-rc/github.macos.amd64.yml
     params:
       github_runner: "macos-10.15"
+      target: "wheels"
+
+  verify-rc-binaries-wheels-macos-10.15-amd64-conda:
+    ci: github
+    template: verify-rc/github.macos.amd64.yml
+    params:
       env:
-        TEST_DEFAULT: 0
-      artifact: "wheels"
+        USE_CONDA: 1
+      github_runner: "macos-10.15"
+      target: "wheels"
 
   # The github hosted macos-11 runners are in preview only, but should be switched once they are generally available:
   #   https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
-  verify-rc-wheels-macos-11-amd64:
+  {% for arch, emulation in [("amd64", "x86_64"), ("arm64", "arm64")] %}
+  verify-rc-binaries-wheels-macos-11-{{ arch }}:
     ci: github
     template: verify-rc/github.macos.arm64.yml
     params:
-      github_runner: "self-hosted"
-      arch_emulation: "x86_64"
       env:
-        TEST_DEFAULT: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      artifact: "wheels"
+      github_runner: "self-hosted"
+      arch_emulation: {{ emulation }}
+      target: "wheels"
+  {% endfor %}
 
-  verify-rc-wheels-macos-11-arm64:
-    ci: github
-    template: verify-rc/github.macos.arm64.yml
-    params:
-      github_runner: "self-hosted"
-      arch_emulation: "arm64"
-      env:
-        TEST_DEFAULT: 0
-        PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      artifact: "wheels"
+  ######################## Windows verification ##############################
 
   verify-rc-source-windows:
     ci: github
@@ -959,7 +1007,7 @@ tasks:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate.bat"
 
-  verify-rc-wheels-windows:
+  verify-rc-binaries-wheels-windows:
     ci: github
     template: verify-rc/github.win.yml
     params:
@@ -967,7 +1015,7 @@ tasks:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate-wheels.bat"
 
-{############################## Docker tests #################################}
+############################## Docker tests ##################################
 
 {% for image in ["conda-cpp",
                  "debian-c-glib",
@@ -1036,12 +1084,12 @@ tasks:
       image: debian-cpp
 {% endfor %}
 
-  test-fedora-33-cpp:
+  test-fedora-35-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        FEDORA: 33
+        FEDORA: 35
       image: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
@@ -1123,12 +1171,12 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-python
 
-  test-fedora-33-python-3:
+  test-fedora-35-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        FEDORA: 33
+        FEDORA: 35
       image: fedora-python
 
   test-r-linux-valgrind:
@@ -1181,17 +1229,25 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_DEPENDENCY_SOURCE=SYSTEM'
+      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM'
       image: ubuntu-r-only-r
 
   test-r-offline-minimal:
-      ci: azure
-      template: r/azure.linux.yml
-      params:
-        r_org: rocker
-        r_image: r-base
-        r_tag: latest
-        flags: '-e TEST_OFFLINE_BUILD=true'
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rocker
+      r_image: r-base
+      r_tag: latest
+      flags: '-e TEST_OFFLINE_BUILD=true'
+
+  test-r-dev-duckdb:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        R_DUCKDB_DEV: TRUE
+      image: ubuntu-r-only-r
 
   test-r-offline-maximal:
     ci: github
@@ -1201,7 +1257,6 @@ tasks:
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
                                  ("rstudio", "r-base", "4.1-focal"),
-                                 ("rstudio", "r-base", "4.1-centos8"),
                                  ("rstudio", "r-base", "4.1-opensuse15"),
                                  ("rstudio", "r-base", "4.1-opensuse42")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
@@ -1233,7 +1288,6 @@ tasks:
       env:
         UBUNTU: 21.04
         R_PRUNE_DEPS: TRUE
-      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
       image: ubuntu-r-only-r
 
   # This also has -flto=auto
@@ -1245,7 +1299,7 @@ tasks:
         UBUNTU: 21.04
         GCC_VERSION: 11
       # S3 support is not buildable with gcc11 right now
-      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF'
+      flags: '-e ARROW_S3=OFF'
       image: ubuntu-r-only-r
 
   test-r-rstudio-r-base-4.1-centos7-devtoolset-8:
@@ -1338,7 +1392,11 @@ tasks:
         PYTHON: "{{ python_version }}"
         PANDAS: "{{ pandas_version }}"
         NUMPY: "{{ numpy_version }}"
-    {% if cache_leaf %}
+      {% if pandas_version == "latest" %}
+        # ensure we have at least one build with parquet encryption disabled
+        PARQUET_REQUIRE_ENCRYPTION: "OFF"
+      {% endif %}
+    {% if not cache_leaf %}
       # use the latest pandas release, so prevent reusing any cached layers
       flags: --no-leaf-cache
     {% endif %}
@@ -1358,19 +1416,18 @@ tasks:
       image: conda-python-dask
 {% endfor %}
 
-# TEMP disable because those are failing due to needing upstream fix (ARROW-13594)
-# {% for turbodbc_version in ["latest", "master"] %}
-#   test-conda-python-3.7-turbodbc-{{ turbodbc_version }}:
-#     ci: github
-#     template: docker-tests/github.linux.yml
-#     params:
-#       env:
-#         PYTHON: 3.7
-#         TURBODBC: {{ turbodbc_version }}
-#       # use the latest turbodbc release, so prevent reusing any cached layers
-#       flags: --no-leaf-cache
-#       image: conda-python-turbodbc
-# {% endfor %}
+{% for turbodbc_version in ["latest", "master"] %}
+  test-conda-python-3.7-turbodbc-{{ turbodbc_version }}:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        PYTHON: 3.7
+        TURBODBC: {{ turbodbc_version }}
+      # use the latest turbodbc release, so prevent reusing any cached layers
+      flags: --no-leaf-cache
+      image: conda-python-turbodbc
+{% endfor %}
 
 {% for kartothek_version in ["latest", "master"] %}
   test-conda-python-3.7-kartothek-{{ kartothek_version }}:

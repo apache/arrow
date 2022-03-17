@@ -511,8 +511,7 @@ For extension arrays, the :c:member:`ArrowSchema.format` string encodes the
 metadata key ``ARROW:extension:name``  encodes the extension type name,
 and the metadata key ``ARROW:extension:metadata`` encodes the
 implementation-specific serialization of the extension type (for
-parameterized extension types).  The base64 encoding of metadata values
-ensures that any possible serialization is representable.
+parameterized extension types).
 
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
@@ -652,8 +651,9 @@ while releasing the others.
 Record batches
 --------------
 
-A record batch can be trivially considered as an equivalent struct array with
-additional top-level metadata.
+A record batch can be trivially considered as an equivalent struct array. In
+this case the metadata of the top-level ``ArrowSchema`` can be used for the
+schema-level metadata of the record batch.
 
 Example use case
 ================

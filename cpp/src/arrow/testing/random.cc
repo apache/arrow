@@ -169,6 +169,12 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
   return std::make_shared<BooleanArray>(array_data);
 }
 
+void GenerateFullDayMillisNoNan(uint8_t* buffer, size_t n) {
+  int64_t* data = reinterpret_cast<int64_t*>(buffer);
+  constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
+  std::for_each(data, data + n, [&](int64_t& v) { return v *= kFullDayMillis; });
+}
+
 template <typename ArrowType, typename OptionType>
 static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t size,
                                                                      OptionType options) {
@@ -182,6 +188,9 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
 
   buffers[1] = *AllocateBuffer(sizeof(CType) * size);
   options.GenerateData(buffers[1]->mutable_data(), size);
+  if (std::is_same<ArrowType, Date64Type>::value) {
+    GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), size);
+  }
 
   auto array_data = ArrayData::Make(type, size, buffers, null_count);
   return std::make_shared<NumericArray<ArrowType>>(array_data);
@@ -210,6 +219,14 @@ PRIMITIVE_RAND_INTEGER_IMPL(UInt64, uint64_t, UInt64Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
 // Generate 16bit values for half-float
 PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
+
+std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
+                                                    int64_t max,
+                                                    double null_probability) {
+  using OptionType = GenerateOptions<int64_t, std::uniform_int_distribution<int64_t>>;
+  OptionType options(seed(), min, max, null_probability);
+  return GenerateNumericArray<Date64Type, OptionType>(size, options);
+}
 
 std::shared_ptr<Array> RandomArrayGenerator::Float32(int64_t size, float min, float max,
                                                      double null_probability,
@@ -772,11 +789,43 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     }
 
       GENERATE_INTEGRAL_CASE_VIEW(Int32Type, Date32Type);
-      GENERATE_INTEGRAL_CASE_VIEW(Int64Type, Date64Type);
       GENERATE_INTEGRAL_CASE_VIEW(Int64Type, TimestampType);
-      GENERATE_INTEGRAL_CASE_VIEW(Int32Type, Time32Type);
-      GENERATE_INTEGRAL_CASE_VIEW(Int64Type, Time64Type);
       GENERATE_INTEGRAL_CASE_VIEW(Int32Type, MonthIntervalType);
+
+    case Type::type::DATE64: {
+      using c_type = typename Date64Type::c_type;
+      constexpr c_type kFullDayMillis = 1000 * 60 * 60 * 24;
+      constexpr c_type min_value = std::numeric_limits<c_type>::min() / kFullDayMillis;
+      constexpr c_type max_value = std::numeric_limits<c_type>::max() / kFullDayMillis;
+
+      return *Numeric<Date64Type>(length, min_value, max_value, null_probability)
+                  ->View(field.type());
+    }
+
+    case Type::type::TIME32: {
+      TimeUnit::type unit =
+          internal::checked_pointer_cast<Time32Type>(field.type())->unit();
+      using c_type = typename Time32Type::c_type;
+      const c_type min_value = 0;
+      const c_type max_value =
+          (unit == TimeUnit::SECOND) ? (60 * 60 * 24 - 1) : (1000 * 60 * 60 * 24 - 1);
+
+      return *Numeric<Int32Type>(length, min_value, max_value, null_probability)
+                  ->View(field.type());
+    }
+
+    case Type::type::TIME64: {
+      TimeUnit::type unit =
+          internal::checked_pointer_cast<Time64Type>(field.type())->unit();
+      using c_type = typename Time64Type::c_type;
+      const c_type min_value = 0;
+      const c_type max_value = (unit == TimeUnit::MICRO)
+                                   ? (1000000LL * 60 * 60 * 24 - 1)
+                                   : (1000000000LL * 60 * 60 * 24 - 1);
+
+      return *Numeric<Int64Type>(length, min_value, max_value, null_probability)
+                  ->View(field.type());
+    }
 
       // This isn't as flexible as it could be, but the array-of-structs layout of this
       // type means it's not a (useful) composition of other generators

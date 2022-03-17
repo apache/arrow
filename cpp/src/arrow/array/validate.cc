@@ -168,6 +168,81 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
+  Status Visit(const Date64Type& type) {
+    RETURN_NOT_OK(ValidateFixedWidthBuffers());
+
+    if (full_validation) {
+      using c_type = typename Date64Type::c_type;
+      return VisitArrayDataInline<Date64Type>(
+          data,
+          [&](c_type date) {
+            constexpr c_type kFullDayMillis = 1000 * 60 * 60 * 24;
+            if (date % kFullDayMillis != 0) {
+              return Status::Invalid(type, " ", date,
+                                     " does not represent a whole number of days");
+            }
+            return Status::OK();
+          },
+          []() { return Status::OK(); });
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const Time32Type& type) {
+    RETURN_NOT_OK(ValidateFixedWidthBuffers());
+
+    if (full_validation) {
+      using c_type = typename Time32Type::c_type;
+      return VisitArrayDataInline<Time32Type>(
+          data,
+          [&](c_type time) {
+            constexpr c_type kFullDaySeconds = 60 * 60 * 24;
+            constexpr c_type kFullDayMillis = kFullDaySeconds * 1000;
+            if (type.unit() == TimeUnit::SECOND &&
+                (time < 0 || time >= kFullDaySeconds)) {
+              return Status::Invalid(type, " ", time,
+                                     " is not within the acceptable range of ", "[0, ",
+                                     kFullDaySeconds, ") s");
+            }
+            if (type.unit() == TimeUnit::MILLI && (time < 0 || time >= kFullDayMillis)) {
+              return Status::Invalid(type, " ", time,
+                                     " is not within the acceptable range of ", "[0, ",
+                                     kFullDayMillis, ") ms");
+            }
+            return Status::OK();
+          },
+          []() { return Status::OK(); });
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const Time64Type& type) {
+    RETURN_NOT_OK(ValidateFixedWidthBuffers());
+
+    if (full_validation) {
+      using c_type = typename Time64Type::c_type;
+      return VisitArrayDataInline<Time64Type>(
+          data,
+          [&](c_type time) {
+            constexpr c_type kFullDayMicro = 1000000LL * 60 * 60 * 24;
+            constexpr c_type kFullDayNano = kFullDayMicro * 1000;
+            if (type.unit() == TimeUnit::MICRO && (time < 0 || time >= kFullDayMicro)) {
+              return Status::Invalid(type, " ", time,
+                                     " is not within the acceptable range of ", "[0, ",
+                                     kFullDayMicro, ") us");
+            }
+            if (type.unit() == TimeUnit::NANO && (time < 0 || time >= kFullDayNano)) {
+              return Status::Invalid(type, " ", time,
+                                     " is not within the acceptable range of ", "[0, ",
+                                     kFullDayNano, ") ns");
+            }
+            return Status::OK();
+          },
+          []() { return Status::OK(); });
+    }
+    return Status::OK();
+  }
+
   Status Visit(const BinaryType& type) { return ValidateBinaryLike(type); }
 
   Status Visit(const LargeBinaryType& type) { return ValidateBinaryLike(type); }

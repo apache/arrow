@@ -974,6 +974,13 @@ def test_open_input_file(fs, pathfn):
     assert result == data[read_from:]
 
 
+def test_open_input_stream_not_found(fs, pathfn):
+    # The proper exception should be raised for this common case (ARROW-15896)
+    p = pathfn('open-input-stream-not-found')
+    with pytest.raises(FileNotFoundError):
+        fs.open_input_stream(p)
+
+
 @pytest.mark.gzip
 @pytest.mark.parametrize(
     ('compression', 'buffer_size', 'decompressor'),

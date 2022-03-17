@@ -14,7 +14,7 @@ and interprocess communication.
 **The `arrow` package exposes an interface to the Arrow C++ library,
 enabling access to many of its features in R.** It provides low-level
 access to the Arrow C++ library API and higher-level access through a
-`dplyr` backend and familiar R functions.
+`{dplyr}` backend and familiar R functions.
 
 ## What can the `arrow` package do?
 
@@ -309,6 +309,8 @@ Other applications of `arrow` are described in the following vignettes:
     servers to send and receive data
 -   `vignette("arrow", package = "arrow")`: access and manipulate Arrow
     objects through low-level bindings to the C++ library
+
+The Arrow for R [cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow-cheatsheet.pdf) and [Cookbook](https://arrow.apache.org/cookbook/r/index.html) are additional resources for getting started with `arrow`.
 
 ## Getting help
 

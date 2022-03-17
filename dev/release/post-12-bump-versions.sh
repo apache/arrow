@@ -20,6 +20,7 @@
 set -ue
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "${SOURCE_DIR}/git-vars.sh"
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <next_version>"
@@ -27,7 +28,7 @@ if [ "$#" -ne 2 ]; then
 fi
 
 : ${BUMP_DEFAULT:=1}
-: ${BUMP_UPDATE_LOCAL_MASTER:=${BUMP_DEFAULT}}
+: ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH:=${BUMP_DEFAULT}}
 : ${BUMP_VERSION_POST_TAG:=${BUMP_DEFAULT}}
 : ${BUMP_DEB_PACKAGE_NAMES:=${BUMP_DEFAULT}}
 : ${BUMP_LINUX_PACKAGES:=${BUMP_DEFAULT}}
@@ -40,11 +41,11 @@ version=$1
 next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
 
-if [ ${BUMP_UPDATE_LOCAL_MASTER} -gt 0 ]; then
-  echo "Updating local master"
+if [ ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH} -gt 0 ]; then
+  echo "Updating local default branch"
   git fetch --all --prune --tags --force -j$(nproc)
-  git checkout master
-  git rebase apache/master
+  git checkout ${DEFAULT_BRANCH}
+  git rebase apache/${DEFAULT_BRANCH}
 fi
 
 if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
@@ -102,16 +103,13 @@ if [ ${BUMP_LINUX_PACKAGES} -gt 0 ]; then
 fi
 
 if [ ${BUMP_PUSH} -gt 0 ]; then
-  echo "Pushing changes to the master in apache/arrow"
-  git push apache master
+  echo "Pushing changes to the default branch in apache/arrow"
+  git push apache ${DEFAULT_BRANCH}
 fi
 
 if [ ${BUMP_TAG} -gt 0 ]; then
-  version_tag=apache-arrow-${version}
   dev_tag=apache-arrow-${next_version}.dev
-  echo "Tagging ${version_tag} and ${dev_tag}"
-  git tag ${version_tag} release-${version}
-  git push apache ${version_tag}
-  git tag ${dev_tag} master
+  echo "Tagging ${dev_tag}"
+  git tag ${dev_tag} ${DEFAULT_BRANCH}
   git push apache ${dev_tag}
 fi

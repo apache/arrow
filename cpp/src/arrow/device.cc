@@ -74,6 +74,19 @@ Result<std::shared_ptr<Buffer>> MemoryManager::CopyBuffer(
                                 " to ", to->device()->ToString(), " not supported");
 }
 
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwned(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
+  const auto& from = buf.memory_manager();
+  auto maybe_buffer = to->CopyNonOwnedFrom(buf, from);
+  COPY_BUFFER_RETURN(maybe_buffer, to);
+  // `to` doesn't support copying from `from`, try the other way
+  maybe_buffer = from->CopyNonOwnedTo(buf, to);
+  COPY_BUFFER_RETURN(maybe_buffer, to);
+
+  return Status::NotImplemented("Copying buffer from ", from->device()->ToString(),
+                                " to ", to->device()->ToString(), " not supported");
+}
+
 Result<std::shared_ptr<Buffer>> MemoryManager::ViewBuffer(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
   if (buf->memory_manager() == to) {
@@ -100,6 +113,16 @@ Result<std::shared_ptr<Buffer>> MemoryManager::CopyBufferFrom(
 
 Result<std::shared_ptr<Buffer>> MemoryManager::CopyBufferTo(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
+  return nullptr;
+}
+
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwnedFrom(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& from) {
+  return nullptr;
+}
+
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwnedTo(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   return nullptr;
 }
 
@@ -141,12 +164,17 @@ Result<std::unique_ptr<Buffer>> CPUMemoryManager::AllocateBuffer(int64_t size) {
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferFrom(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from) {
+  return CopyNonOwnedFrom(*buf, from);
+}
+
+Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyNonOwnedFrom(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& from) {
   if (!from->is_cpu()) {
     return nullptr;
   }
-  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf->size(), pool_));
-  if (buf->size() > 0) {
-    memcpy(dest->mutable_data(), buf->data(), static_cast<size_t>(buf->size()));
+  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf.size(), pool_));
+  if (buf.size() > 0) {
+    memcpy(dest->mutable_data(), buf.data(), static_cast<size_t>(buf.size()));
   }
   return std::move(dest);
 }
@@ -161,12 +189,17 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferTo(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
+  return CopyNonOwnedTo(*buf, to);
+}
+
+Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyNonOwnedTo(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   if (!to->is_cpu()) {
     return nullptr;
   }
-  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf->size(), pool_));
-  if (buf->size() > 0) {
-    memcpy(dest->mutable_data(), buf->data(), static_cast<size_t>(buf->size()));
+  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf.size(), pool_));
+  if (buf.size() > 0) {
+    memcpy(dest->mutable_data(), buf.data(), static_cast<size_t>(buf.size()));
   }
   return std::move(dest);
 }

@@ -168,6 +168,10 @@ Array__ReferencedBufferSize <- function(x) {
   .Call(`_arrow_Array__ReferencedBufferSize`, x)
 }
 
+arrow__Concatenate <- function(dots) {
+  .Call(`_arrow_arrow__Concatenate`, dots)
+}
+
 Array__as_vector <- function(array) {
   .Call(`_arrow_Array__as_vector`, array)
 }
@@ -432,8 +436,12 @@ ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_o
   .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output)
 }
 
-ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
-  .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
+ExecNode_SourceNode <- function(plan, reader) {
+  .Call(`_arrow_ExecNode_SourceNode`, plan, reader)
+}
+
+ExecNode_TableSourceNode <- function(plan, table) {
+  .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -510,6 +518,10 @@ csv___WriteCSV__Table <- function(table, write_options, stream) {
 
 csv___WriteCSV__RecordBatch <- function(record_batch, write_options, stream) {
   invisible(.Call(`_arrow_csv___WriteCSV__RecordBatch`, record_batch, write_options, stream))
+}
+
+csv___WriteCSV__RecordBatchReader <- function(reader, write_options, stream) {
+  invisible(.Call(`_arrow_csv___WriteCSV__RecordBatchReader`, reader, write_options, stream))
 }
 
 dataset___Dataset__NewScan <- function(ds) {
@@ -720,8 +732,8 @@ dataset___Scanner__schema <- function(sc) {
   .Call(`_arrow_dataset___Scanner__schema`, sc)
 }
 
-dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions) {
-  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions))
+dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
+  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
 }
 
 dataset___Scanner__TakeRows <- function(scanner, indices) {
@@ -1646,6 +1658,10 @@ RecordBatchReader__batches <- function(reader) {
 
 Table__from_RecordBatchReader <- function(reader) {
   .Call(`_arrow_Table__from_RecordBatchReader`, reader)
+}
+
+RecordBatchReader__Head <- function(reader, num_rows) {
+  .Call(`_arrow_RecordBatchReader__Head`, reader, num_rows)
 }
 
 ipc___RecordBatchStreamReader__Open <- function(stream) {

@@ -63,6 +63,7 @@ RUN \
     llvm-dev \
     lsb-release \
     ninja-build \
+    nlohmann-json3-dev \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \

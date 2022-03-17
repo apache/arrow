@@ -990,7 +990,7 @@ cdef class Array(_PandasConvertible):
         """
         Total number of bytes consumed by the elements of the array.
 
-        In other words, the sum of bytes from all buffer 
+        In other words, the sum of bytes from all buffer
         ranges referenced.
 
         Unlike `get_total_buffer_size` this method will account for array
@@ -999,7 +999,7 @@ cdef class Array(_PandasConvertible):
         If buffers are shared between arrays then the shared
         portion will be counted multiple times.
 
-        The dictionary of dictionary arrays will always be counted in their 
+        The dictionary of dictionary arrays will always be counted in their
         entirety even if the array only references a portion of the dictionary.
         """
         cdef:
@@ -1038,7 +1038,7 @@ cdef class Array(_PandasConvertible):
         return '{0}\n{1}'.format(type_format, str(self))
 
     def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
-                  c_bool skip_new_lines=False):
+                  int container_window=2, c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the Array.
 
@@ -1051,9 +1051,13 @@ cdef class Array(_PandasConvertible):
             How much to indent right the entire content of the array,
             by default ``0``.
         window : int
-            How many items to preview at the begin and end
-            of the array when the arrays is bigger than the window.
-            The other elements will be ellipsed.
+            How many primitive items to preview at the begin and end
+            of the array when the array is bigger than the window.
+            The other items will be ellipsed.
+        container_window : int
+            How many container items (such as a list in a list array)
+            to preview at the begin and end of the array when the array
+            is bigger than the window.
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
@@ -1213,8 +1217,8 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
-    def _to_pandas(self, options, **kwargs):
-        return _array_like_to_pandas(self, options)
+    def _to_pandas(self, options, types_mapper=None, **kwargs):
+        return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def __array__(self, dtype=None):
         values = self.to_numpy(zero_copy_only=False)
@@ -1402,7 +1406,7 @@ cdef class Array(_PandasConvertible):
         return pyarrow_wrap_array(c_array)
 
 
-cdef _array_like_to_pandas(obj, options):
+cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:
         PyObject* out
         PandasOptions c_options = _convert_pandas_options(options)
@@ -1432,6 +1436,8 @@ cdef _array_like_to_pandas(obj, options):
         # ARROW-5359 - need to specify object dtype to avoid pandas to
         # coerce back to ns resolution
         dtype = "object"
+    elif types_mapper:
+        dtype = types_mapper(original_type)
     else:
         dtype = None
 
@@ -1707,7 +1713,7 @@ cdef class ListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, values, MemoryPool pool=None):
+    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None):
         """
         Construct ListArray from arrays of int32 offsets and values.
 
@@ -1715,6 +1721,9 @@ cdef class ListArray(BaseListArray):
         ----------
         offsets : Array (int32 type)
         values : Array (any type)
+        type : DataType, optional
+            If not specified, a default ListType with the values' type is
+            used.
         pool : MemoryPool
 
         Returns
@@ -1761,9 +1770,16 @@ cdef class ListArray(BaseListArray):
         _offsets = asarray(offsets, type='int32')
         _values = asarray(values)
 
-        with nogil:
-            out = GetResultValue(
-                CListArray.FromArrays(_offsets.ap[0], _values.ap[0], cpool))
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CListArray.FromArraysAndType(
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CListArray.FromArrays(
+                        _offsets.ap[0], _values.ap[0], cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1776,7 +1792,27 @@ cdef class ListArray(BaseListArray):
     @property
     def offsets(self):
         """
-        Return the offsets as an int32 array.
+        Return the list offsets as an int32 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `ListArray.from_arrays` and get back the same
+        list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int32Array
+
+        Examples
+        --------
+        >>> array = pa.array([[1, 2], None, [3, 4, 5])
+        >>> array.offsets
+        <pyarrow.lib.Int32Array object at 0x7f3adc4776a0>
+        [
+          0,
+          2,
+          2,
+          5
+        ]
         """
         return pyarrow_wrap_array((<CListArray*> self.ap).offsets())
 
@@ -1789,7 +1825,7 @@ cdef class LargeListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, values, MemoryPool pool=None):
+    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None):
         """
         Construct LargeListArray from arrays of int64 offsets and values.
 
@@ -1797,6 +1833,9 @@ cdef class LargeListArray(BaseListArray):
         ----------
         offsets : Array (int64 type)
         values : Array (any type)
+        type : DataType, optional
+            If not specified, a default ListType with the values' type is
+            used.
         pool : MemoryPool
 
         Returns
@@ -1811,10 +1850,16 @@ cdef class LargeListArray(BaseListArray):
         _offsets = asarray(offsets, type='int64')
         _values = asarray(values)
 
-        with nogil:
-            out = GetResultValue(
-                CLargeListArray.FromArrays(_offsets.ap[0], _values.ap[0],
-                                           cpool))
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CLargeListArray.FromArraysAndType(
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CLargeListArray.FromArrays(
+                        _offsets.ap[0], _values.ap[0], cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1827,7 +1872,15 @@ cdef class LargeListArray(BaseListArray):
     @property
     def offsets(self):
         """
-        Return the offsets as an int64 array.
+        Return the list offsets as an int64 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `LargeListArray.from_arrays` and get back the
+        same list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int64Array
         """
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
@@ -1888,7 +1941,7 @@ cdef class FixedSizeListArray(Array):
     """
 
     @staticmethod
-    def from_arrays(values, int32_t list_size):
+    def from_arrays(values, list_size=None, DataType type=None):
         """
         Construct FixedSizeListArray from array of values and a list length.
 
@@ -1897,20 +1950,59 @@ cdef class FixedSizeListArray(Array):
         values : Array (any type)
         list_size : int
             The fixed length of the lists.
+        type : DataType, optional
+            If not specified, a default ListType with the values' type and
+            `list_size` length is used.
 
         Returns
         -------
         FixedSizeListArray
+
+        Examples
+        --------
+
+        Create from a values array and a list size:
+
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> arr = pa.FixedSizeListArray.from_arrays(values, 2)
+        >>> arr
+        <pyarrow.lib.FixedSizeListArray object at 0x7f6436df3a00>
+        [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+
+        Or create from a values array and matching type:
+
+        >>> arr = pa.FixedSizeListArray.from_arrays(values, type=pa.list_(2))
+
         """
         cdef:
             Array _values
+            int32_t _list_size
             CResult[shared_ptr[CArray]] c_result
 
         _values = asarray(values)
 
-        with nogil:
-            c_result = CFixedSizeListArray.FromArrays(
-                _values.sp_array, list_size)
+        if type is not None:
+            if list_size is not None:
+                raise ValueError("Cannot specify both list_size and type")
+            with nogil:
+                c_result = CFixedSizeListArray.FromArraysAndType(
+                    _values.sp_array, type.sp_type)
+        else:
+            if list_size is None:
+                raise ValueError("Should specify one of list_size and type")
+            _list_size = <int32_t>list_size
+            with nogil:
+                c_result = CFixedSizeListArray.FromArrays(
+                    _values.sp_array, _list_size)
         cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result

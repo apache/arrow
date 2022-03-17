@@ -98,7 +98,8 @@ public class ArrowFileReader extends ArrowReader {
         throw new InvalidArrowFileException("missing Magic number " + Arrays.toString(buffer.array()));
       }
       int footerLength = MessageSerializer.bytesToInt(array);
-      if (footerLength <= 0 || footerLength + ArrowMagic.MAGIC_LENGTH * 2 + 4 > in.size()) {
+      if (footerLength <= 0 || footerLength + ArrowMagic.MAGIC_LENGTH * 2 + 4 > in.size() ||
+              footerLength > footerLengthOffset) {
         throw new InvalidArrowFileException("invalid footer length: " + footerLength);
       }
       long footerOffset = footerLengthOffset - footerLength;

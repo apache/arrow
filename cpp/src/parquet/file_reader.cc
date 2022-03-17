@@ -146,6 +146,10 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 
   int64_t col_length = column_metadata->total_compressed_size();
   int64_t col_end;
+  if (col_start < 0 || col_length < 0) {
+    throw ParquetException("Invalid column metadata (corrupt file?)");
+  }
+
   if (AddWithOverflow(col_start, col_length, &col_end) || col_end > source_size) {
     throw ParquetException("Invalid column metadata (corrupt file?)");
   }
@@ -825,6 +829,11 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
     for (int i = 0; i < num_columns; i++) {
       columns[i] = i;
     }
+  }
+  if (num_columns == 0) {
+    // If we still have no columns(none in file), return early. The remainder of function
+    // expects there to be at least one column.
+    return 0;
   }
 
   std::vector<int64_t> total_rows(num_columns, 0);

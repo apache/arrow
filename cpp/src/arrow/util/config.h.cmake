@@ -38,6 +38,7 @@
 
 #cmakedefine ARROW_COMPUTE
 #cmakedefine ARROW_CSV
+#cmakedefine ARROW_CUDA
 #cmakedefine ARROW_DATASET
 #cmakedefine ARROW_FILESYSTEM
 #cmakedefine ARROW_FLIGHT

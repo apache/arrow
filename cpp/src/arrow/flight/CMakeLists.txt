@@ -41,19 +41,33 @@ if(NOT ARROW_GRPC_USE_SHARED)
       PARENT_SCOPE)
 endif()
 
+set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS
       arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
       ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_static)
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
+  endif()
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
                                   ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_shared)
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_shared)
+  endif()
 endif()
+
+# Needed for Flight SQL and integration
+set(ARROW_FLIGHT_TEST_LINK_LIBS
+    ${ARROW_FLIGHT_TEST_LINK_LIBS}
+    PARENT_SCOPE)
 
 # TODO(wesm): Protobuf shared vs static linking
 
 set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
-set(FLIGHT_PROTO ${ARROW_SOURCE_DIR}/../format/Flight.proto)
+set(FLIGHT_PROTO "${ARROW_SOURCE_DIR}/../format/Flight.proto")
 
 set(FLIGHT_GENERATED_PROTO_FILES
     "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc" "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"
@@ -119,6 +133,7 @@ if(GRPC_VENDORED)
   # v1.35.0 -> 1.35
   string(REGEX MATCH "[0-9]+\\.[0-9]+" GRPC_VERSION "${ARROW_GRPC_BUILD_VERSION}")
 else()
+  test_grpc_version(GRPC_VERSION "1.43" "check_tls_opts_143.cc")
   test_grpc_version(GRPC_VERSION "1.36" "check_tls_opts_136.cc")
   test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
   test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
@@ -137,6 +152,10 @@ elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
 elseif(GRPC_VERSION EQUAL "1.36")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
+elseif(GRPC_VERSION EQUAL "1.43")
+  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
+                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental
+                  -DGRPC_USE_CERTIFICATE_VERIFIER)
 else()
   message(STATUS "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
   )
@@ -151,20 +170,39 @@ endif()
 # </KLUDGE> Restore the CXXFLAGS that were modified above
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 
-# Note, we do not compile the generated Protobuf sources directly, instead
-# compiling then via protocol_internal.cc which contains some gRPC template
+# Note, we do not compile the generated gRPC sources directly, instead
+# compiling them via protocol_internal.cc which contains some gRPC template
 # overrides to enable Flight-specific optimizations. See comments in
-# protobuf-internal.cc
+# protocol_internal.cc
 set(ARROW_FLIGHT_SRCS
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
     client.cc
     client_cookie_middleware.cc
-    client_header_internal.cc
-    internal.cc
-    protocol_internal.cc
+    cookie_internal.cc
     serialization_internal.cc
     server.cc
     server_auth.cc
+    transport.cc
+    transport_server.cc
+    # Bundle the gRPC impl with libarrow_flight
+    transport/grpc/grpc_client.cc
+    transport/grpc/grpc_server.cc
+    transport/grpc/serialization_internal.cc
+    transport/grpc/protocol_grpc_internal.cc
+    transport/grpc/util_internal.cc
     types.cc)
+
+if(MSVC)
+  # Protobuf generated files trigger spurious warnings on MSVC.
+  foreach(GENERATED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
+                           "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h")
+    # Suppress missing dll-interface warning
+    set_source_files_properties("${GENERATED_SOURCE}"
+                                PROPERTIES COMPILE_OPTIONS "/wd4251"
+                                           GENERATED TRUE
+                                           SKIP_UNITY_BUILD_INCLUSION TRUE)
+  endforeach()
+endif()
 
 add_arrow_lib(arrow_flight
               CMAKE_PACKAGE_NAME
@@ -202,6 +240,7 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
+                test_definitions.cc
                 test_util.cc
                 DEPENDENCIES
                 GTest::gtest
@@ -214,10 +253,12 @@ if(ARROW_TESTING)
                 ${BOOST_FILESYSTEM_LIBRARY}
                 ${BOOST_SYSTEM_LIBRARY}
                 GTest::gtest
+                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
                 arrow_static
                 arrow_flight_static
-                arrow_testing_static)
+                arrow_testing_static
+                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
@@ -225,6 +266,12 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
                              PRIVATE ARROW_FLIGHT_EXPORTING
                                      ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
 endforeach()
+
+add_arrow_test(flight_internals_test
+               STATIC_LINK_LIBS
+               ${ARROW_FLIGHT_TEST_LINK_LIBS}
+               LABELS
+               "arrow_flight")
 
 add_arrow_test(flight_test
                STATIC_LINK_LIBS
@@ -243,19 +290,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   add_dependencies(arrow_flight flight-test-server)
-endif()
-
-if(ARROW_CUDA AND ARROW_BUILD_TESTS)
-  add_arrow_test(flight_cuda_test
-                 STATIC_LINK_LIBS
-                 ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                 LABELS
-                 "arrow_flight")
-  if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-    target_link_libraries(arrow-flight-cuda-test PUBLIC arrow_cuda_static)
-  else()
-    target_link_libraries(arrow-flight-cuda-test PUBLIC arrow_cuda_shared)
-  endif()
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

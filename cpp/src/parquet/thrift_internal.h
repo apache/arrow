@@ -368,14 +368,14 @@ using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 // limit (ARROW-13655).  If we wanted to protect against huge messages, we could
 // do it ourselves since we know the message size up front.
 
-inline std::shared_ptr<ThriftBuffer> CreateReadOnlyMemoryBuffer(uint8_t* buf,
-                                                                uint32_t len) {
+inline shared_ptr<ThriftBuffer> CreateReadOnlyMemoryBuffer(uint8_t* buf, uint32_t len) {
 #if PARQUET_THRIFT_VERSION_MAJOR > 0 || PARQUET_THRIFT_VERSION_MINOR >= 14
   auto conf = std::make_shared<apache::thrift::TConfiguration>();
   conf->setMaxMessageSize(std::numeric_limits<int>::max());
-  return std::make_shared<ThriftBuffer>(buf, len, ThriftBuffer::OBSERVE, conf);
+  return shared_ptr<ThriftBuffer>(
+      new ThriftBuffer(buf, len, ThriftBuffer::OBSERVE, conf));
 #else
-  return std::make_shared<ThriftBuffer>(buf, len);
+  return shared_ptr<ThriftBuffer>(new ThriftBuffer(buf, len));
 #endif
 }
 

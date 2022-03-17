@@ -25,6 +25,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
@@ -32,11 +33,14 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::MapVector;
 
 namespace compute {
 namespace {
@@ -66,6 +70,11 @@ struct SourceNode : ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.kind", kind_name()},
+                {"node.label", label()},
+                {"node.output_schema", output_schema()->ToString()},
+                {"node.detail", ToString()}});
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this
@@ -140,7 +149,7 @@ struct SourceNode : ExecNode {
           outputs_[0]->InputFinished(this, total_batches);
           return task_group_.End();
         });
-
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }
 
@@ -164,9 +173,75 @@ struct SourceNode : ExecNode {
   std::mutex mutex_;
   bool stop_requested_{false};
   int batch_count_{0};
-  Future<> finished_ = Future<>::MakeFinished();
   util::AsyncTaskGroup task_group_;
   AsyncGenerator<util::optional<ExecBatch>> generator_;
+};
+
+struct TableSourceNode : public SourceNode {
+  TableSourceNode(ExecPlan* plan, std::shared_ptr<Table> table, int64_t batch_size)
+      : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size)) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "TableSourceNode"));
+    const auto& table_options = checked_cast<const TableSourceNodeOptions&>(options);
+    const auto& table = table_options.table;
+    const int64_t batch_size = table_options.batch_size;
+
+    RETURN_NOT_OK(ValidateTableSourceNodeInput(table, batch_size));
+
+    return plan->EmplaceNode<TableSourceNode>(plan, table, batch_size);
+  }
+
+  const char* kind_name() const override { return "TableSourceNode"; }
+
+  static arrow::Status ValidateTableSourceNodeInput(const std::shared_ptr<Table> table,
+                                                    const int64_t batch_size) {
+    if (table == nullptr) {
+      return Status::Invalid("TableSourceNode node requires table which is not null");
+    }
+
+    if (batch_size <= 0) {
+      return Status::Invalid(
+          "TableSourceNode node requires, batch_size > 0 , but got batch size ",
+          batch_size);
+    }
+
+    return Status::OK();
+  }
+
+  static arrow::AsyncGenerator<util::optional<ExecBatch>> TableGenerator(
+      const Table& table, const int64_t batch_size) {
+    auto batches = ConvertTableToExecBatches(table, batch_size);
+    auto opt_batches =
+        MapVector([](ExecBatch batch) { return util::make_optional(std::move(batch)); },
+                  std::move(batches));
+    AsyncGenerator<util::optional<ExecBatch>> gen;
+    gen = MakeVectorGenerator(std::move(opt_batches));
+    return gen;
+  }
+
+  static std::vector<ExecBatch> ConvertTableToExecBatches(const Table& table,
+                                                          const int64_t batch_size) {
+    std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
+
+    // setting chunksize for the batch reader
+    reader->set_chunksize(batch_size);
+
+    std::shared_ptr<RecordBatch> batch;
+    std::vector<ExecBatch> exec_batches;
+    while (true) {
+      auto batch_res = reader->Next();
+      if (batch_res.ok()) {
+        batch = std::move(batch_res).MoveValueUnsafe();
+      }
+      if (batch == NULLPTR) {
+        break;
+      }
+      exec_batches.emplace_back(*batch);
+    }
+    return exec_batches;
+  }
 };
 
 }  // namespace
@@ -175,6 +250,7 @@ namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
+  DCHECK_OK(registry->AddFactory("table_source", TableSourceNode::Make));
 }
 
 }  // namespace internal

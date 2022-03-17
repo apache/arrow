@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <string>
 #include <utility>
@@ -32,6 +33,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/vector.h"
 
@@ -84,6 +86,16 @@ void AssertAllFiles(FileSystem* fs, const std::vector<std::string>& expected_pat
 }
 
 void ValidateTimePoint(TimePoint tp) { ASSERT_GE(tp.time_since_epoch().count(), 0); }
+
+void AssertRaisesWithErrno(int expected_errno, const Status& st) {
+  ASSERT_RAISES(IOError, st);
+  ASSERT_EQ(::arrow::internal::ErrnoFromStatus(st), expected_errno);
+}
+
+template <typename T>
+void AssertRaisesWithErrno(int expected_errno, const Result<T>& result) {
+  AssertRaisesWithErrno(expected_errno, result.status());
+}
 
 };  // namespace
 
@@ -958,8 +970,8 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   ASSERT_RAISES(Invalid, stream->Read(1));  // Stream is closed
 
   // File does not exist
-  ASSERT_RAISES(IOError, fs->OpenInputStream("AB/def"));
-  ASSERT_RAISES(IOError, fs->OpenInputStream("def"));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStream("AB/def"));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStream("def"));
 
   // Cannot open directory
   if (!allow_read_dir_as_file()) {
@@ -987,10 +999,10 @@ void GenericFileSystemTest::TestOpenInputStreamWithFileInfo(FileSystem* fs) {
 
   // File does not exist
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("zzzzt"));
-  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStream(info));
   // (same, with incomplete FileInfo)
   info.set_type(FileType::Unknown);
-  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStream(info));
 
   // Cannot open directory
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
@@ -1011,7 +1023,7 @@ void GenericFileSystemTest::TestOpenInputStreamAsync(FileSystem* fs) {
   ASSERT_OK(stream->Close());
 
   // File does not exist
-  ASSERT_RAISES(IOError, fs->OpenInputStreamAsync("AB/def").result());
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStreamAsync("AB/def").result());
 }
 
 void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
@@ -1028,8 +1040,8 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   ASSERT_RAISES(Invalid, file->ReadAt(1, 1));  // Stream is closed
 
   // File does not exist
-  ASSERT_RAISES(IOError, fs->OpenInputFile("AB/def"));
-  ASSERT_RAISES(IOError, fs->OpenInputFile("def"));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFile("AB/def"));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFile("def"));
 
   // Cannot open directory
   if (!allow_read_dir_as_file()) {
@@ -1049,7 +1061,7 @@ void GenericFileSystemTest::TestOpenInputFileAsync(FileSystem* fs) {
   ASSERT_OK(file->Close());
 
   // File does not exist
-  ASSERT_RAISES(IOError, fs->OpenInputFileAsync("AB/def").result());
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFileAsync("AB/def").result());
 }
 
 void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
@@ -1074,10 +1086,10 @@ void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
 
   // File does not exist
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("zzzzt"));
-  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFile(info));
   // (same, with incomplete FileInfo)
   info.set_type(FileType::Unknown);
-  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFile(info));
 
   // Cannot open directory
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));

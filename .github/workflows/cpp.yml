@@ -137,6 +137,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON
       ARROW_WITH_LZ4: ON
+      ARROW_WITH_OPENTELEMETRY: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
@@ -185,9 +186,9 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - windows-latest
+          - windows-2019
         include:
-          - os: windows-latest
+          - os: windows-2019
             name: Windows 2019
             generator: Visual Studio 16 2019
     env:
@@ -209,6 +210,7 @@ jobs:
       ARROW_WITH_BROTLI: OFF
       ARROW_WITH_BZ2: OFF
       ARROW_WITH_LZ4: OFF
+      ARROW_WITH_OPENTELEMETRY: OFF
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
@@ -246,7 +248,7 @@ jobs:
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
-    runs-on: windows-latest
+    runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
@@ -274,6 +276,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON
       ARROW_WITH_LZ4: ON
+      ARROW_WITH_OPENTELEMETRY: OFF
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON

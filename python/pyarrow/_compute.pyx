@@ -867,10 +867,11 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-    def _set_options(self, multiple, unit):
+    def _set_options(self, multiple, unit, week_starts_monday):
         self.wrapped.reset(
             new CRoundTemporalOptions(
-                multiple, unwrap_round_temporal_unit(unit))
+                multiple, unwrap_round_temporal_unit(unit),
+                week_starts_monday)
         )
 
 
@@ -882,15 +883,17 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     ----------
     multiple : int, default 1
         Number of units to round to.
-    unit : str, default "second"
+    unit : str, default "day"
         The unit in which `multiple` is expressed.
         Accepted values are "year", "quarter", "month", "week", "day",
         "hour", "minute", "second", "millisecond", "microsecond",
         "nanosecond".
+    week_starts_monday : bool, default True
+        If True, weeks start on Monday; if False, on Sunday.
     """
 
-    def __init__(self, multiple=1, unit="second"):
-        self._set_options(multiple, unit)
+    def __init__(self, multiple=1, unit="day", week_starts_monday=True):
+        self._set_options(multiple, unit, week_starts_monday)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
@@ -1331,6 +1334,43 @@ class IndexOptions(_IndexOptions):
 
     def __init__(self, value):
         self._set_options(value)
+
+
+cdef class _MapLookupOptions(FunctionOptions):
+    _occurrence_map = {
+        "all": CMapLookupOccurrence_ALL,
+        "first": CMapLookupOccurrence_FIRST,
+        "last": CMapLookupOccurrence_LAST,
+    }
+
+    def _set_options(self, query_key, occurrence):
+        try:
+            self.wrapped.reset(
+                new CMapLookupOptions(
+                    pyarrow_unwrap_scalar(query_key),
+                    self._occurrence_map[occurrence]
+                )
+            )
+        except KeyError:
+            _raise_invalid_function_option(occurrence,
+                                           "Should either be first, last, or all")
+
+
+class MapLookupOptions(_MapLookupOptions):
+    """
+    Options for the `map_lookup` function.
+
+    Parameters
+    ----------
+    query_key : Scalar
+        The key to search for.
+    occurrence : str
+        The occurrence(s) to return from the Map
+        Accepted values are "first", "last", or "all".
+    """
+
+    def __init__(self, query_key, occurrence):
+        self._set_options(query_key, occurrence)
 
 
 cdef class _ModeOptions(FunctionOptions):

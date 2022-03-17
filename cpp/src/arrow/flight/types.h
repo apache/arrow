@@ -30,6 +30,7 @@
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -138,6 +139,15 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   /// \brief A human-readable description of the action.
   std::string description;
+
+  bool Equals(const ActionType& other) const;
+
+  friend bool operator==(const ActionType& left, const ActionType& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const ActionType& left, const ActionType& right) {
+    return !(left == right);
+  }
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
@@ -165,8 +175,15 @@ struct ARROW_FLIGHT_EXPORT BasicAuth {
   std::string username;
   std::string password;
 
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<BasicAuth> Deserialize(arrow::util::string_view serialized);
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized, BasicAuth* out);
 
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Serialize(const BasicAuth& basic_auth, std::string* out);
 };
 
@@ -198,12 +215,18 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  static arrow::Result<FlightDescriptor> Deserialize(arrow::util::string_view serialized);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
 
   // Convenience factory functions
@@ -242,12 +265,18 @@ struct ARROW_FLIGHT_EXPORT Ticket {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  static arrow::Result<Ticket> Deserialize(arrow::util::string_view serialized);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized, Ticket* out);
 };
 
@@ -291,6 +320,10 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \param[in] path The path to the domain socket
   /// \param[out] location The resulting location
   static Status ForGrpcUnix(const std::string& path, Location* location);
+
+  /// \brief Initialize a location based on a URI scheme
+  static arrow::Result<Location> ForScheme(const std::string& scheme,
+                                           const std::string& host, const int port);
 
   /// \brief Get a representation of this URI as a string.
   std::string ToString() const;
@@ -386,9 +419,9 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
                                         const std::vector<FlightEndpoint>& endpoints,
                                         int64_t total_records, int64_t total_bytes);
 
-  /// \brief Deserialize the Arrow schema of the dataset, to be passed
-  /// to each call to DoGet. Populate any dictionary encoded fields
-  /// into a DictionaryMemo for bookkeeping
+  /// \brief Deserialize the Arrow schema of the dataset. Populate any
+  ///   dictionary encoded fields into a DictionaryMemo for
+  ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
   /// \param[out] out the reconstructed Schema
@@ -414,12 +447,19 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  static arrow::Result<std::unique_ptr<FlightInfo>> Deserialize(
+      arrow::util::string_view serialized);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized,
                             std::unique_ptr<FlightInfo>* out);
 

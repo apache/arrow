@@ -543,7 +543,8 @@ class FileMetaData::FileMetaDataImpl {
     std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
 
     auto aes_encryptor = encryption::AesEncryptor::Make(
-        file_decryptor_->algorithm(), static_cast<int>(key.size()), true, nullptr);
+        file_decryptor_->algorithm(), static_cast<int>(key.size()), true,
+        false /*write_length*/, nullptr);
 
     std::shared_ptr<Buffer> encrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
         AllocateBuffer(file_decryptor_->pool(),

@@ -52,7 +52,7 @@ left_join.arrow_dplyr_query <- function(x,
                                         keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_OUTER")
 }
-left_join.Dataset <- left_join.ArrowTabular <- left_join.arrow_dplyr_query
+left_join.Dataset <- left_join.ArrowTabular <- left_join.RecordBatchReader <- left_join.arrow_dplyr_query
 
 right_join.arrow_dplyr_query <- function(x,
                                          y,
@@ -63,7 +63,7 @@ right_join.arrow_dplyr_query <- function(x,
                                          keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "RIGHT_OUTER")
 }
-right_join.Dataset <- right_join.ArrowTabular <- right_join.arrow_dplyr_query
+right_join.Dataset <- right_join.ArrowTabular <- right_join.RecordBatchReader <- right_join.arrow_dplyr_query
 
 inner_join.arrow_dplyr_query <- function(x,
                                          y,
@@ -74,7 +74,7 @@ inner_join.arrow_dplyr_query <- function(x,
                                          keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "INNER")
 }
-inner_join.Dataset <- inner_join.ArrowTabular <- inner_join.arrow_dplyr_query
+inner_join.Dataset <- inner_join.ArrowTabular <- inner_join.RecordBatchReader <- inner_join.arrow_dplyr_query
 
 full_join.arrow_dplyr_query <- function(x,
                                         y,
@@ -85,7 +85,7 @@ full_join.arrow_dplyr_query <- function(x,
                                         keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "FULL_OUTER")
 }
-full_join.Dataset <- full_join.ArrowTabular <- full_join.arrow_dplyr_query
+full_join.Dataset <- full_join.ArrowTabular <- full_join.RecordBatchReader <- full_join.arrow_dplyr_query
 
 semi_join.arrow_dplyr_query <- function(x,
                                         y,
@@ -96,7 +96,7 @@ semi_join.arrow_dplyr_query <- function(x,
                                         keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_SEMI")
 }
-semi_join.Dataset <- semi_join.ArrowTabular <- semi_join.arrow_dplyr_query
+semi_join.Dataset <- semi_join.ArrowTabular <- semi_join.RecordBatchReader <- semi_join.arrow_dplyr_query
 
 anti_join.arrow_dplyr_query <- function(x,
                                         y,
@@ -107,7 +107,7 @@ anti_join.arrow_dplyr_query <- function(x,
                                         keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_ANTI")
 }
-anti_join.Dataset <- anti_join.ArrowTabular <- anti_join.arrow_dplyr_query
+anti_join.Dataset <- anti_join.ArrowTabular <- anti_join.RecordBatchReader <- anti_join.arrow_dplyr_query
 
 handle_join_by <- function(by, x, y) {
   if (is.null(by)) {

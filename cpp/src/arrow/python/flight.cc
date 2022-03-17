@@ -18,7 +18,7 @@
 #include <signal.h>
 #include <utility>
 
-#include "arrow/flight/internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/python/flight.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
@@ -390,17 +390,6 @@ Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
   *out = std::unique_ptr<arrow::flight::SchemaResult>(
       new arrow::flight::SchemaResult(value));
   return Status::OK();
-}
-
-Status DeserializeBasicAuth(const std::string& buf,
-                            std::unique_ptr<arrow::flight::BasicAuth>* out) {
-  auto basic_auth = new arrow::flight::BasicAuth();
-  *out = std::unique_ptr<arrow::flight::BasicAuth>(basic_auth);
-  return arrow::flight::BasicAuth::Deserialize(buf, basic_auth);
-}
-
-Status SerializeBasicAuth(const arrow::flight::BasicAuth& basic_auth, std::string* out) {
-  return arrow::flight::BasicAuth::Serialize(basic_auth, out);
 }
 
 }  // namespace flight

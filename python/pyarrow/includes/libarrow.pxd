@@ -19,6 +19,7 @@
 
 from pyarrow.includes.common cimport *
 
+
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
@@ -334,7 +335,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CMemoryPool** out)
     cdef CStatus c_mimalloc_memory_pool" arrow::mimalloc_memory_pool"(
         CMemoryPool** out)
-    cdef vector[c_string] c_supported_memory_backends" arrow::SupportedMemoryBackendNames"()
+    cdef vector[c_string] c_supported_memory_backends \
+        " arrow::SupportedMemoryBackendNames"()
 
     CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
 
@@ -494,6 +496,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int indent
         int indent_size
         int window
+        int container_window
         c_string null_rep
         c_bool skip_new_lines
         c_bool truncate_metadata
@@ -591,6 +594,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CArray]] FromArrays(
             const CArray& offsets, const CArray& values, CMemoryPool* pool)
 
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType], const CArray& offsets, const CArray& values,
+            CMemoryPool* pool)
+
         const int32_t* raw_value_offsets()
         int32_t value_offset(int i)
         int32_t value_length(int i)
@@ -603,6 +611,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CArray]] FromArrays(
             const CArray& offsets, const CArray& values, CMemoryPool* pool)
 
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType], const CArray& offsets, const CArray& values,
+            CMemoryPool* pool)
+
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()
@@ -613,6 +626,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
             const shared_ptr[CArray]& values, int32_t list_size)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            const shared_ptr[CArray]& values, shared_ptr[CDataType])
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
@@ -785,6 +802,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[shared_ptr[CChunkedArray]]& columns)
 
         @staticmethod
+        shared_ptr[CTable] MakeWithRows "Make"(
+            const shared_ptr[CSchema]& schema,
+            const vector[shared_ptr[CChunkedArray]]& columns,
+            int64_t num_rows)
+
+        @staticmethod
         shared_ptr[CTable] MakeFromArrays" Make"(
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CArray]]& arrays)
@@ -833,6 +856,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass TableBatchReader(CRecordBatchReader):
         TableBatchReader(const CTable& table)
+        TableBatchReader(shared_ptr[CTable] table)
         void set_chunksize(int64_t chunksize)
 
     cdef cppclass CTensor" arrow::Tensor":
@@ -1691,6 +1715,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
+        unsigned char delimiter
         CIOContext io_context
 
         CCSVWriteOptions()
@@ -1923,9 +1948,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CRoundTemporalOptions \
             "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
-        CRoundTemporalOptions(int multiple, CCalendarUnit unit)
+        CRoundTemporalOptions(int multiple, CCalendarUnit unit,
+                              c_bool week_starts_monday)
         int multiple
         CCalendarUnit unit
+        c_bool week_starts_monday
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
@@ -2148,6 +2175,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::IndexOptions"(CFunctionOptions):
         CIndexOptions(shared_ptr[CScalar] value)
         shared_ptr[CScalar] value
+
+    cdef enum CMapLookupOccurrence \
+            "arrow::compute::MapLookupOptions::Occurrence":
+        CMapLookupOccurrence_ALL "arrow::compute::MapLookupOptions::ALL"
+        CMapLookupOccurrence_FIRST "arrow::compute::MapLookupOptions::FIRST"
+        CMapLookupOccurrence_LAST "arrow::compute::MapLookupOptions::LAST"
+
+    cdef cppclass CMapLookupOptions \
+            "arrow::compute::MapLookupOptions"(CFunctionOptions):
+        CMapLookupOptions(shared_ptr[CScalar] query_key,
+                          CMapLookupOccurrence occurrence)
+        CMapLookupOccurrence occurrence
+        shared_ptr[CScalar] query_key
 
     cdef cppclass CMakeStructOptions \
             "arrow::compute::MakeStructOptions"(CFunctionOptions):

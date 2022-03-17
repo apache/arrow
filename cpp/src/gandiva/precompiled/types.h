@@ -185,6 +185,15 @@ gdv_float64 mod_float64_float64(gdv_int64 context, gdv_float64 left, gdv_float64
 
 gdv_int64 pmod_int64_int64(int64_t context, gdv_int64 left, gdv_int64 right);
 
+gdv_int32 positive_int32(gdv_int32 in);
+gdv_int64 positive_int64(gdv_int64 in);
+gdv_int32 negative_int32(gdv_int64 context, gdv_int32 in);
+gdv_int64 negative_int64(gdv_int64 context, gdv_int64 in);
+gdv_float32 positive_float32(gdv_float32 in);
+gdv_float64 positive_float64(gdv_float64 in);
+gdv_float32 negative_float32(gdv_float32 in);
+gdv_float64 negative_float64(gdv_float64 in);
+
 gdv_int64 divide_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 
 gdv_int64 div_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);

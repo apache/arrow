@@ -204,6 +204,7 @@ set(ARROW_SRCS
     util/compression.cc
     util/counting_semaphore.cc
     util/cpu_info.cc
+    util/debug.cc
     util/decimal.cc
     util/delimiting.cc
     util/formatting.cc
@@ -220,6 +221,7 @@ set(ARROW_SRCS
     util/tdigest.cc
     util/thread_pool.cc
     util/time.cc
+    util/tracing.cc
     util/trie.cc
     util/unreachable.cc
     util/uri.cc
@@ -389,6 +391,7 @@ if(ARROW_COMPUTE)
        compute/exec/key_encode.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
+       compute/exec/options.cc
        compute/exec/order_by_impl.cc
        compute/exec/project_node.cc
        compute/exec/sink_node.cc
@@ -560,10 +563,9 @@ add_arrow_lib(arrow
               ${ARROW_SHARED_PRIVATE_LINK_LIBS}
               STATIC_LINK_LIBS
               ${ARROW_STATIC_LINK_LIBS}
+              ${ARROW_STATIC_INSTALL_INTERFACE_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
-              ${ARROW_SHARED_INSTALL_INTERFACE_LIBS}
-              STATIC_INSTALL_INTERFACE_LIBS
-              ${ARROW_STATIC_INSTALL_INTERFACE_LIBS})
+              ${ARROW_SHARED_INSTALL_INTERFACE_LIBS})
 
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
@@ -720,6 +722,10 @@ endif()
 
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
+endif()
+
+if(ARROW_ENGINE)
+  add_subdirectory(engine)
 endif()
 
 if(ARROW_CUDA)

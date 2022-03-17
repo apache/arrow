@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/platform.h"
+#include "arrow/flight/test_util.h"
 
 #ifdef __APPLE__
 #include <limits.h>
@@ -26,13 +26,15 @@
 #include <cstdlib>
 #include <sstream>
 
+// We need Windows fixes before including Boost
+#include "arrow/util/windows_compatibility.h"
+
 #include <boost/filesystem.hpp>
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
 // cpp/cmake_modules/BuildUtils.cmake for details.
-#include <boost/process.hpp>
-
 #include <gtest/gtest.h>
+#include <boost/process.hpp>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
@@ -43,8 +45,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
-#include "arrow/flight/internal.h"
-#include "arrow/flight/test_util.h"
+#include "arrow/flight/serialization_internal.h"
 
 namespace arrow {
 namespace flight {
@@ -151,24 +152,24 @@ const std::string& TestServer::unix_sock() const { return unix_sock_; }
 
 Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader>* out) {
   if (ticket.ticket == "ticket-ints-1") {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleIntBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else if (ticket.ticket == "ticket-floats-1") {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleFloatBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else if (ticket.ticket == "ticket-dicts-1") {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleDictBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else if (ticket.ticket == "ticket-large-batch-1") {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleLargeBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else {
     return Status::NotImplemented("no stream implemented for ticket: " + ticket.ticket);
@@ -189,7 +190,7 @@ class FlightTestServer : public FlightServerBase {
 
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* out) override {
-    // Test that Arrow-C++ status codes can make it through gRPC
+    // Test that Arrow-C++ status codes make it through the transport
     if (request.type == FlightDescriptor::DescriptorType::CMD &&
         request.cmd == "status-outofmemory") {
       return Status::OutOfMemory("Sentinel");
@@ -233,7 +234,7 @@ class FlightTestServer : public FlightServerBase {
 
   Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
-    BatchVector batches;
+    RecordBatchVector batches;
     return reader->ReadAll(&batches);
   }
 
@@ -270,7 +271,7 @@ class FlightTestServer : public FlightServerBase {
   Status RunExchangeGet(std::unique_ptr<FlightMessageReader> reader,
                         std::unique_ptr<FlightMessageWriter> writer) {
     RETURN_NOT_OK(writer->Begin(ExampleIntSchema()));
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleIntBatches(&batches));
     for (const auto& batch : batches) {
       RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
@@ -285,7 +286,7 @@ class FlightTestServer : public FlightServerBase {
     if (!schema->Equals(ExampleIntSchema(), false)) {
       return Status::Invalid("Schema is not as expected");
     }
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleIntBatches(&batches));
     FlightStreamChunk chunk;
     for (const auto& batch : batches) {
@@ -590,7 +591,7 @@ std::vector<FlightInfo> ExampleFlightInfo() {
           FlightInfo(flight4)};
 }
 
-Status ExampleIntBatches(BatchVector* out) {
+Status ExampleIntBatches(RecordBatchVector* out) {
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < 5; ++i) {
     // Make all different sizes, use different random seed
@@ -600,7 +601,7 @@ Status ExampleIntBatches(BatchVector* out) {
   return Status::OK();
 }
 
-Status ExampleFloatBatches(BatchVector* out) {
+Status ExampleFloatBatches(RecordBatchVector* out) {
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < 5; ++i) {
     // Make all different sizes, use different random seed
@@ -610,7 +611,7 @@ Status ExampleFloatBatches(BatchVector* out) {
   return Status::OK();
 }
 
-Status ExampleDictBatches(BatchVector* out) {
+Status ExampleDictBatches(RecordBatchVector* out) {
   // Just the same batch, repeated a few times
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < 3; ++i) {
@@ -620,7 +621,7 @@ Status ExampleDictBatches(BatchVector* out) {
   return Status::OK();
 }
 
-Status ExampleNestedBatches(BatchVector* out) {
+Status ExampleNestedBatches(RecordBatchVector* out) {
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < 3; ++i) {
     RETURN_NOT_OK(ipc::test::MakeListRecordBatch(&batch));
@@ -629,7 +630,7 @@ Status ExampleNestedBatches(BatchVector* out) {
   return Status::OK();
 }
 
-Status ExampleLargeBatches(BatchVector* out) {
+Status ExampleLargeBatches(RecordBatchVector* out) {
   const auto array_length = 32768;
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<arrow::Array>> arrays;
@@ -701,8 +702,7 @@ Status TestServerBasicAuthHandler::Authenticate(ServerAuthSender* outgoing,
                                                 ServerAuthReader* incoming) {
   std::string token;
   RETURN_NOT_OK(incoming->Read(&token));
-  BasicAuth incoming_auth;
-  RETURN_NOT_OK(BasicAuth::Deserialize(token, &incoming_auth));
+  ARROW_ASSIGN_OR_RAISE(BasicAuth incoming_auth, BasicAuth::Deserialize(token));
   if (incoming_auth.username != basic_auth_.username ||
       incoming_auth.password != basic_auth_.password) {
     return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
@@ -752,8 +752,7 @@ TestClientBasicAuthHandler::~TestClientBasicAuthHandler() {}
 
 Status TestClientBasicAuthHandler::Authenticate(ClientAuthSender* outgoing,
                                                 ClientAuthReader* incoming) {
-  std::string pb_result;
-  RETURN_NOT_OK(BasicAuth::Serialize(basic_auth_, &pb_result));
+  ARROW_ASSIGN_OR_RAISE(std::string pb_result, basic_auth_.SerializeToString());
   RETURN_NOT_OK(outgoing->Write(pb_result));
   RETURN_NOT_OK(incoming->Read(&token_));
   return Status::OK();

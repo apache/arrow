@@ -64,7 +64,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new RoundTemporalOptions());
   options.emplace_back(new RoundTemporalOptions(
       /*multiple=*/2,
-      /*unit=*/CalendarUnit::WEEK));
+      /*unit=*/CalendarUnit::WEEK, /*week_starts_monday*/ true));
   options.emplace_back(new RoundToMultipleOptions());
   options.emplace_back(new RoundToMultipleOptions(
       /*multiple=*/100, /*round_mode=*/RoundMode::TOWARDS_INFINITY));

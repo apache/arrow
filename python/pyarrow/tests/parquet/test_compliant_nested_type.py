@@ -35,7 +35,6 @@ try:
 except ImportError:
     pd = tm = None
 
-pytestmark = pytest.mark.parquet
 
 # Tests for ARROW-11497
 _test_data_simple = [

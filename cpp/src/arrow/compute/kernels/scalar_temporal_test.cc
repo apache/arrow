@@ -141,6 +141,9 @@ class ScalarTemporalTest : public ::testing::Test {
   std::string year =
       "[1970, 2000, 1899, 2033, 2020, 2019, 2019, 2009, 2010, 2010, 2010, 2006, "
       "2005, 2008, 2008, 2012, null]";
+  std::string is_leap_year =
+      "[false, true, false, false, true, false, false, false, false, false, false, "
+      "false, false, true, true, true, null]";
   std::string month = "[1, 2, 1, 5, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1, null]";
   std::string day = "[1, 29, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]";
   std::shared_ptr<arrow::DataType> year_month_day_type =
@@ -166,6 +169,9 @@ class ScalarTemporalTest : public ::testing::Test {
   std::string day_of_week = "[3, 1, 6, 2, 2, 1, 0, 3, 4, 6, 0, 6, 5, 6, 0, 6, null]";
   std::string day_of_year =
       "[1, 60, 1, 138, 1, 365, 364, 365, 1, 3, 4, 1, 365, 363, 364, 1, null]";
+  std::string us_year =
+      "[1969, 2000, 1899, 2033, 2020, 2020, 2020, 2009, 2009, 2010, 2010, 2006, 2005, "
+      "2008, 2008, 2012, null]";
   std::string iso_year =
       "[1970, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, "
       "2005, 2008, 2009, 2011, null]";
@@ -373,7 +379,10 @@ class ScalarTemporalTest : public ::testing::Test {
   RoundTemporalOptions round_to_1_minutes = RoundTemporalOptions(1, CalendarUnit::MINUTE);
   RoundTemporalOptions round_to_1_hours = RoundTemporalOptions(1, CalendarUnit::HOUR);
   RoundTemporalOptions round_to_1_days = RoundTemporalOptions(1, CalendarUnit::DAY);
-  RoundTemporalOptions round_to_1_weeks = RoundTemporalOptions(1, CalendarUnit::WEEK);
+  RoundTemporalOptions round_to_1_weeks =
+      RoundTemporalOptions(1, CalendarUnit::WEEK, true);
+  RoundTemporalOptions round_to_1_weeks_sunday =
+      RoundTemporalOptions(1, CalendarUnit::WEEK, false);
   RoundTemporalOptions round_to_1_months = RoundTemporalOptions(1, CalendarUnit::MONTH);
   RoundTemporalOptions round_to_1_quarters =
       RoundTemporalOptions(1, CalendarUnit::QUARTER);
@@ -390,7 +399,10 @@ class ScalarTemporalTest : public ::testing::Test {
       RoundTemporalOptions(15, CalendarUnit::MINUTE);
   RoundTemporalOptions round_to_15_hours = RoundTemporalOptions(15, CalendarUnit::HOUR);
   RoundTemporalOptions round_to_15_days = RoundTemporalOptions(15, CalendarUnit::DAY);
-  RoundTemporalOptions round_to_15_weeks = RoundTemporalOptions(15, CalendarUnit::WEEK);
+  RoundTemporalOptions round_to_15_weeks =
+      RoundTemporalOptions(15, CalendarUnit::WEEK, true);
+  RoundTemporalOptions round_to_15_weeks_sunday =
+      RoundTemporalOptions(15, CalendarUnit::WEEK, false);
   RoundTemporalOptions round_to_15_months = RoundTemporalOptions(15, CalendarUnit::MONTH);
   RoundTemporalOptions round_to_15_quarters =
       RoundTemporalOptions(15, CalendarUnit::QUARTER);
@@ -406,11 +418,13 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
     auto unit = units[i];
     auto sample = samples[i];
     CheckScalarUnary("year", unit, sample, int64(), year);
+    CheckScalarUnary("is_leap_year", unit, sample, boolean(), is_leap_year);
     CheckScalarUnary("month", unit, sample, int64(), month);
     CheckScalarUnary("day", unit, sample, int64(), day);
     CheckScalarUnary("year_month_day", ArrayFromJSON(unit, sample), year_month_day);
     CheckScalarUnary("day_of_week", unit, sample, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, sample, int64(), day_of_year);
+    CheckScalarUnary("us_year", unit, sample, int64(), us_year);
     CheckScalarUnary("iso_year", unit, sample, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, sample, int64(), iso_week);
     CheckScalarUnary("us_week", unit, sample, int64(), us_week);
@@ -469,12 +483,17 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
   for (auto u : TimeUnit::values()) {
     auto unit = timestamp(u);
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
+    CheckScalarUnary("is_leap_year", unit, times_seconds_precision, boolean(),
+                     is_leap_year);
     CheckScalarUnary("month", unit, times_seconds_precision, int64(), month);
     CheckScalarUnary("day", unit, times_seconds_precision, int64(), day);
     CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times_seconds_precision),
                      year_month_day);
     CheckScalarUnary("day_of_week", unit, times_seconds_precision, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
+    ASSERT_RAISES(Invalid,
+                  IsDaylightSavings(ArrayFromJSON(unit, times_seconds_precision)));
+    CheckScalarUnary("us_year", unit, times_seconds_precision, int64(), us_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
     CheckScalarUnary("us_week", unit, times_seconds_precision, int64(), us_week);
@@ -496,6 +515,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   const char* times = R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
   auto unit = timestamp(TimeUnit::MICRO);
   auto year = "[1677, 2262]";
+  auto is_leap_year = "[false, false]";
   auto month = "[9, 4]";
   auto day = "[20, 13]";
   auto year_month_day = ArrayFromJSON(year_month_day_type,
@@ -503,6 +523,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
                           {"year": 2262, "month": 4, "day": 13}])");
   auto day_of_week = "[0, 6]";
   auto day_of_year = "[263, 103]";
+  auto us_year = "[1677, 2262]";
   auto iso_year = "[1677, 2262]";
   auto iso_week = "[38, 15]";
   auto us_week = "[38, 16]";
@@ -521,11 +542,13 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   auto subsecond = "[0.123456, 0.999999]";
 
   CheckScalarUnary("year", unit, times, int64(), year);
+  CheckScalarUnary("is_leap_year", unit, times, boolean(), is_leap_year);
   CheckScalarUnary("month", unit, times, int64(), month);
   CheckScalarUnary("day", unit, times, int64(), day);
   CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times), year_month_day);
   CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
   CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
+  CheckScalarUnary("us_year", unit, times, int64(), us_year);
   CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
   CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
   CheckScalarUnary("us_week", unit, times, int64(), us_week);
@@ -543,11 +566,35 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
 
 #ifndef _WIN32
 // TODO: We should test on windows once ARROW-13168 is resolved.
+TEST_F(ScalarTemporalTest, TestIsLeapYear) {
+  auto is_leap_year_marquesas =
+      "[false, true, false, false, false, false, false, false, false, false, false, "
+      "false, false, true, true, false, null]";
+
+  auto is_leap_year_broken_hill =
+      "[false, true, false, false, true, false, false, false, false, false, false, "
+      "false, false, true, true, true, null]";
+
+  auto is_leap_year_pago_pago =
+      "[false, true, false, false, false, false, false, false, false, false, false, "
+      "false, false, true, true, false, null]";
+
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Pacific/Marquesas"), times,
+                   boolean(), is_leap_year_marquesas);
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Australia/Broken_Hill"),
+                   times, boolean(), is_leap_year_broken_hill);
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Pacific/Pago_Pago"), times,
+                   boolean(), is_leap_year_pago_pago);
+}
+
 TEST_F(ScalarTemporalTest, TestZoned1) {
   auto unit = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
   auto year =
       "[1969, 2000, 1898, 2033, 2019, 2019, 2019, 2009, 2009, 2010, 2010, 2005, 2005, "
       "2008, 2008, 2011, null]";
+  auto is_leap_year =
+      "[false, true, false, false, false, false, false, false, false, false, false, "
+      "false, false, true, true, false, null]";
   auto month = "[12, 2, 12, 5, 12, 12, 12, 12, 12, 1, 1, 12, 12, 12, 12, 12, null]";
   auto day = "[31, 29, 31, 17, 31, 30, 29, 30, 31, 2, 3, 31, 31, 27, 28, 31, null]";
   auto year_month_day = ArrayFromJSON(year_month_day_type,
@@ -570,6 +617,12 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
   auto day_of_week = "[2, 1, 5, 1, 1, 0, 6, 2, 3, 5, 6, 5, 5, 5, 6, 5, null]";
   auto day_of_year =
       "[365, 60, 365, 137, 365, 364, 363, 364, 365, 2, 3, 365, 365, 362, 363, 365, null]";
+  std::string is_dst =
+      "[false, false, false, false, false, false, false, false, false, false, false, "
+      "false, false, false, false, false, null]";
+  auto us_year =
+      "[1969, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, 2005, "
+      "2008, 2008, 2011, null]";
   auto iso_year =
       "[1970, 2000, 1898, 2033, 2020, 2020, 2019, 2009, 2009, 2009, 2009, 2005, 2005, "
       "2008, 2008, 2011, null]";
@@ -604,8 +657,11 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
   CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times), year_month_day);
   CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
   CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
+  CheckScalarUnary("is_dst", unit, times, boolean(), is_dst);
+  CheckScalarUnary("us_year", unit, times, int64(), us_year);
   CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
   CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
+  CheckScalarUnary("is_leap_year", unit, times, boolean(), is_leap_year);
   CheckScalarUnary("us_week", unit, times, int64(), us_week);
   CheckScalarUnary("week", unit, times, int64(), week);
   CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times), iso_calendar);
@@ -644,6 +700,12 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     auto day_of_week = "[3, 2, 6, 2, 2, 1, 0, 3, 4, 6, 0, 6, 5, 6, 0, 6, null]";
     auto day_of_year =
         "[1, 61, 1, 138, 1, 365, 364, 365, 1, 3, 4, 1, 365, 363, 364, 1, null]";
+    std::string is_dst =
+        "[false, true, false, false, true, true, true, true, true, true, true, true, "
+        "true, true, true, true, null]";
+    auto us_year =
+        "[1969, 2000, 1899, 2033, 2020, 2020, 2020, 2009, 2009, 2010, 2010, 2006, 2005, "
+        "2008, 2008, 2012, null]";
     auto iso_year =
         "[1970, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, 2005, "
         "2008, 2009, 2011, null]";
@@ -673,12 +735,16 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     auto minute = "[30, 53, 59, 3, 35, 40, 45, 50, 55, 0, 5, 10, 15, 30, 30, 32, null]";
 
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
+    CheckScalarUnary("is_leap_year", unit, times_seconds_precision, boolean(),
+                     is_leap_year);
     CheckScalarUnary("month", unit, times_seconds_precision, int64(), month);
     CheckScalarUnary("day", unit, times_seconds_precision, int64(), day);
     CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times_seconds_precision),
                      year_month_day);
     CheckScalarUnary("day_of_week", unit, times_seconds_precision, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
+    CheckScalarUnary("is_dst", unit, times_seconds_precision, boolean(), is_dst);
+    CheckScalarUnary("us_year", unit, times_seconds_precision, int64(), us_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
     CheckScalarUnary("us_week", unit, times_seconds_precision, int64(), us_week);
@@ -705,11 +771,14 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
         ts_type, 2, data_buffer, null_buffer, 0);
     ASSERT_RAISES(Invalid, Year(timestamp_array));
+    ASSERT_RAISES(Invalid, IsLeapYear(timestamp_array));
     ASSERT_RAISES(Invalid, Month(timestamp_array));
     ASSERT_RAISES(Invalid, Day(timestamp_array));
     ASSERT_RAISES(Invalid, YearMonthDay(timestamp_array));
     ASSERT_RAISES(Invalid, DayOfWeek(timestamp_array));
     ASSERT_RAISES(Invalid, DayOfYear(timestamp_array));
+    ASSERT_RAISES(Invalid, IsDaylightSavings(timestamp_array));
+    ASSERT_RAISES(Invalid, USYear(timestamp_array));
     ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
     ASSERT_RAISES(Invalid, Week(timestamp_array));
     ASSERT_RAISES(Invalid, ISOCalendar(timestamp_array));
@@ -976,132 +1045,464 @@ TEST_F(ScalarTemporalTest, TestTemporalDifference) {
   }
 }
 
-TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDuration) {
-  std::string op = "subtract";
-  std::string milliseconds_between_time_and_date =
-      "[31535941000, -31706603000, 2674840000, -2604800000, 82495000,"
-      "-180610000, -11715000, -15620000, -19525000, -23430000, -27335000,"
-      "-31240000, -35145000, -86400000, -26352000000, 5180277000, null]";
-  std::string microseconds_between_time_and_date =
-      "[31535941000000, -31706603000000, 2674840000000, -2604800000000, 82495000000,"
-      "-180610000000, -11715000000, -15620000000, -19525000000, -23430000000, "
-      "-27335000000, -31240000000, -35145000000, -86400000000, -26352000000000, "
-      "5180277000000, null]";
-  auto dates32 = ArrayFromJSON(date32(), date32s2);
-  auto dates64 = ArrayFromJSON(date64(), date64s2);
+TEST_F(ScalarTemporalTest, TestTemporalAddDateAndDuration) {
+  for (auto op : {"add", "add_checked"}) {
+    std::string milliseconds_between_date_and_time =
+        "[59000, 84203000, 3560000, 12800000, 3905000, 7810000, 11715000, 15620000, "
+        "19525000, 23430000, 27335000, 31240000, 35145000, 0, 0, 3723000, null]";
+    std::string microseconds_between_date_and_time =
+        "[59000000, 84203000000, 3560000000, 12800000000, 3905000000, 7810000000, "
+        "11715000000, 15620000000, 19525000000, 23430000000, 27335000000, 31240000000, "
+        "35145000000, 0, 0, 3723000000, null]";
+    auto dates32 = ArrayFromJSON(date32(), date32s);
+    auto dates64 = ArrayFromJSON(date64(), date64s);
 
-  auto durations_ms =
-      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time_and_date);
-  auto timestamps_ms = ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
-  CheckScalarBinary(op, dates32, durations_ms, timestamps_ms);
-  CheckScalarBinary(op, dates64, durations_ms, timestamps_ms);
+    auto durations_ms =
+        ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date_and_time);
+    auto timestamps_ms =
+        ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
+    CheckScalarBinary(op, dates32, durations_ms, timestamps_ms);
+    CheckScalarBinary(op, dates64, durations_ms, timestamps_ms);
 
-  auto durations_us =
-      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time_and_date);
-  auto timestamps_us = ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
-  CheckScalarBinary(op, dates32, durations_us, timestamps_us);
-  CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+    auto durations_us =
+        ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_date_and_time);
+    auto timestamps_us =
+        ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
+    CheckScalarBinary(op, dates32, durations_us, timestamps_us);
+    CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+  }
 }
 
-TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDurationChecked) {
-  std::string op = "subtract_checked";
-  std::string milliseconds_between_time_and_date =
-      "[31535941000, -31706603000, 2674840000, -2604800000, 82495000,"
-      "-180610000, -11715000, -15620000, -19525000, -23430000, -27335000,"
-      "-31240000, -35145000, -86400000, -26352000000, 5180277000, null]";
-  std::string microseconds_between_time_and_date =
-      "[31535941000000, -31706603000000, 2674840000000, -2604800000000, 82495000000,"
-      "-180610000000, -11715000000, -15620000000, -19525000000, -23430000000, "
-      "-27335000000, -31240000000, -35145000000, -86400000000, -26352000000000, "
-      "5180277000000, null]";
-  auto dates32 = ArrayFromJSON(date32(), date32s2);
-  auto dates64 = ArrayFromJSON(date64(), date64s2);
+TEST_F(ScalarTemporalTest, TestTemporalAddDuration) {
+  for (auto op : {"add", "add_checked"}) {
+    for (auto u : TimeUnit::values()) {
+      auto unit = duration(u);
+      CheckScalarBinary(op, ArrayFromJSON(unit, times_s),
+                        ArrayFromJSON(unit, seconds_between_time),
+                        ArrayFromJSON(unit, times_s2));
+    }
 
-  auto durations_ms =
-      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time_and_date);
-  auto timestamps_ms = ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
-  CheckScalarBinary(op, dates32, durations_ms, timestamps_ms);
-  CheckScalarBinary(op, dates64, durations_ms, timestamps_ms);
+    auto seconds_1 = ArrayFromJSON(duration(TimeUnit::SECOND), R"([1, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_3k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([3000, null])");
+    CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
+  }
 
-  auto durations_us =
-      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time_and_date);
-  auto timestamps_us = ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
-  CheckScalarBinary(op, dates32, durations_us, timestamps_us);
-  CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+  for (auto unit : TimeUnit::values()) {
+    auto duration_ty = duration(unit);
+    auto arr1 = ArrayFromJSON(duration_ty, R"([9223372036854775807, null])");
+    auto arr2 = ArrayFromJSON(duration_ty, R"([1, null])");
+    auto arr3 = ArrayFromJSON(duration_ty, R"([-9223372036854775808, null])");
+
+    CheckScalarBinary("add", arr1, arr2, arr3);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("overflow"),
+                                    CallFunction("add_checked", {arr1, arr2}));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDuration) {
+  for (auto op : {"subtract", "subtract_checked"}) {
+    std::string milliseconds_between_time_and_date =
+        "[31535941000, -31706603000, 2674840000, -2604800000, 82495000,"
+        "-180610000, -11715000, -15620000, -19525000, -23430000, -27335000,"
+        "-31240000, -35145000, -86400000, -26352000000, 5180277000, null]";
+    std::string microseconds_between_time_and_date =
+        "[31535941000000, -31706603000000, 2674840000000, -2604800000000, 82495000000,"
+        "-180610000000, -11715000000, -15620000000, -19525000000, -23430000000, "
+        "-27335000000, -31240000000, -35145000000, -86400000000, -26352000000000, "
+        "5180277000000, null]";
+    auto dates32 = ArrayFromJSON(date32(), date32s2);
+    auto dates64 = ArrayFromJSON(date64(), date64s2);
+
+    auto durations_ms =
+        ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time_and_date);
+    auto timestamps_ms =
+        ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
+    CheckScalarBinary(op, dates32, durations_ms, timestamps_ms);
+    CheckScalarBinary(op, dates64, durations_ms, timestamps_ms);
+
+    auto durations_us =
+        ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time_and_date);
+    auto timestamps_us =
+        ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
+    CheckScalarBinary(op, dates32, durations_us, timestamps_us);
+    CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalAddTimestampAndDuration) {
+  for (auto op : {"add", "add_checked"}) {
+    for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
+      auto timestamp_unit_s = timestamp(TimeUnit::SECOND, tz);
+      auto duration_unit_s = duration(TimeUnit::SECOND);
+      auto timestamp_unit_ms = timestamp(TimeUnit::MILLI, tz);
+      auto duration_unit_ms = duration(TimeUnit::MILLI);
+      auto timestamp_unit_us = timestamp(TimeUnit::MICRO, tz);
+      auto duration_unit_us = duration(TimeUnit::MICRO);
+      auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
+      auto duration_unit_ns = duration(TimeUnit::NANO);
+
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_s, seconds_between),
+                        ArrayFromJSON(timestamp_unit_s, times_seconds_precision2));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_ms, milliseconds_between),
+                        ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_us, microseconds_between),
+                        ArrayFromJSON(timestamp_unit_us, times_seconds_precision2));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_ns, nanoseconds_between),
+                        ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2));
+    }
+
+    auto seconds_1 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([1, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_3k = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([3000, null])");
+    CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
+
+    auto seconds_1_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([1, null])");
+    auto milliseconds_3k_tz =
+        ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([3000, null])");
+    CheckScalarBinary(op, seconds_1_tz, milliseconds_2k, milliseconds_3k_tz);
+  }
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalSubtractTimestampAndDuration) {
-  std::string op = "subtract";
-  for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
-    auto timestamp_unit_s = timestamp(TimeUnit::SECOND, tz);
-    auto duration_unit_s = duration(TimeUnit::SECOND);
-    auto timestamp_unit_ms = timestamp(TimeUnit::MILLI, tz);
-    auto duration_unit_ms = duration(TimeUnit::MILLI);
-    auto timestamp_unit_us = timestamp(TimeUnit::MICRO, tz);
-    auto duration_unit_us = duration(TimeUnit::MICRO);
-    auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
-    auto duration_unit_ns = duration(TimeUnit::NANO);
+  for (auto op : {"subtract", "subtract_checked"}) {
+    for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
+      auto timestamp_unit_s = timestamp(TimeUnit::SECOND, tz);
+      auto duration_unit_s = duration(TimeUnit::SECOND);
+      auto timestamp_unit_ms = timestamp(TimeUnit::MILLI, tz);
+      auto duration_unit_ms = duration(TimeUnit::MILLI);
+      auto timestamp_unit_us = timestamp(TimeUnit::MICRO, tz);
+      auto duration_unit_us = duration(TimeUnit::MICRO);
+      auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
+      auto duration_unit_ns = duration(TimeUnit::NANO);
 
-    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision2),
-                      ArrayFromJSON(duration_unit_s, seconds_between),
-                      ArrayFromJSON(timestamp_unit_s, times_seconds_precision));
-    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2),
-                      ArrayFromJSON(duration_unit_ms, milliseconds_between),
-                      ArrayFromJSON(timestamp_unit_ms, times_seconds_precision));
-    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision2),
-                      ArrayFromJSON(duration_unit_us, microseconds_between),
-                      ArrayFromJSON(timestamp_unit_us, times_seconds_precision));
-    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2),
-                      ArrayFromJSON(duration_unit_ns, nanoseconds_between),
-                      ArrayFromJSON(timestamp_unit_ns, times_seconds_precision));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision2),
+                        ArrayFromJSON(duration_unit_s, seconds_between),
+                        ArrayFromJSON(timestamp_unit_s, times_seconds_precision));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2),
+                        ArrayFromJSON(duration_unit_ms, milliseconds_between),
+                        ArrayFromJSON(timestamp_unit_ms, times_seconds_precision));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision2),
+                        ArrayFromJSON(duration_unit_us, microseconds_between),
+                        ArrayFromJSON(timestamp_unit_us, times_seconds_precision));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2),
+                        ArrayFromJSON(duration_unit_ns, nanoseconds_between),
+                        ArrayFromJSON(timestamp_unit_ns, times_seconds_precision));
+    }
+
+    auto seconds_3 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([3, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_1k = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([1000, null])");
+    CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+
+    auto seconds_3_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([3, null])");
+    auto milliseconds_1k_tz =
+        ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([1000, null])");
+    CheckScalarBinary(op, seconds_3_tz, milliseconds_2k, milliseconds_1k_tz);
   }
-
-  auto seconds_3 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([3, null])");
-  auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
-  auto milliseconds_1k = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([1000, null])");
-  CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
-
-  auto seconds_3_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([3, null])");
-  auto milliseconds_1k_tz =
-      ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([1000, null])");
-  CheckScalarBinary(op, seconds_3_tz, milliseconds_2k, milliseconds_1k_tz);
 }
 
-TEST_F(ScalarTemporalTest, TestTemporalSubtractCheckedTimestampAndDuration) {
-  std::string op = "subtract_checked";
-  for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
-    auto timestamp_unit_s = timestamp(TimeUnit::SECOND, tz);
-    auto duration_unit_s = duration(TimeUnit::SECOND);
-    auto timestamp_unit_ms = timestamp(TimeUnit::MILLI, tz);
-    auto duration_unit_ms = duration(TimeUnit::MILLI);
-    auto timestamp_unit_us = timestamp(TimeUnit::MICRO, tz);
-    auto duration_unit_us = duration(TimeUnit::MICRO);
-    auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
-    auto duration_unit_ns = duration(TimeUnit::NANO);
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDate) {
+  for (auto op : {"subtract", "subtract_checked"}) {
+    auto arr_date32s = ArrayFromJSON(date32(), date32s);
+    auto arr_date32s2 = ArrayFromJSON(date32(), date32s2);
+    auto arr_date64s = ArrayFromJSON(date64(), date64s);
+    auto arr_date64s2 = ArrayFromJSON(date64(), date64s2);
 
-    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision2),
-                      ArrayFromJSON(duration_unit_s, seconds_between),
-                      ArrayFromJSON(timestamp_unit_s, times_seconds_precision));
-    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2),
-                      ArrayFromJSON(duration_unit_ms, milliseconds_between),
-                      ArrayFromJSON(timestamp_unit_ms, times_seconds_precision));
-    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision2),
-                      ArrayFromJSON(duration_unit_us, microseconds_between),
-                      ArrayFromJSON(timestamp_unit_us, times_seconds_precision));
-    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2),
-                      ArrayFromJSON(duration_unit_ns, nanoseconds_between),
-                      ArrayFromJSON(timestamp_unit_ns, times_seconds_precision));
+    CheckScalarBinary(op, arr_date32s2, arr_date32s,
+                      ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_date));
+    CheckScalarBinary(
+        op, arr_date64s2, arr_date64s,
+        ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
+    CheckScalarBinary(
+        op, arr_date64s2, arr_date32s,
+        ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractTimestamp) {
+  for (auto op : {"subtract", "subtract_checked"}) {
+    for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
+      auto timestamp_unit_s = timestamp(TimeUnit::SECOND, tz);
+      auto duration_unit_s = duration(TimeUnit::SECOND);
+      auto timestamp_unit_ms = timestamp(TimeUnit::MILLI, tz);
+      auto duration_unit_ms = duration(TimeUnit::MILLI);
+      auto timestamp_unit_us = timestamp(TimeUnit::MICRO, tz);
+      auto duration_unit_us = duration(TimeUnit::MICRO);
+      auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
+      auto duration_unit_ns = duration(TimeUnit::NANO);
+
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision2),
+                        ArrayFromJSON(timestamp_unit_s, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_s, seconds_between));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2),
+                        ArrayFromJSON(timestamp_unit_ms, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_ms, milliseconds_between));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision2),
+                        ArrayFromJSON(timestamp_unit_us, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_us, microseconds_between));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2),
+                        ArrayFromJSON(timestamp_unit_ns, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_ns, nanoseconds_between));
+
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision2),
+                        ArrayFromJSON(timestamp_unit_ms, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_ms, milliseconds_between));
+
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2),
+                        ArrayFromJSON(timestamp_unit_s, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_ms, milliseconds_between));
+    }
+
+    CheckScalarBinary(
+        op, ArrayFromJSON(timestamp(TimeUnit::NANO, "UTC"), times_seconds_precision2),
+        ArrayFromJSON(timestamp(TimeUnit::SECOND, "Pacific/Marquesas"),
+                      times_seconds_precision),
+        ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between));
+
+    CheckScalarBinary(
+        op, ArrayFromJSON(timestamp(TimeUnit::SECOND), times_seconds_precision2),
+        ArrayFromJSON(timestamp(TimeUnit::NANO), times_seconds_precision),
+        ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("Subtraction of zoned and non-zoned times is ambiguous."),
+        CallFunction(
+            op,
+            {ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), times_seconds_precision2),
+             ArrayFromJSON(timestamp(TimeUnit::SECOND), times_seconds_precision)}));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractTime) {
+  for (auto op : {"subtract", "subtract_checked"}) {
+    auto arr_s = ArrayFromJSON(time32(TimeUnit::SECOND), times_s);
+    auto arr_s2 = ArrayFromJSON(time32(TimeUnit::SECOND), times_s2);
+    auto arr_ms = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms);
+    auto arr_ms2 = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms2);
+    auto arr_us = ArrayFromJSON(time64(TimeUnit::MICRO), times_us);
+    auto arr_us2 = ArrayFromJSON(time64(TimeUnit::MICRO), times_us2);
+    auto arr_ns = ArrayFromJSON(time64(TimeUnit::NANO), times_ns);
+    auto arr_ns2 = ArrayFromJSON(time64(TimeUnit::NANO), times_ns2);
+
+    CheckScalarBinary(op, arr_s2, arr_s,
+                      ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_time));
+    CheckScalarBinary(
+        op, arr_ms2, arr_ms,
+        ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time));
+    CheckScalarBinary(
+        op, arr_us2, arr_us,
+        ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time));
+    CheckScalarBinary(op, arr_ns2, arr_ns,
+                      ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time));
+
+    CheckScalarBinary(op, arr_s, arr_s, ArrayFromJSON(duration(TimeUnit::SECOND), zeros));
+    CheckScalarBinary(op, arr_ms, arr_ms,
+                      ArrayFromJSON(duration(TimeUnit::MILLI), zeros));
+    CheckScalarBinary(op, arr_us, arr_us,
+                      ArrayFromJSON(duration(TimeUnit::MICRO), zeros));
+    CheckScalarBinary(op, arr_ns, arr_ns, ArrayFromJSON(duration(TimeUnit::NANO), zeros));
+
+    auto seconds_3 = ArrayFromJSON(time32(TimeUnit::SECOND), R"([3, null])");
+    auto milliseconds_2k = ArrayFromJSON(time32(TimeUnit::MILLI), R"([1999, null])");
+    auto milliseconds_1k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([1001, null])");
+    auto microseconds_2M = ArrayFromJSON(time64(TimeUnit::MICRO), R"([1999999, null])");
+    auto microseconds_1M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([1000001, null])");
+    CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+    CheckScalarBinary(op, seconds_3, microseconds_2M, microseconds_1M);
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalAddTimeAndDuration) {
+  for (auto op : {"add", "add_checked"}) {
+    auto arr_s = ArrayFromJSON(time32(TimeUnit::SECOND), times_s);
+    auto arr_s2 = ArrayFromJSON(time32(TimeUnit::SECOND), times_s2);
+    auto arr_ms = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms);
+    auto arr_ms2 = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms2);
+    auto arr_us = ArrayFromJSON(time64(TimeUnit::MICRO), times_us);
+    auto arr_us2 = ArrayFromJSON(time64(TimeUnit::MICRO), times_us2);
+    auto arr_ns = ArrayFromJSON(time64(TimeUnit::NANO), times_ns);
+    auto arr_ns2 = ArrayFromJSON(time64(TimeUnit::NANO), times_ns2);
+
+    CheckScalarBinary(op, arr_s,
+                      ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_time),
+                      arr_s2);
+    CheckScalarBinary(op, arr_ms,
+                      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time),
+                      arr_ms2);
+    CheckScalarBinary(op, arr_us,
+                      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time),
+                      arr_us2);
+    CheckScalarBinary(op, arr_ns,
+                      ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
+                      arr_ns2);
+
+    auto seconds_1 = ArrayFromJSON(time32(TimeUnit::SECOND), R"([1, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_3k = ArrayFromJSON(time32(TimeUnit::MILLI), R"([3000, null])");
+    auto nanoseconds_1G = ArrayFromJSON(time64(TimeUnit::NANO), R"([1000000000, null])");
+    auto microseconds_2M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([2000000, null])");
+    auto nanoseconds_3M = ArrayFromJSON(time64(TimeUnit::NANO), R"([3000000000, null])");
+    auto microseconds_3M = ArrayFromJSON(time64(TimeUnit::MICRO), R"([3000000, null])");
+    CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
+    CheckScalarBinary(op, nanoseconds_1G, microseconds_2M, nanoseconds_3M);
+    CheckScalarBinary(op, seconds_1, microseconds_2M, microseconds_3M);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("-1 is not within the acceptable range of [0, 86400)"),
+        CallFunction(op, {ArrayFromJSON(time32(TimeUnit::SECOND), R"([0, null])"),
+                          ArrayFromJSON(duration(TimeUnit::SECOND), R"([-1, null])")}));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "86400000000001 is not within the acceptable range of [0, 86400000000000)"),
+        CallFunction(op,
+                     {ArrayFromJSON(time64(TimeUnit::MICRO), R"([86400000000, null])"),
+                      ArrayFromJSON(duration(TimeUnit::NANO), R"([1, null])")}));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "86400000001 is not within the acceptable range of [0, 86400000000)"),
+        CallFunction(op,
+                     {ArrayFromJSON(time64(TimeUnit::MICRO), R"([86400000000, null])"),
+                      ArrayFromJSON(duration(TimeUnit::MICRO), R"([1, null])")}));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDuration) {
+  for (auto op : {"subtract", "subtract_checked"}) {
+    auto arr_s = ArrayFromJSON(time32(TimeUnit::SECOND), times_s);
+    auto arr_s2 = ArrayFromJSON(time32(TimeUnit::SECOND), times_s2);
+    auto arr_ms = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms);
+    auto arr_ms2 = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms2);
+    auto arr_us = ArrayFromJSON(time64(TimeUnit::MICRO), times_us);
+    auto arr_us2 = ArrayFromJSON(time64(TimeUnit::MICRO), times_us2);
+    auto arr_ns = ArrayFromJSON(time64(TimeUnit::NANO), times_ns);
+    auto arr_ns2 = ArrayFromJSON(time64(TimeUnit::NANO), times_ns2);
+
+    CheckScalarBinary(op, arr_s2,
+                      ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_time),
+                      arr_s);
+    CheckScalarBinary(op, arr_ms2,
+                      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time),
+                      arr_ms);
+    CheckScalarBinary(op, arr_us2,
+                      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time),
+                      arr_us);
+    CheckScalarBinary(op, arr_ns2,
+                      ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
+                      arr_ns);
+
+    auto seconds_3 = ArrayFromJSON(time32(TimeUnit::SECOND), R"([3, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_1k = ArrayFromJSON(time32(TimeUnit::MILLI), R"([1000, null])");
+    auto nanoseconds_3G = ArrayFromJSON(time64(TimeUnit::NANO), R"([3000000000, null])");
+    auto microseconds_2M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([2000000, null])");
+    auto nanoseconds_1M = ArrayFromJSON(time64(TimeUnit::NANO), R"([1000000000, null])");
+    auto microseconds_1M = ArrayFromJSON(time64(TimeUnit::MICRO), R"([1000000, null])");
+    CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+    CheckScalarBinary(op, nanoseconds_3G, microseconds_2M, nanoseconds_1M);
+    CheckScalarBinary(op, seconds_3, microseconds_2M, microseconds_1M);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("-1 is not within the acceptable range of [0, 86400)"),
+        CallFunction(op, {ArrayFromJSON(time32(TimeUnit::SECOND), R"([1, null])"),
+                          ArrayFromJSON(duration(TimeUnit::SECOND), R"([2, null])")}));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "-1000 is not within the acceptable range of [0, 86400000000000)"),
+        CallFunction(op, {ArrayFromJSON(time64(TimeUnit::MICRO), R"([1, null])"),
+                          ArrayFromJSON(duration(TimeUnit::NANO), R"([2000, null])")}));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "86400000001000 is not within the acceptable range of [0, 86400000000000)"),
+        CallFunction(op,
+                     {ArrayFromJSON(time64(TimeUnit::MICRO), R"([86400000000, null])"),
+                      ArrayFromJSON(duration(TimeUnit::NANO), R"([-1000, null])")}));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDuration) {
+  for (auto op : {"subtract", "subtract_checked"}) {
+    for (auto u : TimeUnit::values()) {
+      auto unit = duration(u);
+      CheckScalarBinary(op, ArrayFromJSON(unit, times_s2), ArrayFromJSON(unit, times_s),
+                        ArrayFromJSON(unit, seconds_between_time));
+    }
+
+    auto seconds_3 = ArrayFromJSON(duration(TimeUnit::SECOND), R"([3, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_1k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([1000, null])");
+    CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
   }
 
-  auto seconds_3 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([3, null])");
-  auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
-  auto milliseconds_1k = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([1000, null])");
-  CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+  for (auto unit : TimeUnit::values()) {
+    auto duration_ty = duration(unit);
+    auto arr1 = ArrayFromJSON(duration_ty, R"([-9223372036854775808, null])");
+    auto arr2 = ArrayFromJSON(duration_ty, R"([1, null])");
+    auto arr3 = ArrayFromJSON(duration_ty, R"([9223372036854775807, null])");
 
-  auto seconds_3_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([3, null])");
-  auto milliseconds_1k_tz =
-      ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([1000, null])");
-  CheckScalarBinary(op, seconds_3_tz, milliseconds_2k, milliseconds_1k_tz);
+    CheckScalarBinary("subtract", arr1, arr2, arr3);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("overflow"),
+                                    CallFunction("subtract_checked", {arr1, arr2}));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalMultiplyDuration) {
+  std::shared_ptr<Array> max_array;
+  auto max = std::numeric_limits<int64_t>::max();
+  ArrayFromVector<Int64Type, int64_t>({max, max, max, max, max}, &max_array);
+
+  for (auto u : TimeUnit::values()) {
+    auto unit = duration(u);
+    auto durations = ArrayFromJSON(unit, R"([0, -1, 2, 6, null])");
+    auto multipliers = ArrayFromJSON(int64(), R"([0, 3, 2, 7, null])");
+    auto durations_multiplied = ArrayFromJSON(unit, R"([0, -3, 4, 42, null])");
+
+    CheckScalarBinary("multiply", durations, multipliers, durations_multiplied);
+    CheckScalarBinary("multiply", multipliers, durations, durations_multiplied);
+    CheckScalarBinary("multiply_checked", durations, multipliers, durations_multiplied);
+    CheckScalarBinary("multiply_checked", multipliers, durations, durations_multiplied);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Invalid: overflow"),
+        CallFunction("multiply_checked", {durations, max_array}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Invalid: overflow"),
+        CallFunction("multiply_checked", {max_array, durations}));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
+  for (auto u : TimeUnit::values()) {
+    auto unit = duration(u);
+    auto divided_durations = ArrayFromJSON(unit, R"([0, -1, -2, 6, null])");
+    auto divisors = ArrayFromJSON(int64(), R"([3, 3, -2, 7, null])");
+    auto durations = ArrayFromJSON(unit, R"([1, -3, 4, 42, null])");
+    auto zeros = ArrayFromJSON(int64(), R"([0, 0, 0, 0, null])");
+    CheckScalarBinary("divide", durations, divisors, divided_durations);
+    CheckScalarBinary("divide_checked", durations, divisors, divided_durations);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("Invalid: divide by zero"),
+                                    CallFunction("divide", {durations, zeros}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("Invalid: divide by zero"),
+                                    CallFunction("divide_checked", {durations, zeros}));
+  }
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
@@ -1606,10 +2007,15 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
           "2010-01-05", "2006-01-02", "2006-01-01", "2008-12-28", "2008-12-29",
           "2012-01-02", null])";
   const char* ceil_1_weeks =
-      R"(["1970-01-08", "2000-03-02", "1899-01-05", "2033-05-19", "2020-01-02",
-          "2020-01-02", "2020-01-02", "2010-01-07", "2010-01-07", "2010-01-07",
-          "2010-01-07", "2006-01-05", "2006-01-05", "2009-01-01", "2009-01-01",
-          "2012-01-05",  null])";
+      R"(["1970-01-05", "2000-03-06", "1899-01-02", "2033-05-23", "2020-01-06",
+          "2020-01-06", "2020-01-06", "2010-01-04", "2010-01-04", "2010-01-04",
+          "2010-01-11", "2006-01-02", "2006-01-02", "2008-12-29", "2008-12-29",
+          "2012-01-02",  null])";
+  const char* ceil_1_weeks_sunday =
+      R"(["1970-01-04", "2000-03-05", "1899-01-08", "2033-05-22", "2020-01-05",
+          "2020-01-05", "2020-01-05", "2010-01-03", "2010-01-03", "2010-01-10",
+          "2010-01-10", "2006-01-08", "2006-01-01", "2008-12-28", "2009-01-04",
+          "2012-01-08",  null])";
   const char* ceil_1_months =
       R"(["1970-02-01", "2000-03-01", "1899-02-01", "2033-06-01", "2020-02-01",
           "2020-01-01", "2020-01-01", "2010-01-01", "2010-02-01", "2010-02-01",
@@ -1679,10 +2085,15 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
           "2010-01-16", "2006-01-07", "2006-01-07", "2009-01-06", "2009-01-06",
           "2012-01-06", null])";
   const char* ceil_15_weeks =
-      R"(["1970-04-16", "2000-03-09", "1899-04-13", "2033-07-14", "2020-01-09",
-          "2020-01-09", "2020-01-09", "2010-04-01", "2010-04-01", "2010-04-01",
-          "2010-04-01", "2006-03-23", "2006-03-23", "2009-02-05", "2009-02-05",
-          "2012-04-05", null])";
+      R"(["1970-04-13", "2000-03-06", "1899-04-10", "2033-07-11", "2020-01-06",
+          "2020-01-06", "2020-01-06", "2010-03-29", "2010-03-29", "2010-03-29",
+          "2010-03-29", "2006-03-20", "2006-03-20", "2009-02-02", "2009-02-02",
+          "2012-04-02", null])";
+  const char* ceil_15_weeks_sunday =
+      R"(["1970-04-12", "2000-03-05", "1899-04-09", "2033-07-10", "2020-01-05",
+          "2020-01-05", "2020-01-05", "2010-03-28", "2010-03-28", "2010-03-28",
+          "2010-03-28", "2006-03-19", "2006-03-19", "2009-02-01", "2009-02-01",
+          "2012-04-01", null])";
   const char* ceil_15_months =
       R"(["1971-04-01", "2001-04-01", "1900-01-01", "2033-10-01", "2021-04-01",
           "2020-01-01", "2020-01-01", "2010-01-01", "2011-04-01", "2011-04-01",
@@ -1708,6 +2119,7 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
   CheckScalarUnary(op, unit, times, unit, ceil_1_hour, &round_to_1_hours);
   CheckScalarUnary(op, unit, times, unit, ceil_1_day, &round_to_1_days);
   CheckScalarUnary(op, unit, times, unit, ceil_1_weeks, &round_to_1_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_weeks_sunday, &round_to_1_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, ceil_1_months, &round_to_1_months);
   CheckScalarUnary(op, unit, times, unit, ceil_1_quarters, &round_to_1_quarters);
   CheckScalarUnary(op, unit, times, unit, ceil_1_years, &round_to_1_years);
@@ -1720,6 +2132,8 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
   CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
   CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
   CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_weeks_sunday,
+                   &round_to_15_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months);
   CheckScalarUnary(op, unit, times, unit, ceil_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
@@ -1781,10 +2195,15 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
           "2010-01-04", "2006-01-01", "2005-12-31", "2008-12-28", "2008-12-29",
           "2012-01-01", null])";
   const char* floor_1_weeks =
-      R"(["1970-01-01", "2000-02-24", "1898-12-29", "2033-05-12", "2019-12-26",
-            "2019-12-26", "2019-12-26", "2009-12-31", "2009-12-31", "2009-12-31",
-            "2009-12-31", "2005-12-29", "2005-12-29", "2008-12-25", "2008-12-25",
-            "2011-12-29", null])";
+      R"(["1969-12-29", "2000-02-28", "1898-12-26", "2033-05-16", "2019-12-30",
+            "2019-12-30", "2019-12-30", "2009-12-28", "2009-12-28", "2009-12-28",
+            "2010-01-04", "2005-12-26", "2005-12-26", "2008-12-22", "2008-12-29",
+            "2011-12-26", null])";
+  const char* floor_1_weeks_sunday =
+      R"(["1969-12-28", "2000-02-27", "1899-01-01", "2033-05-15", "2019-12-29",
+            "2019-12-29", "2019-12-29", "2009-12-27", "2009-12-27", "2010-01-03",
+            "2010-01-03", "2006-01-01", "2005-12-25", "2008-12-28", "2008-12-28",
+            "2012-01-01", null])";
   const char* floor_1_months =
       R"(["1970-01-01", "2000-02-01", "1899-01-01", "2033-05-01", "2020-01-01",
           "2019-12-01", "2019-12-01", "2009-12-01", "2010-01-01", "2010-01-01",
@@ -1855,10 +2274,15 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
           "2010-01-01", "2005-12-23", "2005-12-23", "2008-12-22", "2008-12-22",
           "2011-12-22", null])";
   const char* floor_15_weeks =
-      R"(["1970-01-01", "1999-11-25", "1898-12-29", "2033-03-31", "2019-09-26",
-          "2019-09-26", "2019-09-26", "2009-12-17", "2009-12-17", "2009-12-17",
-          "2009-12-17", "2005-12-08", "2005-12-08", "2008-10-23", "2008-10-23",
-          "2011-12-22", null])";
+      R"(["1969-12-29", "1999-11-22", "1898-12-26", "2033-03-28", "2019-09-23",
+          "2019-09-23", "2019-09-23", "2009-12-14", "2009-12-14", "2009-12-14",
+          "2009-12-14", "2005-12-05", "2005-12-05", "2008-10-20", "2008-10-20",
+          "2011-12-19", null])";
+  const char* floor_15_weeks_sunday =
+      R"(["1969-12-28", "1999-11-21", "1898-12-25", "2033-03-27", "2019-09-22",
+          "2019-09-22", "2019-09-22", "2009-12-13", "2009-12-13", "2009-12-13",
+          "2009-12-13", "2005-12-04", "2005-12-04", "2008-10-19", "2008-10-19",
+          "2011-12-18", null])";
   const char* floor_15_months =
       R"(["1970-01-01", "2000-01-01", "1898-10-01", "2032-07-01", "2020-01-01",
           "2018-10-01", "2018-10-01", "2008-10-01", "2010-01-01", "2010-01-01",
@@ -1884,6 +2308,7 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
   CheckScalarUnary(op, unit, times, unit, floor_1_hour, &round_to_1_hours);
   CheckScalarUnary(op, unit, times, unit, floor_1_day, &round_to_1_days);
   CheckScalarUnary(op, unit, times, unit, floor_1_weeks, &round_to_1_weeks);
+  CheckScalarUnary(op, unit, times, unit, floor_1_weeks_sunday, &round_to_1_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, floor_1_months, &round_to_1_months);
   CheckScalarUnary(op, unit, times, unit, floor_1_quarters, &round_to_1_quarters);
   CheckScalarUnary(op, unit, times, unit, floor_1_years, &round_to_1_years);
@@ -1898,6 +2323,8 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
   CheckScalarUnary(op, unit, times, unit, floor_15_hour, &round_to_15_hours);
   CheckScalarUnary(op, unit, times, unit, floor_15_day, &round_to_15_days);
   CheckScalarUnary(op, unit, times, unit, floor_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, floor_15_weeks_sunday,
+                   &round_to_15_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, floor_15_months, &round_to_15_months);
   CheckScalarUnary(op, unit, times, unit, floor_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
@@ -1959,10 +2386,15 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
           "2010-01-04", "2006-01-01", "2005-12-31", "2008-12-28", "2008-12-29",
           "2012-01-01", null])";
   const char* round_1_weeks =
-      R"(["1970-01-01", "2000-03-02", "1898-12-29", "2033-05-19", "2020-01-02",
-          "2020-01-02", "2020-01-02", "2009-12-31", "2009-12-31", "2009-12-31",
-          "2010-01-07", "2005-12-29", "2005-12-29", "2008-12-25", "2009-01-01",
-          "2011-12-29", null])";
+      R"(["1969-12-29", "2000-02-28", "1899-01-02", "2033-05-16", "2019-12-30",
+          "2019-12-30", "2019-12-30", "2009-12-28", "2010-01-04", "2010-01-04",
+          "2010-01-04", "2006-01-02", "2006-01-02", "2008-12-29", "2008-12-29",
+          "2012-01-02", null])";
+  const char* round_1_weeks_sunday =
+      R"(["1970-01-04", "2000-02-27", "1899-01-01", "2033-05-15", "2019-12-29",
+          "2019-12-29", "2019-12-29", "2010-01-03", "2010-01-03", "2010-01-03",
+          "2010-01-03", "2006-01-01", "2006-01-01", "2008-12-28", "2008-12-28",
+          "2012-01-01", null])";
   const char* round_1_months =
       R"(["1970-01-01", "2000-03-01", "1899-01-01", "2033-06-01", "2020-01-01",
           "2020-01-01", "2020-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
@@ -2033,10 +2465,15 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
           "2010-01-01", "2006-01-07", "2006-01-07", "2008-12-22", "2008-12-22",
           "2012-01-06", null])";
   const char* round_15_weeks =
-      R"(["1970-01-01", "2000-03-09", "1898-12-29", "2033-03-31", "2020-01-09",
-          "2020-01-09", "2020-01-09", "2009-12-17", "2009-12-17", "2009-12-17",
-          "2009-12-17", "2005-12-08", "2005-12-08", "2009-02-05", "2009-02-05",
-          "2011-12-22", null])";
+      R"(["1969-12-29", "2000-03-06", "1898-12-26", "2033-03-28", "2020-01-06",
+          "2020-01-06", "2020-01-06", "2009-12-14", "2009-12-14", "2009-12-14",
+          "2009-12-14", "2005-12-05", "2005-12-05", "2009-02-02", "2009-02-02",
+          "2011-12-19", null])";
+  const char* round_15_weeks_sunday =
+      R"(["1969-12-28", "2000-03-05", "1898-12-25", "2033-03-27", "2020-01-05",
+          "2020-01-05", "2020-01-05", "2009-12-13", "2009-12-13", "2009-12-13",
+          "2009-12-13", "2005-12-04", "2005-12-04", "2009-02-01", "2009-02-01",
+          "2011-12-18", null])";
   const char* round_15_months =
       R"(["1970-01-01", "2000-01-01", "1898-10-01", "2033-10-01", "2020-01-01",
           "2020-01-01", "2020-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
@@ -2062,6 +2499,7 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
   CheckScalarUnary(op, unit, times, unit, round_1_hours, &round_to_1_hours);
   CheckScalarUnary(op, unit, times, unit, round_1_days, &round_to_1_days);
   CheckScalarUnary(op, unit, times, unit, round_1_weeks, &round_to_1_weeks);
+  CheckScalarUnary(op, unit, times, unit, round_1_weeks_sunday, &round_to_1_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, round_1_months, &round_to_1_months);
   CheckScalarUnary(op, unit, times, unit, round_1_quarters, &round_to_1_quarters);
   CheckScalarUnary(op, unit, times, unit, round_1_years, &round_to_1_years);
@@ -2076,6 +2514,8 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
   CheckScalarUnary(op, unit, times, unit, round_15_hours, &round_to_15_hours);
   CheckScalarUnary(op, unit, times, unit, round_15_days, &round_to_15_days);
   CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, round_15_weeks_sunday,
+                   &round_to_15_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, round_15_months, &round_to_15_months);
   CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);

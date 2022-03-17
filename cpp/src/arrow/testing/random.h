@@ -184,6 +184,17 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Float64(int64_t size, double min, double max,
                                  double null_probability = 0, double nan_probability = 0);
 
+  /// \brief Generate a random Date64Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min the lower bound of the uniform distribution
+  /// \param[in] max the upper bound of the uniform distribution
+  /// \param[in] null_probability the probability of a value being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Date64(int64_t size, int64_t min, int64_t max,
+                                double null_probability = 0);
+
   template <typename ArrowType, typename CType = typename ArrowType::c_type>
   std::shared_ptr<Array> Numeric(int64_t size, CType min, CType max,
                                  double null_probability = 0) {
@@ -221,6 +232,9 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
       case Type::DOUBLE:
         return Float64(size, static_cast<double>(min), static_cast<double>(max),
                        null_probability);
+      case Type::DATE64:
+        return Date64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
+                      null_probability);
       default:
         return nullptr;
     }

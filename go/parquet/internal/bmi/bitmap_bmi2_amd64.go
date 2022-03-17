@@ -21,17 +21,17 @@ package bmi
 import "unsafe"
 
 //go:noescape
-func _extract_bits(bitmap, selectBitmap uint64) (res uint64)
+func _extract_bits_bmi2(bitmap, selectBitmap uint64) (res uint64)
 
 // extractBitsBMI2 uses BMI2 to call the pext instruction, Parallel Bits Extract
 // in order to quickly and efficiently extract the bits selected in a parallel
 // fashion. See the definition of the PEXT instruction for x86/x86-64 cpus
 func extractBitsBMI2(bitmap, selectBitmap uint64) uint64 {
-	return _extract_bits(bitmap, selectBitmap)
+	return _extract_bits_bmi2(bitmap, selectBitmap)
 }
 
 //go:noescape
-func _levels_to_bitmap(levels unsafe.Pointer, numLevels int, rhs int16) (res uint64)
+func _levels_to_bitmap_bmi2(levels unsafe.Pointer, numLevels int, rhs int16) (res uint64)
 
 // greaterThanBitmapBMI2 builds a bitmap where each set bit indicates the corresponding level
 // is greater than the rhs value.
@@ -46,5 +46,5 @@ func greaterThanBitmapBMI2(levels []int16, rhs int16) uint64 {
 		p3 = rhs
 	)
 
-	return _levels_to_bitmap(p1, p2, p3)
+	return _levels_to_bitmap_bmi2(p1, p2, p3)
 }
