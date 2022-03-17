@@ -28,7 +28,7 @@ marshaling and unmarshaling data.
 .. note::
 
     The article takes for granted that you have a ``Python`` environment
-    with ``pyarrow`` correctly installed and an ``Java`` environment with
+    with ``pyarrow`` correctly installed and a ``Java`` environment with
     ``arrow`` library correctly installed. 
     The ``Java`` version must have been compiled with ``mvn -Parrow-c-data`` to
     ensure CData exchange support is enabled.
@@ -67,7 +67,7 @@ The most basic thing we can do with our ``Simple`` class is to
 use the ``Simple.getNumber`` method from Python and see 
 if it will return the result.
 
-To do so we can create an ``simple.py`` file which uses ``jpype`` to
+To do so we can create a ``simple.py`` file which uses ``jpype`` to
 import the ``Simple`` class from ``Simple.class`` file and invoke 
 the ``Simple.getNumber`` method:
 
@@ -337,7 +337,7 @@ C-Data interface:
     c_array_ptr = int(arrow_c.cast("uintptr_t", c_array))
     array._export_to_c(c_array_ptr)
 
-    # Export the Schema of the Arrayo through C-Data
+    # Export the Schema of the Array through C-Data
     c_schema = arrow_c.new("struct ArrowSchema*")
     c_schema_ptr = int(arrow_c.cast("uintptr_t", c_schema))
     array.type._export_to_c(c_schema_ptr)
