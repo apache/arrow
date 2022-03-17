@@ -273,6 +273,13 @@ void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_inpu
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
 }
 
+void CheckScalarBinaryCommutative(std::string func_name, Datum left_input,
+                                  Datum right_input, Datum expected,
+                                  const FunctionOptions* options) {
+  CheckScalar(func_name, {left_input, right_input}, expected, options);
+  CheckScalar(func_name, {right_input, left_input}, expected, options);
+}
+
 namespace {
 
 void ValidateOutput(const ArrayData& output) {

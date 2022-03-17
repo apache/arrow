@@ -2609,12 +2609,9 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add add(timestamp, duration) -> timestamp
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec1 = ScalarBinary<Int64Type, Int64Type, Int64Type, Add>::Exec;
-    DCHECK_OK(add->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
-                             std::move(exec1)));
-    auto exec2 = ScalarBinary<Int64Type, Int64Type, Int64Type, Add>::Exec;
-    DCHECK_OK(add->AddKernel({duration(unit), in_type}, OutputType(LastType),
-                             std::move(exec2)));
+    auto exec = ScalarBinary<Int64Type, Int64Type, Int64Type, Add>::Exec;
+    DCHECK_OK(add->AddKernel({in_type, duration(unit)}, OutputType(FirstType), exec));
+    DCHECK_OK(add->AddKernel({duration(unit), in_type}, OutputType(LastType), exec));
   }
 
   // Add add(duration, duration) -> duration
@@ -2637,12 +2634,11 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add add_checked(timestamp, duration) -> timestamp
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec1 = ScalarBinary<Int64Type, Int64Type, Int64Type, AddChecked>::Exec;
-    DCHECK_OK(add_checked->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
-                                     std::move(exec1)));
-    auto exec2 = ScalarBinary<Int64Type, Int64Type, Int64Type, AddChecked>::Exec;
-    DCHECK_OK(add_checked->AddKernel({duration(unit), in_type}, OutputType(LastType),
-                                     std::move(exec2)));
+    auto exec = ScalarBinary<Int64Type, Int64Type, Int64Type, AddChecked>::Exec;
+    DCHECK_OK(
+        add_checked->AddKernel({in_type, duration(unit)}, OutputType(FirstType), exec));
+    DCHECK_OK(
+        add_checked->AddKernel({duration(unit), in_type}, OutputType(LastType), exec));
   }
 
   // Add add(duration, duration) -> duration
@@ -2788,12 +2784,9 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec1 = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
-    DCHECK_OK(
-        multiply->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec1)));
-    auto exec2 = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
-    DCHECK_OK(
-        multiply->AddKernel({int64(), duration(unit)}, duration(unit), std::move(exec2)));
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    DCHECK_OK(multiply->AddKernel({duration(unit), int64()}, duration(unit), exec));
+    DCHECK_OK(multiply->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
@@ -2805,14 +2798,12 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply_checked(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec1 =
+    auto exec =
         ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
-    DCHECK_OK(multiply_checked->AddKernel({duration(unit), int64()}, duration(unit),
-                                          std::move(exec1)));
-    auto exec2 =
-        ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
-    DCHECK_OK(multiply_checked->AddKernel({int64(), duration(unit)}, duration(unit),
-                                          std::move(exec2)));
+    DCHECK_OK(
+        multiply_checked->AddKernel({duration(unit), int64()}, duration(unit), exec));
+    DCHECK_OK(
+        multiply_checked->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
