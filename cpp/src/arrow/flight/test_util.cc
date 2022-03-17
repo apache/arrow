@@ -262,6 +262,9 @@ class FlightTestServer : public FlightServerBase {
       return RunExchangeEcho(std::move(reader), std::move(writer));
     } else if (cmd == "large_batch") {
       return RunExchangeLargeBatch(std::move(reader), std::move(writer));
+    } else if (cmd == "TestUndrained") {
+      ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
+      return Status::OK();
     } else {
       return Status::NotImplemented("Scenario not implemented: ", cmd);
     }

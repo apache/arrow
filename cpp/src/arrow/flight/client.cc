@@ -90,9 +90,12 @@ class IpcMessageReader : public ipc::MessageReader {
  public:
   IpcMessageReader(std::shared_ptr<internal::ClientDataStream> stream,
                    std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader,
+                   std::shared_ptr<MemoryManager> memory_manager,
                    std::shared_ptr<Buffer>* app_metadata)
       : stream_(std::move(stream)),
         peekable_reader_(peekable_reader),
+        memory_manager_(memory_manager ? std::move(memory_manager)
+                                       : CPUDevice::Instance()->default_memory_manager()),
         app_metadata_(app_metadata),
         stream_finished_(false) {}
 
@@ -105,6 +108,9 @@ class IpcMessageReader : public ipc::MessageReader {
     if (!data) {
       stream_finished_ = true;
       return stream_->Finish(Status::OK());
+    }
+    if (data->body) {
+      ARROW_ASSIGN_OR_RAISE(data->body, Buffer::ViewOrCopy(data->body, memory_manager_));
     }
     // Validate IPC message
     auto result = data->OpenMessage();
@@ -132,10 +138,12 @@ class IpcMessageReader : public ipc::MessageReader {
 class ClientStreamReader : public FlightStreamReader {
  public:
   ClientStreamReader(std::shared_ptr<internal::ClientDataStream> stream,
-                     const ipc::IpcReadOptions& options, StopToken stop_token)
+                     const ipc::IpcReadOptions& options, StopToken stop_token,
+                     std::shared_ptr<MemoryManager> memory_manager)
       : stream_(std::move(stream)),
         options_(options),
         stop_token_(std::move(stop_token)),
+        memory_manager_(std::move(memory_manager)),
         peekable_reader_(new internal::PeekableFlightDataReader(stream_.get())),
         app_metadata_(nullptr) {}
 
@@ -149,8 +157,8 @@ class ClientStreamReader : public FlightStreamReader {
             FlightStatusCode::Internal, "Server never sent a data message"));
       }
 
-      auto message_reader = std::unique_ptr<ipc::MessageReader>(
-          new IpcMessageReader(stream_, peekable_reader_, &app_metadata_));
+      auto message_reader = std::unique_ptr<ipc::MessageReader>(new IpcMessageReader(
+          stream_, peekable_reader_, memory_manager_, &app_metadata_));
       auto result =
           ipc::RecordBatchStreamReader::Open(std::move(message_reader), options_);
       RETURN_NOT_OK(OverrideWithServerError(std::move(result).Value(&batch_reader_)));
@@ -225,6 +233,7 @@ class ClientStreamReader : public FlightStreamReader {
   std::shared_ptr<internal::ClientDataStream> stream_;
   ipc::IpcReadOptions options_;
   StopToken stop_token_;
+  std::shared_ptr<MemoryManager> memory_manager_;
   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader_;
   std::shared_ptr<ipc::RecordBatchReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
@@ -541,8 +550,9 @@ Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticke
   RETURN_NOT_OK(CheckOpen());
   std::unique_ptr<internal::ClientDataStream> remote_stream;
   RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
-  *stream = std::unique_ptr<ClientStreamReader>(new ClientStreamReader(
-      std::move(remote_stream), options.read_options, options.stop_token));
+  *stream = std::unique_ptr<ClientStreamReader>(
+      new ClientStreamReader(std::move(remote_stream), options.read_options,
+                             options.stop_token, options.memory_manager));
   // Eagerly read the schema
   return static_cast<ClientStreamReader*>(stream->get())->EnsureDataStarted();
 }
@@ -573,8 +583,8 @@ Status FlightClient::DoExchange(const FlightCallOptions& options,
   std::unique_ptr<internal::ClientDataStream> remote_stream;
   RETURN_NOT_OK(transport_->DoExchange(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
-  *reader = std::unique_ptr<FlightStreamReader>(
-      new ClientStreamReader(shared_stream, options.read_options, options.stop_token));
+  *reader = std::unique_ptr<FlightStreamReader>(new ClientStreamReader(
+      shared_stream, options.read_options, options.stop_token, options.memory_manager));
   auto stream_writer = std::unique_ptr<ClientStreamWriter>(
       new ClientStreamWriter(std::move(shared_stream), options.write_options,
                              write_size_limit_bytes_, descriptor));

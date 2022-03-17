@@ -266,13 +266,8 @@ class GrpcClientAuthReader : public ClientAuthReader {
 template <typename Stream, typename ReadPayloadType>
 class FinishableDataStream : public internal::ClientDataStream {
  public:
-  FinishableDataStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream,
-                       std::shared_ptr<MemoryManager> memory_manager)
-      : rpc_(std::move(rpc)),
-        stream_(std::move(stream)),
-        memory_manager_(memory_manager ? std::move(memory_manager)
-                                       : CPUDevice::Instance()->default_memory_manager()),
-        finished_(false) {}
+  FinishableDataStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream)
+      : rpc_(std::move(rpc)), stream_(std::move(stream)), finished_(false) {}
 
   void TryCancel() override { rpc_->context.TryCancel(); }
 
@@ -316,7 +311,6 @@ class FinishableDataStream : public internal::ClientDataStream {
 
   std::shared_ptr<ClientRpc> rpc_;
   std::shared_ptr<Stream> stream_;
-  std::shared_ptr<MemoryManager> memory_manager_;
   bool finished_;
   Status server_status_;
   // A transport-side error that needs to get combined with the server status
@@ -330,9 +324,8 @@ template <typename Stream, typename ReadPayload>
 class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
  public:
   using Base = FinishableDataStream<Stream, ReadPayload>;
-  WritableDataStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream,
-                     std::shared_ptr<MemoryManager> memory_manager)
-      : Base(std::move(rpc), std::move(stream), std::move(memory_manager)),
+  WritableDataStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream)
+      : Base(std::move(rpc), std::move(stream)),
         read_mutex_(),
         finish_mutex_(),
         done_writing_(false) {}
@@ -394,16 +387,7 @@ class GrpcClientGetStream
   using FinishableDataStream::FinishableDataStream;
 
   bool ReadData(internal::FlightData* data) override {
-    bool success = ReadPayload(stream_.get(), data);
-    if (ARROW_PREDICT_FALSE(!success)) return false;
-    if (data->body) {
-      auto status = Buffer::ViewOrCopy(data->body, memory_manager_).Value(&data->body);
-      if (!status.ok()) {
-        transport_status_ = std::move(status);
-        return false;
-      }
-    }
-    return true;
+    return ReadPayload(stream_.get(), data);
   }
   Status WritesDone() override { return Status::NotImplemented("NYI"); }
 };
@@ -413,10 +397,7 @@ class GrpcClientPutStream
                                 pb::PutResult> {
  public:
   using Stream = ::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>;
-  GrpcClientPutStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream,
-                      std::shared_ptr<MemoryManager> memory_manager)
-      : WritableDataStream(std::move(rpc), std::move(stream), std::move(memory_manager)) {
-  }
+  using WritableDataStream::WritableDataStream;
 
   bool ReadPutMetadata(std::shared_ptr<Buffer>* out) override {
     std::lock_guard<std::mutex> guard(read_mutex_);
@@ -440,23 +421,12 @@ class GrpcClientExchangeStream
           internal::FlightData> {
  public:
   using Stream = ::grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>;
-  GrpcClientExchangeStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream,
-                           std::shared_ptr<MemoryManager> memory_manager)
-      : WritableDataStream(std::move(rpc), std::move(stream), std::move(memory_manager)) {
-  }
+  GrpcClientExchangeStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream)
+      : WritableDataStream(std::move(rpc), std::move(stream)) {}
 
   bool ReadData(internal::FlightData* data) override {
     std::lock_guard<std::mutex> guard(read_mutex_);
-    bool success = ReadPayload(stream_.get(), data);
-    if (ARROW_PREDICT_FALSE(!success)) return false;
-    if (data->body) {
-      auto status = Buffer::ViewOrCopy(data->body, memory_manager_).Value(&data->body);
-      if (!status.ok()) {
-        transport_status_ = std::move(status);
-        return false;
-      }
-    }
-    return true;
+    return ReadPayload(stream_.get(), data);
   }
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
     return WritePayload(payload, this->stream_.get());
@@ -859,8 +829,8 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<::grpc::ClientReader<pb::FlightData>> stream =
         stub_->DoGet(&rpc->context, pb_ticket);
-    *out = std::unique_ptr<internal::ClientDataStream>(new GrpcClientGetStream(
-        std::move(rpc), std::move(stream), options.memory_manager));
+    *out = std::unique_ptr<internal::ClientDataStream>(
+        new GrpcClientGetStream(std::move(rpc), std::move(stream)));
     return Status::OK();
   }
 
@@ -871,8 +841,8 @@ class GrpcClientImpl : public internal::ClientTransport {
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<GrpcStream> stream = stub_->DoPut(&rpc->context);
-    *out = std::unique_ptr<internal::ClientDataStream>(new GrpcClientPutStream(
-        std::move(rpc), std::move(stream), options.memory_manager));
+    *out = std::unique_ptr<internal::ClientDataStream>(
+        new GrpcClientPutStream(std::move(rpc), std::move(stream)));
     return Status::OK();
   }
 
@@ -883,8 +853,8 @@ class GrpcClientImpl : public internal::ClientTransport {
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<GrpcStream> stream = stub_->DoExchange(&rpc->context);
-    *out = std::unique_ptr<internal::ClientDataStream>(new GrpcClientExchangeStream(
-        std::move(rpc), std::move(stream), options.memory_manager));
+    *out = std::unique_ptr<internal::ClientDataStream>(
+        new GrpcClientExchangeStream(std::move(rpc), std::move(stream)));
     return Status::OK();
   }
 
