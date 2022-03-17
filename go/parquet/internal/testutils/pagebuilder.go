@@ -220,7 +220,7 @@ func (m *MockPageReader) Err() error {
 	return m.Called().Error(0)
 }
 
-func (m *MockPageReader) Reset(parquet.ReaderAtSeeker, int64, compress.Compression, *file.CryptoContext) {
+func (m *MockPageReader) Reset(io.ReadSeeker, int64, compress.Compression, *file.CryptoContext) {
 }
 
 func (m *MockPageReader) SetMaxPageHeaderSize(int) {}
