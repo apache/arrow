@@ -24,7 +24,7 @@ This section will introduce you to the major concepts in Java’s memory managem
 
 * `ArrowBuf`_
 * `BufferAllocator`_
-* `Reference counting`_
+* Reference counting
 
 .. contents::
 
@@ -170,20 +170,13 @@ Logs with debug allocators enabled:
             ArrowBuf[2], address:140437894463488, length:4096
       reservations: 0
 
+.. _`ArrowBuf`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html
 .. _`BufferAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/BufferAllocator.html
 .. _`RootAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/RootAllocator.html
 .. _`newChildAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/RootAllocator.html#newChildAllocator-java.lang.String-org.apache.arrow.memory.AllocationListener-long-long-
-.. _`ArrowBuf`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html
-.. _`Reference Counting`: https://github.com/apache/arrow/blob/2092e18752a9c0494799493b12eb1830052217a2/java/memory/memory-core/src/main/java/org/apache/arrow/memory/ReferenceManager.java#L30
 .. _`Netty`: https://netty.io/wiki/
 .. _`sun.misc.unsafe`: https://web.archive.org/web/20210929024401/http://www.docjar.com/html/api/sun/misc/Unsafe.java.html
-.. _`Flight Client`: https://github.com/apache/arrow/blob/a8eb73699b32ae36b2dd218e3eb969ec2cebd449/java/flight/flight-core/src/main/java/org/apache/arrow/flight/FlightClient.java#L96
 .. _`Direct Memory`: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/nio/ByteBuffer.html
-.. _`writing an ArrowBuf`: https://github.com/apache/arrow/blob/3bf061783f4e1ab447d2eb0f487c0c4fce6d5b15/java/vector/src/main/java/org/apache/arrow/vector/ipc/WriteChannel.java#L133-L135
-.. _`will attempt to avoid copying the buffer's content to (or from) an intermediate buffer`: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/nio/ByteBuffer.html
-.. _`directly wrap a native memory address`: https://github.com/apache/arrow/blob/3bf061783f4e1ab447d2eb0f487c0c4fce6d5b15/java/c/src/main/java/org/apache/arrow/c/ArrowArray.java#L102-L104
-.. _`Java ArrowBufs that directly correspond to the C pointers`: https://github.com/apache/arrow/blob/3bf061783f4e1ab447d2eb0f487c0c4fce6d5b15/java/c/src/main/java/org/apache/arrow/c/ArrayImporter.java#L130-L151
-.. _`Java ArrowBufs in C++`: https://github.com/apache/arrow/blob/3bf061783f4e1ab447d2eb0f487c0c4fce6d5b15/cpp/src/gandiva/jni/jni_common.cc#L699-L723
 .. _`ReferenceManager`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ReferenceManager.html
 .. _`ReferenceManager.release`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ReferenceManager.html#release--
 .. _`ReferenceManager.retain`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ReferenceManager.html#retain--
