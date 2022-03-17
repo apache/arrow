@@ -47,11 +47,8 @@ used to construct a new instance of the type.}
 to the \code{type_class} specified.
 \item \code{new_extension_array()} returns an \link{ExtensionArray} whose \verb{$type}
 corresponds to \code{extension_type}.
-\item \code{register_extension_type()} and \code{reregister_extension_type()} return
-\code{extension_type}, invisibly.
-\item \code{unregister_extension_type()} returns the previously registered
-\code{extension_type} (invisibly) or \code{NULL} if no type was previously
-registered.
+\item \code{register_extension_type()}, \code{unregister_extension_type()}
+and \code{reregister_extension_type()} return \code{NULL}, invisibly.
 }
 }
 \description{
@@ -69,13 +66,21 @@ and \link{ExtensionArray} objects. To use an extension type you will have to:
 \itemize{
 \item Define an \link[R6:R6Class]{R6::R6Class} that inherits from \link{ExtensionType} and reimplement
 one or more methods (e.g., \code{.Deserialize()}).
+\item Make a type constructor function (e.g., \code{my_extension_type()}) that calls
+\code{\link[=new_extension_type]{new_extension_type()}} to create an R6 instance that can be used as a
+\link[=data-type]{data type} elsewhere in the package.
+\item Make an array constructor function (e.g., \code{my_extension_array()}) that
+calls \code{\link[=new_extension_array]{new_extension_array()}} to create an \link{Array} instance of your
+extension type.
 \item Register a dummy instance of your extension type created using
-\code{\link[=new_extension_type]{new_extension_type()}} using \code{\link[=register_extension_type]{register_extension_type()}}.
+you constructor function using \code{\link[=register_extension_type]{register_extension_type()}}.
 }
 
 If defining an extension type in an R package, you will probably want to
 use \code{\link[=reregister_extension_type]{reregister_extension_type()}} in that package's \code{\link[=.onLoad]{.onLoad()}} hook
 since your package will probably get reloaded in the same R session
 during its development and \code{\link[=register_extension_type]{register_extension_type()}} will error if
-called twice for the same \code{extension_name}.
+called twice for the same \code{extension_name}. For an example of an
+extension type that uses most of these features, see
+\code{\link[=vctrs_extension_type]{vctrs_extension_type()}}.
 }

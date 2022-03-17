@@ -3,7 +3,7 @@
 \name{vctrs_extension_array}
 \alias{vctrs_extension_array}
 \alias{vctrs_extension_type}
-\title{Extension type for generic vectors}
+\title{Extension type for generic typed vectors}
 \usage{
 vctrs_extension_array(x, ptype = vctrs::vec_ptype(x), storage_type = NULL)
 

@@ -244,14 +244,22 @@ ExtensionType$new <- function(xp) {
 #'
 #' - Define an [R6::R6Class] that inherits from [ExtensionType] and reimplement
 #'   one or more methods (e.g., `.Deserialize()`).
+#' - Make a type constructor function (e.g., `my_extension_type()`) that calls
+#'   [new_extension_type()] to create an R6 instance that can be used as a
+#'   [data type][data-type] elsewhere in the package.
+#' - Make an array constructor function (e.g., `my_extension_array()`) that
+#'   calls [new_extension_array()] to create an [Array] instance of your
+#'   extension type.
 #' - Register a dummy instance of your extension type created using
-#'   [new_extension_type()] using [register_extension_type()].
+#'   you constructor function using [register_extension_type()].
 #'
 #' If defining an extension type in an R package, you will probably want to
 #' use [reregister_extension_type()] in that package's [.onLoad()] hook
 #' since your package will probably get reloaded in the same R session
 #' during its development and [register_extension_type()] will error if
-#' called twice for the same `extension_name`.
+#' called twice for the same `extension_name`. For an example of an
+#' extension type that uses most of these features, see
+#' [vctrs_extension_type()].
 #'
 #' @param storage_type The [data type][data-type] of the underlying storage
 #'   array.
@@ -270,13 +278,9 @@ ExtensionType$new <- function(xp) {
 #'     to the `type_class` specified.
 #'   - `new_extension_array()` returns an [ExtensionArray] whose `$type`
 #'     corresponds to `extension_type`.
-#'   - `register_extension_type()` and `reregister_extension_type()` return
-#'     `extension_type`, invisibly.
-#'   - `unregister_extension_type()` returns the previously registered
-#'     `extension_type` (invisibly) or `NULL` if no type was previously
-#'     registered.
+#'   - `register_extension_type()`, `unregister_extension_type()`
+#'      and `reregister_extension_type()` return `NULL`, invisibly.
 #' @export
-#'
 new_extension_type <- function(storage_type,
                                extension_name,
                                extension_metadata,
@@ -375,7 +379,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 )
 
 
-#' Extension type for generic vectors
+#' Extension type for generic typed vectors
 #'
 #' Most common R vector types are converted automatically to a suitable
 #' Arrow [data type][data-type] without the need for an extension type. For
