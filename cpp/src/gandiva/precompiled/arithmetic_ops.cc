@@ -267,8 +267,8 @@ NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, isfalse, !)
     return !is_valid || OP(in != 0);                               \
   }
 
-NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnottrue, +)
-NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnotfalse, !)
+NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnottrue, !)
+NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnotfalse, +)
 
 #define NUMERIC_FUNCTION_FOR_REAL(INNER) \
   INNER(float32)                         \
