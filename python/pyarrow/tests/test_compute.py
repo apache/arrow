@@ -2085,6 +2085,19 @@ def _check_temporal_rounding(ts, values, unit):
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
 
+    # TODO: should work for day
+    if ta.type.tz is None and unit != "day":
+        options = pc.RoundTemporalOptions(
+            value, unit, change_on_boundary=True)
+        result = pc.ceil_temporal(ta, options=options)
+        expected = ts.dt.ceil(frequency)
+
+        expected = np.where(
+            expected == ts,
+            expected + pd.Timedelta(value, unit_shorthand[unit]),
+            expected)
+        np.testing.assert_array_equal(result, expected)
+
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.skipif(sys.platform == 'win32',
@@ -2095,9 +2108,8 @@ def _check_temporal_rounding(ts, values, unit):
 def test_round_temporal(unit):
     from pyarrow.vendored.version import Version
 
-    if Version(pd.__version__) < Version('1.0.0') and \
-            unit in ("nanosecond", "microsecond"):
-        pytest.skip('Pandas < 1.0 rounds zoned small units differently.')
+    if Version(pd.__version__) < Version('1.0.0'):
+        pytest.skip('Pandas < 1.0 rounds differently.')
 
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
     timestamps = [
@@ -2111,6 +2123,7 @@ def test_round_temporal(unit):
         "1967-02-26 05:56:46.922376960",
         "1975-11-01 10:55:37.016146432",
         "1982-01-21 18:43:44.517366784",
+        "1992-01-01T00:00:00.100000000",
         "1999-12-04 05:55:34.794991104",
         "2026-10-26 08:39:00.316686848"]
     ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])

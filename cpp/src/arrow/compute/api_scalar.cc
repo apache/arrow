@@ -332,7 +332,9 @@ static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
 static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
     DataMember("multiple", &RoundTemporalOptions::multiple),
     DataMember("unit", &RoundTemporalOptions::unit),
-    DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday));
+    DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday),
+    DataMember("change_on_boundary", &RoundTemporalOptions::change_on_boundary),
+    DataMember("calendar_based_origin", &RoundTemporalOptions::calendar_based_origin));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -491,11 +493,15 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 constexpr char RoundOptions::kTypeName[];
 
 RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
-                                           bool week_starts_monday)
+                                           bool week_starts_monday,
+                                           bool change_on_boundary,
+                                           bool calendar_based_origin)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
       unit(unit),
-      week_starts_monday(week_starts_monday) {}
+      week_starts_monday(week_starts_monday),
+      change_on_boundary(change_on_boundary),
+      calendar_based_origin(calendar_based_origin) {}
 constexpr char RoundTemporalOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)

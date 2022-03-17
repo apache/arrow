@@ -882,11 +882,13 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-    def _set_options(self, multiple, unit, week_starts_monday):
+    def _set_options(self, multiple, unit, week_starts_monday,
+                     change_on_boundary, calendar_based_origin):
         self.wrapped.reset(
             new CRoundTemporalOptions(
                 multiple, unwrap_round_temporal_unit(unit),
-                week_starts_monday)
+                week_starts_monday, change_on_boundary,
+                calendar_based_origin)
         )
 
 
@@ -905,10 +907,20 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         "nanosecond".
     week_starts_monday : bool, default True
         If True, weeks start on Monday; if False, on Sunday.
+    change_on_boundary : bool, default False
+        If True times exactly on unit multiple boundary will be rounded
+        one unit multiple up. This applies for ceiling only.
+    calendar_based_origin : bool, default False
+        By default origin is 1970-01-01T00:00:00. By setting this to True,
+        rounding origin will be beginning of one less precise calendar unit.
+        E.g.: rounding to hours will use beginning of day as origin.
+
     """
 
-    def __init__(self, multiple=1, unit="day", week_starts_monday=True):
-        self._set_options(multiple, unit, week_starts_monday)
+    def __init__(self, multiple=1, unit="day", week_starts_monday=True,
+                 change_on_boundary=False, calendar_based_origin=False):
+        self._set_options(multiple, unit, week_starts_monday,
+                          change_on_boundary, calendar_based_origin)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
