@@ -26,6 +26,7 @@
 #include "arrow/flight/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
@@ -35,6 +36,8 @@
 
 namespace arrow {
 namespace flight {
+
+using arrow::internal::checked_cast;
 
 //------------------------------------------------------------
 // Tests of initialization/shutdown
@@ -617,6 +620,8 @@ class DoPutTestServer : public FlightServerBase {
           return Status::Invalid("Expected app_metadata to be ", counter, " but got ",
                                  chunk.app_metadata->ToString());
         }
+      } else if (chunk.app_metadata) {
+        return Status::Invalid("Expected no app_metadata");
       }
       batches_.push_back(std::move(chunk.data));
       auto buffer = Buffer::FromString(std::to_string(counter));
@@ -1163,6 +1168,13 @@ Status CheckBuffersOnDevice(const Array& array, const Device& device) {
   return Status::OK();
 }
 
+Status CheckBuffersOnDevice(const RecordBatch& batch, const Device& device) {
+  for (const auto& column : batch.columns()) {
+    RETURN_NOT_OK(CheckBuffersOnDevice(*column, device));
+  }
+  return Status::OK();
+}
+
 // Copy a record batch to host memory.
 arrow::Result<std::shared_ptr<RecordBatch>> CopyBatchToHost(const RecordBatch& batch) {
   auto mm = CPUDevice::Instance()->default_memory_manager();
@@ -1215,9 +1227,7 @@ class CudaTestServer : public FlightServerBase {
         begun = true;
         RETURN_NOT_OK(writer->Begin(chunk.data->schema()));
       }
-      for (const auto& column : chunk.data->columns()) {
-        RETURN_NOT_OK(CheckBuffersOnDevice(*column, *device_));
-      }
+      RETURN_NOT_OK(CheckBuffersOnDevice(*chunk.data, *device_));
       // XXX: do not assume transport will synchronize, we must
       // synchronize or else data will be "missing"
       RETURN_NOT_OK(context_->Synchronize());
@@ -1272,7 +1282,7 @@ void CudaDataTest::TestDoGet() {
   options.memory_manager = impl_->device->default_memory_manager();
 
   const RecordBatchVector& batches =
-      reinterpret_cast<CudaTestServer*>(server_.get())->batches();
+      checked_cast<CudaTestServer*>(server_.get())->batches();
 
   Ticket ticket{""};
   std::unique_ptr<FlightStreamReader> stream;
@@ -1284,10 +1294,7 @@ void CudaDataTest::TestDoGet() {
     ASSERT_OK(stream->Next(&chunk));
     if (!chunk.data) break;
 
-    for (const auto& column : chunk.data->columns()) {
-      ASSERT_OK(CheckBuffersOnDevice(*column, *impl_->device));
-    }
-
+    ASSERT_OK(CheckBuffersOnDevice(*chunk.data, *impl_->device));
     if (idx >= batches.size()) {
       FAIL() << "Server returned more than " << batches.size() << " batches";
       return;
@@ -1316,25 +1323,19 @@ void CudaDataTest::TestDoPut() {
     ASSERT_OK_AND_ASSIGN(auto cuda_batch,
                          cuda::ReadRecordBatch(batch->schema(), &memo, buffer));
 
-    for (const auto& column : cuda_batch->columns()) {
-      ASSERT_OK(CheckBuffersOnDevice(*column, *impl_->device));
-    }
-
+    ASSERT_OK(CheckBuffersOnDevice(*cuda_batch, *impl_->device));
     ASSERT_OK(writer->WriteRecordBatch(*cuda_batch));
   }
   ASSERT_OK(writer->Close());
   ASSERT_OK(impl_->context->Synchronize());
 
   const RecordBatchVector& written =
-      reinterpret_cast<CudaTestServer*>(server_.get())->batches();
+      checked_cast<CudaTestServer*>(server_.get())->batches();
   ASSERT_EQ(written.size(), batches.size());
 
   size_t idx = 0;
   for (const auto& batch : written) {
-    for (const auto& column : batch->columns()) {
-      ASSERT_OK(CheckBuffersOnDevice(*column, *impl_->device));
-    }
-
+    ASSERT_OK(CheckBuffersOnDevice(*batch, *impl_->device));
     // Bounce record batch back to host memory
     ASSERT_OK_AND_ASSIGN(auto host_batch, CopyBatchToHost(*batch));
     AssertBatchesEqual(*batches[idx], *host_batch);
@@ -1362,17 +1363,12 @@ void CudaDataTest::TestDoExchange() {
     ASSERT_OK_AND_ASSIGN(auto cuda_batch,
                          cuda::ReadRecordBatch(batch->schema(), &write_memo, buffer));
 
-    for (const auto& column : cuda_batch->columns()) {
-      ASSERT_OK(CheckBuffersOnDevice(*column, *impl_->device));
-    }
-
+    ASSERT_OK(CheckBuffersOnDevice(*cuda_batch, *impl_->device));
     ASSERT_OK(writer->WriteRecordBatch(*cuda_batch));
 
     FlightStreamChunk chunk;
     ASSERT_OK(reader->Next(&chunk));
-    for (const auto& column : chunk.data->columns()) {
-      ASSERT_OK(CheckBuffersOnDevice(*column, *impl_->device));
-    }
+    ASSERT_OK(CheckBuffersOnDevice(*chunk.data, *impl_->device));
 
     // Bounce record batch back to host memory
     ASSERT_OK_AND_ASSIGN(auto host_batch, CopyBatchToHost(*chunk.data));
