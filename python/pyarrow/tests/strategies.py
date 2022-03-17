@@ -144,7 +144,9 @@ def list_types(item_strategy=primitive_types):
         st.builds(
             pa.list_,
             item_strategy,
-            st.integers(min_value=0, max_value=16)
+            # TODO set min_value back to 0
+            # (once https://issues.apache.org/jira/browse/ARROW-15960 is fixed)
+            st.integers(min_value=1, max_value=16)
         )
     )
 
