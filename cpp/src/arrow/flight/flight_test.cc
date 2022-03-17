@@ -1224,8 +1224,10 @@ TEST_F(TestBasicAuthHandler, FailUnauthenticatedCalls) {
   std::shared_ptr<Schema> schema(
       (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
   status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
-  ASSERT_OK(status);
+  // May or may not succeed depending on if the transport buffers the write
+  ARROW_UNUSED(status);
   status = writer->Close();
+  // But this should definitely fail
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 }
