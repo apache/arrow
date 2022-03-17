@@ -40,7 +40,7 @@ rename_with.arrow_dplyr_query <- function(.data, .fn, .cols = everything(), ...)
   names(rename_args) <- c(".data", new_names)
   do.call(rename, rename_args)
 }
-rename_with.Dataset <- rename_with.ArrowTabular <- rename_with.RecordBatchReader <- rename.arrow_dplyr_query
+rename_with.Dataset <- rename_with.ArrowTabular <- rename_with.RecordBatchReader <- rename_with.arrow_dplyr_query
 
 column_select <- function(.data, ..., .FUN = vars_select) {
   # .FUN is either tidyselect::vars_select or tidyselect::vars_rename
