@@ -52,6 +52,10 @@ bool Scalar::ApproxEquals(const Scalar& other, const EqualOptions& options) cons
   return ScalarApproxEquals(*this, other, options);
 }
 
+Status Scalar::Accept(ScalarVisitor* visitor) const {
+  return VisitScalarInline(*this, visitor);
+}
+
 namespace {
 
 // Implementation of Scalar::hash()

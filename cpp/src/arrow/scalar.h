@@ -103,6 +103,9 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
 
   ARROW_EXPORT friend void PrintTo(const Scalar& scalar, std::ostream* os);
 
+  /// \brief Apply the ScalarVisitor::Visit() method specialized to the scalar type
+  Status Accept(ScalarVisitor* visitor) const;
+
  protected:
   Scalar(std::shared_ptr<DataType> type, bool is_valid)
       : type(std::move(type)), is_valid(is_valid) {}
