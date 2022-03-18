@@ -823,6 +823,30 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       ASSERT_EQ(row_count, expected_rows());
     }
   }
+
+  void TestScanWithFieldPathFilter() {
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->opts_->dataset_schema = schema({i32, i64});
+    this->Project({"i64"});
+    this->SetFilter(equal(field_ref(0), literal(0)));
+    auto expected_schema = schema({i64});
+    auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+    auto source = this->GetFileSource(reader.get());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+      AssertSchemaEqual(*batch->schema(), *expected_schema,
+                        /*check_metadata=*/false);
+    }
+
+    ASSERT_EQ(row_count, expected_rows());
+  }
+
   void TestScanWithDuplicateColumn() {
     // A duplicate column is ignored if not requested.
     auto i32 = field("i32", int32());

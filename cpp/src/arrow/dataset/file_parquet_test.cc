@@ -390,6 +390,9 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
   TestScanWithDuplicateColumn();
 }
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithFieldPathFilter) {
+  TestScanWithFieldPathFilter();
+}
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }

@@ -160,17 +160,29 @@ Status ResolveOneFieldRef(
     const std::unordered_map<std::string, const SchemaField*>& field_lookup,
     const std::unordered_set<std::string>& duplicate_fields,
     std::vector<int>* columns_selection) {
-  if (const std::string* name = field_ref.name()) {
+  auto resolve_field_ref = [&](const std::string* name) -> Status {
     auto it = field_lookup.find(*name);
     if (it != field_lookup.end()) {
       AddColumnIndices(*it->second, columns_selection);
     } else if (duplicate_fields.find(*name) != duplicate_fields.end()) {
-      // We shouldn't generally get here because SetProjection will reject such references
+      // We shouldn't generally get here because SetProjection will reject such
+      // references
       return Status::Invalid("Ambiguous reference to column '", *name,
                              "' which occurs more than once");
     }
+    return Status::OK();
+  };
+
+  if (const std::string* name = field_ref.name()) {
+    RETURN_NOT_OK(resolve_field_ref(name));
     // "Virtual" column: field is not in file but is in the ScanOptions.
     // Ignore it here, as projection will pad the batch with a null column.
+    return Status::OK();
+  } else if (const FieldPath* path = field_ref.field_path()) {
+    int index = path->indices()[0];
+    auto schema_field = manifest.schema_fields.at(index);
+    auto col_name = schema_field.field->name();
+    RETURN_NOT_OK(resolve_field_ref(&col_name));
     return Status::OK();
   }
 
