@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -64,7 +65,7 @@ func Example_server() {
 	go server.Serve()
 	defer server.Shutdown()
 
-	conn, err := grpc.Dial(server.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.Dial(server.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal(err)
 	}

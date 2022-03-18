@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -98,7 +99,7 @@ func TestServerStreamMiddleware(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, nil, grpc.WithInsecure())
+	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -144,7 +145,7 @@ func TestServerUnaryMiddleware(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, nil, grpc.WithInsecure())
+	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -218,7 +219,7 @@ func TestClientStreamMiddleware(t *testing.T) {
 	middleware := &ClientTestSendHeaderMiddleware{}
 	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, []flight.ClientMiddleware{
 		flight.CreateClientMiddleware(middleware),
-	}, grpc.WithInsecure())
+	}, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -265,7 +266,7 @@ func TestClientUnaryMiddleware(t *testing.T) {
 	middle := &ClientTestSendHeaderMiddleware{}
 	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, []flight.ClientMiddleware{
 		flight.CreateClientMiddleware(middle),
-	}, grpc.WithInsecure())
+	}, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	require.NoError(t, err)
 	defer client.Close()

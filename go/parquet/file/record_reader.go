@@ -303,7 +303,6 @@ type recordReader struct {
 	recordReaderImpl
 	leafInfo LevelInfo
 
-	nullable    bool
 	atRecStart  bool
 	recordsRead int64
 
@@ -314,7 +313,6 @@ type recordReader struct {
 	defLevels *memory.Buffer
 	repLevels *memory.Buffer
 
-	readDict bool
 	refCount int64
 }
 
