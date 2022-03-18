@@ -32,6 +32,7 @@
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -544,7 +545,19 @@ class ARROW_MUST_USE_TYPE Future {
     // We know impl_ will not be dangling when invoking callbacks because at least one
     // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
     // weak reference to impl_ here
-    impl_->AddCallback(Callback{std::move(on_complete)}, opts);
+    struct {
+        Result<T> func() {
+          auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
+          return wrapped();
+        }
+        OnComplete wrapped;
+        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
+        std::string span_name;
+    } Wrapper;
+    Wrapper.wrapped = std::move(on_complete);
+    Wrapper.activeSpan = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+
+    impl_->AddCallback(Callback{std::move(Wrapper.func)}, opts);
   }
 
   /// \brief Overload of AddCallback that will return false instead of running
