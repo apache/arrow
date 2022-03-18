@@ -304,11 +304,10 @@ message Ticket {
   
   // Data representing some part of the data retrievable by the ticket.
   //
-  // `inlined_completeness` indicates what part of the data retriavable
-  // by the ticket this represents. This is provided as an optimization for
-  // client/server applications that want to reduce latency to first result
-  // without requiring another RPC round-trip to retrieve the ticket.  applications
-  // built on top of Flight are responsible for any negotiation necessary on whether
+  // This is an optional optimization for applications that want to reduce latency,
+  // for previewing results or retrieving small result by providing data
+  // without requiring a DoGet call.  Applications built on top of Flight 
+  // are responsible for any negotiation necessary on whether
   // inlining data is appropriate.
   //
   // The size of inlined_data is expected to be small (typically less then 1MB) 
