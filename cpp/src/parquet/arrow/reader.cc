@@ -1191,7 +1191,7 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
   GET_CURRENT_SPAN(span);
-  auto read_column = [row_groups, self, span, this](
+  auto read_column = [=](
                          size_t i, std::shared_ptr<ColumnReaderImpl> reader) mutable
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
     SET_SPAN_SCOPE(scope, span);
@@ -1199,8 +1199,7 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
     return column;
   };
-  auto make_table = [result_schema, row_groups, self,
-                     this](const ::arrow::ChunkedArrayVector& columns)
+  auto make_table = [=](const ::arrow::ChunkedArrayVector& columns)
       -> ::arrow::Result<std::shared_ptr<Table>> {
     int64_t num_rows = 0;
     if (!columns.empty()) {
