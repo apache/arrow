@@ -579,19 +579,20 @@ test_that("UnionDataset can merge schemas", {
   actual <- ds %>%
     collect() %>%
     arrange(x)
+  expect_equal(colnames(actual), c("x", "y", "z"))
   expect_equal(
     actual,
     union_all(as_tibble(sub_df1), as_tibble(sub_df2))
   )
 
-  # without unifying schemas, takes the first schema
+  # without unifying schemas, takes the first schema and discards any columns
+  # in the second which aren't in the first
   ds <- open_dataset(list(ds1, ds2), unify_schemas = FALSE)
   expected <- as_tibble(sub_df1) %>%
     union_all(sub_df2 %>% as_tibble() %>% select(x))
-  expect_equal(
-    ds %>% collect() %>% arrange(x),
-    expected
-  )
+  actual <- ds %>% collect() %>% arrange(x)
+  expect_equal(colnames(actual), c("x", "y"))
+  expect_equal(actual, expected)
 })
 
 test_that("map_batches", {
