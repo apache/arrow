@@ -265,6 +265,9 @@ message FlightInfo {
    *
    * In other words, an application can use multiple endpoints to
    * represent partitioned data.
+   *
+   * There is no ordering defined on endpoints. Hence, if the returned
+   * data has an ordering, it should be returned in a single endpoint.
    */
   repeated FlightEndpoint endpoint = 3;
 
