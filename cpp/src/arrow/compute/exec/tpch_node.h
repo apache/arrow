@@ -28,6 +28,7 @@
 
 namespace arrow {
 namespace compute {
+namespace internal {
 class OrdersAndLineItemGenerator;
 class PartAndPartSupplierGenerator;
 
@@ -41,9 +42,13 @@ class ARROW_EXPORT TpchGen {
    * table from that single TpchGen instance. Note: Every batch will be scheduled as a new
    * task using the ExecPlan's scheduler.
    */
-  static Result<TpchGen> Make(ExecPlan* plan, float scale_factor = 1.0f,
-                              int64_t batch_size = 4096);
+  static Result<TpchGen> Make(ExecPlan* plan, double scale_factor = 1.0,
+                              int64_t batch_size = 4096,
+                              util::optional<int64_t> seed = util::nullopt);
 
+  // The below methods will create and add an ExecNode to the plan that generates
+  // data for the desired table. If columns is empty, all columns will be generated.
+  // The methods return the added ExecNode, which should be used for inputs.
   Result<ExecNode*> Supplier(std::vector<std::string> columns = {});
   Result<ExecNode*> Part(std::vector<std::string> columns = {});
   Result<ExecNode*> PartSupp(std::vector<std::string> columns = {});
@@ -54,18 +59,23 @@ class ARROW_EXPORT TpchGen {
   Result<ExecNode*> Region(std::vector<std::string> columns = {});
 
  private:
-  TpchGen(ExecPlan* plan, float scale_factor, int64_t batch_size)
-      : plan_(plan), scale_factor_(scale_factor), batch_size_(batch_size) {}
+  TpchGen(ExecPlan* plan, double scale_factor, int64_t batch_size, int64_t seed)
+      : plan_(plan),
+        scale_factor_(scale_factor),
+        batch_size_(batch_size),
+        seed_rng_(seed) {}
 
   template <typename Generator>
   Result<ExecNode*> CreateNode(const char* name, std::vector<std::string> columns);
 
   ExecPlan* plan_;
-  float scale_factor_;
+  double scale_factor_;
   int64_t batch_size_;
+  random::pcg64_fast seed_rng_;
 
   std::shared_ptr<PartAndPartSupplierGenerator> part_and_part_supp_generator_{};
   std::shared_ptr<OrdersAndLineItemGenerator> orders_and_line_item_generator_{};
 };
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

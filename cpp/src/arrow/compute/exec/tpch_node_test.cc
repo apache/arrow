@@ -17,8 +17,6 @@
 
 #include <gmock/gmock-matchers.h>
 
-#include "arrow/api.h"
-#include "arrow/array/validate.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/tpch_node.h"
@@ -39,50 +37,63 @@
 
 namespace arrow {
 namespace compute {
+namespace internal {
 static constexpr uint32_t kStartDate =
     8035;  // January 1, 1992 is 8035 days after January 1, 1970
 static constexpr uint32_t kEndDate =
     10591;  // December 12, 1998 is 10591 days after January 1, 1970
 
+// Verifies that the data is valid Arrow and ensures it's not null.
 void ValidateBatch(const ExecBatch& batch) {
-  for (const Datum& d : batch.values)
-    ASSERT_OK(arrow::internal::ValidateArray(*d.array()));
+  for (const Datum& d : batch.values) {
+    ASSERT_EQ(d.array()->buffers[0].get(), nullptr);
+    ASSERT_OK(d.make_array()->ValidateFull());
+  }
 }
 
-void VerifyUniqueKey(std::unordered_set<int32_t>& seen, const Datum& d, int32_t min,
+// Verifies that each element is seen exactly once, and that it's between min and max
+// inclusive
+void VerifyUniqueKey(std::unordered_set<int32_t>* seen, const Datum& d, int32_t min,
                      int32_t max) {
   const int32_t* keys = reinterpret_cast<const int32_t*>(d.array()->buffers[1]->data());
   int64_t num_keys = d.length();
   for (int64_t i = 0; i < num_keys; i++) {
-    ASSERT_TRUE(seen.insert(keys[i]).second);
+    ASSERT_TRUE(seen->insert(keys[i]).second);
     ASSERT_LE(keys[i], max);
     ASSERT_GE(keys[i], min);
   }
 }
 
-void VerifyStringAndNumber_Single(const char* row, const char* prefix, const int64_t i,
-                                  const int32_t* nums, int byte_width,
+void VerifyStringAndNumber_Single(const util::string_view& row, const char* prefix,
+                                  const int64_t i, const int32_t* nums,
                                   bool verify_padding) {
-  int num_offset = static_cast<int>(std::strlen(prefix));
-  ASSERT_EQ(std::memcmp(row, prefix, num_offset), 0)
-      << row << ", prefix=" << prefix << ", i=" << i;
-  const char* num_str = row + num_offset;
+  size_t num_offset = static_cast<int>(std::strlen(prefix));
+  ASSERT_TRUE(row.starts_with(prefix)) << row << ", prefix=" << prefix << ", i=" << i;
+  const char* num_str = row.data() + num_offset;
   int64_t num = 0;
-  int ibyte = static_cast<int>(num_offset);
-  for (; *num_str && ibyte < byte_width; ibyte++) {
+  size_t ibyte = num_offset;
+  // Parse the number out
+  for (; *num_str && ibyte < row.size(); ibyte++) {
     num *= 10;
     ASSERT_TRUE(std::isdigit(*num_str));
     num += *num_str++ - '0';
   }
+  // If nums is not null, ensure it matches the parsed number
   if (nums) {
     ASSERT_EQ(static_cast<int32_t>(num), nums[i]);
   }
+  // TPC-H requires only ever requires padding up to 9 digits, so we ensure that
+  // the total length of the string was at least 9 (could be more for bigger numbers).
   if (verify_padding) {
-    int num_chars = ibyte - num_offset;
+    int64_t num_chars = static_cast<int64_t>(ibyte - num_offset);
     ASSERT_GE(num_chars, 9);
   }
 }
 
+// Verifies that each row is the string "prefix" followed by a number. If numbers is not
+// EMPTY, it also checks that the number following the prefix is equal to the
+// corresponding row in numbers. Some TPC-H data is padded to 9 zeros, which this function
+// can optionally verify as well. This string function verifies fixed width columns.
 void VerifyStringAndNumber_FixedWidth(const Datum& strings, const Datum& numbers,
                                       int byte_width, const char* prefix,
                                       bool verify_padding = true) {
@@ -97,10 +108,12 @@ void VerifyStringAndNumber_FixedWidth(const Datum& strings, const Datum& numbers
 
   for (int64_t i = 0; i < length; i++) {
     const char* row = str + i * byte_width;
-    VerifyStringAndNumber_Single(row, prefix, i, nums, byte_width, verify_padding);
+    util::string_view view(row, byte_width);
+    VerifyStringAndNumber_Single(view, prefix, i, nums, verify_padding);
   }
 }
 
+// Same as above but for variable length columns
 void VerifyStringAndNumber_Varlen(const Datum& strings, const Datum& numbers,
                                   const char* prefix, bool verify_padding = true) {
   int64_t length = strings.length();
@@ -115,15 +128,16 @@ void VerifyStringAndNumber_Varlen(const Datum& strings, const Datum& numbers,
   }
 
   for (int64_t i = 0; i < length; i++) {
-    char tmp_str[256] = {};
     int32_t start = offsets[i];
     int32_t str_len = offsets[i + 1] - offsets[i];
-    std::memcpy(tmp_str, str + start, str_len);
-    VerifyStringAndNumber_Single(tmp_str, prefix, i, nums, sizeof(tmp_str),
-                                 verify_padding);
+    util::string_view view(str + start, str_len);
+    VerifyStringAndNumber_Single(view, prefix, i, nums, verify_padding);
   }
 }
 
+// Verifies that each row is a V-string, which is defined in the spec to be
+// a string of random length between min_length and max_length, that is composed
+// of alphanumeric characters, commas, or spaces.
 void VerifyVString(const Datum& d, int min_length, int max_length) {
   int64_t length = d.length();
   const int32_t* off = reinterpret_cast<const int32_t*>(d.array()->buffers[1]->data());
@@ -143,6 +157,7 @@ void VerifyVString(const Datum& d, int min_length, int max_length) {
   }
 }
 
+// Verifies that each 32-bit element modulo "mod" is between min and max.
 void VerifyModuloBetween(const Datum& d, int32_t min, int32_t max, int32_t mod) {
   int64_t length = d.length();
   const int32_t* n = reinterpret_cast<const int32_t*>(d.array()->buffers[1]->data());
@@ -155,6 +170,7 @@ void VerifyModuloBetween(const Datum& d, int32_t min, int32_t max, int32_t mod) 
   }
 }
 
+// Verifies that each 32-bit element is between min and max.
 void VerifyAllBetween(const Datum& d, int32_t min, int32_t max) {
   int64_t length = d.length();
   const int32_t* n = reinterpret_cast<const int32_t*>(d.array()->buffers[1]->data());
@@ -168,6 +184,7 @@ void VerifyAllBetween(const Datum& d, int32_t min, int32_t max) {
 
 void VerifyNationKey(const Datum& d) { VerifyAllBetween(d, 0, 24); }
 
+// Verifies that each row satisfies the phone number spec.
 void VerifyPhone(const Datum& d) {
   int64_t length = d.length();
   const char* phones = reinterpret_cast<const char*>(d.array()->buffers[1]->data());
@@ -192,6 +209,7 @@ void VerifyPhone(const Datum& d) {
   }
 }
 
+// Verifies that each decimal is between min and max
 void VerifyDecimalsBetween(const Datum& d, int64_t min, int64_t max) {
   int64_t length = d.length();
   const Decimal128* decs =
@@ -203,6 +221,8 @@ void VerifyDecimalsBetween(const Datum& d, int64_t min, int64_t max) {
   }
 }
 
+// Verifies that each variable-length row is a series of words separated by
+// spaces. Number of words is determined by the number of spaces.
 void VerifyCorrectNumberOfWords_Varlen(const Datum& d, int num_words) {
   int expected_num_spaces = num_words - 1;
   int64_t length = d.length();
@@ -231,6 +251,7 @@ void VerifyCorrectNumberOfWords_Varlen(const Datum& d, int num_words) {
   }
 }
 
+// Same as above but for fixed width columns.
 void VerifyCorrectNumberOfWords_FixedWidth(const Datum& d, int num_words,
                                            int byte_width) {
   int expected_num_spaces = num_words - 1;
@@ -253,6 +274,7 @@ void VerifyCorrectNumberOfWords_FixedWidth(const Datum& d, int num_words,
   }
 }
 
+// Verifies that each row of the single-byte-wide column is one of the possibilities.
 void VerifyOneOf(const Datum& d, const std::unordered_set<char>& possibilities) {
   int64_t length = d.length();
   const char* col = reinterpret_cast<const char*>(d.array()->buffers[1]->data());
@@ -260,25 +282,31 @@ void VerifyOneOf(const Datum& d, const std::unordered_set<char>& possibilities) 
     ASSERT_TRUE(possibilities.find(col[i]) != possibilities.end());
 }
 
+// Verifies that each fixed-width row is one of the possibilities
 void VerifyOneOf(const Datum& d, int32_t byte_width,
-                 const std::unordered_set<std::string>& possibilities) {
+                 const std::unordered_set<util::string_view>& possibilities) {
   int64_t length = d.length();
   const char* col = reinterpret_cast<const char*>(d.array()->buffers[1]->data());
   for (int64_t i = 0; i < length; i++) {
     const char* row = col + i * byte_width;
-    char tmp_str[256] = {};
-    std::memcpy(tmp_str, row, byte_width);
-    ASSERT_TRUE(possibilities.find(tmp_str) != possibilities.end())
-        << tmp_str << " is not a valid string.";
+    int32_t row_len = 0;
+    while (row[row_len] && row_len < byte_width) row_len++;
+    util::string_view view(row, row_len);
+    ASSERT_TRUE(possibilities.find(view) != possibilities.end())
+        << view << " is not a valid string.";
   }
 }
 
+// Counts the number of instances of each integer
 void CountInstances(std::unordered_map<int32_t, int32_t>& counts, const Datum& d) {
   int64_t length = d.length();
   const int32_t* nums = reinterpret_cast<const int32_t*>(d.array()->buffers[1]->data());
   for (int64_t i = 0; i < length; i++) counts[nums[i]]++;
 }
 
+// For the S_COMMENT column, some of the columns must be modified to contain
+// "Customer...Complaints" or "Customer...Recommends". This function counts the number of
+// good and bad comments.
 void CountModifiedComments(const Datum& d, int& good_count, int& bad_count) {
   int64_t length = d.length();
   const int32_t* offsets =
@@ -317,7 +345,6 @@ TEST(TpchNode, ScaleFactor) {
   int64_t num_rows = 0;
   for (auto& batch : res) num_rows += batch.length;
   ASSERT_EQ(num_rows, kExpectedRows);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST(TpchNode, Supplier) {
@@ -339,7 +366,7 @@ TEST(TpchNode, Supplier) {
   int bad_count = 0;
   for (auto& batch : res) {
     ValidateBatch(batch);
-    VerifyUniqueKey(seen_suppkey, batch[0],
+    VerifyUniqueKey(&seen_suppkey, batch[0],
                     /*min=*/1,
                     /*max=*/static_cast<int32_t>(kExpectedRows));
     VerifyStringAndNumber_FixedWidth(batch[1], batch[0], /*byte_width=*/25, "Supplie#r");
@@ -354,7 +381,6 @@ TEST(TpchNode, Supplier) {
   ASSERT_EQ(num_rows, kExpectedRows);
   ASSERT_EQ(good_count, 5);
   ASSERT_EQ(bad_count, 5);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST(TpchNode, Part) {
@@ -374,7 +400,7 @@ TEST(TpchNode, Part) {
   std::unordered_set<int32_t> seen_partkey;
   for (auto& batch : res) {
     ValidateBatch(batch);
-    VerifyUniqueKey(seen_partkey, batch[0],
+    VerifyUniqueKey(&seen_partkey, batch[0],
                     /*min=*/1,
                     /*max=*/static_cast<int32_t>(kExpectedRows));
     VerifyCorrectNumberOfWords_Varlen(batch[1],
@@ -395,7 +421,6 @@ TEST(TpchNode, Part) {
   }
   ASSERT_EQ(seen_partkey.size(), kExpectedRows);
   ASSERT_EQ(num_rows, kExpectedRows);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST(TpchNode, PartSupp) {
@@ -426,7 +451,6 @@ TEST(TpchNode, PartSupp) {
   ASSERT_EQ(counts.size(), kExpectedRows / 4);
 
   ASSERT_EQ(num_rows, kExpectedRows);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST(TpchNode, Customer) {
@@ -446,7 +470,7 @@ TEST(TpchNode, Customer) {
   std::unordered_set<int32_t> seen_custkey;
   for (auto& batch : res) {
     ValidateBatch(batch);
-    VerifyUniqueKey(seen_custkey, batch[0],
+    VerifyUniqueKey(&seen_custkey, batch[0],
                     /*min=*/1,
                     /*max=*/static_cast<int32_t>(kExpectedRows));
     VerifyStringAndNumber_Varlen(batch[1], batch[0], "Customer#");
@@ -461,7 +485,6 @@ TEST(TpchNode, Customer) {
   }
   ASSERT_EQ(seen_custkey.size(), kExpectedRows);
   ASSERT_EQ(num_rows, kExpectedRows);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST(TpchNode, Orders) {
@@ -481,7 +504,7 @@ TEST(TpchNode, Orders) {
   std::unordered_set<int32_t> seen_orderkey;
   for (auto& batch : res) {
     ValidateBatch(batch);
-    VerifyUniqueKey(seen_orderkey, batch[0],
+    VerifyUniqueKey(&seen_orderkey, batch[0],
                     /*min=*/1,
                     /*max=*/static_cast<int32_t>(4 * kExpectedRows));
     VerifyAllBetween(batch[1], /*min=*/1, /*max=*/static_cast<int32_t>(kExpectedRows));
@@ -505,7 +528,6 @@ TEST(TpchNode, Orders) {
   }
   ASSERT_EQ(seen_orderkey.size(), kExpectedRows);
   ASSERT_EQ(num_rows, kExpectedRows);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST(TpchNode, Lineitem) {
@@ -556,7 +578,6 @@ TEST(TpchNode, Lineitem) {
     ASSERT_GE(count.second, 1);
     ASSERT_LE(count.second, 7);
   }
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST(TpchNode, Nation) {
@@ -576,7 +597,7 @@ TEST(TpchNode, Nation) {
   std::unordered_set<int32_t> seen_nationkey;
   for (auto& batch : res) {
     ValidateBatch(batch);
-    VerifyUniqueKey(seen_nationkey, batch[0], 0, kExpectedRows - 1);
+    VerifyUniqueKey(&seen_nationkey, batch[0], 0, kExpectedRows - 1);
     VerifyOneOf(
         batch[1],
         /*byte_width=*/25,
@@ -589,7 +610,6 @@ TEST(TpchNode, Nation) {
     num_rows += batch.length;
   }
   ASSERT_EQ(num_rows, kExpectedRows);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST(TpchNode, Region) {
@@ -609,7 +629,7 @@ TEST(TpchNode, Region) {
   std::unordered_set<int32_t> seen_regionkey;
   for (auto& batch : res) {
     ValidateBatch(batch);
-    VerifyUniqueKey(seen_regionkey, batch[0], 0, kExpectedRows - 1);
+    VerifyUniqueKey(&seen_regionkey, batch[0], 0, kExpectedRows - 1);
     VerifyOneOf(batch[1],
                 /*byte_width=*/25,
                 {"AFRICA", "AMERICA", "ASIA", "EUROPE", "MIDDLE EAST"});
@@ -617,7 +637,7 @@ TEST(TpchNode, Region) {
     num_rows += batch.length;
   }
   ASSERT_EQ(num_rows, 5);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

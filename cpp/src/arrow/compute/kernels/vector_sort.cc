@@ -890,8 +890,7 @@ class TableSorter {
 
   TableSorter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
               const Table& table, const SortOptions& options)
-      : status_(),
-        ctx_(ctx),
+      : ctx_(ctx),
         table_(table),
         batches_(MakeBatches(table, &status_)),
         options_(options),

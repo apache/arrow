@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "benchmark/benchmark.h"
+#include <benchmark/benchmark.h>
 
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec/test_util.h"
@@ -25,19 +25,20 @@
 
 namespace arrow {
 namespace compute {
+namespace internal {
 
 std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sink_gen,
                                   int scale_factor) {
   ExecContext* ctx = default_exec_context();
   *ctx = ExecContext(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(ctx);
-  TpchGen gen = *TpchGen::Make(plan.get(), static_cast<float>(scale_factor));
+  TpchGen gen = *TpchGen::Make(plan.get(), static_cast<double>(scale_factor));
 
   ExecNode* lineitem =
       *gen.Lineitem({"L_QUANTITY", "L_EXTENDEDPRICE", "L_TAX", "L_DISCOUNT", "L_SHIPDATE",
                      "L_RETURNFLAG", "L_LINESTATUS"});
 
-  std::shared_ptr<Date32Scalar> sept_2_1998 = std::make_shared<Date32Scalar>(
+  auto sept_2_1998 = std::make_shared<Date32Scalar>(
       10471);  // September 2, 1998 is 10471 days after January 1, 1970
   Expression filter =
       less_equal(field_ref("L_SHIPDATE"), literal(std::move(sept_2_1998)));
@@ -79,7 +80,6 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
       {"hash_mean", &sum_opts}, {"hash_count", &count_opts}};
 
   std::vector<FieldRef> cols = {2, 3, 4, 5, 6, 7, 8, 2};
-
   std::vector<std::string> names = {"sum_qty",    "sum_base_price", "sum_disc_price",
                                     "sum_charge", "avg_qty",        "avg_price",
                                     "avg_disc",   "count_order"};
@@ -114,7 +114,7 @@ static void BM_Tpch_Q1(benchmark::State& st) {
   }
 }
 
-BENCHMARK(BM_Tpch_Q1)->Args({1})->ArgNames({"SF"});
-
+BENCHMARK(BM_Tpch_Q1)->Args({1})->ArgNames({"ScaleFactor"});
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow
