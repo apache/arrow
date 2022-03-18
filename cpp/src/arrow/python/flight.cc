@@ -206,11 +206,13 @@ PyFlightResultStream::PyFlightResultStream(PyObject* generator,
   generator_.reset(generator);
 }
 
-Status PyFlightResultStream::Next(std::unique_ptr<arrow::flight::Result>* result) {
-  return SafeCallIntoPython([=] {
-    const Status status = callback_(generator_.obj(), result);
+arrow::Result<std::unique_ptr<arrow::flight::Result>> PyFlightResultStream::Next() {
+  return SafeCallIntoPython(
+      [=]() -> arrow::Result<std::unique_ptr<arrow::flight::Result>> {
+    std::unique_ptr<arrow::flight::Result> result;
+    const Status status = callback_(generator_.obj(), &result);
     RETURN_NOT_OK(CheckPyError());
-    return status;
+    return result;
   });
 }
 

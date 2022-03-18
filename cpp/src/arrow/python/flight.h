@@ -186,7 +186,7 @@ class ARROW_PYFLIGHT_EXPORT PyFlightResultStream : public arrow::flight::ResultS
   /// Must only be called while holding the GIL.
   explicit PyFlightResultStream(PyObject* generator,
                                 PyFlightResultStreamCallback callback);
-  Status Next(std::unique_ptr<arrow::flight::Result>* result) override;
+  arrow::Result<std::unique_ptr<arrow::flight::Result>> Next() override;
 
  private:
   OwnedRefNoGIL generator_;

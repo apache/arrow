@@ -133,11 +133,22 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
  public:
   /// \brief Try to cancel the call.
   virtual void Cancel() = 0;
-  using MetadataRecordBatchReader::ReadAll;
+
+  using MetadataRecordBatchReader::ToRecordBatches;
   /// \brief Consume entire stream as a vector of record batches
-  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
-                         const StopToken& stop_token) = 0;
+  virtual arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
+      const StopToken& stop_token) = 0;
+
+  using MetadataRecordBatchReader::ReadAll;
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                 const StopToken& stop_token);
+
+  using MetadataRecordBatchReader::ToTable;
   /// \brief Consume entire stream as a Table
+  arrow::Result<std::shared_ptr<Table>> ToTable(const StopToken& stop_token);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
   Status ReadAll(std::shared_ptr<Table>* table, const StopToken& stop_token);
 };
 

@@ -1445,19 +1445,18 @@ TEST_F(TestBasicHeaderAuthMiddleware, ValidCredentials) { RunValidClientAuth(); 
 TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) { RunInvalidClientAuth(); }
 
 class ForeverFlightListing : public FlightListing {
-  Status Next(std::unique_ptr<FlightInfo>* info) override {
+  arrow::Result<std::unique_ptr<FlightInfo>> Next() override {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    *info = arrow::internal::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
-    return Status::OK();
+    return arrow::internal::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
   }
 };
 
 class ForeverResultStream : public ResultStream {
-  Status Next(std::unique_ptr<Result>* result) override {
+  arrow::Result<std::unique_ptr<Result>> Next() override {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    *result = arrow::internal::make_unique<Result>();
-    (*result)->body = Buffer::FromString("foo");
-    return Status::OK();
+    auto result = arrow::internal::make_unique<Result>();
+    result->body = Buffer::FromString("foo");
+    return result;
   }
 };
 
