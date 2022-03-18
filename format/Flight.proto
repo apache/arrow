@@ -305,7 +305,7 @@ message Ticket {
   // Data representing some part of the data retrievable by the ticket.
   //
   // This is an optional optimization for applications that want to reduce latency,
-  // for previewing results or retrieving small result by providing data
+  // for previewing results or retrieving small data sets by providing data
   // without requiring a DoGet call.  Applications built on top of Flight 
   // are responsible for any negotiation necessary on whether
   // inlining data is appropriate.
