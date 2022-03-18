@@ -32,9 +32,11 @@
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
-#include "arrow/util/tracing_internal.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
+
+#include <opentelemetry/trace/provider.h>
+#include <opentelemetry/trace/scope.h>
 
 namespace arrow {
 
@@ -353,6 +355,12 @@ class ARROW_EXPORT FutureWaiter {
   friend class FutureImpl;
   friend class ConcreteFutureImpl;
 };
+
+namespace internal {
+namespace tracing {
+  opentelemetry::trace::Tracer *GetTracer();
+}
+}
 
 // ---------------------------------------------------------------------
 // Public API
