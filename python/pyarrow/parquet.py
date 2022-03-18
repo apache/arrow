@@ -777,6 +777,57 @@ write_batch_size : int, default None
     the batch size can help keep page sizes closer to the intended size.
 """
 
+_parquet_writer_example_doc = """\
+Generate an example PyArrow Table and RecordBatch:
+
+>>> import pandas as pd
+>>> import pyarrow as pa
+>>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+...                    'month': [3, 5, 7, 9, 11, 12],
+...                    'day': [1, 5, 9, 13, 17, 23],
+...                    'n_legs': [2, 2, 4, 4, 5, 100],
+...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+...                    "Brittle stars", "Centipede"]})
+>>> table = pa.Table.from_pandas(df)
+>>> batch = pa.RecordBatch.from_pandas(df)
+
+create a ParquetWriter object:
+
+>>> import pyarrow.parquet as pq
+>>> writer = pq.ParquetWriter('example.parquet', table.schema)
+
+and write the Table into the Parquet file:
+
+>>> writer.write_table(table)
+>>> writer.close()
+
+>>> pq.read_table('example.parquet').to_pandas()
+   year  month  day  n_legs        animals
+0  2020      3    1       2       Flamingo
+1  2022      5    5       2          Parot
+2  2021      7    9       4            Dog
+3  2022      9   13       4          Horse
+4  2019     11   17       5  Brittle stars
+5  2021     12   23     100      Centipede
+
+create a ParquetWriter object for the RecordBatch:
+
+>>> writer2 = pq.ParquetWriter('example2.parquet', batch.schema)
+
+and write the RecordBatch into the Parquet file:
+
+>>> writer2.write_batch(batch)
+>>> writer2.close()
+
+>>> pq.read_table('example2.parquet').to_pandas()
+   year  month  day  n_legs        animals
+0  2020      3    1       2       Flamingo
+1  2022      5    5       2          Parot
+2  2021      7    9       4            Dog
+3  2022      9   13       4          Horse
+4  2019     11   17       5  Brittle stars
+5  2021     12   23     100      Centipede
+"""
 
 class ParquetWriter:
 
@@ -794,7 +845,11 @@ writer_engine_version : unused
     corresponding value is assumed to be a list (or any object with
     `.append` method) that will be filled with the file metadata instance
     of the written file.
-""".format(_parquet_writer_arg_docs)
+
+Examples
+--------
+{}
+""".format(_parquet_writer_arg_docs, _parquet_writer_example_doc)
 
     def __init__(self, where, schema, filesystem=None,
                  flavor=None,
@@ -891,6 +946,13 @@ writer_engine_version : unused
             Maximum size of each written row group. If None, the
             row group size will be the minimum of the input
             table or batch length and 64 * 1024 * 1024.
+
+        Examples
+        --------
+        >>> import pyarrow.parquet as pq
+        >>> writer = pq.ParquetWriter('example.parquet', table.schema)
+        >>> writer.write(table)
+        >>> writer.close()
         """
         if isinstance(table_or_batch, pa.RecordBatch):
             self.write_batch(table_or_batch, row_group_size)
@@ -910,6 +972,13 @@ writer_engine_version : unused
             Maximum size of each written row group. If None, the
             row group size will be the minimum of the RecordBatch
             size and 64 * 1024 * 1024.
+
+        Examples
+        --------
+        >>> import pyarrow.parquet as pq
+        >>> writer = pq.ParquetWriter('example.parquet', batch.schema)
+        >>> writer.write_batch(table)
+        >>> writer.close()
         """
         table = pa.Table.from_batches([batch], batch.schema)
         self.write_table(table, row_group_size)
@@ -925,6 +994,13 @@ writer_engine_version : unused
             Maximum size of each written row group. If None, the
             row group size will be the minimum of the Table size
             and 64 * 1024 * 1024.
+
+        Examples
+        --------
+        >>> import pyarrow.parquet as pq
+        >>> writer = pq.ParquetWriter('example.parquet', table.schema)
+        >>> writer.write_table(table)
+        >>> writer.close()
         """
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
@@ -939,6 +1015,15 @@ writer_engine_version : unused
         self.writer.write_table(table, row_group_size=row_group_size)
 
     def close(self):
+        """
+        Close the connection to the Parquet file.
+
+        Examples
+        --------
+        >>> import pyarrow.parquet as pq
+        >>> writer = pq.ParquetWriter('example.parquet', table.schema)
+        >>> writer.close()
+        """
         if self.is_open:
             self.writer.close()
             self.is_open = False
