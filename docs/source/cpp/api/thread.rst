@@ -15,30 +15,28 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. default-domain:: cpp
-.. highlight:: cpp
+Thread (management)
+===================
 
-User Guide
-==========
+Executor
+--------
 
-.. toctree::
+.. doxygenclass:: arrow::internal::Executor
+   :members:
 
-   overview
-   conventions
-   build_system
-   memory
-   threading
-   arrays
-   datatypes
-   tables
-   compute
-   streaming_execution
-   io
-   ipc
-   parquet
-   csv
-   json
-   dataset
-   flight
-   gdb
-   env_vars
+Thread Pools
+------------
+
+.. doxygenfunction:: arrow::GetCpuThreadPoolCapacity
+
+.. doxygenfunction:: arrow::SetCpuThreadPoolCapacity
+
+.. doxygenfunction:: arrow::io::GetIOThreadPoolCapacity
+
+.. doxygenfunction:: arrow::io::SetIOThreadPoolCapacity
+
+Futures
+-------
+
+.. doxygenclass:: arrow::Future
+   :members:

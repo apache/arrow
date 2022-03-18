@@ -129,6 +129,8 @@ that changing their value later will have an effect.
 
 .. envvar:: OMP_THREAD_LIMIT
 
+   .. _omp_thread_limit:
+   
    An upper bound for the number of worker threads in the global
    (process-wide) CPU thread pool.
 
