@@ -70,7 +70,7 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
   std::vector<std::string> project_names = {
       "l_returnflag", "l_linestatus", "sum_qty",   "sum_base_price", "sum_disc_price",
       "sum_charge",   "avg_qty",      "avg_price", "avg_disc"};
-  ProjectNodeOptions project_opts(std::move(projection_list));
+  ProjectNodeOptions project_opts(std::move(projection_list), std::move(project_names));
 
   ScalarAggregateOptions sum_opts = ScalarAggregateOptions::Defaults();
   CountOptions count_opts(CountOptions::CountMode::ALL);
@@ -79,16 +79,19 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
       {"hash_sum", &sum_opts},  {"hash_mean", &sum_opts},   {"hash_mean", &sum_opts},
       {"hash_mean", &sum_opts}, {"hash_count", &count_opts}};
 
-  std::vector<FieldRef> cols = {2, 3, 4, 5, 6, 7, 8, 2};
+  std::vector<FieldRef> to_aggregate = {"sum_qty",    "sum_base_price", "sum_disc_price",
+                                        "sum_charge", "avg_qty",        "avg_price",
+                                        "avg_disc",   "sum_qty"};
+
   std::vector<std::string> names = {"sum_qty",    "sum_base_price", "sum_disc_price",
                                     "sum_charge", "avg_qty",        "avg_price",
                                     "avg_disc",   "count_order"};
 
-  std::vector<FieldRef> keys = {"L_RETURNFLAG", "L_LINESTATUS"};
-  AggregateNodeOptions agg_opts(aggs, cols, names, keys);
+  std::vector<FieldRef> keys = {"l_returnflag", "l_linestatus"};
+  AggregateNodeOptions agg_opts(aggs, to_aggregate, names, keys);
 
-  SortKey l_returnflag_key("L_RETURNFLAG");
-  SortKey l_linestatus_key("L_LINESTATUS");
+  SortKey l_returnflag_key("l_returnflag");
+  SortKey l_linestatus_key("l_linestatus");
   SortOptions sort_opts({l_returnflag_key, l_linestatus_key});
   OrderBySinkNodeOptions order_by_opts(sort_opts, sink_gen);
 

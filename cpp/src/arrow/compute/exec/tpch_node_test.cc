@@ -32,6 +32,7 @@
 #include "arrow/util/thread_pool.h"
 
 #include <cctype>
+#include <regex>
 #include <string>
 #include <unordered_set>
 
@@ -189,23 +190,10 @@ void VerifyPhone(const Datum& d) {
   int64_t length = d.length();
   const char* phones = reinterpret_cast<const char*>(d.array()->buffers[1]->data());
   constexpr int kByteWidth = 15;  // This is common for all PHONE columns
+  std::regex exp("\\d{2}-\\d{3}-\\d{3}-\\d{4}");
   for (int64_t i = 0; i < length; i++) {
     const char* row = phones + i * kByteWidth;
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_EQ(*row++, '-');
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_EQ(*row++, '-');
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_EQ(*row++, '-');
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_TRUE(std::isdigit(*row++));
-    ASSERT_TRUE(std::isdigit(*row++));
+    ASSERT_TRUE(std::regex_match(row, row + kByteWidth, exp));
   }
 }
 
