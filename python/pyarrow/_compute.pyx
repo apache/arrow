@@ -909,10 +909,16 @@ class RoundTemporalOptions(_RoundTemporalOptions):
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
     def _set_options(self, multiple, round_mode):
-        self.wrapped.reset(
-            new CRoundToMultipleOptions(pyarrow_unwrap_scalar(multiple),
-                                        unwrap_round_mode(round_mode))
-        )
+        if isinstance(multiple, Scalar):
+            self.wrapped.reset(
+                new CRoundToMultipleOptions(pyarrow_unwrap_scalar(multiple),
+                                            unwrap_round_mode(round_mode))
+            )
+        else:
+            self.wrapped.reset(
+                new CRoundToMultipleOptions((<double> multiple),
+                                            unwrap_round_mode(round_mode))
+            )
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
@@ -1409,13 +1415,13 @@ cdef class _SetLookupOptions(FunctionOptions):
     def _set_options(self, value_set, c_bool skip_nulls):
         cdef unique_ptr[CDatum] valset
         if isinstance(value_set, Array):
-            valset.reset(new CDatum((< Array > value_set).sp_array))
+            valset.reset(new CDatum((<Array> value_set).sp_array))
         elif isinstance(value_set, ChunkedArray):
             valset.reset(
-                new CDatum((< ChunkedArray > value_set).sp_chunked_array)
+                new CDatum((<ChunkedArray> value_set).sp_chunked_array)
             )
         elif isinstance(value_set, Scalar):
-            valset.reset(new CDatum((< Scalar > value_set).unwrap()))
+            valset.reset(new CDatum((<Scalar> value_set).unwrap()))
         else:
             _raise_invalid_function_option(value_set, "value set",
                                            exception_class=TypeError)
