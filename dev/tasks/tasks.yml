@@ -148,6 +148,8 @@ groups:
     - example-*
     - wheel-*
     - python-sdist
+    # ARROW-15970 and duckdb/duckdb#3258
+    - ~test-r-dev-duckdb
 
 tasks:
   # arbitrary_task_name:
