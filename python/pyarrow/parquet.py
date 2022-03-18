@@ -225,6 +225,63 @@ class ParquetFile:
         in nanoseconds.
     decryption_properties : FileDecryptionProperties, default None
         File decryption properties for Parquet Modular Encryption.
+
+    Examples
+    --------
+
+    Generate an example PyArrow Table and write it to Parquet file:
+
+    >>> import pandas as pd
+    >>> import pyarrow as pa
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+    ...                    'month': [3, 5, 7, 9, 11, 12],
+    ...                    'day': [1, 5, 9, 13, 17, 23],
+    ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+    ...                    "Brittle stars", "Centipede"]})
+    >>> table = pa.Table.from_pandas(df)
+
+    >>> import pyarrow.parquet as pq
+    >>> pq.write_table(table, 'example.parquet')
+
+    create a ParquetFile object from the Parqet file:
+
+    >>> parquet_file = pq.ParquetFile('example.parquet')
+
+    read the data:
+
+    >>> parquet_file.read()
+    pyarrow.Table
+    year: int64
+    month: int64
+    day: int64
+    n_legs: int64
+    animals: string
+    ----
+    year: [[2020,2022,2021,2022,2019,2021]]
+    month: [[3,5,7,9,11,12]]
+    day: [[1,5,9,13,17,23]]
+    n_legs: [[2,2,4,4,5,100]]
+    animals: [["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]]
+
+    create a ParquetFile object with "animals" column as DictionaryArray:
+
+    >>> parquet_file = pq.ParquetFile('example.parquet', read_dictionary=["animals"])
+    >>> parquet_file.read()
+    pyarrow.Table
+    year: int64
+    month: int64
+    day: int64
+    n_legs: int64
+    animals: dictionary<values=string, indices=int32, ordered=0>
+    ----
+    year: [[2020,2022,2021,2022,2019,2021]]
+    month: [[3,5,7,9,11,12]]
+    day: [[1,5,9,13,17,23]]
+    n_legs: [[2,2,4,4,5,100]]
+    animals: [  -- dictionary:
+    ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
+    [0,1,2,3,4,5]]
     """
 
     def __init__(self, source, metadata=None, common_metadata=None,
@@ -263,12 +320,38 @@ class ParquetFile:
 
     @property
     def metadata(self):
+        """
+        Return the Parquet metadata.
+
+        Examples
+        --------
+        >>> parquet_file.metadata
+        <pyarrow._parquet.FileMetaData object at 0x1160d04f0>
+          created_by: parquet-cpp-arrow version 8.0.0-SNAPSHOT
+          num_columns: 5
+          num_rows: 6
+          num_row_groups: 1
+          format_version: 1.0
+          serialized_size: 3225
+        """
         return self.reader.metadata
 
     @property
     def schema(self):
         """
         Return the Parquet schema, unconverted to Arrow types
+
+        Examples
+        --------
+        >>> parquet_file.schema
+        <pyarrow._parquet.ParquetSchema object at 0x11668cb00>
+        required group field_id=-1 schema {
+          optional int64 field_id=-1 year;
+          optional int64 field_id=-1 month;
+          optional int64 field_id=-1 day;
+          optional int64 field_id=-1 n_legs;
+          optional binary field_id=-1 animals (String);
+        }
         """
         return self.metadata.schema
 
@@ -277,11 +360,30 @@ class ParquetFile:
         """
         Return the inferred Arrow schema, converted from the whole Parquet
         file's schema
+
+        Examples
+        --------
+        >>> parquet_file.schema_arrow
+        year: int64
+        month: int64
+        day: int64
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 814
         """
         return self.reader.schema_arrow
 
     @property
     def num_row_groups(self):
+        """
+        Return the number of row groups of the Parquet file.
+
+        Examples
+        --------
+        >>> parquet_file.num_row_groups
+        1
+        """
         return self.reader.num_row_groups
 
     def read_row_group(self, i, columns=None, use_threads=True,
@@ -307,6 +409,22 @@ class ParquetFile:
         -------
         pyarrow.table.Table
             Content of the row group as a table (of columns)
+
+        Examples
+        --------
+        >>> parquet_file.read_row_group(0)
+        pyarrow.Table
+        year: int64
+        month: int64
+        day: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022,2021,2022,2019,2021]]
+        month: [[3,5,7,9,11,12]]
+        day: [[1,5,9,13,17,23]]
+        n_legs: [[2,2,4,4,5,100]]
+        animals: [["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]]
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
@@ -336,6 +454,23 @@ class ParquetFile:
         -------
         pyarrow.table.Table
             Content of the row groups as a table (of columns).
+
+        Examples
+        --------
+        >>> parquet_file.read_row_groups([0,0])
+        pyarrow.Table
+        year: int64
+        month: int64
+        day: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022,2021,2022,2019,...,2022,2021,2022,2019,2021]]
+        month: [[3,5,7,9,11,...,5,7,9,11,12]]
+        day: [[1,5,9,13,17,...,5,9,13,17,23]]
+        n_legs: [[2,2,4,4,5,...,2,4,4,5,100]]
+        animals: [["Flamingo","Parot","Dog","Horse","Brittle stars",...,
+        "Parot","Dog","Horse","Brittle stars","Centipede"]]
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
@@ -346,7 +481,7 @@ class ParquetFile:
     def iter_batches(self, batch_size=65536, row_groups=None, columns=None,
                      use_threads=True, use_pandas_metadata=False):
         """
-        Read streaming batches from a Parquet file
+        Read streaming batches from a Parquet file.
 
         Parameters
         ----------
@@ -369,6 +504,23 @@ class ParquetFile:
         -------
         iterator of pyarrow.RecordBatch
             Contents of each batch as a record batch
+
+        Examples
+        --------
+        >>> for i in parquet_file.iter_batches(batch_size=3):
+        ...     print("RecordBatch")
+        ...     print(i.to_pandas())
+        ...
+        RecordBatch
+           year  month  day  n_legs   animals
+        0  2020      3    1       2  Flamingo
+        1  2022      5    5       2     Parot
+        2  2021      7    9       4       Dog
+        RecordBatch
+           year  month  day  n_legs        animals
+        0  2022      9   13       4          Horse
+        1  2019     11   17       5  Brittle stars
+        2  2021     12   23     100      Centipede
         """
         if row_groups is None:
             row_groups = range(0, self.metadata.num_row_groups)
@@ -383,7 +535,7 @@ class ParquetFile:
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
-        Read a Table from Parquet format,
+        Read a Table from Parquet format.
 
         Parameters
         ----------
@@ -401,6 +553,14 @@ class ParquetFile:
         -------
         pyarrow.table.Table
             Content of the file as a table (of columns).
+
+        Examples
+        --------
+        >>> parquet_file.read(columns=["animals"])
+        pyarrow.Table
+        animals: string
+        ----
+        animals: [["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]]
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
@@ -426,6 +586,11 @@ class ParquetFile:
         Returns
         -------
         num_rows : number of rows in file
+
+        Examples
+        --------
+        >>> parquet_file.scan_contents()
+        6
         """
         column_indices = self._get_column_indices(columns)
         return self.reader.scan_contents(column_indices,
@@ -1310,6 +1475,47 @@ default "hive"
     you need to specify the field names or a full schema. See the
     ``pyarrow.dataset.partitioning()`` function for more details."""
 
+_parquet_dataset_example = """\
+Generate an example PyArrow Table and write it to a partitioned dataset:
+
+>>> import pyarrow as pa
+>>> import pandas as pd
+>>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+...                    'month': [3, 5, 7, 9, 11, 12],
+...                    'day': [1, 5, 9, 13, 17, 23],
+...                    'n_legs': [2, 2, 4, 4, 5, 100],
+...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+...                    "Brittle stars", "Centipede"]})
+>>> table = pa.Table.from_pandas(df)
+
+>>> import pyarrow.parquet as pq
+>>> pq.write_to_dataset(table, root_path='dataset_name',
+...                     partition_cols=['year', 'month', 'day'])
+
+create a ParquetDataset object from the dataset source:
+
+>>> dataset = pq.ParquetDataset('dataset_name/', use_legacy_dataset=False)
+
+and read the data:
+
+>>> dataset.read().to_pandas()
+   n_legs        animals  year month day
+0       5  Brittle stars  2019    11  17
+1       2       Flamingo  2020     3   1
+2     100      Centipede  2021    12  23
+3       4            Dog  2021     7   9
+4       2          Parot  2022     5   5
+5       4          Horse  2022     9  13
+
+create a ParquetDataset object with filter:
+
+>>> dataset = pq.ParquetDataset('dataset_name/', use_legacy_dataset=False,
+...                             filters=[('n_legs','=',4)])
+>>> dataset.read().to_pandas()
+   n_legs animals  year month day
+0       4     Dog  2021     7   9
+1       4   Horse  2022     9  13
+"""
 
 class ParquetDataset:
 
@@ -1364,7 +1570,11 @@ coerce_int96_timestamp_unit : str, default None.
     Cast timestamps that are stored in INT96 format to a particular resolution
     (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
     timestamps will be inferred as timestamps in nanoseconds.
-""".format(_read_docstring_common, _DNF_filter_doc)
+
+Examples
+--------
+{2}
+""".format(_read_docstring_common, _DNF_filter_doc, _parquet_dataset_example)
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
@@ -1549,29 +1759,8 @@ coerce_int96_timestamp_unit : str, default None.
         pyarrow.Table
             Content of the file as a table (of columns).
 
-        Example
-        -------
-
-        Generate data and save them as a dataset:
-
-        >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Write it to a Parquet dataset:
-
-        >>> import pyarrow.parquet as pq
-        >>> pq.write_to_dataset(table, root_path='dataset_name',
-        ...                     partition_cols=['year', 'month', 'day'])
-
-        Read the dataset:
-
-        >>> dataset = pq.ParquetDataset('dataset_name/', use_legacy_dataset=False)
+        Examples
+        --------
         >>> dataset.read(columns=["n_legs"])
         pyarrow.Table
         n_legs: int64
@@ -1615,8 +1804,8 @@ coerce_int96_timestamp_unit : str, default None.
         pyarrow.Table
             Content of the file as a table (of columns).
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.read_pandas(columns=["n_legs"])
         pyarrow.Table
         n_legs: int64
@@ -1752,10 +1941,11 @@ coerce_int96_timestamp_unit : str, default None.
     def fragments(self):
         """
         A list of the Dataset source fragments or pieces with absolute
-        file paths.
+        file paths. To use this property set 'use_legacy_dataset=False'
+        while constructing ParquetDataset object.
 
-        Example
-        -------
+        Examples
+        --------
 
         >>> dataset.fragments
         [<pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2019/month=11/day=17/60c4a2430c6944f2a19bcdc3487bb0ba.parquet partition=[day=17, month=11, year=2019]>
@@ -1773,9 +1963,11 @@ coerce_int96_timestamp_unit : str, default None.
     def files(self):
         """
         A list of absolute Parquet file paths in the Dataset source.
+        To use this property set 'use_legacy_dataset=False'
+        while constructing ParquetDataset object.
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.files
         ['dataset_name/year=2019/month=11/day=17/60c4a2430c6944f2a19bcdc3487bb0ba.parquet',
         'dataset_name/year=2020/month=3/day=1/06319dcabb64451f9e23f5d47965b7f2.parquet',
@@ -1792,9 +1984,11 @@ coerce_int96_timestamp_unit : str, default None.
     def filesystem(self):
         """
         The filesystem type of the Dataset source.
+        To use this property set 'use_legacy_dataset=False'
+        while constructing ParquetDataset object.
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.filesystem
         <pyarrow._fs.LocalFileSystem object at 0x1179443f0>
         """
@@ -1806,9 +2000,11 @@ coerce_int96_timestamp_unit : str, default None.
     def partitioning(self):
         """
         The partitioning of the Dataset source, if discovered.
+        To use this property set 'use_legacy_dataset=False'
+        while constructing ParquetDataset object.
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.partitioning
         <pyarrow._dataset.HivePartitioning object at 0x117926230>
         """
@@ -1969,8 +2165,8 @@ class _ParquetDatasetV2:
         """
         Schema of the Dataset.
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.schema
         n_legs: int64
         animals: string
@@ -2003,8 +2199,8 @@ class _ParquetDatasetV2:
         pyarrow.Table
             Content of the file as a table (of columns).
 
-        Example
-        -------
+        Examples
+        --------
 
         Generate data and save them as a dataset:
 
@@ -2066,8 +2262,8 @@ class _ParquetDatasetV2:
         Read dataset including pandas metadata, if any. Other arguments passed
         through to ParquetDataset.read, see docstring for further details.
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.read_pandas(columns=["n_legs"])
         pyarrow.Table
         n_legs: int64
@@ -2099,8 +2295,8 @@ class _ParquetDatasetV2:
         A list of the Dataset source fragments or pieces with absolute
         file paths.
 
-        Example
-        -------
+        Examples
+        --------
 
         >>> dataset.fragments
         [<pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2019/month=11/day=17/60c4a2430c6944f2a19bcdc3487bb0ba.parquet partition=[day=17, month=11, year=2019]>
@@ -2117,8 +2313,8 @@ class _ParquetDatasetV2:
         """
         A list of absolute Parquet file paths in the Dataset source.
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.files
         ['dataset_name/year=2019/month=11/day=17/60c4a2430c6944f2a19bcdc3487bb0ba.parquet',
         'dataset_name/year=2020/month=3/day=1/06319dcabb64451f9e23f5d47965b7f2.parquet',
@@ -2134,8 +2330,8 @@ class _ParquetDatasetV2:
         """
         The filesystem type of the Dataset source.
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.filesystem
         <pyarrow._fs.LocalFileSystem object at 0x1179443f0>
         """
@@ -2146,8 +2342,8 @@ class _ParquetDatasetV2:
         """
         The partitioning of the Dataset source, if discovered.
 
-        Example
-        -------
+        Examples
+        --------
         >>> dataset.partitioning
         <pyarrow._dataset.HivePartitioning object at 0x117926230>
         """
