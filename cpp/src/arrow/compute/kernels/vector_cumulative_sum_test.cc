@@ -32,6 +32,7 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/status.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -48,7 +49,23 @@
 namespace arrow {
 namespace compute {
 
-class TestBaseCumulativeSum : public ::testing::Test {}
+template <typename Type>
+class TestBaseCumulativeSum : public ::testing::Test {
+  using CType = TypeTraits<Type>::CType;
+
+  void AssertValidCumulativeSum(const Array& input, CumulativeSumOptions options) {
+    ASSERT_OK_AND_ASSIGN(auto result, CumulativeSum(input, options, nullptr));
+  }
+};
+
+template <typename T>
+class TestIntegerCumulativeSum : public TestBaseCumulativeSum<T> {};
+
+template <typename T>
+class TestFloatingPointCumulativeSum : public TestBaseCumulativeSum<T> {};
+
+template <typename T>
+class TestTemporalCumulativeSum : public TestBaseCumulativeSum<T> {};
 
 }  // namespace compute
 }  // namespace arrow

@@ -1737,9 +1737,9 @@ class PartitionNthOptions(_PartitionNthOptions):
 
 
 cdef class _CumulativeSumOptions(FunctionOptions):
-    def _set_options(self, start):
+    def _set_options(self, start, skip_nulls):
         self.wrapped.reset(new CCumulativeSumOptions(
-            pyarrow_unwrap_scalar(start)))
+            pyarrow_unwrap_scalar(start), skip_nulls))
 
 
 class CumulativeSumOptions(_CumulativeSumOptions):
@@ -1750,10 +1750,12 @@ class CumulativeSumOptions(_CumulativeSumOptions):
     ----------
     start : Scalar
         Optional starting value for sum computation
+    skip_nulls : bool
+        When false, propagates the first null/NaN encountered
     """
 
-    def __init__(self, start):
-        self._set_options(start)
+    def __init__(self, start=0, skip_nulls=false):
+        self._set_options(start, skip_nulls)
 
 
 cdef class _ArraySortOptions(FunctionOptions):

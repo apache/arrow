@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/array/array_base.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
@@ -25,23 +26,37 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+namespace {
+
+std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
+  return KernelSignature::Make({InputType::Array(get_id.id)}, OutputType(FirstType));
+}
+
+}  // namespace
+
 template <typename Type>
 struct CumulativeSum {
-  using CType = TypeTraits<Type>::CType;
-  using ScalarType = TypeTraits<Type>::ScalarType;
+  using CType = typename TypeTraits<Type>::CType;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
 
   CType Sum(ExecContext* ctx, std::shared_ptr<Array>& input, ArrayData* output,
-            CType start) {
+            CType start, bool skip_nulls) {
     CType sum = start;
     CType* data = checked_cast<CType*>(input->data()->buffers[1]->data());
     CType* out_values = checked_cast<CType*>(output->buffers[1]->mutable_data());
     ArithmeticOptions options;
-    for (size_t i = input->offset; i < input->length; ++i) {
-      if (input->IsValid(i)) {
+    bool set_null = false;
+    for (size_t i = input->offset; i < input->length(); ++i) {
+      if (set_null) {
+        out_values[i] = NULL;
+      } else if (input->IsNull(i) && !skip_nulls) {
+        out_values[i] = NULL;
+        set_null = true;
+      } else {
         Datum value_datum(data[i]);
         Datum sum_datum(sum);
         auto result = Add(value_datum, sum_datum, options, ctx);
-        ScalarType result_scalar = result.ValueOrDie().scalar_as();
+        ScalarType result_scalar = result.ValueOrDie().scalar_as<ScalarType>();
         sum = result_scalar.value;
         out_values[i] = sum;
       }
@@ -50,14 +65,17 @@ struct CumulativeSum {
     return sum;
   }
 
-  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = OptionsWrapper<CumulativeSumOptions<CType>>::Get(ctx);
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = OptionsWrapper<CumulativeSumOptions>::Get(ctx);
     std::shared_ptr<Scalar>& start_scalar = options.start;
+    bool skip_nulls = options.skip_nulls;
+
     CType start = 0;
     if (start_scalar) {
       if (start_scalar->is_valid()) {
         if (start_scalar->type()->id() != TypeTraits<Type>::type_singleton()->id()) {
-          return Status::Invalid("Types of array values and starting value do not match.");
+          return Status::Invalid(
+              "Types of array values and starting value do not match.");
         }
         start = UnboxScalar<Type>::Unbox(*start_scalar);
       }
@@ -82,8 +100,9 @@ struct CumulativeSum {
           output->null_count = 0;
         }
 
-        Sum(ctx->exec_context(), input, output, start);
+        Sum(ctx->exec_context(), input, output, start, skip_nulls);
         return Status::OK();
+        break;
       case Datum::CHUNKED_ARRAY:
         const auto& input = batch[0].chunked_array();
 
@@ -104,22 +123,20 @@ struct CumulativeSum {
             out_chunk->null_count = 0;
           }
 
-          CType last_value = Sum(ctx->exec_context(), chunk, out_chunk, start);
+          CType last_value =
+              Sum(ctx->exec_context(), chunk, out_chunk, start, skip_nulls);
           start = last_value;
           out_chunks.push_back(MakeArray(std::move(out_chunk)));
         }
 
         *out->chunked_array() = ChunkedArray(out_chunks, input->type());
         return Status::OK();
+        break;
       default:
         return Status::NotImplemented(
             "Unsupported input type for function 'cumulative_sum': ",
             batch[0].ToString());
     }
-  }
-
-  static std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
-    return KernelSignature::Make({InputType::Array(get_id.id)}, OutputType(FirstType));
   }
 };
 
@@ -136,18 +153,22 @@ void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
   auto cumulative_sum = std::make_shared<VectorFunction>(
       "cumulative_sum", Arity::Binary(), &cumulative_sum_doc);
 
-  std::vector<detail::GetTypeId> types;
-  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  std::vector<std::shared_ptr<DataType>> types;
+  types.insert(types.end(), IntTypes().begin(), IntTypes().end());
+  types.insert(types.end(), FloatingPointTypes().begin(), IntTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
-  types.push_back(Type::DURATION);
-  types.push_back(Type::INTERVAL_MONTHS);
+  types.push_back(duration(TimeUnit::SECOND));
+  types.push_back(duration(TimeUnit::MILLI));
+  types.push_back(duration(TimeUnit::MICRO));
+  types.push_back(duration(TimeUnit::NANO));
+  types.push_back(month_interval());
 
   for (auto ty : types) {
     VectorKernel kernel;
-    kernel.can_execute_chunkwise = true;
+    kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::INTERSECTION;
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
-    kernel.signature = CumulativeSum<NumberType>::GetSignature(ty.id);
+    kernel.signature = GetSignature(ty->id());
     kernel.exec = std::move(GenerateTypeAgnosticPrimitive<CumulativeSum>(ty));
     kernel.init = OptionsWrapper<CumulativeSumOptions>::Init;
     DCHECK_OK(cumulative_sum->AddKernel(std::move(kernel)));
