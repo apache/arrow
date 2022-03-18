@@ -325,7 +325,7 @@ message Ticket {
     // The data present in inlined_data represents all data
     // present for the ticket.
     COMPLETE_DATA = 1;
-    // The data present for inlined_data represents only a partial
+    // The data present in inlined_data represents only a partial
     // sample of the data available for the ticket.  No guarantees on the 
     // ordering are provided.
     SAMPLE_DATA = 2;
