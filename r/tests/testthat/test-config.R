@@ -15,34 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Manage the global CPU thread pool in libarrow
-#'
-#' @export
-cpu_count <- function() {
-  GetCpuThreadPoolCapacity()
-}
-
-#' @rdname cpu_count
-#' @param num_threads integer: New number of threads for thread pool
-#' @export
-set_cpu_count <- function(num_threads) {
-  current_cpu_count <- cpu_count()
-  SetCpuThreadPoolCapacity(as.integer(num_threads))
-  invisible(current_cpu_count)
-}
-
-#' Manage the global I/O thread pool in libarrow
-#'
-#' @export
-io_thread_count <- function() {
-  GetIOThreadPoolCapacity()
-}
-
-#' @rdname io_thread_count
-#' @param num_threads integer: New number of threads for thread pool
-#' @export
-set_io_thread_count <- function(num_threads) {
+test_that("set_io_thread_count() sets the number of io threads", {
   current_io_thread_count <- io_thread_count()
-  SetIOThreadPoolCapacity(as.integer(num_threads))
-  invisible(current_io_thread_count)
-}
+  on.exit(set_io_thread_count(current_io_thread_count))
+
+  previous_io_thread_count <- set_io_thread_count(1)
+  expect_identical(previous_io_thread_count, current_io_thread_count)
+  expect_identical(io_thread_count(), 1L)
+
+  expect_identical(set_io_thread_count(current_io_thread_count), 1L)
+})
+
+test_that("set_cpu_count() sets the number of CPU threads", {
+  current_cpu_count <- cpu_count()
+  on.exit(set_cpu_count(current_cpu_count))
+
+  previous_cpu_count <- set_cpu_count(1)
+  expect_identical(previous_cpu_count, current_cpu_count)
+  expect_identical(cpu_count(), 1L)
+
+  expect_identical(set_cpu_count(current_cpu_count), 1L)
+})
