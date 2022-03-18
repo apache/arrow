@@ -301,6 +301,7 @@ message Location {
  */
 message Ticket {
   bytes ticket = 1;
+  
   // Data representing some part of the data retrievable by the ticket.
   //
   // `inlined_completeness` indicates what part of the data retriavable
@@ -314,23 +315,31 @@ message Ticket {
   // and inlining too much data across tickets can run into underlying transport 
   // limitations.  Furthermore, since the data is expected to be small, implementations 
   // are less likely to optimize for zero-copy in these cases. 
-  //
-  // The inlined data is not expected to contain schema metadata. The schema
-  // should be identical to the schema provided on FlightInfo. 
-  repeated FlightData inlined_data = 2;
-  enum InlinedCompleteness {
-    // Default is no data is inlined.  An UNDEFINED value is not provided because an enum
-    // for the data that the client isn't aware of makes the data unusable anyways.
-    NO_INLINED_DATA = 0;
-    // The data present in inlined_data represents all data
-    // present for the ticket.
-    COMPLETE_DATA = 1;
-    // The data present in inlined_data represents only a partial
-    // sample of the data available for the ticket.  No guarantees on the 
-    // ordering are provided.
-    SAMPLE_DATA = 2;
-  };
-  InlinedCompleteness inlined_completeness = 3;
+  message InlinedData { 
+    // Arrow data for consumption.
+    //
+    // The data is not expected to contain schema metadata. The schema
+    // should be identical to the schema provided on FlightInfo. 
+    repeated FlightData data = 1;
+    enum DataSubsetType {
+      // Indicates server is using a different version
+      // of the protos.
+      DATA_SUBSET_TYPE_UNDEFINED = 0;
+      // The data present in inlined_data represents all data
+      // present for the ticket.
+      COMPLETE_DATA = 1;
+      // The data present in inlined_data represents only a partial
+      // sample of the data available for the ticket. Applications
+      // may specify more requirements for partial data (e.g. always
+      // represents the leading n-rows of data) but are not required
+      // to do so.
+      PARTIAL_DATA = 2;
+    }
+    DataSubsetType inlined_completeness = 2;
+  }
+  InlinedData inlined_data = 2;
+  
+
 }
 
 /*
