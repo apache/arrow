@@ -371,8 +371,7 @@ Status ResultStream::Next(std::unique_ptr<Result>* info) {
 }
 
 Status MetadataRecordBatchReader::Next(FlightStreamChunk* next) {
-  ARROW_ASSIGN_OR_RAISE(*next, Next());
-  return Status::OK();
+  return Next().Value(next);
 }
 
 arrow::Result<std::vector<std::shared_ptr<RecordBatch>>>
