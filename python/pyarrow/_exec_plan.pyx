@@ -28,6 +28,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
 from pyarrow.lib import tobytes, _pc
+from pyarrow._compute cimport Expression, _true
 
 
 cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
@@ -138,12 +139,6 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     return output
 
 
-# Default filter for the JOIN operation, means to pick every row.
-cdef CExpression _true = CMakeScalarExpression(
-    <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
-)
-
-
 def tables_join(join_type, left_table not None, left_keys,
                 right_table not None, right_keys,
                 left_suffix=None, right_suffix=None,
@@ -187,6 +182,8 @@ def tables_join(join_type, left_table not None, left_keys,
         vector[CFieldRef] c_left_columns
         vector[CFieldRef] c_right_columns
         vector[CDeclaration] c_decl_plan
+        vector[CExpression] c_projections
+        vector[c_string] c_projected_col_names
         CJoinType c_join_type
 
     # Prepare left and right tables Keys to send them to the C++ function
@@ -248,6 +245,29 @@ def tables_join(join_type, left_table not None, left_keys,
                 <c_string>tobytes(right_suffix or "")
             ))
         )
+        if join_type == "full outer":
+            # In case of full outer joins, the join operation will output all columns
+            # so that we can coalesce the keys and exclude duplicates in a subsequent projection.
+            right_table_index = len(left_columns)
+            for idx, col in enumerate(left_columns + right_columns):
+                if idx < len(left_keys):
+                    # Include keys only once and coalesce left+right table keys.
+                    c_projected_col_names.push_back(tobytes(col))
+                    c_projections.push_back(Expression.unwrap(
+                        Expression._call("coalesce", [
+                            Expression._field(idx), Expression._field(right_table_index+idx)
+                        ])
+                    ))
+                elif right_table_index <= idx < right_table_index+len(right_keys):
+                    # Do not include right table keys. As they would lead to duplicated keys.
+                    continue
+                else:
+                    # For all the other columns incude them as they are.
+                    c_projected_col_names.push_back(tobytes(col))
+                    c_projections.push_back(Expression.unwrap(Expression._field(idx)))
+            c_decl_plan.push_back(
+                CDeclaration(tobytes("project"), CProjectNodeOptions(c_projections, c_projected_col_names))
+            )
     else:
         c_decl_plan.push_back(
             CDeclaration(tobytes("hashjoin"), CHashJoinNodeOptions(

@@ -2413,6 +2413,9 @@ cdef extern from "arrow/compute/exec/expression.h" \
     cdef CExpression CMakeFieldExpression \
         "arrow::compute::field_ref"(c_string name)
 
+    cdef CExpression CMakeFieldExpressionByIndex \
+        "arrow::compute::field_ref"(int idx)
+
     cdef CExpression CMakeCallExpression \
         "arrow::compute::call"(c_string function,
                                vector[CExpression] arguments,

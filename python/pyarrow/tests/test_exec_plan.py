@@ -98,4 +98,28 @@ def test_joins(jointype, expected, use_threads):
 
     r = ep.tables_join(jointype, t1, "colA", t2, "colB",
                        use_threads=use_threads, deduplicate=True)
-    assert r == expected
+    assert r.combine_chunks() == expected
+
+
+def test_table_join_all_columns():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"]
+    })
+
+    result = ep.tables_join("full outer", t1, ["colA", "colB"], t2, ["colA", "colB"])
+    assert result.combine_chunks() == pa.table([
+        [1, 2, 6, None],
+        [10, 20, 60, None],
+        ["a", "b", "f", None],
+        [1, 2, None, 99],
+        [10, 20, None, 99],
+        ["A", "B", None, "Z"],
+    ], names=["colA", "colB", "colVals", "colA", "colB", "colVals"])

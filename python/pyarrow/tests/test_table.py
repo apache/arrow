@@ -2057,14 +2057,14 @@ def test_table_join():
     })
 
     result = t1.join("colA", t2, "colB")
-    assert result == pa.table({
+    assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
         "col3": ["A", "B", None]
     })
 
     result = t1.join("colA", t2, "colB", join_type="full outer")
-    assert result == pa.table({
+    assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, 99],
         "col2": ["a", "b", "f", None],
         "col3": ["A", "B", None, "Z"]
@@ -2083,15 +2083,38 @@ def test_table_join_unique_key():
     })
 
     result = t1.join("colA", t2)
-    assert result == pa.table({
+    assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
         "col3": ["A", "B", None]
     })
 
     result = t1.join("colA", t2, join_type="full outer", right_suffix="_r")
-    assert result == pa.table({
+    assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, 99],
         "col2": ["a", "b", "f", None],
         "col3": ["A", "B", None, "Z"]
     })
+
+
+def test_table_join_collisions():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"]
+    })
+
+    result = t1.join("colA", t2, join_type="full outer")
+    assert result.combine_chunks() == pa.table([
+        [1, 2, 6, 99],
+        [10, 20, 60, None],
+        ["a", "b", "f", None],
+        [10, 20, None, 99],
+        ["A", "B", None, "Z"],
+    ], names=["colA", "colB", "colVals", "colB", "colVals"])

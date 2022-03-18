@@ -49,3 +49,6 @@ cdef class Expression(_Weakrefable):
 
     @staticmethod
     cdef Expression _expr_or_scalar(object expr)
+
+
+cdef CExpression _true
