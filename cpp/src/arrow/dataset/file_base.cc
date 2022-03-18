@@ -42,7 +42,6 @@
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
-#include "arrow/util/tracing_internal.h"
 #include "arrow/util/variant.h"
 
 namespace arrow {

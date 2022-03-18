@@ -38,6 +38,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
+#include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
@@ -45,8 +46,6 @@
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
-
-#include "arrow/util/tracing_internal.h"
 
 using arrow::Array;
 using arrow::ArrayData;
@@ -276,11 +275,8 @@ class FileReaderImpl : public FileReader {
 #ifdef ARROW_WITH_OPENTELEMETRY
     std::string column_name = reader_->metadata()->schema()->Column(i)->name();
     std::string phys_type = TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
-    auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
-    ::arrow::util::tracing::Span childspan;
-    ::arrow::util::tracing::Span parentspan;
-    parentspan.Set(::arrow::util::tracing::Span::Impl{span});
-    START_SPAN_WITH_PARENT(childspan, parentspan,
+    ::arrow::util::tracing::Span span;
+    START_SPAN(span,
                            "parquet::arrow::read_column",
                            {{"parquet.arrow.columnindex", i},
                             {"parquet.arrow.columnname", column_name},
