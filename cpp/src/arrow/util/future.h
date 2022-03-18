@@ -553,19 +553,19 @@ class ARROW_MUST_USE_TYPE Future {
     // We know impl_ will not be dangling when invoking callbacks because at least one
     // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
     // weak reference to impl_ here
-    struct {
-        Result<T> func() {
+    struct Wrapstruct {
+        void operator()() {
           auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
-          return wrapped();
+          func();
         }
-        OnComplete wrapped;
+        OnComplete func;
         opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
-        std::string span_name;
-    } Wrapper;
-    Wrapper.wrapped = std::move(on_complete);
-    Wrapper.activeSpan = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+    };
+    Wrapstruct wrapper;
+    wrapper.func = std::forward(on_complete);
+    wrapper.activeSpan = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
 
-    impl_->AddCallback(Callback{std::move(Wrapper.func)}, opts);
+    impl_->AddCallback(Callback{std::move(wrapper)}, opts);
   }
 
   /// \brief Overload of AddCallback that will return false instead of running
