@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -30,7 +31,6 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 import java.util.Properties;
-import java.util.function.Function;
 
 import org.apache.arrow.driver.jdbc.authentication.Authentication;
 import org.apache.arrow.driver.jdbc.authentication.TokenAuthentication;
@@ -68,6 +68,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private final BufferAllocator allocator;
   private final FlightSqlProducer producer;
   private final Authentication authentication;
+  private final CertKeyPair certKeyPair;
 
   private final MiddlewareCookie.Factory middlewareCookieFactory = new MiddlewareCookie.Factory();
 
@@ -75,12 +76,14 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
                                final ArrowFlightConnectionConfigImpl config,
                                final BufferAllocator allocator,
                                final FlightSqlProducer producer,
-                               final Authentication authentication) {
+                               final Authentication authentication,
+                               final CertKeyPair certKeyPair) {
     this.properties = Preconditions.checkNotNull(properties);
     this.config = Preconditions.checkNotNull(config);
     this.allocator = Preconditions.checkNotNull(allocator);
     this.producer = Preconditions.checkNotNull(producer);
     this.authentication = authentication;
+    this.certKeyPair = certKeyPair;
   }
 
   /**
@@ -95,7 +98,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
             .user("flight-test-user", "flight-test-password")
             .build();
 
-    return new FlightServerTestRule.Builder()
+    return new Builder()
         .host("localhost")
         .randomPort()
         .authentication(authentication)
@@ -117,13 +120,11 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
    *
    * @return A list with CertKeyPair.
    */
-  public static List<FlightServerTestRule.CertKeyPair> exampleTlsCerts() throws URISyntaxException {
+  public static List<CertKeyPair> exampleTlsCerts() throws URISyntaxException {
     final Path root = getFlightTestDataRoot();
     return Arrays.asList(
-        new FlightServerTestRule.CertKeyPair(root.resolve("cert0.pem").toFile(),
-            root.resolve("cert0.pkcs1").toFile()),
-        new FlightServerTestRule.CertKeyPair(root.resolve("cert1.pem").toFile(),
-            root.resolve("cert1.pkcs1").toFile()));
+        new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
+        new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
   }
 
   ArrowFlightJdbcDataSource createDataSource() {
@@ -151,27 +152,54 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return middlewareCookieFactory;
   }
 
-  @Override
-  public Statement apply(Statement base, Description description) {
-    return new Statement() {
-      @Override
-      public void evaluate() throws Throwable {
-        try (FlightServer flightServer =
-                 getStartServer(location ->
-                     FlightServer.builder(allocator, location, producer)
-                         .headerAuthenticator(authentication.authenticate())
-                         .middleware(FlightServerMiddleware.Key.of("KEY"), middlewareCookieFactory)
-                         .build(), 3)) {
-          LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
-          base.evaluate();
-        } finally {
-          close();
-        }
-      }
-    };
+  @FunctionalInterface
+  public interface CheckedFunction<T, R> {
+    R apply(T t) throws IOException;
   }
 
-  private FlightServer getStartServer(Function<Location, FlightServer> newServerFromLocation,
+  @Override
+  public Statement apply(Statement base, Description description) {
+    if (certKeyPair != null) { // connection com TLs
+      return new Statement() {
+        @Override
+        public void evaluate() throws Throwable {
+          try (FlightServer flightServer =
+                   getStartServer(location ->
+                       FlightServer.builder(allocator, location, producer)
+                           .headerAuthenticator(authentication.authenticate())
+                           .middleware(FlightServerMiddleware.Key.of("KEY"),
+                               middlewareCookieFactory)
+                           .useTls(certKeyPair.cert, certKeyPair.key)
+                           .build(), 3)) {
+            LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
+            base.evaluate();
+          } finally {
+            close();
+          }
+        }
+      };
+    } else { // conexão sem TLS
+      return new Statement() {
+        @Override
+        public void evaluate() throws Throwable {
+          try (FlightServer flightServer =
+                   getStartServer(location ->
+                       FlightServer.builder(allocator, location, producer)
+                           .headerAuthenticator(authentication.authenticate())
+                           .middleware(FlightServerMiddleware.Key.of("KEY"),
+                               middlewareCookieFactory)
+                           .build(), 3)) {
+            LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
+            base.evaluate();
+          } finally {
+            close();
+          }
+        }
+      };
+    }
+  }
+
+  private FlightServer getStartServer(CheckedFunction<Location, FlightServer> newServerFromLocation,
                                       int retries)
       throws IOException {
 
@@ -208,7 +236,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     private final Properties properties = new Properties();
     private FlightSqlProducer producer;
     private Authentication authentication;
-    private boolean useTls;
+    private InputStream certChain;
+    private InputStream key;
+    private CertKeyPair certKeyPair;
 
     /**
      * Sets the host for the server rule.
@@ -270,6 +300,18 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     }
 
     /**
+     * Enable TLS on the server.
+     *
+     * @param certChain The certificate chain to use.
+     * @param key       The private key to use.
+     * @return
+     */
+    public Builder useTls(final File certChain, final File key) {
+      certKeyPair = new CertKeyPair(certChain, key);
+      return this;
+    }
+
+    /**
      * Builds the {@link FlightServerTestRule} using the provided values.
      *
      * @return a {@link FlightServerTestRule}.
@@ -277,18 +319,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     public FlightServerTestRule build() {
       authentication.populateProperties(properties);
       return new FlightServerTestRule(properties, new ArrowFlightConnectionConfigImpl(properties),
-          new RootAllocator(Long.MAX_VALUE), producer, authentication);
-    }
-
-    /**
-     * Sets whether to use TLS encryption in this handler.
-     *
-     * @param useTls whether to use TLS encryption.
-     * @return this instance.
-     */
-    public FlightServerTestRule.Builder withTlsEncryption(final boolean useTls) {
-      this.useTls = useTls;
-      return this;
+          new RootAllocator(Long.MAX_VALUE), producer, authentication, certKeyPair);
     }
   }
 
