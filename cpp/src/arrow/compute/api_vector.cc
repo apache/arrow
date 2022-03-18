@@ -136,7 +136,8 @@ static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
 static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOptions>(
-    DataMember("start", &CumulativeSumOptions::start));
+    DataMember("start", &CumulativeSumOptions::start),
+    DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls));
 }  // namespace
 }  // namespace internal
 
@@ -178,8 +179,19 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
-CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start)
-    : FunctionOptions(internal::kCumulativeSumOptionsType), start(std::move(start)) {}
+CumulativeSumOptions::CumulativeSumOptions(uint64_t start, bool skip_nulls)
+    : CumulativeSumOptions(std::make_shared<UInt64Scalar>(start), skip_nulls) {}
+
+CumulativeSumOptions::CumulativeSumOptions(int64_t start, bool skip_nulls)
+    : CumulativeSumOptions(std::make_shared<Int64Scalar>(start), skip_nulls) {}
+
+CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls)
+    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
+
+CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls)
+    : FunctionOptions(internal::kCumulativeSumOptionsType),
+      start(std::move(start)),
+      skip_nulls(skip_nulls) {}
 constexpr char CumulativeSumOptions::kTypeName[];
 
 namespace internal {
@@ -333,7 +345,7 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
 }
 
 Result<std::shared_ptr<Array>> CumulativeSum(const Array& values,
-                                             CumulativeSumOptions& options,
+                                             const CumulativeSumOptions& options,
                                              ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum out,
                         CallFunction("cumulative_sum", {Datum(values)}, &options, ctx));
@@ -341,7 +353,7 @@ Result<std::shared_ptr<Array>> CumulativeSum(const Array& values,
 }
 
 Result<std::shared_ptr<Array>> CumulativeSum(const ChunkedArray& chunked_array,
-                                             CumulativeSumOptions& options,
+                                             const CumulativeSumOptions& options,
                                              ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(
       Datum out, CallFunction("cumulative_sum", {Datum(chunked_array)}, &options, ctx));

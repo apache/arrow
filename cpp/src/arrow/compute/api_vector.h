@@ -191,12 +191,19 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 /// \brief Options for cumulative sum function
 class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
-  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start);
-  CumulativeSumOptions() : CumulativeSumOptions(nullptr) {}
+  explicit CumulativeSumOptions(uint64_t start = 0, bool skip_nulls = false);
+  explicit CumulativeSumOptions(int64_t start = 0, bool skip_nulls = false);
+  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false);
+  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start = nullptr,
+                                bool skip_nulls = false);
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
+  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(nullptr); }
 
   /// Optional starting value for sum computation
   std::shared_ptr<Scalar> start;
+
+  /// When false, propagates the first null/NaN encountered
+  bool skip_nulls = false;
 };
 
 /// @}
@@ -535,12 +542,12 @@ Result<Datum> DictionaryEncode(
 
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> CumulativeSum(const Array& values,
-                                             CumulativeSumOptions& options,
+                                             const CumulativeSumOptions& options,
                                              ExecContext* ctx = NULLPTR);
 
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> CumulativeSum(const ChunkedArray& chunked_array,
-                                             CumulativeSumOptions& options,
+                                             const CumulativeSumOptions& options,
                                              ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
