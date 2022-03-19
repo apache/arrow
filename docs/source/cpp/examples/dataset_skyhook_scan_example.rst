@@ -35,15 +35,15 @@ Setting up Skyhook
 
     apt update 
     apt install -y cmake \
-    libradospp-dev \
-    rados-objclass-dev \
-    ceph \
-    ceph-common \
-    ceph-osd \
-    ceph-mon \
-    ceph-mgr \
-    ceph-mds \
-    rbd-mirror
+                    libradospp-dev \
+                    rados-objclass-dev \
+                    ceph \
+                    ceph-common \
+                    ceph-osd \
+                    ceph-mon \
+                    ceph-mgr \
+                    ceph-mds \
+                    rbd-mirror
 
 2. Compile Skyhook.
 
