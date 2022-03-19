@@ -41,7 +41,8 @@ Instuctions
                     ceph-mon \
                     ceph-mgr \
                     ceph-mds \
-                    rbd-mirror
+                    rbd-mirror \
+                    ceph-fuse
 
 2. Build Skyhook.
 

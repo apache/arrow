@@ -76,7 +76,12 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
   s.base_dir = dir;
   s.recursive = true;
 
+  // Set partitioning strategy
   ds::FileSystemFactoryOptions options;
+  options.partitioning = std::make_shared<ds::HivePartitioning>(
+      arrow::schema({arrow::field("payment_type", arrow::int32()),
+                     arrow::field("VendorID", arrow::int32())}));
+
   // The factory will try to build a child dataset.
   ARROW_ASSIGN_OR_RAISE(auto factory,
                         ds::FileSystemDatasetFactory::Make(fs, s, format, options));
