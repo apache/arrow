@@ -617,8 +617,8 @@ Configuring files open during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When writing data to the disk, there are a few parameters that can be 
-important to optimize the writes, i.e number of rows per file and
-number of files open during write. 
+important to optimize the writes, such as the number of rows per file and
+the number of files open during write.
 
 Set the maximum number of files opened with the ``max_open_files`` parameter of
 :meth:`write_dataset`.
@@ -645,11 +645,11 @@ Set the maximum number of rows written in each file with the ``max_rows_per_file
 parameter of :meth:`write_dataset`.
 
 If ``max_rows_per_file`` is set greater than 0 then this will limit how many 
-rows are placed in any single file. Otherwise there will be no limit and one 
-file will be created in each output directory unless files need to be closed to respect 
-``max_open_files``. This setting is the primary way to control file size. 
-For workloads writing a lot of data files can get very large without a 
-row count cap, leading to out-of-memory errors in downstream readers. The 
+rows are placed in any single file. Otherwise there will be no limit and one
+file will be created in each output directory unless files need to be closed to respect
+``max_open_files``. This setting is the primary way to control file size.
+For workloads writing a lot of data, files can get very large without a
+row count cap, leading to out-of-memory errors in downstream readers. The
 relationship between row count and file size depends on the dataset schema
 and how well compressed (if at all) the data is. For most applications,
 it's best to keep file sizes below 1GB.
@@ -678,6 +678,11 @@ Note: if ``max_rows_per_group`` is set greater than 0 then the dataset writer ma
 up large incoming batches into multiple row groups.  If this value is set then 
 ``min_rows_per_group`` should also be set or else you may end up with very small 
 row groups (e.g. if the incoming row group size is just barely larger than this value).
+In addition row_groups are a factor which impacts write/read of Parquest, Feather and IPC
+formats. The main purpose of these formats are to provide high performance data structures
+for I/O operations on larger datasets. The row_group concept allows the write/read operations
+to be optimized and gather a defined number of rows at once and execute the I/O operation. 
+But row_groups are not integrated to support JSON or CSV formats. 
 
 Writing large amounts of data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
