@@ -21,14 +21,12 @@
 Arrow Skyhook example
 =========================
 
-The file ``cpp/examples/arrow/dataset_documentation_example.cc``
-located inside the source tree contains an example of using Arrow
-Datasets to read, write, select, and filter data. :doc:`../dataset`
-has a full walkthrough of the example.
+The file ``cpp/examples/arrow/dataset_skyhook_scan_example.cc``
+located inside the source tree contains an example of using Skyhook to 
+offload filter and projections to a Ceph cluster.
 
-
-Setting up Skyhook
----------------------
+Instuctions
+--------------------
 
 1. Install Ceph and other dependencies.
 .. code-block:: bash
@@ -63,7 +61,6 @@ Setting up Skyhook
     ..
 
     make -j${nproc} install
-
 
 3. Copy the generated skyhook shared libraries to the correct paths.
 
