@@ -1,0 +1,94 @@
+.. Licensed to the Apache Software Foundation (ASF) under one
+.. or more contributor license agreements.  See the NOTICE file
+.. distributed with this work for additional information
+.. regarding copyright ownership.  The ASF licenses this file
+.. to you under the Apache License, Version 2.0 (the
+.. "License"); you may not use this file except in compliance
+.. with the License.  You may obtain a copy of the License at
+
+..   http://www.apache.org/licenses/LICENSE-2.0
+
+.. Unless required by applicable law or agreed to in writing,
+.. software distributed under the License is distributed on an
+.. "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+.. KIND, either express or implied.  See the License for the
+.. specific language governing permissions and limitations
+.. under the License.
+
+.. default-domain:: cpp
+.. highlight:: cpp
+
+Arrow Skyhook example
+=========================
+
+The file ``cpp/examples/arrow/dataset_documentation_example.cc``
+located inside the source tree contains an example of using Arrow
+Datasets to read, write, select, and filter data. :doc:`../dataset`
+has a full walkthrough of the example.
+
+
+Setting up Skyhook
+---------------------
+
+1. Install Ceph and other dependencies.
+.. code-block:: bash
+
+    apt update 
+    apt install -y cmake \
+    libradospp-dev \
+    rados-objclass-dev \
+    ceph \
+    ceph-common \
+    ceph-osd \
+    ceph-mon \
+    ceph-mgr \
+    ceph-mds \
+    rbd-mirror
+
+2. Compile Skyhook.
+
+.. code-block:: bash
+
+    git clone https://github.com/apache/arrow
+    cd arrow/
+    mkdir -p cpp/release
+    cd cpp/release
+    cmake -DARROW_SKYHOOK=ON \
+    -DARROW_PARQUET=ON \
+    -DARROW_WITH_SNAPPY=ON \
+    -DARROW_BUILD_EXAMPLES=ON \
+    -DARROW_DATASET=ON \
+    -DARROW_CSV=ON \
+    -DARROW_WITH_LZ4=ON \
+    ..
+
+    make -j${nproc} install
+
+
+3. Copy the generated skyhook shared libraries to the correct paths.
+
+.. code-block:: bash
+    
+    cp release/libcls_skyhook.so /usr/lib/x86_64-linux-gnu/rados-classes/
+
+4. Deploy a Ceph cluster.
+
+.. code-block:: bash
+
+    wget https://raw.githubusercontent.com/ceph/ceph-rust/master/micro-osd.sh
+    chmod +x micro-osd.sh
+    mkdir -p /tmp/skyhook
+    ./micro-osd.sh /tmp/skyhook
+    cp /tmp/skyhook/ceph.conf /etc/ceph/ceph.conf
+
+5. Compile the example code.
+
+.. code-block:: bash
+    
+    g++ -std=c++11 ../examples/arrow/dataset_skyhook_scan_example.cc -larrow -larrow_dataset -larrow_skyhook -o skyhook_example
+
+6. Execute the example code.
+
+.. code-block:: bash
+    
+    ./skyhook_example file:///mnt/cephfs/dataset
