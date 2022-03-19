@@ -99,8 +99,8 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
 }
 
 /**
- * \brief Get the Dataset object
- *  Creating Dataset
+ * \brief Get a Table object
+ *  Creating Table
  *  a, b
     1,null
     2,true
@@ -112,9 +112,9 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
     6,false
     7,false
     8,true
- * \return arrow::Result<std::shared_ptr<arrow::dataset::Dataset>>
+ * \return arrow::Result<std::shared_ptr<arrow::Table>>
  */
-arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset() {
+arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
   auto null_long = std::numeric_limits<int64_t>::quiet_NaN();
   ARROW_ASSIGN_OR_RAISE(auto int64_array,
                         GetArrayDataSample<arrow::Int64Type>(
@@ -139,6 +139,16 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset() {
                                               arrow::field("b", arrow::boolean())}),
                                10, {int64_array, bool_array});
   ARROW_ASSIGN_OR_RAISE(auto table, arrow::Table::FromRecordBatches({record_batch}));
+  return table;
+}
+
+/**
+ * \brief Get the Dataset object
+ * Create Dataset from Table
+ * \return arrow::Result<std::shared_ptr<arrow::dataset::Dataset>>
+ */
+arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset() {
+  ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
   auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(table);
   return ds;
 }
@@ -352,6 +362,38 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
   return ExecutePlanAndCollectAsTable(exec_context, plan, basic_data.schema, sink_gen);
 }
 // (Doc section: Source Example)
+
+// (Doc section: Table Source Example)
+/**
+ * \brief
+ * TableSource-Sink Example
+ * This example shows how a table_source and sink can be used
+ * in an execution plan. This includes a table source node
+ * receiving data from a table and the sink node emits
+ * the data to a generator which we collect into a table.
+ * \param exec_context : execution context
+ * \return arrow::Status
+ */
+arrow::Status TableSourceSinkExample(cp::ExecContext& exec_context) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                        cp::ExecPlan::Make(&exec_context));
+
+  ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
+
+  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  int max_batch_size = 2;
+  auto table_source_options = cp::TableSourceNodeOptions{table, max_batch_size};
+
+  ARROW_ASSIGN_OR_RAISE(
+      cp::ExecNode * source,
+      cp::MakeExecNode("table_source", plan.get(), {}, table_source_options));
+
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("sink", plan.get(), {source}, cp::SinkNodeOptions{&sink_gen}));
+
+  return ExecutePlanAndCollectAsTable(exec_context, plan, table->schema(), sink_gen);
+}
+// (Doc section: Table Source Example)
 
 // (Doc section: Filter Example)
 /**
@@ -832,17 +874,18 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
 
 enum ExampleMode {
   SOURCE_SINK = 0,
-  SCAN = 1,
-  FILTER = 2,
-  PROJECT = 3,
-  SCALAR_AGGREGATION = 4,
-  GROUP_AGGREGATION = 5,
-  CONSUMING_SINK = 6,
-  ORDER_BY_SINK = 7,
-  HASHJOIN = 8,
-  KSELECT = 9,
-  WRITE = 10,
-  UNION = 11,
+  TABLE_SOURCE_SINK = 1,
+  SCAN = 2,
+  FILTER = 3,
+  PROJECT = 4,
+  SCALAR_AGGREGATION = 5,
+  GROUP_AGGREGATION = 6,
+  CONSUMING_SINK = 7,
+  ORDER_BY_SINK = 8,
+  HASHJOIN = 9,
+  KSELECT = 10,
+  WRITE = 11,
+  UNION = 12,
 };
 
 int main(int argc, char** argv) {
@@ -863,6 +906,10 @@ int main(int argc, char** argv) {
     case SOURCE_SINK:
       PrintBlock("Source Sink Example");
       status = SourceSinkExample(exec_context);
+      break;
+    case TABLE_SOURCE_SINK:
+      PrintBlock("Table Source Sink Example");
+      status = TableSourceSinkExample(exec_context);
       break;
     case SCAN:
       PrintBlock("Scan Example");
