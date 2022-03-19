@@ -28,7 +28,7 @@ offload filter and projections to a Ceph cluster.
 Instuctions
 --------------------
 
-1. Install Ceph and other dependencies.
+1. Install Ceph and Skyhook dependencies.
 .. code-block:: bash
 
     apt update 
@@ -44,7 +44,7 @@ Instuctions
                     rbd-mirror \
                     ceph-fuse
 
-2. Build Skyhook.
+2. Build and install Skyhook.
 
 .. code-block:: bash
 
@@ -62,14 +62,9 @@ Instuctions
     ..
 
     make -j${nproc} install
-
-3. Copy the generated Skyhook object class library to the correct path.
-
-.. code-block:: bash
-    
     cp release/libcls_skyhook.so /usr/lib/x86_64-linux-gnu/rados-classes/
 
-4. Deploy a Ceph cluster with a single in-memory OSD.
+3. Deploy a Ceph cluster with a single in-memory OSD.
 
 .. code-block:: bash
 
@@ -77,21 +72,15 @@ Instuctions
     ../examples/scripts/micro-osd.sh /tmp/skyhook
     cp /tmp/skyhook/ceph.conf /etc/ceph/ceph.conf
 
-5. Compile the example code.
-
-.. code-block:: bash
-    
-    g++ -std=c++11 ../examples/arrow/dataset_skyhook_scan_example.cc -larrow -larrow_dataset -larrow_skyhook -o skyhook_example
-
-6. Generate the test dataset.
+4. Generate an example dataset.
 
 .. code-block:: bash
 
     python3 ../../ci/scripts/generate_dataset.py
     cp -r nyc /mnt/cephfs/
 
-6. Run the example.
+5. Compile and Run the example.
 
 .. code-block:: bash
-    
+    g++ -std=c++11 ../examples/arrow/dataset_skyhook_scan_example.cc -larrow -larrow_dataset -larrow_skyhook -o skyhook_example
     ./skyhook_example file:///mnt/cephfs/nyc
