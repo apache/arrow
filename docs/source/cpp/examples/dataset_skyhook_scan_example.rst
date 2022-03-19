@@ -70,7 +70,6 @@ Instuctions
 
     mkdir -p /tmp/skyhook
     ../examples/scripts/micro-osd.sh /tmp/skyhook
-    cp /tmp/skyhook/ceph.conf /etc/ceph/ceph.conf
 
 4. Generate an example dataset.
 
