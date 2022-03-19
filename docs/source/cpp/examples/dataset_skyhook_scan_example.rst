@@ -72,10 +72,8 @@ Instuctions
 
 .. code-block:: bash
 
-    wget https://raw.githubusercontent.com/ceph/ceph-rust/master/micro-osd.sh
-    chmod +x micro-osd.sh
     mkdir -p /tmp/skyhook
-    ./micro-osd.sh /tmp/skyhook
+    ../examples/scripts/micro-osd.sh /tmp/skyhook
     cp /tmp/skyhook/ceph.conf /etc/ceph/ceph.conf
 
 5. Compile the example code.
@@ -88,8 +86,8 @@ Instuctions
 
 .. code-block:: bash
 
-        python3 /arrow/ci/scripts/generate_dataset.py
-        cp -r nyc /mnt/cephfs/
+    python3 ../../ci/scripts/generate_dataset.py
+    cp -r nyc /mnt/cephfs/
 
 6. Run the example.
 
