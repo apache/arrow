@@ -914,11 +914,13 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
                 new CRoundToMultipleOptions(pyarrow_unwrap_scalar(multiple),
                                             unwrap_round_mode(round_mode))
             )
-        else:
+        elif isinstance(multiple, (int, float)) and not isinstance(multiple, bool):
             self.wrapped.reset(
-                new CRoundToMultipleOptions((<double> multiple),
+                new CRoundToMultipleOptions(<double> multiple,
                                             unwrap_round_mode(round_mode))
             )
+        else:
+            _raise_invalid_function_option(multiple, "multiple")
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
