@@ -83,4 +83,4 @@ Instuctions
 
 .. code-block:: bash
     g++ -std=c++11 ../examples/arrow/dataset_skyhook_scan_example.cc -larrow -larrow_dataset -larrow_skyhook -o skyhook_example
-    ./skyhook_example file:///mnt/cephfs/nyc
+    LD_LIBRARY_PATH=/usr/local/lib ./skyhook_example file:///mnt/cephfs/nyc
