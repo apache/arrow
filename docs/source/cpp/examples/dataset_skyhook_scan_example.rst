@@ -43,7 +43,7 @@ Instuctions
                     ceph-mds \
                     rbd-mirror
 
-2. Compile Skyhook.
+2. Build Skyhook.
 
 .. code-block:: bash
 
@@ -62,13 +62,13 @@ Instuctions
 
     make -j${nproc} install
 
-3. Copy the generated skyhook shared libraries to the correct paths.
+3. Copy the generated Skyhook object class library to the correct path.
 
 .. code-block:: bash
     
     cp release/libcls_skyhook.so /usr/lib/x86_64-linux-gnu/rados-classes/
 
-4. Deploy a Ceph cluster.
+4. Deploy a Ceph cluster with a single in-memory OSD.
 
 .. code-block:: bash
 
@@ -84,8 +84,15 @@ Instuctions
     
     g++ -std=c++11 ../examples/arrow/dataset_skyhook_scan_example.cc -larrow -larrow_dataset -larrow_skyhook -o skyhook_example
 
-6. Execute the example code.
+6. Generate the test dataset.
+
+.. code-block:: bash
+
+        python3 /arrow/ci/scripts/generate_dataset.py
+        cp -r nyc /mnt/cephfs/
+
+6. Run the example.
 
 .. code-block:: bash
     
-    ./skyhook_example file:///mnt/cephfs/dataset
+    ./skyhook_example file:///mnt/cephfs/nyc

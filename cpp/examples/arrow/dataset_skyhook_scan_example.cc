@@ -57,13 +57,12 @@ struct Configuration {
 
   // Indicates to the Scan operator which columns are requested. This
   // optimization avoid deserializing unneeded columns.
-  std::vector<std::string> projected_columns = {"pickup_at", "dropoff_at",
-                                                "total_amount"};
+  std::vector<std::string> projected_columns = {"total_amount"};
 
   // Indicates the filter by which rows will be filtered. This optimization can
   // make use of partition information and/or file metadata if possible.
   cp::Expression filter =
-      cp::greater(cp::field_ref("total_amount"), cp::literal(1000.0f));
+      cp::greater(cp::field_ref("payment_type"), cp::literal(1));
 
   ds::InspectOptions inspect_options{};
   ds::FinishOptions finish_options{};
