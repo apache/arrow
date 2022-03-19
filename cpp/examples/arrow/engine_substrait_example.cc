@@ -18,6 +18,8 @@
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/engine/api.h>
+#include "arrow/util/async_generator.h"
+#include "arrow/util/iterator.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -36,26 +38,30 @@ namespace cp = arrow::compute;
     }                                              \
   } while (0);
 
-class IgnoringConsumer : public cp::SinkNodeConsumer {
+class SubstraitSinkConsumer : public cp::SinkNodeConsumer {
  public:
-  explicit IgnoringConsumer(size_t tag) : tag_{tag} {}
+  explicit SubstraitSinkConsumer(
+      arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator, size_t tag,
+      std::shared_ptr<arrow::Schema> schema,
+      arrow::util::BackpressureOptions backpressure = {})
+      : producer_(MakeProducer(generator, std::move(backpressure))),
+        tag_{tag},
+        schema_(schema) {}
 
   arrow::Status Consume(cp::ExecBatch batch) override {
     // Consume a batch of data
-    // (just print its row count to stdout)
-    std::cout << "-" << tag_ << " consumed " << batch.length << " rows" << std::endl;
-    std::cout << "Array Data" << std::endl;
-    for(int64_t idx=0; idx < batch.length; idx++) {
-      std::cout << "Batch Id : " << idx << std::endl;
-      if (batch[idx].is_array()) {
-        auto arr = batch[idx].make_array();
-        std::cout << arr->ToString() << std::endl;
-      } else if(batch[idx].is_scalar()) {
-        auto scl = batch[idx].scalar();
-        std::cout << scl->ToString() << std::endl;
-      } 
-    }
+    producer_.Push(batch);
     return arrow::Status::OK();
+  }
+
+  static arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer
+  MakeProducer(arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* out_gen,
+               arrow::util::BackpressureOptions backpressure) {
+    arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>> push_gen(
+        std::move(backpressure));
+    auto out = push_gen.producer();
+    *out_gen = std::move(push_gen);
+    return out;
   }
 
   arrow::Future<> Finish() override {
@@ -65,6 +71,9 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
     // The returned future should only finish when all outstanding tasks have completed
     // (after this method is called Consume is guaranteed not to be called again)
     std::cout << "-" << tag_ << " finished" << std::endl;
+    producer_.Push(arrow::IterationEnd<arrow::util::optional<cp::ExecBatch>>());
+    producer_.Close();
+    is_finished_ = true;
     return arrow::Future<>::MakeFinished();
   }
 
@@ -73,7 +82,10 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
   // multiple sinks
   //
   // In this example, this is set to the zero-based index of the relation tree in the plan
+  bool is_finished_ = false;
+  arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer producer_;
   size_t tag_;
+  std::shared_ptr<arrow::Schema> schema_;
 };
 
 arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
@@ -88,15 +100,6 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
               "types": [ {"i64": {}}, {"bool": {}} ]
             },
             "names": ["i", "b"]
-          },
-          "filter": {
-            "selection": {
-              "directReference": {
-                "structField": {
-                  "field": 1
-                }
-              }
-            }
           },
           "local_files": {
             "items": [
@@ -141,11 +144,14 @@ int main(int argc, char** argv) {
   // Arrow. Therefore, deserializing a plan requires a factory for consumers: each
   // time the root of a substrait relation tree is deserialized, an Arrow consumer is
   // constructed into which its batches will be piped.
+  auto schema = arrow::schema(
+      {arrow::field("i", arrow::int64()), arrow::field("b", arrow::boolean())});
   std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
+  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
   std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
     // All batches produced by the plan will be fed into IgnoringConsumers:
     auto tag = consumers.size();
-    consumers.emplace_back(new IgnoringConsumer{tag});
+    consumers.emplace_back(new SubstraitSinkConsumer{&sink_gen, tag, schema});
     return consumers.back();
   };
 
@@ -176,6 +182,21 @@ int main(int argc, char** argv) {
   // Start the plan...
   std::cout << std::string(50, '#') << " consuming batches:" << std::endl;
   ABORT_ON_FAILURE(plan->StartProducing());
+
+  // Extract output
+
+  cp::ExecContext exec_context(arrow::default_memory_pool(),
+                               ::arrow::internal::GetCpuThreadPool());
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader =
+      cp::MakeGeneratorReader(schema, std::move(sink_gen), exec_context.memory_pool());
+
+  std::shared_ptr<arrow::Table> response_table;
+
+  auto maybe_table = arrow::Table::FromRecordBatchReader(sink_reader.get());
+  ABORT_ON_FAILURE(maybe_table.status());
+  response_table = maybe_table.ValueOrDie();
+
+  std::cout << "Results : " << response_table->ToString() << std::endl;
 
   // ... and wait for it to finish
   ABORT_ON_FAILURE(plan->finished().status());
