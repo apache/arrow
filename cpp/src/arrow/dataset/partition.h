@@ -36,6 +36,8 @@ namespace arrow {
 
 namespace dataset {
 
+constexpr char kFilenamePartitionSep = '_';
+
 // ----------------------------------------------------------------------
 // Partitioning
 

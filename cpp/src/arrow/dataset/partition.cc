@@ -62,11 +62,11 @@ Result<std::string> SafeUriUnescape(util::string_view encoded) {
   return decoded;
 }
 
-arrow::util::string_view StripNonPrefix(const std::string& path) {
-  auto v = util::string_view(path);
-  auto non_prefix_index = v.rfind(arrow::fs::internal::kFilenameSep);
-  if (v.length() > 0 && non_prefix_index != std::string::npos) {
-    v = v.substr(0, non_prefix_index + 1);
+std::string StripNonPrefix(const std::string& path) {
+  std::string v;
+  auto non_prefix_index = path.rfind(kFilenamePartitionSep);
+  if (path.length() > 0 && non_prefix_index != std::string::npos) {
+    v = path.substr(0, non_prefix_index + 1);
   }
   return v;
 }
@@ -353,8 +353,8 @@ Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
   std::vector<Key> keys;
 
   int i = 0;
-  for (auto&& segment : fs::internal::SplitAbstractPath(
-           StripNonPrefix(path), arrow::fs::internal::kFilenameSep)) {
+  for (auto&& segment :
+       fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep)) {
     if (i >= schema_->num_fields()) break;
 
     switch (options_.segment_encoding) {
@@ -434,9 +434,9 @@ Result<std::pair<std::string, std::string>> FilenamePartitioning::FormatValues(
     // if all subsequent keys are absent we'll just print the available keys
     break;
   }
-  return std::make_pair("", fs::internal::JoinAbstractPath(
-                                std::move(segments), arrow::fs::internal::kFilenameSep) +
-                                arrow::fs::internal::kFilenameSep);
+  return std::make_pair(
+      "", fs::internal::JoinAbstractPath(std::move(segments), kFilenamePartitionSep) +
+              kFilenamePartitionSep);
 }
 
 KeyValuePartitioningOptions PartitioningFactoryOptions::AsPartitioningOptions() const {
@@ -651,8 +651,8 @@ class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
       const std::vector<std::string>& paths) override {
     for (const auto& path : paths) {
       size_t field_index = 0;
-      for (auto&& segment : fs::internal::SplitAbstractPath(
-               StripNonPrefix(path), arrow::fs::internal::kFilenameSep)) {
+      for (auto&& segment :
+           fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep)) {
         if (field_index == field_names_.size()) break;
 
         switch (options_.segment_encoding) {

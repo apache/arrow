@@ -30,16 +30,13 @@ namespace fs {
 namespace internal {
 
 constexpr char kSep = '/';
-constexpr char kFilenameSep = '_';
 
 // Computations on abstract paths (not local paths with system-dependent behaviour).
 // Abstract paths are typically used in URIs.
 
 // Split an abstract path into its individual components.
 ARROW_EXPORT
-std::vector<std::string> SplitAbstractPath(util::string_view path, const char& sep);
-ARROW_EXPORT
-std::vector<std::string> SplitAbstractPath(const std::string& path);
+std::vector<std::string> SplitAbstractPath(const std::string& path, char sep = kSep);
 
 // Return the extension of the file
 ARROW_EXPORT
@@ -98,7 +95,7 @@ std::vector<std::string> MinimalCreateDirSet(std::vector<std::string> dirs);
 
 // Join the components of an abstract path.
 template <class StringIt>
-std::string JoinAbstractPath(StringIt it, StringIt end, const char& sep = kSep) {
+std::string JoinAbstractPath(StringIt it, StringIt end, char sep = kSep) {
   std::string path;
   for (; it != end; ++it) {
     if (it->empty()) continue;
@@ -112,7 +109,7 @@ std::string JoinAbstractPath(StringIt it, StringIt end, const char& sep = kSep) 
 }
 
 template <class StringRange>
-std::string JoinAbstractPath(const StringRange& range, const char& sep = kSep) {
+std::string JoinAbstractPath(const StringRange& range, char sep = kSep) {
   return JoinAbstractPath(range.begin(), range.end(), sep);
 }
 

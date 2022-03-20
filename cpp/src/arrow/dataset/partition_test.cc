@@ -450,6 +450,7 @@ TEST_F(TestPartitioning, FilenamePartitioningFormat) {
   AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
                     equal(field_ref("beta"), literal("hello"))),
                "", "0_hello_");
+  AssertFormat(equal(field_ref("alpha"), literal(0)), "", "0_");
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
