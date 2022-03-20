@@ -473,7 +473,7 @@ def resolve_filesystem_and_path(where, filesystem=None):
     if filesystem is not None:
         filesystem = _ensure_filesystem(filesystem)
         if isinstance(filesystem, LocalFileSystem):
-            path = os.path.expanduser(_stringify_path(where))
+            path = _stringify_path(where)
         elif not isinstance(where, str):
             raise TypeError(
                 "Expected string path; path-like objects are only allowed "
@@ -502,10 +502,10 @@ def resolve_filesystem_and_path(where, filesystem=None):
     elif parsed_uri.scheme == 'file':
         # Input is local URI such as file:///home/user/myfile.parquet
         fs = LocalFileSystem._get_instance()
-        fs_path = os.path.expanduser(parsed_uri.path)
+        fs_path = parsed_uri.path
     else:
         # Input is local path such as /home/user/myfile.parquet
         fs = LocalFileSystem._get_instance()
-        fs_path = os.path.expanduser(path)
+        fs_path = path
 
     return fs, fs_path
