@@ -221,7 +221,7 @@ register_bindings_datetime <- function() {
                         0,
                         sec)
 
-    call_binding("make_datetime", year, month, day, hour, min, sec)
+    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
   })
   register_binding("ISOdate", function(year,
                                        month,
@@ -230,7 +230,7 @@ register_bindings_datetime <- function() {
                                        min = 0,
                                        sec = 0,
                                        tz = "UTC") {
-    call_binding("make_datetime", year, month, day, hour, min, sec)
+    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
   })
 }
 
