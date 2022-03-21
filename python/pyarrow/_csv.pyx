@@ -122,8 +122,8 @@ cdef class ReadOptions(_Weakrefable):
         The character encoding of the CSV data.  Columns that cannot
         decode using this encoding can still be read as Binary.
 
-    Example
-    -------
+    Examples
+    --------
 
     Defining an example file from bytes object:
 
@@ -353,7 +353,7 @@ cdef class ParseOptions(_Weakrefable):
         It should accept a single InvalidRow argument and return either
         "skip" or "error" depending on the desired outcome.
 
-    Example:
+    Examples
     --------
 
     Defining an example file from bytes object:
@@ -642,8 +642,8 @@ cdef class ConvertOptions(_Weakrefable):
         `column_types`, or null by default).
         This option is ignored if `include_columns` is empty.
 
-    Example
-    -------
+    Examples
+    --------
 
     Defining an example file from bytes object:
 
@@ -1141,8 +1141,8 @@ def read_csv(input_file, read_options=None, parse_options=None,
     :class:`pyarrow.Table`
         Contents of the CSV file as a in-memory table.
 
-    Example
-    -------
+    Examples
+    --------
 
     Defining an example file from bytes object:
 
@@ -1336,8 +1336,8 @@ def write_csv(data, output_file, write_options=None,
     memory_pool : MemoryPool, optional
         Pool for temporary allocations.
 
-    Example
-    -------
+    Examples
+    --------
 
     >>> import pyarrow as pa
     >>> from pyarrow import csv
