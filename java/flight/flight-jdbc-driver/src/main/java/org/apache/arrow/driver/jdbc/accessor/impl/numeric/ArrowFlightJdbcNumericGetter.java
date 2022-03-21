@@ -45,7 +45,7 @@ class ArrowFlightJdbcNumericGetter {
    */
   static class NumericHolder {
     int isSet; // Tells if value is set; 0 = not set, 1 = set
-    long value; // Holds actual value in its respective timeunit
+    long value; // Holds actual value
   }
 
   /**
