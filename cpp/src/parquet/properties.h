@@ -177,7 +177,7 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    ///  Enable dictionary encoding in general for all columns. Default enabled.
+    /// Enable dictionary encoding in general for all columns. Default enabled.
     Builder* enable_dictionary() {
       default_column_properties_.set_dictionary_enabled(true);
       return this;
