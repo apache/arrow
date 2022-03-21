@@ -133,7 +133,7 @@ When in doubt, comment on the issue asking if they mind if you try to put
 together a pull request; interpret no response to mean that you’re free to
 proceed.
 
-**Aske questions**
+**Ask questions**
 Please do ask questions, either on the JIRA itself or on the dev mailing list,
 if you have doubts about where to begin or what approach to take.
 This is particularly a good idea if this is your first code contribution,

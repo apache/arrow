@@ -139,16 +139,11 @@ Good reproducible examples or minimal bug reports can be found in next tabs:
 
    .. tab:: R
 
-      Error when reading a CSV file with ``col_types`` option ``"T"`` or ``"t"``:
+      Error when reading a CSV file with ``col_types`` option ``"T"`` or ``"t"`` when source data is in millisecond precision:
 
       .. code-block:: R
 
-         library(arrow)
-         #>
-         #> Attaching package: 'arrow'
-         #> The following object is masked from 'package:utils':
-         #>
-         #>     timestamp
+         library(arrow, warn.conflicts = FALSE)
          tf <- tempfile()
          write.csv(data.frame(x = '2018-10-07 19:04:05.005'), tf, row.names = FALSE)
 
