@@ -217,11 +217,10 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
   auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span)
 
 #define TIE_SPAN_TO_GENERATOR(generator) \
-        generator = ::arrow::internal::tracing::TieSpanToAsyncGenerator(generator)
+  generator = ::arrow::internal::tracing::TieSpanToAsyncGenerator(generator)
 
 #define PROPAGATE_SPAN_TO_GENERATOR(generator) \
-        generator = \
-            ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator(generator)
+  generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator(generator)
 
 #else
 

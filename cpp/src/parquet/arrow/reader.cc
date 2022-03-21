@@ -68,7 +68,6 @@ using arrow::TimestampArray;
 using arrow::internal::checked_cast;
 using arrow::internal::Iota;
 
-
 // Help reduce verbosity
 using ParquetReader = parquet::ParquetFileReader;
 
@@ -274,14 +273,14 @@ class FileReaderImpl : public FileReader {
     }
 #ifdef ARROW_WITH_OPENTELEMETRY
     std::string column_name = reader_->metadata()->schema()->Column(i)->name();
-    std::string phys_type = TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
+    std::string phys_type =
+        TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
     ::arrow::util::tracing::Span span;
-    START_SPAN(span,
-                           "parquet::arrow::read_column",
-                           {{"parquet.arrow.columnindex", i},
-                            {"parquet.arrow.columnname", column_name},
-                             {"parquet.arrow.physicaltype", phys_type},
-                            {"parquet.arrow.records_to_read", records_to_read}});
+    START_SPAN(span, "parquet::arrow::read_column",
+               {{"parquet.arrow.columnindex", i},
+                {"parquet.arrow.columnname", column_name},
+                {"parquet.arrow.physicaltype", phys_type},
+                {"parquet.arrow.records_to_read", records_to_read}});
 #endif
     return reader->NextBatch(records_to_read, out);
     END_PARQUET_CATCH_EXCEPTIONS
@@ -1189,8 +1188,7 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
   GET_CURRENT_SPAN(span);
-  auto read_column = [=](
-                         size_t i, std::shared_ptr<ColumnReaderImpl> reader) mutable
+  auto read_column = [=](size_t i, std::shared_ptr<ColumnReaderImpl> reader) mutable
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
     SET_SPAN_SCOPE(scope, span);
     std::shared_ptr<::arrow::ChunkedArray> column;

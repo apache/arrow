@@ -245,7 +245,7 @@ class ConcreteFutureImpl : public FutureImpl {
     std::unique_lock<std::mutex> lock(mutex_);
 #ifdef ARROW_WITH_OPENTELEMETRY
     struct Wrapstruct {
-        void operator()(const FutureImpl& impl) {
+      void operator()(const FutureImpl& impl) {
         bool trace_valid = activeSpan->GetContext().IsValid();
         auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
         std::move(func)(impl);
@@ -253,7 +253,9 @@ class ConcreteFutureImpl : public FutureImpl {
       Callback func;
       opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
     };
-    Wrapstruct wrapper{std::forward<Callback>(callback), ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
+    Wrapstruct wrapper;
+    wrapper.func = std::forward<Callback>(callback);
+    wrapper.activeSpan = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
 
     CallbackRecord callback_record{std::move(wrapper), opts};
 #else
