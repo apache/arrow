@@ -654,7 +654,7 @@ cdef class ConvertOptions(_Weakrefable):
     ... Brittle stars,5,03/03/2022
     ... Centipede,100,04/03/2022'''
 
-    Define date parsing format to get a timestamp type column
+    Define a date parsing format to get a timestamp type column
     (in case dates are not in ISO format and not converted by default):
 
     >>> convert_options = csv.ConvertOptions(
