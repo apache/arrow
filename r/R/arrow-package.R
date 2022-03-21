@@ -113,7 +113,6 @@
   }
 }
 
-
 #' Is the C++ Arrow library available?
 #'
 #' You won't generally need to call these function, but they're made available
