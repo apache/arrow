@@ -51,6 +51,11 @@ that changing their value later will have an effect.
    ``mimalloc`` and ``system``, depending on which backends were enabled when
    :ref:`building Arrow C++ <building-arrow-cpp>`.
 
+.. envvar:: ARROW_IO_THREADS
+
+   Override the default number of threads for the global IO thread pool.
+   The value of this environment variable should be a positive integer.
+
 .. envvar:: ARROW_LIBHDFS_DIR
 
    The directory containing the C HDFS library (``hdfs.dll`` on Windows,
