@@ -856,13 +856,12 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     fixed = TRUE
   )
 
-  # we do not support as.Date() with double/ float
-  compare_dplyr_binding(
-     .input %>%
+  # we do not support as.Date() with double/ float (error surfaced from C++)
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
       mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect(),
-     test_df,
-     warning = TRUE
+      collect()
   )
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
