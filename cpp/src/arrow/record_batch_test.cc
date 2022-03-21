@@ -427,7 +427,7 @@ TEST_F(TestRecordBatchReader, DeprecatedReadAllToTable) {
   std::shared_ptr<Table> table;
 
   ASSERT_OK(reader_->ReadAll(&table));
-  const auto &chunks = table->column(0)->chunks();
+  const auto& chunks = table->column(0)->chunks();
   ASSERT_EQ(chunks.size(), batches_.size());
   for (size_t index = 0; index < batches_.size(); index++) {
     AssertArraysEqual(*chunks[index], *batches_[index]->column(0));
