@@ -472,9 +472,9 @@ TEST(TestTime, TimeStampAdd) {
             StringToTimestamp("2000-02-29 00:00:00"));
   context.Reset();
 
-  EXPECT_EQ(add_date64_day_time_interval(context_ptr,
-                                         castDATE_utf8(context_ptr, "2001-02-25", 10), 4),
-            StringToTimestamp("2001-02-29 00:00:00"));
+  EXPECT_EQ(add_date64_day_time_interval(
+                context_ptr, castDATE_utf8(context_ptr, "2001-02-25", 10), INT64_MAX),
+            -1);
   context.Reset();
 
   // 77309411328000001 represents 1 day and 5 hours of interval to be add.

@@ -183,7 +183,43 @@ TIMESTAMP_DIFF(timestamp)
     return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
   }
 
-#define ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)                \
+#define SAFE_ADD(TYPE)                                                                   \
+  gdv_##TYPE safe_add_##TYPE(gdv_##TYPE val1, gdv_##TYPE val2, int64_t context_ptr) {    \
+    gdv_##TYPE sum = val1 + val2;                                                        \
+    if ((val1 ^ sum) < 0 && (val1 ^ val2) >= 0) {                                        \
+      gdv_fn_context_set_error_msg(context_ptr, "The input values caused an overflow."); \
+                                                                                         \
+      return -1;                                                                         \
+    }                                                                                    \
+    return sum;                                                                          \
+  }
+
+#define SAFE_SUB(TYPE)                                                                   \
+  gdv_##TYPE safe_sub_##TYPE(gdv_##TYPE val1, gdv_##TYPE val2, int64_t context_ptr) {    \
+    gdv_##TYPE diff = val1 - val2;                                                       \
+    if ((val1 ^ diff) < 0 && (val1 ^ val2) < 0) {                                        \
+      gdv_fn_context_set_error_msg(context_ptr, "The input values caused an overflow."); \
+                                                                                         \
+      return -1;                                                                         \
+    }                                                                                    \
+    return diff;                                                                         \
+  }
+gdv_int64 safe_add_int64(gdv_int64 val1, gdv_int64 val2, int64_t context_ptr) {
+  gdv_int64 diff = val1 + val2;
+  if ((val1 ^ diff) < 0 && (val1 ^ val2) >= 0) {
+    gdv_fn_context_set_error_msg(context_ptr, "The input values caused an overflow.");
+
+    return -1;
+  }
+  return diff;
+}
+
+SAFE_ADD(int32)
+// SAFE_ADD(int64)
+SAFE_SUB(int32)
+SAFE_SUB(int64)
+
+#define ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS, OP)            \
   FORCE_INLINE                                                                    \
   gdv_timestamp NAME##_##TYPE##_day_time_interval(                                \
       int64_t context_ptr, gdv_##TYPE millis, gdv_day_time_interval count) {      \
@@ -195,11 +231,18 @@ TIMESTAMP_DIFF(timestamp)
     }                                                                             \
     gdv_int64 day_interval_days = extractDay_daytimeinterval(count);              \
     gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);         \
-    return static_cast<gdv_timestamp>(millis) +                                   \
-           (day_interval_days * TO_MILLIS + day_interval_millis);                 \
+    printf("%ld | %ld", day_interval_days, day_interval_millis);\
+    auto interval_millis = safe_##OP##_int64(day_interval_days * (TO_MILLIS),     \
+                                             day_interval_millis, context_ptr);   \
+    if (interval_millis != -1) {                                                  \
+      return static_cast<gdv_timestamp>(                                          \
+          safe_##OP##_int64(millis, interval_millis, context_ptr));               \
+    } else {                                                                      \
+      return -1;                                                                  \
+    }                                                                             \
   }
 
-#define ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)                   \
+#define ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE, NAME, OP)                          \
   FORCE_INLINE                                                                         \
   gdv_timestamp NAME##_##TYPE##_month_interval(int64_t context_ptr, gdv_##TYPE millis, \
                                                gdv_year_month_interval count) {        \
@@ -210,21 +253,22 @@ TIMESTAMP_DIFF(timestamp)
       return -1;                                                                       \
     }                                                                                  \
     EpochTimePoint tp(millis);                                                         \
-    return tp.AddMonths(TO_MILLIS * count).MillisSinceEpoch();                         \
+    return tp.AddMonths(OP * count).MillisSinceEpoch();                                \
   }
 
-#define ADD_DAY_TIME_INTERVAL_TO_TIME(TYPE, NAME, TO_MILLIS)                             \
-  FORCE_INLINE                                                                           \
-  gdv_time32 NAME##_time32_day_time_interval(int64_t context_ptr, gdv_time32 millis,     \
-                                             gdv_day_time_interval count) {              \
-    if (count < 0) {                                                                     \
-      gdv_fn_context_set_error_msg(                                                      \
-          context_ptr, "a day time interval field can not be a negative number");        \
-                                                                                         \
-      return -1;                                                                         \
-    }                                                                                    \
-    millis += static_cast<gdv_time32>(extractMillis_daytimeinterval(count)) * TO_MILLIS; \
-    return millis % MILLIS_IN_DAY;                                                       \
+#define ADD_DAY_TIME_INTERVAL_TO_TIME(TYPE, NAME, OP)                                 \
+  FORCE_INLINE                                                                        \
+  gdv_time32 NAME##_time32_day_time_interval(int64_t context_ptr, gdv_time32 millis,  \
+                                             gdv_day_time_interval count) {           \
+    if (count < 0) {                                                                  \
+      gdv_fn_context_set_error_msg(                                                   \
+          context_ptr, "a day time interval field can not be a negative number");     \
+                                                                                      \
+      return -1;                                                                      \
+    }                                                                                 \
+    auto result =                                                                     \
+        safe_##OP##_int32(millis, extractMillis_daytimeinterval(count), context_ptr); \
+    return result % MILLIS_IN_DAY;                                                    \
   }
 
 #define ADD_TIMESTAMP_TO_INT32_MONTH_UNITS(TYPE, NAME, N_MONTHS)                \
@@ -325,16 +369,16 @@ ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, date_add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add, MILLIS_IN_DAY)
 
 // add a time interval to timestamp
-ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(date64, add, MILLIS_IN_DAY)
-ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(timestamp, add, MILLIS_IN_DAY)
+ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(date64, add, MILLIS_IN_DAY, add)
+ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(timestamp, add, MILLIS_IN_DAY, add)
 ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(timestamp, add, 1)
 ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(date64, add, 1)
-ADD_DAY_TIME_INTERVAL_TO_TIME(time32, add, 1)
+ADD_DAY_TIME_INTERVAL_TO_TIME(time32, add, add)
 
 // subtract timestamp from a time interval
-ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(date64, subtract, -1 * MILLIS_IN_DAY)
-ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(timestamp, subtract, -1 * MILLIS_IN_DAY)
+ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(date64, subtract, MILLIS_IN_DAY, sub)
+ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(timestamp, subtract, MILLIS_IN_DAY, sub)
 ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(timestamp, subtract, -1)
-ADD_DAY_TIME_INTERVAL_TO_TIME(time32, subtract, -1)
+ADD_DAY_TIME_INTERVAL_TO_TIME(time32, subtract, sub)
 
 }  // extern "C"
