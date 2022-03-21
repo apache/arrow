@@ -246,7 +246,6 @@ class ConcreteFutureImpl : public FutureImpl {
 #ifdef ARROW_WITH_OPENTELEMETRY
     struct Wrapstruct {
       void operator()(const FutureImpl& impl) {
-        bool trace_valid = activeSpan->GetContext().IsValid();
         auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
         std::move(func)(impl);
       }
