@@ -75,14 +75,15 @@ Instuctions
     mkdir -p /tmp/skyhook
     ../examples/scripts/micro-osd.sh /tmp/skyhook
 
-4. Generate an example dataset.
+4. Generate the example dataset.
 
 .. code-block:: bash
 
     python3 ../../ci/scripts/generate_dataset.py
     cp -r nyc /mnt/cephfs/
 
-5. Compile and Run the example.
+5. Execute the example.
 
 .. code-block:: bash
+
     LD_LIBRARY_PATH=/usr/local/lib release/dataset_skyhook_scan_example file:///mnt/cephfs/nyc
