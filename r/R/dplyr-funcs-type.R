@@ -82,7 +82,6 @@ register_bindings_type_cast <- function() {
                                        tryFormats = "%Y-%m-%d",
                                        origin = "1970-01-01",
                                        tz = "UTC") {
-
     # the origin argument will be better supported once we implement temporal
     # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
     # TODO revisit once the above has been sorted
@@ -127,7 +126,6 @@ register_bindings_type_cast <- function() {
                                        format = NULL,
                                        origin = "1970-01-01",
                                        tz = "UTC") {
-
     # the origin argument will be better supported once we implement temporal
     # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
     # TODO revisit once the above has been sorted
@@ -135,8 +133,9 @@ register_bindings_type_cast <- function() {
       abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
     }
 
-    if (!is.null(tz)) {
-      "`tz` argument is ignored by `as_date()`"
+    # assume format is ISO if unspecified (to align with lubridate::as_date)
+    if (is.null(format)) {
+      format <- "%Y-%m-%d"
     }
 
     if (call_binding("is.Date", x)) {
@@ -144,6 +143,9 @@ register_bindings_type_cast <- function() {
 
       # cast from POSIXct
     } else if (call_binding("is.POSIXct", x)) {
+      if (!missing(tz)) {
+        x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+      }
       # POSIXct is of type double -> we need this to prevent going down the
       # "double" branch
       x <- x
