@@ -542,13 +542,13 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
   /// \brief Consume entire stream as a vector of record batches
   virtual arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches();
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches overload instead.")
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
   Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
 
   /// \brief Consume entire stream as a Table
   virtual arrow::Result<std::shared_ptr<Table>> ToTable();
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable overload instead.")
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
   Status ReadAll(std::shared_ptr<Table>* table);
 };
 
