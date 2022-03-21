@@ -2600,7 +2600,7 @@ cdef class Table(_PandasConvertible):
 
         return table
 
-    def join(self, keys, right_table, right_keys=None, join_type="left outer",
+    def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, use_threads=True):
         """
         Perform a join between this table and another one.
@@ -2610,12 +2610,12 @@ cdef class Table(_PandasConvertible):
 
         Parameters
         ----------
-        keys : str or list[str]
-            The columns from current table that should be used as keys
-            of the join operation left side.
         right_table : Table
             The table to join to the current one, acting as the right table
             in the join operation.
+        keys : str or list[str]
+            The columns from current table that should be used as keys
+            of the join operation left side.
         right_keys : str or list[str], default None
             The columns from the right_table that should be used as keys
             on the join operation right side. 

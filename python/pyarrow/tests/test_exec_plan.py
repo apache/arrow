@@ -119,7 +119,8 @@ def test_table_join_all_columns():
         "colVals": ["Z", "B", "A"]
     })
 
-    result = ep.tables_join("full outer", t1, ["colA", "colB"], t2, ["colA", "colB"])
+    result = ep.tables_join(
+        "full outer", t1, ["colA", "colB"], t2, ["colA", "colB"])
     assert result.combine_chunks() == pa.table([
         [1, 2, 6, None],
         [10, 20, 60, None],

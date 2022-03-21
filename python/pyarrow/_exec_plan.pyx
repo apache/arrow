@@ -255,7 +255,8 @@ def tables_join(join_type, left_table not None, left_keys,
                     c_projected_col_names.push_back(tobytes(col))
                     c_projections.push_back(Expression.unwrap(
                         Expression._call("coalesce", [
-                            Expression._field(idx), Expression._field(right_table_index+idx)
+                            Expression._field(idx), Expression._field(
+                                right_table_index+idx)
                         ])
                     ))
                 elif right_table_index <= idx < right_table_index+len(right_keys):
@@ -264,9 +265,11 @@ def tables_join(join_type, left_table not None, left_keys,
                 else:
                     # For all the other columns incude them as they are.
                     c_projected_col_names.push_back(tobytes(col))
-                    c_projections.push_back(Expression.unwrap(Expression._field(idx)))
+                    c_projections.push_back(
+                        Expression.unwrap(Expression._field(idx)))
             c_decl_plan.push_back(
-                CDeclaration(tobytes("project"), CProjectNodeOptions(c_projections, c_projected_col_names))
+                CDeclaration(tobytes("project"), CProjectNodeOptions(
+                    c_projections, c_projected_col_names))
             )
     else:
         c_decl_plan.push_back(

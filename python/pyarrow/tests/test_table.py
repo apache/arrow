@@ -2056,14 +2056,14 @@ def test_table_join():
         "col3": ["Z", "B", "A"]
     })
 
-    result = t1.join("colA", t2, "colB")
+    result = t1.join(t2, "colA", "colB")
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
         "col3": ["A", "B", None]
     })
 
-    result = t1.join("colA", t2, "colB", join_type="full outer")
+    result = t1.join(t2, "colA", "colB", join_type="full outer")
     assert result.combine_chunks().sort_by("colA") == pa.table({
         "colA": [1, 2, 6, 99],
         "col2": ["a", "b", "f", None],
@@ -2082,14 +2082,14 @@ def test_table_join_unique_key():
         "col3": ["Z", "B", "A"]
     })
 
-    result = t1.join("colA", t2)
+    result = t1.join(t2, "colA")
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
         "col3": ["A", "B", None]
     })
 
-    result = t1.join("colA", t2, join_type="full outer", right_suffix="_r")
+    result = t1.join(t2, "colA", join_type="full outer", right_suffix="_r")
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, 99],
         "col2": ["a", "b", "f", None],
@@ -2110,7 +2110,7 @@ def test_table_join_collisions():
         "colVals": ["Z", "B", "A"]
     })
 
-    result = t1.join("colA", t2, join_type="full outer")
+    result = t1.join(t2, "colA", join_type="full outer")
     assert result.combine_chunks().sort_by("colA") == pa.table([
         [1, 2, 6, 99],
         [10, 20, 60, None],
