@@ -243,8 +243,6 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     private final Properties properties = new Properties();
     private FlightSqlProducer producer;
     private Authentication authentication;
-    private InputStream certChain;
-    private InputStream key;
     private CertKeyPair certKeyPair;
 
     /**
