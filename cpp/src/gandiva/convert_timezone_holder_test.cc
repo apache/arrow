@@ -17,8 +17,9 @@
 
 #include "gandiva/convert_timezone_holder.h"
 
+#include <gandiva/precompiled/testing.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "gandiva/precompiled/testing.h"
 
 #include <memory>
 #include <vector>
@@ -88,20 +89,23 @@ TEST_F(TestConvertTimezone, TestUnknownTimezones) {
   auto status = ConvertTimezoneHolder::Make("PSF", "LKT", &convert_holder);
 
   EXPECT_FALSE(status.ok());
-  EXPECT_STREQ(status.message().c_str(),
-               "Couldn't find one of the timezones given or it's invalid.");
+  EXPECT_THAT(
+      status.message().c_str(),
+      ::testing::HasSubstr("Couldn't find one of the timezones given or it's invalid."));
 
   auto status1 = ConvertTimezoneHolder::Make("-02:00", "-25:00", &convert_holder);
 
   EXPECT_FALSE(status1.ok());
-  EXPECT_STREQ(status1.message().c_str(),
-               "Couldn't find one of the timezones given or it's invalid.");
+  EXPECT_THAT(
+      status1.message().c_str(),
+      ::testing::HasSubstr("Couldn't find one of the timezones given or it's invalid."));
 
   auto status2 = ConvertTimezoneHolder::Make("UT-25", "UTC+2", &convert_holder);
 
   EXPECT_FALSE(status2.ok());
-  EXPECT_STREQ(status2.message().c_str(),
-               "Couldn't find one of the timezones given or it's invalid.");
+  EXPECT_THAT(
+      status2.message().c_str(),
+      ::testing::HasSubstr("Couldn't find one of the timezones given or it's invalid."));
 }
 
 TEST_F(TestConvertTimezone, TestConvertTimezoneOffset) {
