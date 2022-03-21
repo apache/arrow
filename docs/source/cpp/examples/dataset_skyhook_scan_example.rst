@@ -29,6 +29,9 @@ offload filters and projections to a Ceph cluster.
 Instuctions
 ===========
 
+.. note::
+   The instructions below are for ubuntu 20.04 or above.
+
 1. Install Ceph and Skyhook dependencies.
 .. code-block:: bash
 
@@ -82,5 +85,4 @@ Instuctions
 5. Compile and Run the example.
 
 .. code-block:: bash
-    g++ -std=c++11 ../examples/arrow/dataset_skyhook_scan_example.cc -larrow -larrow_dataset -larrow_skyhook -o skyhook_example
-    LD_LIBRARY_PATH=/usr/local/lib ./skyhook_example file:///mnt/cephfs/nyc
+    LD_LIBRARY_PATH=/usr/local/lib release/dataset_skyhook_scan_example file:///mnt/cephfs/nyc
