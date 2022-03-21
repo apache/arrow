@@ -378,7 +378,8 @@ class PullRequest(object):
         commit_authors = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
                                  '--pretty=format:%an <%ae>']).split("\n")
         commit_co_authors = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                                 '%(trailers:key=Co-authored-by,valueonly)']).split("\n")
+                                    '%(trailers:key=Co-authored-by,valueonly)']
+                                    ).split("\n")
         all_commit_authors = commit_authors + commit_co_authors
         distinct_authors = sorted(set(all_commit_authors),
                                   key=lambda x: commit_authors.count(x),
