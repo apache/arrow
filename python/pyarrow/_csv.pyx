@@ -359,7 +359,7 @@ cdef class ParseOptions(_Weakrefable):
     Defining an example file from bytes object:
 
     >>> import io
-    >>> s = b'''1;2;3
+    >>> s = b'''animals;n_legs;entry
     ... Flamingo;2;2022-03-01
     ... # Comment here:
     ... Horse;4;2022-03-02
@@ -648,7 +648,7 @@ cdef class ConvertOptions(_Weakrefable):
     Defining an example file from bytes object:
 
     >>> import io
-    >>> s = b'''1,2,3
+    >>> s = b'''animal,n_legs,entry
     ... Flamingo,2,01/03/2022
     ... Horse,4,02/03/2022
     ... Brittle stars,5,03/03/2022
@@ -1147,7 +1147,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
     Defining an example file from bytes object:
 
     >>> import io
-    >>> s = b'''1,2,3
+    >>> s = b'''animals,n_legs,entry
     ... Flamingo,2,2022-03-01
     ... Horse,4,2022-03-02
     ... Brittle stars,5,2022-03-03
@@ -1158,13 +1158,13 @@ def read_csv(input_file, read_options=None, parse_options=None,
     >>> from pyarrow import csv
     >>> csv.read_csv(io.BytesIO(s))
     pyarrow.Table
-    1: string
-    2: int64
-    3: date32[day]
+    animals: string
+    n_legs: int64
+    entry: date32[day]
     ----
-    1: [["Flamingo","Horse","Brittle stars","Centipede"]]
-    2: [[2,4,5,100]]
-    3: [[2022-03-01,2022-03-02,2022-03-03,2022-03-04]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    n_legs: [[2,4,5,100]]
+    entry: [[2022-03-01,2022-03-02,2022-03-03,2022-03-04]]
     """
     cdef:
         shared_ptr[CInputStream] stream
