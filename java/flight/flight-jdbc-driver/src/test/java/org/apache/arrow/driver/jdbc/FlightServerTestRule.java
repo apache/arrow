@@ -222,6 +222,14 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     throw new IOException(exceptions.pop().getCause());
   }
 
+  public int getPort() {
+    return config.getPort();
+  }
+
+  public String getHost() {
+    return config.getHost();
+  }
+
   @Override
   public void close() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
