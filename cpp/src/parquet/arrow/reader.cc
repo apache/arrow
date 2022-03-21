@@ -1074,9 +1074,7 @@ class RowGroupGenerator {
     auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
     if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
 
-    GET_CURRENT_SPAN(span);
     return ready.Then([=]() mutable -> ::arrow::Future<RecordBatchGenerator> {
-      SET_SPAN_SCOPE(scope, span);
       return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
     });
   }

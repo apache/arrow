@@ -388,16 +388,10 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     pre_filtered = true;
     if (row_groups.empty()) return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
   }
-#ifdef ARROW_WITH_OPENTELEMETRY
-  auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
-#endif
   // Open the reader and pay the real IO cost.
   auto make_generator =
       [=](const std::shared_ptr<parquet::arrow::FileReader>& reader) mutable
       -> Result<RecordBatchGenerator> {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
-#endif
     // Ensure that parquet_fragment has FileMetaData
     RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
     if (!pre_filtered) {

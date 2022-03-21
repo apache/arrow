@@ -243,22 +243,18 @@ class ConcreteFutureImpl : public FutureImpl {
   void AddCallback(Callback callback, CallbackOptions opts) {
     CheckOptions(opts);
     struct Wrapstruct {
-        void operator()() {
+        void operator()(const FutureImpl& impl) {
         bool trace_valid = activeSpan->GetContext().IsValid();
         auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
-        std::move(func)(*self);
+        std::move(func)(impl);
       }
       Callback func;
-      std::shared_ptr<FutureImpl> self;
       opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
     };
-    Wrapstruct wrapper;
-    wrapper.func = std::forward<Callback>(callback);
-    wrapper.self = shared_from_this();
-    wrapper.activeSpan = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+    Wrapstruct wrapper{std::forward<Callback>(callback), ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
 
     std::unique_lock<std::mutex> lock(mutex_);
-    CallbackRecord callback_record{std::move(std::forward<Callback>(wrapper)), opts};
+    CallbackRecord callback_record{std::move(wrapper), opts};
     if (IsFutureFinished(state_)) {
       lock.unlock();
       RunOrScheduleCallback(shared_from_this(), std::move(callback_record),
