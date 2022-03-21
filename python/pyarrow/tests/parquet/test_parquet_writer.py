@@ -268,22 +268,6 @@ def test_parquet_writer_filesystem_s3fs(s3_example_s3fs):
 
 
 @pytest.mark.pandas
-def test_parquet_writer_page_size_batch():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-
-    out = pa.BufferOutputStream()
-
-    with pq.ParquetWriter(out, table.schema, data_page_size=10,
-                          write_batch_size=1, version='2.4') as writer:
-        writer.write_table(table)
-
-    buf = out.getvalue()
-    result = _read_table(pa.BufferReader(buf)).to_pandas()
-    tm.assert_frame_equal(result, df)
-
-
-@pytest.mark.pandas
 def test_parquet_writer_filesystem_buffer_raises():
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
