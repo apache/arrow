@@ -48,8 +48,8 @@ def test_joins_corner_cases():
         "col2": ["a", "b"]
     }),
     ("right semi", {
-        "colB": [2, 1],
-        "col3": ["B", "A"]
+        "colB": [1, 2],
+        "col3": ["A", "B"]
     }),
     ("left anti", {
         "colA": [6],
@@ -98,7 +98,12 @@ def test_joins(jointype, expected, use_threads):
 
     r = ep.tables_join(jointype, t1, "colA", t2, "colB",
                        use_threads=use_threads, deduplicate=True)
-    assert r.combine_chunks() == expected
+    r = r.combine_chunks()
+    if "right" in jointype:
+        r = r.sort_by("colB")
+    else:
+        r = r.sort_by("colA")
+    assert r == expected
 
 
 def test_table_join_all_columns():

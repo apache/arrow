@@ -2064,7 +2064,7 @@ def test_table_join():
     })
 
     result = t1.join("colA", t2, "colB", join_type="full outer")
-    assert result.combine_chunks() == pa.table({
+    assert result.combine_chunks().sort_by("colA") == pa.table({
         "colA": [1, 2, 6, 99],
         "col2": ["a", "b", "f", None],
         "col3": ["A", "B", None, "Z"]
@@ -2111,7 +2111,7 @@ def test_table_join_collisions():
     })
 
     result = t1.join("colA", t2, join_type="full outer")
-    assert result.combine_chunks() == pa.table([
+    assert result.combine_chunks().sort_by("colA") == pa.table([
         [1, 2, 6, 99],
         [10, 20, 60, None],
         ["a", "b", "f", None],

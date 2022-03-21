@@ -282,20 +282,4 @@ def tables_join(join_type, left_table not None, left_keys,
                             output_type=Table,
                             plan=c_decl_plan)
 
-    if deduplicate and join_type == "full outer":
-        suffixed_left_keys = left_keys
-        if left_suffix:
-            suffixed_left_keys = [
-                lk+left_suffix for lk in left_keys if lk in right_keys]
-        suffixed_right_keys = right_keys
-        if right_suffix:
-            suffixed_right_keys = [
-                rk+right_suffix for rk in right_keys if rk in left_keys]
-        for leftkey, rightkey in zip(reversed(suffixed_left_keys), reversed(suffixed_right_keys)):
-            result_table = result_table.set_column(
-                0, leftkey,
-                _pc().coalesce(result_table[leftkey], result_table[rightkey])
-            )
-        result_table = result_table.drop(suffixed_right_keys)
-
     return result_table
