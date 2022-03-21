@@ -2737,7 +2737,7 @@ const char* to_hex_int32(int64_t context, int32_t data, int32_t* out_len) {
 FORCE_INLINE
 const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
                           bool text_validity, bool* out_valid, int32_t* out_len) {
-  if (text_len == 0) {
+  if (text_len == 0 || !text_validity) {
     *out_valid = true;
     *out_len = 0;
     return "";
