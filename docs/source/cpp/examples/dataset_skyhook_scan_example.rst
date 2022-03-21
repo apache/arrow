@@ -79,6 +79,7 @@ Instuctions
 
 .. code-block:: bash
 
+    pip install pandas pyarrow
     python3 ../../ci/scripts/generate_dataset.py
     cp -r nyc /mnt/cephfs/
 
@@ -86,4 +87,4 @@ Instuctions
 
 .. code-block:: bash
 
-    LD_LIBRARY_PATH=/usr/local/lib release/dataset_skyhook_scan_example file:///mnt/cephfs/nyc
+    LD_LIBRARY_PATH=/usr/local/lib release/dataset-skyhook-scan-example file:///mnt/cephfs/nyc
