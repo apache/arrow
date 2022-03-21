@@ -91,16 +91,16 @@ TEST_F(TestConvertTimezone, TestUnknownTimezones) {
   EXPECT_STREQ(status.message().c_str(),
                "Couldn't find one of the timezones given or it's invalid.");
 
-  status = ConvertTimezoneHolder::Make("-02:00", "-25:00", &convert_holder);
+  auto status1 = ConvertTimezoneHolder::Make("-02:00", "-25:00", &convert_holder);
 
-  EXPECT_FALSE(status.ok());
-  EXPECT_STREQ(status.message().c_str(),
+  EXPECT_FALSE(status1.ok());
+  EXPECT_STREQ(status1.message().c_str(),
                "Couldn't find one of the timezones given or it's invalid.");
 
-  status = ConvertTimezoneHolder::Make("UT-25", "UTC+2", &convert_holder);
+  auto status2 = ConvertTimezoneHolder::Make("UT-25", "UTC+2", &convert_holder);
 
-  EXPECT_FALSE(status.ok());
-  EXPECT_STREQ(status.message().c_str(),
+  EXPECT_FALSE(status2.ok());
+  EXPECT_STREQ(status2.message().c_str(),
                "Couldn't find one of the timezones given or it's invalid.");
 }
 
