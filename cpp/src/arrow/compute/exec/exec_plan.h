@@ -300,9 +300,6 @@ class MapNode : public ExecNode {
   // Counter for the number of batches received
   AtomicCounter input_counter_;
 
-  // The task group for the corresponding batches
-  util::AsyncTaskGroup task_group_;
-
   ::arrow::internal::Executor* executor_;
 
   // Variable used to cancel remaining tasks in the executor
