@@ -33,6 +33,7 @@ Instuctions
    The instructions below are for ubuntu 20.04 or above.
 
 1. Install Ceph and Skyhook dependencies.
+
 .. code-block:: bash
 
     apt update 
@@ -72,7 +73,6 @@ Instuctions
 
 .. code-block:: bash
 
-    mkdir -p /tmp/skyhook
     ../examples/scripts/micro-osd.sh /tmp/skyhook
 
 4. Generate the example dataset.
