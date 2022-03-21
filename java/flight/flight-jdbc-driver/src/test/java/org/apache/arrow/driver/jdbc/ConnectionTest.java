@@ -58,12 +58,6 @@ public class ConnectionTest {
         .authentication(authentication).producer(PRODUCER).build();
   }
 
-  private final String keyStorePath = this.getClass().getResource("/keys/keyStore.jks")
-      .getPath();
-  private final String noCertificateKeyStorePath =
-      this.getClass().getResource("/keys/noCertificate.jks")
-          .getPath();
-  private final String keyStorePass = "flight";
   private BufferAllocator allocator;
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
