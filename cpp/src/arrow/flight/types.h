@@ -509,7 +509,6 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   virtual ~ResultStream() = default;
 
   /// \brief Retrieve the next Result from the iterator.
-  /// \param[out] info A single result.
   /// \return Arrow result with a single Result. Set to \a nullptr if there are none left.
   virtual arrow::Result<std::unique_ptr<Result>> Next() = 0;
 
