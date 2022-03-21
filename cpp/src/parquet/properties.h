@@ -245,7 +245,7 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Specify the data page version.
+    /// Specify the Parquet file version.
     /// Default PARQUET_1_0.
     Builder* version(ParquetVersion::type version) {
       version_ = version;
@@ -419,8 +419,7 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_statistics(path->ToDotString());
     }
 
-    /// \brief This function builds the WriterProperties according to the parameters of
-    /// builder.
+    /// \brief Build the WriterProperties with the builder parameters.
     /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
       std::unordered_map<std::string, ColumnProperties> column_properties;
