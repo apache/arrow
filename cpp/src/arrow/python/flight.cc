@@ -210,8 +210,9 @@ arrow::Result<std::unique_ptr<arrow::flight::Result>> PyFlightResultStream::Next
   return SafeCallIntoPython(
       [=]() -> arrow::Result<std::unique_ptr<arrow::flight::Result>> {
         std::unique_ptr<arrow::flight::Result> result;
-        RETURN_NOT_OK(callback_(generator_.obj(), &result));
+        const Status status = callback_(generator_.obj(), &result);
         RETURN_NOT_OK(CheckPyError());
+        RETURN_NOT_OK(status);
         return result;
       });
 }
