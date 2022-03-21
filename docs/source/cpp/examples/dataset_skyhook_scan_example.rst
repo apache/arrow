@@ -18,8 +18,9 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
+=====================
 Arrow Skyhook example
-=========================
+=====================
 
 The file ``cpp/examples/arrow/dataset_skyhook_scan_example.cc``
 located inside the source tree contains an example of using Skyhook to 
