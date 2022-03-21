@@ -50,7 +50,7 @@ ExtensionArray <- R6Class("ExtensionArray",
 
 ExtensionArray$create <- function(x, type) {
   assert_is(type, "ExtensionType")
-  if (inheritx(x, "ExtensionArray") && type$Equals(x$type)) {
+  if (inherits(x, "ExtensionArray") && type$Equals(x$type)) {
     return(x)
   }
 
