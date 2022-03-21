@@ -56,11 +56,6 @@
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-        </dependency>
-
         <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
         <dependency>
         <groupId>org.apache.arrow</groupId>
