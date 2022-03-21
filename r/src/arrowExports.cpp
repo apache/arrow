@@ -900,7 +900,7 @@ extern "C" SEXP _arrow_ExecPlan_HasMetadata(SEXP plan_sexp){
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<const arrow::KeyValueMetadata> ExecPlan_metadata(const std::shared_ptr<compute::ExecPlan>& plan);
+cpp11::writable::list ExecPlan_metadata(const std::shared_ptr<compute::ExecPlan>& plan);
 extern "C" SEXP _arrow_ExecPlan_metadata(SEXP plan_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
@@ -5283,8 +5283,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
 		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
 		{ "_arrow_ExecPlan_create_with_metadata", (DL_FUNC) &_arrow_ExecPlan_create_with_metadata, 2}, 
-		{ "_arrow_ExecPlan_HasMetadata", (DL_FUNC) &_arrow_ExecPlan_HasMetadata, 1},
-		{ "_arrow_ExecPlan_metadata", (DL_FUNC) &_arrow_ExecPlan_metadata, 1},
+		{ "_arrow_ExecPlan_HasMetadata", (DL_FUNC) &_arrow_ExecPlan_HasMetadata, 1}, 
+		{ "_arrow_ExecPlan_metadata", (DL_FUNC) &_arrow_ExecPlan_metadata, 1}, 
 		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 4}, 
 		{ "_arrow_ExecPlan_StopProducing", (DL_FUNC) &_arrow_ExecPlan_StopProducing, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 

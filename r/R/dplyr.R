@@ -19,7 +19,7 @@
 #' @include record-batch.R
 #' @include table.R
 
-arrow_dplyr_query <- function(.data) {
+arrow_dplyr_query <- function(.data, metadata = empty_named_list()) {
   # An arrow_dplyr_query is a container for an Arrow data object (Table,
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
   # like selected columns, filters, and group vars.
@@ -30,6 +30,8 @@ arrow_dplyr_query <- function(.data) {
     dplyr::group_vars(.data) %||% character(),
     error = function(e) character()
   )
+
+  metadata_kv = prepare_key_value_metadata(metadata)
 
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)
@@ -67,7 +69,9 @@ arrow_dplyr_query <- function(.data) {
       arrange_vars = list(),
       # arrange_desc will be a logical vector indicating the sort order for each
       # expression in arrange_vars (FALSE for ascending, TRUE for descending)
-      arrange_desc = logical()
+      arrange_desc = logical(),
+      # metadata is a named list of strings that'll be attached to the ExecPlan
+      metadata = metadata_kv
     ),
     class = "arrow_dplyr_query"
   )

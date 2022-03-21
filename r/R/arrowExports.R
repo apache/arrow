@@ -404,6 +404,18 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
+ExecPlan_create_with_metadata <- function(use_threads, metadata) {
+  .Call(`_arrow_ExecPlan_create_with_metadata`, use_threads, metadata)
+}
+
+ExecPlan_HasMetadata <- function(plan) {
+  .Call(`_arrow_ExecPlan_HasMetadata`, plan)
+}
+
+ExecPlan_metadata <- function(plan) {
+  .Call(`_arrow_ExecPlan_metadata`, plan)
+}
+
 ExecPlan_run <- function(plan, final_node, sort_options, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, head)
 }

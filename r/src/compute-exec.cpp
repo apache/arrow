@@ -62,8 +62,26 @@ bool ExecPlan_HasMetadata(const std::shared_ptr<compute::ExecPlan>& plan) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<const arrow::KeyValueMetadata> ExecPlan_metadata(const std::shared_ptr<compute::ExecPlan>& plan) {
-  return plan->metadata();
+cpp11::writable::list ExecPlan_metadata(const std::shared_ptr<compute::ExecPlan>& plan) {
+  auto meta = plan->metadata();
+  int64_t n = 0;
+  if (plan->HasMetadata()) {
+    n = meta->size();
+  }
+
+  cpp11::writable::list out(n);
+  std::vector<std::string> names_out(n);
+
+  for (int i = 0; i < n; i++) {
+    auto key = meta->key(i);
+    out[i] = cpp11::as_sexp(meta->value(i));
+    if (key == "r") {
+      Rf_classgets(out[i], arrow::r::data::classes_metadata_r);
+    }
+    names_out[i] = key;
+  }
+  out.names() = names_out;
+  return out;
 }
 
 std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(

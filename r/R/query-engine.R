@@ -16,7 +16,7 @@
 # under the License.
 
 do_exec_plan <- function(.data) {
-  plan <- ExecPlan$create()
+  plan <- ExecPlan$create(metadata=.data$metadata)
   final_node <- plan$Build(.data)
   tab <- plan$Run(final_node)
   # TODO (ARROW-14289): make the head/tail methods return RBR not Table
@@ -238,6 +238,12 @@ ExecPlan <- R6Class("ExecPlan",
       ExecPlan_Write(self, node, ...)
     },
     Stop = function() ExecPlan_StopProducing(self)
+    HasMetadata = function() {
+      ExecPlan_HasMetadata(self)
+    },
+    metadata = function() {
+      ExecPlan_metadata(self)
+    }
   )
 )
 
@@ -247,14 +253,6 @@ ExecPlan$create <- function(use_threads = option_use_threads(), metadata) {
   } else {
     ExecPlan_create_with_metadata(use_threads, metadata)
   }
-}
-
-ExecPlan$HasMetadata <- function(plan) {
-  ExecPlan_HasMetadata(plan)
-}
-
-ExecPlan$metadata <- function(plan) {
-  ExecPlan_metadata(plan)
 }
 
 ExecNode <- R6Class("ExecNode",
