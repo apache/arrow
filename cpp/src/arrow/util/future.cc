@@ -242,6 +242,8 @@ class ConcreteFutureImpl : public FutureImpl {
 
   void AddCallback(Callback callback, CallbackOptions opts) {
     CheckOptions(opts);
+    std::unique_lock<std::mutex> lock(mutex_);
+#ifdef ARROW_WITH_OPENTELEMETRY
     struct Wrapstruct {
         void operator()(const FutureImpl& impl) {
         bool trace_valid = activeSpan->GetContext().IsValid();
@@ -253,8 +255,10 @@ class ConcreteFutureImpl : public FutureImpl {
     };
     Wrapstruct wrapper{std::forward<Callback>(callback), ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
 
-    std::unique_lock<std::mutex> lock(mutex_);
     CallbackRecord callback_record{std::move(wrapper), opts};
+#else
+    CallbackRecord callback_record{std::move(callback), opts};
+#endif
     if (IsFutureFinished(state_)) {
       lock.unlock();
       RunOrScheduleCallback(shared_from_this(), std::move(callback_record),
