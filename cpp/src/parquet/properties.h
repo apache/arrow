@@ -184,40 +184,34 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Disable dictionary encoding in general for all columns. Default enabled.
-
     Builder* disable_dictionary() {
       default_column_properties_.set_dictionary_enabled(false);
       return this;
     }
 
     /// Enable dictionary encoding for column specified by `path`. Default enabled.
-
     Builder* enable_dictionary(const std::string& path) {
       dictionary_enabled_[path] = true;
       return this;
     }
 
     /// Enable dictionary encoding for column specified by `path`. Default enabled.
-
     Builder* enable_dictionary(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_dictionary(path->ToDotString());
     }
 
     /// Disable dictionary encoding for column specified by `path`. Default enabled.
-
     Builder* disable_dictionary(const std::string& path) {
       dictionary_enabled_[path] = false;
       return this;
     }
 
     /// Disable dictionary encoding for column specified by `path`. Default enabled.
-
     Builder* disable_dictionary(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->disable_dictionary(path->ToDotString());
     }
 
     /// Specify the dictionary page size limit per row group. Default 1MB.
-
     Builder* dictionary_pagesize_limit(int64_t dictionary_psize_limit) {
       dictionary_pagesize_limit_ = dictionary_psize_limit;
       return this;
@@ -225,7 +219,6 @@ class PARQUET_EXPORT WriterProperties {
 
     /// Specify the write batch size while writing batches of Arrow values into Parquet.
     /// Default 1024.
-
     Builder* write_batch_size(int64_t write_batch_size) {
       write_batch_size_ = write_batch_size;
       return this;
@@ -233,7 +226,6 @@ class PARQUET_EXPORT WriterProperties {
 
     /// Specify the max row group length.
     /// Default 64M.
-
     Builder* max_row_group_length(int64_t max_row_group_length) {
       max_row_group_length_ = max_row_group_length;
       return this;
@@ -241,7 +233,6 @@ class PARQUET_EXPORT WriterProperties {
 
     /// Specify the data page size.
     /// Default 1MB.
-
     Builder* data_pagesize(int64_t pg_size) {
       pagesize_ = pg_size;
       return this;
@@ -249,7 +240,6 @@ class PARQUET_EXPORT WriterProperties {
 
     /// Specify the data page version.
     /// Default V1.
-
     Builder* data_page_version(ParquetDataPageVersion data_page_version) {
       data_page_version_ = data_page_version;
       return this;
@@ -257,7 +247,6 @@ class PARQUET_EXPORT WriterProperties {
 
     /// Specify the data page version.
     /// Default PARQUET_1_0.
-
     Builder* version(ParquetVersion::type version) {
       version_ = version;
       return this;
@@ -272,7 +261,6 @@ class PARQUET_EXPORT WriterProperties {
     //
     /// This either apply if dictionary encoding is disabled or if we fallback
     /// as the dictionary grew too large.
-
     Builder* encoding(Encoding::type encoding_type) {
       if (encoding_type == Encoding::PLAIN_DICTIONARY ||
           encoding_type == Encoding::RLE_DICTIONARY) {
@@ -287,7 +275,6 @@ class PARQUET_EXPORT WriterProperties {
     //
     /// This either apply if dictionary encoding is disabled or if we fallback
     /// as the dictionary grew too large.
-
     Builder* encoding(const std::string& path, Encoding::type encoding_type) {
       if (encoding_type == Encoding::PLAIN_DICTIONARY ||
           encoding_type == Encoding::RLE_DICTIONARY) {
