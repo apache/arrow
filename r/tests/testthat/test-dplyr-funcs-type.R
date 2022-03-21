@@ -874,3 +874,105 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     test_df
   )
 })
+
+test_that("format date/time", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  times <- tibble(
+    datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
+    date = c(as.Date("2021-01-01"), NA)
+  )
+  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+  formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(date, format = formats_date)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats, tz = "Europe/Bucharest")) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats, tz = "EST", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(1),
+             y = format(13.7, nsmall = 3)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(start_date = format(as.POSIXct("2022-01-01 01:01:00"))) %>%
+      collect(),
+    times
+  )
+
+  withr::with_timezone(
+    "Pacific/Marquesas",
+    {
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            x = format(datetime, format = formats, tz = "EST"),
+            x_date = format(date, format = formats_date, tz = "EST")
+          ) %>%
+          collect(),
+        times
+      )
+
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            x = format(datetime, format = formats),
+            x_date = format(date, format = formats_date)
+          ) %>%
+          collect(),
+        times
+      )
+    }
+  )
+})
+
+test_that("format() for unsupported types returns the input as string", {
+  expect_equal(
+    example_data %>%
+      record_batch() %>%
+      mutate(x = format(int)) %>%
+      collect(),
+    example_data %>%
+      record_batch() %>%
+      mutate(x = as.character(int)) %>%
+      collect()
+  )
+  expect_equal(
+    example_data %>%
+      arrow_table() %>%
+      mutate(y = format(dbl)) %>%
+      collect(),
+    example_data %>%
+      arrow_table() %>%
+      mutate(y = as.character(dbl)) %>%
+      collect()
+  )
+})
