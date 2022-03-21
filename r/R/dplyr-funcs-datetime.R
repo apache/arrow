@@ -191,32 +191,6 @@ register_bindings_datetime <- function() {
 }
 
 register_bindings_duration <- function() {
-  register_binding("difftime", function(time1,
-                                        time2,
-                                        tz,
-                                        units = "secs") {
-    if (units != "secs") {
-      abort("`difftime()` with units other than `secs` not supported in Arrow")
-    }
-
-    if (!missing(tz)) {
-      warn("`tz` argument is not supported in Arrow, so it will be ignored")
-    }
-
-    # cast to timestamp if time1 and time2 are not dates or timpestamp expressions
-    # (the subtraction of which would output a `duration`)
-    if (!(inherits(time1, "Expression") &&
-          time1$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
-      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = "UTC")))
-    }
-
-    if (!(inherits(time2, "Expression") &&
-          time2$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
-      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
-    }
-
-    build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
-  })
   register_binding("make_datetime", function(year = 1970L,
                                              month = 1L,
                                              day = 1L,
@@ -265,27 +239,32 @@ register_bindings_duration <- function() {
                                        tz = "UTC") {
     call_binding("make_datetime", year, month, day, hour, min, sec, tz)
   })
-}
-
-binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
-  if (usetz) {
-    format <- paste(format, "%Z")
-  }
-
-  if (call_binding("is.POSIXct", x)) {
-    # the casting part might not be required once
-    # https://issues.apache.org/jira/browse/ARROW-14442 is solved
-    # TODO revisit the steps below once the PR for that issue is merged
-    if (tz == "" && x$type()$timezone() != "") {
-      tz <- x$type()$timezone()
-    } else if (tz == "") {
-      tz <- Sys.timezone()
+  register_binding("difftime", function(time1,
+                                        time2,
+                                        tz,
+                                        units = "secs") {
+    if (units != "secs") {
+      abort("`difftime()` with units other than `secs` not supported in Arrow")
     }
-    x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
-  }
 
-  build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+    if (!missing(tz)) {
+      warn("`tz` argument is not supported in Arrow, so it will be ignored")
+    }
 
+    # cast to timestamp if time1 and time2 are not dates or timpestamp expressions
+    # (the subtraction of which would output a `duration`)
+    if (!(inherits(time1, "Expression") &&
+          time1$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = "UTC")))
+    }
+
+    if (!(inherits(time2, "Expression") &&
+          time2$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
+    }
+
+    build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
+  })
   register_binding("as.difftime", function(x,
                                            format = "%X",
                                            units = "secs") {
