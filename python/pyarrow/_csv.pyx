@@ -658,7 +658,7 @@ cdef class ConvertOptions(_Weakrefable):
     (in case dates are not in ISO format and not converted by default):
 
     >>> convert_options = csv.ConvertOptions(
-    ...                   timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"])
+    ...                   timestamp_parsers=["%m/%d/%Y", "%m-%d-%Y"])
     >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
     pyarrow.Table
     animals: string
