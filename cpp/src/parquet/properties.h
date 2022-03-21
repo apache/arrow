@@ -171,105 +171,93 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY) {}
     virtual ~Builder() {}
 
+    /// Specify the memory pool for the writer. Default default_memory_pool.
     Builder* memory_pool(MemoryPool* pool) {
       pool_ = pool;
       return this;
     }
 
-    /**
-     * Enable dictionary encoding in general for all columns. Default enabled.
-     */
+    ///  Enable dictionary encoding in general for all columns. Default enabled.
     Builder* enable_dictionary() {
       default_column_properties_.set_dictionary_enabled(true);
       return this;
     }
 
-    /**
-     * Disable dictionary encoding in general for all columns. Default enabled.
-     */
+    /// Disable dictionary encoding in general for all columns. Default enabled.
+
     Builder* disable_dictionary() {
       default_column_properties_.set_dictionary_enabled(false);
       return this;
     }
 
-    /**
-     * Enable dictionary encoding for column specified by `path`. Default enabled.
-     */
+    /// Enable dictionary encoding for column specified by `path`. Default enabled.
+
     Builder* enable_dictionary(const std::string& path) {
       dictionary_enabled_[path] = true;
       return this;
     }
 
-    /**
-     * Enable dictionary encoding for column specified by `path`. Default enabled.
-     */
+    /// Enable dictionary encoding for column specified by `path`. Default enabled.
+
     Builder* enable_dictionary(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_dictionary(path->ToDotString());
     }
 
-    /**
-     * Disable dictionary encoding for column specified by `path`. Default enabled.
-     */
+    /// Disable dictionary encoding for column specified by `path`. Default enabled.
+
     Builder* disable_dictionary(const std::string& path) {
       dictionary_enabled_[path] = false;
       return this;
     }
 
-    /**
-     * Disable dictionary encoding for column specified by `path`. Default enabled.
-     */
+    /// Disable dictionary encoding for column specified by `path`. Default enabled.
+
     Builder* disable_dictionary(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->disable_dictionary(path->ToDotString());
     }
 
-    /**
-     * Specify the dictionary page size limit per row group. Default 1MB.
-     */
+    /// Specify the dictionary page size limit per row group. Default 1MB.
+
     Builder* dictionary_pagesize_limit(int64_t dictionary_psize_limit) {
       dictionary_pagesize_limit_ = dictionary_psize_limit;
       return this;
     }
 
-    /**
-     * Specify the write batch size while writing batches of Arrow values into Parquet.
-     * Default 1024.
-     */
+    /// Specify the write batch size while writing batches of Arrow values into Parquet.
+    /// Default 1024.
+
     Builder* write_batch_size(int64_t write_batch_size) {
       write_batch_size_ = write_batch_size;
       return this;
     }
 
-    /**
-     * Specify the max row group length.
-     * Default 64M.
-     */
+    /// Specify the max row group length.
+    /// Default 64M.
+
     Builder* max_row_group_length(int64_t max_row_group_length) {
       max_row_group_length_ = max_row_group_length;
       return this;
     }
 
-    /**
-     * Specify the data page size.
-     * Default 1MB.
-     */
+    /// Specify the data page size.
+    /// Default 1MB.
+
     Builder* data_pagesize(int64_t pg_size) {
       pagesize_ = pg_size;
       return this;
     }
 
-    /**
-     * Specify the data page version.
-     * Default V1.
-     */
+    /// Specify the data page version.
+    /// Default V1.
+
     Builder* data_page_version(ParquetDataPageVersion data_page_version) {
       data_page_version_ = data_page_version;
       return this;
     }
 
-    /**
-     * Specify the data page version.
-     * Default PARQUET_1_0.
-     */
+    /// Specify the data page version.
+    /// Default PARQUET_1_0.
+
     Builder* version(ParquetVersion::type version) {
       version_ = version;
       return this;
@@ -280,12 +268,11 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /**
-     * Define the encoding that is used when we don't utilise dictionary encoding.
-     *
-     * This either apply if dictionary encoding is disabled or if we fallback
-     * as the dictionary grew too large.
-     */
+    /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
+    //
+    /// This either apply if dictionary encoding is disabled or if we fallback
+    /// as the dictionary grew too large.
+
     Builder* encoding(Encoding::type encoding_type) {
       if (encoding_type == Encoding::PLAIN_DICTIONARY ||
           encoding_type == Encoding::RLE_DICTIONARY) {
@@ -296,12 +283,11 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /**
-     * Define the encoding that is used when we don't utilise dictionary encoding.
-     *
-     * This either apply if dictionary encoding is disabled or if we fallback
-     * as the dictionary grew too large.
-     */
+    /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
+    //
+    /// This either apply if dictionary encoding is disabled or if we fallback
+    /// as the dictionary grew too large.
+
     Builder* encoding(const std::string& path, Encoding::type encoding_type) {
       if (encoding_type == Encoding::PLAIN_DICTIONARY ||
           encoding_type == Encoding::RLE_DICTIONARY) {
@@ -312,48 +298,38 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /**
-     * Define the encoding that is used when we don't utilise dictionary encoding.
-     *
-     * This either apply if dictionary encoding is disabled or if we fallback
-     * as the dictionary grew too large.
-     */
+    /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
+    //
+    /// This either apply if dictionary encoding is disabled or if we fallback
+    /// as the dictionary grew too large.
     Builder* encoding(const std::shared_ptr<schema::ColumnPath>& path,
                       Encoding::type encoding_type) {
       return this->encoding(path->ToDotString(), encoding_type);
     }
 
-    /**
-     * Specify compression codec in general for all columns.
-     * Default UNCOMPRESSED.
-     */
+    /// Specify compression codec in general for all columns.
+    /// Default UNCOMPRESSED.
     Builder* compression(Compression::type codec) {
       default_column_properties_.set_compression(codec);
       return this;
     }
 
-    /**
-     * Specify max statistics size to store min max value.
-     * Default 4KB.
-     */
+    /// Specify max statistics size to store min max value.
+    /// Default 4KB.
     Builder* max_statistics_size(size_t max_stats_sz) {
       default_column_properties_.set_max_statistics_size(max_stats_sz);
       return this;
     }
 
-    /**
-     * Specify compression codec for the column specified by `path`.
-     * Default UNCOMPRESSED.
-     */
+    /// Specify compression codec for the column specified by `path`.
+    /// Default UNCOMPRESSED.
     Builder* compression(const std::string& path, Compression::type codec) {
       codecs_[path] = codec;
       return this;
     }
 
-    /**
-     * Specify compression codec for the column specified by `path`.
-     * Default UNCOMPRESSED.
-     */
+    /// Specify compression codec for the column specified by `path`.
+    /// Default UNCOMPRESSED.
     Builder* compression(const std::shared_ptr<schema::ColumnPath>& path,
                          Compression::type codec) {
       return this->compression(path->ToDotString(), codec);
@@ -408,68 +384,57 @@ class PARQUET_EXPORT WriterProperties {
       return this->compression_level(path->ToDotString(), compression_level);
     }
 
-    /**
-     * Define the file encryption properties.
-     * Default NULL.
-     */
+    /// Define the file encryption properties.
+    /// Default NULL.
     Builder* encryption(
         std::shared_ptr<FileEncryptionProperties> file_encryption_properties) {
       file_encryption_properties_ = std::move(file_encryption_properties);
       return this;
     }
 
-    /**
-     * Enable statistics in general.
-     * Default enabled.
-     */
+    /// Enable statistics in general.
+    /// Default enabled.
     Builder* enable_statistics() {
       default_column_properties_.set_statistics_enabled(true);
       return this;
     }
 
-    /**
-     * Disable statistics in general.
-     * Default enabled.
-     */
+    /// Disable statistics in general.
+    /// Default enabled.
     Builder* disable_statistics() {
       default_column_properties_.set_statistics_enabled(false);
       return this;
     }
 
-    /**
-     * Enable statistics for the column specified by `path`.
-     * Default enabled.
-     */
+    /// Enable statistics for the column specified by `path`.
+    /// Default enabled.
     Builder* enable_statistics(const std::string& path) {
       statistics_enabled_[path] = true;
       return this;
     }
 
-    /**
-     * Enable statistics for the column specified by `path`.
-     * Default enabled.
-     */
+    /// Enable statistics for the column specified by `path`.
+    /// Default enabled.
     Builder* enable_statistics(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_statistics(path->ToDotString());
     }
 
-    /**
-     * Disable statistics for the column specified by `path`.
-     * Default enabled.
-     */
+    /// Disable statistics for the column specified by `path`.
+    /// Default enabled.
     Builder* disable_statistics(const std::string& path) {
       statistics_enabled_[path] = false;
       return this;
     }
 
-    /**
-     * Disable statistics for the column specified by `path`.
-     * Default enabled.
-     */
+    /// Disable statistics for the column specified by `path`.
+    /// Default enabled.
     Builder* disable_statistics(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->disable_statistics(path->ToDotString());
     }
 
+    /// \brief This function builds the WriterProperties according to the parameters of
+    /// builder.
+    /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
       std::unordered_map<std::string, ColumnProperties> column_properties;
       auto get = [&](const std::string& key) -> ColumnProperties& {
