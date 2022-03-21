@@ -35,9 +35,6 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-#include <opentelemetry/trace/provider.h>
-#include <opentelemetry/trace/scope.h>
-
 namespace arrow {
 
 template <typename>
@@ -356,12 +353,6 @@ class ARROW_EXPORT FutureWaiter {
   friend class ConcreteFutureImpl;
 };
 
-namespace internal {
-namespace tracing {
-  opentelemetry::trace::Tracer *GetTracer();
-}
-}
-
 // ---------------------------------------------------------------------
 // Public API
 
@@ -553,19 +544,7 @@ class ARROW_MUST_USE_TYPE Future {
     // We know impl_ will not be dangling when invoking callbacks because at least one
     // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
     // weak reference to impl_ here
-    struct Wrapstruct {
-        void operator()() {
-          auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
-          func();
-        }
-        OnComplete func;
-        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
-    };
-    Wrapstruct wrapper;
-    wrapper.func = std::forward(on_complete);
-    wrapper.activeSpan = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
-
-    impl_->AddCallback(Callback{std::move(wrapper)}, opts);
+    impl_->AddCallback(Callback{std::move(on_complete)}, opts);
   }
 
   /// \brief Overload of AddCallback that will return false instead of running
