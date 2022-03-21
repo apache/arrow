@@ -914,17 +914,11 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
                 new CRoundToMultipleOptions(pyarrow_unwrap_scalar(multiple),
                                             unwrap_round_mode(round_mode))
             )
-        elif isinstance(multiple, (int, float)):
-            # Explicit numeric type checks are used because Cython allows
-            # bool-to-double conversions but Arrow C++ rounding functions
-            # and corresponding options do not support boolean values.
+        else:
             self.wrapped.reset(
                 new CRoundToMultipleOptions(<double> multiple,
                                             unwrap_round_mode(round_mode))
             )
-        else:
-            _raise_invalid_function_option(
-                multiple, "multiple", exception_class=TypeError)
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
