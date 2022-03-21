@@ -327,6 +327,8 @@ class UcpCallDriver {
   void set_read_memory_pool(MemoryPool* memory_pool);
   /// \brief Set memory pool for scratch space used during writing.
   void set_write_memory_pool(MemoryPool* memory_pool);
+  /// \brief Get a debug string naming the peer.
+  const std::string& peer() const;
 
   /// \brief Process an incoming active message. This will unblock the
   ///   corresponding call to ReadFrameAsync/ReadNextFrame.

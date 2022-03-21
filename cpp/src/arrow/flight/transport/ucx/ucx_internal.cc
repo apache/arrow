@@ -487,6 +487,7 @@ class UcpCallDriver::Impl {
         read_memory_pool_(default_memory_pool()),
         write_memory_pool_(default_memory_pool()),
         memory_manager_(CPUDevice::Instance()->default_memory_manager()),
+        name_("(unknown remote)"),
         counter_(0) {
 #if defined(ARROW_FLIGHT_UCX_SEND_IOV_MAP)
     TryMapBuffer(worker_->context().get(), padding_bytes_.data(), padding_bytes_.size(),
@@ -495,11 +496,13 @@ class UcpCallDriver::Impl {
 
     ucp_ep_attr_t attrs;
     std::memset(&attrs, 0, sizeof(attrs));
-    attrs.field_mask = UCP_EP_ATTR_FIELD_NAME;
+    attrs.field_mask =
+        UCP_EP_ATTR_FIELD_LOCAL_SOCKADDR | UCP_EP_ATTR_FIELD_REMOTE_SOCKADDR;
     if (ucp_ep_query(endpoint_, &attrs) == UCS_OK) {
-      name_ = attrs.name;
-    } else {
-      name_ = "(unknown remote)";
+      std::string local_addr, remote_addr;
+      ARROW_UNUSED(SockaddrToString(attrs.local_sockaddr).Value(&local_addr));
+      ARROW_UNUSED(SockaddrToString(attrs.remote_sockaddr).Value(&remote_addr));
+      name_ = "local:" + local_addr + ";remote:" + remote_addr;
     }
   }
 
@@ -854,6 +857,7 @@ class UcpCallDriver::Impl {
   void set_write_memory_pool(MemoryPool* pool) {
     write_memory_pool_ = pool ? pool : default_memory_pool();
   }
+  const std::string& peer() const { return name_; }
 
  private:
   class PendingAmSend {
@@ -1141,6 +1145,7 @@ void UcpCallDriver::set_read_memory_pool(MemoryPool* pool) {
 void UcpCallDriver::set_write_memory_pool(MemoryPool* pool) {
   impl_->set_write_memory_pool(pool);
 }
+const std::string& UcpCallDriver::peer() const { return impl_->peer(); }
 
 }  // namespace ucx
 }  // namespace transport

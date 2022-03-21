@@ -52,6 +52,9 @@ ARROW_FLIGHT_EXPORT
 arrow::Result<size_t> UriToSockaddr(const arrow::internal::Uri& uri,
                                     struct sockaddr_storage* addr);
 
+ARROW_FLIGHT_EXPORT
+arrow::Result<std::string> SockaddrToString(const struct sockaddr_storage& address);
+
 }  // namespace ucx
 }  // namespace transport
 }  // namespace flight

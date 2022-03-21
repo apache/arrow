@@ -83,8 +83,8 @@ class UcxServerStream : public internal::ServerDataStream {
   // auto-adjusted, or at least configurable)
   constexpr static size_t kBackpressureThreshold = 8;
 
-  UcxServerStream(std::string peer, UcpCallDriver* driver)
-      : peer_(std::move(peer)), driver_(driver), writes_done_(false) {}
+  explicit UcxServerStream(UcpCallDriver* driver)
+      : peer_(driver->peer()), driver_(driver), writes_done_(false) {}
 
   Status WritesDone() override {
     RETURN_NOT_OK(CheckBackpressure(0));
@@ -131,8 +131,8 @@ class GetServerStream : public UcxServerStream {
 
 class PutServerStream : public UcxServerStream {
  public:
-  PutServerStream(std::string peer, UcpCallDriver* driver)
-      : UcxServerStream(std::move(peer), driver), finished_(false) {}
+  explicit PutServerStream(UcpCallDriver* driver)
+      : UcxServerStream(driver), finished_(false) {}
 
   bool ReadData(internal::FlightData* data) override {
     if (finished_) return false;
@@ -202,32 +202,6 @@ class ExchangeServerStream : public PutServerStream {
     return Status::NotImplemented("Not supported on this stream");
   }
 };
-
-arrow::Result<std::string> SockaddrToString(const struct sockaddr_storage& address) {
-  std::string result;
-  if (address.ss_family != AF_INET && address.ss_family != AF_INET6) {
-    return Status::NotImplemented("Unknown address family");
-  }
-
-  uint16_t port = 0;
-  if (address.ss_family == AF_INET) {
-    result.resize(INET_ADDRSTRLEN + 1);
-    port = ntohs(reinterpret_cast<const struct sockaddr_in*>(&address)->sin_port);
-    result[INET_ADDRSTRLEN] = ':';
-    result += std::to_string(port);
-  } else {
-    result.resize(INET6_ADDRSTRLEN + 1);
-    port = ntohs(reinterpret_cast<const struct sockaddr_in6*>(&address)->sin6_port);
-    result[INET_ADDRSTRLEN] = ':';
-    result += std::to_string(port);
-  }
-  if (!inet_ntop(address.ss_family, &address, &result[0], result.size())) {
-    return arrow::internal::IOErrorFromErrno(errno,
-                                             "Could not convert address to string");
-  }
-
-  return result;
-}
 }  // namespace
 
 class ARROW_FLIGHT_EXPORT UcxServerImpl
@@ -398,7 +372,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
     return Status::OK();
   }
 
-  Status HandleGetFlightInfo(const std::string& peer, UcpCallDriver* driver) {
+  Status HandleGetFlightInfo(UcpCallDriver* driver) {
     UcxServerCallContext context;
 
     ARROW_ASSIGN_OR_RAISE(auto frame, driver->ReadNextFrame());
@@ -419,7 +393,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
     return Status::OK();
   }
 
-  Status HandleDoGet(const std::string& peer, UcpCallDriver* driver) {
+  Status HandleDoGet(UcpCallDriver* driver) {
     UcxServerCallContext context;
 
     ARROW_ASSIGN_OR_RAISE(auto frame, driver->ReadNextFrame());
@@ -427,16 +401,16 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
     Ticket ticket;
     SERVER_RETURN_NOT_OK(driver, Ticket::Deserialize(frame->view()).Value(&ticket));
 
-    GetServerStream stream(peer, driver);
+    GetServerStream stream(driver);
     auto status = DoGet(context, std::move(ticket), &stream);
     RETURN_NOT_OK(SendStatus(driver, status));
     return Status::OK();
   }
 
-  Status HandleDoPut(const std::string& peer, UcpCallDriver* driver) {
+  Status HandleDoPut(UcpCallDriver* driver) {
     UcxServerCallContext context;
 
-    PutServerStream stream(peer, driver);
+    PutServerStream stream(driver);
     auto status = DoPut(context, &stream);
     RETURN_NOT_OK(SendStatus(driver, status));
     // Must drain any unread messages, or the next call will get confused
@@ -446,10 +420,10 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
     return Status::OK();
   }
 
-  Status HandleDoExchange(const std::string& peer, UcpCallDriver* driver) {
+  Status HandleDoExchange(UcpCallDriver* driver) {
     UcxServerCallContext context;
 
-    ExchangeServerStream stream(peer, driver);
+    ExchangeServerStream stream(driver);
     auto status = DoExchange(context, &stream);
     RETURN_NOT_OK(SendStatus(driver, status));
     // Must drain any unread messages, or the next call will get confused
@@ -459,18 +433,18 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
     return Status::OK();
   }
 
-  Status HandleOneCall(const std::string& peer, UcpCallDriver* driver, Frame* frame) {
+  Status HandleOneCall(UcpCallDriver* driver, Frame* frame) {
     SERVER_RETURN_NOT_OK(driver, driver->ExpectFrameType(*frame, FrameType::kHeaders));
     ARROW_ASSIGN_OR_RAISE(auto headers, HeadersFrame::Parse(std::move(frame->buffer)));
     ARROW_ASSIGN_OR_RAISE(auto method, headers.Get(":method:"));
     if (method == kMethodGetFlightInfo) {
-      return HandleGetFlightInfo(peer, driver);
+      return HandleGetFlightInfo(driver);
     } else if (method == kMethodDoExchange) {
-      return HandleDoExchange(peer, driver);
+      return HandleDoExchange(driver);
     } else if (method == kMethodDoGet) {
-      return HandleDoGet(peer, driver);
+      return HandleDoGet(driver);
     } else if (method == kMethodDoPut) {
-      return HandleDoPut(peer, driver);
+      return HandleDoPut(driver);
     }
     RETURN_NOT_OK(SendStatus(driver, Status::NotImplemented(method)));
     return Status::OK();
@@ -478,11 +452,13 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
 
   void WorkerLoop(ucp_conn_request_h request) {
     std::string peer = "unknown:" + std::to_string(counter_++);
-    ucp_conn_request_attr_t request_attr;
-    std::memset(&request_attr, 0, sizeof(request_attr));
-    request_attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
-    if (ucp_conn_request_query(request, &request_attr) == UCS_OK) {
-      ARROW_UNUSED(SockaddrToString(request_attr.client_address).Value(&peer));
+    {
+      ucp_conn_request_attr_t request_attr;
+      std::memset(&request_attr, 0, sizeof(request_attr));
+      request_attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
+      if (ucp_conn_request_query(request, &request_attr) == UCS_OK) {
+        ARROW_UNUSED(SockaddrToString(request_attr.client_address).Value(&peer));
+      }
     }
     FLIGHT_LOG_PEER(DEBUG, peer) << "Received connection request";
 
@@ -518,6 +494,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
       }
       worker->driver.reset(new UcpCallDriver(worker->worker, client_endpoint));
       worker->driver->set_memory_manager(memory_manager_);
+      peer = worker->driver->peer();
     }
 
     while (listening_.load()) {
@@ -530,7 +507,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
         break;
       }
 
-      auto status = HandleOneCall(peer, worker->driver.get(), maybe_frame->get());
+      auto status = HandleOneCall(worker->driver.get(), maybe_frame->get());
       if (!status.ok()) {
         FLIGHT_LOG_PEER(WARNING, peer) << "Call failed: " << status.ToString();
         break;
@@ -548,6 +525,8 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
 
   void DriveConnections() {
     while (listening_.load()) {
+      while (ucp_worker_progress(worker_conn_->get())) {
+      }
       {
         // Check for connect requests in queue
         std::unique_lock<std::mutex> guard(pending_connections_mutex_);
@@ -563,8 +542,6 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
         }
       }
 
-      while (ucp_worker_progress(worker_conn_->get())) {
-      }
       if (!listening_.load()) break;
       auto status = ucp_worker_wait(worker_conn_->get());
       if (status != UCS_OK) {

@@ -80,6 +80,37 @@ arrow::Result<size_t> UriToSockaddr(const arrow::internal::Uri& uri,
   return addrlen;
 }
 
+arrow::Result<std::string> SockaddrToString(const struct sockaddr_storage& address) {
+  std::string result = "";
+  if (address.ss_family != AF_INET && address.ss_family != AF_INET6) {
+    return Status::NotImplemented("Unknown address family");
+  }
+
+  uint16_t port = 0;
+  if (address.ss_family == AF_INET) {
+    result.resize(INET_ADDRSTRLEN + 1);
+    if (!inet_ntop(address.ss_family, &address, &result[0], INET_ADDRSTRLEN)) {
+      return arrow::internal::IOErrorFromErrno(errno,
+                                               "Could not convert address to string");
+    }
+    port = ntohs(reinterpret_cast<const struct sockaddr_in*>(&address)->sin_port);
+  } else {
+    result.resize(INET6_ADDRSTRLEN + 1);
+    if (!inet_ntop(address.ss_family, &address, &result[0], INET6_ADDRSTRLEN)) {
+      return arrow::internal::IOErrorFromErrno(errno,
+                                               "Could not convert address to string");
+    }
+    port = ntohs(reinterpret_cast<const struct sockaddr_in6*>(&address)->sin6_port);
+  }
+
+  const size_t pos = result.find('\0');
+  DCHECK_NE(pos, std::string::npos);
+  result[pos] = ':';
+  result.resize(pos + 1);
+  result += std::to_string(port);
+  return result;
+}
+
 Status FromUcsStatus(const std::string& context, ucs_status_t ucs_status) {
   switch (ucs_status) {
     case UCS_OK:
