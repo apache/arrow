@@ -1870,7 +1870,7 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
-#ifdef WIN32
+#ifdef _WIN32
   GTEST_SKIP() << "There is a known bug in strftime for locales on Windows (ARROW-15922)";
 #else
   if (!LocaleExists("fr_FR.UTF-8")) {
