@@ -61,8 +61,7 @@ struct Configuration {
 
   // Indicates the filter by which rows will be filtered. This optimization can
   // make use of partition information and/or file metadata if possible.
-  cp::Expression filter =
-      cp::greater(cp::field_ref("payment_type"), cp::literal(1));
+  cp::Expression filter = cp::greater(cp::field_ref("payment_type"), cp::literal(1));
 
   ds::InspectOptions inspect_options{};
   ds::FinishOptions finish_options{};
