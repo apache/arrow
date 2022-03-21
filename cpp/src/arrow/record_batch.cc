@@ -341,7 +341,6 @@ Result<RecordBatchVector> RecordBatchReader::ToRecordBatches() {
     batches.emplace_back(std::move(batch));
   }
   return batches;
-
 }
 
 Status RecordBatchReader::ReadAll(RecordBatchVector* batches) {
@@ -349,7 +348,7 @@ Status RecordBatchReader::ReadAll(RecordBatchVector* batches) {
 }
 
 Result<std::shared_ptr<Table>> RecordBatchReader::ToTable() {
- ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
+  ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
   return Table::FromRecordBatches(schema(), std::move(batches));
 }
 
