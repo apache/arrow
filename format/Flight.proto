@@ -287,7 +287,7 @@ message FlightEndpoint {
   Ticket ticket = 1;
 
   /*
-   * A list of URIs where this ticket can be redeemed.
+   * A list of URIs where this ticket can be redeemed via DoGet().
    *
    * If the list is empty, the expectation is that the ticket can only
    * be redeemed on the current service where the ticket was
@@ -317,8 +317,8 @@ message Location {
  * An opaque identifier that the service can use to retrieve a particular
  * portion of a stream.
  *
- * Tickets are meant to be single use. It is an error/undefined behavior
- * to reuse a ticket.
+ * Tickets are meant to be single use. It is an error/application-defined
+ * behavior to reuse a ticket.
  */
 message Ticket {
   bytes ticket = 1;
