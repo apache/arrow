@@ -106,6 +106,7 @@ tabular_as_data_frame_common <- function(x, base) {
     logical(1)
   )
 
+  # If no columns are ExtensionTypes, we use our standard constructor
   if (!any(col_is_extension)) {
     return(base(x, option_use_threads()))
   }
