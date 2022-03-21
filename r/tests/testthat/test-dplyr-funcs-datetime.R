@@ -974,3 +974,105 @@ test_that("date() errors with unsupported inputs", {
     regexp = "Unsupported cast from double to date32 using function cast_date32"
   )
 })
+
+test_that("make_date & make_datetime", {
+  test_df <- expand.grid(
+    year = c(1999, 1969, 2069, NA),
+    month = c(1, 2, 7, 12, NA),
+    day = c(1, 9, 13, 28, NA),
+    hour = c(0, 7, 23, NA),
+    min = c(0, 59, NA),
+    sec = c(0, 59, NA)
+  ) %>%
+    tibble()
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_date = make_date(year, month, day)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_date_r_obj = make_date(1999, 12, 31)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_datetime = make_datetime(year, month, day, hour, min, sec)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        composed_datetime_r_obj = make_datetime(1999, 12, 31, 14, 15, 16)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+})
+
+test_that("ISO_datetime & ISOdate", {
+  test_df <- expand.grid(
+    year = c(1999, 1969, 2069, NA),
+    month = c(1, 2, 7, 12, NA),
+    day = c(1, 9, 13, 28, NA),
+    hour = c(0, 7, 23, NA),
+    min = c(0, 59, NA),
+    sec = c(0, 59, NA)
+  ) %>%
+    tibble()
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_date = ISOdate(year, month, day)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_date_r_obj = ISOdate(1999, 12, 31)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+
+  # the default `tz` for base::ISOdatetime is "", but in Arrow it's "UTC"
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        composed_datetime = ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        composed_datetime_r_obj = ISOdatetime(1999, 12, 31, 14, 15, 16)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+})

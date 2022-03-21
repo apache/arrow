@@ -187,6 +187,52 @@ register_bindings_datetime <- function() {
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
   })
+  register_binding("make_datetime", function(year = 1970L,
+                                             month = 1L,
+                                             day = 1L,
+                                             hour = 0L,
+                                             min = 0L,
+                                             sec = 0,
+                                             tz = "UTC") {
+
+    # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
+    # Stop if tz other than 'UTC' is provided.
+    if (tz != "UTC") {
+      arrow_not_supported("Time zone other than 'UTC'")
+    }
+
+    x <- call_binding("str_c", year, month, day, hour, min, sec, sep = "-")
+    build_expr("strptime", x, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
+  })
+  register_binding("make_date", function(year = 1970L, month = 1L, day = 1L) {
+    x <- call_binding("make_datetime", year, month, day)
+    build_expr("cast", x, options = cast_options(to_type = date32()))
+  })
+  register_binding("ISOdatetime", function(year,
+                                           month,
+                                           day, 
+                                           hour,
+                                           min,
+                                           sec,
+                                           tz = "UTC") {
+
+    # NAs for seconds aren't propagated (but treated as 0) in the base version
+    sec <- call_binding("if_else",
+                        call_binding("is.na", sec),
+                        0,
+                        sec)
+
+    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
+  })
+  register_binding("ISOdate", function(year,
+                                       month,
+                                       day,
+                                       hour = 12,
+                                       min = 0,
+                                       sec = 0,
+                                       tz = "UTC") {
+    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
+  })
 }
 
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
