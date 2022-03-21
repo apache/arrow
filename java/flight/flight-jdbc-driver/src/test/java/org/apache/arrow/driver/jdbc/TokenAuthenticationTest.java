@@ -47,6 +47,7 @@ public class TokenAuthenticationTest {
 
   @AfterClass
   public static void tearDownAfterClass() {
+    AutoCloseables.closeNoChecked(FLIGHT_SERVER_TEST_RULE);
     AutoCloseables.closeNoChecked(FLIGHT_SQL_PRODUCER);
   }
 

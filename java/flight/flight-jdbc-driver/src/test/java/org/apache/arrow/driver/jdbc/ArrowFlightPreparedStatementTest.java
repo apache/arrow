@@ -25,6 +25,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
+import org.apache.arrow.util.AutoCloseables;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -51,6 +52,7 @@ public class ArrowFlightPreparedStatementTest {
   @AfterClass
   public static void tearDown() throws SQLException {
     connection.close();
+    AutoCloseables.closeNoChecked(FLIGHT_SERVER_TEST_RULE);
   }
 
   @Test

@@ -310,7 +310,6 @@ public class ConnectionTlsTest {
   public void testTLSConnectionPropertyTrueCorrectCastUrlWithDriverManager() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
-
     final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s?user=%s&password=%s" +
@@ -322,6 +321,7 @@ public class ConnectionTlsTest {
             keyStorePath,
             BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(),
             keyStorePass));
+
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
@@ -350,8 +350,9 @@ public class ConnectionTlsTest {
     final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort()),
+            tlsServer.getPort()),
         properties);
+
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
@@ -380,7 +381,7 @@ public class ConnectionTlsTest {
     final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort()),
+            tlsServer.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
     connection.close();
@@ -434,8 +435,9 @@ public class ConnectionTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), "0");
 
     final Connection connection = DriverManager.getConnection(
-        String.format("jdbc:arrow-flight://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
+        String.format("jdbc:arrow-flight://localhost:%s", tlsServer.getPort()),
         properties);
+
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
@@ -463,8 +465,9 @@ public class ConnectionTlsTest {
 
     final Connection connection = DriverManager.getConnection(
         String.format("jdbc:arrow-flight://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort()),
+            tlsServer.getPort()),
         properties);
+
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
