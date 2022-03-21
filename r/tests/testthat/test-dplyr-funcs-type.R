@@ -809,6 +809,7 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     character_ymd_var = "2022-02-25 00:00:01",
     character_ydm_var = "2022/25/02 00:00:01",
     integer_var = 32L,
+    integerish_var = 32,
     double_var = 34.56
   )
 
@@ -820,7 +821,8 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
         date_dv = as.Date(date_var),
         date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
         date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
-        date_int = as.Date(integer_var, origin = "1970-01-01")
+        date_int = as.Date(integer_var, origin = "1970-01-01"),
+        date_integerish = as.Date(integerish_var, origin = "1970-01-01")
       ) %>%
       collect(),
     test_df
