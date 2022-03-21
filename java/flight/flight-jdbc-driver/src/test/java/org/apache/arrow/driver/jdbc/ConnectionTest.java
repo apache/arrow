@@ -81,49 +81,6 @@ public class ConnectionTest {
   }
 
   /**
-   * Validate the user's credential on a FlightServer.
-   *
-   * @param username flight server username.
-   * @param password flight server password.
-   * @return the result of validation.
-   */
-  private CallHeaderAuthenticator.AuthResult validate(final String username,
-                                                      final String password) {
-    if (Strings.isNullOrEmpty(username)) {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Credentials not supplied.").toRuntimeException();
-    }
-    final String identity;
-    if (dataSource.getConfig().getUser().equals(username) &&
-        dataSource.getConfig().getPassword().equals(password)) {
-      identity = dataSource.getConfig().getUser();
-    } else {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Username or password is invalid.")
-          .toRuntimeException();
-    }
-    return () -> identity;
-  }
-
-  private CallHeaderAuthenticator.AuthResult validate2(final String username,
-                                                       final String password) {
-    if (Strings.isNullOrEmpty(username)) {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Credentials not supplied.").toRuntimeException();
-    }
-    final String identity;
-    if (dataSource.getConfig().getUser().equals(username) &&
-        dataSource.getConfig().getPassword().equals(password)) {
-      identity = dataSource.getConfig().getUser();
-    } else {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Username or password is invalid.")
-          .toRuntimeException();
-    }
-    return () -> identity;
-  }
-
-  /**
    * Checks if an unencrypted connection can be established successfully when
    * the provided valid credentials.
    *
