@@ -2304,7 +2304,7 @@ TEST(TestStringOps, TestFromHex) {
   out_str = from_hex_utf8(ctx_ptr, "4f4D", 4, false, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");
-  EXPECT_EQ(out_valid, true);
+  EXPECT_EQ(out_valid, false);
 
   out_str =
       from_hex_utf8(ctx_ptr, "egular courts above th", 22, true, &out_valid, &out_len);
