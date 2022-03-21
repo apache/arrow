@@ -120,6 +120,11 @@
   ASSIGN_OR_HANDLE_ERROR_IMPL(           \
       ASSERT_OK, ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, rexpr);
 
+#define ASSERT_OK_NO_THROW_AND_ASSIGN(lhs, rexpr) \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(           \
+      ASSERT_OK_NO_THROW, ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, \
+      rexpr);
+
 #define ASSIGN_OR_ABORT(lhs, rexpr)                                                     \
   ASSIGN_OR_HANDLE_ERROR_IMPL(ABORT_NOT_OK,                                             \
                               ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
