@@ -203,8 +203,17 @@ register_bindings_duration <- function() {
       warn("`tz` argument is not supported in Arrow, so it will be ignored")
     }
 
-    time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp()))
-    time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp()))
+    # cast to timestamp if time1 and time2 are not dates or timpestamp expressions
+    # (the subtraction of which would output a `duration`)
+    if (!(inherits(time1, "Expression") &&
+          time1$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = "UTC")))
+    }
+
+    if (!(inherits(time2, "Expression") &&
+          time2$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
+    }
 
     build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
   })
