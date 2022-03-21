@@ -31,8 +31,6 @@ import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
-import org.apache.arrow.flight.CallStatus;
-import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -41,9 +39,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
-
-import com.google.common.base.Strings;
-
 
 /**
  * Tests for {@link Connection}.
