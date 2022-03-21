@@ -407,7 +407,6 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;
 
-
   const std::string& serialized_schema() const { return raw_schema_; }
 
  private:
@@ -448,7 +447,6 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;
-
 
   const std::string& serialized_schema() const { return data_.schema; }
 

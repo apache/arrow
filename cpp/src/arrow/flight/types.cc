@@ -254,7 +254,6 @@ Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
   return GetSchema(dictionary_memo).Value(out);
 }
 
-
 arrow::Result<std::string> FlightInfo::SerializeToString() const {
   pb::FlightInfo pb_info;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
@@ -366,16 +365,14 @@ bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;
 }
 
-Status ResultStream::Next(std::unique_ptr<Result>* info) {
-  return Next().Value(info);
-}
+Status ResultStream::Next(std::unique_ptr<Result>* info) { return Next().Value(info); }
 
 Status MetadataRecordBatchReader::Next(FlightStreamChunk* next) {
   return Next().Value(next);
 }
 
 arrow::Result<std::vector<std::shared_ptr<RecordBatch>>>
-    MetadataRecordBatchReader::ToRecordBatches() {
+MetadataRecordBatchReader::ToRecordBatches() {
   std::vector<std::shared_ptr<RecordBatch>> batches;
   while (true) {
     ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, Next());
@@ -395,7 +392,6 @@ arrow::Result<std::shared_ptr<Table>> MetadataRecordBatchReader::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
   return Table::FromRecordBatches(schema, std::move(batches));
 }
-
 
 Status MetadataRecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
   return ToTable().Value(table);
@@ -447,7 +443,7 @@ SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)
 SimpleFlightListing::SimpleFlightListing(std::vector<FlightInfo>&& flights)
     : position_(0), flights_(std::move(flights)) {}
 
-arrow::Result<std::unique_ptr<FlightInfo> > SimpleFlightListing::Next() {
+arrow::Result<std::unique_ptr<FlightInfo>> SimpleFlightListing::Next() {
   if (position_ >= static_cast<int>(flights_.size())) {
     return nullptr;
   }
@@ -457,7 +453,7 @@ arrow::Result<std::unique_ptr<FlightInfo> > SimpleFlightListing::Next() {
 SimpleResultStream::SimpleResultStream(std::vector<Result>&& results)
     : results_(std::move(results)), position_(0) {}
 
-arrow::Result<std::unique_ptr<Result> > SimpleResultStream::Next() {
+arrow::Result<std::unique_ptr<Result>> SimpleResultStream::Next() {
   if (position_ >= results_.size()) {
     return nullptr;
   }

@@ -79,8 +79,8 @@ arrow::Result<std::shared_ptr<Table>> FlightStreamReader::ToTable(
   return Table::FromRecordBatches(schema, std::move(batches));
 }
 
-Status FlightStreamReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>> *batches,
-    const StopToken& stop_token) {
+Status FlightStreamReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                                   const StopToken& stop_token) {
   return ToRecordBatches(stop_token).Value(batches);
 }
 
