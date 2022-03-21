@@ -17,10 +17,10 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Constructor;
 import java.sql.Connection;
 import java.util.Properties;
+
 import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
@@ -32,6 +32,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.

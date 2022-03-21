@@ -159,7 +159,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   @Override
   public Statement apply(Statement base, Description description) {
-    if (certKeyPair != null) { // connection com TLs
+    if (certKeyPair != null) {
       return new Statement() {
         @Override
         public void evaluate() throws Throwable {
@@ -178,7 +178,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
           }
         }
       };
-    } else { // conexão sem TLS
+    } else {
       return new Statement() {
         @Override
         public void evaluate() throws Throwable {
