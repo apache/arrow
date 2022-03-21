@@ -163,9 +163,6 @@ Good reproducible examples or minimal bug reports can be found in next tabs:
          )
          #> Error in `handle_csv_read_error()`:
          #> ! Invalid: In CSV column #0: CSV conversion error to timestamp[s]: invalid value '2018-10-07 19:04:05.005'
-         #> /home/nic2/arrow/cpp/src/arrow/csv/converter.cc:550  decoder_.Decode(data, size, quoted, &value)
-         #> /home/nic2/arrow/cpp/src/arrow/csv/parser.h:123  status
-         #> /home/nic2/arrow/cpp/src/arrow/csv/converter.cc:554  parser.VisitColumn(col_index, visit)
 
          # the unit here is ms - doesn't work
          read_csv_arrow(
@@ -176,9 +173,6 @@ Good reproducible examples or minimal bug reports can be found in next tabs:
          )
          #> Error in `handle_csv_read_error()`:
          #> ! Invalid: In CSV column #0: CSV conversion error to time32[ms]: invalid value '2018-10-07 19:04:05.005'
-         #> /home/nic2/arrow/cpp/src/arrow/csv/converter.cc:550  decoder_.Decode(data, size, quoted, &value)
-         #> /home/nic2/arrow/cpp/src/arrow/csv/parser.h:123  status
-         #> /home/nic2/arrow/cpp/src/arrow/csv/converter.cc:554  parser.VisitColumn(col_index, visit)
 
          # the unit here is inferred as ns - does work!
          read_csv_arrow(
