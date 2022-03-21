@@ -114,10 +114,11 @@ register_bindings_type_cast <- function() {
 
     # cast from numeric
     } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
-      # Arrow does not support direct casting from double to date32()
+      # Arrow does not support direct casting from double to date32(), but for
+      # integer-like values we can go via int32()
       # https://issues.apache.org/jira/browse/ARROW-15798
       # TODO revisit if arrow decides to support double -> date casting
-      abort("`as.Date()` with double/float is not supported in Arrow")
+      x <- build_expr("cast", x, options = cast_options(to_type = int32()))
     }
     build_expr("cast", x, options = cast_options(to_type = date32()))
   })
