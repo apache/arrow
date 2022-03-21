@@ -63,6 +63,18 @@ type MemoTable interface {
 	GetOrInsertNull() (idx int, existed bool)
 }
 
+type NumericMemoTable interface {
+	MemoTable
+	// WriteOutLE writes the contents of the memo table out to the byteslice
+	// but ensures the values are little-endian before writing them (converting
+	// if on a big endian system).
+	WriteOutLE(out []byte)
+	// WriteOutSubsetLE writes the contents of the memo table out to the byteslice
+	// starting with the index indicated by start, but ensures the values are little
+	// endian before writing them (converting if on a big-endian system).
+	WriteOutSubsetLE(start int, out []byte)
+}
+
 // BinaryMemoTable is an extension of the MemoTable interface adding extra methods
 // for handling byte arrays/strings/fixed length byte arrays.
 type BinaryMemoTable interface {

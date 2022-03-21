@@ -166,7 +166,7 @@ func (enc *Dict{{.Name}}Encoder) Type() parquet.Type {
 {{if (ne .Name "Int96")}}
 // WriteDict populates the byte slice with the dictionary index
 func (enc *Dict{{.Name}}Encoder) WriteDict(out []byte) {
-  enc.memo.CopyValues({{.prefix}}.{{.Name}}Traits.CastFromBytes(out))
+  enc.memo.(NumericMemoTable).WriteOutLE(out)
 }
 
 // Put encodes the values passed in, adding to the index as needed.

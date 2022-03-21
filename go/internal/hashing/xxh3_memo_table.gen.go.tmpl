@@ -252,10 +252,18 @@ func (s *{{.Name}}MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *{{.Name}}MemoTable) WriteOut(out []byte) {
-  s.tbl.WriteOut(out)
+  s.tbl.CopyValues(arrow.{{.Name}}Traits.CastFromBytes(out))
 }
 
 func (s *{{.Name}}MemoTable) WriteOutSubset(start int, out []byte) {
+  s.tbl.CopyValuesSubset(start, arrow.{{.Name}}Traits.CastFromBytes(out))
+}
+
+func (s *{{.Name}}MemoTable) WriteOutLE(out []byte) {
+  s.tbl.WriteOut(out)
+}
+
+func (s *{{.Name}}MemoTable) WriteOutSubsetLE(start int, out []byte) {
   s.tbl.WriteOutSubset(start, out)
 }
 

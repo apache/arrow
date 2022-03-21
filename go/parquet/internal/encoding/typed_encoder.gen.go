@@ -134,7 +134,7 @@ func (enc *DictInt32Encoder) Type() parquet.Type {
 
 // WriteDict populates the byte slice with the dictionary index
 func (enc *DictInt32Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Int32Traits.CastFromBytes(out))
+	enc.memo.(NumericMemoTable).WriteOutLE(out)
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -350,7 +350,7 @@ func (enc *DictInt64Encoder) Type() parquet.Type {
 
 // WriteDict populates the byte slice with the dictionary index
 func (enc *DictInt64Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Int64Traits.CastFromBytes(out))
+	enc.memo.(NumericMemoTable).WriteOutLE(out)
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -762,7 +762,7 @@ func (enc *DictFloat32Encoder) Type() parquet.Type {
 
 // WriteDict populates the byte slice with the dictionary index
 func (enc *DictFloat32Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Float32Traits.CastFromBytes(out))
+	enc.memo.(NumericMemoTable).WriteOutLE(out)
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -966,7 +966,7 @@ func (enc *DictFloat64Encoder) Type() parquet.Type {
 
 // WriteDict populates the byte slice with the dictionary index
 func (enc *DictFloat64Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Float64Traits.CastFromBytes(out))
+	enc.memo.(NumericMemoTable).WriteOutLE(out)
 }
 
 // Put encodes the values passed in, adding to the index as needed.

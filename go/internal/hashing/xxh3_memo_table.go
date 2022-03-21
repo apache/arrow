@@ -37,15 +37,43 @@ type TypeTraits interface {
 	BytesRequired(n int) int
 }
 
+// MemoTable interface for hash tables and dictionary encoding.
+//
+// Values will remember the order they are inserted to generate a valid
+// dictionary.
 type MemoTable interface {
 	TypeTraits() TypeTraits
+	// Reset drops everything in the table allowing it to be reused
 	Reset()
+	// Size returns the current number of unique values stored in
+	// the table, including whether or not a null value has been
+	// inserted via GetOrInsertNull.
 	Size() int
+	// GetOrInsert returns the index of the table the specified value is,
+	// and a boolean indicating whether or not the value was found in
+	// the table (if false, the value was inserted). An error is returned
+	// if val is not the appropriate type for the table.
 	GetOrInsert(val interface{}) (idx int, existed bool, err error)
+	// GetOrInsertNull returns the index of the null value in the table,
+	// inserting one if it hasn't already been inserted. It returns a boolean
+	// indicating if the null value already existed or not in the table.
 	GetOrInsertNull() (idx int, existed bool)
+	// GetNull returns the index of the null value in the table, but does not
+	// insert one if it doesn't already exist. Will return -1 if it doesn't exist
+	// indicated by a false value for the boolean.
 	GetNull() (idx int, exists bool)
+	// WriteOut copys the unique values of the memotable out to the byte slice
+	// provided. Must have allocated enough bytes for all the values.
 	WriteOut(out []byte)
+	// WriteOutSubset is like WriteOut, but only writes a subset of values
+	// starting with the index offset.
 	WriteOutSubset(offset int, out []byte)
+}
+
+type NumericMemoTable interface {
+	MemoTable
+	WriteOutLE(out []byte)
+	WriteOutSubsetLE(offset int, out []byte)
 }
 
 func hashInt(val uint64, alg uint64) uint64 {

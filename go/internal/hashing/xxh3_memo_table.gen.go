@@ -252,10 +252,18 @@ func (s *Int8MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Int8MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Int8Traits.CastFromBytes(out))
 }
 
 func (s *Int8MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Int8Traits.CastFromBytes(out))
+}
+
+func (s *Int8MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Int8MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -516,10 +524,18 @@ func (s *Uint8MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Uint8MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Uint8Traits.CastFromBytes(out))
 }
 
 func (s *Uint8MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Uint8Traits.CastFromBytes(out))
+}
+
+func (s *Uint8MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Uint8MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -780,10 +796,18 @@ func (s *Int16MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Int16MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Int16Traits.CastFromBytes(out))
 }
 
 func (s *Int16MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Int16Traits.CastFromBytes(out))
+}
+
+func (s *Int16MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Int16MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -1044,10 +1068,18 @@ func (s *Uint16MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Uint16MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Uint16Traits.CastFromBytes(out))
 }
 
 func (s *Uint16MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Uint16Traits.CastFromBytes(out))
+}
+
+func (s *Uint16MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Uint16MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -1308,10 +1340,18 @@ func (s *Int32MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Int32MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Int32Traits.CastFromBytes(out))
 }
 
 func (s *Int32MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Int32Traits.CastFromBytes(out))
+}
+
+func (s *Int32MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Int32MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -1572,10 +1612,18 @@ func (s *Int64MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Int64MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Int64Traits.CastFromBytes(out))
 }
 
 func (s *Int64MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Int64Traits.CastFromBytes(out))
+}
+
+func (s *Int64MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Int64MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -1836,10 +1884,18 @@ func (s *Uint32MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Uint32MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Uint32Traits.CastFromBytes(out))
 }
 
 func (s *Uint32MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Uint32Traits.CastFromBytes(out))
+}
+
+func (s *Uint32MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Uint32MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -2100,10 +2156,18 @@ func (s *Uint64MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Uint64MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Uint64Traits.CastFromBytes(out))
 }
 
 func (s *Uint64MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Uint64Traits.CastFromBytes(out))
+}
+
+func (s *Uint64MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Uint64MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -2364,10 +2428,18 @@ func (s *Float32MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Float32MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Float32Traits.CastFromBytes(out))
 }
 
 func (s *Float32MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Float32Traits.CastFromBytes(out))
+}
+
+func (s *Float32MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Float32MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
@@ -2647,10 +2719,18 @@ func (s *Float64MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *Float64MemoTable) WriteOut(out []byte) {
-	s.tbl.WriteOut(out)
+	s.tbl.CopyValues(arrow.Float64Traits.CastFromBytes(out))
 }
 
 func (s *Float64MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.CopyValuesSubset(start, arrow.Float64Traits.CastFromBytes(out))
+}
+
+func (s *Float64MemoTable) WriteOutLE(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Float64MemoTable) WriteOutSubsetLE(start int, out []byte) {
 	s.tbl.WriteOutSubset(start, out)
 }
 
