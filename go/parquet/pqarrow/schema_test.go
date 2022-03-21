@@ -17,14 +17,49 @@
 package pqarrow_test
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/flight"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/metadata"
 	"github.com/apache/arrow/go/v8/parquet/pqarrow"
 	"github.com/apache/arrow/go/v8/parquet/schema"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestGetOriginSchemaBase64(t *testing.T) {
+	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+	origArrSc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
+		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
+	}, nil)
+
+	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
+	pqschema, err := pqarrow.ToParquet(origArrSc, nil, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	tests := []struct {
+		name string
+		enc  *base64.Encoding
+	}{
+		{"raw", base64.RawStdEncoding},
+		{"std", base64.StdEncoding},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kv := metadata.NewKeyValueMetadata()
+			kv.Append("ARROW:schema", tt.enc.EncodeToString(arrSerializedSc))
+			arrsc, err := pqarrow.FromParquet(pqschema, nil, kv)
+			assert.NoError(t, err)
+			assert.True(t, origArrSc.Equal(arrsc))
+		})
+	}
+}
 
 func TestConvertArrowFlatPrimitives(t *testing.T) {
 	parquetFields := make(schema.FieldList, 0)
