@@ -951,6 +951,9 @@ services:
     environment:
       <<: *ccache
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
+      PYTEST_ARGS:  # inherit
+      HYPOTHESIS_PROFILE:  # inherit
+      PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&

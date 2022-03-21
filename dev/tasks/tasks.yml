@@ -1175,9 +1175,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        PYTHON: 3.8
         HYPOTHESIS_PROFILE: ci
         PYARROW_TEST_HYPOTHESIS: ON
-        PYTHON: 3.8
         # limit to execute hypothesis tests only
         PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
