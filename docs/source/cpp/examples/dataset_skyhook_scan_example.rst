@@ -26,7 +26,7 @@ located inside the source tree contains an example of using Skyhook to
 offload filters and projections to a Ceph cluster.
 
 Instuctions
---------------------
+===========
 
 1. Install Ceph and Skyhook dependencies.
 .. code-block:: bash
