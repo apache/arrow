@@ -349,8 +349,7 @@ Status RecordBatchReader::ReadAll(RecordBatchVector* batches) {
 }
 
 Result<std::shared_ptr<Table>> RecordBatchReader::ToTable() {
-  std::vector<std::shared_ptr<RecordBatch>> batches;
-  RETURN_NOT_OK(ReadAll(&batches));
+ ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
   return Table::FromRecordBatches(schema(), std::move(batches));
 }
 
