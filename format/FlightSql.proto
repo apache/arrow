@@ -868,8 +868,7 @@ enum SqlSupportsConvert {
 }
 
 /**
- * It is an attribute that identifies the type of any object. It's
- * used by JDBC and ODBC to expose the values defined by the DBMS.
+ * The JDBC/ODBC-defined type of any object.
  * All the values here are the sames as in the JDBC and ODBC specs.
  */
 enum XdbcDataType {
