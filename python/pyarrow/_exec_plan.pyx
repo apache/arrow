@@ -250,7 +250,8 @@ def tables_join(join_type, left_table not None, left_keys,
             # so that we can coalesce the keys and exclude duplicates in a subsequent projection.
             left_columns_set = set(left_columns)
             right_columns_set = set(right_columns)
-            right_table_index = len(left_columns)  # Where the right table columns start.
+            # Where the right table columns start.
+            right_table_index = len(left_columns)
             for idx, col in enumerate(left_columns + right_columns):
                 if idx < len(left_keys):
                     # Include keys only once and coalesce left+right table keys.
