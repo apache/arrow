@@ -210,11 +210,11 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
         return st;                                                                \
       })
 
-#define GET_CURRENT_SPAN(span) \
-  auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()
+#define GET_CURRENT_SPAN(lhs) \
+  lhs = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()
 
-#define SET_SPAN_SCOPE(scope, span) \
-  auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span)
+#define SET_SPAN_SCOPE(lhs, span) \
+  lhs = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span)
 
 #define TIE_SPAN_TO_GENERATOR(generator) \
   generator = ::arrow::internal::tracing::TieSpanToAsyncGenerator(generator)
@@ -232,8 +232,8 @@ class SpanImpl {};
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
-#define GET_CURRENT_SPAN(span)
-#define SET_SPAN_SCOPE(scope, span)
+#define GET_CURRENT_SPAN(lhs)
+#define SET_SPAN_SCOPE(lhs, span)
 #define TIE_SPAN_TO_GENERATOR(generator)
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
 
