@@ -34,8 +34,8 @@ namespace flight {
 namespace sql {
 
 /// \defgroup flight-sql-protocol-messages Flight SQL Protocol Messages
-/// POD wrappers for various protocol messages, used to avoid exposing
-/// Protobuf types in the API.
+/// Simple struct wrappers for various protocol messages, used to
+/// avoid exposing Protobuf types in the API.
 /// @{
 
 /// \brief A SQL query.

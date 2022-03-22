@@ -27,19 +27,7 @@ Arrow Flight SQL
 Common Types
 ============
 
-.. doxygentypedef:: arrow::flight::sql::SqlInfoResult
-
-.. doxygentypedef:: arrow::flight::sql::SqlInfoResultMap
-
-.. doxygenenum:: arrow::flight::sql::SqlInfoOptions::SqlInfo
-
-.. doxygenenum:: arrow::flight::sql::SqlInfoOptions::SqlSupportedCaseSensitivity
-
-.. doxygenenum:: arrow::flight::sql::SqlInfoOptions::SqlNullOrdering
-
-.. doxygenenum:: arrow::flight::sql::SqlInfoOptions::SqlSupportsConvert
-
-.. doxygenstruct:: arrow::flight::sql::TableRef
+.. doxygengroup:: flight-sql-common-types
    :members:
 
 Client

@@ -30,6 +30,10 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
+/// \defgroup flight-sql-common-types Common protocol types for Flight SQL
+///
+/// @{
+
 /// \brief Variant supporting all possible types on SQL info.
 using SqlInfoResult =
     arrow::util::Variant<std::string, bool, int64_t, int32_t, std::vector<std::string>,
@@ -40,6 +44,7 @@ using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
 
 /// \brief Options to be set in the SqlInfo.
 struct SqlInfoOptions {
+  /// \brief Predefined info values for GetSqlInfo.
   enum SqlInfo {
     /// \name Server Information
     /// Values [0-500): Provides basic information about the Flight SQL Server.
@@ -838,6 +843,8 @@ struct TableRef {
   /// \brief The table name.
   std::string table;
 };
+
+/// @}
 
 }  // namespace sql
 }  // namespace flight
