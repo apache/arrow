@@ -49,23 +49,42 @@
 namespace arrow {
 namespace compute {
 
+using IntegralTypes = testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+                                     Int8Type, Int16Type, Int32Type, Int64Type>;
+
+using FloatingTypes = testing::Types<FloatType, DoubleType>;
+
+using TimeTypes = testing::Types<Date32Type, Date64Type, Time32Type, Time64Type,
+                                 TimestampType, DurationType, MonthIntervalType>;
+
 template <typename Type>
-class TestBaseCumulativeSum : public ::testing::Test {
+class TestCumulativeSum : public ::testing::Test {
   using CType = TypeTraits<Type>::CType;
 
-  void AssertValidCumulativeSum(const Array& input, CumulativeSumOptions options) {
+ protected:
+  CumulativeSumOptions no_start_no_skip_nulls();
+  CumulativeSumOptions has_start_no_skip_nulls(10);
+  CumulativeSumOptions no_start_skip_nulls(0, true);
+  CumulativeSumOptions has_start_skip_nulls(10, true);
+
+  void SetUp() override {}
+
+  void AssertValidCumulativeSum(const Array& expected, const Array& input,
+                                const CumulativeSumOptions options) {
     ASSERT_OK_AND_ASSIGN(auto result, CumulativeSum(input, options, nullptr));
+    AssertArraysEqual(expected, *result, false, EqualOptions::Defaults());
   }
 };
 
-template <typename T>
-class TestIntegerCumulativeSum : public TestBaseCumulativeSum<T> {};
+TYPED_TEST_SUITE(TestCumulativeSumIntegral, IntegralTypes);
+TYPED_TEST_SUITE(TestCumulativeSumFloating, FloatingTypes);
+TYPED_TEST_SUITE(TestCumulativeSumTemporal, TimeTypes);
 
-template <typename T>
-class TestFloatingPointCumulativeSum : public TestBaseCumulativeSum<T> {};
+TYPED_TEST(TestCumulativeSumIntegral, NoStartNoSkipNulls) {}
+TYPED_TEST(TestCumulativeSumIntegral, HasStartNoSkipNulls) {}
+TYPED_TEST(TestCumulativeSumIntegral, NoStartSkipNulls) {}
+TYPED_TEST(TestCumulativeSumIntegral, HasStartSkipNulls) {}
 
-template <typename T>
-class TestTemporalCumulativeSum : public TestBaseCumulativeSum<T> {};
 
 }  // namespace compute
 }  // namespace arrow
