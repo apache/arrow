@@ -655,6 +655,20 @@ cdef class ConvertOptions(_Weakrefable):
     ... Centipede,100,04/03/2022
     ... ,6,05/03/2022'''
 
+    Change the type of a column:
+
+    >>> import pyarrow as pa
+    >>> convert_options = csv.ConvertOptions(column_types={"n_legs": pa.float64()})
+    >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: double
+    entry: string
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [[2,4,5,100,6]]
+    entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022","05/03/2022"]]
+
     Define a date parsing format to get a timestamp type column
     (in case dates are not in ISO format and not converted by default):
 
@@ -755,20 +769,6 @@ cdef class ConvertOptions(_Weakrefable):
     animals: bool
     ----
     animals: [[false,false,true,true,null]]
-
-    Change the type of a column:
-
-    >>> import pyarrow as pa
-    >>> convert_options = csv.ConvertOptions(
-    ...                   include_columns=["animals", "n_legs"],
-    ...                   column_types={"n_legs": pa.float64()})
-    >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
-    pyarrow.Table
-    animals: string
-    n_legs: double
-    ----
-    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
-    n_legs: [[2,4,5,100,6]]
     """
 
     # Avoid mistakingly creating attributes
