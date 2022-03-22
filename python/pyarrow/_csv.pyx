@@ -700,15 +700,18 @@ cdef class ConvertOptions(_Weakrefable):
     Define a column as a dictionary:
 
     >>> convert_options = csv.ConvertOptions(
-    ...                   include_columns=["animals"],
     ...                   auto_dict_encode=True)
     >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
     pyarrow.Table
     animals: dictionary<values=string, indices=int32, ordered=0>
+    n_legs: int64
+    entry: date32[day]
     ----
     animals: [  -- dictionary:
     ["Flamingo","Horse","Brittle stars","Centipede"]  -- indices:
     [0,1,2,3]]
+    n_legs: [[2,4,5,100]]
+    entry: [[2022-03-01,2022-03-02,2022-03-03,2022-03-04]]
 
     Set upper limit for the number of categories. If the categories
     is more than the limit, the conversion to dictionary will not
