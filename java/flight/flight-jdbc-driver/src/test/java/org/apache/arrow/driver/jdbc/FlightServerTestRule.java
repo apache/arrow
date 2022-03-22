@@ -20,15 +20,10 @@ package org.apache.arrow.driver.jdbc;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Deque;
-import java.util.List;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.authentication.Authentication;
@@ -103,27 +98,6 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         .authentication(authentication)
         .producer(producer)
         .build();
-  }
-
-  /**
-   * Get the Path from the Files to be used in the encrypted test of Flight.
-   *
-   * @return the Path from the Files with certificates and keys.
-   */
-  static Path getFlightTestDataRoot() throws URISyntaxException {
-    return Paths.get(FlightServerTestRule.class.getClassLoader().getResource("keys").toURI());
-  }
-
-  /**
-   * Create CertKeyPair object with the certificates and keys.
-   *
-   * @return A list with CertKeyPair.
-   */
-  public static List<CertKeyPair> exampleTlsCerts() throws URISyntaxException {
-    final Path root = getFlightTestDataRoot();
-    return Arrays.asList(
-        new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
-        new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
   }
 
   ArrowFlightJdbcDataSource createDataSource() {
