@@ -1728,11 +1728,11 @@ def test_strptime():
     assert got == expected
 
     with pytest.raises(pa.ArrowInvalid,
-                       match="Failed to parse string: '5/1/202012/13/1900'"):
+                       match="Failed to parse string: '5/1/2020'"):
         pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=False)
 
     with pytest.raises(pa.ArrowInvalid,
-                       match="Failed to parse string: '5/1/202012/13/1900'"):
+                       match="Failed to parse string: '5/1/2020'"):
         pc.strptime(arr, format='%Y-%m-%d', unit='s')
 
     got = pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=True)

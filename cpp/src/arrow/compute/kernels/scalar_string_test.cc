@@ -1859,8 +1859,7 @@ TYPED_TEST(TestStringKernels, Strptime) {
   this->CheckUnary("strptime", input3, timestamp(TimeUnit::MICRO), output1, &options);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      testing::HasSubstr("Invalid: Failed to parse string: '5/1/202012/13/1900'"),
+      Invalid, testing::HasSubstr("Invalid: Failed to parse string: '5/1/2020'"),
       Strptime(ArrayFromJSON(this->type(), input1), options));
 }
 
@@ -1873,9 +1872,18 @@ TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
   std::string input1 = R"(["5/1/2020 +0100", null, "12/11/1900 -0130"])";
   std::string output1 =
       R"(["2020-04-30T23:00:00.000000", null, "1900-12-11T01:30:00.000000"])";
-  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO, true);
+  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO, /*error_is_null=*/true);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output1,
                    &options);
+
+  std::string input2 = R"(["5/1/2020 Pacific/Marquesas", null])";
+  options.format = "%m/%d/%Y %Z";
+  options.error_is_null = false;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Failed to parse string: '5/1/2020 Pacific/Marquesas'"),
+      Strptime(ArrayFromJSON(this->type(), input2), options));
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {

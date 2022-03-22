@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <initializer_list>
+#include <regex>
 #include <sstream>
 
 #include "arrow/builder.h"
@@ -1150,19 +1151,10 @@ struct Strftime {
 
 const std::string GetZone(const std::string& format) {
   // Check for use of %z or %Z
-  size_t cur = 0;
-  std::string zone = "";
-  while (cur < format.size() - 1) {
-    if (format[cur] == '%') {
-      if (format[cur + 1] == 'z') {
-        zone = "UTC";
-        break;
-      }
-      cur++;
-    }
-    cur++;
+  if (std::regex_replace(format, std::regex("%%"), "").find("%z") != std::string::npos) {
+    return "UTC";
   }
-  return zone;
+  return "";
 }
 
 template <typename Duration, typename InType>
@@ -1193,8 +1185,7 @@ struct Strptime {
         if (self.error_is_null) {
           out->is_valid = false;
         } else {
-          return Status::Invalid("Failed to parse string: '", s.data(),
-                                 "' as a scalar of type ",
+          return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
                                  TimestampType(self.unit).ToString());
         }
       }
@@ -1206,15 +1197,14 @@ struct Strptime {
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
-    FirstTimeBitmapWriter out_writer(out->buffers[0]->mutable_data(), out->offset,
-                                     out->length);
     int64_t* out_data = out->GetMutableValues<int64_t>(1);
-    int64_t null_count = 0;
 
     if (self.error_is_null) {
+      arrow::internal::BitmapWriter out_writer(out->buffers[0]->mutable_data(),
+                                               out->offset, out->length);
+      int64_t null_count = 0;
       auto visit_null = [&]() {
         out_data++;
-        out_writer.Clear();
         out_writer.Next();
         null_count++;
       };
@@ -1222,40 +1212,32 @@ struct Strptime {
         int64_t result;
         if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
           *out_data++ = result;
-          out_writer.Set();
-          out_writer.Next();
         } else {
           out_writer.Clear();
-          out_writer.Next();
           null_count++;
         }
+        out_writer.Next();
       };
       VisitArrayDataInline<InType>(in, visit_value, visit_null);
+      out_writer.Finish();
+      out->null_count = null_count;
     } else {
       auto visit_null = [&]() {
         out_data++;
-        out_writer.Clear();
-        out_writer.Next();
-        null_count++;
         return Status::OK();
       };
       auto visit_value = [&](util::string_view s) {
         int64_t result;
         if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
           *out_data++ = result;
-          out_writer.Set();
-          out_writer.Next();
           return Status::OK();
         } else {
-          return Status::Invalid("Failed to parse string: '", s.data(),
-                                 "' as a scalar of type ",
+          return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
                                  TimestampType(self.unit).ToString());
         }
       };
       RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
     }
-    out_writer.Finish();
-    out->null_count = null_count;
     return Status::OK();
   }
 };
