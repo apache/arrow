@@ -28,6 +28,31 @@ namespace internal {
 
 namespace {
 
+struct Add {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    return left + right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
+    return left + right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
+    return arrow::internal::SafeSignedAdd(left, right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left + right;
+  }
+};
+
 std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
   return KernelSignature::Make({InputType::Array(get_id.id)}, OutputType(FirstType));
 }
@@ -46,18 +71,19 @@ struct CumulativeSum {
     CType* out_values = checked_cast<CType*>(output->buffers[1]->mutable_data());
     ArithmeticOptions options;
     bool set_null = false;
-    for (size_t i = input->offset; i < input->length(); ++i) {
+    for (size_t i = input->offset(); i < input->length(); ++i) {
       if (set_null) {
         out_values[i] = NULL;
       } else if (input->IsNull(i) && !skip_nulls) {
         out_values[i] = NULL;
         set_null = true;
       } else {
-        Datum value_datum(data[i]);
-        Datum sum_datum(sum);
-        auto result = Add(value_datum, sum_datum, options, ctx);
-        ScalarType result_scalar = result.ValueOrDie().scalar_as<ScalarType>();
-        sum = result_scalar.value;
+        // Datum value_datum(data[i]);
+        // Datum sum_datum(sum);
+        // auto result = Add(value_datum, sum_datum, options, ctx);
+        // sum = result_scalar.value;
+
+        sum = Add::Call(data[i], sum);
         out_values[i] = sum;
       }
     }
@@ -82,7 +108,7 @@ struct CumulativeSum {
     }
 
     switch (batch[0].kind()) {
-      case Datum::ARRAY:
+      case Datum::ARRAY: {
         std::shared_ptr<Array> input = batch[0].make_array();
         ArrayData* output = out->array().get();
 
@@ -102,8 +128,8 @@ struct CumulativeSum {
 
         Sum(ctx->exec_context(), input, output, start, skip_nulls);
         return Status::OK();
-        break;
-      case Datum::CHUNKED_ARRAY:
+      }
+      case Datum::CHUNKED_ARRAY: {
         const auto& input = batch[0].chunked_array();
 
         ArrayVector out_chunks;
@@ -131,7 +157,7 @@ struct CumulativeSum {
 
         *out->chunked_array() = ChunkedArray(out_chunks, input->type());
         return Status::OK();
-        break;
+      }
       default:
         return Status::NotImplemented(
             "Unsupported input type for function 'cumulative_sum': ",

@@ -191,13 +191,13 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 /// \brief Options for cumulative sum function
 class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
-  explicit CumulativeSumOptions(uint64_t start = 0, bool skip_nulls = false);
-  explicit CumulativeSumOptions(int64_t start = 0, bool skip_nulls = false);
-  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false);
+  explicit CumulativeSumOptions(uint64_t start, bool skip_nulls = false);
+  explicit CumulativeSumOptions(int64_t start, bool skip_nulls = false);
+  explicit CumulativeSumOptions(double start, bool skip_nulls = false);
   explicit CumulativeSumOptions(std::shared_ptr<Scalar> start = nullptr,
                                 bool skip_nulls = false);
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
-  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(nullptr); }
+  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
 
   /// Optional starting value for sum computation
   std::shared_ptr<Scalar> start;
