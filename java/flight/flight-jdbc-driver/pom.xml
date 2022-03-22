@@ -350,6 +350,10 @@
                     <excludes>
                         <exclude>**/IT*.java</exclude>
                     </excludes>
+                    <enableAssertions>false</enableAssertions>
+                    <systemPropertyVariables>
+                        <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
