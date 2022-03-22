@@ -207,10 +207,20 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     throw new IOException(exceptions.pop().getCause());
   }
 
+  /**
+   * Sets a port to be used.
+   *
+   * @return the port value.
+   */
   public int getPort() {
     return config.getPort();
   }
 
+  /**
+   * Sets a host to be used.
+   *
+   * @return the host value.
+   */
   public String getHost() {
     return config.getHost();
   }
