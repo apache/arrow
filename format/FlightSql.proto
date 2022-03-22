@@ -899,8 +899,7 @@ enum XdbcDataType {
 }
 
 /**
- * When the values returned by the XdbcDataType is XDBC_TYPE_DATETIME or XDBC_TYPE_INTERVAL,
- * more information about this column can be obtain through the values in this enum.
+ * Detailed subtype information for XDBC_TYPE_DATETIME and XDBC_TYPE_INTERVAL.
  */
 enum XdbcDatetimeSubcode {
   option allow_alias = true;
