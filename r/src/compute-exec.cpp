@@ -44,7 +44,8 @@ std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<compute::ExecPlan> ExecPlan_create_with_metadata(bool use_threads, cpp11::strings metadata) {
+std::shared_ptr<compute::ExecPlan> ExecPlan_create_with_metadata(
+    bool use_threads, cpp11::strings metadata) {
   static compute::ExecContext threaded_context{gc_memory_pool(),
                                                arrow::internal::GetCpuThreadPool()};
   auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);

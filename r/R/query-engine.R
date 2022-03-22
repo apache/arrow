@@ -16,7 +16,7 @@
 # under the License.
 
 do_exec_plan <- function(.data) {
-  plan <- ExecPlan$create(metadata=.data$metadata)
+  plan <- ExecPlan$create(metadata = .data$metadata)
   final_node <- plan$Build(.data)
   tab <- plan$Run(final_node)
   # TODO (ARROW-14289): make the head/tail methods return RBR not Table

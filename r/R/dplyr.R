@@ -31,7 +31,7 @@ arrow_dplyr_query <- function(.data, metadata = empty_named_list()) {
     error = function(e) character()
   )
 
-  metadata_kv = prepare_key_value_metadata(metadata)
+  metadata_kv <- prepare_key_value_metadata(metadata)
 
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)

@@ -27,7 +27,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, metadata = empty_
   }
 
   # attach the metadata to the query
-  x$metadata=prepare_key_value_metadata(metadata)
+  x$metadata <- prepare_key_value_metadata(metadata)
 
   # See query-engine.R for ExecPlan/Nodes
   tryCatch(
