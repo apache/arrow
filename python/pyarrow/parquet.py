@@ -605,6 +605,11 @@ encryption_properties : FileEncryptionProperties, default None
     If None, no encryption will be done.
     The encryption properties can be created using:
     ``CryptoFactory.file_encryption_properties()``.
+write_batch_size : int, default None
+    Number of values to write to a page at a time. If None, use the default of
+    1024. ``write_batch_size`` is complementary to ``data_page_size``. If pages
+    are exceeding the ``data_page_size`` due to large column values, lowering
+    the batch size can help keep page sizes closer to the intended size.
 """
 
 
@@ -640,6 +645,7 @@ writer_engine_version : unused
                  data_page_version='1.0',
                  use_compliant_nested_type=False,
                  encryption_properties=None,
+                 write_batch_size=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -693,6 +699,7 @@ writer_engine_version : unused
             data_page_version=data_page_version,
             use_compliant_nested_type=use_compliant_nested_type,
             encryption_properties=encryption_properties,
+            write_batch_size=write_batch_size,
             **options)
         self.is_open = True
 
@@ -2086,6 +2093,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 data_page_version='1.0',
                 use_compliant_nested_type=False,
                 encryption_properties=None,
+                write_batch_size=None,
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -2108,6 +2116,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 data_page_version=data_page_version,
                 use_compliant_nested_type=use_compliant_nested_type,
                 encryption_properties=encryption_properties,
+                write_batch_size=write_batch_size,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

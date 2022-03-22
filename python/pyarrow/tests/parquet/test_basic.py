@@ -26,7 +26,8 @@ from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          parametrize_legacy_dataset)
+                                          parametrize_legacy_dataset,
+                                          _test_dataframe)
 
 try:
     import pyarrow.parquet as pq
@@ -65,6 +66,17 @@ def test_set_data_page_size(use_legacy_dataset):
     for target_page_size in page_sizes:
         _check_roundtrip(t, data_page_size=target_page_size,
                          use_legacy_dataset=use_legacy_dataset)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_set_write_batch_size(use_legacy_dataset):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    _check_roundtrip(
+        table, data_page_size=10, write_batch_size=1, version='2.4'
+    )
 
 
 @pytest.mark.pandas
