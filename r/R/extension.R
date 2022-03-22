@@ -419,7 +419,7 @@ vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
   vctrs::vec_assert(x)
   storage <- Array$create(vctrs::vec_data(x), type = storage_type)
   type <- vctrs_extension_type(ptype, storage$type)
-  type$WrapArray(storage)
+  new_extension_array(storage, type)
 }
 
 #' @rdname vctrs_extension_array
