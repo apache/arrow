@@ -313,41 +313,74 @@ ExtensionType$create <- function(storage_type,
 #' # Create the R6 type whose methods control how Array objects are
 #' # converted to R objects, how equality between types is computed,
 #' # and how types are printed.
-#' NamedString <- R6::R6Class(
-#'   "NamedString",
+#' QuantizedType <- R6::R6Class(
+#'   "QuantizedType",
 #'   inherit = ExtensionType,
 #'   public = list(
+#'     # methods to access the custom metadata fields
+#'     center = function() private$.center,
+#'     scale = function() private$.scale,
+#'
+#'     # called when an Array of this type is converted to an R vector
 #'     .array_as_vector = function(extension_array) {
-#'       storage <- super$.array_as_vector(extension_array)
-#'       names(storage$values) <- storage$names
-#'       storage$values
+#'       unquantized_arrow <-
+#'         (extension_array$storage()$cast(float64()) / private$.scale) +
+#'         private$.center
+#'
+#'       as.vector(unquantized_arrow)
+#'     },
+#'
+#'     # populate the custom metadata fields from the serialized metadata
+#'     .Deserialize = function(storage_type, extension_name, extension_metadata) {
+#'       vals <- as.numeric(strsplit(self$extension_metadata_utf8(), ";")[[1]])
+#'       private$.center <- vals[1]
+#'       private$.scale <- vals[2]
 #'     }
+#'   ),
+#'
+#'   private = list(
+#'     .center = NULL,
+#'     .scale = NULL
 #'   )
 #' )
 #'
 #' # Create a helper type constructor that calls new_extension_type()
-#' named_string <- function() {
+#' quantized <- function(center = 0, scale = 1, storage_type = int32()) {
 #'   new_extension_type(
-#'     storage_type = struct(values = string(), names = string()),
-#'     extension_name = "arrow.example.named_string",
-#'     type_class = NamedString
+#'     storage_type = storage_type,
+#'     extension_name = "arrow.example.quantized",
+#'     extension_metadata = paste(center, scale, sep = ";"),
+#'     type_class = QuantizedType
 #'   )
 #' }
 #'
 #' # Create a helper array constructor that calls new_extension_array()
-#' named_string_array <- function(values, name = names(values)) {
+#' quantized_array <- function(x, center = 0, scale = 1,
+#'                             storage_type = int32()) {
+#'   type <- quantized(center, scale, storage_type)
 #'   new_extension_array(
-#'     Array$create(data.frame(values = unname(values), names = name)),
-#'     named_string()
+#'     Array$create((x - center) * scale, type = storage_type),
+#'     type
 #'   )
 #' }
 #'
 #' # Register the extension type so that Arrow knows what to do when
 #' # it encounters this extension type
-#' reregister_extension_type(named_string())
+#' reregister_extension_type(quantized())
 #'
 #' # Create Array objects and use them!
-#' (array <- named_string_array(c(name1 = "value1", name2 = "value2")))
+#' (vals <- runif(5, min = 19, max = 21))
+#'
+#' (array <- quantized_array(
+#'   vals,
+#'   center = 20,
+#'   scale = 2 ^ 15 - 1,
+#'   storage_type = int16())
+#' )
+#'
+#' array$type$center()
+#' array$type$scale()
+#'
 #' as.vector(array)
 new_extension_type <- function(storage_type,
                                extension_name,
