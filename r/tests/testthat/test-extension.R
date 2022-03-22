@@ -46,8 +46,8 @@ test_that("extension type subclasses work", {
         private$some_custom_field
       },
 
-      .Deserialize = function(storage_type, extension_name, extension_metadata) {
-        private$some_custom_field <- head(extension_metadata, 5)
+      .Deserialize = function() {
+        private$some_custom_field <- head(self$extension_metadata(), 5)
       }
     ),
     private = list(
@@ -123,8 +123,8 @@ test_that("extension subclasses can override the ExtensionEquals method", {
     public = list(
       field_values = NULL,
 
-      .Deserialize = function(storage_type, extension_name, extension_metadata) {
-        self$field_values <- unserialize(extension_metadata)
+      .Deserialize = function() {
+        self$field_values <- unserialize(self$extension_metadata())
       },
 
       .ExtensionEquals = function(other) {

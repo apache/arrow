@@ -27,7 +27,7 @@ with this extension type.
 In addition, subclasses may override the following methos to customize
 the behaviour of extension classes.
 \itemize{
-\item \verb{$.Deserialize(storage_type, extension_name, extension_metadata)}
+\item \verb{$.Deserialize()}
 This method is called when a new \link{ExtensionType}
 is initialized and is responsible for parsing and validating
 the serialized \code{extension_metadata} (a \code{\link[=raw]{raw()}} vector)

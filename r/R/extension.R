@@ -85,7 +85,7 @@ ExtensionArray$create <- function(x, type) {
 #' In addition, subclasses may override the following methos to customize
 #' the behaviour of extension classes.
 #'
-#' - `$.Deserialize(storage_type, extension_name, extension_metadata)`
+#' - `$.Deserialize()`
 #'   This method is called when a new [ExtensionType]
 #'   is initialized and is responsible for parsing and validating
 #'   the serialized `extension_metadata` (a [raw()] vector)
@@ -118,11 +118,7 @@ ExtensionType <- R6Class("ExtensionType",
     # be overridden to populate custom fields
     initialize = function(xp) {
       super$initialize(xp)
-      self$.Deserialize(
-        self$storage_type(),
-        self$extension_name(),
-        self$extension_metadata()
-      )
+      self$.Deserialize()
     },
 
     # Because of how C++ shared_ptr<> objects are converted to R objects,
@@ -162,7 +158,7 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__MakeArray(self, array$data())
     },
 
-    .Deserialize = function(storage_type, extension_name, extension_metadata) {
+    .Deserialize = function() {
       # Do nothing by default but allow other classes to override this method
       # to populate R6 class members.
     },
@@ -331,7 +327,7 @@ ExtensionType$create <- function(storage_type,
 #'     },
 #'
 #'     # populate the custom metadata fields from the serialized metadata
-#'     .Deserialize = function(storage_type, extension_name, extension_metadata) {
+#'     .Deserialize = function() {
 #'       vals <- as.numeric(strsplit(self$extension_metadata_utf8(), ";")[[1]])
 #'       private$.center <- vals[1]
 #'       private$.scale <- vals[2]
@@ -443,8 +439,8 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       paste0(readLines(tf), collapse = "\n")
     },
 
-    .Deserialize = function(storage_type, extension_name, extension_metadata) {
-      private$.ptype <- unserialize(extension_metadata)
+    .Deserialize = function() {
+      private$.ptype <- unserialize(self$extension_metadata())
     },
 
     .ExtensionEquals = function(other) {
