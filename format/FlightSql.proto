@@ -967,8 +967,8 @@ enum Searchable {
   SEARCHABLE_CHAR = 1;
 
   /**
-   * Indicates that the column can be used in a WHERE clause using other predicates
-   * except for LIKE.
+   * Indicates that the column can be used in a WHERE clause using any other predicates,
+   * except for the LIKE one.
    *
    * - Allowed operators: comparison, quantified comparison, BETWEEN,
    *                      DISTINCT, IN, MATCH, and UNIQUE.
