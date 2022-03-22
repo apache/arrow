@@ -106,7 +106,7 @@ def test_joins(jointype, expected, use_threads):
     assert r == expected
 
 
-def test_table_join_all_columns():
+def test_table_join_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
@@ -116,7 +116,8 @@ def test_table_join_all_columns():
     t2 = pa.table({
         "colA": [99, 2, 1],
         "colB": [99, 20, 10],
-        "colVals": ["Z", "B", "A"]
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300]
     })
 
     result = ep.tables_join(
@@ -128,4 +129,26 @@ def test_table_join_all_columns():
         [1, 2, None, 99],
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
-    ], names=["colA", "colB", "colVals", "colA", "colB", "colVals"])
+        [300, 200, None, 100]
+    ], names=["colA", "colB", "colVals", "colA", "colB", "colVals", "colUniq"])
+
+    result = ep.tables_join("full outer", t1, "colA", t2, "colA", right_suffix="_r", deduplicate=False)
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6, None],
+        "colB": [10, 20, 60, None],
+        "colVals": ["a", "b", "f", None],
+        "colA_r": [1, 2, None, 99],
+        "colB_r": [10, 20, None, 99],
+        "colVals_r": ["A", "B", None, "Z"],
+        "colUniq": [300, 200, None, 100]
+    })
+
+    result = ep.tables_join("full outer", t1, "colA", t2, "colA", right_suffix="_r", deduplicate=True)
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6, 99],
+        "colB": [10, 20, 60, None],
+        "colVals": ["a", "b", "f", None],
+        "colB_r": [10, 20, None, 99],
+        "colVals_r": ["A", "B", None, "Z"],
+        "colUniq": [300, 200, None, 100]
+    })

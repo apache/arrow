@@ -2090,7 +2090,7 @@ def test_table_join_unique_key():
     })
 
     result = t1.join(t2, "colA", join_type="full outer", right_suffix="_r")
-    assert result.combine_chunks() == pa.table({
+    assert result.combine_chunks().sort_by("colA") == pa.table({
         "colA": [1, 2, 6, 99],
         "col2": ["a", "b", "f", None],
         "col3": ["A", "B", None, "Z"]

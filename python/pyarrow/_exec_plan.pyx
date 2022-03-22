@@ -245,6 +245,8 @@ def tables_join(join_type, left_table not None, left_keys,
                 <c_string>tobytes(right_suffix or "")
             ))
         )
+        left_columns_set = set(left_columns)
+        right_columns_set = set(right_columns)
         if join_type == "full outer":
             # In case of full outer joins, the join operation will output all columns
             # so that we can coalesce the keys and exclude duplicates in a subsequent projection.
@@ -264,6 +266,12 @@ def tables_join(join_type, left_table not None, left_keys,
                     continue
                 else:
                     # For all the other columns incude them as they are.
+                    # Just recompute the suffixes that the join produced as the projection
+                    # would lose them otherwise.
+                    if left_suffix and idx < right_table_index and col in right_columns_set:
+                        col += left_suffix
+                    if right_suffix and idx >= right_table_index and col in left_columns_set:
+                        col += right_suffix
                     c_projected_col_names.push_back(tobytes(col))
                     c_projections.push_back(
                         Expression.unwrap(Expression._field(idx)))
