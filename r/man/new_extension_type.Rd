@@ -31,8 +31,9 @@ array.}
 "dot" syntax (i.e., "some_package.some_type"). The namespace "arrow"
 is reserved for extension types defined by the Apache Arrow libraries.}
 
-\item{extension_metadata}{A \code{\link[=raw]{raw()}} vector containing the serialized
-version of the type.}
+\item{extension_metadata}{A \code{\link[=raw]{raw()}} or \code{\link[=character]{character()}} vector containing the
+serialized version of the type. Chatacter vectors must be length 1 and
+are converted to UTF-8 before converting to \code{\link[=raw]{raw()}}.}
 
 \item{type_class}{An \link[R6:R6Class]{R6::R6Class} whose \verb{$new()} class method will be
 used to construct a new instance of the type.}

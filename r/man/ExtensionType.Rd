@@ -18,8 +18,8 @@ values.
 \item \verb{$storage_id()}: Returns the \link{Type} identifier corresponding to the
 \verb{$storage_type()}.
 \item \verb{$extension_name()}: Returns the extension name.
-\item \verb{$Serialize()}: Returns the serialized version of the extension metadata
-as a \code{\link[=raw]{raw()}} vector.
+\item \verb{$extension_metadata()}: Returns the serialized version of the extension
+metadata as a \code{\link[=raw]{raw()}} vector.
 \item \verb{$WrapArray(array)}: Wraps a storage \link{Array} into an \link{ExtensionArray}
 with this extension type.
 }

@@ -26,11 +26,11 @@ test_that("extension types can be created", {
   expect_identical(type$extension_name(), "arrow_r.simple_extension")
   expect_true(type$storage_type() == int32())
   expect_identical(type$storage_id(), int32()$id)
-  expect_identical(type$Serialize(), charToRaw("some custom metadata"))
+  expect_identical(type$extension_metadata(), charToRaw("some custom metadata"))
   expect_identical(type$ToString(), "ExtensionType <some custom metadata>")
 
   storage <- Array$create(1:10)
-  array <- type$MakeArray(storage$data())
+  array <- type$WrapArray(storage)
   expect_r6_class(array, "ExtensionArray")
   expect_r6_class(array$type, "ExtensionType")
 
@@ -83,7 +83,7 @@ test_that("extension type subclasses work", {
 
   expect_identical(type3$extension_name(), "some_extension_subclass")
   expect_identical(type3$some_custom_method(), type2$some_custom_method())
-  expect_identical(type3$Serialize(), type2$Serialize())
+  expect_identical(type3$extension_metadata(), type2$extension_metadata())
   expect_true(type3$storage_type() == type2$storage_type())
 
   array <- type3$WrapArray(Array$create(1:10))

@@ -77,8 +77,8 @@ ExtensionArray$create <- function(x, type) {
 #' - `$storage_id()`: Returns the [Type] identifier corresponding to the
 #'   `$storage_type()`.
 #' - `$extension_name()`: Returns the extension name.
-#' - `$Serialize()`: Returns the serialized version of the extension metadata
-#'   as a [raw()] vector.
+#' - `$extension_metadata()`: Returns the serialized version of the extension
+#'   metadata as a [raw()] vector.
 #' - `$WrapArray(array)`: Wraps a storage [Array] into an [ExtensionArray]
 #'   with this extension type.
 #'
@@ -121,7 +121,7 @@ ExtensionType <- R6Class("ExtensionType",
       self$.Deserialize(
         self$storage_type(),
         self$extension_name(),
-        self$Serialize()
+        self$extension_metadata()
       )
     },
 
@@ -146,30 +146,20 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__extension_name(self)
     },
 
-    # For argument naming consistency
     extension_metadata = function() {
-      self$Serialize()
+      ExtensionType__Serialize(self)
     },
 
     # To make sure this conversion is done properly
     extension_metadata_utf8 = function() {
-      metadata_utf8 <- rawToChar(self$Serialize())
+      metadata_utf8 <- rawToChar(self$extension_metadata())
       Encoding(metadata_utf8) <- "UTF-8"
       metadata_utf8
     },
 
-    Serialize = function() {
-      ExtensionType__Serialize(self)
-    },
-
-    MakeArray = function(data) {
-      assert_is(data, "ArrayData")
-      ExtensionType__MakeArray(self, data)
-    },
-
     WrapArray = function(array) {
       assert_is(array, "Array")
-      self$MakeArray(array$data())
+      ExtensionType__MakeArray(self, array$data())
     },
 
     .Deserialize = function(storage_type, extension_name, extension_metadata) {
@@ -180,7 +170,7 @@ ExtensionType <- R6Class("ExtensionType",
     .ExtensionEquals = function(other) {
       inherits(other, "ExtensionType") &&
         identical(other$extension_name(), self$extension_name()) &&
-        identical(other$Serialize(), self$Serialize())
+        identical(other$extension_metadata(), self$extension_metadata())
     },
 
     .array_as_vector = function(extension_array) {
@@ -204,7 +194,7 @@ ExtensionType <- R6Class("ExtensionType",
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
       # and it's confusing to error when printing the object. This herustic
       # isn't perfect (but subclasses should override this method anyway)
-      metadata_raw <- self$Serialize()
+      metadata_raw <- self$extension_metadata()
 
       if (as.raw(0x00) %in% metadata_raw) {
         if (length(metadata_raw) > 20) {
@@ -304,8 +294,9 @@ ExtensionType$create <- function(storage_type,
 #' @param extension_name The extension name. This should be namespaced using
 #'   "dot" syntax (i.e., "some_package.some_type"). The namespace "arrow"
 #'    is reserved for extension types defined by the Apache Arrow libraries.
-#' @param extension_metadata A [raw()] vector containing the serialized
-#'   version of the type.
+#' @param extension_metadata A [raw()] or [character()] vector containing the
+#'   serialized version of the type. Chatacter vectors must be length 1 and
+#'   are converted to UTF-8 before converting to [raw()].
 #' @param type_class An [R6::R6Class] whose `$new()` class method will be
 #'   used to construct a new instance of the type.
 #'
