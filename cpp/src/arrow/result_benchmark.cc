@@ -7,6 +7,22 @@
 
 namespace arrow {
 
+struct Pod {
+  int x;
+  int y;
+};
+constexpr Pod kPod{1, 2};
+
+struct NonPod {
+  int x;
+  int y;
+  NonPod() {
+    x = 1;
+    y = 1;
+  }
+};
+const NonPod kNonPod;
+
 void OperateOn(const Status& status) {
   benchmark::DoNotOptimize(status.message());
   benchmark::ClobberMemory();
@@ -23,23 +39,42 @@ static void BM_DefaultStatus(benchmark::State& state) {
     OperateOn(status);
   }
 }
-BENCHMARK(BM_DefaultStatus)->Threads(16);
+BENCHMARK(BM_DefaultStatus);
 
-static void BM_DefaultResult(benchmark::State& state) {
+template <typename T>
+void BM_DefaultResult(benchmark::State& state) {
   for (auto _ : state) {
-    Result<int> result;
+    Result<T> result;
     OperateOn(result);
   }
 }
-BENCHMARK(BM_DefaultResult)->Threads(16);
+BENCHMARK_TEMPLATE(BM_DefaultResult, int);
+BENCHMARK_TEMPLATE(BM_DefaultResult, Pod);
+BENCHMARK_TEMPLATE(BM_DefaultResult, NonPod);
 
-static void BM_ValuedResult(benchmark::State& state) {
+void BM_ValuedResultInt(benchmark::State& state) {
   for (auto _ : state) {
-    Result<int> result{42};
+    Result<int> result(42);
     OperateOn(result);
   }
 }
-BENCHMARK(BM_ValuedResult)->Threads(16);
+BENCHMARK(BM_ValuedResultInt);
+
+void BM_ValuedResultPod(benchmark::State& state) {
+  for (auto _ : state) {
+    Result<Pod> result(kPod);
+    OperateOn(result);
+  }
+}
+BENCHMARK(BM_ValuedResultPod);
+
+void BM_ValuedResultNonPod(benchmark::State& state) {
+  for (auto _ : state) {
+    Result<NonPod> result(kNonPod);
+    OperateOn(result);
+  }
+}
+BENCHMARK(BM_ValuedResultNonPod);
 
 static void BM_InvalidStatus(benchmark::State& state) {
   for (auto _ : state) {
@@ -47,7 +82,7 @@ static void BM_InvalidStatus(benchmark::State& state) {
     OperateOn(st);
   }
 }
-BENCHMARK(BM_InvalidStatus)->Threads(16);
+BENCHMARK(BM_InvalidStatus);
 
 static void BM_InvalidResult(benchmark::State& state) {
   for (auto _ : state) {
@@ -55,7 +90,7 @@ static void BM_InvalidResult(benchmark::State& state) {
     OperateOn(result);
   }
 }
-BENCHMARK(BM_InvalidResult)->Threads(16);
+BENCHMARK(BM_InvalidResult);
 
 }  // namespace arrow
 
