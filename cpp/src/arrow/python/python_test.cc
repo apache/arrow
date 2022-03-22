@@ -27,6 +27,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/optional.h"
 
@@ -38,7 +39,6 @@
 #include "arrow/python/numpy_interop.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -596,10 +596,9 @@ TEST_F(DecimalTest, UpdateWithNaN) {
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.scale());
 }
 
+
 TEST(SubstraitEngineTest, TestPlanFromJSON){
-
   
-
 }
 
 }  // namespace py
