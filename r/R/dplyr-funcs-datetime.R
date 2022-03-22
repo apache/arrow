@@ -17,7 +17,7 @@
 
 register_bindings_datetime <- function() {
   register_binding("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
-                                            unit = "ms") {
+                                        unit = "ms") {
     # Arrow uses unit for time parsing, strptime() does not.
     # Arrow has no default option for strptime (format, unit),
     # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
@@ -87,8 +87,8 @@ register_bindings_datetime <- function() {
   })
 
   register_binding("wday", function(x, label = FALSE, abbr = TRUE,
-                                        week_start = getOption("lubridate.week.start", 7),
-                                        locale = Sys.getlocale("LC_TIME")) {
+                                    week_start = getOption("lubridate.week.start", 7),
+                                    locale = Sys.getlocale("LC_TIME")) {
     if (label) {
       if (abbr) {
         format <- "%a"
@@ -109,22 +109,23 @@ register_bindings_datetime <- function() {
                                      label = FALSE,
                                      abbr = TRUE,
                                      locale = Sys.getlocale("LC_TIME")) {
-
     if (call_binding("is.integer", x)) {
-      x <- call_binding("if_else",
-                        call_binding("between", x, 1, 12),
-                        x,
-                        NA_integer_)
+      x <- call_binding(
+        "if_else",
+        call_binding("between", x, 1, 12),
+        x,
+        NA_integer_
+      )
       if (!label) {
         # if we don't need a label we can return the integer itself (already
         # constrained to 1:12)
         return(x)
       }
-        # make the integer into a date32() - which interprets integers as
-        # days from epoch (we multiply by 28 to be able to later extract the
-        # month with label) - NB this builds a false date (to be used by strftime)
-        # since we only know and care about the month
-        x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
+      # make the integer into a date32() - which interprets integers as
+      # days from epoch (we multiply by 28 to be able to later extract the
+      # month with label) - NB this builds a false date (to be used by strftime)
+      # since we only know and care about the month
+      x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
     }
 
     if (label) {
@@ -210,17 +211,19 @@ register_bindings_datetime <- function() {
   })
   register_binding("ISOdatetime", function(year,
                                            month,
-                                           day, 
+                                           day,
                                            hour,
                                            min,
                                            sec,
                                            tz = "UTC") {
 
     # NAs for seconds aren't propagated (but treated as 0) in the base version
-    sec <- call_binding("if_else",
-                        call_binding("is.na", sec),
-                        0,
-                        sec)
+    sec <- call_binding(
+      "if_else",
+      call_binding("is.na", sec),
+      0,
+      sec
+    )
 
     call_binding("make_datetime", year, month, day, hour, min, sec, tz)
   })
