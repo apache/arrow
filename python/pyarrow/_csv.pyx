@@ -648,12 +648,12 @@ cdef class ConvertOptions(_Weakrefable):
     Defining an example file from bytes object:
 
     >>> import io
-    >>> s = b'''animal,n_legs,entry
-    ... Flamingo,2,01/03/2022
-    ... Horse,4,02/03/2022
-    ... Brittle stars,5,03/03/2022
-    ... Centipede,100,04/03/2022
-    ... ,6,05/03/2022'''
+    >>> s = b'''animals,n_legs,entry,fast
+    ... Flamingo,2,01/03/2022,Yes
+    ... Horse,4,02/03/2022,Yes
+    ... Brittle stars,5,03/03/2022,No
+    ... Centipede,100,04/03/2022,No
+    ... ,6,05/03/2022,'''
 
     Change the type of a column:
 
@@ -664,10 +664,12 @@ cdef class ConvertOptions(_Weakrefable):
     animals: string
     n_legs: double
     entry: string
+    fast: string
     ----
     animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
     n_legs: [[2,4,5,100,6]]
     entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022","05/03/2022"]]
+    fast: [["Yes","Yes","No","No",""]]
 
     Define a date parsing format to get a timestamp type column
     (in case dates are not in ISO format and not converted by default):
@@ -679,11 +681,13 @@ cdef class ConvertOptions(_Weakrefable):
     animals: string
     n_legs: int64
     entry: timestamp[s]
+    fast: string
     ----
     animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
     n_legs: [[2,4,5,100,6]]
     entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,2022-03-03 00:00:00,
     2022-04-03 00:00:00,2022-05-03 00:00:00]]
+    fast: [["Yes","Yes","No","No",""]]
 
     Specify a subset of columns to be read:
 
@@ -722,6 +726,7 @@ cdef class ConvertOptions(_Weakrefable):
     animals: dictionary<values=string, indices=int32, ordered=0>
     n_legs: int64
     entry: timestamp[s]
+    fast: dictionary<values=string, indices=int32, ordered=0>
     ----
     animals: [  -- dictionary:
     ["Flamingo","Horse","Brittle stars","Centipede",""]  -- indices:
@@ -729,6 +734,9 @@ cdef class ConvertOptions(_Weakrefable):
     n_legs: [[2,4,5,100,6]]
     entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,2022-03-03 00:00:00,
     2022-04-03 00:00:00,2022-05-03 00:00:00]]
+    fast: [  -- dictionary:
+    ["Yes","No",""]  -- indices:
+    [0,0,1,1,2]]
 
     Set upper limit for the number of categories. If the categories
     is more than the limit, the conversion to dictionary will not
@@ -746,8 +754,7 @@ cdef class ConvertOptions(_Weakrefable):
 
     Set empty strings to missing values:
 
-    >>> convert_options = csv.ConvertOptions(
-    ...                   include_columns=["animals", "n_legs"],
+    >>> convert_options = csv.ConvertOptions(include_columns=["animals", "n_legs"],
     ...                   strings_can_be_null = True)
     >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
     pyarrow.Table
@@ -761,14 +768,14 @@ cdef class ConvertOptions(_Weakrefable):
     into a bool type:
 
     >>> convert_options = csv.ConvertOptions(
-    ...                   include_columns=["animals"],
-    ...                   false_values=["Flamingo","Horse"],
-    ...                   true_values=["Brittle stars","Centipede"])
+    ...                   include_columns=["fast"],
+    ...                   false_values=["No"],
+    ...                   true_values=["Yes"])
     >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
     pyarrow.Table
-    animals: bool
+    fast: bool
     ----
-    animals: [[false,false,true,true,null]]
+    fast: [[true,true,false,false,null]]
     """
 
     # Avoid mistakingly creating attributes
