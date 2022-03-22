@@ -43,8 +43,8 @@ storage array.
 to an R vector. This method is called by \code{\link[=as.vector]{as.vector()}} on a \link{ChunkedArray}
 whose type matches this extension type or when a \link{Table} containing
 such a column is converted to a \code{\link[=data.frame]{data.frame()}}. The default method
-returns the converted version of the equivalent storage arrays
-as a \link{ChunkedArray}.
+converts each array using \verb{$.array_as_vector()} and concatenates them
+using \code{\link[vctrs:vec_c]{vctrs::vec_c()}}.
 \item \verb{$.ToString()} Return a string representation that will be printed
 to the console when this type or an Array of this type is printed.
 }

@@ -100,8 +100,8 @@ ExtensionArray$create <- function(x, type) {
 #'   to an R vector. This method is called by [as.vector()] on a [ChunkedArray]
 #'   whose type matches this extension type or when a [Table] containing
 #'   such a column is converted to a [data.frame()]. The default method
-#'   returns the converted version of the equivalent storage arrays
-#'   as a [ChunkedArray].
+#'   converts each array using `$.array_as_vector()` and concatenates them
+#'   using [vctrs::vec_c()].
 #' - `$.ToString()` Return a string representation that will be printed
 #'   to the console when this type or an Array of this type is printed.
 #'
@@ -175,12 +175,15 @@ ExtensionType <- R6Class("ExtensionType",
     },
 
     .chunked_array_as_vector = function(chunked_array) {
-      storage_arrays <- lapply(
+      # Converting one array at a time so that users don't have to remember
+      # to implement two methods. Converting all the storage arrays to
+      # a ChunkedArray is probably faster (VctrsExtensionType does this).
+      storage_vectors <- lapply(
         seq_len(chunked_array$num_chunks) - 1L,
-        function(i) chunked_array$chunk(i)$storage()
+        function(i) chunked_array$chunk(i)$as_vector()
       )
-      storage <- chunked_array(!!! storage_arrays, type = self$storage_type())
-      storage$as_vector()
+
+      vctrs::vec_c(!!! storage_vectors)
     },
 
     .ToString = function() {
@@ -360,10 +363,15 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
     },
 
     .chunked_array_as_vector = function(chunked_array) {
-      vctrs::vec_restore(
-        super$.chunked_array_as_vector(chunked_array),
-        self$ptype()
+      # rather than convert one array at a time, use more Arrow
+      # machinery to convert the whole ChunkedArray at once
+      storage_arrays <- lapply(
+        seq_len(chunked_array$num_chunks) - 1L,
+        function(i) chunked_array$chunk(i)$storage()
       )
+      storage <- chunked_array(!!! storage_arrays, type = self$storage_type())
+
+      vctrs::vec_restore(storage$as_vector(), self$ptype())
     },
 
     .array_as_vector = function(extension_array) {
