@@ -305,7 +305,6 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
   /// SelectK options
   SelectKOptions select_k_options;
 };
-
 /// @}
 
 /// \brief Adapt an Table as a sink node

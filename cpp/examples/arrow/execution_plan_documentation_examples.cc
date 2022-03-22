@@ -855,6 +855,50 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
 
 // (Doc section: Union Example)
 
+// (Doc section: Table Sink Example)
+
+/// \brief An example showing a table sink node
+/// \param exec_context The execution context to run the plan in
+///
+/// TableSink Example
+/// This example shows how a table_sink can be used
+/// in an execution plan. This includes a source node
+/// receiving data as batches and the table sink node
+/// which emits the output as a table.
+arrow::Status TableSinkExample(cp::ExecContext& exec_context) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                        cp::ExecPlan::Make(&exec_context));
+
+  ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
+
+  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+
+  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
+                        cp::MakeExecNode("source", plan.get(), {}, source_node_options));
+
+  std::shared_ptr<arrow::Table> output_table;
+  auto table_sink_options = cp::TableSinkNodeOptions{&output_table, basic_data.schema};
+
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("table_sink", plan.get(), {source}, table_sink_options));
+  // validate the ExecPlan
+  ARROW_RETURN_NOT_OK(plan->Validate());
+  std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
+  // start the ExecPlan
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
+
+  auto finish = source->finished();
+
+  RETURN_NOT_OK(finish.status());
+
+  std::cout << "Results : " << output_table->ToString() << std::endl;
+
+  // plan mark finished
+  auto future = plan->finished();
+  return future.status();
+}
+// (Doc section: Table Sink Example)
+
 enum ExampleMode {
   SOURCE_SINK = 0,
   TABLE_SOURCE_SINK = 1,
@@ -869,6 +913,7 @@ enum ExampleMode {
   KSELECT = 10,
   WRITE = 11,
   UNION = 12,
+  TABLE_SOURCE_TABLE_SINK = 13
 };
 
 int main(int argc, char** argv) {
@@ -936,6 +981,10 @@ int main(int argc, char** argv) {
     case UNION:
       PrintBlock("Union Example");
       status = SourceUnionSinkExample(exec_context);
+      break;
+    case TABLE_SOURCE_TABLE_SINK:
+      PrintBlock("TableSink Example");
+      status = TableSinkExample(exec_context);
       break;
     default:
       break;

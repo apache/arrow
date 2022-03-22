@@ -346,6 +346,8 @@ This is the list of operations associated with the execution plan:
      - :class:`arrow::dataset::WriteNodeOptions`
    * - ``union``
      - N/A
+   * - ``table_sink``
+     - :class:`arrow::compute::TableSinkNodeOptions`
 
 .. _stream_execution_source_docs:
 
@@ -646,6 +648,25 @@ SelectK example:
   :lineno-match:
 
 .. _stream_execution_scan_docs:
+
+``table_sink``
+----------------
+
+.. _stream_execution_table_sink_docs:
+
+Considering the variety of sink nodes provided in the streaming execution engine, the ``table_sink`` node 
+provides the ability to take the output as a table. It is much easier to use 
+:class:`arrow::compute::TableSinkNodeOptions`.
+The output data can be obtained as a ``std::shared_ptr<arrow::Table>`` along with the output ``schema``. 
+
+Example of using ``table_sink``
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Table Sink Example)
+  :end-before: (Doc section: Table Sink Example)
+  :linenos:
+  :lineno-match:
 
 ``scan``
 ---------
