@@ -15,14 +15,17 @@
 %% specific language governing permissions and limitations
 %% under the License.
 
+%% To generate the diagram, use mermaid-cli
+%% Example: docker run --rm -v $(pwd)/FlightSql:/data minlag/mermaid-cli -i /data/CommandStatementQuery.mmd
+
 sequenceDiagram
 autonumber
 
 participant Client
 participant Server
 Client->>Server: GetFlightInfo(CommandStatementQuery)
-Server->>Client: FlightInfo{…Ticket…}
-loop for each Ticket in FlightInfo
-    Client->>Server: DoGet(Ticket)
+Server->>Client: FlightInfo{endpoints: [FlightEndpoint{…}, …]}
+loop for each endpoint in FlightInfo.endpoints
+    Client->>Server: DoGet(endpoint.ticket)
     Server->>Client: stream of FlightData
 end
