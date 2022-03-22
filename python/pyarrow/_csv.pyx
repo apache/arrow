@@ -652,7 +652,8 @@ cdef class ConvertOptions(_Weakrefable):
     ... Flamingo,2,01/03/2022
     ... Horse,4,02/03/2022
     ... Brittle stars,5,03/03/2022
-    ... Centipede,100,04/03/2022'''
+    ... Centipede,100,04/03/2022
+    ... ,6,05/03/2022'''
 
     Define a date parsing format to get a timestamp type column
     (in case dates are not in ISO format and not converted by default):
@@ -665,10 +666,10 @@ cdef class ConvertOptions(_Weakrefable):
     n_legs: int64
     entry: timestamp[s]
     ----
-    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-    n_legs: [[2,4,5,100]]
-    entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,
-    2022-03-03 00:00:00,2022-04-03 00:00:00]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [[2,4,5,100,6]]
+    entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,2022-03-03 00:00:00,
+    2022-04-03 00:00:00,2022-05-03 00:00:00]]
 
     Specify a subset of columns to be read:
 
@@ -679,8 +680,8 @@ cdef class ConvertOptions(_Weakrefable):
     animals: string
     n_legs: int64
     ----
-    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [[2,4,5,100,6]]
 
     List additional column to be included as a null typed column:
 
@@ -693,25 +694,27 @@ cdef class ConvertOptions(_Weakrefable):
     n_legs: int64
     location: null
     ----
-    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-    n_legs: [[2,4,5,100]]
-    location: [4 nulls]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [[2,4,5,100,6]]
+    location: [5 nulls]
 
     Define a column as a dictionary:
 
     >>> convert_options = csv.ConvertOptions(
+    ...                   timestamp_parsers=["%m/%d/%Y", "%m-%d-%Y"],
     ...                   auto_dict_encode=True)
     >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
     pyarrow.Table
     animals: dictionary<values=string, indices=int32, ordered=0>
     n_legs: int64
-    entry: date32[day]
+    entry: timestamp[s]
     ----
     animals: [  -- dictionary:
-    ["Flamingo","Horse","Brittle stars","Centipede"]  -- indices:
-    [0,1,2,3]]
-    n_legs: [[2,4,5,100]]
-    entry: [[2022-03-01,2022-03-02,2022-03-03,2022-03-04]]
+    ["Flamingo","Horse","Brittle stars","Centipede",""]  -- indices:
+    [0,1,2,3,4]]
+    n_legs: [[2,4,5,100,6]]
+    entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,2022-03-03 00:00:00,
+    2022-04-03 00:00:00,2022-05-03 00:00:00]]
 
     Set upper limit for the number of categories. If the categories
     is more than the limit, the conversion to dictionary will not
@@ -725,18 +728,20 @@ cdef class ConvertOptions(_Weakrefable):
     pyarrow.Table
     animals: string
     ----
-    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
 
-    Define strings that should be set to missing:
+    Set empty strings to missing values:
 
-    >>> convert_options = csv.ConvertOptions(include_columns=["animals"],
-    ...                                      strings_can_be_null = True,
-    ...                                      null_values=["Horse"])
+    >>> convert_options = csv.ConvertOptions(
+    ...                   include_columns=["animals", "n_legs"],
+    ...                   strings_can_be_null = True)
     >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
     pyarrow.Table
     animals: string
+    n_legs: int64
     ----
-    animals: [["Flamingo",null,"Brittle stars","Centipede"]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",null]]
+    n_legs: [[2,4,5,100,6]]
 
     Define values to be True and False when converting a column
     into a bool type:
@@ -749,7 +754,7 @@ cdef class ConvertOptions(_Weakrefable):
     pyarrow.Table
     animals: bool
     ----
-    animals: [[false,false,true,true]]
+    animals: [[false,false,true,true,null]]
 
     Change the type of a column:
 
@@ -762,8 +767,8 @@ cdef class ConvertOptions(_Weakrefable):
     animals: string
     n_legs: double
     ----
-    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [[2,4,5,100,6]]
     """
 
     # Avoid mistakingly creating attributes
