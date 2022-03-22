@@ -132,7 +132,8 @@ def test_table_join_collisions():
         [300, 200, None, 100]
     ], names=["colA", "colB", "colVals", "colA", "colB", "colVals", "colUniq"])
 
-    result = ep.tables_join("full outer", t1, "colA", t2, "colA", right_suffix="_r", deduplicate=False)
+    result = ep.tables_join("full outer", t1, "colA",
+                            t2, "colA", right_suffix="_r", deduplicate=False)
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, None],
         "colB": [10, 20, 60, None],
@@ -143,7 +144,8 @@ def test_table_join_collisions():
         "colUniq": [300, 200, None, 100]
     })
 
-    result = ep.tables_join("full outer", t1, "colA", t2, "colA", right_suffix="_r", deduplicate=True)
+    result = ep.tables_join("full outer", t1, "colA",
+                            t2, "colA", right_suffix="_r", deduplicate=True)
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, 99],
         "colB": [10, 20, 60, None],
