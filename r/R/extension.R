@@ -16,6 +16,8 @@
 # under the License.
 
 #' @include arrow-package.R
+
+
 #' @title class arrow::ExtensionArray
 #'
 #' @usage NULL
@@ -58,7 +60,6 @@ ExtensionArray$create <- function(x, type) {
   type$WrapArray(storage)
 }
 
-#' @include arrow-package.R
 #' @title class arrow::ExtensionType
 #'
 #' @usage NULL
