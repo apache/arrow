@@ -27,7 +27,7 @@
 
 // A wrapper around arrow::ExtensionType that allows R to register extension
 // types whose Deserialize, ExtensionEquals, and Serialize methods are
-// in meanintfully handled at the R level. At the C++ level, the type is
+// in meaningfully handled at the R level. At the C++ level, the type is
 // already serialized to minimize calls to R from C++.
 //
 // Using a std::shared_ptr<> to wrap a cpp11::sexp type is unusual, but we
