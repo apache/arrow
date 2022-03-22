@@ -65,7 +65,7 @@ Result<std::string> SafeUriUnescape(util::string_view encoded) {
 std::string StripNonPrefix(const std::string& path) {
   std::string v;
   auto non_prefix_index = path.rfind(kFilenamePartitionSep);
-  if (path.length() > 0 && non_prefix_index != std::string::npos) {
+  if (non_prefix_index != std::string::npos) {
     v = path.substr(0, non_prefix_index + 1);
   }
   return v;
