@@ -21,79 +21,57 @@ import static org.junit.Assert.assertEquals;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Properties;
 
+import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
-import org.apache.arrow.driver.jdbc.utils.FlightTestUtils;
-import org.apache.arrow.driver.jdbc.utils.PropertiesSample;
-import org.apache.arrow.driver.jdbc.utils.UrlSample;
-import org.apache.arrow.flight.CallStatus;
-import org.apache.arrow.flight.FlightProducer;
-import org.apache.arrow.flight.FlightServer;
-import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
-import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
-import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import com.google.common.base.Strings;
-
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
- * TODO Update to use {@link FlightServerTestRule} instead of {@link FlightTestUtils}
  */
 public class ArrowFlightJdbcDriverTest {
 
+  @ClassRule
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
+
+  static {
+    UserPasswordAuthentication authentication =
+        new UserPasswordAuthentication.Builder().user("user1", "pass1").user("user2", "pass2")
+            .build();
+
+    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder().host("localhost").randomPort()
+        .authentication(authentication).producer(PRODUCER).build();
+  }
+
   private BufferAllocator allocator;
-  private FlightServer server;
-  FlightTestUtils testUtils;
+  private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
   @Before
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
-
-    final UrlSample url = UrlSample.CONFORMING;
-
-    final Properties propertiesConforming = PropertiesSample.CONFORMING
-        .getProperties();
-
-    final Properties propertiesUnsupported = PropertiesSample.UNSUPPORTED
-        .getProperties();
-
-    testUtils = new FlightTestUtils(url.getHost(),
-        propertiesConforming.getProperty("user"),
-        propertiesConforming.getProperty("password"),
-        propertiesUnsupported.getProperty("user"),
-        propertiesUnsupported.getProperty("password"));
-
-    final FlightProducer flightProducer = testUtils
-        .getFlightProducer(allocator);
-
-    server = testUtils.getStartedServer(
-        location -> FlightServer.builder(allocator, location, flightProducer)
-            .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
-                new BasicCallHeaderAuthenticator(this::validate)))
-            .build());
+    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource();
   }
 
   @After
   public void tearDown() throws Exception {
     Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
-    AutoCloseables.close(childAllocators
-        .toArray(new AutoCloseable[childAllocators.size()]));
-    AutoCloseables.close(server, allocator);
+    AutoCloseables.close(childAllocators.toArray(new AutoCloseable[0]));
+    AutoCloseables.close(dataSource, allocator);
   }
 
   /**
@@ -105,7 +83,7 @@ public class ArrowFlightJdbcDriverTest {
   @Test
   public void testDriverIsRegisteredInDriverManager() throws Exception {
     assert DriverManager.getDriver(
-        UrlSample.CONFORMING.getPrefix()) instanceof ArrowFlightJdbcDriver;
+        "jdbc:arrow-flight://localhost:32010") instanceof ArrowFlightJdbcDriver;
   }
 
   /**
@@ -118,8 +96,8 @@ public class ArrowFlightJdbcDriverTest {
   public void testShouldDeclineUrlWithUnsupportedPrefix() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    driver.connect(UrlSample.UNSUPPORTED.getPath(),
-        PropertiesSample.UNSUPPORTED.getProperties()).close();
+    driver.connect("jdbc:mysql://localhost:32010", dataSource.getProperties("flight", "flight123"))
+        .close();
   }
 
   /**
@@ -133,11 +111,11 @@ public class ArrowFlightJdbcDriverTest {
     // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final URI uri = server.getLocation().getUri();
-
-    try (Connection connection = driver.connect(
-        "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
-        PropertiesSample.CONFORMING.getProperties())) {
+    try (Connection connection =
+             driver.connect("jdbc:arrow-flight://" +
+                     dataSource.getConfig().getHost() + ":" +
+                     dataSource.getConfig().getPort(),
+        dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
       assert connection.isValid(300);
     }
   }
@@ -151,7 +129,7 @@ public class ArrowFlightJdbcDriverTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     final String malformedUri = "yes:??/chainsaw.i=T333";
 
-    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
+    driver.connect(malformedUri, dataSource.getProperties("flight", "flight123"));
   }
 
   /**
@@ -163,9 +141,10 @@ public class ArrowFlightJdbcDriverTest {
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix() throws SQLException {
     final Driver driver = new ArrowFlightJdbcDriver();
-    final String malformedUri = server.getLocation().getUri().toString();
+    final String malformedUri = "localhost:32010";
 
-    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
+    driver.connect(malformedUri, dataSource.getProperties(dataSource.getConfig().getUser(),
+        dataSource.getConfig().getPassword()));
   }
 
   /**
@@ -176,13 +155,11 @@ public class ArrowFlightJdbcDriverTest {
    */
   @Test(expected = SQLException.class)
   @Ignore // TODO Rework this test.
-  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPort()
-      throws Exception {
+  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPort() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     // FIXME This test was passing because the prefix was wrong, NOT because it didn't specify the port.
-    final String malformedUri = "arrow-jdbc://" +
-        server.getLocation().getUri().getHost();
-    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
+    final String malformedUri = "jdbc:arrow-flight://32010:localhost";
+    driver.connect(malformedUri, dataSource.getProperties("flight", "flight123"));
   }
 
   /**
@@ -193,13 +170,12 @@ public class ArrowFlightJdbcDriverTest {
    */
   @Test(expected = SQLException.class)
   @Ignore // TODO Rework this test.
-  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoHost()
-      throws Exception {
+  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoHost() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     // FIXME This test was passing because the prefix was wrong, NOT because it didn't specify the host.
-    final String malformedUri = "arrow-jdbc://" + ":" +
-        server.getLocation().getUri().getPort();
-    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
+    final String malformedUri = "jdbc:arrow-flight://32010:localhost";
+    driver.connect(malformedUri, dataSource.getProperties(dataSource.getConfig().getUser(),
+        dataSource.getConfig().getPassword()));
   }
 
   /**
@@ -210,18 +186,15 @@ public class ArrowFlightJdbcDriverTest {
    */
   @SuppressWarnings("unchecked")
   @Test
-  public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrl()
-      throws Exception {
+  public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrl() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final Method parseUrl = driver.getClass()
-        .getDeclaredMethod("getUrlsArgs", String.class);
+    final Method parseUrl = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
 
     parseUrl.setAccessible(true);
 
-    final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl
-        .invoke(driver,
-            "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
+    final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
+        "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
 
     // Check size == the amount of args provided (prefix not included!)
     assertEquals(5, parsedArgs.size());
@@ -250,14 +223,13 @@ public class ArrowFlightJdbcDriverTest {
       throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final Method getUrlsArgs = driver.getClass()
-        .getDeclaredMethod("getUrlsArgs", String.class);
+    final Method getUrlsArgs = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
 
     getUrlsArgs.setAccessible(true);
 
     try {
-      final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
-          .invoke(driver, "jdbc:malformed-url-flight://localhost:2222");
+      final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs.invoke(driver,
+          "jdbc:malformed-url-flight://localhost:2222");
     } catch (InvocationTargetException e) {
       throw (SQLException) e.getCause();
     }
@@ -271,18 +243,15 @@ public class ArrowFlightJdbcDriverTest {
    */
   @SuppressWarnings("unchecked")
   @Test
-  public void testDriverUrlParsingMechanismShouldWorkWithIPAddress()
-      throws Exception {
+  public void testDriverUrlParsingMechanismShouldWorkWithIPAddress() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final Method getUrlsArgs = driver.getClass()
-        .getDeclaredMethod("getUrlsArgs", String.class);
+    final Method getUrlsArgs = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
 
     getUrlsArgs.setAccessible(true);
 
-    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
-        .invoke(driver,
-            "jdbc:arrow-flight://0.0.0.0:2222");
+    final Map<String, String> parsedArgs =
+        (Map<String, String>) getUrlsArgs.invoke(driver, "jdbc:arrow-flight://0.0.0.0:2222");
 
     // Check size == the amount of args provided (prefix not included!)
     assertEquals(2, parsedArgs.size());
@@ -306,14 +275,12 @@ public class ArrowFlightJdbcDriverTest {
       throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final Method getUrlsArgs = driver.getClass()
-        .getDeclaredMethod("getUrlsArgs", String.class);
+    final Method getUrlsArgs = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
 
     getUrlsArgs.setAccessible(true);
 
-    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
-        .invoke(driver,
-            "jdbc:arrow-flight://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value");
+    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs.invoke(driver,
+        "jdbc:arrow-flight://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value");
 
     // Check size == the amount of args provided (prefix not included!)
     assertEquals(5, parsedArgs.size());
@@ -328,31 +295,6 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get("test1"), "test1value");
     assertEquals(parsedArgs.get("test2&continue"), "test2value");
     assertEquals(parsedArgs.get("test3"), "test3value");
-  }
-
-  /**
-   * Validate the user's credential on a FlightServer.
-   *
-   * @param username flight server username.
-   * @param password flight server password.
-   * @return the result of validation.
-   */
-  private CallHeaderAuthenticator.AuthResult validate(final String username,
-                                                      final String password) {
-    if (Strings.isNullOrEmpty(username)) {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Credentials not supplied.").toRuntimeException();
-    }
-    final String identity;
-    if (testUtils.getUsername1().equals(username) &&
-        testUtils.getPassword1().equals(password)) {
-      identity = testUtils.getUsername1();
-    } else {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Username or password is invalid.")
-          .toRuntimeException();
-    }
-    return () -> identity;
   }
 
 }
