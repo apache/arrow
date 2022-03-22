@@ -74,7 +74,7 @@ Code Style, Linting, and CI
 ===========================
 
 This project follows `Google's C++ Style Guide
-<https://google.github.io/styleguide/cppguide.html>`_ with minor exceptions:
+<https://google.github.io/styleguide/cppguide.html>`_ with these exceptions:
 
 * We relax the line length restriction to 90 characters.
 * We use the ``NULLPTR`` macro in header files (instead of ``nullptr``) defined
