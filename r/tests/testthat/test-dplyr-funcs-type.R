@@ -881,29 +881,6 @@ test_that("format date/time", {
   )
 })
 
-test_that("format() for unsupported types returns the input as string", {
-  expect_equal(
-    example_data %>%
-      record_batch() %>%
-      mutate(x = format(int)) %>%
-      collect(),
-    example_data %>%
-      record_batch() %>%
-      mutate(x = as.character(int)) %>%
-      collect()
-  )
-  expect_equal(
-    example_data %>%
-      arrow_table() %>%
-      mutate(y = format(dbl)) %>%
-      collect(),
-    example_data %>%
-      arrow_table() %>%
-      mutate(y = as.character(dbl)) %>%
-      collect()
-  )
-})
-
 test_that("as.Date() converts successfully from date, timestamp, integer, char and double", {
   test_df <- tibble::tibble(
     posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
@@ -982,7 +959,7 @@ test_that("as_date()", {
   test_df <- tibble::tibble(
     posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
     date_var = as.Date("2022-02-25"),
-    difference_date = ymd_hms("2010-08-03 00:50:50", tz= "Europe/London"),
+    difference_date = ymd_hms("2010-08-03 00:50:50", tz = "Europe/London"),
     character_ymd_var = "2022-02-25 00:00:01",
     character_ydm_var = "2022/25/02 00:00:01",
     integer_var = 32L,
@@ -1057,5 +1034,28 @@ test_that("as_date()", {
       ) %>%
       collect(),
     test_df
+  )
+})
+
+test_that("format() for unsupported types returns the input as string", {
+  expect_equal(
+    example_data %>%
+      record_batch() %>%
+      mutate(x = format(int)) %>%
+      collect(),
+    example_data %>%
+      record_batch() %>%
+      mutate(x = as.character(int)) %>%
+      collect()
+  )
+  expect_equal(
+    example_data %>%
+      arrow_table() %>%
+      mutate(y = format(dbl)) %>%
+      collect(),
+    example_data %>%
+      arrow_table() %>%
+      mutate(y = as.character(dbl)) %>%
+      collect()
   )
 })
