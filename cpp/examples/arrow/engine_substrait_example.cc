@@ -42,15 +42,13 @@ class SubstraitSinkConsumer : public cp::SinkNodeConsumer {
  public:
   explicit SubstraitSinkConsumer(
       arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator, size_t tag,
-      std::shared_ptr<arrow::Schema> schema,
       arrow::util::BackpressureOptions backpressure = {})
-      : producer_(MakeProducer(generator, std::move(backpressure))),
-        tag_{tag},
-        schema_(schema) {}
+      : producer_(MakeProducer(generator, std::move(backpressure))), tag_{tag} {}
 
   arrow::Status Consume(cp::ExecBatch batch) override {
     // Consume a batch of data
-    producer_.Push(batch);
+    bool did_push = producer_.Push(batch);
+    if (!did_push) return arrow::Status::ExecutionError("Producer closed already");
     return arrow::Status::OK();
   }
 
@@ -65,27 +63,18 @@ class SubstraitSinkConsumer : public cp::SinkNodeConsumer {
   }
 
   arrow::Future<> Finish() override {
-    // Signal to the consumer that the last batch has been delivered
-    // (we don't do any real work in this consumer so mark it finished immediately)
-    //
-    // The returned future should only finish when all outstanding tasks have completed
-    // (after this method is called Consume is guaranteed not to be called again)
     std::cout << "-" << tag_ << " finished" << std::endl;
     producer_.Push(arrow::IterationEnd<arrow::util::optional<cp::ExecBatch>>());
-    producer_.Close();
-    is_finished_ = true;
-    return arrow::Future<>::MakeFinished();
+    if (producer_.Close()) {
+      return arrow::Future<>::MakeFinished();
+    }
+    return arrow::Future<>::MakeFinished(
+        arrow::Status::ExecutionError("Error occurred in closing the batch producer"));
   }
 
  private:
-  // A unique label for instances to help distinguish logging output if a plan has
-  // multiple sinks
-  //
-  // In this example, this is set to the zero-based index of the relation tree in the plan
-  bool is_finished_ = false;
   arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer producer_;
   size_t tag_;
-  std::shared_ptr<arrow::Schema> schema_;
 };
 
 arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
@@ -151,7 +140,7 @@ int main(int argc, char** argv) {
   std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
     // All batches produced by the plan will be fed into IgnoringConsumers:
     auto tag = consumers.size();
-    consumers.emplace_back(new SubstraitSinkConsumer{&sink_gen, tag, schema});
+    consumers.emplace_back(new SubstraitSinkConsumer{&sink_gen, tag});
     return consumers.back();
   };
 
@@ -183,6 +172,9 @@ int main(int argc, char** argv) {
   std::cout << std::string(50, '#') << " consuming batches:" << std::endl;
   ABORT_ON_FAILURE(plan->StartProducing());
 
+  auto sinks = plan->sinks();
+  std::cout << "String ::" << std::endl;
+  std::cout << sinks.size() << std::endl;
   // Extract output
 
   cp::ExecContext exec_context(arrow::default_memory_pool(),

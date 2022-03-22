@@ -32,6 +32,7 @@
 
 #include "arrow/python/arrow_to_pandas.h"
 #include "arrow/python/decimal.h"
+#include "arrow/python/engine.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/numpy_interop.h"
@@ -593,6 +594,12 @@ TEST_F(DecimalTest, UpdateWithNaN) {
   ASSERT_OK(metadata.Update(nan_value.obj()));
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.precision());
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.scale());
+}
+
+TEST(SubstraitEngineTest, TestPlanFromJSON){
+
+  
+
 }
 
 }  // namespace py

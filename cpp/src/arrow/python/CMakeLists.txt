@@ -45,7 +45,7 @@ set(ARROW_PYTHON_SRCS
     python_to_arrow.cc
     pyarrow.cc
     serialize.cc
-    udf.cc)
+    engine.cc)
 
 set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)
