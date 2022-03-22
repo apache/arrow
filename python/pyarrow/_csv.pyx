@@ -670,17 +670,31 @@ cdef class ConvertOptions(_Weakrefable):
     entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,
     2022-03-03 00:00:00,2022-04-03 00:00:00]]
 
-    Specify which columns to read and add an additional column:
+    Specify a subset of columns to be read:
 
     >>> convert_options = csv.ConvertOptions(
-    ...                   include_columns=["animals", "location"],
+    ...                   include_columns=["animals", "n_legs"])
+    >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: int64
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    n_legs: [[2,4,5,100]]
+
+    List additional column to be included as a null typed column:
+
+    >>> convert_options = csv.ConvertOptions(
+    ...                   include_columns=["animals", "n_legs", "location"],
     ...                   include_missing_columns=True)
     >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
     pyarrow.Table
     animals: string
+    n_legs: int64
     location: null
     ----
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    n_legs: [[2,4,5,100]]
     location: [4 nulls]
 
     Define a column as a dictionary:
