@@ -93,7 +93,8 @@ enum class StatusCode : char {
   ExpressionValidationError = 41,
   ExecutionError = 42,
   // Continue generic codes.
-  AlreadyExists = 45
+  AlreadyExists = 45,
+  UninitializedResult = 46,
 };
 
 /// \brief An opaque class that allows subsystems to retain
@@ -128,7 +129,7 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
   ~Status() noexcept {
     // ARROW-2400: On certain compilers, splitting off the slow path improves
     // performance significantly.
-    if (ARROW_PREDICT_FALSE(state_ != NULL)) {
+    if (ARROW_PREDICT_FALSE(state_ != NULL && state_ != &kUninitializedResultState)) {
       DeleteState();
     }
   }
@@ -261,6 +262,10 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
     return Status::FromArgs(StatusCode::AlreadyExists, std::forward<Args>(args)...);
   }
 
+  /// A special cheaply-constructed status to use for fast creation of uninitialized
+  /// result objects
+  static Status UninitializedResult() { return Status(&kUninitializedResultState); }
+
   /// Return true iff the status indicates success.
   bool ok() const { return (state_ == NULLPTR); }
 
@@ -353,6 +358,9 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
   // a `State` structure containing the error code and message(s)
   State* state_;
 
+  static State kUninitializedResultState;
+
+  Status(State* static_state);
   void DeleteState() {
     delete state_;
     state_ = NULLPTR;
@@ -362,7 +370,9 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
 };
 
 void Status::MoveFrom(Status& s) {
-  delete state_;
+  if (ARROW_PREDICT_FALSE(state_ != NULL && state_ != &kUninitializedResultState)) {
+    delete state_;
+  }
   state_ = s.state_;
   s.state_ = NULLPTR;
 }

@@ -21,6 +21,9 @@
 
 namespace arrow {
 
+Status::State Status::kUninitializedResultState{
+    StatusCode::UninitializedResult, "Uninitialized Result<T>", {}};
+
 Status::Status(StatusCode code, const std::string& msg)
     : Status::Status(code, msg, nullptr) {}
 
@@ -34,8 +37,12 @@ Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> d
   }
 }
 
+Status::Status(State* static_state) : state_(static_state) {}
+
 void Status::CopyFrom(const Status& s) {
-  delete state_;
+  if (ARROW_PREDICT_FALSE(state_ != NULL && state_ != &kUninitializedResultState)) {
+    delete state_;
+  }
   if (s.state_ == nullptr) {
     state_ = nullptr;
   } else {

@@ -112,7 +112,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   /// an empty vector, it will actually invoke the default constructor of
   /// Result.
   explicit Result() noexcept  // NOLINT(runtime/explicit)
-      : status_(Status::UnknownError("Uninitialized Result<T>")) {}
+      : status_(Status::UninitializedResult()) {}
 
   ~Result() noexcept { Destroy(); }
 
