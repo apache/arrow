@@ -82,6 +82,7 @@ register_bindings_type_cast <- function() {
                                        tryFormats = "%Y-%m-%d",
                                        origin = "1970-01-01",
                                        tz = "UTC") {
+
     # the origin argument will be better supported once we implement temporal
     # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
     # TODO revisit once the above has been sorted
@@ -168,6 +169,12 @@ register_bindings_type_cast <- function() {
   register_binding("as_datetime", function(x,
                                            origin = "1970-01-01",
                                            tz = "UTC") {
+    if (call_binding("is.numeric", x) && origin != "1970-01-01") {
+      delta <- call_binding("difftime", origin, "1970-01-01")
+      output <- build_expr("+", x, delta)
+      output <- build_expr("cast", output, options = cast_options(to_type = timestamp(timezone = tz)))
+      return(output)
+    }
     build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
   })
   register_binding("is", function(object, class2) {
