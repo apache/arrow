@@ -95,8 +95,8 @@ struct SqlInfoOptions {
     /// - true: if it supports CREATE and DROP of tables.
     SQL_DDL_TABLE = 502,
 
-    /// Retrieves a uint32 value representing the enu uint32 ordinal
-    /// for the case sensitivity of catalog, table and schema names.
+    /// Retrieves a int32 value representing the enum ordinal for the
+    /// case sensitivity of catalog, table and schema names.
     ///
     /// The possible values are listed in
     /// `arrow.flight.protocol.sql.SqlSupportedCaseSensitivity`.
@@ -106,7 +106,7 @@ struct SqlInfoOptions {
     /// to surround a delimited identifier.
     SQL_IDENTIFIER_QUOTE_CHAR = 504,
 
-    /// Retrieves a uint32 value representing the enu uint32 ordinal
+    /// Retrieves a int32 value representing the enum ordinal
     /// for the case sensitivity of quoted identifiers.
     ///
     /// The possible values are listed in
@@ -121,11 +121,11 @@ struct SqlInfoOptions {
     /// - true: if all tables are selectable.
     SQL_ALL_TABLES_ARE_SELECTABLE = 506,
 
-    /// Retrieves the null ordering used by the database as a uint32 ordinal
-    /// value.
+    /// Retrieves the null ordering used by the database as a int32
+    /// ordinal value.
     ///
-    /// Returns a uint32 ordinal for the null ordering being used, as described
-    /// in `arrow.flight.protocol.sql.SqlNullOrdering`.
+    /// Returns a int32 ordinal for the null ordering being used, as
+    /// described in `arrow.flight.protocol.sql.SqlNullOrdering`.
     SQL_NULL_ORDERING = 507,
 
     /// Retrieves a UTF-8 string list with values of the supported keywords.
@@ -295,7 +295,7 @@ struct SqlInfoOptions {
     /// - true: if the SQL Integrity Enhancement Facility is supported.
     SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY = 527,
 
-    /// Retrieves the support level for SQL OUTER JOINs as a uint32 ordinal, as
+    /// Retrieves the support level for SQL OUTER JOINs as an int32 ordinal, as
     /// described in `arrow.flight.protocol.sql.SqlOuterJoinsSupportLevel`.
     SQL_OUTER_JOINS_SUPPORT_LEVEL = 528,
 
@@ -464,67 +464,67 @@ struct SqlInfoOptions {
     /// - return 2 (0b10)  => [SQL_UNION_ALL];
     /// - return 3 (0b11)  => [SQL_UNION, SQL_UNION_ALL].
     ///
-    /// Valid SQL positioned commands are described under
+    /// Valid SQL union operators are described under
     /// `arrow.flight.protocol.sql.SqlSupportedUnions`.
     SQL_SUPPORTED_UNIONS = 540,
 
-    /// Retrieves a uint32 value representing the maximum number of hex
+    /// Retrieves a int64 value representing the maximum number of hex
     /// characters allowed in an inline binary literal.
     SQL_MAX_BINARY_LITERAL_LENGTH = 541,
 
-    /// Retrieves a uint32 value representing the maximum number of characters
+    /// Retrieves a int64 value representing the maximum number of characters
     /// allowed for a character literal.
     SQL_MAX_CHAR_LITERAL_LENGTH = 542,
 
-    /// Retrieves a uint32 value representing the maximum number of characters
+    /// Retrieves a int64 value representing the maximum number of characters
     /// allowed for a column name.
     SQL_MAX_COLUMN_NAME_LENGTH = 543,
 
-    /// Retrieves a uint32 value representing the the maximum number of columns
+    /// Retrieves a int64 value representing the the maximum number of columns
     /// allowed in a GROUP BY clause.
     SQL_MAX_COLUMNS_IN_GROUP_BY = 544,
 
-    /// Retrieves a uint32 value representing the maximum number of columns
+    /// Retrieves a int64 value representing the maximum number of columns
     /// allowed in an index.
     SQL_MAX_COLUMNS_IN_INDEX = 545,
 
-    /// Retrieves a uint32 value representing the maximum number of columns
+    /// Retrieves a int64 value representing the maximum number of columns
     /// allowed in an ORDER BY clause.
     SQL_MAX_COLUMNS_IN_ORDER_BY = 546,
 
-    /// Retrieves a uint32 value representing the maximum number of columns
+    /// Retrieves a int64 value representing the maximum number of columns
     /// allowed in a SELECT list.
     SQL_MAX_COLUMNS_IN_SELECT = 547,
 
-    /// Retrieves a uint32 value representing the maximum number of columns
+    /// Retrieves a int64 value representing the maximum number of columns
     /// allowed in a table.
     SQL_MAX_COLUMNS_IN_TABLE = 548,
 
-    /// Retrieves a uint32 value representing the maximum number of concurrent
+    /// Retrieves a int64 value representing the maximum number of concurrent
     /// connections possible.
     SQL_MAX_CONNECTIONS = 549,
 
-    /// Retrieves a uint32 value the maximum number of characters allowed in a
+    /// Retrieves a int64 value the maximum number of characters allowed in a
     /// cursor name.
     SQL_MAX_CURSOR_NAME_LENGTH = 550,
 
-    /// Retrieves a uint32 value representing the maximum number of bytes
+    /// Retrieves a int64 value representing the maximum number of bytes
     /// allowed for an index, including all of the parts of the index.
     SQL_MAX_INDEX_LENGTH = 551,
 
-    /// Retrieves a uint32 value representing the maximum number of characters
+    /// Retrieves a int64 value representing the maximum number of characters
     /// allowed in a procedure name.
     SQL_SCHEMA_NAME_LENGTH = 552,
 
-    /// Retrieves a uint32 value representing the maximum number of bytes
+    /// Retrieves a int64 value representing the maximum number of bytes
     /// allowed in a single row.
     SQL_MAX_PROCEDURE_NAME_LENGTH = 553,
 
-    /// Retrieves a uint32 value representing the maximum number of characters
+    /// Retrieves a int64 value representing the maximum number of characters
     /// allowed in a catalog name.
     SQL_MAX_CATALOG_NAME_LENGTH = 554,
 
-    /// Retrieves a uint32 value representing the maximum number of bytes
+    /// Retrieves a int64 value representing the maximum number of bytes
     /// allowed in a single row.
     SQL_MAX_ROW_SIZE = 555,
 
@@ -539,31 +539,31 @@ struct SqlInfoOptions {
     ///         the SQL data types LONGVARCHAR and LONGVARBINARY.
     SQL_MAX_ROW_SIZE_INCLUDES_BLOBS = 556,
 
-    /// Retrieves a uint32 value representing the maximum number of characters
+    /// Retrieves a int32 value representing the maximum number of characters
     /// allowed for an SQL statement; a result of 0 (zero) means that there is
     /// no limit or the limit is not known.
     SQL_MAX_STATEMENT_LENGTH = 557,
 
-    /// Retrieves a uint32 value representing the maximum number of active
+    /// Retrieves a int32 value representing the maximum number of active
     /// statements that can be open at the same time.
     SQL_MAX_STATEMENTS = 558,
 
-    /// Retrieves a uint32 value representing the maximum number of characters
+    /// Retrieves a int32 value representing the maximum number of characters
     /// allowed in a table name.
     SQL_MAX_TABLE_NAME_LENGTH = 559,
 
-    /// Retrieves a uint32 value representing the maximum number of tables
+    /// Retrieves a int32 value representing the maximum number of tables
     /// allowed in a SELECT statement.
     SQL_MAX_TABLES_IN_SELECT = 560,
 
-    /// Retrieves a uint32 value representing the maximum number of characters
+    /// Retrieves a int32 value representing the maximum number of characters
     /// allowed in a user name.
     SQL_MAX_USERNAME_LENGTH = 561,
 
     /// Retrieves this database's default transaction isolation level as
     /// described in `arrow.flight.protocol.sql.SqlTransactionIsolationLevel`.
     ///
-    /// Returns a uint32 ordinal for the SQL transaction isolation level.
+    /// Returns a int32 ordinal for the SQL transaction isolation level.
     SQL_DEFAULT_TRANSACTION_ISOLATION = 562,
 
     /// Retrieves a boolean value indicating whether transactions are
