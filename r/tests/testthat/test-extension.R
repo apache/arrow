@@ -92,6 +92,31 @@ test_that("extension type subclasses work", {
   unregister_extension_type("some_extension_subclass")
 })
 
+test_that("extension types can use UTF-8 for metadata", {
+  type <- new_extension_type(
+    int32(),
+    "arrow.test.simple_extension",
+    "\U0001f4a9\U0001f4a9\U0001f4a9\U0001f4a9"
+  )
+
+  expect_identical(
+    type$extension_metadata_utf8(),
+    "\U0001f4a9\U0001f4a9\U0001f4a9\U0001f4a9"
+  )
+
+  expect_match(type$ToString(), "\U0001f4a9{4}")
+})
+
+test_that("extension types can be printed that don't use UTF-8 for metadata", {
+  type <- new_extension_type(
+    int32(),
+    "arrow.test.simple_extension",
+    as.raw(0:5)
+  )
+
+  expect_match(type$ToString(), "00 01 02 03 04 05")
+})
+
 test_that("extension subclasses can override the ExtensionEquals method", {
   SomeExtensionTypeSubclass <- R6Class(
     "SomeExtensionTypeSubclass", inherit = ExtensionType,
