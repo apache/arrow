@@ -244,12 +244,12 @@ class GrpcServiceHandler final : public FlightService::Service {
     // Write flight info to stream until listing is exhausted
     while (true) {
       ProtoType pb_value;
-      std::unique_ptr<UserType> value;
-      GRPC_RETURN_NOT_OK(iterator->Next(&value));
-      if (!value) {
+      arrow::Result<std::unique_ptr<UserType>> value = iterator->Next();
+      GRPC_RETURN_NOT_OK(value.status());
+      if (!*value) {
         break;
       }
-      GRPC_RETURN_NOT_OK(internal::ToProto(*value, &pb_value));
+      GRPC_RETURN_NOT_OK(internal::ToProto(**value, &pb_value));
 
       // Blocking write
       if (!writer->Write(pb_value)) {
@@ -494,14 +494,16 @@ class GrpcServiceHandler final : public FlightService::Service {
     }
 
     while (true) {
-      std::unique_ptr<Result> result;
-      SERVICE_RETURN_NOT_OK(flight_context, results->Next(&result));
-      if (!result) {
+      auto arrow_result = results->Next();
+      SERVICE_RETURN_NOT_OK(flight_context, arrow_result.status());
+      std::unique_ptr<Result> flight_result = std::move(*arrow_result);
+      if (!flight_result) {
         // No more results
         break;
       }
       pb::Result pb_result;
-      SERVICE_RETURN_NOT_OK(flight_context, internal::ToProto(*result, &pb_result));
+      SERVICE_RETURN_NOT_OK(flight_context,
+                            internal::ToProto(*flight_result, &pb_result));
       if (!writer->Write(pb_result)) {
         // Stream may be closed
         break;
@@ -587,9 +589,9 @@ class GrpcServerTransport : public internal::ServerTransport {
     }
 
     if (scheme == kSchemeGrpcTls) {
-      RETURN_NOT_OK(Location::ForGrpcTls(uri.host(), port, &location_));
+      RETURN_NOT_OK(Location::ForGrpcTls(uri.host(), port).Value(&location_));
     } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
-      RETURN_NOT_OK(Location::ForGrpcTcp(uri.host(), port, &location_));
+      RETURN_NOT_OK(Location::ForGrpcTcp(uri.host(), port).Value(&location_));
     }
     return Status::OK();
   }

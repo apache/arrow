@@ -142,10 +142,10 @@ void DataTest::CheckDoGet(
   ASSERT_OK(client_->GetFlightInfo(descr, &info));
   check_endpoints(info->endpoints());
 
-  std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
-  ASSERT_OK(info->GetSchema(&dict_memo, &schema));
-  AssertSchemaEqual(*expected_schema, *schema);
+  arrow::Result<std::shared_ptr<Schema>> schema = info->GetSchema(&dict_memo);
+  ASSERT_OK(schema);
+  AssertSchemaEqual(*expected_schema, **schema);
 
   // By convention, fetch the first endpoint
   Ticket ticket = info->endpoints()[0].ticket;

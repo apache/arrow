@@ -556,16 +556,11 @@ std::shared_ptr<Schema> ExampleLargeSchema() {
 }
 
 std::vector<FlightInfo> ExampleFlightInfo() {
-  Location location1;
-  Location location2;
-  Location location3;
-  Location location4;
-  Location location5;
-  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo1.bar.com", 12345, &location1));
-  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo2.bar.com", 12345, &location2));
-  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo3.bar.com", 12345, &location3));
-  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo4.bar.com", 12345, &location4));
-  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo5.bar.com", 12345, &location5));
+  Location location1 = *Location::ForGrpcTcp("foo1.bar.com", 12345);
+  Location location2 = *Location::ForGrpcTcp("foo2.bar.com", 12345);
+  Location location3 = *Location::ForGrpcTcp("foo3.bar.com", 12345);
+  Location location4 = *Location::ForGrpcTcp("foo4.bar.com", 12345);
+  Location location5 = *Location::ForGrpcTcp("foo5.bar.com", 12345);
 
   FlightInfo::Data flight1, flight2, flight3, flight4;
 

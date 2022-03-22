@@ -103,8 +103,7 @@ Status PrintResults(FlightSqlClient& client, const FlightCallOptions& call_optio
 
 Status RunMain() {
   std::unique_ptr<FlightClient> client;
-  Location location;
-  ARROW_RETURN_NOT_OK(Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
+  ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
   ARROW_RETURN_NOT_OK(FlightClient::Connect(location, &client));
 
   FlightCallOptions call_options;

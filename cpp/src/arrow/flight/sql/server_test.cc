@@ -160,8 +160,7 @@ class TestFlightSqlServer : public ::testing::Test {
     std::string uri = ss.str();
 
     std::unique_ptr<FlightClient> client;
-    Location location;
-    ASSERT_OK(Location::Parse(uri, &location));
+    ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
     ASSERT_OK(FlightClient::Connect(location, &client));
 
     sql_client.reset(new FlightSqlClient(std::move(client)));
@@ -184,8 +183,7 @@ class TestFlightSqlServer : public ::testing::Test {
   std::mutex server_ready_m;
 
   void RunServer() {
-    arrow::flight::Location location;
-    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("localhost", port, &location));
+    Location location = *Location::ForGrpcTcp("localhost", port);
     arrow::flight::FlightServerOptions options(location);
 
     ARROW_CHECK_OK(example::SQLiteFlightSqlServer::Create().Value(&server));

@@ -31,9 +31,8 @@
 DEFINE_int32(port, 31337, "Server port to listen on");
 
 arrow::Status RunMain() {
-  arrow::flight::Location location;
-  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
-  arrow::flight::FlightServerOptions options(location);
+  auto location = arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port);
+  arrow::flight::FlightServerOptions options(*location);
 
   std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
   ARROW_ASSIGN_OR_RAISE(server,

@@ -78,9 +78,8 @@ TEST(FlightTypes, FlightDescriptorToFromProto) {
 // ARROW-6017: we should be able to construct locations for unknown
 // schemes
 TEST(FlightTypes, LocationUnknownScheme) {
-  Location location;
-  ASSERT_OK(Location::Parse("s3://test", &location));
-  ASSERT_OK(Location::Parse("https://example.com/foo", &location));
+  ASSERT_OK(Location::Parse("s3://test"));
+  ASSERT_OK(Location::Parse("https://example.com/foo"));
 }
 
 TEST(FlightTypes, RoundTripTypes) {
@@ -105,10 +104,9 @@ TEST(FlightTypes, RoundTripTypes) {
   std::shared_ptr<Schema> schema =
       arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
                      field("d", int64())});
-  Location location1, location2, location3;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 10010, &location1));
-  ASSERT_OK(Location::ForGrpcTls("localhost", 10010, &location2));
-  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location3));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 10010));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 10010));
+  ASSERT_OK_AND_ASSIGN(auto location3, Location::ForGrpcUnix("/tmp/test.sock"));
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
                                         FlightEndpoint{ticket, {location3}}};
   ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
