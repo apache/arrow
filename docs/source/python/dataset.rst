@@ -618,7 +618,7 @@ Configuring files open during a write
 
 When writing data to the disk, there are a few parameters that can be 
 important to optimize the writes, such as the number of rows per file and
-the number of files open during write.
+the maximum number of open files allowed during the write.
 
 Set the maximum number of files opened with the ``max_open_files`` parameter of
 :meth:`write_dataset`.
@@ -635,8 +635,8 @@ dataset scanner or otherwise, you may hit a system file handler limit. For
 example, if you are scanning a dataset with 300 files and writing out to
 900 files, the total of 1200 files may be over a system limit. (On Linux,
 this might be a "Too Many Open Files" error.) You can either reduce this
-``max_open_files`` setting or increasing your file handler limit on your
-system. The default value is 900 which also allows some number of files
+``max_open_files`` setting or increase the file handler limit on your
+system. The default value is 900 which allows some number of files
 to be open by the scanner before hitting the default Linux limit of 1024. 
 
 Another important configuration used in :meth:`write_dataset` is ``max_rows_per_file``. 
@@ -657,32 +657,31 @@ it's best to keep file sizes below 1GB.
 Configuring rows per group during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When writing data to disk, depending on the volume of data obtained, 
-(in a mini-batch setting where, records are obtained in batch by batch)
-the volume of data written to disk per each group can be configured. 
-This can be configured using a minimum and maximum parameter. 
-
-Set the maximum number of files opened with the ``min_rows_per_group`` parameter of
-:meth:`write_dataset`.
+The volume of data written to the disk per each group can be configured.
+This configuration includes a lower and an upper bound. 
+Set the minimum number of rows required to form a row group. 
+Defined with the ``min_rows_per_group`` parameter of :meth:`write_dataset`.
 
 Note: if ``min_rows_per_group`` is set greater than 0 then this will cause the 
 dataset writer to batch incoming data and only write the row groups to the 
 disk when sufficient rows have accumulated. The final row group size may be 
-less than this value and other options such as ``max_open_files`` or 
-``max_rows_per_file`` lead to smaller row group sizes.
+less than this value if other options such as ``max_open_files`` or 
+``max_rows_per_file`` force smaller row group sizes.
 
-Set the maximum number of files opened with the ``max_rows_per_group`` parameter of
+Set the maximum number of rows allowed per group. Defined as ``max_rows_per_group`` parameter of
 :meth:`write_dataset`.
 
 Note: if ``max_rows_per_group`` is set greater than 0 then the dataset writer may split 
 up large incoming batches into multiple row groups.  If this value is set then 
 ``min_rows_per_group`` should also be set or else you may end up with very small 
 row groups (e.g. if the incoming row group size is just barely larger than this value).
-In addition row_groups are a factor which impacts write/read of Parquest, Feather and IPC
-formats. The main purpose of these formats are to provide high performance data structures
-for I/O operations on larger datasets. The row_group concept allows the write/read operations
-to be optimized and gather a defined number of rows at once and execute the I/O operation. 
-But row_groups are not integrated to support JSON or CSV formats. 
+Row groups are built into the Parquet and IPC/Feather formats but don't affect JSON or CSV.
+When reading back Parquet and IPC formats in Arrow, the row group boundaries become the
+record batch boundaries, determining the default batch size of downstream readers.
+Additionally, row groups in Parquet files have column statistics which can help readers
+skip irrelevant data but can add size to the file. As an extreme example, if one sets
+max_rows_per_group=1 in Parquet, they will have large files because most of the files
+will be row group statistics.
 
 Writing large amounts of data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
