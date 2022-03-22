@@ -33,26 +33,26 @@ namespace engine {
 class SubstraitSinkConsumer : public cp::SinkNodeConsumer {
  public:
   explicit SubstraitSinkConsumer(
-      arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator,
-      arrow::util::BackpressureOptions backpressure = {})
+      AsyncGenerator<util::optional<cp::ExecBatch>>* generator,
+      util::BackpressureOptions backpressure = {})
       : producer_(MakeProducer(generator, std::move(backpressure))) {}
 
-  arrow::Status Consume(cp::ExecBatch batch) override;
+  Status Consume(cp::ExecBatch batch) override;
 
-  static arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer
-  MakeProducer(arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* out_gen,
-               arrow::util::BackpressureOptions backpressure) {
-    arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>> push_gen(
+  static arrow::PushGenerator<util::optional<cp::ExecBatch>>::Producer
+  MakeProducer(AsyncGenerator<util::optional<cp::ExecBatch>>* out_gen,
+               util::BackpressureOptions backpressure) {
+    arrow::PushGenerator<util::optional<cp::ExecBatch>> push_gen(
         std::move(backpressure));
     auto out = push_gen.producer();
     *out_gen = std::move(push_gen);
     return out;
   }
 
-  arrow::Future<> Finish() override;
+  Future<> Finish() override;
 
  private:
-  arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer producer_;
+  PushGenerator<util::optional<cp::ExecBatch>>::Producer producer_;
 };
 
 class SubstraitHandler {
@@ -67,7 +67,7 @@ class SubstraitHandler {
       std::vector<cp::Declaration> declarations);
 
  private:
-  arrow::AsyncGenerator<util::optional<cp::ExecBatch>>* generator_;
+  AsyncGenerator<util::optional<cp::ExecBatch>>* generator_;
 };
 
 }  // namespace engine

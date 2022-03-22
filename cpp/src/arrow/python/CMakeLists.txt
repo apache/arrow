@@ -44,8 +44,7 @@ set(ARROW_PYTHON_SRCS
     numpy_to_arrow.cc
     python_to_arrow.cc
     pyarrow.cc
-    serialize.cc
-    engine.cc)
+    serialize.cc)
 
 set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)
@@ -159,6 +158,25 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   if(ARROW_BUILD_STATIC AND MSVC)
     target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_STATIC)
   endif()
+endif()
+
+if(ARROW_ENGINE  AND ARROW_BUILD_SHARED)
+    add_arrow_lib(arrow_python_engine
+                CMAKE_PACKAGE_NAME
+                PKG_CONFIG_NAME
+                SOURCES
+                engine.cc
+                OUTPUTS
+                DEPENDENCIES
+                SHARED_LINK_FLAGS
+                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+                SHARED_LINK_LIBS
+                arrow_python_shared
+                arrow_engine_shared
+                STATIC_LINK_LIBS
+                ${PYTHON_OTHER_LIBS}
+                EXTRA_INCLUDES
+                "${ARROW_PYTHON_INCLUDES}")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

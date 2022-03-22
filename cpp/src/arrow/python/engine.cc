@@ -43,11 +43,11 @@ Result<std::vector<cp::Declaration>> SubstraitHandler::BuildPlan(
     std::string substrait_json) {
   auto maybe_serialized_plan = eng::internal::SubstraitFromJSON("Plan", substrait_json);
   RETURN_NOT_OK(maybe_serialized_plan.status());
-  std::shared_ptr<arrow::Buffer> serialized_plan =
+  std::shared_ptr<Buffer> serialized_plan =
       std::move(maybe_serialized_plan).ValueOrDie();
 
   auto maybe_plan_json = eng::internal::SubstraitToJSON("Plan", *serialized_plan);
-  RETURN_NOT_OK(maybe_plan_json.status());
+  RETURN_NOT_OK(maybe_plan_json.status()); 
 
   std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
   std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
@@ -84,7 +84,7 @@ Result<std::shared_ptr<RecordBatchReader>> SubstraitHandler::ExecutePlan(
 
   RETURN_NOT_OK(plan->StartProducing());
 
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader =
+  std::shared_ptr<RecordBatchReader> sink_reader =
       cp::MakeGeneratorReader(schema, std::move(*generator_), exec_context.memory_pool());
 
   return sink_reader;
