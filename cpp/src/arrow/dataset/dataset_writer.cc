@@ -355,7 +355,9 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
         std::move(directory), std::move(prefix), std::move(schema), write_options,
         writer_state);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
-    dir_queue->PrepareDirectory();
+    if (write_options.create_dir) {
+      dir_queue->PrepareDirectory();
+    }
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
     // std::move required to make RTools 3.5 mingw compiler happy
     return std::move(dir_queue);
@@ -457,9 +459,9 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
     if (!directory.empty()) {
       auto full_path =
           fs::internal::ConcatAbstractPath(write_options_.base_dir, directory);
-      return DoWriteRecordBatch(std::move(batch), full_path, prefix);
+      return DoWriteRecordBatch(std::move(batch), full_path, prefix, write_options_.create_dir);
     } else {
-      return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
+      return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix,  write_options_.create_dir);
     }
   }
 
@@ -478,7 +480,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
   }
 
   Future<> DoWriteRecordBatch(std::shared_ptr<RecordBatch> batch,
-                              const std::string& directory, const std::string& prefix) {
+                              const std::string& directory, const std::string& prefix, const bool& create_dir) {
     ARROW_ASSIGN_OR_RAISE(
         auto dir_queue_itr,
         ::arrow::internal::GetOrInsertGenerated(
@@ -518,7 +520,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
 
     if (batch) {
       return backpressure.Then([this, batch, directory, prefix] {
-        return DoWriteRecordBatch(batch, directory, prefix);
+        return DoWriteRecordBatch(batch, directory, prefix, create_dir);
       });
     }
     return Future<>::MakeFinished();

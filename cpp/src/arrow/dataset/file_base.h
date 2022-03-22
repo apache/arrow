@@ -387,6 +387,8 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Controls what happens if an output directory already exists.
   ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;
 
+  bool create_dir = true;
+
   /// Callback to be invoked against all FileWriters before
   /// they are finalized with FileWriter::Finish().
   std::function<Status(FileWriter*)> writer_pre_finish = [](FileWriter*) {
