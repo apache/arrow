@@ -1206,26 +1206,45 @@ struct Strptime {
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+    FirstTimeBitmapWriter out_writer(out->buffers[0]->mutable_data(), out->offset,
+                                     out->length);
     int64_t* out_data = out->GetMutableValues<int64_t>(1);
+    int64_t null_count = 0;
 
     if (self.error_is_null) {
-      auto visit_null = [&]() { out_data++; };
+      auto visit_null = [&]() {
+        out_data++;
+        out_writer.Clear();
+        out_writer.Next();
+        null_count++;
+      };
       auto visit_value = [&](util::string_view s) {
         int64_t result;
         if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
           *out_data++ = result;
+          out_writer.Set();
+          out_writer.Next();
+        } else {
+          out_writer.Clear();
+          out_writer.Next();
+          null_count++;
         }
       };
       VisitArrayDataInline<InType>(in, visit_value, visit_null);
     } else {
       auto visit_null = [&]() {
         out_data++;
+        out_writer.Clear();
+        out_writer.Next();
+        null_count++;
         return Status::OK();
       };
       auto visit_value = [&](util::string_view s) {
         int64_t result;
         if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
           *out_data++ = result;
+          out_writer.Set();
+          out_writer.Next();
           return Status::OK();
         } else {
           return Status::Invalid("Failed to parse string: '", s.data(),
@@ -1235,6 +1254,8 @@ struct Strptime {
       };
       RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
     }
+    out_writer.Finish();
+    out->null_count = null_count;
     return Status::OK();
   }
 };

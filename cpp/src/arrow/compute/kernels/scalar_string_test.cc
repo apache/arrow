@@ -1849,8 +1849,8 @@ TYPED_TEST(TestStringKernels, Strptime) {
   StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, /*error_is_null=*/true);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
 
-  //  options.format = "%d/%m/%Y";
-  //  this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO), output2, &options);
+  options.format = "%d/%m/%Y";
+  this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO), output2, &options);
 
   options.format = "%m/%d/%Y %%z";
   this->CheckUnary("strptime", input3, timestamp(TimeUnit::MICRO), output1, &options);

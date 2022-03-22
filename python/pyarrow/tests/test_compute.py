@@ -1731,6 +1731,13 @@ def test_strptime():
                        match="Failed to parse string: '5/1/202012/13/1900'"):
         pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=False)
 
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Failed to parse string: '5/1/202012/13/1900'"):
+        pc.strptime(arr, format='%Y-%m-%d', unit='s')
+
+    got = pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=True)
+    assert got == pa.array([None, None, None], type=pa.timestamp('s'))
+
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.pandas

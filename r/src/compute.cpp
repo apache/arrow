@@ -375,7 +375,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
-    bool error_is_null = false;
+    bool error_is_null = true;
     if (!Rf_isNull(options["error_is_null"])) {
       error_is_null = cpp11::as_cpp<bool>(options["error_is_null"]);
     }

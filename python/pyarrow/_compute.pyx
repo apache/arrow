@@ -1463,7 +1463,7 @@ class StrptimeOptions(_StrptimeOptions):
         Return null on parsing errors if true or raise if false.
     """
 
-    def __init__(self, format, unit, error_is_null=True):
+    def __init__(self, format, unit, error_is_null=False):
         self._set_options(format, unit, error_is_null)
 
 
