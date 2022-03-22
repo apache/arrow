@@ -700,6 +700,7 @@ add_arrow_test(stl_test SOURCES ${STL_TEST_SRCS})
 add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(compare_benchmark)
 add_arrow_benchmark(memory_pool_benchmark)
+add_arrow_benchmark(result_benchmark)
 add_arrow_benchmark(type_benchmark)
 
 #
