@@ -156,46 +156,31 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     R apply(T t) throws IOException;
   }
 
+  private FlightServer initiateServer(Location location) throws IOException {
+    FlightServer.Builder builder = FlightServer.builder(allocator, location, producer)
+        .headerAuthenticator(authentication.authenticate())
+        .middleware(FlightServerMiddleware.Key.of("KEY"), middlewareCookieFactory);
+    if (certKeyPair != null) {
+      builder.useTls(certKeyPair.cert, certKeyPair.key);
+    }
+    return builder.build();
+  }
+
   @Override
   public Statement apply(Statement base, Description description) {
-    if (certKeyPair != null) {
-      return new Statement() {
-        @Override
-        public void evaluate() throws Throwable {
-          try (FlightServer flightServer =
-                   getStartServer(location ->
-                       FlightServer.builder(allocator, location, producer)
-                           .headerAuthenticator(authentication.authenticate())
-                           .middleware(FlightServerMiddleware.Key.of("KEY"),
-                               middlewareCookieFactory)
-                           .useTls(certKeyPair.cert, certKeyPair.key)
-                           .build(), 3)) {
-            LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
-            base.evaluate();
-          } finally {
-            close();
-          }
+    return new Statement() {
+      @Override
+      public void evaluate() throws Throwable {
+        try (FlightServer flightServer =
+                 getStartServer(location ->
+                     initiateServer(location), 3)) {
+          LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
+          base.evaluate();
+        } finally {
+          close();
         }
-      };
-    } else {
-      return new Statement() {
-        @Override
-        public void evaluate() throws Throwable {
-          try (FlightServer flightServer =
-                   getStartServer(location ->
-                       FlightServer.builder(allocator, location, producer)
-                           .headerAuthenticator(authentication.authenticate())
-                           .middleware(FlightServerMiddleware.Key.of("KEY"),
-                               middlewareCookieFactory)
-                           .build(), 3)) {
-            LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
-            base.evaluate();
-          } finally {
-            close();
-          }
-        }
-      };
-    }
+      }
+    };
   }
 
   private FlightServer getStartServer(CheckedFunction<Location, FlightServer> newServerFromLocation,
@@ -309,7 +294,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      *
      * @param certChain The certificate chain to use.
      * @param key       The private key to use.
-     * @return
+     * @return the Builder.
      */
     public Builder useTls(final File certChain, final File key) {
       certKeyPair = new CertKeyPair(certChain, key);
