@@ -18,11 +18,11 @@
 import ast
 import base64
 import itertools
-import logging
 import os
 import pathlib
 import signal
 import struct
+import sys
 import tempfile
 import threading
 import time
@@ -2105,95 +2105,90 @@ class ExceptionLoggingServer(FlightServerBase):
         raise ValueError("uncaught")
 
 
-def test_logging_unhandled_exceptions(caplog):
+class CaptureUnraisableExceptions:
+    def __init__(self):
+        self._old_hook = None
+        self.recorded = None
+
+    def _hook(self, unraisable):
+        self.recorded = (
+            unraisable.exc_type,
+            unraisable.object,
+            repr(unraisable.exc_value),
+        )
+
+    def __enter__(self):
+        self._old_hook = sys.unraisablehook
+        sys.unraisablehook = self._hook
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        sys.unraisablehook = self._old_hook
+        self.recorded = None
+
+
+def test_logging_unhandled_exceptions():
     """Ensure that unhandled exceptions are logged.
 
     See https://issues.apache.org/jira/browse/ARROW-15909.
     """
     with ExceptionLoggingServer() as server, \
-            FlightClient(("localhost", server.port)) as client:
+            FlightClient(("localhost", server.port)) as client, \
+            CaptureUnraisableExceptions() as capture_unraisable:
         with pytest.raises(ValueError):
             list(client.list_flights())
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in list_flights")]
-        caplog.clear()
+        assert capture_unraisable.recorded == \
+            (ValueError, server.list_flights, "ValueError('uncaught')")
 
         with pytest.raises(ValueError):
             client.get_flight_info(flight.FlightDescriptor.for_path(""))
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in get_flight_info")]
-        caplog.clear()
+        assert capture_unraisable.recorded == \
+            (ValueError, server.get_flight_info, "ValueError('uncaught')")
 
         with pytest.raises(ValueError):
             client.get_schema(flight.FlightDescriptor.for_path(""))
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in get_schema")]
-        caplog.clear()
+        assert capture_unraisable.recorded == \
+            (ValueError, server.get_schema, "ValueError('uncaught')")
 
         with pytest.raises(ValueError):
             writer, _ = client.do_put(
                 flight.FlightDescriptor.for_path(""), pa.schema([]))
             writer.close()
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in do_put")]
-        caplog.clear()
+        assert capture_unraisable.recorded == \
+            (ValueError, server.do_put, "ValueError('uncaught')")
 
         with pytest.raises(ValueError):
             client.do_get(flight.Ticket(b"")).read_all()
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in do_get")]
-        caplog.clear()
+        assert capture_unraisable.recorded == \
+            (ValueError, server.do_get, "ValueError('uncaught')")
 
         reader = client.do_get(flight.Ticket(b"generator"))
         reader.read_chunk()
         with pytest.raises(ValueError, match=".*uncaught generator.*"):
             reader.read_all()
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in do_get")]
-        caplog.clear()
+        assert capture_unraisable.recorded[0] is ValueError
+        assert capture_unraisable.recorded[2] == \
+            "ValueError('uncaught generator')"
 
         with pytest.raises(ValueError):
             writer, _ = client.do_exchange(
                 flight.FlightDescriptor.for_path(""))
             writer.close()
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in do_exchange")]
-        caplog.clear()
+        assert capture_unraisable.recorded == \
+            (ValueError, server.do_exchange, "ValueError('uncaught')")
 
         with pytest.raises(ValueError):
             list(client.do_action(("", b"")))
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in do_action")]
-        caplog.clear()
+        assert capture_unraisable.recorded == \
+            (ValueError, server.do_action, "ValueError('uncaught')")
 
         with pytest.raises(ValueError, match=".*uncaught action.*"):
             list(client.do_action(("generator", b"")))
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in do_action")]
-        caplog.clear()
+        assert capture_unraisable.recorded[0] is ValueError
+        assert capture_unraisable.recorded[2] == \
+            "ValueError('uncaught action')"
 
         with pytest.raises(ValueError):
             list(client.list_actions())
-        assert caplog.record_tuples == [
-            ("pyarrow.flight.FlightServerBase",
-             logging.ERROR,
-             "Uncaught exception in list_actions")]
-        caplog.clear()
+        assert capture_unraisable.recorded == \
+            (ValueError, server.list_actions, "ValueError('uncaught')")
