@@ -526,7 +526,13 @@ schema without having to get any of the batches.::
    ...       yield pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], schema=schema)
    >>> reader = pa.RecordBatchReader.from_batches(schema, iter_record_batches())
    >>> print(reader.schema)
+   pyarrow.Schema
+   x: int64
    >>> for batch in reader:
    ...    print(batch)
+   pyarrow.RecordBatch
+   x: int64
+   pyarrow.RecordBatch
+   x: int64
 
 It can also be sent between languages using the :ref:`C stream interface <c-stream-interface>`.
