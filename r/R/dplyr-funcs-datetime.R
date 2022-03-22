@@ -253,17 +253,23 @@ register_bindings_duration <- function() {
 
     # cast to timestamp if time1 and time2 are not dates or timpestamp expressions
     # (the subtraction of which would output a `duration`)
-    if (!(inherits(time1, "Expression") &&
-          time1$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
+    # if (!(inherits(time1, "Expression") &&
+    #       time1$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
+    if (!call_binding("is.instant", time1)) {
       time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = "UTC")))
     }
 
-    if (!(inherits(time2, "Expression") &&
-          time2$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
+    # if (!(inherits(time2, "Expression") &&
+    #       time2$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])) {
+    if (!call_binding("is.instant", time2)) {
       time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
     }
 
-    build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
+    # we need to do this instead of `time1 - time2` to prevent complaints when
+    # we try to subtract an R object from an Expression
+    subtraction_output <- build_expr("subtract_checked", time1, time2)
+    # build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
+    build_expr("cast", subtraction_output, options = cast_options(to_type = duration("s")))
   })
   register_binding("as.difftime", function(x,
                                            format = "%X",
