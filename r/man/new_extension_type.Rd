@@ -11,7 +11,7 @@
 new_extension_type(
   storage_type,
   extension_name,
-  extension_metadata,
+  extension_metadata = raw(),
   type_class = ExtensionType
 )
 
@@ -83,4 +83,47 @@ during its development and \code{\link[=register_extension_type]{register_extens
 called twice for the same \code{extension_name}. For an example of an
 extension type that uses most of these features, see
 \code{\link[=vctrs_extension_type]{vctrs_extension_type()}}.
+}
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+# Create the R6 type whose methods control how Array objects are
+# converted to R objects, how equality between types is computed,
+# and how types are printed.
+NamedString <- R6::R6Class(
+  "NamedString",
+  inherit = ExtensionType,
+  public = list(
+    .array_as_vector = function(extension_array) {
+      storage <- super$.array_as_vector(extension_array)
+      names(storage$values) <- storage$names
+      storage$values
+    }
+  )
+)
+
+# Create a helper type constructor that calls new_extension_type()
+named_string <- function() {
+  new_extension_type(
+    storage_type = struct(values = string(), names = string()),
+    extension_name = "arrow.example.named_string",
+    type_class = NamedString
+  )
+}
+
+# Create a helper array constructor that calls new_extension_array()
+named_string_array <- function(values, name = names(values)) {
+  new_extension_array(
+    Array$create(data.frame(values = unname(values), names = name)),
+    named_string()
+  )
+}
+
+# Register the extension type so that Arrow knows what to do when
+# it encounters this extension type
+reregister_extension_type(named_string())
+
+# Create Array objects and use them!
+(array <- named_string_array(c(name1 = "value1", name2 = "value2")))
+as.vector(array)
+\dontshow{\}) # examplesIf}
 }

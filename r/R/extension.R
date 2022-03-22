@@ -37,6 +37,7 @@
 #'
 #' @rdname ExtensionArray
 #' @name ExtensionArray
+#' @export
 ExtensionArray <- R6Class("ExtensionArray",
   inherit = Array,
   public = list(
@@ -145,6 +146,18 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__extension_name(self)
     },
 
+    # For argument naming consistency
+    extension_metadata = function() {
+      self$Serialize()
+    },
+
+    # To make sure this conversion is done properly
+    extension_metadata_utf8 = function() {
+      metadata_utf8 <- rawToChar(self$Serialize())
+      Encoding(metadata_utf8) <- "UTF-8"
+      metadata_utf8
+    },
+
     Serialize = function() {
       ExtensionType__Serialize(self)
     },
@@ -177,7 +190,8 @@ ExtensionType <- R6Class("ExtensionType",
     .chunked_array_as_vector = function(chunked_array) {
       # Converting one array at a time so that users don't have to remember
       # to implement two methods. Converting all the storage arrays to
-      # a ChunkedArray is probably faster (VctrsExtensionType does this).
+      # a ChunkedArray and then converting is probably faster
+      # (VctrsExtensionType does this).
       storage_vectors <- lapply(
         seq_len(chunked_array$num_chunks) - 1L,
         function(i) chunked_array$chunk(i)$as_vector()
@@ -208,9 +222,7 @@ ExtensionType <- R6Class("ExtensionType",
         }
 
       } else {
-        metadata_utf8 <- rawToChar(self$Serialize())
-        Encoding(metadata_utf8) <- "UTF-8"
-        paste0(class(self)[1], " <", metadata_utf8, ">")
+        paste0(class(self)[1], " <", self$extension_metadata_utf8(), ">")
       }
     }
   )
@@ -231,6 +243,22 @@ ExtensionType$new <- function(xp) {
   } else {
     r6_class$new(xp)
   }
+}
+
+ExtensionType$create <- function(storage_type,
+                                 extension_name,
+                                 extension_metadata = raw(),
+                                 type_class = ExtensionType) {
+  assert_that(is.string(extension_name), is.raw(extension_metadata))
+  assert_is(storage_type, "DataType")
+  assert_is(type_class, "R6ClassGenerator")
+
+  ExtensionType__initialize(
+    storage_type,
+    extension_name,
+    extension_metadata,
+    type_class
+  )
 }
 
 #' Extension types
@@ -285,15 +313,52 @@ ExtensionType$new <- function(xp) {
 #'   - `register_extension_type()`, `unregister_extension_type()`
 #'      and `reregister_extension_type()` return `NULL`, invisibly.
 #' @export
+#'
+#' @examplesIf arrow_available()
+#' # Create the R6 type whose methods control how Array objects are
+#' # converted to R objects, how equality between types is computed,
+#' # and how types are printed.
+#' NamedString <- R6::R6Class(
+#'   "NamedString",
+#'   inherit = ExtensionType,
+#'   public = list(
+#'     .array_as_vector = function(extension_array) {
+#'       storage <- super$.array_as_vector(extension_array)
+#'       names(storage$values) <- storage$names
+#'       storage$values
+#'     }
+#'   )
+#' )
+#'
+#' # Create a helper type constructor that calls new_extension_type()
+#' named_string <- function() {
+#'   new_extension_type(
+#'     storage_type = struct(values = string(), names = string()),
+#'     extension_name = "arrow.example.named_string",
+#'     type_class = NamedString
+#'   )
+#' }
+#'
+#' # Create a helper array constructor that calls new_extension_array()
+#' named_string_array <- function(values, name = names(values)) {
+#'   new_extension_array(
+#'     Array$create(data.frame(values = unname(values), names = name)),
+#'     named_string()
+#'   )
+#' }
+#'
+#' # Register the extension type so that Arrow knows what to do when
+#' # it encounters this extension type
+#' reregister_extension_type(named_string())
+#'
+#' # Create Array objects and use them!
+#' (array <- named_string_array(c(name1 = "value1", name2 = "value2")))
+#' as.vector(array)
 new_extension_type <- function(storage_type,
                                extension_name,
-                               extension_metadata,
+                               extension_metadata = raw(),
                                type_class = ExtensionType) {
-  assert_that(is.string(extension_name), is.raw(extension_metadata))
-  assert_is(storage_type, "DataType")
-  assert_is(type_class, "R6ClassGenerator")
-
-  ExtensionType__initialize(
+  ExtensionType$create(
     storage_type,
     extension_name,
     extension_metadata,
