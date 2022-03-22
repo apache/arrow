@@ -100,7 +100,7 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
 
 /// \brief Create a sample table
 /// The table's contents will be:
-/// a, b
+/// a,b
 /// 1,null
 /// 2,true
 /// null,true
@@ -571,7 +571,7 @@ arrow::Status SourceGroupAggregateSinkExample(cp::ExecContext& exec_context) {
 /// \brief An example showing a consuming sink node
 /// \param exec_context The execution context to run the plan in
 ///
-/// Source-ConsumingSink
+/// Source-Consuming-Sink
 /// This example shows how the data can be consumed within the execution plan
 /// by using a ConsumingSink node. There is no data output from this execution plan.
 arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
@@ -631,7 +631,7 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
 /// \brief An example showing an order-by node
 /// \param exec_context The execution context to run the plan in
 ///
-/// Source-OrderBySink
+/// Source-OrderBy-Sink
 /// In this example, the data enters through the source node
 /// and the data is ordered in the sink node. The order can be
 /// ASCENDING or DESCENDING and it is configurable. The output
