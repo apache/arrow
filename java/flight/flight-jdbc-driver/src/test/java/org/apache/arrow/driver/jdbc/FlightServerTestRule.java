@@ -384,5 +384,4 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       this.key = key;
     }
   }
-
 }
