@@ -104,7 +104,17 @@ TEST(Misc, BuildInfo) {
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
 }
 
-TEST(Misc, SetTimzoneConfig) {
+class ConfigTest : public ::testing::Test {
+  protected:
+    void TearDown() override {
+      // Reset global options to defaults
+      arrow::GlobalOptions default_options;
+      default_options.timezone_db_path = util::optional<std::string>();
+      ASSERT_OK(arrow::Initialize(default_options));
+    }
+};
+
+TEST_F(ConfigTest, SetTimezoneConfig) {
 #ifndef _WIN32
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
 #elif !defined(ARROW_FILESYSTEM)
@@ -124,7 +134,7 @@ TEST(Misc, SetTimzoneConfig) {
   ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make("tzdata"));
 
   // Validate that setting tzdb to that dir fails
-  arrow::ArrowGlobalOptions options = {util::make_optional(tempdir->path().ToString())};
+  arrow::GlobalOptions options = {util::make_optional(tempdir->path().ToString())};
   ASSERT_NOT_OK(arrow::Initialize(options));
 
   // Copy tzdb data from ~/Downloads

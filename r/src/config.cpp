@@ -43,7 +43,7 @@ void set_timezone_database(cpp11::strings path) {
   }
 
   arrow::ArrowGlobalOptions options;
-  options.tz_db_path = arrow::util::make_optional(paths[0]);
+  options.timezone_db_path = arrow::util::make_optional(paths[0]);
   arrow::StopIfNotOk(arrow::Initialize(options));
 }
 

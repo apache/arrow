@@ -86,13 +86,13 @@ const BuildInfo& GetBuildInfo();
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
 
-struct ArrowGlobalOptions {
+struct GlobalOptions {
   /// Path to text timezone database. This is only configurable on Windows,
   /// which does not have a compatible OS timezone database.
-  util::optional<std::string> tz_db_path;
+  util::optional<std::string> timezone_db_path;
 };
 
 ARROW_EXPORT
-Status Initialize(const ArrowGlobalOptions& options) noexcept;
+Status Initialize(const GlobalOptions& options) noexcept;
 
 }  // namespace arrow

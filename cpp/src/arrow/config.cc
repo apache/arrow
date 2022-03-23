@@ -79,24 +79,26 @@ RuntimeInfo GetRuntimeInfo() {
   info.using_os_timezone_db = USE_OS_TZDB;
 #if !USE_OS_TZDB
   info.timezone_db_path = timezone_db_path;
+#else
+  info.timezone_db_path = util::optional<std::string>();
 #endif
   return info;
 }
 
-Status Initialize(const ArrowGlobalOptions& options) noexcept {
-  if (options.tz_db_path.has_value()) {
+Status Initialize(const GlobalOptions& options) noexcept {
+  if (options.timezone_db_path.has_value()) {
 #if !USE_OS_TZDB
     try {
-      arrow_vendored::date::set_install(options.tz_db_path.value());
+      arrow_vendored::date::set_install(options.timezone_db_path.value());
       arrow_vendored::date::reload_tzdb();
     } catch (const std::runtime_error& e) {
-      return Status::ExecutionError(e.what());
+      return Status::IOError(e.what());
     }
-    timezone_db_path = options.tz_db_path.value();
+    timezone_db_path = options.timezone_db_path.value();
 #else
     return Status::Invalid(
-        "Arrow was set to use OS timezone database at compile time, so it cannot be set "
-        "at runtime.");
+        "Arrow was set to use OS timezone database at compile time, so a downloaded database "
+        "cannot be provided at runtime.");
 #endif  // !USE_OS_TZDB
   }
   return Status::OK();
