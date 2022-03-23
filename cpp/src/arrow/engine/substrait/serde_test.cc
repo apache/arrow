@@ -793,19 +793,65 @@ TEST(Substrait, GetRecordBatchIterator) {
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
                          filename_placeholder.size(), file_path);
-  auto in_schema = schema({ field("foo", binary())});
+  auto in_schema = schema({field("foo", binary())});
   AsyncGenerator<util::optional<cp::ExecBatch>> sink_gen;
   cp::ExecContext exec_context(default_memory_pool(),
                                arrow::internal::GetCpuThreadPool());
   ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
-  engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, in_schema, exec_context);
+  engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, in_schema,
+                                     exec_context);
   auto status = executor.MakePlan();
   ASSERT_OK(status);
   ASSERT_OK_AND_ASSIGN(auto reader, executor.Execute());
   auto finish = executor.Finalize();
   ASSERT_OK(finish);
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
-  EXPECT_TRUE(table->num_rows() > 0);
+  EXPECT_GT(table->num_rows(), 0);
+}
+
+TEST(Substrait, GetRecordBatchIteratorUtil) {
+  const auto parquet_root = std::getenv("PARQUET_TEST_DATA");
+  std::string dir_string(parquet_root);
+  std::stringstream ss;
+  ss << dir_string << "/binary.parquet";
+  auto file_path = ss.str();
+
+  std::string substrait_json = R"({
+    "relations": [
+      {"rel": {
+        "read": {
+          "base_schema": {
+            "struct": {
+              "types": [ 
+                         {"binary": {}}
+                       ]
+            },
+            "names": [
+                      "foo"
+                      ]
+          },
+          "local_files": {
+            "items": [
+              {
+                "uri_file": "file://FILENAME_PLACEHOLDER",
+                "format": "FILE_FORMAT_PARQUET"
+              }
+            ]
+          }
+        }
+      }}
+    ]
+  })";
+
+  std::string filename_placeholder = "FILENAME_PLACEHOLDER";
+  substrait_json.replace(substrait_json.find(filename_placeholder),
+                         filename_placeholder.size(), file_path);
+  auto in_schema = schema({field("foo", binary())});
+
+  ASSERT_OK_AND_ASSIGN(auto reader, engine::SubstraitExecutor::GetRecordBatchReader(
+                                        substrait_json, in_schema));
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
+  EXPECT_GT(table->num_rows(), 0);
 }
 
 }  // namespace engine

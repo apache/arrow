@@ -61,14 +61,20 @@ class SubstraitExecutor {
       AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator,
       std::shared_ptr<cp::ExecPlan> plan, std::shared_ptr<Schema> schema,
       cp::ExecContext exec_context)
-      : substrait_json_(substrait_json), generator_(generator),
-       plan_(std::move(plan)), schema_(schema), exec_context_(exec_context) {}
+      : substrait_json_(substrait_json),
+        generator_(generator),
+        plan_(std::move(plan)),
+        schema_(schema),
+        exec_context_(exec_context) {}
 
   Status MakePlan();
 
   Result<std::shared_ptr<RecordBatchReader>> Execute();
 
   Status Finalize();
+
+  static Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+      std::string& substrait_json, std::shared_ptr<arrow::Schema> schema);
 
  private:
   std::string substrait_json_;

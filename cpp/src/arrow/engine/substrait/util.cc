@@ -21,7 +21,6 @@ namespace arrow {
 
 namespace engine {
 
-
 Status SubstraitSinkConsumer::Consume(cp::ExecBatch batch) {
   // Consume a batch of data
   bool did_push = producer_.Push(batch);
@@ -39,8 +38,9 @@ Future<> SubstraitSinkConsumer::Finish() {
 }
 
 Status SubstraitExecutor::MakePlan() {
-  ARROW_ASSIGN_OR_RAISE(auto serialized_plan, engine::internal::SubstraitFromJSON("Plan", substrait_json_));
-  
+  ARROW_ASSIGN_OR_RAISE(auto serialized_plan,
+                        engine::internal::SubstraitFromJSON("Plan", substrait_json_));
+
   auto maybe_plan_json = engine::internal::SubstraitToJSON("Plan", *serialized_plan);
   RETURN_NOT_OK(maybe_plan_json.status());
 
@@ -52,8 +52,9 @@ Status SubstraitExecutor::MakePlan() {
   };
 
   // Deserialize each relation tree in the substrait plan to an Arrow compute Declaration
-  ARROW_ASSIGN_OR_RAISE(declerations_, engine::DeserializePlan(*serialized_plan, consumer_factory));
-  
+  ARROW_ASSIGN_OR_RAISE(declerations_,
+                        engine::DeserializePlan(*serialized_plan, consumer_factory));
+
   // It's safe to drop the serialized plan; we don't leave references to its memory
   serialized_plan.reset();
 
@@ -70,14 +71,34 @@ Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::Execute() {
 
   ARROW_RETURN_NOT_OK(plan_->StartProducing());
 
-  std::shared_ptr<RecordBatchReader> sink_reader =
-      cp::MakeGeneratorReader(schema_, std::move(*generator_), exec_context_.memory_pool());
+  std::shared_ptr<RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+      schema_, std::move(*generator_), exec_context_.memory_pool());
   return sink_reader;
 }
 
 Status SubstraitExecutor::Finalize() {
-    ARROW_RETURN_NOT_OK(plan_->finished().status());
-    return Status::OK();
+  ARROW_RETURN_NOT_OK(plan_->finished().status());
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::GetRecordBatchReader(
+    std::string& substrait_json, std::shared_ptr<arrow::Schema> schema) {
+  cp::ExecContext exec_context(arrow::default_memory_pool(),
+                               ::arrow::internal::GetCpuThreadPool());
+
+  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
+
+  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, schema,
+                                            exec_context);
+  RETURN_NOT_OK(executor.MakePlan());
+
+  ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
+
+  RETURN_NOT_OK(executor.Finalize());
+
+  return sink_reader;
 }
 
 }  // namespace engine

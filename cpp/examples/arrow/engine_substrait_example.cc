@@ -39,8 +39,7 @@ namespace cp = arrow::compute;
     }                                              \
   } while (0);
 
-std::string GetSubstraitPlanFromServer(
-    const std::string& filename) {
+std::string GetSubstraitPlanFromServer(const std::string& filename) {
   // Emulate server interaction by parsing hard coded JSON
   std::string substrait_json = R"({
     "relations": [
@@ -83,7 +82,7 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
   auto substrait_json = GetSubstraitPlanFromServer(argv[1]);
-  
+
   auto schema = arrow::schema(
       {arrow::field("i", arrow::int64()), arrow::field("b", arrow::boolean())});
 
@@ -91,23 +90,24 @@ int main(int argc, char** argv) {
                                ::arrow::internal::GetCpuThreadPool());
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-  
-  auto maybe_plan =  cp::ExecPlan::Make();
-  if(!maybe_plan.status().ok()) {
+
+  auto maybe_plan = cp::ExecPlan::Make();
+  if (!maybe_plan.status().ok()) {
     return EXIT_FAILURE;
   }
   auto plan = maybe_plan.ValueOrDie();
-  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, schema, exec_context);
+  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, schema,
+                                            exec_context);
   auto status = executor.MakePlan();
-  if(!status.ok()) {
+  if (!status.ok()) {
     return EXIT_FAILURE;
   }
-  auto maybe_reader =  executor.Execute();
-  
-  if(!maybe_reader.status().ok()) {
+  auto maybe_reader = executor.Execute();
+
+  if (!maybe_reader.status().ok()) {
     return EXIT_FAILURE;
   }
-  
+
   auto sink_reader = maybe_reader.ValueOrDie();
 
   std::shared_ptr<arrow::Table> response_table;
@@ -120,9 +120,9 @@ int main(int argc, char** argv) {
 
   auto finish = executor.Finalize();
 
-  if(!finish.ok()) {
+  if (!finish.ok()) {
     return EXIT_FAILURE;
   }
-  
+
   return EXIT_SUCCESS;
 }
