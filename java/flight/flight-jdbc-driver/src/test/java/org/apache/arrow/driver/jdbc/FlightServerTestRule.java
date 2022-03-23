@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.FlightSqlTestCertificates.*;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -348,14 +350,4 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     }
   }
 
-  public static class CertKeyPair {
-
-    public final File cert;
-    public final File key;
-
-    public CertKeyPair(File cert, File key) {
-      this.cert = cert;
-      this.key = key;
-    }
-  }
 }
