@@ -1097,8 +1097,10 @@ class MergedGenerator {
       if (state_->first) {
         // On the first request we are going to try and immediately fill our queue
         // of subscriptions.  We assume we are going to be able to start them all.
-        state_->outstanding_requests += state_->active_subscriptions.size();
-        state_->num_running_subscriptions += state_->active_subscriptions.size();
+        state_->outstanding_requests +=
+            static_cast<int>(state_->active_subscriptions.size());
+        state_->num_running_subscriptions +=
+            static_cast<int>(state_->active_subscriptions.size());
       }
     }
     // If we grabbed a finished item from the delivered_jobs queue then we may need
@@ -1120,13 +1122,15 @@ class MergedGenerator {
     if (state_->first) {
       state_->first = false;
       mark_generator_complete = false;
-      for (std::size_t i = 0; i < state_->active_subscriptions.size(); i++) {
-        state_->PullSource().AddCallback(OuterCallback{state_, i});
+      for (int i = 0; i < static_cast<int>(state_->active_subscriptions.size()); i++) {
+        state_->PullSource().AddCallback(
+            OuterCallback{state_, static_cast<std::size_t>(i)});
         // If we have to bail early then we need to update the shared state again so
         // we need to reacquire the lock.
         auto guard = state_->mutex.Lock();
         if (state_->source_exhausted) {
-          int excess_requests = state_->active_subscriptions.size() - i - 1;
+          int excess_requests =
+              static_cast<int>(state_->active_subscriptions.size()) - i - 1;
           state_->outstanding_requests -= excess_requests;
           state_->num_running_subscriptions -= excess_requests;
           if (excess_requests > 0) {
