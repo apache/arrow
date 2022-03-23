@@ -62,7 +62,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         shared_ptr[CTable] c_out_table
         shared_ptr[CSourceNodeOptions] c_sourceopts
         shared_ptr[CSinkNodeOptions] c_sinkopts
-        shared_ptr[CAsyncExecBatchGenerator] c_asyncexecbatchgen
+        shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
 
@@ -111,7 +111,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 
     # Create the output node
     c_async_exec_batch_gen = make_shared[CAsyncExecBatchGenerator]()
-    c_sinkopts = make_shared[CSinkNodeOptions](c_asyncexecbatchgen.get())
+    c_sinkopts = make_shared[CSinkNodeOptions](c_async_exec_batch_gen.get())
     GetResultValue(
         MakeExecNode(tobytes("sink"), &deref(c_exec_plan),
                      c_final_node_vec, deref(c_sinkopts))
@@ -119,7 +119,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 
     # Convert the asyncgenerator to a sync batch reader
     c_recordbatchreader = MakeGeneratorReader(c_node.output_schema(),
-                                              deref(c_asyncexecbatchgen),
+                                              deref(c_async_exec_batch_gen),
                                               deref(c_exec_context).memory_pool())
 
     # Start execution of the ExecPlan
