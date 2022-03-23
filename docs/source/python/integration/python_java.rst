@@ -104,22 +104,20 @@ class, named ``FillTen.java``
 
     import org.apache.arrow.memory.RootAllocator;
     import org.apache.arrow.vector.BigIntVector;
-    import org.apache.arrow.vector.ValueVector;
 
 
     public class FillTen {
         static RootAllocator allocator = new RootAllocator();
 
-        public static ValueVector createArray() {
+        public static BigIntVector createArray() {
             BigIntVector intVector = new BigIntVector("ints", allocator);
             intVector.allocateNew(10);
             intVector.setValueCount(10);
-            FillTen.fillValueVector(intVector);
+            FillTen.fillVector(intVector);
             return intVector;
         }
 
-        private static void fillValueVector(ValueVector v) {
-            BigIntVector iv = (BigIntVector)v;
+        private static void fillVector(BigIntVector iv) {
             iv.setSafe(0, 1);
             iv.setSafe(1, 2);
             iv.setSafe(2, 3);
@@ -262,7 +260,7 @@ import the ``FillTen`` class and print out the result of invoking ``FillTen.crea
     array = FillTen.createArray()
     print("ARRAY", type(array), array)
 
-    # Convert the proxied ValueVector to an actual pyarrow array
+    # Convert the proxied BigIntVector to an actual pyarrow array
     import pyarrow.jvm
     pyarray = pyarrow.jvm.array(array)
     print("ARRAY", type(pyarray), pyarray)
@@ -369,14 +367,14 @@ C-Data interface:
     for the purpose of creating this example, and it mostly works only
     because the array hasn't changed size, type or nulls.
 
-In the FillTen Java class, we already have the ``fillValueVector``
+In the FillTen Java class, we already have the ``fillVector``
 method, but that method is private and even if we made it public it
-would only accept a ``ValueVector`` object and not the C-Data array
+would only accept a ``BigIntVector`` object and not the C Data array
 and schema references.
 
 So we have to expand our ``FillTen`` class adding a ``fillCArray``
-method that is able to perform the work of ``fillValueVector`` but
-on the C-Data exchanged entities instead of the ``ValueVector`` one:
+method that is able to perform the work of ``fillVector`` but
+on the C Data exchanged entities instead of the ``BigIntVector`` one:
 
 .. code-block:: java
 
@@ -386,7 +384,6 @@ on the C-Data exchanged entities instead of the ``ValueVector`` one:
     import org.apache.arrow.memory.RootAllocator;
     import org.apache.arrow.vector.FieldVector;
     import org.apache.arrow.vector.BigIntVector;
-    import org.apache.arrow.vector.ValueVector;
 
 
     public class FillTen {
@@ -397,11 +394,10 @@ on the C-Data exchanged entities instead of the ``ValueVector`` one:
             ArrowSchema arrow_schema = ArrowSchema.wrap(c_schema_ptr);
 
             FieldVector v = Data.importVector(allocator, arrow_array, arrow_schema, null);
-            FillTen.fillValueVector(v);
+            FillTen.fillVector((BigIntVector)v);
         }
 
-        private static void fillValueVector(ValueVector v) {
-            BigIntVector iv = (BigIntVector)v;
+        private static void fillVector(BigIntVector iv) {
             iv.setSafe(0, 1);
             iv.setSafe(1, 2);
             iv.setSafe(2, 3);
