@@ -429,7 +429,7 @@ cdef class _CRecordBatchWriter(_Weakrefable):
             check_status(self.writer.get()
                          .WriteRecordBatch(deref(batch.batch)))
 
-    def write_table(self, Table table, max_chunksize=None, **kwargs):
+    def write_table(self, Table table, max_chunksize=None):
         """
         Write Table to stream in (contiguous) RecordBatch objects.
 
@@ -443,13 +443,6 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         cdef:
             # max_chunksize must be > 0 to have any impact
             int64_t c_max_chunksize = -1
-
-        if 'chunksize' in kwargs:
-            max_chunksize = kwargs['chunksize']
-            msg = ('The parameter chunksize is deprecated for the write_table '
-                   'methods as of 0.15, please use parameter '
-                   'max_chunksize instead')
-            warnings.warn(msg, FutureWarning)
 
         if max_chunksize is not None:
             c_max_chunksize = max_chunksize
@@ -771,9 +764,24 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 
     @property
     def num_record_batches(self):
+        """
+        The number of record batches in the IPC file.
+        """
         return self.reader.get().num_record_batches()
 
     def get_batch(self, int i):
+        """
+        Read the record batch with the given index.
+
+        Parameters
+        ----------
+        i : int
+            The index of the record batch in the IPC file.
+
+        Returns
+        -------
+        batch : RecordBatch
+        """
         cdef shared_ptr[CRecordBatch] batch
 
         if i < 0 or i >= self.num_record_batches:

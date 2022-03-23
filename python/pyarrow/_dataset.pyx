@@ -298,9 +298,13 @@ cdef class Dataset(_Weakrefable):
         return Scanner.from_dataset(self, **kwargs)
 
     def to_batches(self, **kwargs):
-        """Read the dataset as materialized record batches.
+        """
+        Read the dataset as materialized record batches.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
@@ -309,45 +313,65 @@ cdef class Dataset(_Weakrefable):
         return self.scanner(**kwargs).to_batches()
 
     def to_table(self, **kwargs):
-        """Read the dataset to an arrow table.
+        """
+        Read the dataset to an Arrow table.
 
         Note that this method reads all the selected data from the dataset
         into memory.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
-        Table
+        table : Table
         """
         return self.scanner(**kwargs).to_table()
 
     def take(self, object indices, **kwargs):
-        """Select rows of data by index.
+        """
+        Select rows of data by index.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        indices : Array or array-like
+            indices of rows to select in the dataset.
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
-        Table
+        table : Table
         """
         return self.scanner(**kwargs).take(indices)
 
     def head(self, int num_rows, **kwargs):
-        """Load the first N rows of the dataset.
+        """
+        Load the first N rows of the dataset.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        num_rows : int
+            The number of rows to load.
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
-        Table
+        table : Table
         """
         return self.scanner(**kwargs).head(num_rows)
 
     def count_rows(self, **kwargs):
-        """Count rows matching the scanner filter.
+        """
+        Count rows matching the scanner filter.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
@@ -700,7 +724,15 @@ cdef class FileFormat(_Weakrefable):
         return self.wrapped
 
     def inspect(self, file, filesystem=None):
-        """Infer the schema of a file."""
+        """Infer the schema of a file.
+
+        Parameters
+        ----------
+        file : file-like object, path-like or str
+        filesystem : Filesystem, optional
+            If `filesystem` is given, `file` must be a string and specifies
+            the path of the file to read from the filesystem.
+        """
         c_source = _make_file_source(file, filesystem)
         c_schema = GetResultValue(self.format.Inspect(c_source))
         return pyarrow_wrap_schema(move(c_schema))
@@ -708,9 +740,19 @@ cdef class FileFormat(_Weakrefable):
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None):
         """
-        Make a FileFragment of this FileFormat. The filter may not reference
-        fields absent from the provided schema. If no schema is provided then
-        one will be inferred.
+        Make a FileFragment of this FileFormat.
+
+        The filter may not reference fields absent from the provided schema.
+        If no schema is provided then one will be inferred.
+
+        Parameters
+        ----------
+        file : file-like object, path-like or str
+        filesystem : Filesystem, optional
+            If `filesystem` is given, `file` must be a string and specifies
+            the path of the file to read from the filesystem.
+        partition_expression : Expression
+            The filter expression.
         """
         if partition_expression is None:
             partition_expression = _true
@@ -857,7 +899,12 @@ cdef class Fragment(_Weakrefable):
     def to_batches(self, Schema schema=None, **kwargs):
         """Read the fragment as materialized record batches.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        schema : Schema, optional
+            Concrete schema to use for scanning.
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
@@ -871,7 +918,12 @@ cdef class Fragment(_Weakrefable):
         Use this convenience utility with care. This will serially materialize
         the Scan result in memory before creating the Table.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        schema : Schema, optional
+            Concrete schema to use for scanning.
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
@@ -882,7 +934,12 @@ cdef class Fragment(_Weakrefable):
     def take(self, object indices, **kwargs):
         """Select rows of data by index.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices of row to select in the dataset.
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
@@ -893,7 +950,12 @@ cdef class Fragment(_Weakrefable):
     def head(self, int num_rows, **kwargs):
         """Load the first N rows of the fragment.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        num_rows : int
+            The number of rows to load.
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
@@ -904,7 +966,10 @@ cdef class Fragment(_Weakrefable):
     def count_rows(self, **kwargs):
         """Count rows matching the scanner filter.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
@@ -2317,6 +2382,11 @@ cdef class Scanner(_Weakrefable):
         needed. Otherwise, this is equivalent to
         ``to_table().take(indices)``.
 
+        Parameters
+        ----------
+        indices : Array or array-like
+            indices of rows to select in the dataset.
+
         Returns
         -------
         Table
@@ -2334,6 +2404,11 @@ cdef class Scanner(_Weakrefable):
 
     def head(self, int num_rows):
         """Load the first N rows of the dataset.
+
+        Parameters
+        ----------
+        num_rows : int
+            The number of rows to load.
 
         Returns
         -------

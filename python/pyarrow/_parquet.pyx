@@ -1175,8 +1175,8 @@ cdef class ParquetReader(_Weakrefable):
         """
         Find the matching index of a column in the schema.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         column_name: str
             Name of the column, separation of nesting levels is done via ".".
 
