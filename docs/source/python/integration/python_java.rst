@@ -30,7 +30,7 @@ marshaling and unmarshaling data.
     The article takes for granted that you have a ``Python`` environment
     with ``pyarrow`` correctly installed and a ``Java`` environment with
     ``arrow`` library correctly installed. 
-    The ``Java`` version must have been compiled with ``mvn -Parrow-c-data`` to
+    The ``Arrow Java`` version must have been compiled with ``mvn -Parrow-c-data`` to
     ensure CData exchange support is enabled.
     See `Python Install Instructions <https://arrow.apache.org/docs/python/install.html>`_
     and `Java Documentation <https://arrow.apache.org/docs/java/>`_
@@ -67,7 +67,7 @@ The most basic thing we can do with our ``Simple`` class is to
 use the ``Simple.getNumber`` method from Python and see 
 if it will return the result.
 
-To do so we can create a ``simple.py`` file which uses ``jpype`` to
+To do so, we can create a ``simple.py`` file which uses ``jpype`` to
 import the ``Simple`` class from ``Simple.class`` file and invoke 
 the ``Simple.getNumber`` method:
 
@@ -293,6 +293,12 @@ That's why we subsequently use ``pyarrow.jvm.array`` to convert it to an actual
 ``pyarrow`` array. That allows us to treat it like any other ``pyarrow`` array.
 The result is the second line in the output where the array is correctly reported
 as being of type ``pyarrow.lib.Int64Array`` and is printed using the ``pyarrow`` style.
+
+.. note::
+
+    At the moment the ``pyarrow.jvm`` module is fairly limited in capabilities,
+    nested types like structs are not supported and it only works on a JVM running
+    within the same process like JPype.
 
 Java to Python communication using the C Data Interface
 -------------------------------------------------------
