@@ -47,7 +47,7 @@ public final class ConvertUtils {
     return Stream.iterate(0, Math::incrementExact).limit(fields.size())
         .map(index -> {
           final Field field = fields.get(index);
-          final ArrowType.ArrowTypeID fieldTypeId = field.getType().getTypeID();
+          final ArrowType fieldType = field.getType();
 
           final Builder builder = Common.ColumnMetaData.newBuilder()
               .setOrdinal(index)
@@ -57,8 +57,8 @@ public final class ConvertUtils {
           setOnColumnMetaDataBuilder(builder, field.getMetadata());
 
           builder.setType(Common.AvaticaType.newBuilder()
-              .setId(SqlTypes.getSqlTypeIdFromArrowType(field.getType()))
-              .setName(fieldTypeId.name())
+              .setId(SqlTypes.getSqlTypeIdFromArrowType(fieldType))
+              .setName(SqlTypes.getSqlTypeNameFromArrowType(fieldType))
               .build());
 
           return ColumnMetaData.fromProto(builder.build());
