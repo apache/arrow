@@ -59,7 +59,7 @@ enables a Java runtime within the Python interpreter.
 
 ``jpype1`` can be installed using ``pip`` like most Python libraries
 
-.. code-block:: bash
+.. code-block:: console
 
     $ pip install jpype1
 
@@ -85,7 +85,7 @@ the ``Simple.getNumber`` method:
 Running the ``simple.py`` file will show how our Python code is able
 to access the ``Java`` method and print the expected result:
 
-.. code-block:: bash
+.. code-block:: console
 
     $ python simple.py 
     4
@@ -187,7 +187,7 @@ as ``src/main/java/FillTen.java`` we can use ``maven`` to
 compile the project with ``mvn package`` and get it 
 available in the ``target`` directory.
 
-.. code-block:: bash
+.. code-block:: console
 
     $ mvn package
     [INFO] Scanning for projects...
@@ -213,7 +213,7 @@ but that also its dependencies are too.
 We can use ``maven`` to collect all dependencies and make them available in a single place
 (the ``dependencies`` directory) so that we can more easily load them from Python:
 
-.. code-block:: bash
+.. code-block:: console
 
     $ mvn org.apache.maven.plugins:maven-dependency-plugin:2.7:copy-dependencies -DoutputDirectory=dependencies
     [INFO] Scanning for projects...
@@ -321,7 +321,7 @@ expose a function in Java that sets its content to by the numbers from 1 to 10.
 Using C-Data interface in ``pyarrow`` at the moment requires installing ``cffi``
 explicitly, like most Python distributions it can be installed with
 
-.. code-block:: bash
+.. code-block:: console
 
     $ pip install cffi
 
@@ -423,7 +423,7 @@ If we run again ``mvn package``, update the maven dependencies
 and then our Python script, we should be able to see how the
 values printed by the Python script have been properly changed by the Java code:
 
-.. code-block:: bash
+.. code-block:: console
 
     $ mvn package
     $ mvn org.apache.maven.plugins:maven-dependency-plugin:2.7:copy-dependencies -DoutputDirectory=dependencies
