@@ -244,12 +244,12 @@ class GrpcServiceHandler final : public FlightService::Service {
     // Write flight info to stream until listing is exhausted
     while (true) {
       ProtoType pb_value;
-      arrow::Result<std::unique_ptr<UserType>> value = iterator->Next();
-      GRPC_RETURN_NOT_OK(value.status());
-      if (!*value) {
+      std::unique_ptr<UserType> value;
+      GRPC_RETURN_NOT_OK(iterator->Next().Value(&value));
+      if (!value) {
         break;
       }
-      GRPC_RETURN_NOT_OK(internal::ToProto(**value, &pb_value));
+      GRPC_RETURN_NOT_OK(internal::ToProto(*value, &pb_value));
 
       // Blocking write
       if (!writer->Write(pb_value)) {
@@ -494,16 +494,14 @@ class GrpcServiceHandler final : public FlightService::Service {
     }
 
     while (true) {
-      auto arrow_result = results->Next();
-      SERVICE_RETURN_NOT_OK(flight_context, arrow_result.status());
-      std::unique_ptr<Result> flight_result = std::move(*arrow_result);
-      if (!flight_result) {
+      std::unique_ptr<Result> result;
+      SERVICE_RETURN_NOT_OK(flight_context, results->Next().Value(&result));
+      if (!result) {
         // No more results
         break;
       }
       pb::Result pb_result;
-      SERVICE_RETURN_NOT_OK(flight_context,
-                            internal::ToProto(*flight_result, &pb_result));
+      SERVICE_RETURN_NOT_OK(flight_context, internal::ToProto(*result, &pb_result));
       if (!writer->Write(pb_result)) {
         // Stream may be closed
         break;
