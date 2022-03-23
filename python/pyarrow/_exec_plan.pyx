@@ -110,7 +110,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     c_final_node_vec.push_back(c_node)
 
     # Create the output node
-    c_asyncexecbatchgen = make_shared[CAsyncExecBatchGenerator]()
+    c_async_exec_batch_gen = make_shared[CAsyncExecBatchGenerator]()
     c_sinkopts = make_shared[CSinkNodeOptions](c_asyncexecbatchgen.get())
     GetResultValue(
         MakeExecNode(tobytes("sink"), &deref(c_exec_plan),
