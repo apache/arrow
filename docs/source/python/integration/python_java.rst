@@ -241,6 +241,11 @@ We can use ``maven`` to collect all dependencies and make them available in a si
     [INFO] BUILD SUCCESS
     [INFO] ------------------------------------------------------------------------
 
+.. note::
+
+    Instead of manually collecting dependencies, you could also rely on the
+    ``maven-assembly-plugin`` to build a single ``jar`` with all dependencies.
+
 Once our package and all its depdendencies are available, 
 we can invoke it from ``fillten_pyarrowjvm.py`` script that will
 import the ``FillTen`` class and print out the result of invoking ``FillTen.createArray`` 
