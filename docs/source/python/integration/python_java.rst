@@ -208,7 +208,7 @@ available in the ``target`` directory.
 
 Now that we have the package built, we can make it available to Python.
 To do so, we need to make sure that not only the package itself is available,
-but that also its dependencies are too.
+but that also its dependencies are.
 
 We can use ``maven`` to collect all dependencies and make them available in a single place
 (the ``dependencies`` directory) so that we can more easily load them from Python:
@@ -303,7 +303,7 @@ as being of type ``pyarrow.lib.Int64Array`` and is printed using the ``pyarrow``
 Java to Python communication using the C Data Interface
 -------------------------------------------------------
 
-The C-Data interface is a protocol implemented in Arrow to exchange data within different
+The C Data Interface is a protocol implemented in Arrow to exchange data within different
 environments without the cost of marshaling and copying data.
 
 This allows to expose data coming from Python or Java to functions that are implemented
@@ -315,7 +315,7 @@ in the other language.
     interface, at the moment is instead specifically written for JPype
 
 To showcase how C-Data works, we are going to tweak a bit both our ``FillTen`` Java
-class and our ``fillten.py`` Python script. Given a Python Array, we are going to
+class and our ``fillten.py`` Python script. Given a PyArrow array, we are going to
 expose a function in Java that sets its content to by the numbers from 1 to 10.
 
 Using C-Data interface in ``pyarrow`` at the moment requires installing ``cffi``
