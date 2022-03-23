@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -156,7 +157,7 @@ func TestListFlights(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Error(err)
 	}
@@ -210,7 +211,7 @@ func TestGetSchema(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Error(err)
 	}
@@ -246,7 +247,7 @@ func TestServer(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), &clientAuth{}, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), &clientAuth{}, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Error(err)
 	}
@@ -331,7 +332,7 @@ func TestFlightWithAppMetadata(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +389,7 @@ func TestReaderError(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}

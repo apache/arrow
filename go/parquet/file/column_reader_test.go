@@ -120,6 +120,7 @@ func makePages(version parquet.DataPageVersion, d *schema.Column, npages, lvlsPe
 	panic("invalid encoding type for make pages")
 }
 
+//lint:ignore U1000 compareVectorWithDefLevels
 func compareVectorWithDefLevels(left, right reflect.Value, defLevels []int16, maxDef, maxRep int16) assert.Comparison {
 	return func() bool {
 		if left.Kind() != reflect.Slice || right.Kind() != reflect.Slice {

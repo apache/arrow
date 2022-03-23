@@ -77,75 +77,37 @@ class GrpcConnectivityTest : public ConnectivityTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-TEST_F(GrpcConnectivityTest, GetPort) { TestGetPort(); }
-TEST_F(GrpcConnectivityTest, BuilderHook) { TestBuilderHook(); }
-TEST_F(GrpcConnectivityTest, Shutdown) { TestShutdown(); }
-TEST_F(GrpcConnectivityTest, ShutdownWithDeadline) { TestShutdownWithDeadline(); }
+ARROW_FLIGHT_TEST_CONNECTIVITY(GrpcConnectivityTest);
 
 class GrpcDataTest : public DataTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-TEST_F(GrpcDataTest, TestDoGetInts) { TestDoGetInts(); }
-TEST_F(GrpcDataTest, TestDoGetFloats) { TestDoGetFloats(); }
-TEST_F(GrpcDataTest, TestDoGetDicts) { TestDoGetDicts(); }
-TEST_F(GrpcDataTest, TestDoGetLargeBatch) { TestDoGetLargeBatch(); }
-TEST_F(GrpcDataTest, TestOverflowServerBatch) { TestOverflowServerBatch(); }
-TEST_F(GrpcDataTest, TestOverflowClientBatch) { TestOverflowClientBatch(); }
-TEST_F(GrpcDataTest, TestDoExchange) { TestDoExchange(); }
-TEST_F(GrpcDataTest, TestDoExchangeNoData) { TestDoExchangeNoData(); }
-TEST_F(GrpcDataTest, TestDoExchangeWriteOnlySchema) { TestDoExchangeWriteOnlySchema(); }
-TEST_F(GrpcDataTest, TestDoExchangeGet) { TestDoExchangeGet(); }
-TEST_F(GrpcDataTest, TestDoExchangePut) { TestDoExchangePut(); }
-TEST_F(GrpcDataTest, TestDoExchangeEcho) { TestDoExchangeEcho(); }
-TEST_F(GrpcDataTest, TestDoExchangeTotal) { TestDoExchangeTotal(); }
-TEST_F(GrpcDataTest, TestDoExchangeError) { TestDoExchangeError(); }
-TEST_F(GrpcDataTest, TestIssue5095) { TestIssue5095(); }
+ARROW_FLIGHT_TEST_DATA(GrpcDataTest);
 
 class GrpcDoPutTest : public DoPutTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-TEST_F(GrpcDoPutTest, TestInts) { TestInts(); }
-TEST_F(GrpcDoPutTest, TestFloats) { TestFloats(); }
-TEST_F(GrpcDoPutTest, TestEmptyBatch) { TestEmptyBatch(); }
-TEST_F(GrpcDoPutTest, TestDicts) { TestDicts(); }
-TEST_F(GrpcDoPutTest, TestLargeBatch) { TestLargeBatch(); }
-TEST_F(GrpcDoPutTest, TestSizeLimit) { TestSizeLimit(); }
+ARROW_FLIGHT_TEST_DO_PUT(GrpcDoPutTest);
 
 class GrpcAppMetadataTest : public AppMetadataTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-TEST_F(GrpcAppMetadataTest, TestDoGet) { TestDoGet(); }
-TEST_F(GrpcAppMetadataTest, TestDoGetDictionaries) { TestDoGetDictionaries(); }
-TEST_F(GrpcAppMetadataTest, TestDoPut) { TestDoPut(); }
-TEST_F(GrpcAppMetadataTest, TestDoPutDictionaries) { TestDoPutDictionaries(); }
-TEST_F(GrpcAppMetadataTest, TestDoPutReadMetadata) { TestDoPutReadMetadata(); }
+ARROW_FLIGHT_TEST_APP_METADATA(GrpcAppMetadataTest);
 
 class GrpcIpcOptionsTest : public IpcOptionsTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-TEST_F(GrpcIpcOptionsTest, TestDoGetReadOptions) { TestDoGetReadOptions(); }
-TEST_F(GrpcIpcOptionsTest, TestDoPutWriteOptions) { TestDoPutWriteOptions(); }
-TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptions) {
-  TestDoExchangeClientWriteOptions();
-}
-TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptionsBegin) {
-  TestDoExchangeClientWriteOptionsBegin();
-}
-TEST_F(GrpcIpcOptionsTest, TestDoExchangeServerWriteOptions) {
-  TestDoExchangeServerWriteOptions();
-}
+ARROW_FLIGHT_TEST_IPC_OPTIONS(GrpcIpcOptionsTest);
 
 class GrpcCudaDataTest : public CudaDataTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-TEST_F(GrpcCudaDataTest, TestDoGet) { TestDoGet(); }
-TEST_F(GrpcCudaDataTest, TestDoPut) { TestDoPut(); }
-TEST_F(GrpcCudaDataTest, TestDoExchange) { TestDoExchange(); }
+ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
 
 //------------------------------------------------------------
 // Ad-hoc gRPC-specific tests
@@ -1262,8 +1224,10 @@ TEST_F(TestBasicAuthHandler, FailUnauthenticatedCalls) {
   std::shared_ptr<Schema> schema(
       (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
   status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
-  ASSERT_OK(status);
+  // May or may not succeed depending on if the transport buffers the write
+  ARROW_UNUSED(status);
   status = writer->Close();
+  // But this should definitely fail
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 }

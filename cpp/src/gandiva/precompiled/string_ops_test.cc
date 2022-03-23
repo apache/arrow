@@ -1734,10 +1734,22 @@ TEST(TestStringOps, TestLeftString) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "TestStr");
 
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, -10, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, -11, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
   // the text length for this string is 10 (each utf8 char is represented by two bytes)
   out_str = left_utf8_int32(ctx_ptr, "абвгд", 10, 3, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "абв");
+
+  out_str = left_utf8_int32(ctx_ptr, "¥¥abdc", 8, -6, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestRightString) {
@@ -1766,10 +1778,22 @@ TEST(TestStringOps, TestRightString) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "tString");
 
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, -10, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, -11, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
   // the text length for this string is 10 (each utf8 char is represented by two bytes)
   out_str = right_utf8_int32(ctx_ptr, "абвгд", 10, 3, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "вгд");
+
+  out_str = right_utf8_int32(ctx_ptr, "¥¥abdc", 8, -6, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestBinaryString) {

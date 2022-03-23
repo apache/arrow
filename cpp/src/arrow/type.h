@@ -149,6 +149,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
 
+  /// \brief Apply the TypeVisitor::Visit() method specialized to the data type
   Status Accept(TypeVisitor* visitor) const;
 
   /// \brief A string representation of the type, including any children

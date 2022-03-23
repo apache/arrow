@@ -15,11 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Requirements for building the documentation
-breathe
-doxygen
-ipython
-numpydoc
-pydata-sphinx-theme
-sphinx>=4.2
-sphinx-tabs
+test_that("set_io_thread_count() sets the number of io threads", {
+  current_io_thread_count <- io_thread_count()
+  on.exit(set_io_thread_count(current_io_thread_count))
+
+  previous_io_thread_count <- set_io_thread_count(1)
+  expect_identical(previous_io_thread_count, current_io_thread_count)
+  expect_identical(io_thread_count(), 1L)
+
+  expect_identical(set_io_thread_count(current_io_thread_count), 1L)
+})
+
+test_that("set_cpu_count() sets the number of CPU threads", {
+  current_cpu_count <- cpu_count()
+  on.exit(set_cpu_count(current_cpu_count))
+
+  previous_cpu_count <- set_cpu_count(1)
+  expect_identical(previous_cpu_count, current_cpu_count)
+  expect_identical(cpu_count(), 1L)
+
+  expect_identical(set_cpu_count(current_cpu_count), 1L)
+})

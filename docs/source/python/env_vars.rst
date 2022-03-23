@@ -50,12 +50,6 @@ PyArrow.
    :func:`get_library_dirs` if ``pkg-config`` is not available on the system
    ``PATH``.
 
-.. envvar:: PYARROW_IGNORE_TIMEZONE
-
-   By default, PyArrow propagates the timezone value when converting
-   Arrow data to/from Python datetime objects. If this environment variable
-   is set to a non-empty value, the timezone is not propagated.
-
 
 .. note::
 

@@ -32,10 +32,6 @@ RUN mamba install -q \
         nomkl && \
     mamba clean --all
 
-# unable to install from conda-forge due to sphinx version pin, see comment in
-# arrow/ci/conda_env_sphinx.txt
-RUN pip install sphinx-tabs
-
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
