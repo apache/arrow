@@ -317,7 +317,7 @@ message Ticket {
   message InlinedData { 
     // Arrow data for consumption.
     //
-    // The data is not expected to contain schema metadata. The schema
+    // The data is not expected to contain the schema message. The schema
     // should be identical to the schema provided on FlightInfo. 
     repeated FlightData data = 1;
     enum DataSubsetType {
