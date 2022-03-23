@@ -1049,14 +1049,30 @@ test_that("`as_datetime()`", {
   test_df %>%
     arrow_table() %>%
     mutate(
-      # ddate = as_datetime(date),
-      dchar_date_no_tz = as_datetime(char_date),
-      dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
-      dint_date = as_datetime(int_date, origin = "1970-01-02"),
+      # ddate = as_datetime(date)#,
+      # dchar_date_no_tz = as_datetime(char_date)#,
+      # dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas")#,
+      # dint_date = as_datetime(int_date, origin = "1970-01-02")#,
+      # dint_date2 = as_datetime(int_date, origin = "1970-01-01"),
       # dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-      # ddouble_date = as_datetime(double_date)
+      # dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01"),
+      ddouble_date = as_datetime(double_date)
     ) %>%
     collect()
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        # ddate = as_datetime(date)#,
+        # dchar_date_no_tz = as_datetime(char_date)#,
+        # dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas")#,
+        dint_date = as_datetime(int_date, origin = "1970-01-02")#,
+        # dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
+        # ddouble_date = as_datetime(double_date)
+      ) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("format() for unsupported types returns the input as string", {

@@ -169,7 +169,7 @@ register_bindings_type_cast <- function() {
   register_binding("as_datetime", function(x,
                                            origin = "1970-01-01",
                                            tz = "UTC") {
-    if (call_binding("is.numeric", x) && origin != "1970-01-01") {
+    if (call_binding("is.numeric", x)) {
       delta <- call_binding("difftime", origin, "1970-01-01")
       output <- build_expr("+", x, delta)
       output <- build_expr("cast", output, options = cast_options(to_type = timestamp()))
