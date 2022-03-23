@@ -168,7 +168,7 @@ will manage consistent versions of Arrow and its dependencies.
 Runtime Dependencies
 ====================
 
-While Arrow uses the OS-provided timezone database on Linux and Mac OS, it
+While Arrow uses the OS-provided timezone database on Linux and macOS, it
 requires a user-provided database on Windows. You must download and extract the
 text version of the IANA timezone database and add the Windows timezone mapping
 XML. To download, you can use the following batch script:
