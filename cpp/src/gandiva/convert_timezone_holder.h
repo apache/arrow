@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <iostream>
 
 #include "arrow/vendored/datetime/date.h"
 #include "arrow/vendored/datetime/tz.h"
@@ -119,6 +120,7 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
           src_offset_tz = std::make_shared<OffsetZone>(secs);
         } else {
           src_timezone = locate_zone(srcTz);
+          std::cout<<src_timezone->name();
         }
       }
 
@@ -131,6 +133,7 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
         dest_offset_tz = std::make_shared<OffsetZone>(secs);
       } else {
         dest_timezone = locate_zone(destTz);
+        std::cout<<dest_timezone->name();
       }
     } catch (...) {
       status = false;
