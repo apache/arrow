@@ -280,7 +280,7 @@ register_bindings_duration <- function() {
 
     if (call_binding("is.character", x)) {
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-      x <- x$cast(time32(unit = "s"))
+      x <- build_expr("cast", x, options = cast_options(to_type = time32(unit = "s")))
       return(x)
     }
 
