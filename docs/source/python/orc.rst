@@ -41,7 +41,7 @@ support bundled:
 
 .. ipython:: python
 
-   import pyarrow.orc as po
+   from pyarrow import orc
 
 If you are building ``pyarrow`` from source, you must use
 ``-DARROW_ORC=ON`` when compiling the C++ libraries and enable the ORC
@@ -59,21 +59,22 @@ Let's look at a simple table:
 .. ipython:: python
 
    import numpy as np
-   import pandas as pd
    import pyarrow as pa
 
-   df = pd.DataFrame({'one': [-1, np.nan, 2.5],
-                      'two': ['foo', 'bar', 'baz'],
-                      'three': [True, False, True]},
-                      index=list('abc'))
-   table = pa.Table.from_pandas(df)
+   table = pa.table(
+       {
+           'one': [-1, np.nan, 2.5],
+           'two': ['foo', 'bar', 'baz'],
+           'three': [True, False, True]
+       }
+   )
 
 We write this to ORC format with ``write_table``:
 
 .. ipython:: python
 
-   import pyarrow.orc as po
-   po.write_table(table, 'example.orc')
+   from pyarrow import orc
+   orc.write_table(table, 'example.orc')
 
 This creates a single ORC file. In practice, an ORC dataset may consist
 of many files in many directories. We can read a single file back with
@@ -81,15 +82,14 @@ of many files in many directories. We can read a single file back with
 
 .. ipython:: python
 
-   table2 = po.read_table('example.orc')
-   table2.to_pandas()
+   table2 = orc.read_table('example.orc')
 
 You can pass a subset of columns to read, which can be much faster than reading
 the whole file (due to the columnar layout):
 
 .. ipython:: python
 
-   po.read_table('example.orc', columns=['one', 'three'])
+   orc.read_table('example.orc', columns=['one', 'three'])
 
 We need not use a string to specify the origin of the file. It can be any of:
 
@@ -114,36 +114,6 @@ control various settings when writing an ORC file.
 
 See the :func:`~pyarrow.orc.write_table()` docstring for more details.
 
-There are some additional data type handling-specific options
-described below.
-
-Omitting the DataFrame index
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When using ``pa.Table.from_pandas`` to convert to an Arrow table, by default
-one or more special columns are added to keep track of the index (row
-labels). Storing the index takes extra space, so if your index is not valuable,
-you may choose to omit it by passing ``preserve_index=False``
-
-.. ipython:: python
-
-   df = pd.DataFrame({'one': [-1, np.nan, 2.5],
-                      'two': ['foo', 'bar', 'baz'],
-                      'three': [True, False, True]},
-                      index=list('abc'))
-   df
-   table = pa.Table.from_pandas(df, preserve_index=False)
-
-Then we have:
-
-.. ipython:: python
-
-   po.write_table(table, 'example_noindex.orc')
-   t = po.read_table('example_noindex.orc')
-   t.to_pandas()
-
-Here you see the index did not survive the round trip.
-
 Finer-grained Reading and Writing
 ---------------------------------
 
@@ -151,7 +121,7 @@ Finer-grained Reading and Writing
 
 .. ipython:: python
 
-   orc_file = po.ORCFile('example.orc')
+   orc_file = orc.ORCFile('example.orc')
    orc_file.metadata
    orc_file.schema
    orc_file.nrows
@@ -173,8 +143,15 @@ We can write an ORC file using ``ORCWriter``:
 
 .. ipython:: python
 
-   with po.ORCWriter('example2.orc') as writer:
-      writer.write_table(table)
+   table = pa.table(
+       {
+           'one': [-1, np.nan, 2.5],
+           'two': ['foo', 'bar', 'baz'],
+           'three': [True, False, True]
+       }
+   )
+   with orc.ORCWriter('example2.orc') as writer:
+       writer.write_table(table)
 
 Compression
 ---------------------------------------------
@@ -185,10 +162,10 @@ by default, but Snappy, ZSTD, Gzip/Zlib, and LZ4 are also supported:
 
 .. code-block:: python
 
-   po.write_table(table, where, compression='uncompressed')
-   po.write_table(table, where, compression='gzip')
-   po.write_table(table, where, compression='zstd')
-   po.write_table(table, where, compression='snappy')
+   orc.write_table(table, where, compression='uncompressed')
+   orc.write_table(table, where, compression='gzip')
+   orc.write_table(table, where, compression='zstd')
+   orc.write_table(table, where, compression='snappy')
 
 Snappy generally results in better performance, while Gzip may yield smaller
 files.
@@ -204,7 +181,7 @@ filesystems, through the ``filesystem`` keyword:
     from pyarrow import fs
 
     s3  = fs.S3FileSystem(region="us-east-2")
-    table = po.read_table("bucket/object/key/prefix", filesystem=s3)
+    table = orc.read_table("bucket/object/key/prefix", filesystem=s3)
 
 .. seealso::
    :ref:`Documentation for filesystems <filesystems>`.
