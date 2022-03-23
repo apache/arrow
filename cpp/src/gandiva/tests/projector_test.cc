@@ -1993,9 +1993,9 @@ TEST_F(TestProjector, TestDayOfMonth) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto array0 =
-      MakeArrowArrayDate64({1635156000000, 967947300000, 414148810000, -1575124790000, -1575124790000},
-                           {true, true, true, true, false});
+  auto array0 = MakeArrowArrayDate64(
+      {1635156000000, 967947300000, 414148810000, -1575124790000, -1575124790000},
+      {true, true, true, true, false});
   // expected output
   auto exp = MakeArrowArrayInt64({25, 3, 15, 2, 0}, {true, true, true, true, false});
 
