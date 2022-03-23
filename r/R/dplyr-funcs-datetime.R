@@ -280,8 +280,9 @@ register_bindings_duration <- function() {
 
     if (call_binding("is.character", x)) {
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-      x <- build_expr("cast", x, options = cast_options(to_type = time32(unit = "s")))
-      return(x)
+      y <- build_expr("strptime", "0:0:0", options = list(format = "%H:%M:%S", unit = 0L))
+      diff_x_y <- call_binding("difftime", x, y, units = "secs")
+      return(diff_x_y)
     }
 
     # numeric -> duration not supported in Arrow yet so we use int64() as an

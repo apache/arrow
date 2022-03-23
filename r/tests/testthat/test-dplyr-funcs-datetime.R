@@ -1166,9 +1166,7 @@ test_that("as.difftime()", {
     .input %>%
       mutate(hms_difftime = as.difftime(hms_string, units = "secs")) %>%
       collect(),
-    test_df,
-    # arrow returns an hms::difftime object, as opposed to a base::difftime one
-    ignore_attr = TRUE
+    test_df
   )
 
   # TODO add test with `format` mismatch returning NA once
@@ -1178,9 +1176,7 @@ test_that("as.difftime()", {
     .input %>%
       mutate(hm_difftime = as.difftime(hm_string, units = "secs", format = "%H:%M")) %>%
       collect(),
-    test_df,
-    # arrow returns an hms::difftime object, as opposed to a base::difftime one
-    ignore_attr = TRUE
+    test_df
   )
 
   compare_dplyr_binding(
