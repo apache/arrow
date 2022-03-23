@@ -17,21 +17,19 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static org.apache.arrow.driver.jdbc.FlightServerTestRule.exampleTlsCerts;
 import static org.junit.Assert.assertNotNull;
 
-import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
+import org.apache.arrow.driver.jdbc.utils.FlightSqlTestCertificates;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -51,17 +49,15 @@ public class ConnectionTlsTest {
   @ClassRule
   public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
+  private static final String userTest = "user1";
+  private static final String passTest = "pass1";
 
   static {
-    FlightServerTestRule.CertKeyPair certKey = null;
-    try {
-      certKey = exampleTlsCerts().get(0);
-    } catch (URISyntaxException e) {
-      System.out.println("The syntax of Certificate is invalid: " + e.getMessage());
-    }
+    final FlightSqlTestCertificates.CertKeyPair
+        certKey = FlightSqlTestCertificates.exampleTlsCerts().get(0);
 
-    UserPasswordAuthentication authentication =
-        new UserPasswordAuthentication.Builder().user("user1", "pass1").user("user2", "pass2")
+    UserPasswordAuthentication authentication = new UserPasswordAuthentication.Builder()
+            .user(userTest, passTest)
             .build();
 
     FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
@@ -80,19 +76,15 @@ public class ConnectionTlsTest {
           .getPath();
   private final String keyStorePass = "flight";
   private BufferAllocator allocator;
-  private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
   @Before
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource();
   }
 
   @After
   public void tearDown() throws Exception {
-    Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
-    AutoCloseables.close(childAllocators.toArray(new AutoCloseable[0]));
-    AutoCloseables.close(dataSource, allocator);
+    AutoCloseables.close(allocator);
   }
 
   /**
@@ -103,12 +95,12 @@ public class ConnectionTlsTest {
   @Test
   public void testGetEncryptedClientAuthenticated() throws Exception {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        dataSource.getConfig().getUser(), dataSource.getConfig().getPassword());
+        userTest, passTest);
 
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(dataSource.getConfig().getHost())
-                 .withPort(dataSource.getConfig().getPort())
+                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                 .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
                  .withUsername(credentials.getUserName())
                  .withPassword(credentials.getPassword())
                  .withKeyStorePath(keyStorePath)
@@ -132,7 +124,7 @@ public class ConnectionTlsTest {
 
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(dataSource.getConfig().getHost())
+                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withKeyStorePath(noCertificateKeyStorePath)
                  .withKeyStorePassword(noCertificateKeyStorePassword)
                  .withBufferAllocator(allocator)
@@ -151,7 +143,7 @@ public class ConnectionTlsTest {
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(dataSource.getConfig().getHost())
+                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withKeyStorePath(keyStorePath)
                  .withKeyStorePassword(keyStorePass)
                  .withBufferAllocator(allocator)
@@ -173,7 +165,7 @@ public class ConnectionTlsTest {
 
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(dataSource.getConfig().getHost())
+                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withKeyStorePath(keyStorePath)
                  .withKeyStorePassword(keyStoreBadPassword)
                  .withBufferAllocator(allocator)
@@ -195,11 +187,11 @@ public class ConnectionTlsTest {
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
-        dataSource.getConfig().getPort());
+        FLIGHT_SERVER_TEST_RULE.getPort());
     properties.put(ArrowFlightConnectionProperty.USER.camelName(),
-        dataSource.getConfig().getUser());
+        userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
-        dataSource.getConfig().getPassword());
+        passTest);
     properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
@@ -222,13 +214,13 @@ public class ConnectionTlsTest {
     final Properties properties = new Properties();
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(),
-        dataSource.getConfig().getHost());
+        FLIGHT_SERVER_TEST_RULE.getHost());
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
-        dataSource.getConfig().getPort());
+        FLIGHT_SERVER_TEST_RULE.getPort());
     properties.put(ArrowFlightConnectionProperty.USER.camelName(),
-        dataSource.getConfig().getUser());
+        userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
-        dataSource.getConfig().getPassword());
+        passTest);
     properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), "badpassword");
@@ -250,9 +242,9 @@ public class ConnectionTlsTest {
     final Properties properties = new Properties();
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(),
-        dataSource.getConfig().getHost());
+        FLIGHT_SERVER_TEST_RULE.getHost());
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
-        dataSource.getConfig().getPort());
+        FLIGHT_SERVER_TEST_RULE.getPort());
     properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
@@ -278,9 +270,9 @@ public class ConnectionTlsTest {
     Assert.assertTrue(DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=true&%s=%s&%s=%s",
-            dataSource.getConfig().getPort(),
-            dataSource.getConfig().getUser(),
-            dataSource.getConfig().getPassword(),
+            FLIGHT_SERVER_TEST_RULE.getPort(),
+            userTest,
+            passTest,
             BuiltInConnectionProperty.KEYSTORE.camelName(),
             keyStorePath,
             BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(),
@@ -302,16 +294,16 @@ public class ConnectionTlsTest {
     Properties properties = new Properties();
 
     properties.setProperty(ArrowFlightConnectionProperty.USER.camelName(),
-        dataSource.getConfig().getUser());
+        userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
-        dataSource.getConfig().getPassword());
+        passTest);
     properties.setProperty(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.setProperty(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
     properties.setProperty(ArrowFlightConnectionProperty.USE_TLS.camelName(), "true");
     Assert.assertTrue(DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s",
-            dataSource.getConfig().getPort()),
+            FLIGHT_SERVER_TEST_RULE.getPort()),
         properties).isValid(0));
   }
 
@@ -330,9 +322,9 @@ public class ConnectionTlsTest {
     Properties properties = new Properties();
 
     properties.put(ArrowFlightConnectionProperty.USER.camelName(),
-        dataSource.getConfig().getUser());
+        userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
-        dataSource.getConfig().getPassword());
+        passTest);
     properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
@@ -340,7 +332,7 @@ public class ConnectionTlsTest {
     Assert.assertTrue(DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s",
-            dataSource.getConfig().getPort()),
+            FLIGHT_SERVER_TEST_RULE.getPort()),
         properties).isValid(0));
   }
 
@@ -359,9 +351,9 @@ public class ConnectionTlsTest {
     Assert.assertTrue(DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=1&%s=%s&%s=%s",
-            dataSource.getConfig().getPort(),
-            dataSource.getConfig().getUser(),
-            dataSource.getConfig().getPassword(),
+            FLIGHT_SERVER_TEST_RULE.getPort(),
+            userTest,
+            passTest,
             BuiltInConnectionProperty.KEYSTORE.camelName(),
             keyStorePath,
             BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(),
@@ -383,15 +375,15 @@ public class ConnectionTlsTest {
     Properties properties = new Properties();
 
     properties.setProperty(ArrowFlightConnectionProperty.USER.camelName(),
-        dataSource.getConfig().getUser());
+        userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
-        dataSource.getConfig().getPassword());
+        passTest);
     properties.setProperty(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.setProperty(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
     properties.setProperty(ArrowFlightConnectionProperty.USE_TLS.camelName(), "1");
 
     Assert.assertTrue(DriverManager.getConnection(
-        String.format("jdbc:arrow-flight://localhost:%s", dataSource.getConfig().getPort()),
+        String.format("jdbc:arrow-flight://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
         properties).isValid(0));
   }
 
@@ -410,16 +402,16 @@ public class ConnectionTlsTest {
     Properties properties = new Properties();
 
     properties.put(ArrowFlightConnectionProperty.USER.camelName(),
-        dataSource.getConfig().getUser());
+        userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
-        dataSource.getConfig().getPassword());
+        passTest);
     properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), 1);
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
 
     Assert.assertTrue(DriverManager.getConnection(
         String.format("jdbc:arrow-flight://localhost:%s",
-            dataSource.getConfig().getPort()),
+            FLIGHT_SERVER_TEST_RULE.getPort()),
         properties).isValid(0));
   }
 }
