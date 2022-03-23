@@ -19,19 +19,25 @@
 
 # Utility for creating well-formed pull request merges and pushing them to
 # Apache.
-#   usage: ./merge_arrow_pr.py    (see config env vars below)
+#   usage: ./merge_arrow_pr.py  <pr-number>  (see config env vars below)
 #
-# This utility assumes you already have a local Arrow git clone and that you
-# have added remotes corresponding to both (i) the GitHub Apache Arrow mirror
-# and (ii) the apache git repo.
+# This utility assumes:
+#   - you already have a local Arrow git clone
+#   - you have added remotes corresponding to both:
+#       (i) the GitHub Apache Arrow mirror
+#       (ii) the Apache git repo
 #
 # There are several pieces of authorization possibly needed via environment
-# variables
+# variables.
 #
-# APACHE_JIRA_USERNAME: your Apache JIRA id
-# APACHE_JIRA_PASSWORD: your Apache JIRA password
-# ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests (to avoid
-# rate limiting)
+# Configuration environment variables:
+#   - APACHE_JIRA_USERNAME: your Apache JIRA ID
+#   - APACHE_JIRA_PASSWORD: your Apache JIRA password
+#   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests (to
+#                             avoid rate limiting)
+#   - PR_REMOTE_NAME: the name of the remote to the Apache git repo (set to
+#                     'apache' by default)
+#   - DEBUG: use for testing to avoid pushing to apache (0 by default)
 
 import configparser
 import os
