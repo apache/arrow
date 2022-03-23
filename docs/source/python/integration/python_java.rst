@@ -150,33 +150,33 @@ a dedicated ``pom.xml`` file where we can collect the dependencies:
         <version>1</version>
 
         <properties>
-            <maven.compiler.source>1.7</maven.compiler.source>
-            <maven.compiler.target>1.7</maven.compiler.target>
+            <maven.compiler.source>8</maven.compiler.source>
+            <maven.compiler.target>8</maven.compiler.target>
         </properties> 
 
         <dependencies>
             <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory</artifactId>
-            <version>8.0.0-SNAPSHOT</version>
+            <version>8.0.0</version>
             <type>pom</type>
             </dependency>
             <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-netty</artifactId>
-            <version>8.0.0-SNAPSHOT</version>
+            <version>8.0.0</version>
             <type>jar</type>
             </dependency>
             <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-            <version>8.0.0-SNAPSHOT</version>
+            <version>8.0.0</version>
             <type>pom</type>
             </dependency> 
             <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-c-data</artifactId>
-            <version>8.0.0-SNAPSHOT</version>
+            <version>8.0.0</version>
             <type>jar</type>
             </dependency>
         </dependencies>
