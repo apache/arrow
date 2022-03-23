@@ -78,19 +78,13 @@ struct TaskHints {
   int64_t external_id = -1;
 };
 
-/// \brief An interface for a work scheduling abstraction
 class ARROW_EXPORT Executor {
  public:
   using StopCallback = internal::FnOnce<void(const Status&)>;
 
   virtual ~Executor();
 
-  /// \brief Spawn a fire-and-forget task
-  ///
-  /// \param func The task to run
-  ///
-  /// `func` should be a callable that takes no arguments and returns void
-  /// If the return value of the task is needed then use Executor::Submit instead.
+  // Spawn a fire-and-forget task.
   template <typename Function>
   Status Spawn(Function&& func) {
     return SpawnReal(TaskHints{}, std::forward<Function>(func), StopToken::Unstoppable(),
