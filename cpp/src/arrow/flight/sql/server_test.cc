@@ -183,7 +183,7 @@ class TestFlightSqlServer : public ::testing::Test {
   std::mutex server_ready_m;
 
   void RunServer() {
-    Location location = *Location::ForGrpcTcp("localhost", port);
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", port));
     arrow::flight::FlightServerOptions options(location);
 
     ARROW_CHECK_OK(example::SQLiteFlightSqlServer::Create().Value(&server));

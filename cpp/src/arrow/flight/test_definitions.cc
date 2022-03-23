@@ -143,9 +143,8 @@ void DataTest::CheckDoGet(
   check_endpoints(info->endpoints());
 
   ipc::DictionaryMemo dict_memo;
-  arrow::Result<std::shared_ptr<Schema>> schema = info->GetSchema(&dict_memo);
-  ASSERT_OK(schema);
-  AssertSchemaEqual(*expected_schema, **schema);
+  ASSERT_OK_AND_ASSIGN(auto schema, info->GetSchema(&dict_memo));
+  AssertSchemaEqual(*expected_schema, *schema);
 
   // By convention, fetch the first endpoint
   Ticket ticket = info->endpoints()[0].ticket;

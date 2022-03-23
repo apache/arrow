@@ -587,9 +587,9 @@ class GrpcServerTransport : public internal::ServerTransport {
     }
 
     if (scheme == kSchemeGrpcTls) {
-      RETURN_NOT_OK(Location::ForGrpcTls(uri.host(), port).Value(&location_));
+      ARROW_ASSIGN_OR_RAISE(location_, Location::ForGrpcTls(uri.host(), port));
     } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
-      RETURN_NOT_OK(Location::ForGrpcTcp(uri.host(), port).Value(&location_));
+      ARROW_ASSIGN_OR_RAISE(location_, Location::ForGrpcTcp(uri.host(), port));
     }
     return Status::OK();
   }
