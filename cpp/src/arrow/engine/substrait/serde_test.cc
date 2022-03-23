@@ -762,7 +762,7 @@ TEST(Substrait, GetRecordBatchIterator) {
   std::stringstream ss;
   ss << dir_string << "/binary.parquet";
   auto file_path = ss.str();
-  
+
   std::string substrait_json = R"({
     "relations": [
       {"rel": {
@@ -802,6 +802,8 @@ TEST(Substrait, GetRecordBatchIterator) {
   auto status = executor.MakePlan();
   ASSERT_OK(status);
   ASSERT_OK_AND_ASSIGN(auto reader, executor.Execute());
+  auto finish = executor.Finalize();
+  ASSERT_OK(finish);
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
   EXPECT_TRUE(table->num_rows() > 0);
 }

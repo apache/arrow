@@ -72,8 +72,12 @@ Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::Execute() {
 
   std::shared_ptr<RecordBatchReader> sink_reader =
       cp::MakeGeneratorReader(schema_, std::move(*generator_), exec_context_.memory_pool());
-  ARROW_RETURN_NOT_OK(plan_->finished().status());
   return sink_reader;
+}
+
+Status SubstraitExecutor::Finalize() {
+    ARROW_RETURN_NOT_OK(plan_->finished().status());
+    return Status::OK();
 }
 
 }  // namespace engine

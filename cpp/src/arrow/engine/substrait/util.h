@@ -68,7 +68,7 @@ class SubstraitExecutor {
 
   Result<std::shared_ptr<RecordBatchReader>> Execute();
 
-  const std::shared_ptr<cp::ExecPlan> plan() const { return plan_;}
+  Status Finalize();
 
  private:
   std::string substrait_json_;

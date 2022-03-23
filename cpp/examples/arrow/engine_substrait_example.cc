@@ -18,6 +18,7 @@
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/engine/api.h>
+#include <arrow/engine/substrait/util.h>
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 
@@ -38,46 +39,7 @@ namespace cp = arrow::compute;
     }                                              \
   } while (0);
 
-class SubstraitSinkConsumer : public cp::SinkNodeConsumer {
- public:
-  explicit SubstraitSinkConsumer(
-      arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator, size_t tag,
-      arrow::util::BackpressureOptions backpressure = {})
-      : producer_(MakeProducer(generator, std::move(backpressure))), tag_{tag} {}
-
-  arrow::Status Consume(cp::ExecBatch batch) override {
-    // Consume a batch of data
-    bool did_push = producer_.Push(batch);
-    if (!did_push) return arrow::Status::ExecutionError("Producer closed already");
-    return arrow::Status::OK();
-  }
-
-  static arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer
-  MakeProducer(arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* out_gen,
-               arrow::util::BackpressureOptions backpressure) {
-    arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>> push_gen(
-        std::move(backpressure));
-    auto out = push_gen.producer();
-    *out_gen = std::move(push_gen);
-    return out;
-  }
-
-  arrow::Future<> Finish() override {
-    std::cout << "-" << tag_ << " finished" << std::endl;
-    producer_.Push(arrow::IterationEnd<arrow::util::optional<cp::ExecBatch>>());
-    if (producer_.Close()) {
-      return arrow::Future<>::MakeFinished();
-    }
-    return arrow::Future<>::MakeFinished(
-        arrow::Status::ExecutionError("Error occurred in closing the batch producer"));
-  }
-
- private:
-  arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer producer_;
-  size_t tag_;
-};
-
-arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
+std::string GetSubstraitPlanFromServer(
     const std::string& filename) {
   // Emulate server interaction by parsing hard coded JSON
   std::string substrait_json = R"({
@@ -111,7 +73,7 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
                          filename_placeholder.size(), filename);
-  return eng::internal::SubstraitFromJSON("Plan", substrait_json);
+  return substrait_json;
 }
 
 int main(int argc, char** argv) {
@@ -120,73 +82,33 @@ int main(int argc, char** argv) {
     // Fake pass for CI
     return EXIT_SUCCESS;
   }
-
-  // Plans arrive at the consumer serialized in a Buffer, using the binary protobuf
-  // serialization of a substrait Plan
-  auto maybe_serialized_plan = GetSubstraitFromServer(argv[1]).result();
-  ABORT_ON_FAILURE(maybe_serialized_plan.status());
-  std::shared_ptr<arrow::Buffer> serialized_plan =
-      std::move(maybe_serialized_plan).ValueOrDie();
-
-  // Print the received plan to stdout as JSON
-  arrow::Result<std::string> maybe_plan_json =
-      eng::internal::SubstraitToJSON("Plan", *serialized_plan);
-  ABORT_ON_FAILURE(maybe_plan_json.status());
-  std::cout << std::string(50, '#') << " received substrait::Plan:" << std::endl;
-  std::cout << maybe_plan_json.ValueOrDie() << std::endl;
-
-  // The data sink(s) for plans is/are implicit in substrait plans, but explicit in
-  // Arrow. Therefore, deserializing a plan requires a factory for consumers: each
-  // time the root of a substrait relation tree is deserialized, an Arrow consumer is
-  // constructed into which its batches will be piped.
+  auto substrait_json = GetSubstraitPlanFromServer(argv[1]);
+  
   auto schema = arrow::schema(
       {arrow::field("i", arrow::int64()), arrow::field("b", arrow::boolean())});
-  std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-  std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
-    // All batches produced by the plan will be fed into IgnoringConsumers:
-    auto tag = consumers.size();
-    consumers.emplace_back(new SubstraitSinkConsumer{&sink_gen, tag});
-    return consumers.back();
-  };
-
-  // Deserialize each relation tree in the substrait plan to an Arrow compute Declaration
-  arrow::Result<std::vector<cp::Declaration>> maybe_decls =
-      eng::DeserializePlan(*serialized_plan, consumer_factory);
-  ABORT_ON_FAILURE(maybe_decls.status());
-  std::vector<cp::Declaration> decls = std::move(maybe_decls).ValueOrDie();
-
-  // It's safe to drop the serialized plan; we don't leave references to its memory
-  serialized_plan.reset();
-
-  // Construct an empty plan (note: configure Function registry and ThreadPool here)
-  arrow::Result<std::shared_ptr<cp::ExecPlan>> maybe_plan = cp::ExecPlan::Make();
-  ABORT_ON_FAILURE(maybe_plan.status());
-  std::shared_ptr<cp::ExecPlan> plan = std::move(maybe_plan).ValueOrDie();
-
-  // Add decls to plan (note: configure ExecNode registry before this point)
-  for (const cp::Declaration& decl : decls) {
-    ABORT_ON_FAILURE(decl.AddToPlan(plan.get()).status());
-  }
-
-  // Validate the plan and print it to stdout
-  ABORT_ON_FAILURE(plan->Validate());
-  std::cout << std::string(50, '#') << " produced arrow::ExecPlan:" << std::endl;
-  std::cout << plan->ToString() << std::endl;
-
-  // Start the plan...
-  std::cout << std::string(50, '#') << " consuming batches:" << std::endl;
-  ABORT_ON_FAILURE(plan->StartProducing());
-
-  auto sinks = plan->sinks();
-  std::cout << "String ::" << std::endl;
-  std::cout << sinks.size() << std::endl;
-  // Extract output
 
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader =
-      cp::MakeGeneratorReader(schema, std::move(sink_gen), exec_context.memory_pool());
+
+  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  
+  auto maybe_plan =  cp::ExecPlan::Make();
+  if(!maybe_plan.status().ok()) {
+    return EXIT_FAILURE;
+  }
+  auto plan = maybe_plan.ValueOrDie();
+  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, schema, exec_context);
+  auto status = executor.MakePlan();
+  if(!status.ok()) {
+    return EXIT_FAILURE;
+  }
+  auto maybe_reader =  executor.Execute();
+  
+  if(!maybe_reader.status().ok()) {
+    return EXIT_FAILURE;
+  }
+  
+  auto sink_reader = maybe_reader.ValueOrDie();
 
   std::shared_ptr<arrow::Table> response_table;
 
@@ -196,7 +118,11 @@ int main(int argc, char** argv) {
 
   std::cout << "Results : " << response_table->ToString() << std::endl;
 
-  // ... and wait for it to finish
-  ABORT_ON_FAILURE(plan->finished().status());
+  auto finish = executor.Finalize();
+
+  if(!finish.ok()) {
+    return EXIT_FAILURE;
+  }
+  
   return EXIT_SUCCESS;
 }
