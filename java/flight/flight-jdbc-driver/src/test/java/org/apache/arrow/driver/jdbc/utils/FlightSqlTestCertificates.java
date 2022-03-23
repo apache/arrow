@@ -27,7 +27,7 @@ import java.util.Objects;
 /**
  * Utility class for unit tests that need to reference the certificate params.
  */
-public class FlightCerts {
+public class FlightSqlTestCertificates {
 
   public static final String TEST_DATA_ENV_VAR = "ARROW_TEST_DATA";
   public static final String TEST_DATA_PROPERTY = "arrow.test.dataRoot";
