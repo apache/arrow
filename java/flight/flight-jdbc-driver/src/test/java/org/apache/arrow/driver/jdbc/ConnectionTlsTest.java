@@ -29,6 +29,7 @@ import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
+import org.apache.arrow.driver.jdbc.utils.FlightSqlTestCertificates;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -52,7 +53,8 @@ public class ConnectionTlsTest {
   private static final String passTest = "pass1";
 
   static {
-    final FlightServerTestRule.CertKeyPair certKey = FlightCerts.exampleTlsCerts().get(0);
+    final FlightSqlTestCertificates.CertKeyPair
+        certKey = FlightSqlTestCertificates.exampleTlsCerts().get(0);
 
     UserPasswordAuthentication authentication = new UserPasswordAuthentication.Builder()
             .user(userTest, passTest)
