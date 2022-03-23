@@ -172,10 +172,11 @@ register_bindings_type_cast <- function() {
     if (call_binding("is.numeric", x) && origin != "1970-01-01") {
       delta <- call_binding("difftime", origin, "1970-01-01")
       output <- build_expr("+", x, delta)
-      output <- build_expr("cast", output, options = cast_options(to_type = timestamp(timezone = tz)))
-      return(output)
+      output <- build_expr("cast", output, options = cast_options(to_type = timestamp()))
+    } else {
+      output <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
     }
-    build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+    build_expr("assume_timezone", output, options = list(timezone = tz))
   })
   register_binding("is", function(object, class2) {
     if (is.string(class2)) {
