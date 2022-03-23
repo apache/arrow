@@ -309,14 +309,14 @@ in the other language.
 
 .. note::
 
-    In the future the ``pyarrow.jvm`` will be implemented to leverage the C-Data
+    In the future the ``pyarrow.jvm`` will be implemented to leverage the C Data
     interface, at the moment is instead specifically written for JPype
 
-To showcase how C-Data works, we are going to tweak a bit both our ``FillTen`` Java
+To showcase how C Data works, we are going to tweak a bit both our ``FillTen`` Java
 class and our ``fillten.py`` Python script. Given a PyArrow array, we are going to
 expose a function in Java that sets its content to by the numbers from 1 to 10.
 
-Using C-Data interface in ``pyarrow`` at the moment requires installing ``cffi``
+Using C Data interface in ``pyarrow`` at the moment requires installing ``cffi``
 explicitly, like most Python distributions it can be installed with
 
 .. code-block:: console
@@ -325,7 +325,7 @@ explicitly, like most Python distributions it can be installed with
 
 The first thing we would have to do is to tweak the Python script so that it
 sends to Java the exported references to the Array and its Schema according to the
-C-Data interface:
+C Data interface:
 
 .. code-block:: python
 
@@ -343,12 +343,12 @@ C-Data interface:
 
     from pyarrow.cffi import ffi as arrow_c
 
-    # Export the Python array through C-Data
+    # Export the Python array through C Data
     c_array = arrow_c.new("struct ArrowArray*")
     c_array_ptr = int(arrow_c.cast("uintptr_t", c_array))
     array._export_to_c(c_array_ptr)
 
-    # Export the Schema of the Array through C-Data
+    # Export the Schema of the Array through C Data
     c_schema = arrow_c.new("struct ArrowSchema*")
     c_schema_ptr = int(arrow_c.cast("uintptr_t", c_schema))
     array.type._export_to_c(c_schema_ptr)
@@ -412,7 +412,7 @@ on the C Data exchanged entities instead of the ``BigIntVector`` one:
     }
 
 The goal of the ``fillCArray`` method is to get the Array and Schema received in
-C-Data exchange format and turn them back to an object of type ``FieldVector``
+C Data exchange format and turn them back to an object of type ``FieldVector``
 so that Arrow Java knows how to deal with it.
 
 If we run again ``mvn package``, update the maven dependencies
