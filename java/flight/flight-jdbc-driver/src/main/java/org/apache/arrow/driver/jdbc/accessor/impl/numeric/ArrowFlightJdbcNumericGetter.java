@@ -44,8 +44,8 @@ class ArrowFlightJdbcNumericGetter {
    * A holder for values from the {@link BaseIntVector}.
    */
   static class NumericHolder {
-    int isSet;
-    long value;
+    int isSet; // Tells if value is set; 0 = not set, 1 = set
+    long value; // Holds actual value
   }
 
   /**
@@ -82,7 +82,7 @@ class ArrowFlightJdbcNumericGetter {
       return createGetter((BigIntVector) vector);
     }
 
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("No valid IntVector was provided.");
   }
 
   /**

@@ -506,23 +506,12 @@
             </lifecycleMappingMetadata>
           </configuration>
         </plugin>
-        <plugin>
-          <groupId>com.github.spotbugs</groupId>
-          <artifactId>spotbugs-maven-plugin</artifactId>
-          <version>4.2.3</version>
-        </plugin>
-
       </plugins>
     </pluginManagement>
   </build>
 
   <dependencyManagement>
     <dependencies>
-      <dependency>
-        <groupId>org.apache.maven</groupId>
-        <artifactId>maven-model</artifactId>
-        <version>3.3.9</version>
-        </dependency>
       <dependency>
         <groupId>com.google.flatbuffers</groupId>
         <artifactId>flatbuffers-java</artifactId>
@@ -589,26 +578,6 @@
         <artifactId>hamcrest</artifactId>
         <version>2.2</version>
       </dependency>
-      <dependency>
-        <groupId>org.apache.calcite.avatica</groupId>
-        <artifactId>avatica</artifactId>
-        <version>1.18.0</version>
-      </dependency>
-      <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcpkix-jdk15on</artifactId>
-        <version>1.61</version>
-      </dependency>
-      <dependency>
-        <groupId>com.google.code.findbugs</groupId>
-        <artifactId>annotations</artifactId>
-        <version>3.0.1</version>
-      </dependency>
-      <dependency>
-        <groupId>org.codehaus.plexus</groupId>
-        <artifactId>plexus-utils</artifactId>
-        <version>3.0.22</version>
-      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -664,7 +633,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13</version>
+      <version>4.12</version>
       <scope>test</scope>
     </dependency>
     <dependency>

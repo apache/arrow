@@ -93,9 +93,9 @@ public final class ConnectionWrapperTest {
     collector.checkThat(
         collector.checkSucceeds(() -> connectionWrapper.unwrap(AvaticaConnection.class)),
         is(sameInstance(underlyingConnection)));
-    collector.checkThrows(ClassCastException.class,
+    ThrowableAssertionUtils.simpleAssertThrowableClass(ClassCastException.class,
         () -> connectionWrapper.unwrap(ArrowFlightConnection.class));
-    collector.checkThrows(ClassCastException.class,
+    ThrowableAssertionUtils.simpleAssertThrowableClass(ClassCastException.class,
         () -> connectionWrapper.unwrap(ConnectionWrapper.class));
   }
 

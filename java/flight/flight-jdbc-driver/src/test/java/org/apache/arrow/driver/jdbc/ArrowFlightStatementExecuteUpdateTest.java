@@ -30,7 +30,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.Collections;
 
-import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -105,7 +105,7 @@ public class ArrowFlightStatementExecuteUpdateTest {
 
   @AfterClass
   public static void tearDownAfterClass() throws Exception {
-    AutoCloseables.close(SERVER_TEST_RULE, PRODUCER);
+    AutoCloseables.close(PRODUCER);
   }
 
   @Test

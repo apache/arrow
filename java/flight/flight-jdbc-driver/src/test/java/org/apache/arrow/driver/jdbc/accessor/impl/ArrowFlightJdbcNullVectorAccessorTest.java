@@ -17,8 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class ArrowFlightJdbcNullVectorAccessorTest {
 
@@ -27,12 +27,12 @@ public class ArrowFlightJdbcNullVectorAccessorTest {
       });
 
   @Test
-  void testShouldWasNullReturnTrue() {
-    Assertions.assertTrue(accessor.wasNull());
+  public void testShouldWasNullReturnTrue() {
+    Assert.assertTrue(accessor.wasNull());
   }
 
   @Test
-  void testShouldGetObjectReturnNull() {
-    Assertions.assertNull(accessor.getObject());
+  public void testShouldGetObjectReturnNull() {
+    Assert.assertNull(accessor.getObject());
   }
 }

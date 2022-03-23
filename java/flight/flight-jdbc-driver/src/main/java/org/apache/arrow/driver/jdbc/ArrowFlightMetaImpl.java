@@ -99,8 +99,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   @Override
   public ExecuteBatchResult executeBatch(final StatementHandle statementHandle,
                                          final List<List<TypedValue>> parameterValuesList)
-      throws NoSuchStatementException {
-    throw new IllegalStateException();
+      throws IllegalStateException {
+    throw new IllegalStateException("executeBatch not implemented.");
   }
 
   @Override

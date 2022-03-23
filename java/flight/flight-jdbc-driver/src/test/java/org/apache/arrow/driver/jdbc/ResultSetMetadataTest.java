@@ -27,7 +27,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 
-import org.apache.arrow.driver.jdbc.adhoc.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -109,7 +109,7 @@ public class ResultSetMetadataTest {
    */
   @Test(expected = IndexOutOfBoundsException.class)
   public void testShouldGetColumnTypesNameFromOutOfBoundIndex() throws SQLException {
-    final String outOfBoundColumn = metadata.getColumnTypeName(4);
+    metadata.getColumnTypeName(4);
 
     Assert.fail();
   }
@@ -138,7 +138,7 @@ public class ResultSetMetadataTest {
    */
   @Test(expected = IndexOutOfBoundsException.class)
   public void testShouldGetColumnNameFromOutOfBoundIndex() throws SQLException {
-    final String outOfBoundColumn = metadata.getColumnName(4);
+    metadata.getColumnName(4);
 
     Assert.fail();
   }
@@ -229,7 +229,7 @@ public class ResultSetMetadataTest {
    */
   @Test(expected = IndexOutOfBoundsException.class)
   public void testShouldGetColumnTypesFromOutOfBoundIndex() throws SQLException {
-    final int outOfBoundColumn = metadata.getColumnType(4);
+    metadata.getColumnType(4);
 
     Assert.fail();
   }

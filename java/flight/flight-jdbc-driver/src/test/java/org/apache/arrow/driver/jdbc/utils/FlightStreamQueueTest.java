@@ -17,12 +17,10 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
-import static java.lang.String.format;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.mockito.Mockito.mock;
 
-import java.util.Optional;
 import java.util.concurrent.CompletionService;
 
 import org.apache.arrow.flight.FlightStream;
@@ -59,31 +57,14 @@ public class FlightStreamQueueTest {
   @Test
   public void testNextShouldThrowExceptionUponClose() throws Exception {
     queue.close();
-    Optional<Exception> expectedExceptionOnNextIfClosed = Optional.empty();
-    try {
-      queue.next();
-    } catch (final IllegalStateException e) {
-      expectedExceptionOnNextIfClosed = Optional.of(e);
-    }
-    collector.checkThat(expectedExceptionOnNextIfClosed.isPresent(), is(true));
-    collector.checkThat(
-        expectedExceptionOnNextIfClosed.orElse(new Exception()).getMessage(),
-        is(format("%s closed", queue.getClass().getSimpleName())));
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class, () -> queue.next());
   }
 
   @Test
   public void testEnqueueShouldThrowExceptionUponClose() throws Exception {
     queue.close();
-    Optional<Exception> expectedExceptionOnEnqueueIfClosed = Optional.empty();
-    try {
-      queue.enqueue(mock(FlightStream.class));
-    } catch (final IllegalStateException e) {
-      expectedExceptionOnEnqueueIfClosed = Optional.of(e);
-    }
-    collector.checkThat(expectedExceptionOnEnqueueIfClosed.isPresent(), is(true));
-    collector.checkThat(
-        expectedExceptionOnEnqueueIfClosed.orElse(new Exception()).getMessage(),
-        is(format("%s closed", queue.getClass().getSimpleName())));
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class,
+        () -> queue.enqueue(mock(FlightStream.class)));
   }
 
   @Test
@@ -93,16 +74,7 @@ public class FlightStreamQueueTest {
       return true;
     });
     queue.close();
-    Optional<Exception> expectedExceptionAfterClosed = Optional.empty();
-    try {
-      queue.checkOpen();
-    } catch (final IllegalStateException e) {
-      expectedExceptionAfterClosed = Optional.of(e);
-    }
-    collector.checkThat(expectedExceptionAfterClosed.isPresent(), is(true));
-    collector.checkThat(
-        expectedExceptionAfterClosed.orElse(new Exception()).getMessage(),
-        is(format("%s closed", queue.getClass().getSimpleName())));
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class, () -> queue.checkOpen());
   }
 
   @Test

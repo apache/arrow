@@ -52,8 +52,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.util.Cursor;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.jupiter.api.AfterEach;
 
 import com.google.common.collect.ImmutableList;
 
@@ -65,7 +65,7 @@ public class ArrowFlightJdbcCursorTest {
   ArrowFlightJdbcCursor cursor;
   BufferAllocator allocator;
 
-  @AfterEach
+  @After
   public void cleanUp() {
     allocator.close();
     cursor.close();
@@ -191,7 +191,7 @@ public class ArrowFlightJdbcCursorTest {
   @Test
   public void testDecimalVectorNullTrue() throws SQLException {
     final VectorSchemaRoot root = getVectorSchemaRoot("Decimal",
-        new ArrowType.Decimal(2, 2), null);
+        new ArrowType.Decimal(2, 2, 128), null);
     ((DecimalVector) root.getVector("Decimal")).setNull(0);
     testCursorWasNull(root);
   }

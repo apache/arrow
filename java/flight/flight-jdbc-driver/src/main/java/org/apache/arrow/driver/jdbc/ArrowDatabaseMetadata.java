@@ -729,8 +729,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
                                                  final Class<T> desiredType)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
-    final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
     if (cachedSqlInfo.isEmpty()) {
+      final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
       synchronized (cachedSqlInfo) {
         if (cachedSqlInfo.isEmpty()) {
           try (final ResultSet resultSet =

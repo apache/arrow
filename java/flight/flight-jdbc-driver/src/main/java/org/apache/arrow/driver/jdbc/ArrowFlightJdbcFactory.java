@@ -68,7 +68,7 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
       final Meta.StatementHandle handle,
       final int resultType,
       final int resultSetConcurrency,
-      final int resultSetHoldability) throws SQLException {
+      final int resultSetHoldability) {
     return new ArrowFlightStatement((ArrowFlightConnection) connection,
         handle, resultType, resultSetConcurrency, resultSetHoldability);
   }
@@ -107,7 +107,7 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
   @Override
   public ResultSetMetaData newResultSetMetaData(
       final AvaticaStatement avaticaStatement,
-      final Meta.Signature signature) throws SQLException {
+      final Meta.Signature signature) {
     return new AvaticaResultSetMetaData(avaticaStatement,
         null, signature);
   }

@@ -20,8 +20,10 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.authentication.TokenAuthentication;
+import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
+import org.apache.arrow.util.AutoCloseables;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -43,9 +45,14 @@ public class TokenAuthenticationTest {
         .build();
   }
 
+  @AfterClass
+  public static void tearDownAfterClass() {
+    AutoCloseables.closeNoChecked(FLIGHT_SQL_PRODUCER);
+  }
+
   @Test(expected = SQLException.class)
   public void connectUsingTokenAuthenticationShouldFail() throws SQLException {
-    try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnectionFromToken("invalid")) {
+    try (Connection ignored = FLIGHT_SERVER_TEST_RULE.getConnectionFromToken("invalid")) {
       Assert.fail();
     }
   }

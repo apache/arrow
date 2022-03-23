@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor;
 
-import static org.apache.arrow.driver.jdbc.utils.ExceptionTemplateThrower.getOperationNotSupported;
 import static org.apache.calcite.avatica.util.Cursor.Accessor;
 
 import java.io.InputStream;
@@ -249,5 +248,9 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
       value = getObject();
     }
     return !type.isPrimitive() && wasNull ? null : type.cast(value);
+  }
+
+  private static SQLException getOperationNotSupported(final Class<?> type) {
+    return new SQLException(String.format("Operation not supported for type: %s.", type.getName()));
   }
 }

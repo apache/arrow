@@ -83,7 +83,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 public class ArrowFlightJdbcAccessorFactory {
 
   /**
-   * Create an accessor according to the its type.
+   * Create an accessor according to its type.
    *
    * @param vector        an instance of an arrow vector.
    * @param getCurrentRow a supplier to check which row is being accessed.

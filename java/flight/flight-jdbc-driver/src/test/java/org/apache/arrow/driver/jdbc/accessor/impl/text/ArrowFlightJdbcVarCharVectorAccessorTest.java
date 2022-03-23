@@ -41,6 +41,7 @@ import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVe
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.ThrowableAssertionUtils;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
@@ -601,7 +602,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   private void assertGetBooleanForSQLException(Text value) {
     when(getter.get(0)).thenReturn(value);
-    collector.checkThrows(SQLException.class, () -> accessor.getBoolean());
+    ThrowableAssertionUtils.simpleAssertThrowableClass(SQLException.class, () -> accessor.getBoolean());
   }
 
   @Test

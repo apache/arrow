@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<FindBugsFilter>
+    <!--  These elements are supposed to be mutable  -->
+    <Match>
+        <Package name="~org\.apache\.arrow\.driver\.jdbc\.accessor\.impl.*"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="org.apache.arrow.driver.jdbc.utils.ConnectionWrapper"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="org.apache.arrow.driver.jdbc.ArrowFlightJdbcCursor"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+</FindBugsFilter>

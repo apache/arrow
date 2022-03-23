@@ -80,16 +80,6 @@
             </dependency>
 
         <dependency>
-            <groupId>org.apache.calcite.avatica</groupId>
-            <artifactId>avatica</artifactId>
-		</dependency>
-
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcpkix-jdk15on</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -142,6 +132,17 @@
             <artifactId>flight-sql</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.calcite.avatica</groupId>
+            <artifactId>avatica</artifactId>
+            <version>1.18.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk15on</artifactId>
+            <version>1.61</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -171,6 +172,7 @@
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>
                 <configuration>
+                    <excludeFilterFile>jdbc-spotbugs-exclude.xml</excludeFilterFile>
                     <xmlOutput>true</xmlOutput>
                     <xmlOutputDirectory>target/spotbugs</xmlOutputDirectory>
                 </configuration>

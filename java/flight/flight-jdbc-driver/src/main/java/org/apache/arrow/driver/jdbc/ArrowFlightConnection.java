@@ -104,7 +104,11 @@ public final class ArrowFlightConnection extends AvaticaConnection {
           .withCallOptions(config.toCallOption())
           .build();
     } catch (final SQLException e) {
-      allocator.close();
+      try {
+        allocator.close();
+      } catch (final Exception allocatorCloseEx) {
+        e.addSuppressed(allocatorCloseEx);
+      }
       throw e;
     }
   }
@@ -149,7 +153,9 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
   @Override
   public Properties getClientInfo() {
-    return info;
+    final Properties copy = new Properties();
+    copy.putAll(info);
+    return copy;
   }
 
   @Override
