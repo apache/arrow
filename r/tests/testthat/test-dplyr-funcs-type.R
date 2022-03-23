@@ -1037,6 +1037,28 @@ test_that("as_date()", {
   )
 })
 
+test_that("`as_datetime()`", {
+  test_df <- tibble(
+    date = as.Date(c("2022-03-22", "2021-07-30", NA)),
+    char_date = c("2022-03-22", "2021-07-30 14:32:47", NA),
+    int_date = c(10L, 25L, NA),
+    integerish_date = c(10, 25, NA),
+    double_date = c(10.1, 25.2, NA)
+  )
+
+  test_df %>%
+    arrow_table() %>%
+    mutate(
+      # ddate = as_datetime(date),
+      dchar_date_no_tz = as_datetime(char_date),
+      dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
+      dint_date = as_datetime(int_date, origin = "1970-01-02"),
+      # dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
+      # ddouble_date = as_datetime(double_date)
+    ) %>%
+    collect()
+})
+
 test_that("format() for unsupported types returns the input as string", {
   expect_equal(
     example_data %>%
