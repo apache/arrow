@@ -26,7 +26,8 @@ set(ARROW_SUBSTRAIT_SRCS
     substrait/serde.cc
     substrait/plan_internal.cc
     substrait/relation_internal.cc
-    substrait/type_internal.cc)
+    substrait/type_internal.cc
+    substrait/util.cc)
 
 add_arrow_lib(arrow_substrait
               CMAKE_PACKAGE_NAME

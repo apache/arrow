@@ -86,9 +86,15 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
         "read": {
           "base_schema": {
             "struct": {
-              "types": [ {"i64": {}}, {"bool": {}} ]
+              "types": [ 
+                         {"i64": {}},
+                         {"bool": {}}
+                       ]
             },
-            "names": ["i", "b"]
+            "names": [
+                      "i",
+                       "b"
+                     ]
           },
           "local_files": {
             "items": [

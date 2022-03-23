@@ -160,25 +160,6 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   endif()
 endif()
 
-if(ARROW_ENGINE  AND ARROW_BUILD_SHARED)
-    add_arrow_lib(arrow_python_engine
-                CMAKE_PACKAGE_NAME
-                PKG_CONFIG_NAME
-                SOURCES
-                engine.cc
-                OUTPUTS
-                DEPENDENCIES
-                SHARED_LINK_FLAGS
-                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
-                SHARED_LINK_LIBS
-                arrow_python_shared
-                arrow_engine_shared
-                STATIC_LINK_LIBS
-                ${PYTHON_OTHER_LIBS}
-                EXTRA_INCLUDES
-                "${ARROW_PYTHON_INCLUDES}")
-endif()
-
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # Clang, be quiet. Python C API has lots of macros
   set_property(SOURCE ${ARROW_PYTHON_SRCS}
