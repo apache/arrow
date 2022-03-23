@@ -1992,12 +1992,12 @@ TEST_F(TestProjector, TestDayOfMonth) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 4;
+  int num_records = 5;
   auto array0 =
-      MakeArrowArrayDate64({1635156000000, 967947300000, 414148810000, -1575124790000},
-                           {true, true, true, false});
+      MakeArrowArrayDate64({1635156000000, 967947300000, 414148810000, -1575124790000, -1575124790000},
+                           {true, true, true, true, false});
   // expected output
-  auto exp = MakeArrowArrayInt64({25, 3, 15, 0}, {true, true, true, false});
+  auto exp = MakeArrowArrayInt64({25, 3, 15, 2, 0}, {true, true, true, true, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
