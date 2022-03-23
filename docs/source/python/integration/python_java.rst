@@ -333,7 +333,7 @@ C-Data interface:
     FillTen = JClass('FillTen')
 
     # Create a Python array of 10 elements
-    import pyarrow as p
+    import pyarrow as pa
     array = pa.array([0]*10)
 
     from pyarrow.cffi import ffi as arrow_c
