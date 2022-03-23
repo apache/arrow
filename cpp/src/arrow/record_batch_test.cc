@@ -417,7 +417,7 @@ TEST_F(TestRecordBatchReader, ToRecordBatches) {
     AssertBatchesEqual(*batches[index], *batches_[index]);
   }
 
-  ASSERT_OK(reader_->ReadAll(&batches));
+  ASSERT_OK_AND_ASSIGN(batches, reader_->ToRecordBatches());
   ASSERT_EQ(batches.size(), 0);
 }
 
@@ -442,7 +442,7 @@ TEST_F(TestRecordBatchReader, DeprecatedReadAllToRecordBatches) {
     AssertBatchesEqual(*batches[index], *batches_[index]);
   }
 
-  ASSERT_OK_AND_ASSIGN(batches, reader_->ToRecordBatches());
+  ASSERT_OK(reader_->ReadAll(&batches));
   ASSERT_EQ(batches.size(), 0);
 }
 
