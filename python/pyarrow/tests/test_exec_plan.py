@@ -114,10 +114,10 @@ def test_table_join_collisions():
     })
 
     t2 = pa.table({
-        "colA": [99, 2, 1],
         "colB": [99, 20, 10],
         "colVals": ["Z", "B", "A"],
-        "colUniq": [100, 200, 300]
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
     })
 
     result = ep.tables_join(
@@ -126,11 +126,11 @@ def test_table_join_collisions():
         [1, 2, 6, None],
         [10, 20, 60, None],
         ["a", "b", "f", None],
-        [1, 2, None, 99],
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
-        [300, 200, None, 100]
-    ], names=["colA", "colB", "colVals", "colA", "colB", "colVals", "colUniq"])
+        [300, 200, None, 100],
+        [1, 2, None, 99],
+    ], names=["colA", "colB", "colVals", "colB", "colVals", "colUniq", "colA"])
 
     result = ep.tables_join("full outer", t1, "colA",
                             t2, "colA", right_suffix="_r", deduplicate=False)
@@ -138,10 +138,10 @@ def test_table_join_collisions():
         "colA": [1, 2, 6, None],
         "colB": [10, 20, 60, None],
         "colVals": ["a", "b", "f", None],
-        "colA_r": [1, 2, None, 99],
         "colB_r": [10, 20, None, 99],
         "colVals_r": ["A", "B", None, "Z"],
-        "colUniq": [300, 200, None, 100]
+        "colUniq": [300, 200, None, 100],
+        "colA_r": [1, 2, None, 99],
     })
 
     result = ep.tables_join("full outer", t1, "colA",
@@ -153,4 +153,27 @@ def test_table_join_collisions():
         "colB_r": [10, 20, None, 99],
         "colVals_r": ["A", "B", None, "Z"],
         "colUniq": [300, 200, None, 100]
+    })
+
+
+def test_table_join_keys_order():
+    t1 = pa.table({
+        "colB": [10, 20, 60],
+        "colA": [1, 2, 6],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colX": [99, 2, 1],
+    })
+
+    result = ep.tables_join("full outer", t1, "colA", t2, "colX",
+                            left_suffix="_l", right_suffix="_r",
+                            deduplicate=True)
+    assert result.combine_chunks() == pa.table({
+        "colB": [10, 20, 60, None],
+        "colA": [1, 2, 6, 99],
+        "colVals_l": ["a", "b", "f", None],
+        "colVals_r": ["A", "B", None, "Z"],
     })

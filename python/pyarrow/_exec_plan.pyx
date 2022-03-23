@@ -187,14 +187,18 @@ def tables_join(join_type, left_table not None, left_keys,
         CJoinType c_join_type
 
     # Prepare left and right tables Keys to send them to the C++ function
+    left_keys_order = {}
     if isinstance(left_keys, str):
         left_keys = [left_keys]
-    for key in left_keys:
+    for idx, key in enumerate(left_keys):
+        left_keys_order[key] = idx
         c_left_keys.push_back(CFieldRef(<c_string>tobytes(key)))
 
+    right_keys_order = {}
     if isinstance(right_keys, str):
         right_keys = [right_keys]
-    for key in right_keys:
+    for idx, key in enumerate(right_keys):
+        right_keys_order[key] = idx
         c_right_keys.push_back(CFieldRef(<c_string>tobytes(key)))
 
     # By default expose all columns on both left and right table
@@ -229,10 +233,17 @@ def tables_join(join_type, left_table not None, left_keys,
         raise ValueError("Unsupported join type")
 
     # Turn the columns to vectors of FieldRefs
-    for colname in left_columns:
+    # and set aside indices of keys.
+    left_column_keys_indices = {}
+    for idx, colname in enumerate(left_columns):
         c_left_columns.push_back(CFieldRef(<c_string>tobytes(colname)))
-    for colname in right_columns:
+        if colname in left_keys:
+            left_column_keys_indices[colname] = idx
+    right_column_keys_indices = {}
+    for idx, colname in enumerate(right_columns):
         c_right_columns.push_back(CFieldRef(<c_string>tobytes(colname)))
+        if colname in right_keys:
+            right_column_keys_indices[colname] = idx
 
     # Add the join node to the execplan
     if deduplicate:
@@ -253,16 +264,21 @@ def tables_join(join_type, left_table not None, left_keys,
             # Where the right table columns start.
             right_table_index = len(left_columns)
             for idx, col in enumerate(left_columns + right_columns):
-                if idx < len(left_keys):
+                if idx < len(left_columns) and col in left_column_keys_indices:
                     # Include keys only once and coalesce left+right table keys.
                     c_projected_col_names.push_back(tobytes(col))
+                    # Get the index of the right key that is being paired
+                    # with this left key. We do so by retrieving the name
+                    # of the right key that is in the same position in the provided keys
+                    # and then looking up the index for that name in the right table.
+                    right_key_index = right_column_keys_indices[right_keys[left_keys_order[col]]]
                     c_projections.push_back(Expression.unwrap(
                         Expression._call("coalesce", [
                             Expression._field(idx), Expression._field(
-                                right_table_index+idx)
+                                right_table_index+right_key_index)
                         ])
                     ))
-                elif right_table_index <= idx < right_table_index+len(right_keys):
+                elif idx >= right_table_index and col in right_column_keys_indices:
                     # Do not include right table keys. As they would lead to duplicated keys.
                     continue
                 else:
