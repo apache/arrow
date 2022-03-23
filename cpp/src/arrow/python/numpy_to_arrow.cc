@@ -404,8 +404,9 @@ class NumPyStridedConverter {
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(sizeof(T) * length_, pool_));
 
     const int64_t stride = PyArray_STRIDES(arr)[0];
-    if (stride % sizeof(T) == 0) {
-      const int64_t stride_elements = stride / sizeof(T);
+    const int64_t element_size = sizeof(T);
+    if (stride % element_size == 0) {
+      const int64_t stride_elements = stride / element_size;
       CopyStridedNatural(reinterpret_cast<T*>(PyArray_DATA(arr)), length_,
                          stride_elements, reinterpret_cast<T*>(buffer_->mutable_data()));
     } else {
