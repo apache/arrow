@@ -1464,7 +1464,6 @@ cdef class DirectoryPartitioning(Partitioning):
             res.append(pyarrow_wrap_array(arr))
         return res
 
-
 cdef class HivePartitioning(Partitioning):
     """
     A Partitioning for "/$key=$value/" nested directories as found in
@@ -1690,10 +1689,6 @@ cdef class FilenamePartitioning(Partitioning):
             when materializing virtual columns, and Expressions parsed by the
             finished Partitioning will include dictionaries of all unique
             inspected values for each field.
-        max_partition_dictionary_size : int, default 0
-            Synonymous with infer_dictionary for backwards compatibility with
-            1.0: setting this to -1 or None is equivalent to passing
-            infer_dictionary=True.
         schema : Schema, default None
             Use this schema instead of inferring a schema from partition
             values. Partition values will be validated against this schema
@@ -1724,7 +1719,7 @@ cdef class FilenamePartitioning(Partitioning):
             c_options.schema = pyarrow_unwrap_schema(schema)
             c_field_names = [tobytes(f.name) for f in schema]
         elif not field_names:
-            raise ValueError(
+            raise TypeError(
                 "Neither field_names nor schema was passed; "
                 "cannot infer field_names")
         else:

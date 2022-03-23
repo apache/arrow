@@ -62,6 +62,8 @@ Result<std::string> SafeUriUnescape(util::string_view encoded) {
   return decoded;
 }
 
+// Remove parts of the path after the last filename partition
+// separator. For example, 12_a_part-0.parquet will become 12_a_
 std::string StripNonPrefix(const std::string& path) {
   std::string v;
   auto non_prefix_index = path.rfind(kFilenamePartitionSep);
@@ -84,8 +86,7 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
       return compute::literal(true);
     }
 
-    Result<std::pair<std::string, std::string>> Format(
-        const compute::Expression& expr) const override {
+    Result<PartitionPathFormat> Format(const compute::Expression& expr) const override {
       return Status::NotImplemented("formatting paths from ", type_name(),
                                     " Partitioning");
     }
@@ -262,7 +263,7 @@ Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path)
   return and_(std::move(expressions));
 }
 
-Result<std::pair<std::string, std::string>> KeyValuePartitioning::Format(
+Result<Partitioning::PartitionPathFormat> KeyValuePartitioning::Format(
     const compute::Expression& expr) const {
   ScalarVector values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
@@ -390,7 +391,7 @@ inline util::optional<int> NextValid(const ScalarVector& values, int first_null)
   return static_cast<int>(it - values.begin());
 }
 
-Result<std::pair<std::string, std::string>> DirectoryPartitioning::FormatValues(
+Result<Partitioning::PartitionPathFormat> DirectoryPartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
@@ -411,10 +412,10 @@ Result<std::pair<std::string, std::string>> DirectoryPartitioning::FormatValues(
     break;
   }
 
-  return std::make_pair(fs::internal::JoinAbstractPath(std::move(segments)), "");
+  return PartitionPathFormat{fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
 
-Result<std::pair<std::string, std::string>> FilenamePartitioning::FormatValues(
+Result<Partitioning::PartitionPathFormat> FilenamePartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
@@ -434,9 +435,9 @@ Result<std::pair<std::string, std::string>> FilenamePartitioning::FormatValues(
     // if all subsequent keys are absent we'll just print the available keys
     break;
   }
-  return std::make_pair(
+  return Partitioning::PartitionPathFormat{
       "", fs::internal::JoinAbstractPath(std::move(segments), kFilenamePartitionSep) +
-              kFilenamePartitionSep);
+              kFilenamePartitionSep};
 }
 
 KeyValuePartitioningOptions PartitioningFactoryOptions::AsPartitioningOptions() const {
@@ -772,7 +773,7 @@ Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
   return keys;
 }
 
-Result<std::pair<std::string, std::string>> HivePartitioning::FormatValues(
+Result<Partitioning::PartitionPathFormat> HivePartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
@@ -790,7 +791,8 @@ Result<std::pair<std::string, std::string>> HivePartitioning::FormatValues(
     }
   }
 
-  return std::make_pair(fs::internal::JoinAbstractPath(std::move(segments)), "");
+  return Partitioning::PartitionPathFormat{
+      fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
 
 class HivePartitioningFactory : public KeyValuePartitioningFactory {

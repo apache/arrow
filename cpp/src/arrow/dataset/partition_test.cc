@@ -62,13 +62,13 @@ class TestPartitioning : public ::testing::Test {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
-    ASSERT_EQ(formatted.first, expected_directory);
-    ASSERT_EQ(formatted.second, expected_prefix);
+    ASSERT_EQ(formatted.directory, expected_directory);
+    ASSERT_EQ(formatted.prefix, expected_prefix);
 
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
     ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
-                         partitioning_->Parse(formatted.first));
+                         partitioning_->Parse(formatted.directory));
 
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
@@ -307,6 +307,10 @@ TEST_F(TestPartitioning, DiscoverSchemaFilename) {
 
   // If there are too many digits fall back to string
   AssertInspect({"3760212050_1_"}, {Str("alpha"), Int("beta")});
+
+  // Invalid syntax
+  AssertInspectError({"234-12"});
+  AssertInspectError({"hello"});
 }
 
 TEST_F(TestPartitioning, DirectoryDictionaryInference) {
@@ -915,9 +919,9 @@ class RangePartitioning : public Partitioning {
     return Status::OK();
   }
 
-  Result<std::pair<std::string, std::string>> Format(
+  Result<Partitioning::PartitionPathFormat> Format(
       const compute::Expression&) const override {
-    return std::make_pair("", "");
+    return Partitioning::PartitionPathFormat{"", ""};
   }
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
