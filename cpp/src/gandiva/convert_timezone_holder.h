@@ -136,6 +136,7 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
         std::cout<<dest_timezone->name();
       }
     } catch (...) {
+      std::cout<<src_timezone->name();
       status = false;
     }
   }
