@@ -100,7 +100,8 @@ class ShortRetryStrategy : public S3RetryStrategy {
       // which would trigger spurious retries.
       return false;
     }
-    return error.should_retry && (attempted_retries * kRetryInterval < kMaxRetryDuration);
+    return (error.should_retry || error.exception_name == "XMinioServerNotInitialized") &&
+           (attempted_retries * kRetryInterval < kMaxRetryDuration);
   }
 
   int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
