@@ -1981,7 +1981,7 @@ TEST_F(TestProjector, TestDayOfMonth) {
   auto schema = arrow::schema({field0});
 
   // output fields
-  auto field_result = field("DAY", arrow::int64());
+  auto field_result = field("day", arrow::int64());
 
   // Build expression
   auto myexpr = TreeExprBuilder::MakeExpression("dayofmonth", {field0}, field_result);
