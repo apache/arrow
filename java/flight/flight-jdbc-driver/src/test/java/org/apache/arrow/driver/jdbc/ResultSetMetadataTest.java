@@ -97,9 +97,9 @@ public class ResultSetMetadataTest {
     final String secondColumn = metadata.getColumnTypeName(2);
     final String thirdColumn = metadata.getColumnTypeName(3);
 
-    collector.checkThat(firstColumn, equalTo("Int"));
-    collector.checkThat(secondColumn, equalTo("Utf8"));
-    collector.checkThat(thirdColumn, equalTo("FloatingPoint"));
+    collector.checkThat(firstColumn, equalTo("BIGINT"));
+    collector.checkThat(secondColumn, equalTo("VARCHAR"));
+    collector.checkThat(thirdColumn, equalTo("FLOAT"));
   }
 
   /**
