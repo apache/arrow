@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc;
+package org.apache.arrow.driver.jdbc.utils;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -55,11 +56,22 @@ public class FlightCerts {
    *
    * @return A list with CertKeyPair.
    */
-  static List<FlightServerTestRule.CertKeyPair> exampleTlsCerts() {
+  public static List<CertKeyPair> exampleTlsCerts() {
     final Path root = getFlightTestDataRoot();
-    return Arrays.asList(new FlightServerTestRule.CertKeyPair(root.resolve("cert0.pem")
+    return Arrays.asList(new CertKeyPair(root.resolve("cert0.pem")
             .toFile(), root.resolve("cert0.pkcs1").toFile()),
-        new FlightServerTestRule.CertKeyPair(root.resolve("cert1.pem")
+        new CertKeyPair(root.resolve("cert1.pem")
             .toFile(), root.resolve("cert1.pkcs1").toFile()));
+  }
+
+  public static class CertKeyPair {
+
+    public final File cert;
+    public final File key;
+
+    public CertKeyPair(File cert, File key) {
+      this.cert = cert;
+      this.key = key;
+    }
   }
 }
