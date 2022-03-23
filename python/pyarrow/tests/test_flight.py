@@ -2127,6 +2127,8 @@ class CaptureUnraisableExceptions:
         self.recorded = None
 
 
+@pytest.mark.skipif(sys.version_info < (3, 8),
+                    reason="sys.unraisablehook requires Python >=3.8")
 def test_logging_unhandled_exceptions():
     """Ensure that unhandled exceptions are logged.
 
