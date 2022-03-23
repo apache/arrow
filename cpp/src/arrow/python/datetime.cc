@@ -439,8 +439,10 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
     // import timezone and timedelta module to create a tzinfo object
     OwnedRef class_timezone;
     OwnedRef class_timedelta;
-    RETURN_NOT_OK(internal::ImportFromModule(datetime.obj(), "timezone", &class_timezone));
-    RETURN_NOT_OK(internal::ImportFromModule(datetime.obj(), "timedelta", &class_timedelta));
+    RETURN_NOT_OK(
+        internal::ImportFromModule(datetime.obj(), "timezone", &class_timezone));
+    RETURN_NOT_OK(
+        internal::ImportFromModule(datetime.obj(), "timedelta", &class_timedelta));
 
     // check input
     uint32_t minutes, hours;
@@ -458,11 +460,11 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
 
     // call datetime.timedelta to get correct offset object for datetime.timezone
     auto offset =
-        PyObject_CallFunctionObjArgs(class_timedelta.obj(), zero.obj(), zero.obj(), zero.obj(), zero.obj(), total_minutes.obj(), NULL);
+        PyObject_CallFunctionObjArgs(class_timedelta.obj(), zero.obj(), zero.obj(),
+                                     zero.obj(), zero.obj(), total_minutes.obj(), NULL);
     RETURN_IF_PYERROR();
     // call datetime.timezone
-    auto tzinfo =
-        PyObject_CallFunctionObjArgs(class_timezone.obj(), offset, NULL);
+    auto tzinfo = PyObject_CallFunctionObjArgs(class_timezone.obj(), offset, NULL);
     RETURN_IF_PYERROR();
     return tzinfo;
   }
