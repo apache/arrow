@@ -278,8 +278,7 @@ html_favicon = "_static/favicon.ico"
 html_static_path = ['_static']
 
 # Custom fixes to the RTD theme
-html_css_files = ['theme_overrides.css',
-                  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css']
+html_css_files = ['theme_overrides.css']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

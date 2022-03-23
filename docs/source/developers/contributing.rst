@@ -81,7 +81,7 @@ All participation in the Apache Arrow project is governed by the ASF's
 
          Bugs and Features
 
-.. dropdown:: :fa:`hand-point-up` Communicating through the mailing lists
+.. dropdown:: Communicating through the mailing lists
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
@@ -98,7 +98,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    Read more on the `Apache Arrow Community <https://arrow.apache.org/community/>`_
    page.
 
-.. dropdown:: :fa:`pencil` Improve documentation
+.. dropdown:: Improve documentation
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
