@@ -591,39 +591,20 @@ TEST_P(MergedGeneratorTestFixture, MergedInnerFailCleanup) {
   // emits an error.
   auto make_source = [&](bool fails) -> AsyncGenerator<TestInt> {
     std::shared_ptr<std::atomic<int>> count = std::make_shared<std::atomic<int>>(0);
-    if (fails) {
-      return [&, count]() -> Future<TestInt> {
-        int my_count = (*count)++;
-        // std::cout << "Fail:" + std::to_string(my_count) + "\n";
-        if (my_count == 1) {
-          // std::cout << "Waiting on fail gate\n";
+    return [&, fails, count]() -> Future<TestInt> {
+      int my_count = (*count)++;
+      if (my_count == 1) {
+        if (fails) {
           failing_task_gate->Task()();
-          // std::cout << "returning error from fail\n";
           return Status::Invalid("XYZ");
         } else {
-          return SleepABitAsync().Then([] {
-            // std::cout << "returning value from fail\n";
-            return TestInt(0);
-          });
-        }
-      };
-    } else {
-      return [&, count]() -> Future<TestInt> {
-        int my_count = (*count)++;
-        // std::cout << "Pass:" + std::to_string(my_count) + "\n";
-        if (my_count == 1) {
-          // std::cout << "Waiting on passing gate\n";
           passing_task_gate->Task()();
-          // std::cout << "returning end from pass\n";
           return IterationEnd<TestInt>();
-        } else {
-          return SleepABitAsync().Then([] {
-            // std::cout << "returning value from pass\n";
-            return TestInt(0);
-          });
         }
-      };
-    }
+      } else {
+        return SleepABitAsync().Then([] { return TestInt(0); });
+      }
+    };
   };
   auto outer = MakeVectorGenerator<AsyncGenerator<TestInt>>(
       {make_source(false), make_source(true), make_source(false)});
@@ -1549,6 +1530,7 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
   // Can't be finished because in-flight tasks are still running
   AssertNotFinished(should_be_invalid);
   ASSERT_OK(in_flight_gating_task->Unlock());
+  ASSERT_FINISHES_AND_RAISES(Invalid, should_be_invalid);
 }
 
 TEST(TestAsyncUtil, ReadaheadFailedStress) {
