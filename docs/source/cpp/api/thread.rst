@@ -18,12 +18,6 @@
 Thread (management)
 ===================
 
-Executor
---------
-
-.. doxygenclass:: arrow::internal::Executor
-   :members:
-
 Thread Pools
 ------------
 
@@ -34,9 +28,3 @@ Thread Pools
 .. doxygenfunction:: arrow::io::GetIOThreadPoolCapacity
 
 .. doxygenfunction:: arrow::io::SetIOThreadPoolCapacity
-
-Futures
--------
-
-.. doxygenclass:: arrow::Future
-   :members:

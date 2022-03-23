@@ -27,19 +27,18 @@ Thread Management
 .. seealso::
    :doc:`Thread management API reference <api/thread>`
 
-Thread Pools / Executor
+Thread Pools
 =======================
 
 Many Arrow operations distribute work across multiple threads to take
 advantage of underlying hardware parallelism.  For example, when reading a
 parquet file we can decode each column in parallel.  To achieve this we
-submit tasks to an :class:`arrow::internal::Executor`.  This is a minimal
-interface and implementations can delegate these tasks to threads, a worker
-loop, or some other task scheduling mechanism.
+submit tasks to an executor of some kind.
 
 Within Arrow we use thread pools for parallel scheduling and an event loop
-when the user has requested serial execution.  However, it is possible for
-users to provide their own custom implementation.
+when the user has requested serial execution.  It is possible for
+users to provide their own custom implementation, though that is an advanced
+concept and not covered here.
 
 CPU vs. I/O
 -----------
@@ -51,7 +50,7 @@ This means that CPU tasks should never block for long periods of time because th
 will result in under-utilization of the CPU.  To achieve this we have a separate
 thread pool which should be used for tasks that need to block.  Since these tasks
 are usually associated with I/O operations we call this the I/O thread pool.  This
-model is often referred to as asynchronous computation.
+model is often associated with asynchronous computation.
 
 The size of the I/O thread pool currently defaults to 8 threads and should
 be sized according to the parallel capabilities of the I/O hardware.  For example,
@@ -60,14 +59,14 @@ be sufficient.  On the other hand, when most reads and writes occur on a remote
 filesystem such as S3, it is often possible to benefit from many concurrent reads
 and it may be possible to increase I/O performance by increasing the size of the
 I/O thread pool.  The size of the default I/O thread pool can be managed with
-the `ARROW_IO_THREADS` (TODO: link when ARROW-15941 merges) environment variable or
+the :ref:`ARROW_IO_THREADS<env_arrow_io_threads>` environment variable or
 with the :func:`arrow::io::SetIOThreadPoolCapacity` function.
 
 Increasing the size of the CPU thread pool is not likely to have any benefit.  In
 some cases it may make sense to decrease the size of the CPU thread pool in order
 to reduce the impact that Arrow has on hardware shared with other processes or user
 threads.  The size of the default CPU thread pool can be managed with the
-:ref:`OMP_THREAD_LIMIT<omp_thread_limit>` environment variable or with the
+:ref:`OMP_NUM_THREADS<env_omp_num_threads>` environment variable or with the
 :func:`arrow::SetCpuThreadPoolCapacity` function.
 
 Serial Execution
@@ -75,9 +74,9 @@ Serial Execution
 
 Operations in Arrow that may use threads can usually be configured to run serially
 via some kind of parameter.  In this case we typically replace the CPU executor with
-an event loop operated by the calling thread.  However, we will leave the I/O thread
-pool as is.  This means that some parallelism may still occur even when serial
-execution is requested.
+an event loop operated by the calling thread.  However, many operations will continue
+to use the I/O thread pool.  This means that some parallelism may still occur even when
+serial execution is requested.
 
 Jemalloc Background Threads
 ---------------------------
@@ -87,11 +86,6 @@ background threads will be created by jemalloc to manage the pool.  These thread
 should have minimal impact but can show up as a memory leak when running analysis
 tools like Valgrind.  This is harmless and can be safely suppressed or Arrow can be
 compiled without jemalloc.
-
-It is possible to make zero-copy slices of buffers, to obtain a buffer
-referring to some contiguous subset of the underlying data.  This is done
-by calling the :func:`arrow::SliceBuffer` and :func:`arrow::SliceMutableBuffer`
-functions.
 
 Asynchronous Utilities
 ======================
