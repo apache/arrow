@@ -89,7 +89,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
   @Override
   protected AvaticaResultSet execute() throws SQLException {
-    throw new RuntimeException();
+    throw new RuntimeException("Can only execute with execute(VectorSchemaRoot)");
   }
 
   void execute(final VectorSchemaRoot vectorSchemaRoot) {

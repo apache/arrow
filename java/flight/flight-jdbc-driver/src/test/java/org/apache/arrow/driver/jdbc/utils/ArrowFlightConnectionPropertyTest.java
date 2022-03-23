@@ -29,9 +29,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
@@ -49,9 +47,6 @@ public final class ArrowFlightConnectionPropertyTest {
   @Parameter
   public ArrowFlightConnectionProperty arrowFlightConnectionProperty;
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
-
   @Before
   public void setUp() {
     mockitoResource = openMocks(this);
@@ -64,14 +59,14 @@ public final class ArrowFlightConnectionPropertyTest {
 
   @Test
   public void testWrapIsUnsupported() {
-    collector.checkThrows(UnsupportedOperationException.class,
+    ThrowableAssertionUtils.simpleAssertThrowableClass(UnsupportedOperationException.class,
         () -> arrowFlightConnectionProperty.wrap(properties));
   }
 
   @Test
   public void testRequiredPropertyThrows() {
     Assume.assumeTrue(arrowFlightConnectionProperty.required());
-    Assert.assertThrows(IllegalStateException.class,
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class,
         () -> arrowFlightConnectionProperty.get(new Properties()));
   }
 

@@ -21,7 +21,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import org.apache.arrow.driver.jdbc.adhoc.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Rule;

@@ -35,8 +35,8 @@ final class ArrowFlightJdbcDateVectorGetter {
    * Auxiliary class meant to unify Date*Vector#get implementations with different classes of ValueHolders.
    */
   static class Holder {
-    int isSet;
-    long value;
+    int isSet; // Tells if value is set; 0 = not set, 1 = set
+    long value; // Holds actual value in its respective timeunit
   }
 
   /**

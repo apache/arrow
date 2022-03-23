@@ -51,7 +51,7 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   @Override
   public Class<?> getObjectClass() {
-    return Long.class;
+    return Boolean.class;
   }
 
   @Override

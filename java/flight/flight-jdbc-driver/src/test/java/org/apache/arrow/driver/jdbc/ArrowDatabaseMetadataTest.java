@@ -26,7 +26,7 @@ import static java.sql.Types.JAVA_OBJECT;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
-import static org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer.serializeSchema;
+import static org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer.serializeSchema;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_BIT_VALUE;
@@ -46,8 +46,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.utils.ResultSetTestUtils;
+import org.apache.arrow.driver.jdbc.utils.ThrowableAssertionUtils;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.flight.sql.impl.FlightSql;
@@ -602,7 +603,7 @@ public class ArrowDatabaseMetadataTest {
 
   @AfterClass
   public static void tearDown() throws Exception {
-    AutoCloseables.close(connection, FLIGHT_SERVER_TEST_RULE, FLIGHT_SQL_PRODUCER);
+    AutoCloseables.close(connection, FLIGHT_SQL_PRODUCER);
   }
 
 
@@ -915,9 +916,9 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.supportsDifferentTableCorrelationNames(),
         is(EXPECTED_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES));
 
-    collector.checkThrows(SQLException.class,
+    ThrowableAssertionUtils.simpleAssertThrowableClass(SQLException.class,
         () -> metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE + 1));
-    collector.checkThrows(SQLException.class,
+    ThrowableAssertionUtils.simpleAssertThrowableClass(SQLException.class,
         () -> metaData.supportsResultSetType(ResultSet.HOLD_CURSORS_OVER_COMMIT));
   }
 

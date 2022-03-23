@@ -33,6 +33,7 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.BearerCredentialWriter;
@@ -441,7 +442,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @return this instance.
      */
     public Builder withBufferAllocator(final BufferAllocator allocator) {
-      this.allocator = allocator;
+      this.allocator = allocator
+          .newChildAllocator("ArrowFlightSqlClientHandler", 0, allocator.getLimit());
       return this;
     }
 
@@ -495,6 +497,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @throws SQLException on error.
      */
     public ArrowFlightSqlClientHandler build() throws SQLException {
+      FlightClient client = null;
       try {
         ClientIncomingAuthHeaderMiddleware.Factory authFactory = null;
         if (username != null) {
@@ -517,7 +520,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           clientBuilder.trustedCertificates(
               ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
         }
-        final FlightClient client = clientBuilder.build();
+        client = clientBuilder.build();
         if (authFactory != null) {
           options.add(
               ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
@@ -527,8 +530,17 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
                   client, new CredentialCallOption(new BearerCredentialWriter(token))));
         }
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
-      } catch (final IllegalArgumentException | GeneralSecurityException | IOException e) {
-        throw new SQLException(e);
+
+      } catch (final IllegalArgumentException | GeneralSecurityException | IOException | FlightRuntimeException e) {
+        final SQLException originalException = new SQLException(e);
+        if (client != null) {
+          try {
+            client.close();
+          } catch (final InterruptedException interruptedException) {
+            originalException.addSuppressed(interruptedException);
+          }
+        }
+        throw originalException;
       }
     }
   }

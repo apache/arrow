@@ -21,9 +21,9 @@ import java.sql.Connection;
 
 import javax.sql.PooledConnection;
 
-import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
+import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;

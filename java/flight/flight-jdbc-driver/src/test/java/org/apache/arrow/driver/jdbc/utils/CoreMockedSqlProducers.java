@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.adhoc;
+package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.String.format;
 import static org.hamcrest.CoreMatchers.equalTo;

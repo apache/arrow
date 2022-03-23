@@ -45,14 +45,6 @@ public interface VectorSchemaRootTransformer {
    */
   class Builder {
 
-    /**
-     * Functional interface used to a task to transform a VectorSchemaRoot into a new VectorSchemaRoot.
-     */
-    @FunctionalInterface
-    interface Task {
-      void run(VectorSchemaRoot originalRoot, VectorSchemaRoot transformedRoot);
-    }
-
     private final Schema schema;
     private final BufferAllocator bufferAllocator;
     private final List<Field> newFields = new ArrayList<>();
@@ -60,7 +52,8 @@ public interface VectorSchemaRootTransformer {
 
     public Builder(final Schema schema, final BufferAllocator bufferAllocator) {
       this.schema = schema;
-      this.bufferAllocator = bufferAllocator;
+      this.bufferAllocator = bufferAllocator
+          .newChildAllocator("VectorSchemaRootTransformer", 0, bufferAllocator.getLimit());
     }
 
     /**
@@ -148,6 +141,14 @@ public interface VectorSchemaRootTransformer {
         originalRoot.clear();
         return transformedRoot;
       };
+    }
+
+    /**
+     * Functional interface used to a task to transform a VectorSchemaRoot into a new VectorSchemaRoot.
+     */
+    @FunctionalInterface
+    interface Task {
+      void run(VectorSchemaRoot originalRoot, VectorSchemaRoot transformedRoot);
     }
   }
 }

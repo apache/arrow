@@ -78,7 +78,7 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
    */
   @Override
   protected Getter createGetter(int column) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("Not allowed.");
   }
 
   @Override

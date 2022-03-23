@@ -33,7 +33,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -114,7 +114,7 @@ public class ArrowFlightStatementExecuteTest {
 
   @AfterClass
   public static void tearDownAfterClass() throws Exception {
-    AutoCloseables.close(SERVER_TEST_RULE, PRODUCER);
+    AutoCloseables.close(PRODUCER);
   }
 
   @Test

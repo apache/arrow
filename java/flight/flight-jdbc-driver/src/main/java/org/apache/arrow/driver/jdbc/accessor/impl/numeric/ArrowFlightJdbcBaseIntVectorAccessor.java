@@ -189,7 +189,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
         number = getLong();
         break;
       default:
-        throw new IllegalStateException();
+        throw new IllegalStateException("No valid MinorType was provided.");
     }
     return wasNull ? null : number;
   }

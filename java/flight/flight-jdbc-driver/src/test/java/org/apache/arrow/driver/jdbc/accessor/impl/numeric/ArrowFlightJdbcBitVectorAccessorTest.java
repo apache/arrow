@@ -162,6 +162,6 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
   @Test
   public void testShouldGetObjectClass() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBitVectorAccessor::getObjectClass,
-        equalTo(Long.class));
+        equalTo(Boolean.class));
   }
 }

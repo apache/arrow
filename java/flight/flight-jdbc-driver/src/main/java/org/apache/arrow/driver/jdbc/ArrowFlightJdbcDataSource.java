@@ -103,17 +103,17 @@ public class ArrowFlightJdbcDataSource implements DataSource {
   }
 
   @Override
-  public boolean isWrapperFor(Class<?> aClass) throws SQLException {
+  public boolean isWrapperFor(Class<?> aClass) {
     return false;
   }
 
   @Override
-  public PrintWriter getLogWriter() throws SQLException {
+  public PrintWriter getLogWriter() {
     return this.logWriter;
   }
 
   @Override
-  public void setLogWriter(PrintWriter logWriter) throws SQLException {
+  public void setLogWriter(PrintWriter logWriter) {
     this.logWriter = logWriter;
   }
 
@@ -123,12 +123,12 @@ public class ArrowFlightJdbcDataSource implements DataSource {
   }
 
   @Override
-  public int getLoginTimeout() throws SQLException {
+  public int getLoginTimeout() {
     return 0;
   }
 
   @Override
-  public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+  public Logger getParentLogger() {
     return Logger.getLogger("ArrowFlightJdbc");
   }
 }
