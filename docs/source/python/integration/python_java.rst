@@ -318,6 +318,13 @@ To showcase how C-Data works, we are going to tweak a bit both our ``FillTen`` J
 class and our ``fillten.py`` Python script. Given a Python Array, we are going to
 expose a function in Java that sets its content to by the numbers from 1 to 10.
 
+Using C-Data interface in ``pyarrow`` at the moment requires installing ``cffi``
+explicitly, like most Python distributions it can be installed with
+
+.. code-block:: bash
+
+    $ pip install cffi
+
 The first thing we would have to do is to tweak the Python script so that it
 sends to Java the exported references to the Array and its Schema according to the
 C-Data interface:
