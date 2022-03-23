@@ -108,6 +108,12 @@ test_that("select/rename/rename_with using selection helpers", {
   )
   compare_dplyr_binding(
     .input %>%
+      rename_with(toupper, .cols=c()) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
       rename_with(
         ~paste0(.x, "_suffix"),
         .cols=starts_with("d")
