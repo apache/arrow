@@ -1143,7 +1143,7 @@ class MergedGenerator {
         }
       }
       if (mark_generator_complete) {
-        state_->all_finished.MarkFinished();
+        state_->MarkFinishedAndPurge();
       }
     }
     return waiting_future;

@@ -551,6 +551,17 @@ TEST_P(MergedGeneratorTestFixture, Merged) {
   ASSERT_EQ(expected, concat_set);
 }
 
+TEST_P(MergedGeneratorTestFixture, OuterSubscriptionEmpty) {
+  auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>({});
+  if (IsSlow()) {
+    gen = SlowdownABit(gen);
+  }
+  auto merged_gen = MakeMergedGenerator(gen, 10);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected,
+                                CollectAsyncGenerator(std::move(merged_gen)));
+  ASSERT_TRUE(collected.empty());
+}
+
 TEST_P(MergedGeneratorTestFixture, MergedInnerFail) {
   auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>(
       {MakeSource({1, 2, 3}), FailsAt(MakeSource({1, 2, 3}), 1), MakeSource({1, 2, 3})});
