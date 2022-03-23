@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.text;
 
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.commons.io.IOUtils.toByteArray;
 import static org.apache.commons.io.IOUtils.toCharArray;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -26,7 +28,6 @@ import static org.mockito.Mockito.when;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -44,6 +45,7 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.util.Text;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -635,19 +637,32 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     final byte[] result = accessor.getBytes();
 
     collector.checkThat(result, instanceOf(byte[].class));
-    collector.checkThat(result, equalTo(value.toString().getBytes(StandardCharsets.UTF_8)));
+    collector.checkThat(result, equalTo(value.toString().getBytes(UTF_8)));
+  }
+
+  @Test
+  public void testShouldGetUnicodeStreamReturnValidInputStream() throws Exception {
+    Text value = new Text("Value for Test.");
+    when(getter.get(0)).thenReturn(value);
+
+    try (final InputStream result = accessor.getUnicodeStream()) {
+      byte[] resultBytes = toByteArray(result);
+
+      collector.checkThat(new String(resultBytes, UTF_8),
+          equalTo(value.toString()));
+    }
   }
 
   @Test
   public void testShouldGetAsciiStreamReturnValidInputStream() throws Exception {
-    Text value = new Text("Value for Test.");
-    when(getter.get(0)).thenReturn(value);
+    Text valueText = new Text("Value for Test.");
+    byte[] valueAscii = valueText.toString().getBytes(US_ASCII);
+    when(getter.get(0)).thenReturn(valueText);
 
-    try (InputStream result = accessor.getAsciiStream()) {
+    try (final InputStream result = accessor.getAsciiStream()) {
       byte[] resultBytes = toByteArray(result);
 
-      collector.checkThat(new String(resultBytes, StandardCharsets.UTF_8),
-          equalTo(value.toString()));
+      Assert.assertArrayEquals(valueAscii, resultBytes);
     }
   }
 
