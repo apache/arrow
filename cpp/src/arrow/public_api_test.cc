@@ -107,8 +107,7 @@ TEST(Misc, BuildInfo) {
 TEST(Misc, SetTimzoneConfig) {
 #ifndef _WIN32
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
-#else
-#ifndef ARROW_FILESYSTEM
+#elif !defined(ARROW_FILESYSTEM)
   GTEST_SKIP() << "Need filesystem support to test timezone config.";
 #else
   auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
