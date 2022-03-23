@@ -33,12 +33,9 @@ rename.arrow_dplyr_query <- function(.data, ...) {
 rename.Dataset <- rename.ArrowTabular <- rename.RecordBatchReader <- rename.arrow_dplyr_query
 
 rename_with.arrow_dplyr_query <- function(.data, .fn, .cols = everything(), ...) {
-  .fn <- rlang::as_function(.fn)
+  .fn <- as_function(.fn)
   old_names <- names(select(.data, {{ .cols }}))
-  new_names <- do.call(.fn, list(old_names))
-  rename_args <- c(list(.data), as.list(old_names))
-  names(rename_args) <- c(".data", new_names)
-  do.call(rename, rename_args)
+  rename(.data, !!set_names(old_names, .fn(old_names)))
 }
 rename_with.Dataset <- rename_with.ArrowTabular <- rename_with.RecordBatchReader <- rename_with.arrow_dplyr_query
 
