@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/util.h"
 
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/json_util.h>
@@ -30,6 +31,8 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
 
+#include "arrow/util/async_generator.h"
+
 using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;
@@ -38,6 +41,7 @@ using testing::UnorderedElementsAre;
 namespace arrow {
 
 using internal::checked_cast;
+namespace cp = arrow::compute;
 
 namespace engine {
 
@@ -750,6 +754,125 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
+}
+
+TEST(Substrait, GetRecordBatchIterator) {
+  const auto parquet_root = std::getenv("PARQUET_TEST_DATA");
+  std::string dir_string(parquet_root);
+  std::stringstream ss;
+  ss << dir_string << "/alltypes_plain.parquet";
+  auto file_path = ss.str();
+  file_path = "/Users/vibhatha/sandbox/parquet/example.parquet";
+  std::cout << "File Path : " << file_path << std::endl;
+  // std::string substrait_json = R"({
+  //   "relations": [
+  //     {"rel": {
+  //       "read": {
+  //         "base_schema": {
+  //           "struct": {
+  //             "types": [ {"i32": {}},
+  //                        {"bool": {}},
+  //                        {"i32": {}},
+  //                        {"i32": {}},
+  //                        {"i32": {}},
+  //                        {"i64": {}},
+  //                        {"f32": {}},
+  //                        {"f64": {}},
+  //                        {"binary": {}},
+  //                        {"binary": {}},
+  //                        {"ts_ns": {}},
+  //                      ]
+  //           },
+  //           "names": [
+  //                     "id",
+  //                     "bool_col",
+  //                     "tinyint_col",
+  //                     "smallint_col",
+  //                     "int_col",
+  //                     "bigint_col",
+  //                     "float_col",
+  //                     "double_col",
+  //                     "date_string_col",
+  //                     "string_col",
+  //                     "timestamp_col"
+  //                     ]
+  //         },
+  //         "local_files": {
+  //           "items": [
+  //             {
+  //               "uri_file": "file://FILENAME_PLACEHOLDER",
+  //               "format": "FILE_FORMAT_PARQUET"
+  //             }
+  //           ]
+  //         }
+  //       }
+  //     }}
+  //   ]
+  // })";
+
+  std::string substrait_json = R"({
+    "relations": [
+      {"rel": {
+        "read": {
+          "base_schema": {
+            "struct": {
+              "types": [ 
+                         {"i64": {}},
+                         {"bool": {}}
+                       ]
+            },
+            "names": [
+                      "i",
+                       "b"
+                     ]
+          },
+          "local_files": {
+            "items": [
+              {
+                "uri_file": "file://FILENAME_PLACEHOLDER",
+                "format": "FILE_FORMAT_PARQUET"
+              }
+            ]
+          }
+        }
+      }}
+    ]
+  })";
+
+  std::string filename_placeholder = "FILENAME_PLACEHOLDER";
+  substrait_json.replace(substrait_json.find(filename_placeholder),
+                         filename_placeholder.size(), file_path);
+
+  // auto in_schema = schema({
+  //   field("id", int32()),
+  //   field("bool_col", boolean()),
+  //   field("tinyint_col", int32()),
+  //   field("smallint_col", int32()),
+  //   field("int_col", int32()),
+  //   field("bigint_col", int64()),
+  //   field("float_col", float32()),
+  //   field("double_col", float64()),
+  //   field("date_string_col", binary()),
+  //   field("string_col", binary()),
+  //   field("timestamp_col", timestamp(TimeUnit::NANO)),
+  // });
+  auto in_schema = schema({
+    field("i", int64()),
+    field("b", boolean()),
+  });
+  AsyncGenerator<util::optional<cp::ExecBatch>> sink_gen;
+
+  cp::ExecContext exec_context(default_memory_pool(),
+                               arrow::internal::GetCpuThreadPool());
+  ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
+  engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, in_schema, exec_context);
+  auto status = executor.MakePlan();
+  ASSERT_OK(status);
+  ASSERT_OK_AND_ASSIGN(auto reader, executor.Execute());
+  
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
+
+  std::cout << "Results : " << table->ToString() << std::endl;
 }
 
 }  // namespace engine
