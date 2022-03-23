@@ -19,6 +19,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/result.h"
 #include "arrow/visit_type_inline.h"
 
@@ -27,6 +28,7 @@ namespace compute {
 namespace internal {
 
 namespace {
+
 
 struct Add {
   template <typename T, typename Arg0, typename Arg1>
@@ -53,6 +55,30 @@ struct Add {
   }
 };
 
+struct AddChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return left + right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left + right;
+  }
+};
 std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
   return KernelSignature::Make({InputType::Array(get_id.id)}, OutputType(FirstType));
 }
