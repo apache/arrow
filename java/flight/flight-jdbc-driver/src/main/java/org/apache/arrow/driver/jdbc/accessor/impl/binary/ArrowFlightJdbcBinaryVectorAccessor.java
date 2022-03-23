@@ -106,6 +106,16 @@ public class ArrowFlightJdbcBinaryVectorAccessor extends ArrowFlightJdbcAccessor
   }
 
   @Override
+  public InputStream getUnicodeStream() {
+    byte[] bytes = getBytes();
+    if (bytes == null) {
+      return null;
+    }
+
+    return new ByteArrayInputStream(bytes);
+  }
+
+  @Override
   public InputStream getBinaryStream() {
     byte[] bytes = getBytes();
     if (bytes == null) {
