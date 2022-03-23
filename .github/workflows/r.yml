@@ -77,7 +77,7 @@ jobs:
         run: ci/scripts/r_pkgdown_check.sh
       - name: Run lintr
         run: |
-          R -e "remotes::install_github('jonkeane/lintr@arrow-branch')"
+          R -e "remotes::install_github('jonkeane/lintr@arrow-branch', dependencies = TRUE)"
           r/lint.sh
       - name: Setup Python
         uses: actions/setup-python@v1
