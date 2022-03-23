@@ -165,6 +165,8 @@ alternatively, use Arrow from a package manager such as Conda or vcpkg which
 will manage consistent versions of Arrow and its dependencies.
 
 
+.. _download-timezone-database:
+
 Runtime Dependencies
 ====================
 
