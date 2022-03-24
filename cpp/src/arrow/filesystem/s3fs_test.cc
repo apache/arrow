@@ -108,7 +108,7 @@ class ShortRetryStrategy : public S3RetryStrategy {
     return kRetryInterval;
   }
 
-  bool IsRetryable(const AWSErrorDetail& error) {
+  bool IsRetryable(const AWSErrorDetail& error) const {
     return error.should_retry || error.exception_name == "XMinioServerNotInitialized";
   }
 

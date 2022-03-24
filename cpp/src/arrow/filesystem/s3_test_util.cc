@@ -138,7 +138,7 @@ Status MinioTestServer::Stop() {
     impl_->server_process_->terminate();
     impl_->server_process_->wait();
 #ifndef _WIN32
-    // XXX Despite calling wait() above, boost::process fails to clear zombies
+    // Despite calling wait() above, boost::process fails to clear zombies
     // so do it ourselves.
     waitpid(impl_->server_process_->id(), nullptr, 0);
 #endif
