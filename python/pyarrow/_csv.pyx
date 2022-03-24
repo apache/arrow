@@ -756,7 +756,7 @@ cdef class ConvertOptions(_Weakrefable):
     Set empty strings to missing values:
 
     >>> convert_options = csv.ConvertOptions(include_columns=["animals", "n_legs"],
-    ...                   strings_can_be_null = True)
+    ...                   strings_can_be_null=True)
     >>> csv.read_csv(io.BytesIO(s), convert_options=convert_options)
     pyarrow.Table
     animals: string
