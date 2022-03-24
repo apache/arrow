@@ -250,25 +250,26 @@ int main(int argc, char** argv) {
     if (FLAGS_server_unix.empty()) {
       if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
         if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
+          ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port)
+                             .Value(&bind_location));
           ARROW_CHECK_OK(
-              arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port).Value(&bind_location));
-          ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTls(
-              FLAGS_server_host, FLAGS_port).Value(&connect_location));
+              arrow::flight::Location::ForGrpcTls(FLAGS_server_host, FLAGS_port)
+                  .Value(&connect_location));
         } else {
           std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
           return EXIT_FAILURE;
         }
       } else {
-        ARROW_CHECK_OK(
-            arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port).Value(&bind_location));
-        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port
-                                                           ).Value(&connect_location));
+        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port)
+                           .Value(&bind_location));
+        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port)
+                           .Value(&connect_location));
       }
     } else {
       ARROW_CHECK_OK(
           arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&bind_location));
-      ARROW_CHECK_OK(
-          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&connect_location));
+      ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix)
+                         .Value(&connect_location));
     }
   } else {
     std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;

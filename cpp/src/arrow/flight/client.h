@@ -266,14 +266,14 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// command
   /// \return Arrow result with the SchemaResult describing the dataset schema
   arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
-          const FlightCallOptions& options, const FlightDescriptor& descriptor);
+      const FlightCallOptions& options, const FlightDescriptor& descriptor);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
                    std::unique_ptr<SchemaResult>* schema_result);
 
   arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
-          const FlightDescriptor& descriptor) {
+      const FlightDescriptor& descriptor) {
     return GetSchema({}, descriptor);
   }
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")

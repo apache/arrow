@@ -187,7 +187,8 @@ class TestFlightClient : public ::testing::Test {
   }
 
   Status ConnectClient() {
-    ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", server_->port()));
+    ARROW_ASSIGN_OR_RAISE(auto location,
+                          Location::ForGrpcTcp("localhost", server_->port()));
     return FlightClient::Connect(location, &client_);
   }
 

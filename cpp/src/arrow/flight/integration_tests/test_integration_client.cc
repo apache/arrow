@@ -211,7 +211,8 @@ arrow::Status RunScenario(arrow::flight::integration_tests::Scenario* scenario) 
   std::unique_ptr<arrow::flight::FlightClient> client;
 
   RETURN_NOT_OK(scenario->MakeClient(&options));
-  ARROW_ASSIGN_OR_RAISE(auto location, arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
+  ARROW_ASSIGN_OR_RAISE(auto location,
+                        arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
   RETURN_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
   return scenario->RunClient(std::move(client));
 }

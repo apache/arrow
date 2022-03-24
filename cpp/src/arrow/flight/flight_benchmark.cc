@@ -451,7 +451,8 @@ int main(int argc, char** argv) {
         std::cout << "Using standalone Unix server" << std::endl;
       }
       std::cout << "Server unix socket: " << FLAGS_server_unix << std::endl;
-      ABORT_NOT_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&location));
+      ABORT_NOT_OK(
+          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&location));
     } else {
       if (FLAGS_server_host == "") {
         FLAGS_server_host = "localhost";
@@ -482,11 +483,13 @@ int main(int argc, char** argv) {
       std::cout << "Server host: " << FLAGS_server_host << std::endl
                 << "Server port: " << FLAGS_server_port << std::endl;
       if (FLAGS_cert_file.empty()) {
-        ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host,
-                                                         FLAGS_server_port).Value(&location));
+        ABORT_NOT_OK(
+            arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_server_port)
+                .Value(&location));
       } else {
-        ABORT_NOT_OK(arrow::flight::Location::ForGrpcTls(FLAGS_server_host,
-                                                         FLAGS_server_port).Value(&location));
+        ABORT_NOT_OK(
+            arrow::flight::Location::ForGrpcTls(FLAGS_server_host, FLAGS_server_port)
+                .Value(&location));
         options.disable_server_verification = true;
       }
     }

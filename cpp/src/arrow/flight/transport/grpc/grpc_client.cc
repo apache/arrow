@@ -43,8 +43,8 @@
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/uri.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/uri.h"
 
 #include "arrow/flight/client.h"
 #include "arrow/flight/client_auth.h"

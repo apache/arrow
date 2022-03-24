@@ -58,9 +58,7 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
   virtual arrow::Result<FlightPayload> Next() = 0;
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(FlightPayload* payload) {
-      return Next().Value(payload);
-  }
+  Status Next(FlightPayload* payload) { return Next().Value(payload); }
 };
 
 /// \brief A basic implementation of FlightDataStream that will provide
@@ -248,12 +246,10 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \param[in] request may be null
   /// \return Arrow result with the returned flight schema provider
   virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
-          const ServerCallContext& context,
-          const FlightDescriptor& request);
+      const ServerCallContext& context, const FlightDescriptor& request);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status GetSchema(const ServerCallContext& context,
-                   const FlightDescriptor& request,
+  Status GetSchema(const ServerCallContext& context, const FlightDescriptor& request,
                    std::unique_ptr<SchemaResult>* schema);
 
   /// \brief Get a stream of IPC payloads to put on the wire

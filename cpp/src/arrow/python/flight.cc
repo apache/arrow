@@ -108,16 +108,18 @@ Status PyFlightServer::GetFlightInfo(const arrow::flight::ServerCallContext& con
   });
 }
 
-arrow::Result<std::unique_ptr<arrow::flight::SchemaResult>>
-PyFlightServer::GetSchema(const arrow::flight::ServerCallContext& context,
-                          const arrow::flight::FlightDescriptor& request) {
-  return SafeCallIntoPython([&]() -> arrow::Result<std::unique_ptr<arrow::flight::SchemaResult>> {
-    std::unique_ptr<arrow::flight::SchemaResult> result;
-    const Status status = vtable_.get_schema(server_.obj(), context, request, &result);
-    RETURN_NOT_OK(CheckPyError());
-    RETURN_NOT_OK(status);
-    return result;
-  });
+arrow::Result<std::unique_ptr<arrow::flight::SchemaResult>> PyFlightServer::GetSchema(
+    const arrow::flight::ServerCallContext& context,
+    const arrow::flight::FlightDescriptor& request) {
+  return SafeCallIntoPython(
+      [&]() -> arrow::Result<std::unique_ptr<arrow::flight::SchemaResult>> {
+        std::unique_ptr<arrow::flight::SchemaResult> result;
+        const Status status =
+            vtable_.get_schema(server_.obj(), context, request, &result);
+        RETURN_NOT_OK(CheckPyError());
+        RETURN_NOT_OK(status);
+        return result;
+      });
 }
 
 Status PyFlightServer::DoGet(const arrow::flight::ServerCallContext& context,
