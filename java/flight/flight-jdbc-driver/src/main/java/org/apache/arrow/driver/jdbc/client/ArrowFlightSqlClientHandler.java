@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
+import org.apache.arrow.driver.jdbc.utils.RpcExceptionMapper;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
@@ -530,9 +531,18 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
                   client, new CredentialCallOption(new BearerCredentialWriter(token))));
         }
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
-
-      } catch (final IllegalArgumentException | GeneralSecurityException | IOException | FlightRuntimeException e) {
-        final SQLException originalException = new SQLException(e);
+      } catch (final IllegalArgumentException | GeneralSecurityException | IOException e) {
+        SQLException originalException = new SQLException(e);
+        if (client != null) {
+          try {
+            client.close();
+          } catch (final InterruptedException interruptedException) {
+            originalException.addSuppressed(interruptedException);
+          }
+        }
+        throw originalException;
+      } catch (final FlightRuntimeException e) {
+        SQLException originalException = RpcExceptionMapper.map(e, "Failure in connection: %s", e.toString());
         if (client != null) {
           try {
             client.close();
