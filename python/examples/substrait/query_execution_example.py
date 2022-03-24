@@ -1,6 +1,8 @@
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from pyarrow.engine import run_query
+
 query = """
 ({
     "relations": [
@@ -31,3 +33,9 @@ query = """
     ]
   })
 """
+
+query = query.replace("FILENAME_PLACEHOLDER", "/Users/vibhatha/sandbox/parquet/example.parquet")
+
+schema = pa.schema({"i": pa.int64(), "b": pa.bool_()})
+
+
