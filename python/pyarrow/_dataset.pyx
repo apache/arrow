@@ -1673,7 +1673,6 @@ cdef class FilenamePartitioning(Partitioning):
 
     @staticmethod
     def discover(field_names=None, infer_dictionary=False,
-                 max_partition_dictionary_size=0,
                  schema=None, segment_encoding="uri"):
         """
         Discover a FilenamePartitioning.
@@ -1705,12 +1704,6 @@ cdef class FilenamePartitioning(Partitioning):
         cdef:
             CPartitioningFactoryOptions c_options
             vector[c_string] c_field_names
-
-        if max_partition_dictionary_size in {-1, None}:
-            infer_dictionary = True
-        elif max_partition_dictionary_size != 0:
-            raise NotImplementedError("max_partition_dictionary_size must be "
-                                      "0, -1, or None")
 
         if infer_dictionary:
             c_options.infer_dictionary = True
