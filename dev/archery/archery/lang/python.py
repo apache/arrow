@@ -147,9 +147,10 @@ class NumpyDoc:
                 if module is None or not module.startswith(from_package):
                     continue
                 # Is it a Cython-generated method? If so, try to detect
-                # whether it has a implicitly-generated docstring due to
-                # the Cython `embedsignature` directive; and if so, skip
-                # validation on it.
+                # whether it only has a implicitly-generated docstring,
+                # and no user-defined docstring following it.
+                # The generated docstring would lack description of method
+                # parameters and therefore fail Numpydoc validation.
                 if hasattr(member, '__objclass__'):
                     doc = getattr(member, '__doc__', None)
                     # The Cython-generated docstring would be a one-liner,
