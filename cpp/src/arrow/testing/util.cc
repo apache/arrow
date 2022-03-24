@@ -166,17 +166,22 @@ std::string GetListenAddress() {
   // Using GetListenPort() alone may still suffer from race conditions,
   // so this function maximizes the chances of finding an available address
   // by using a different loopback address every time (there are 2**24 of them).
-  static std::atomic<uint32_t> next_addr{1U};  // start at "127.0.0.1"
-  const auto addr = next_addr++ & 0xffffffU;   // keep bottom 24 bits
-  const auto port = GetListenPort();
   std::stringstream ss;
-  // Format loopback IPv4 address and port
+#ifndef __APPLE__
+  static std::atomic<uint32_t> next_addr{1U};     // start at "127.0.0.1"
+  const uint32_t addr = next_addr++ & 0xffffffU;  // keep bottom 24 bits
+  // Format loopback IPv4 address
   ss << "127";
   for (int shift = 16; shift >= 0; shift -= 8) {
     const auto byte = (addr >> shift) & 0xFFU;
     ss << "." << byte;
   }
-  ss << ":" << port;
+#else
+  // On MacOS, only 127.0.0.1 is a valid loopback address by default.
+  ss << "127.0.0.1";
+#endif
+  // Append port number
+  ss << ":" << GetListenPort();
   return ss.str();
 }
 
