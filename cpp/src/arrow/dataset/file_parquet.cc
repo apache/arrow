@@ -170,13 +170,13 @@ Status ResolveOneFieldRef(
       return Status::Invalid("Ambiguous reference to column '", *name,
                              "' which occurs more than once");
     }
+    // "Virtual" column: field is not in file but is in the ScanOptions.
+    // Ignore it here, as projection will pad the batch with a null column.
     return Status::OK();
   };
 
   if (const std::string* name = field_ref.name()) {
     RETURN_NOT_OK(resolve_field_ref(name));
-    // "Virtual" column: field is not in file but is in the ScanOptions.
-    // Ignore it here, as projection will pad the batch with a null column.
     return Status::OK();
   } else if (const FieldPath* path = field_ref.field_path()) {
     int index = path->indices()[0];

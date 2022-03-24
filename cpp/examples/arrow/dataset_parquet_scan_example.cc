@@ -41,8 +41,8 @@ namespace cp = arrow::compute;
 
 /**
  * @brief Run Example
- * .dataset-parquet-scan-example file:///sell_data.parquet
- * sample data in csv format
+ * ./dataset-parquet-scan-example file:///sell_data.parquet
+ * sample data set
  *           pickup_at dropoff_at  total_amount
  *         0         A          B            10
  *         1         B          A          1200
@@ -73,6 +73,10 @@ struct Configuration {
 
   // Indicates the filter by which rows will be filtered. This optimization can
   // make use of partition information and/or file metadata if possible.
+  // Equivalent filter with field_name instead of field_index
+  // cp::Expression filter = cp::greater(cp::field_ref("total_amount"),
+  // cp::literal(1000.0f));
+  // 0: pickup_at, 1: dropoff_at, 2: total_amount
   cp::Expression filter = cp::greater(cp::field_ref(2), cp::literal(1000.0f));
 
   ds::InspectOptions inspect_options{};

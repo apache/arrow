@@ -825,26 +825,31 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
   }
 
   void TestScanWithFieldPathFilter() {
-    auto i32 = field("i32", int32());
-    auto i64 = field("i64", int64());
-    this->opts_->dataset_schema = schema({i32, i64});
-    this->Project({"i64"});
-    this->SetFilter(equal(field_ref(0), literal(0)));
-    auto expected_schema = schema({i64});
-    auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
-    auto source = this->GetFileSource(reader.get());
-    auto fragment = this->MakeFragment(*source);
+    compute::Expression index_filter = equal(field_ref(0), literal(0));
+    compute::Expression name_filter = equal(field_ref("i64"), literal(0));
+    std::vector<int64_t> row_counts(2);
+    for (auto filter : {index_filter, name_filter}) {
+      auto i32 = field("i32", int32());
+      auto i64 = field("i64", int64());
+      this->opts_->dataset_schema = schema({i32, i64});
+      this->Project({});
+      this->SetFilter(filter);
+      auto expected_schema = schema({i32, i64});
+      auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
 
-    int64_t row_count = 0;
+      int64_t row_count = 0;
 
-    for (auto maybe_batch : PhysicalBatches(fragment)) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-      row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), *expected_schema,
-                        /*check_metadata=*/false);
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+      row_counts.push_back(row_count);
     }
 
-    ASSERT_EQ(row_count, expected_rows());
+    ASSERT_EQ(row_counts.at(0), row_counts.at(1));
   }
 
   void TestScanWithDuplicateColumn() {
