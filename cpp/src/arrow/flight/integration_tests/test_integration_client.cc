@@ -177,7 +177,7 @@ class IntegrationTestScenario : public Scenario {
 
     std::shared_ptr<Schema> schema;
     ipc::DictionaryMemo dict_memo;
-    ABORT_NOT_OK(info->GetSchema(&dict_memo, &schema));
+    ABORT_NOT_OK(info->GetSchema(&dict_memo).Value(&schema));
 
     if (info->endpoints().size() == 0) {
       std::cerr << "No endpoints returned from Flight server." << std::endl;

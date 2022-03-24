@@ -264,13 +264,22 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request, whether a named dataset or
   /// command
-  /// \param[out] schema_result the SchemaResult describing the dataset schema
-  /// \return Status
+  /// \return Arrow result with the SchemaResult describing the dataset schema
+  arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
+          const FlightCallOptions& options, const FlightDescriptor& descriptor);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
                    std::unique_ptr<SchemaResult>* schema_result);
+
+  arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
+          const FlightDescriptor& descriptor) {
+    return GetSchema({}, descriptor);
+  }
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(const FlightDescriptor& descriptor,
                    std::unique_ptr<SchemaResult>* schema_result) {
-    return GetSchema({}, descriptor, schema_result);
+    return GetSchema({}, descriptor).Value(schema_result);
   }
 
   /// \brief List all available flights known to the server

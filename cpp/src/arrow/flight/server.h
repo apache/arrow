@@ -237,11 +237,15 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \brief Retrieve the schema for the indicated descriptor
   /// \param[in] context The call context.
   /// \param[in] request may be null
-  /// \param[out] schema the returned flight schema provider
-  /// \return Status
-  virtual Status GetSchema(const ServerCallContext& context,
-                           const FlightDescriptor& request,
-                           std::unique_ptr<SchemaResult>* schema);
+  /// \return Arrow result with the returned flight schema provider
+  virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
+          const ServerCallContext& context,
+          const FlightDescriptor& request);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status GetSchema(const ServerCallContext& context,
+                   const FlightDescriptor& request,
+                   std::unique_ptr<SchemaResult>* schema);
 
   /// \brief Get a stream of IPC payloads to put on the wire
   /// \param[in] context The call context.

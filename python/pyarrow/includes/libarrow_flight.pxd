@@ -116,7 +116,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightInfo(CFlightInfo info)
         int64_t total_records()
         int64_t total_bytes()
-        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
+        CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
         CResult[c_string] SerializeToString()
@@ -127,7 +127,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CSchemaResult" arrow::flight::SchemaResult":
         CSchemaResult(CSchemaResult result)
-        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
+        CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
 
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
         CStatus Next(unique_ptr[CFlightInfo]* info)
@@ -337,9 +337,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus GetFlightInfo(CFlightCallOptions& options,
                               CFlightDescriptor& descriptor,
                               unique_ptr[CFlightInfo]* info)
-        CStatus GetSchema(CFlightCallOptions& options,
-                          CFlightDescriptor& descriptor,
-                          unique_ptr[CSchemaResult]* result)
+        CResult[unique_ptr[CSchemaResult]] GetSchema(CFlightCallOptions& options,
+                                                     CFlightDescriptor& descriptor)
         CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
                       unique_ptr[CFlightStreamReader]* stream)
         CStatus DoPut(CFlightCallOptions& options,

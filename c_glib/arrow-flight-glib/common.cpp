@@ -1018,10 +1018,10 @@ gaflight_info_get_schema(GAFlightInfo *info,
   std::shared_ptr<arrow::Schema> arrow_schema;
   if (options) {
     auto arrow_memo = garrow_read_options_get_dictionary_memo_raw(options);
-    status = flight_info->GetSchema(arrow_memo, &arrow_schema);
+    status = flight_info->GetSchema(arrow_memo).Value(&arrow_schema);
   } else {
     arrow::ipc::DictionaryMemo arrow_memo;
-    status = flight_info->GetSchema(&arrow_memo, &arrow_schema);
+    status = flight_info->GetSchema(&arrow_memo).Value(&arrow_schema);
   }
   if (garrow::check(error, status, "[flight-info][get-schema]")) {
     return garrow_schema_new_raw(&arrow_schema);
