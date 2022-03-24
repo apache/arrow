@@ -1724,7 +1724,8 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     max_attempts = 128
     for _ in range(max_attempts):
         if stream.current_stream != nullptr:
-            check_flight_status(stream.current_stream.get().Next().Value(payload))
+            check_flight_status(
+                stream.current_stream.get().Next().Value(payload))
             # If the stream ended, see if there's another stream from the
             # generator
             if payload.ipc_message.metadata != nullptr:
