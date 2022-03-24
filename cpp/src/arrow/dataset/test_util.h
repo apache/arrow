@@ -834,7 +834,6 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       this->opts_->dataset_schema = schema({i32, i64});
       this->Project({});
       this->SetFilter(filter);
-      auto expected_schema = schema({i32, i64});
       auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
       auto source = this->GetFileSource(reader.get());
       auto fragment = this->MakeFragment(*source);

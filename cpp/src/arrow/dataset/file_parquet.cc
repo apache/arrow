@@ -179,7 +179,12 @@ Status ResolveOneFieldRef(
     RETURN_NOT_OK(resolve_field_ref(name));
     return Status::OK();
   } else if (const FieldPath* path = field_ref.field_path()) {
-    int index = path->indices()[0];
+    auto indices = path->indices();
+    if (indices.size() > 1) {
+      return Status::NotImplemented("Provided FieldRef ", field_ref.ToString(),
+                                    ", Nested FieldPaths are not supported!");
+    }
+    int index = indices[0];
     auto schema_field = manifest.schema_fields.at(index);
     auto col_name = schema_field.field->name();
     RETURN_NOT_OK(resolve_field_ref(&col_name));
