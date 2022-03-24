@@ -330,6 +330,8 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
 
 class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
  public:
+  /// \brief Construct a FilenamePartitioning from its components.
+  ///
   /// If a field in schema is of dictionary type, the corresponding element of
   /// dictionaries must be contain the dictionary of values for that field.
   explicit FilenamePartitioning(std::shared_ptr<Schema> schema,
