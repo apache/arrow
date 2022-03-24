@@ -102,8 +102,7 @@ Status ConsumeFlightLocation(
   int counter = 0;
   const int expected = static_cast<int>(retrieved_data.size());
   for (const auto& original_batch : retrieved_data) {
-    FlightStreamChunk chunk;
-    RETURN_NOT_OK(stream->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, stream->Next());
     if (chunk.data == nullptr) {
       return Status::Invalid("Got fewer batches than expected, received so far: ",
                              counter, " expected ", expected);
@@ -125,8 +124,7 @@ Status ConsumeFlightLocation(
     counter++;
   }
 
-  FlightStreamChunk chunk;
-  RETURN_NOT_OK(stream->Next(&chunk));
+  ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, stream->Next());
   if (chunk.data != nullptr) {
     return Status::Invalid("Got more batches than the expected ", expected);
   }

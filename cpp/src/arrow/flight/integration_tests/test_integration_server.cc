@@ -141,7 +141,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
     ARROW_ASSIGN_OR_RAISE(dataset.schema, reader->GetSchema());
     arrow::flight::FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (chunk.data == nullptr) break;
       RETURN_NOT_OK(chunk.data->ValidateFull());
       dataset.chunks.push_back(chunk.data);

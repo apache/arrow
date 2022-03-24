@@ -293,7 +293,7 @@ class FlightTestServer : public FlightServerBase {
     RETURN_NOT_OK(ExampleIntBatches(&batches));
     FlightStreamChunk chunk;
     for (const auto& batch : batches) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data) {
         return Status::Invalid("Expected another batch");
       }
@@ -301,7 +301,7 @@ class FlightTestServer : public FlightServerBase {
         return Status::Invalid("Batch does not match");
       }
     }
-    RETURN_NOT_OK(reader->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
     if (chunk.data || chunk.app_metadata) {
       return Status::Invalid("Too many batches");
     }
@@ -318,7 +318,7 @@ class FlightTestServer : public FlightServerBase {
     FlightStreamChunk chunk;
     int chunks = 0;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data && !chunk.app_metadata) {
         break;
       }
@@ -360,7 +360,7 @@ class FlightTestServer : public FlightServerBase {
     std::vector<std::shared_ptr<Array>> columns(schema->num_fields());
     RETURN_NOT_OK(writer->Begin(schema));
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data && !chunk.app_metadata) {
         break;
       }
@@ -405,7 +405,7 @@ class FlightTestServer : public FlightServerBase {
     FlightStreamChunk chunk;
     bool begun = false;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data && !chunk.app_metadata) {
         break;
       }
@@ -504,13 +504,13 @@ Status NumberingStream::GetSchemaPayload(FlightPayload* payload) {
   return stream_->GetSchemaPayload(payload);
 }
 
-Status NumberingStream::Next(FlightPayload* payload) {
-  RETURN_NOT_OK(stream_->Next(payload));
-  if (payload && payload->ipc_message.type == ipc::MessageType::RECORD_BATCH) {
-    payload->app_metadata = Buffer::FromString(std::to_string(counter_));
+arrow::Result<FlightPayload> NumberingStream::Next() {
+  ARROW_ASSIGN_OR_RAISE(FlightPayload payload, stream_->Next());
+  if (payload.ipc_message.type == ipc::MessageType::RECORD_BATCH) {
+    payload.app_metadata = Buffer::FromString(std::to_string(counter_));
     counter_++;
   }
-  return Status::OK();
+  return payload;
 }
 
 std::shared_ptr<Schema> ExampleIntSchema() {

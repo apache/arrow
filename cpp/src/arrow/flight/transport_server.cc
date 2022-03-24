@@ -287,8 +287,7 @@ Status ServerTransport::DoGet(const ServerCallContext& context, const Ticket& ti
 
   // Consume data stream and write out payloads
   while (true) {
-    FlightPayload payload;
-    RETURN_NOT_OK(data_stream->Next(&payload));
+    ARROW_ASSIGN_OR_RAISE(FlightPayload payload, data_stream->Next());
     // End of stream
     if (payload.ipc_message.metadata == nullptr) break;
     ARROW_ASSIGN_OR_RAISE(auto success, stream->WriteData(payload));

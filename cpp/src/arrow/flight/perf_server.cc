@@ -89,10 +89,11 @@ class PerfDataStream : public FlightDataStream {
     return ipc::GetSchemaPayload(*schema_, ipc_options_, mapper_, &payload->ipc_message);
   }
 
-  Status Next(FlightPayload* payload) override {
+  arrow::Result<FlightPayload> Next() override {
+    FlightPayload payload;
     if (records_sent_ >= total_records_) {
       // Signal that iteration is over
-      payload->ipc_message.metadata = nullptr;
+      payload.ipc_message.metadata = nullptr;
       return Status::OK();
     }
 
@@ -114,7 +115,8 @@ class PerfDataStream : public FlightDataStream {
     } else {
       records_sent_ += batch_length_;
     }
-    return ipc::GetRecordBatchPayload(*batch, ipc_options_, &payload->ipc_message);
+    RETURN_NOT_OK(ipc::GetRecordBatchPayload(*batch, ipc_options_, &payload.ipc_message));
+    return payload;
   }
 
  private:
@@ -202,7 +204,7 @@ class FlightPerfServer : public FlightServerBase {
                std::unique_ptr<FlightMetadataWriter> writer) override {
     FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data) break;
       if (chunk.app_metadata) {
         RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));

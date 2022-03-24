@@ -854,7 +854,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
             FlightStreamChunk chunk = FlightStreamChunk()
 
         with nogil:
-            check_flight_status(self.reader.get().Next(&chunk.chunk))
+            check_flight_status(self.reader.get().Next().Value(&chunk.chunk))
 
         if chunk.chunk.data == NULL and chunk.chunk.app_metadata == NULL:
             raise StopIteration
@@ -1294,7 +1294,7 @@ cdef class FlightClient(_Weakrefable):
             while True:
                 result = Result.__new__(Result)
                 with nogil:
-                    check_flight_status(results.get().Next(&result.result))
+                    check_flight_status(results.get().Next().Value(&result.result))
                     if result.result == NULL:
                         break
                 yield result
@@ -1323,7 +1323,7 @@ cdef class FlightClient(_Weakrefable):
             while True:
                 result = FlightInfo.__new__(FlightInfo)
                 with nogil:
-                    check_flight_status(listing.get().Next(&result.info))
+                    check_flight_status(listing.get().Next().Value(&result.info))
                     if result.info == NULL:
                         break
                 yield result
@@ -1724,7 +1724,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     max_attempts = 128
     for _ in range(max_attempts):
         if stream.current_stream != nullptr:
-            check_flight_status(stream.current_stream.get().Next(payload))
+            check_flight_status(stream.current_stream.get().Next().Value(payload))
             # If the stream ended, see if there's another stream from the
             # generator
             if payload.ipc_message.metadata != nullptr:

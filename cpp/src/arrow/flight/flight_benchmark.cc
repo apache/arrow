@@ -154,7 +154,7 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
   StopWatch timer;
   while (true) {
     timer.Start();
-    RETURN_NOT_OK(reader->Next(&batch));
+    ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
     stats->AddLatency(timer.Stop());
     if (!batch.data) {
       break;

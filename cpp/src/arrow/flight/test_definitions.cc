@@ -165,7 +165,7 @@ void DataTest::CheckDoGet(const Ticket& ticket,
   FlightStreamChunk chunk;
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < num_batches; ++i) {
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
     ASSERT_OK(reader->ReadNext(&batch));
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_NE(nullptr, batch);
@@ -188,7 +188,7 @@ void DataTest::CheckDoGet(const Ticket& ticket,
   }
 
   // Stream exhausted
-  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
   ASSERT_OK(reader->ReadNext(&batch));
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, batch);
@@ -252,7 +252,7 @@ void DataTest::TestOverflowServerBatch() {
     FlightStreamChunk chunk;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
-        stream->Next(&chunk));
+        stream->Next());
   }
   {
     // DoExchange: check for overflow on large batch from server
@@ -308,14 +308,14 @@ void DataTest::TestDoExchange() {
   }
   ASSERT_OK(writer->DoneWriting());
   FlightStreamChunk chunk;
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
   ASSERT_NE(nullptr, chunk.app_metadata);
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ("1", chunk.app_metadata->ToString());
   ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
   AssertSchemaEqual(schema, server_schema);
   for (const auto& batch : batches) {
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_BATCHES_EQUAL(*batch, *chunk.data);
   }
   ASSERT_OK(writer->Close());
@@ -329,7 +329,7 @@ void DataTest::TestDoExchangeNoData() {
   ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
   ASSERT_OK(writer->DoneWriting());
   FlightStreamChunk chunk;
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_NE(nullptr, chunk.app_metadata);
   ASSERT_EQ("0", chunk.app_metadata->ToString());
@@ -347,7 +347,7 @@ void DataTest::TestDoExchangeWriteOnlySchema() {
   ASSERT_OK(writer->WriteMetadata(Buffer::FromString("foo")));
   ASSERT_OK(writer->DoneWriting());
   FlightStreamChunk chunk;
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_NE(nullptr, chunk.app_metadata);
   ASSERT_EQ("0", chunk.app_metadata->ToString());
@@ -365,11 +365,11 @@ void DataTest::TestDoExchangeGet() {
   ASSERT_OK(ExampleIntBatches(&batches));
   FlightStreamChunk chunk;
   for (const auto& batch : batches) {
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     AssertBatchesEqual(*batch, *chunk.data);
   }
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
@@ -388,10 +388,10 @@ void DataTest::TestDoExchangePut() {
   }
   ASSERT_OK(writer->DoneWriting());
   FlightStreamChunk chunk;
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
   ASSERT_NE(nullptr, chunk.app_metadata);
   AssertBufferEqual(*chunk.app_metadata, "done");
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
@@ -408,7 +408,7 @@ void DataTest::TestDoExchangeEcho() {
   ASSERT_OK(ExampleIntBatches(&batches));
   for (const auto& batch : batches) {
     ASSERT_OK(writer->WriteRecordBatch(*batch));
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_EQ(nullptr, chunk.app_metadata);
     AssertBatchesEqual(*batch, *chunk.data);
@@ -416,7 +416,7 @@ void DataTest::TestDoExchangeEcho() {
   for (int i = 0; i < 10; i++) {
     const auto buf = Buffer::FromString(std::to_string(i));
     ASSERT_OK(writer->WriteMetadata(buf));
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_EQ(nullptr, chunk.data);
     ASSERT_NE(nullptr, chunk.app_metadata);
     AssertBufferEqual(*buf, *chunk.app_metadata);
@@ -425,7 +425,7 @@ void DataTest::TestDoExchangeEcho() {
   for (const auto& batch : batches) {
     const auto buf = Buffer::FromString(std::to_string(index));
     ASSERT_OK(writer->WriteWithMetadata(*batch, buf));
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_NE(nullptr, chunk.app_metadata);
     AssertBatchesEqual(*batch, *chunk.data);
@@ -433,7 +433,7 @@ void DataTest::TestDoExchangeEcho() {
     index++;
   }
   ASSERT_OK(writer->DoneWriting());
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
@@ -471,7 +471,7 @@ void DataTest::TestDoExchangeTotal() {
     ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
     AssertSchemaEqual(*schema, *server_schema);
 
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     auto expected1 = RecordBatch::Make(
         schema, /* num_rows */ 1,
@@ -479,7 +479,7 @@ void DataTest::TestDoExchangeTotal() {
     AssertBatchesEqual(*expected1, *chunk.data);
 
     ASSERT_OK(writer->WriteRecordBatch(*batch));
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     auto expected2 = RecordBatch::Make(
         schema, /* num_rows */ 1,
@@ -502,9 +502,8 @@ void DataTest::TestDoExchangeError() {
   }
   {
     ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
-    FlightStreamChunk chunk;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        NotImplemented, ::testing::HasSubstr("Expected error"), reader->Next(&chunk));
+        NotImplemented, ::testing::HasSubstr("Expected error"), reader->Next());
     ARROW_UNUSED(writer->Close());
   }
   {
@@ -533,12 +532,12 @@ void DataTest::TestDoExchangeConcurrency() {
   std::thread reader_thread([&reader, &batches]() {
     FlightStreamChunk chunk;
     for (size_t i = 0; i < batches.size(); i++) {
-      ASSERT_OK(reader->Next(&chunk));
+      ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
       ASSERT_NE(nullptr, chunk.data);
       ASSERT_EQ(nullptr, chunk.app_metadata);
       AssertBatchesEqual(*batches[i], *chunk.data);
     }
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_EQ(nullptr, chunk.data);
     ASSERT_EQ(nullptr, chunk.app_metadata);
   });
@@ -610,7 +609,7 @@ class DoPutTestServer : public FlightServerBase {
     int counter = 0;
     FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data) break;
       if (counter % 2 == 1) {
         if (!chunk.app_metadata) {
@@ -859,7 +858,7 @@ Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
   FlightStreamChunk chunk;
   int counter = 0;
   while (true) {
-    RETURN_NOT_OK(reader->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
     if (chunk.data == nullptr) break;
     if (chunk.app_metadata == nullptr) {
       return Status::Invalid("Expected application metadata to be provided");
@@ -897,13 +896,13 @@ void AppMetadataTest::TestDoGet() {
   FlightStreamChunk chunk;
   auto num_batches = static_cast<int>(expected_batches.size());
   for (int i = 0; i < num_batches; ++i) {
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_NE(nullptr, chunk.app_metadata);
     ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
     ASSERT_EQ(std::to_string(i), chunk.app_metadata->ToString());
   }
-  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
   ASSERT_EQ(nullptr, chunk.data);
 }
 // Test dictionaries. This tests a corner case in the reader:
@@ -921,13 +920,13 @@ void AppMetadataTest::TestDoGetDictionaries() {
   FlightStreamChunk chunk;
   auto num_batches = static_cast<int>(expected_batches.size());
   for (int i = 0; i < num_batches; ++i) {
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_NE(nullptr, chunk.app_metadata);
     ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
     ASSERT_EQ(std::to_string(i), chunk.app_metadata->ToString());
   }
-  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
   ASSERT_EQ(nullptr, chunk.data);
 }
 void AppMetadataTest::TestDoPut() {
@@ -1018,10 +1017,9 @@ class IpcOptionsTestServer : public FlightServerBase {
   Status DoPut(const ServerCallContext& context,
                std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
-    FlightStreamChunk chunk;
     int counter = 0;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
       if (chunk.data == nullptr) break;
       counter++;
     }
@@ -1034,12 +1032,11 @@ class IpcOptionsTestServer : public FlightServerBase {
   Status DoExchange(const ServerCallContext& context,
                     std::unique_ptr<FlightMessageReader> reader,
                     std::unique_ptr<FlightMessageWriter> writer) override {
-    FlightStreamChunk chunk;
     auto options = ipc::IpcWriteOptions::Defaults();
     options.max_recursion_depth = 1;
     bool begun = false;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
       if (!chunk.data && !chunk.app_metadata) {
         break;
       }
@@ -1077,8 +1074,7 @@ void IpcOptionsTest::TestDoGetReadOptions() {
   options.read_options.max_recursion_depth = 1;
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(client_->DoGet(options, ticket, &stream));
-  FlightStreamChunk chunk;
-  ASSERT_RAISES(Invalid, stream->Next(&chunk));
+  ASSERT_RAISES(Invalid, stream->Next());
 }
 void IpcOptionsTest::TestDoPutWriteOptions() {
   // Call DoPut, but with a very low write nesting depth set to fail the call.
@@ -1220,7 +1216,7 @@ class CudaTestServer : public FlightServerBase {
     FlightStreamChunk chunk;
     bool begun = false;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data) break;
       if (!begun) {
         begun = true;
@@ -1290,7 +1286,7 @@ void CudaDataTest::TestDoGet() {
   size_t idx = 0;
   while (true) {
     FlightStreamChunk chunk;
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
     if (!chunk.data) break;
 
     ASSERT_OK(CheckBuffersOnDevice(*chunk.data, *impl_->device));
@@ -1366,7 +1362,7 @@ void CudaDataTest::TestDoExchange() {
     ASSERT_OK(writer->WriteRecordBatch(*cuda_batch));
 
     FlightStreamChunk chunk;
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_OK(CheckBuffersOnDevice(*chunk.data, *impl_->device));
 
     // Bounce record batch back to host memory

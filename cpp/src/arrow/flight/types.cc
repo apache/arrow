@@ -409,9 +409,8 @@ class MetadataRecordBatchReaderAdapter : public RecordBatchReader {
       : schema_(std::move(schema)), delegate_(std::move(delegate)) {}
   std::shared_ptr<Schema> schema() const override { return schema_; }
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    FlightStreamChunk next;
     while (true) {
-      RETURN_NOT_OK(delegate_->Next(&next));
+      ARROW_ASSIGN_OR_RAISE(FlightStreamChunk next, delegate_->Next());
       if (!next.data && !next.app_metadata) {
         // EOS
         *batch = nullptr;

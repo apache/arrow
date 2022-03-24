@@ -326,7 +326,7 @@ gaflight_client_list_flights(GAFlightClient *client,
   GList *listing = NULL;
   std::unique_ptr<arrow::flight::FlightInfo> flight_info;
   while (true) {
-    status = flight_listing->Next(&flight_info);
+    status = flight_listing->Next().Value(&flight_info);
     if (!garrow::check(error,
                        status,
                        "[flight-client][list-flights]")) {

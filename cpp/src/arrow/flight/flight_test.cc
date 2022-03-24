@@ -225,7 +225,7 @@ class TestFlightClient : public ::testing::Test {
     FlightStreamChunk chunk;
     std::shared_ptr<RecordBatch> batch;
     for (int i = 0; i < num_batches; ++i) {
-      ASSERT_OK(stream->Next(&chunk));
+      ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
       ASSERT_OK(reader->ReadNext(&batch));
       ASSERT_NE(nullptr, chunk.data);
       ASSERT_NE(nullptr, batch);
@@ -248,7 +248,7 @@ class TestFlightClient : public ::testing::Test {
     }
 
     // Stream exhausted
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
     ASSERT_OK(reader->ReadNext(&batch));
     ASSERT_EQ(nullptr, chunk.data);
     ASSERT_EQ(nullptr, batch);
@@ -869,13 +869,13 @@ TEST_F(TestFlightClient, ListFlights) {
 
   std::unique_ptr<FlightInfo> info;
   for (const FlightInfo& flight : flights) {
-    ASSERT_OK(listing->Next(&info));
+    ASSERT_OK_AND_ASSIGN(info, listing->Next());
     AssertEqual(flight, *info);
   }
-  ASSERT_OK(listing->Next(&info));
+  ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);
 
-  ASSERT_OK(listing->Next(&info));
+  ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);
 }
 
@@ -883,7 +883,7 @@ TEST_F(TestFlightClient, ListFlightsWithCriteria) {
   std::unique_ptr<FlightListing> listing;
   ASSERT_OK(client_->ListFlights(FlightCallOptions(), {"foo"}, &listing));
   std::unique_ptr<FlightInfo> info;
-  ASSERT_OK(listing->Next(&info));
+  ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);
 }
 
@@ -940,20 +940,20 @@ TEST_F(TestFlightClient, DoAction) {
   ASSERT_OK(client_->DoAction(action, &stream));
 
   for (int i = 0; i < 3; ++i) {
-    ASSERT_OK(stream->Next(&result));
+    ASSERT_OK_AND_ASSIGN(result, stream->Next());
     std::string expected = action1_value + "-part" + std::to_string(i);
     ASSERT_EQ(expected, result->body->ToString());
   }
 
   // stream consumed
-  ASSERT_OK(stream->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
   ASSERT_EQ(nullptr, result);
 
   // Run action2, no results
   action.type = "action2";
   ASSERT_OK(client_->DoAction(action, &stream));
 
-  ASSERT_OK(stream->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
   ASSERT_EQ(nullptr, result);
 }
 
@@ -1126,12 +1126,12 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_NE(results, nullptr);
 
   std::unique_ptr<Result> result;
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   // Action returns the peer identity as the result.
   ASSERT_EQ(result->body->ToString(), "user");
 
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   // Action returns the peer address as the result.
 #ifndef _WIN32
@@ -1235,7 +1235,7 @@ TEST_F(TestBasicAuthHandler, CheckPeerIdentity) {
   ASSERT_NE(results, nullptr);
 
   std::unique_ptr<Result> result;
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   // Action returns the peer identity as the result.
   ASSERT_EQ(result->body->ToString(), "user");
@@ -1252,7 +1252,7 @@ TEST_F(TestTls, DoAction) {
   ASSERT_NE(results, nullptr);
 
   std::unique_ptr<Result> result;
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
@@ -1277,7 +1277,7 @@ TEST_F(TestTls, DisableServerVerification) {
   ASSERT_NE(results, nullptr);
 
   std::unique_ptr<Result> result;
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
@@ -1342,8 +1342,7 @@ TEST_F(TestCountingServerMiddleware, Count) {
   ASSERT_EQ(1, request_counter_->failed_);
 
   while (true) {
-    FlightStreamChunk chunk;
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(FlightStreamChunk chunk, stream->Next());
     if (chunk.data == nullptr) {
       break;
     }
@@ -1365,7 +1364,7 @@ TEST_F(TestPropagatingMiddleware, Propagate) {
   action.body = Buffer::FromString("action1-content");
   ASSERT_OK(client_->DoAction(action, &stream));
 
-  ASSERT_OK(stream->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
   ASSERT_EQ("trace-id", result->body->ToString());
   ValidateStatus(Status::OK(), FlightMethod::DoAction);
 }
@@ -1460,10 +1459,12 @@ class ForeverDataStream : public FlightDataStream {
                                  &payload->ipc_message);
   }
 
-  Status Next(FlightPayload* payload) override {
+  arrow::Result<FlightPayload> Next() override {
     auto batch = RecordBatch::Make(schema_, 0, ArrayVector{});
-    return ipc::GetRecordBatchPayload(*batch, ipc::IpcWriteOptions::Defaults(),
-                                      &payload->ipc_message);
+    FlightPayload payload;
+    RETURN_NOT_OK(ipc::GetRecordBatchPayload(*batch, ipc::IpcWriteOptions::Defaults(),
+                                             &payload.ipc_message));
+    return payload;
   }
 
  private:

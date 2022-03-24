@@ -144,7 +144,7 @@ class ARROW_FLIGHT_EXPORT NumberingStream : public FlightDataStream {
 
   std::shared_ptr<Schema> schema() override;
   Status GetSchemaPayload(FlightPayload* payload) override;
-  Status Next(FlightPayload* payload) override;
+  arrow::Result<FlightPayload> Next() override;
 
  private:
   int counter_;

@@ -71,11 +71,10 @@ Status PrintResultsForEndpoint(FlightSqlClient& client,
 
   std::cout << "Results:" << std::endl;
 
-  FlightStreamChunk chunk;
   int64_t num_rows = 0;
 
   while (true) {
-    ARROW_RETURN_NOT_OK(stream->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, stream->Next());
     if (chunk.data == nullptr) {
       break;
     }

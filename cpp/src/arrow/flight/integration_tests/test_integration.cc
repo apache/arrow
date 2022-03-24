@@ -53,7 +53,7 @@ Status CheckActionResults(FlightClient* client, const Action& action,
   RETURN_NOT_OK(client->DoAction(action, &stream));
   std::unique_ptr<Result> result;
   for (const std::string& expected : results) {
-    RETURN_NOT_OK(stream->Next(&result));
+    ARROW_ASSIGN_OR_RAISE(result, stream->Next());
     if (!result) {
       return Status::Invalid("Action result stream ended early");
     }
@@ -62,7 +62,7 @@ Status CheckActionResults(FlightClient* client, const Action& action,
       return Status::Invalid("Got wrong result; expected", expected, "but got", actual);
     }
   }
-  RETURN_NOT_OK(stream->Next(&result));
+  ARROW_ASSIGN_OR_RAISE(result, stream->Next());
   if (result) {
     return Status::Invalid("Action result stream had too many entries");
   }

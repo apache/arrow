@@ -204,7 +204,7 @@ class ARROW_PYFLIGHT_EXPORT PyFlightDataStream : public arrow::flight::FlightDat
 
   std::shared_ptr<Schema> schema() override;
   Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
-  Status Next(arrow::flight::FlightPayload* payload) override;
+  arrow::Result<arrow::flight::FlightPayload> Next() override;
 
  private:
   OwnedRefNoGIL data_source_;
@@ -323,7 +323,7 @@ class ARROW_PYFLIGHT_EXPORT PyGeneratorFlightDataStream
                                        const ipc::IpcWriteOptions& options);
   std::shared_ptr<Schema> schema() override;
   Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
-  Status Next(arrow::flight::FlightPayload* payload) override;
+  arrow::Result<arrow::flight::FlightPayload> Next() override;
 
  private:
   OwnedRefNoGIL generator_;

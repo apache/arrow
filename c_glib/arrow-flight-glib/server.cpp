@@ -456,9 +456,9 @@ namespace gaflight {
       return stream->GetSchemaPayload(payload);
     }
 
-    arrow::Status Next(arrow::flight::FlightPayload *payload) override {
+    arrow::Result<arrow::flight::FlightPayload> Next() override {
       auto stream = gaflight_data_stream_get_raw(gastream_);
-      return stream->Next(payload);
+      return stream->Next();
     }
 
   private:

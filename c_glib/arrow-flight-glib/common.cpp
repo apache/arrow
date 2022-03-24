@@ -1287,7 +1287,7 @@ gaflight_record_batch_reader_read_next(GAFlightRecordBatchReader *reader,
 {
   auto flight_reader = gaflight_record_batch_reader_get_raw(reader);
   arrow::flight::FlightStreamChunk flight_chunk;
-  auto status = flight_reader->Next(&flight_chunk);
+  auto status = flight_reader->Next().Value(&flight_chunk);
   if (garrow::check(error, status, "[flight-record-batch-reader][read-next]")) {
     if (flight_chunk.data) {
       return gaflight_stream_chunk_new_raw(&flight_chunk);

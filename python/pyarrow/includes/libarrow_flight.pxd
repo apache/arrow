@@ -51,7 +51,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[CBasicAuth] Deserialize(const c_string& serialized)
 
     cdef cppclass CResultStream" arrow::flight::ResultStream":
-        CStatus Next(unique_ptr[CFlightResult]* result)
+        CResult[unique_ptr[CFlightResult]] Next()
 
     cdef cppclass CDescriptorType \
             " arrow::flight::FlightDescriptor::DescriptorType":
@@ -130,7 +130,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
 
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
-        CStatus Next(unique_ptr[CFlightInfo]* info)
+        CResult[unique_ptr[CFlightInfo]] Next()
 
     cdef cppclass CSimpleFlightListing" arrow::flight::SimpleFlightListing":
         CSimpleFlightListing(vector[CFlightInfo]&& info)
@@ -142,7 +142,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFlightDataStream" arrow::flight::FlightDataStream":
         shared_ptr[CSchema] schema()
-        CStatus Next(CFlightPayload*)
+        CResult[CFlightPayload] Next()
 
     cdef cppclass CFlightStreamChunk" arrow::flight::FlightStreamChunk":
         CFlightStreamChunk()
@@ -152,7 +152,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CMetadataRecordBatchReader \
             " arrow::flight::MetadataRecordBatchReader":
         CResult[shared_ptr[CSchema]] GetSchema()
-        CStatus Next(CFlightStreamChunk* out)
+        CResult[CFlightStreamChunk] Next()
         CStatus ReadAll(shared_ptr[CTable]* table)
 
     CResult[shared_ptr[CRecordBatchReader]] MakeRecordBatchReader\
