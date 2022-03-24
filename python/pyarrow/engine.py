@@ -16,5 +16,5 @@
 # under the License.
 
 from pyarrow._engine import (  # noqa
-run_query
+    run_query
 )

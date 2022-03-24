@@ -27,6 +27,7 @@ import pyarrow.lib as lib
 
 import numpy as np
 
+
 def run_query(plan, output_schema):
 
     cdef:
@@ -39,7 +40,7 @@ def run_query(plan, output_schema):
     c_plan = plan.encode()
 
     c_schema = pyarrow_unwrap_schema(output_schema)
-    
+
     c_res_reader = GetRecordBatchReader(c_plan, c_schema)
     c_reader = GetResultValue(c_res_reader)
 
