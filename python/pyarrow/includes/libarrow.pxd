@@ -852,7 +852,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CRecordBatchReader" arrow::RecordBatchReader":
         shared_ptr[CSchema] schema()
         CStatus ReadNext(shared_ptr[CRecordBatch]* batch)
-        CStatus ReadAll(shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ToTable()
 
     cdef cppclass TableBatchReader(CRecordBatchReader):
         TableBatchReader(const CTable& table)

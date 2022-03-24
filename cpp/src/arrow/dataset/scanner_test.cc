@@ -577,11 +577,10 @@ TEST_P(TestScanner, ToRecordBatchReader) {
 
   ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
 
-  std::shared_ptr<Table> actual;
   auto scanner = MakeScanner(batch);
   ASSERT_OK_AND_ASSIGN(auto reader, scanner->ToRecordBatchReader());
   scanner.reset();
-  ASSERT_OK(reader->ReadAll(&actual));
+  ASSERT_OK_AND_ASSIGN(auto actual, reader->ToTable());
   AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
