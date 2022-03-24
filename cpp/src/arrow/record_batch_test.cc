@@ -77,7 +77,7 @@ TEST_F(TestRecordBatch, Equals) {
 TEST_F(TestRecordBatch, Validate) {
   const int length = 10;
 
-  auto f0 = field("f0", int32());
+  auto f0 = field("f0", int32(), false);
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
 
@@ -89,6 +89,7 @@ TEST_F(TestRecordBatch, Validate) {
   auto a1 = gen.ArrayOf(uint8(), length);
   auto a2 = gen.ArrayOf(int16(), length);
   auto a3 = gen.ArrayOf(int16(), 5);
+  auto a4 = gen.ArrayOf(int32(), length, true);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
 
@@ -101,6 +102,10 @@ TEST_F(TestRecordBatch, Validate) {
   // Type mismatch
   auto b3 = RecordBatch::Make(schema, length, {a0, a1, a0});
   ASSERT_RAISES(Invalid, b3->ValidateFull());
+
+  // Nullable mismatch
+  auto b4 = RecordBatch::Make(schema, length, {a4, a1, a2});
+  ASSERT_RAISES(Invalid, b4->ValidateFull());
 }
 
 TEST_F(TestRecordBatch, Slice) {

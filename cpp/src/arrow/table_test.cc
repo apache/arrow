@@ -56,6 +56,22 @@ class TestTable : public ::testing::Test {
                 std::make_shared<ChunkedArray>(arrays_[2])};
   }
 
+  void MakeExample3(int length) {
+    auto f0 = field("f0", int32(), false);
+    auto f1 = field("f1", uint8());
+    auto f2 = field("f2", int16());
+
+    std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+    schema_ = std::make_shared<Schema>(fields);
+
+    arrays_ = {gen_.ArrayOf(int32(), length, true), gen_.ArrayOf(uint8(), length),
+               gen_.ArrayOf(int16(), length)};
+
+    columns_ = {std::make_shared<ChunkedArray>(arrays_[0]),
+                std::make_shared<ChunkedArray>(arrays_[1]),
+                std::make_shared<ChunkedArray>(arrays_[2])};
+  }
+
  protected:
   random::RandomArrayGenerator gen_{42};
   std::shared_ptr<Table> table_;
@@ -64,6 +80,13 @@ class TestTable : public ::testing::Test {
   std::vector<std::shared_ptr<Array>> arrays_;
   std::vector<std::shared_ptr<ChunkedArray>> columns_;
 };
+
+TEST_F(TestTable, ValidateNullable) {
+  const int length = 10;
+  MakeExample3(length);
+  table_ = Table::Make(schema_, columns_);
+  ASSERT_RAISES(Invalid, table_->ValidateFull());
+}
 
 TEST_F(TestTable, EmptySchema) {
   auto empty_schema = ::arrow::schema({});
