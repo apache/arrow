@@ -117,7 +117,6 @@ util::optional<std::string> GetTestTimezoneDatabaseRoot() {
   return util::make_optional(std::string(c_root));
 }
 
-// This is only relevant on Windows, since other OSs have compatible databases built-in
 Status InitTestTimezoneDatabase() {
   auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
   // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
@@ -125,7 +124,6 @@ Status InitTestTimezoneDatabase() {
 
   auto tzdata_path = std::string(maybe_tzdata.value());
   arrow::GlobalOptions options = {util::make_optional(tzdata_path)};
-  std::cout << "timezone db path set to: " << tzdata_path;  // TODO: remove
   ARROW_RETURN_NOT_OK(arrow::Initialize(options));
   return Status::OK();
 }
