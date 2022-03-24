@@ -1464,6 +1464,7 @@ cdef class DirectoryPartitioning(Partitioning):
             res.append(pyarrow_wrap_array(arr))
         return res
 
+
 cdef class HivePartitioning(Partitioning):
     """
     A Partitioning for "/$key=$value/" nested directories as found in

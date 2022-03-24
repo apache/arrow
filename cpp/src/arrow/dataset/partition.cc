@@ -352,7 +352,7 @@ FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
 Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
     const std::string& path) const {
   std::vector<Key> keys;
-
+  keys.reserve(schema_->num_fields());
   int i = 0;
   for (auto&& segment :
        fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep)) {
