@@ -17,7 +17,6 @@
 
 #include <cmath>
 #include <initializer_list>
-#include <regex>
 #include <sstream>
 
 #include "arrow/builder.h"
@@ -1151,10 +1150,23 @@ struct Strftime {
 
 const std::string GetZone(const std::string& format) {
   // Check for use of %z or %Z
-  if (std::regex_replace(format, std::regex("%%"), "").find("%z") != std::string::npos) {
-    return "UTC";
+  size_t cur = 0;
+  size_t count = 0;
+  std::string zone = "";
+  while (cur < format.size() - 1) {
+    if (format[cur] == '%') {
+      count++;
+      if (format[cur + 1] == 'z' && count % 2 == 1) {
+        zone = "UTC";
+        break;
+      }
+      cur++;
+    } else {
+      count = 0;
+    }
+    cur++;
   }
-  return "";
+  return zone;
 }
 
 template <typename Duration, typename InType>
@@ -1200,9 +1212,14 @@ struct Strptime {
     int64_t* out_data = out->GetMutableValues<int64_t>(1);
 
     if (self.error_is_null) {
-      arrow::internal::BitmapWriter out_writer(out->buffers[0]->mutable_data(),
-                                               out->offset, out->length);
+      if (!in.MayHaveNulls()) {
+        ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(in.length));
+        bit_util::SetBitmap(out->buffers[0]->mutable_data(), out->offset, out->length);
+      }
+
       int64_t null_count = 0;
+      arrow::internal::BitmapWriter out_writer(out->GetMutableValues<uint8_t>(0, 0),
+                                               out->offset, out->length);
       auto visit_null = [&]() {
         out_data++;
         out_writer.Next();
