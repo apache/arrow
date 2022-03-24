@@ -237,7 +237,7 @@ class ParquetFile:
     ...                    'month': [3, 5, 7, 9, 11, 12],
     ...                    'day': [1, 5, 9, 13, 17, 23],
     ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-    ...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+    ...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
     ...                    "Brittle stars", "Centipede"]})
     >>> table = pa.Table.from_pandas(df)
 
@@ -262,7 +262,7 @@ class ParquetFile:
     month: [[3,5,7,9,11,12]]
     day: [[1,5,9,13,17,23]]
     n_legs: [[2,2,4,4,5,100]]
-    animals: [["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]]
+    animals: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
 
     create a ParquetFile object with "animals" column as DictionaryArray:
 
@@ -280,7 +280,7 @@ class ParquetFile:
     day: [[1,5,9,13,17,23]]
     n_legs: [[2,2,4,4,5,100]]
     animals: [  -- dictionary:
-    ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
+    ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
     [0,1,2,3,4,5]]
     """
 
@@ -424,7 +424,7 @@ class ParquetFile:
         month: [[3,5,7,9,11,12]]
         day: [[1,5,9,13,17,23]]
         n_legs: [[2,2,4,4,5,100]]
-        animals: [["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]]
+        animals: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
@@ -469,8 +469,8 @@ class ParquetFile:
         month: [[3,5,7,9,11,...,5,7,9,11,12]]
         day: [[1,5,9,13,17,...,5,9,13,17,23]]
         n_legs: [[2,2,4,4,5,...,2,4,4,5,100]]
-        animals: [["Flamingo","Parot","Dog","Horse","Brittle stars",...,
-        "Parot","Dog","Horse","Brittle stars","Centipede"]]
+        animals: [["Flamingo","Parrot","Dog","Horse","Brittle stars",...,
+        "Parrot","Dog","Horse","Brittle stars","Centipede"]]
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
@@ -514,7 +514,7 @@ class ParquetFile:
         RecordBatch
            year  month  day  n_legs   animals
         0  2020      3    1       2  Flamingo
-        1  2022      5    5       2     Parot
+        1  2022      5    5       2     Parrot
         2  2021      7    9       4       Dog
         RecordBatch
            year  month  day  n_legs        animals
@@ -560,7 +560,7 @@ class ParquetFile:
         pyarrow.Table
         animals: string
         ----
-        animals: [["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]]
+        animals: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
@@ -786,7 +786,7 @@ Generate an example PyArrow Table and RecordBatch:
 ...                    'month': [3, 5, 7, 9, 11, 12],
 ...                    'day': [1, 5, 9, 13, 17, 23],
 ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
 ...                    "Brittle stars", "Centipede"]})
 >>> table = pa.Table.from_pandas(df)
 >>> batch = pa.RecordBatch.from_pandas(df)
@@ -804,7 +804,7 @@ and write the Table into the Parquet file:
 >>> pq.read_table('example.parquet').to_pandas()
    year  month  day  n_legs        animals
 0  2020      3    1       2       Flamingo
-1  2022      5    5       2          Parot
+1  2022      5    5       2          Parrot
 2  2021      7    9       4            Dog
 3  2022      9   13       4          Horse
 4  2019     11   17       5  Brittle stars
@@ -822,7 +822,7 @@ and write the RecordBatch into the Parquet file:
 >>> pq.read_table('example2.parquet').to_pandas()
    year  month  day  n_legs        animals
 0  2020      3    1       2       Flamingo
-1  2022      5    5       2          Parot
+1  2022      5    5       2          Parrot
 2  2021      7    9       4            Dog
 3  2022      9   13       4          Horse
 4  2019     11   17       5  Brittle stars
@@ -1569,7 +1569,7 @@ Generate an example PyArrow Table and write it to a partitioned dataset:
 ...                    'month': [3, 5, 7, 9, 11, 12],
 ...                    'day': [1, 5, 9, 13, 17, 23],
 ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
 ...                    "Brittle stars", "Centipede"]})
 >>> table = pa.Table.from_pandas(df)
 
@@ -1589,7 +1589,7 @@ and read the data:
 1       2       Flamingo  2020     3   1
 2     100      Centipede  2021    12  23
 3       4            Dog  2021     7   9
-4       2          Parot  2022     5   5
+4       2          Parrot  2022     5   5
 5       4          Horse  2022     9  13
 
 create a ParquetDataset object with filter:
@@ -2294,7 +2294,7 @@ class _ParquetDatasetV2:
         ...                    'month': [3, 5, 7, 9, 11, 12],
         ...                    'day': [1, 5, 9, 13, 17, 23],
         ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+        ...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
         ...                    "Brittle stars", "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
 
@@ -2520,7 +2520,7 @@ Generate an example PyArrow Table and write it to a partitioned dataset:
 ...                    'month': [3, 5, 7, 9, 11, 12],
 ...                    'day': [1, 5, 9, 13, 17, 23],
 ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
 ...                    "Brittle stars", "Centipede"]})
 >>> table = pa.Table.from_pandas(df)
 
@@ -2536,7 +2536,7 @@ Read the data:
 1       2       Flamingo  2020     3   1
 2     100      Centipede  2021    12  23
 3       4            Dog  2021     7   9
-4       2          Parot  2022     5   5
+4       2         ßParrot  2022     5   5
 5       4          Horse  2022     9  13
 
 
@@ -2548,7 +2548,7 @@ n_legs: int64
 animals: string
 ----
 n_legs: [[5],[2],...,[2],[4]]
-animals: [["Brittle stars"],["Flamingo"],...,["Parot"],["Horse"]]
+animals: [["Brittle stars"],["Flamingo"],...,["Parrot"],["Horse"]]
 
 Read a subset of columns and read one column as DictionaryArray:
 
@@ -2563,7 +2563,7 @@ animals: [  -- dictionary:
 [0],  -- dictionary:
 ["Flamingo"]  -- indices:
 [0],...,  -- dictionary:
-["Parot"]  -- indices:
+["Parrot"]  -- indices:
 [0],  -- dictionary:
 ["Horse"]  -- indices:
 [0]]
@@ -2573,7 +2573,7 @@ Read the table with filter:
 >>> pq.read_table('dataset_name', columns=["n_legs", "animals"], filters=[('n_legs','<',4)]).to_pandas()
    n_legs   animals
 0       2  Flamingo
-1       2     Parot
+1       2     Parrot
 
 You can also read data from a single Parquet file:
 
@@ -2584,7 +2584,7 @@ You can also read data from a single Parquet file:
 1       2       Flamingo  2020     3   1
 2     100      Centipede  2021    12  23
 3       4            Dog  2021     7   9
-4       2          Parot  2022     5   5
+4       2         ßParrot  2022     5   5
 5       4          Horse  2022     9  13
 """
 
@@ -2776,7 +2776,7 @@ Generate an example PyArrow Table:
 ...                    'month': [3, 5, 7, 9, 11, 12],
 ...                    'day': [1, 5, 9, 13, 17, 23],
 ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
 ...                    "Brittle stars", "Centipede"]})
 >>> table = pa.Table.from_pandas(df)
 
@@ -2859,13 +2859,13 @@ def write_to_dataset(table, root_path, partition_cols=None,
     Parameters
     ----------
     table : pyarrow.Table
-    root_path : str, pathlib.Path
+    root_path : str, pathlib.Pathß
         The root directory of the dataset
     filesystem : FileSystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
         filesystem
     partition_cols : list,
-        Column names by which to partition the dataset
+        Column names by which to partition the dataset.
         Columns are partitioned in the order they are given
     partition_filename_cb : callable,
         A callback function that takes the partition key(s) as an argument
@@ -2883,6 +2883,76 @@ def write_to_dataset(table, root_path, partition_cols=None,
         Using `metadata_collector` in kwargs allows one to collect the
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.
+
+    Examples
+    --------
+    Generate an example PyArrow Table:
+
+    >>> import pyarrow as pa
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+    ...                    'month': [3, 5, 7, 9, 11, 12],
+    ...                    'day': [1, 5, 9, 13, 17, 23],
+    ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
+    ...                    "Brittle stars", "Centipede"]})
+    >>> table = pa.Table.from_pandas(df)
+
+    and write it to a partitioned dataset:
+
+    >>> pq.write_to_dataset(table, root_path='dataset_name',
+    ...                     partition_cols=['year', 'month', 'day'],
+    ...                     use_legacy_dataset=False
+    ...                    )
+    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
+    ['dataset_name/year=2019/month=11/day=17/part-0.parquet',
+    'dataset_name/year=2020/month=3/day=1/part-0.parquet',
+    'dataset_name/year=2021/month=12/day=23/part-0.parquet',
+    'dataset_name/year=2021/month=7/day=9/part-0.parquet',
+    'dataset_name/year=2022/month=5/day=5/part-0.parquet',
+    'dataset_name/year=2022/month=9/day=13/part-0.parquet']
+
+    Use old Arrow Dataset API:
+
+    >>> pq.write_to_dataset(table, root_path='dataset_name',
+    ...                     partition_cols=['year', 'month', 'day'])
+    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
+    ['dataset_name/year=2019/month=11/day=17/59cfd909d9a54fe49540edb359a19331.parquet',
+    'dataset_name/year=2020/month=3/day=1/1e2cf97bb5db400f832900628081e9a0.parquet',
+    'dataset_name/year=2021/month=12/day=23/93f54630e5a3483a8f6aa808a7e9b469.parquet',
+    'dataset_name/year=2021/month=7/day=9/9a34bf7a2f37482b99f77d6895f09b88.parquet',
+    'dataset_name/year=2022/month=5/day=5/de2e52d6142940dca04558335a9af892.parquet',
+    'dataset_name/year=2022/month=9/day=13/9307aabc3d8149b3acb8f3a31a07dbd7.parquet']
+
+    Use old Arrow Dataset API and override the partition filename:
+
+    >>> pq.write_to_dataset(table, root_path='dataset_name',
+    ...                     partition_cols=['year', 'month', 'day'],
+    ...                     partition_filename_cb=lambda x: str(x[0]) + str(x[1]) + str(x[2])  + '.parquet'
+    ...                    )
+    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
+    ['dataset_name/year=2019/month=11/day=17/20191117.parquet',
+    'dataset_name/year=2020/month=3/day=1/202031.parquet',
+    'dataset_name/year=2021/month=12/day=23/20211223.parquet',
+    'dataset_name/year=2021/month=7/day=9/202179.parquet',
+    'dataset_name/year=2022/month=5/day=5/202255.parquet',
+    'dataset_name/year=2022/month=9/day=13/2022913.parquet']
+
+    Write to single Parquet file:
+
+    >>> import pyarrow.parquet as pq
+    >>> pq.write_to_dataset(table, root_path='dataset_name')
+
+
+
+    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
+    ['dataset_name/0c7a313fcfee4b31b3380ee480739153.parquet']
+
+
+
+    >>> pq.write_to_dataset(table, root_path='dataset_name', use_legacy_dataset=False)
+    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
+    ['dataset_name/part-0.parquet']
     """
     if use_legacy_dataset is None:
         # if a new filesystem is passed -> default to new implementation
