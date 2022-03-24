@@ -29,7 +29,7 @@ namespace cp = arrow::compute;
 
 namespace engine {
 
-class SubstraitSinkConsumer : public cp::SinkNodeConsumer {
+class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public cp::SinkNodeConsumer {
  public:
   explicit SubstraitSinkConsumer(
       AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator,
@@ -54,7 +54,7 @@ class SubstraitSinkConsumer : public cp::SinkNodeConsumer {
   PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer producer_;
 };
 
-class SubstraitExecutor {
+class ARROW_ENGINE_EXPORT SubstraitExecutor {
  public:
   explicit SubstraitExecutor(
       std::string substrait_json,
