@@ -40,3 +40,4 @@ User Guide
    dataset
    flight
    gdb
+   env_vars

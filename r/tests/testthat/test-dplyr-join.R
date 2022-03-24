@@ -28,7 +28,6 @@ to_join <- tibble::tibble(
   another_column = TRUE
 )
 
-
 test_that("left_join", {
   expect_message(
     compare_dplyr_binding(
@@ -248,6 +247,68 @@ test_that("arrow dplyr query correctly filters then joins", {
   )
 })
 
+test_that("suffix", {
+  left_suf <- Table$create(
+    key = c(1, 2),
+    left_unique = c(2.1, 3.1),
+    shared = c(10.1, 10.3)
+  )
+
+  right_suf <- Table$create(
+    key = c(1, 2, 3, 10, 20),
+    right_unique = c(1.1, 1.2, 3.1, 4.1, 4.3),
+    shared = c(20.1, 30, 40, 50, 60)
+  )
+
+  join_op <- inner_join(left_suf, right_suf, by = "key", suffix = c("_left", "_right"))
+  output <- collect(join_op)
+  res_col_names <- names(output)
+  expected_col_names <- c("key", "left_unique", "shared_left", "right_unique", "shared_right")
+  expect_equal(expected_col_names, res_col_names)
+})
+
+test_that("suffix and implicit schema", {
+  left_suf <- Table$create(
+    key = c(1, 2),
+    left_unique = c(2.1, 3.1),
+    shared = c(10.1, 10.3)
+  )
+
+  right_suf <- Table$create(
+    key = c(1, 2, 3, 10, 20),
+    right_unique = c(1.1, 1.2, 3.1, 4.1, 4.3),
+    shared = c(20.1, 30, 40, 50, 60)
+  )
+
+  join_op <- inner_join(left_suf, right_suf, by = "key", suffix = c("_left", "_right"))
+  output <- collect(join_op)
+  impl_schema <- implicit_schema(join_op)
+  expect_equal(names(output), names(implicit_schema(join_op)))
+})
+
+test_that("summarize and join", {
+  left_suf <- Table$create(
+    key = c(1, 2, 1, 2),
+    left_unique = c(2.1, 3.1, 4.1, 6.1),
+    shared = c(10.1, 10.3, 10.2, 10.4)
+  )
+
+  right_suf <- Table$create(
+    key = c(1, 2, 3, 10, 20),
+    right_unique = c(1.1, 1.2, 3.1, 4.1, 4.3),
+    shared = c(20.1, 30, 40, 50, 60)
+  )
+
+  joined <- left_suf %>%
+    group_by(key) %>%
+    summarize(left_unique = mean(left_unique), shared = mean(shared)) %>%
+    inner_join(right_suf, by = "key", suffix = c("_left", "_right"))
+
+  output <- collect(joined)
+  res_col_names <- names(output)
+  expected_col_names <- c("key", "left_unique", "shared_left", "right_unique", "shared_right")
+  expect_equal(expected_col_names, res_col_names)
+})
 
 test_that("arrow dplyr query can join with tibble", {
   # ARROW-14908

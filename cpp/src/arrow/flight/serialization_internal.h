@@ -15,82 +15,73 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// (De)serialization utilities that hook into gRPC, efficiently
-// handling Arrow-encoded data in a gRPC call.
+// Generic Flight I/O utilities.
 
 #pragma once
 
-#include <memory>
-
-#include "arrow/flight/internal.h"
+#include "arrow/flight/protocol_internal.h"  // IWYU pragma: keep
+#include "arrow/flight/transport.h"
 #include "arrow/flight/types.h"
-#include "arrow/ipc/message.h"
-#include "arrow/result.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
-class Buffer;
+class Schema;
+class Status;
+
+namespace ipc {
+class Message;
+}  // namespace ipc
 
 namespace flight {
+namespace pb = arrow::flight::protocol;
 namespace internal {
 
-/// Internal, not user-visible type used for memory-efficient reads from gRPC
-/// stream
-struct FlightData {
-  /// Used only for puts, may be null
-  std::unique_ptr<FlightDescriptor> descriptor;
+/// \brief The header used for transmitting authentication/authorization data.
+static constexpr char kAuthHeader[] = "authorization";
 
-  /// Non-length-prefixed Message header as described in format/Message.fbs
-  std::shared_ptr<Buffer> metadata;
+ARROW_FLIGHT_EXPORT
+Status SchemaToString(const Schema& schema, std::string* out);
 
-  /// Application-defined metadata
-  std::shared_ptr<Buffer> app_metadata;
+// These functions depend on protobuf types which are not exported in the Flight DLL.
 
-  /// Message body
-  std::shared_ptr<Buffer> body;
+Status FromProto(const pb::ActionType& pb_type, ActionType* type);
+Status FromProto(const pb::Action& pb_action, Action* action);
+Status FromProto(const pb::Result& pb_result, Result* result);
+Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria);
+Status FromProto(const pb::Location& pb_location, Location* location);
+Status FromProto(const pb::Ticket& pb_ticket, Ticket* ticket);
+Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
+                 std::unique_ptr<ipc::Message>* message);
+Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
+Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
+Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
+Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
+Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
 
-  /// Open IPC message from the metadata and body
-  ::arrow::Result<std::unique_ptr<ipc::Message>> OpenMessage();
-};
+Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
+Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
+Status ToProto(const ActionType& type, pb::ActionType* pb_type);
+Status ToProto(const Action& action, pb::Action* pb_action);
+Status ToProto(const Result& result, pb::Result* pb_result);
+Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria);
+Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result);
+Status ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
+Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth);
 
-/// Write Flight message on gRPC stream with zero-copy optimizations.
-// Returns Invalid if the payload is ill-formed
-// Returns IOError if gRPC did not write the message (note this is not
-// necessarily an error - the client may simply have gone away)
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer);
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer);
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer);
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ServerWriter<pb::FlightData>* writer);
-
-/// Read Flight message from gRPC stream with zero-copy optimizations.
-/// True is returned on success, false if stream ended.
-bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data);
-bool ReadPayload(grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* reader,
-                 FlightData* data);
-bool ReadPayload(grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
-                 FlightData* data);
-bool ReadPayload(grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* reader,
-                 FlightData* data);
-// Overload to make genericity easier in DoPutPayloadWriter
-bool ReadPayload(grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* reader,
-                 pb::PutResult* data);
+Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
 
 // We want to reuse RecordBatchStreamReader's implementation while
 // (1) Adapting it to the Flight message format
 // (2) Allowing pure-metadata messages before data is sent
 // (3) Reusing the reader implementation between DoGet and DoExchange.
-// To do this, we wrap the gRPC reader in a peekable iterator.
-// The Flight reader can then peek at the message to determine whether
-// it has application metadata or not, and pass the message to
-// RecordBatchStreamReader as appropriate.
-template <typename ReaderPtr>
+// To do this, we wrap the transport-level reader in a peekable
+// iterator.  The Flight reader can then peek at the message to
+// determine whether it has application metadata or not, and pass the
+// message to RecordBatchStreamReader as appropriate.
 class PeekableFlightDataReader {
  public:
-  explicit PeekableFlightDataReader(ReaderPtr stream)
+  explicit PeekableFlightDataReader(TransportDataStream* stream)
       : stream_(stream), peek_(), finished_(false), valid_(false) {}
 
   void Peek(internal::FlightData** out) {
@@ -132,7 +123,7 @@ class PeekableFlightDataReader {
       return valid_;
     }
 
-    if (!internal::ReadPayload(&*stream_, &peek_)) {
+    if (!stream_->ReadData(&peek_)) {
       finished_ = true;
       valid_ = false;
     } else {
@@ -141,7 +132,7 @@ class PeekableFlightDataReader {
     return valid_;
   }
 
-  ReaderPtr stream_;
+  internal::TransportDataStream* stream_;
   internal::FlightData peek_;
   bool finished_;
   bool valid_;

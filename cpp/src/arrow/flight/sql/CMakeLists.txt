@@ -58,12 +58,11 @@ add_arrow_lib(arrow_flight_sql
               arrow_flight_static)
 
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS
-      arrow_flight_sql_static arrow_flight_testing_static
-      ${ARROW_FLIGHT_STATIC_LINK_LIBS} ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_static
+                                      ${ARROW_FLIGHT_TEST_LINK_LIBS})
 else()
-  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared arrow_flight_testing_shared
-                                      ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared
+                                      ${ARROW_FLIGHT_TEST_LINK_LIBS})
 endif()
 
 # Build test server for unit tests

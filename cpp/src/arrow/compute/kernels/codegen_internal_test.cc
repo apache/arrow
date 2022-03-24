@@ -182,6 +182,8 @@ TEST(TestDispatchBest, CommonTemporalResolution) {
   ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
   args = {duration(TimeUnit::SECOND), time32(TimeUnit::SECOND)};
   ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
+  args = {duration(TimeUnit::SECOND), time64(TimeUnit::NANO)};
+  ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
   args = {time64(TimeUnit::MICRO), duration(TimeUnit::NANO)};
   ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
   args = {timestamp(TimeUnit::SECOND, tz), timestamp(TimeUnit::MICRO)};
@@ -204,6 +206,8 @@ TEST(TestDispatchBest, CommonTemporalResolution) {
   ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
   args = {duration(TimeUnit::SECOND), int64()};
   ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
+  args = {duration(TimeUnit::MILLI), timestamp(TimeUnit::SECOND, tz)};
+  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
 }
 
 TEST(TestDispatchBest, ReplaceTemporalTypes) {

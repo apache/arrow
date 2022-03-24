@@ -17,7 +17,7 @@
 
 register_bindings_datetime <- function() {
   register_binding("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
-                                            unit = "ms") {
+                                        unit = "ms") {
     # Arrow uses unit for time parsing, strptime() does not.
     # Arrow has no default option for strptime (format, unit),
     # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
@@ -87,8 +87,8 @@ register_bindings_datetime <- function() {
   })
 
   register_binding("wday", function(x, label = FALSE, abbr = TRUE,
-                                        week_start = getOption("lubridate.week.start", 7),
-                                        locale = Sys.getlocale("LC_TIME")) {
+                                    week_start = getOption("lubridate.week.start", 7),
+                                    locale = Sys.getlocale("LC_TIME")) {
     if (label) {
       if (abbr) {
         format <- "%a"
@@ -109,22 +109,23 @@ register_bindings_datetime <- function() {
                                      label = FALSE,
                                      abbr = TRUE,
                                      locale = Sys.getlocale("LC_TIME")) {
-
     if (call_binding("is.integer", x)) {
-      x <- call_binding("if_else",
-                        call_binding("between", x, 1, 12),
-                        x,
-                        NA_integer_)
+      x <- call_binding(
+        "if_else",
+        call_binding("between", x, 1, 12),
+        x,
+        NA_integer_
+      )
       if (!label) {
         # if we don't need a label we can return the integer itself (already
         # constrained to 1:12)
         return(x)
       }
-        # make the integer into a date32() - which interprets integers as
-        # days from epoch (we multiply by 28 to be able to later extract the
-        # month with label) - NB this builds a false date (to be used by strftime)
-        # since we only know and care about the month
-        x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
+      # make the integer into a date32() - which interprets integers as
+      # days from epoch (we multiply by 28 to be able to later extract the
+      # month with label) - NB this builds a false date (to be used by strftime)
+      # since we only know and care about the month
+      x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
     }
 
     if (label) {
@@ -157,8 +158,7 @@ register_bindings_datetime <- function() {
   })
 
   register_binding("leap_year", function(date) {
-    year <- Expression$create("year", date)
-    (year %% 4 == 0) & ((year %% 100 != 0) | (year %% 400 == 0))
+    Expression$create("is_leap_year", date)
   })
 
   register_binding("am", function(x) {
@@ -188,4 +188,72 @@ register_bindings_datetime <- function() {
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
   })
+  register_binding("make_datetime", function(year = 1970L,
+                                             month = 1L,
+                                             day = 1L,
+                                             hour = 0L,
+                                             min = 0L,
+                                             sec = 0,
+                                             tz = "UTC") {
+
+    # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
+    # Stop if tz other than 'UTC' is provided.
+    if (tz != "UTC") {
+      arrow_not_supported("Time zone other than 'UTC'")
+    }
+
+    x <- call_binding("str_c", year, month, day, hour, min, sec, sep = "-")
+    build_expr("strptime", x, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
+  })
+  register_binding("make_date", function(year = 1970L, month = 1L, day = 1L) {
+    x <- call_binding("make_datetime", year, month, day)
+    build_expr("cast", x, options = cast_options(to_type = date32()))
+  })
+  register_binding("ISOdatetime", function(year,
+                                           month,
+                                           day,
+                                           hour,
+                                           min,
+                                           sec,
+                                           tz = "UTC") {
+
+    # NAs for seconds aren't propagated (but treated as 0) in the base version
+    sec <- call_binding(
+      "if_else",
+      call_binding("is.na", sec),
+      0,
+      sec
+    )
+
+    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
+  })
+  register_binding("ISOdate", function(year,
+                                       month,
+                                       day,
+                                       hour = 12,
+                                       min = 0,
+                                       sec = 0,
+                                       tz = "UTC") {
+    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
+  })
+}
+
+binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (usetz) {
+    format <- paste(format, "%Z")
+  }
+
+  if (call_binding("is.POSIXct", x)) {
+    # the casting part might not be required once
+    # https://issues.apache.org/jira/browse/ARROW-14442 is solved
+    # TODO revisit the steps below once the PR for that issue is merged
+    if (tz == "" && x$type()$timezone() != "") {
+      tz <- x$type()$timezone()
+    } else if (tz == "") {
+      tz <- Sys.timezone()
+    }
+    x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
+  }
+
+  build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }

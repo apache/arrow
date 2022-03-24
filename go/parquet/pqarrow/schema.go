@@ -871,7 +871,22 @@ func getOriginSchema(meta metadata.KeyValueMetadata, mem memory.Allocator) (*arr
 		return nil, nil
 	}
 
-	decoded, err := base64.RawStdEncoding.DecodeString(*serialized)
+	var (
+		decoded []byte
+		err     error
+	)
+
+	// if the length of serialized is not a multiple of 4, it cannot be
+	// padded with std encoding.
+	if len(*serialized)%4 == 0 {
+		decoded, err = base64.StdEncoding.DecodeString(*serialized)
+	}
+	// if we failed to decode it with stdencoding or the length wasn't
+	// a multiple of 4, try using the Raw unpadded encoding
+	if len(decoded) == 0 || err != nil {
+		decoded, err = base64.RawStdEncoding.DecodeString(*serialized)
+	}
+
 	if err != nil {
 		return nil, err
 	}

@@ -39,6 +39,6 @@ For an Architectural Overview of Arrow's libraries please
 refer to:
 
 - PyArrow Architectural Overview (in progress, see
-  `issue ARROW-14280 <https://issues.apache.org/jira/browse/ARROW-14280>`_)
-- R package Architectural Overview (in progress, see
   `issue ARROW-14279 <https://issues.apache.org/jira/browse/ARROW-14279>`_)
+- R package Architectural Overview (in progress, see
+  `issue ARROW-14280 <https://issues.apache.org/jira/browse/ARROW-14280>`_)

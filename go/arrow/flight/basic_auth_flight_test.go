@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	status "google.golang.org/grpc/status"
 )
@@ -78,7 +79,7 @@ func TestErrorAuths(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +155,7 @@ func TestBasicAuthHelpers(t *testing.T) {
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}

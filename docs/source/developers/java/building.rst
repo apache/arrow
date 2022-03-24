@@ -199,4 +199,4 @@ Common Errors
 .. _Archery: https://github.com/apache/arrow/blob/master/dev/archery/README.md
 .. _Dependency Resolution: https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution
 .. _C++ shared libraries: https://arrow.apache.org/docs/cpp/build_system.html
-.. _TestArrowBuf.java :https://github.com/apache/arrow/blob/master/java/memory/memory-core/src/test/java/org/apache/arrow/memory/TestArrowBuf.java#L130:L147
+.. _TestArrowBuf.java: https://github.com/apache/arrow/blob/master/java/memory/memory-core/src/test/java/org/apache/arrow/memory/TestArrowBuf.java#L130:L147

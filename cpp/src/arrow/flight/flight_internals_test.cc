@@ -22,15 +22,15 @@
 #include <gtest/gtest.h>
 
 #include "arrow/flight/client_cookie_middleware.h"
-#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/client_middleware.h"
+#include "arrow/flight/cookie_internal.h"
+#include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/test_util.h"
+#include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
-
-#include "arrow/flight/internal.h"
-#include "arrow/flight/test_util.h"
 
 namespace arrow {
 namespace flight {
@@ -156,21 +156,23 @@ TEST(FlightTypes, RoundtripStatus) {
   ASSERT_NE(nullptr, detail);
   ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
 
-  Status status = internal::FromGrpcStatus(
-      internal::ToGrpcStatus(Status::NotImplemented("Sentinel")));
+  Status status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::NotImplemented("Sentinel")));
   ASSERT_TRUE(status.IsNotImplemented());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::Invalid("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::Invalid("Sentinel")));
   ASSERT_TRUE(status.IsInvalid());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::KeyError("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::KeyError("Sentinel")));
   ASSERT_TRUE(status.IsKeyError());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status =
-      internal::FromGrpcStatus(internal::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
   ASSERT_TRUE(status.IsAlreadyExists());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 }
@@ -300,18 +302,18 @@ TEST_F(TestCookieMiddleware, Expires) {
 class TestCookieParsing : public ::testing::Test {
  public:
   void VerifyParseCookie(const std::string& cookie_str, bool expired) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(expired, cookie.IsExpired());
   }
 
   void VerifyCookieName(const std::string& cookie_str, const std::string& name) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(name, cookie.GetName());
   }
 
   void VerifyCookieString(const std::string& cookie_str,
                           const std::string& cookie_as_string) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(cookie_as_string, cookie.AsCookieString());
   }
 

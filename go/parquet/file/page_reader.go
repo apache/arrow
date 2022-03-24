@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v8/arrow/ipc"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/compress"
@@ -46,7 +45,7 @@ type PageReader interface {
 	// nil if there was no error and you just hit the end of the page
 	Err() error
 	// Reset allows reusing a page reader
-	Reset(r parquet.ReaderAtSeeker, nrows int64, compressType compress.Compression, ctx *CryptoContext)
+	Reset(r io.ReadSeeker, nrows int64, compressType compress.Compression, ctx *CryptoContext)
 }
 
 // Page is an interface for handling DataPages or Dictionary Pages
@@ -289,7 +288,7 @@ func (d *DictionaryPage) Release() {
 func (d *DictionaryPage) IsSorted() bool { return d.sorted }
 
 type serializedPageReader struct {
-	r        ipc.ReadAtSeeker
+	r        io.ReadSeeker
 	nrows    int64
 	rowsSeen int64
 	mem      memory.Allocator
@@ -310,7 +309,7 @@ type serializedPageReader struct {
 }
 
 // NewPageReader returns a page reader for the data which can be read from the provided reader and compression.
-func NewPageReader(r parquet.ReaderAtSeeker, nrows int64, compressType compress.Compression, mem memory.Allocator, ctx *CryptoContext) (PageReader, error) {
+func NewPageReader(r io.ReadSeeker, nrows int64, compressType compress.Compression, mem memory.Allocator, ctx *CryptoContext) (PageReader, error) {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
 	}
@@ -336,7 +335,7 @@ func NewPageReader(r parquet.ReaderAtSeeker, nrows int64, compressType compress.
 	return rdr, nil
 }
 
-func (p *serializedPageReader) Reset(r parquet.ReaderAtSeeker, nrows int64, compressType compress.Compression, ctx *CryptoContext) {
+func (p *serializedPageReader) Reset(r io.ReadSeeker, nrows int64, compressType compress.Compression, ctx *CryptoContext) {
 	p.rowsSeen, p.pageOrd = 0, 0
 	p.curPageHdr, p.curPage, p.err = nil, nil, nil
 	p.r, p.nrows = r, nrows

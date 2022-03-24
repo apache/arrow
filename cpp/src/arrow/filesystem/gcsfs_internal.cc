@@ -20,52 +20,88 @@
 #include <absl/time/time.h>  // NOLINT
 #include <google/cloud/storage/client.h>
 
+#include <cerrno>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
 
 #include "arrow/filesystem/path_util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace fs {
 namespace internal {
 
+using GcsCode = google::cloud::StatusCode;
+
+int ErrnoFromStatus(const google::cloud::Status& s) {
+  switch (s.code()) {
+    case GcsCode::kAlreadyExists:
+      return EEXIST;
+    case GcsCode::kInvalidArgument:
+      return EINVAL;
+    case GcsCode::kNotFound:
+      return ENOENT;
+    case GcsCode::kPermissionDenied:
+    case GcsCode::kUnauthenticated:
+      return EACCES;
+    default:
+      return 0;
+  }
+}
+
 Status ToArrowStatus(const google::cloud::Status& s) {
   std::ostringstream os;
   os << "google::cloud::Status(" << s << ")";
+  Status st;
   switch (s.code()) {
-    case google::cloud::StatusCode::kOk:
+    case GcsCode::kCancelled:
+      st = Status::Cancelled(os.str());
       break;
-    case google::cloud::StatusCode::kCancelled:
-      return Status::Cancelled(os.str());
-    case google::cloud::StatusCode::kUnknown:
-      return Status::UnknownError(os.str());
-    case google::cloud::StatusCode::kInvalidArgument:
-      return Status::Invalid(os.str());
-    case google::cloud::StatusCode::kDeadlineExceeded:
-    case google::cloud::StatusCode::kNotFound:
-      return Status::IOError(os.str());
-    case google::cloud::StatusCode::kAlreadyExists:
-      return Status::AlreadyExists(os.str());
-    case google::cloud::StatusCode::kPermissionDenied:
-    case google::cloud::StatusCode::kUnauthenticated:
-      return Status::IOError(os.str());
-    case google::cloud::StatusCode::kResourceExhausted:
-      return Status::CapacityError(os.str());
-    case google::cloud::StatusCode::kFailedPrecondition:
-    case google::cloud::StatusCode::kAborted:
-      return Status::IOError(os.str());
-    case google::cloud::StatusCode::kOutOfRange:
-      return Status::Invalid(os.str());
-    case google::cloud::StatusCode::kUnimplemented:
-      return Status::NotImplemented(os.str());
-    case google::cloud::StatusCode::kInternal:
-    case google::cloud::StatusCode::kUnavailable:
-    case google::cloud::StatusCode::kDataLoss:
-      return Status::IOError(os.str());
+    case GcsCode::kUnknown:
+      st = Status::UnknownError(os.str());
+      break;
+    case GcsCode::kInvalidArgument:
+      st = Status::Invalid(os.str());
+      break;
+    case GcsCode::kDeadlineExceeded:
+    case GcsCode::kNotFound:
+      st = Status::IOError(os.str());
+      break;
+    case GcsCode::kAlreadyExists:
+      st = Status::AlreadyExists(os.str());
+      break;
+    case GcsCode::kPermissionDenied:
+    case GcsCode::kUnauthenticated:
+      st = Status::IOError(os.str());
+      break;
+    case GcsCode::kResourceExhausted:
+      st = Status::CapacityError(os.str());
+      break;
+    case GcsCode::kFailedPrecondition:
+    case GcsCode::kAborted:
+      st = Status::IOError(os.str());
+      break;
+    case GcsCode::kOutOfRange:
+      st = Status::Invalid(os.str());
+      break;
+    case GcsCode::kUnimplemented:
+      st = Status::NotImplemented(os.str());
+      break;
+    case GcsCode::kInternal:
+    case GcsCode::kUnavailable:
+    case GcsCode::kDataLoss:
+      st = Status::IOError(os.str());
+      break;
+    default:
+      return Status::OK();
   }
-  return Status::OK();
+  int errnum = ErrnoFromStatus(s);
+  if (errnum) {
+    st = st.WithDetail(::arrow::internal::StatusDetailFromErrno(errnum));
+  }
+  return st;
 }
 
 namespace gcs = ::google::cloud::storage;
