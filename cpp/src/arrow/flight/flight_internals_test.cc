@@ -80,6 +80,7 @@ TEST(FlightTypes, FlightDescriptorToFromProto) {
 TEST(FlightTypes, LocationUnknownScheme) {
   ASSERT_OK(Location::Parse("s3://test"));
   ASSERT_OK(Location::Parse("https://example.com/foo"));
+  ASSERT_NOT_OK(Location::Parse("This is not an URI"));
 }
 
 TEST(FlightTypes, RoundTripTypes) {
@@ -119,6 +120,54 @@ TEST(FlightTypes, RoundTripTypes) {
   ASSERT_EQ(info->total_records(), info_deserialized->total_records());
   ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
 }
+
+ARROW_SUPPRESS_DEPRECATION_WARNING
+TEST(FlightTypes, DeprecatedLocationUnknownScheme) {
+  Location location;
+  ASSERT_OK(Location::Parse("s3://test", &location));
+  ASSERT_OK(Location::Parse("https://example.com/foo", &location));
+  ASSERT_NOT_OK(Location::Parse("This is not an URI", &location));
+}
+
+TEST(FlightTypes, DeprecatedLocationRoundTripTypes) {
+  Ticket ticket{"foo"};
+  ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(Ticket ticket_deserialized,
+                       Ticket::Deserialize(ticket_serialized));
+  ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
+
+  FlightDescriptor desc = FlightDescriptor::Command("select * from foo;");
+  ASSERT_OK_AND_ASSIGN(std::string desc_serialized, desc.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(FlightDescriptor desc_deserialized,
+                       FlightDescriptor::Deserialize(desc_serialized));
+  ASSERT_TRUE(desc.Equals(desc_deserialized));
+
+  desc = FlightDescriptor::Path({"a", "b", "test.arrow"});
+  ASSERT_OK_AND_ASSIGN(desc_serialized, desc.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(desc_deserialized, FlightDescriptor::Deserialize(desc_serialized));
+  ASSERT_TRUE(desc.Equals(desc_deserialized));
+
+  FlightInfo::Data data;
+  std::shared_ptr<Schema> schema =
+      arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
+                     field("d", int64())});
+  Location location1, location2, location3;
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 10010, &location1));
+  ASSERT_OK(Location::ForGrpcTls("localhost", 10010, &location2));
+  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location3));
+  std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
+                                        FlightEndpoint{ticket, {location3}}};
+  ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
+  std::unique_ptr<FlightInfo> info = std::unique_ptr<FlightInfo>(new FlightInfo(data));
+  ASSERT_OK_AND_ASSIGN(std::string info_serialized, info->SerializeToString());
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightInfo> info_deserialized,
+                       FlightInfo::Deserialize(info_serialized));
+  ASSERT_TRUE(info->descriptor().Equals(info_deserialized->descriptor()));
+  ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
+  ASSERT_EQ(info->total_records(), info_deserialized->total_records());
+  ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
+}
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 TEST(FlightTypes, RoundtripStatus) {
   // Make sure status codes round trip through our conversions
