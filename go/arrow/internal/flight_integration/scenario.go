@@ -111,8 +111,6 @@ func consumeFlightLocation(ctx context.Context, loc *flight.Location, tkt *fligh
 }
 
 type defaultIntegrationTester struct {
-	flight.BaseFlightServer
-
 	port           int
 	path           string
 	uploadedChunks map[string]integrationDataSet
@@ -131,7 +129,7 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 	defer arrow.UnregisterExtensionType("uuid")
 
 	descr := &flight.FlightDescriptor{
-		Type: flight.DescriptorPATH,
+		Type: flight.FlightDescriptor_PATH,
 		Path: []string{s.path},
 	}
 
@@ -222,14 +220,18 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 
 func (s *defaultIntegrationTester) MakeServer(port int) flight.Server {
 	s.uploadedChunks = make(map[string]integrationDataSet)
-	srv := flight.NewServerWithMiddleware(nil)
-	srv.RegisterFlightService(s)
+	srv := flight.NewServerWithMiddleware(nil, nil)
+	srv.RegisterFlightService(&flight.FlightServiceService{
+		GetFlightInfo: s.GetFlightInfo,
+		DoGet:         s.DoGet,
+		DoPut:         s.DoPut,
+	})
 	s.port = initServer(port, srv)
 	return srv
 }
 
 func (s *defaultIntegrationTester) GetFlightInfo(ctx context.Context, in *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	if in.Type == flight.DescriptorPATH {
+	if in.Type == flight.FlightDescriptor_PATH {
 		if len(in.Path) == 0 {
 			return nil, status.Error(codes.InvalidArgument, "invalid path")
 		}
@@ -286,7 +288,7 @@ func (s *defaultIntegrationTester) DoPut(stream flight.FlightService_DoPutServer
 	// creating the reader should have gotten the first message which would
 	// have the schema, which should have a populated flight descriptor
 	desc := rdr.LatestFlightDescriptor()
-	if desc.Type != flight.DescriptorPATH || len(desc.Path) < 1 {
+	if desc.Type != flight.FlightDescriptor_PATH || len(desc.Path) < 1 {
 		return status.Error(codes.InvalidArgument, "must specify a path")
 	}
 
@@ -394,9 +396,7 @@ func (c *clientAuthBasic) GetToken(context.Context) (string, error) {
 	return c.token, nil
 }
 
-type authBasicProtoTester struct {
-	flight.BaseFlightServer
-}
+type authBasicProtoTester struct{}
 
 func (s *authBasicProtoTester) RunClient(addr string, opts ...grpc.DialOption) error {
 	auth := &clientAuthBasic{}
@@ -431,10 +431,11 @@ func (s *authBasicProtoTester) RunClient(addr string, opts ...grpc.DialOption) e
 }
 
 func (s *authBasicProtoTester) MakeServer(port int) flight.Server {
-	s.SetAuthHandler(&authBasicValidator{
-		auth: flight.BasicAuth{Username: authUsername, Password: authPassword}})
-	srv := flight.NewServerWithMiddleware(nil)
-	srv.RegisterFlightService(s)
+	srv := flight.NewServerWithMiddleware(&authBasicValidator{
+		auth: flight.BasicAuth{Username: authUsername, Password: authPassword}}, nil)
+	srv.RegisterFlightService(&flight.FlightServiceService{
+		DoAction: s.DoAction,
+	})
 	initServer(port, srv)
 	return srv
 }
@@ -445,9 +446,7 @@ func (authBasicProtoTester) DoAction(_ *flight.Action, stream flight.FlightServi
 	return nil
 }
 
-type middlewareScenarioTester struct {
-	flight.BaseFlightServer
-}
+type middlewareScenarioTester struct{}
 
 func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
 	tm := &testClientMiddleware{}
@@ -459,7 +458,7 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 
 	ctx := context.Background()
 	// this call is expected to fail
-	_, err = client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD})
+	_, err = client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.FlightDescriptor_CMD})
 	if err == nil {
 		return xerrors.New("expected call to fail")
 	}
@@ -470,7 +469,7 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 
 	fmt.Fprintln(os.Stderr, "Headers received successfully on failing call.")
 	tm.received = ""
-	_, err = client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("success")})
+	_, err = client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.FlightDescriptor_CMD, Cmd: []byte("success")})
 	if err != nil {
 		return err
 	}
@@ -483,15 +482,17 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 }
 
 func (m *middlewareScenarioTester) MakeServer(port int) flight.Server {
-	srv := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
+	srv := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
 		flight.CreateServerMiddleware(testServerMiddleware{})})
-	srv.RegisterFlightService(m)
+	srv.RegisterFlightService(&flight.FlightServiceService{
+		GetFlightInfo: m.GetFlightInfo,
+	})
 	initServer(port, srv)
 	return srv
 }
 
 func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	if desc.Type != flight.DescriptorCMD || string(desc.Cmd) != "success" {
+	if desc.Type != flight.FlightDescriptor_CMD || string(desc.Cmd) != "success" {
 		return nil, status.Error(codes.Unknown, "unknown")
 	}
 

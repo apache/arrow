@@ -311,14 +311,16 @@ cdef class BasicAuth(_Weakrefable):
         return self.basic_auth.get().password
 
     @staticmethod
-    def deserialize(serialized):
+    def deserialize(string):
         auth = BasicAuth()
-        check_flight_status(
-            CBasicAuth.Deserialize(serialized).Value(auth.basic_auth.get()))
+        check_flight_status(DeserializeBasicAuth(string, &auth.basic_auth))
         return auth
 
     def serialize(self):
-        return GetResultValue(self.basic_auth.get().SerializeToString())
+        cdef:
+            c_string auth
+        check_flight_status(SerializeBasicAuth(deref(self.basic_auth), &auth))
+        return frombytes(auth)
 
 
 class DescriptorType(enum.Enum):
@@ -457,7 +459,9 @@ cdef class FlightDescriptor(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        return GetResultValue(self.descriptor.SerializeToString())
+        cdef c_string out
+        check_flight_status(self.descriptor.SerializeToString(&out))
+        return out
 
     @classmethod
     def deserialize(cls, serialized):
@@ -469,8 +473,8 @@ cdef class FlightDescriptor(_Weakrefable):
         """
         cdef FlightDescriptor descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
-        descriptor.descriptor = GetResultValue(
-            CFlightDescriptor.Deserialize(tobytes(serialized)))
+        check_flight_status(CFlightDescriptor.Deserialize(
+            tobytes(serialized), &descriptor.descriptor))
         return descriptor
 
     def __eq__(self, FlightDescriptor other):
@@ -497,7 +501,9 @@ cdef class Ticket(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        return GetResultValue(self.ticket.SerializeToString())
+        cdef c_string out
+        check_flight_status(self.ticket.SerializeToString(&out))
+        return out
 
     @classmethod
     def deserialize(cls, serialized):
@@ -507,9 +513,13 @@ cdef class Ticket(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        cdef Ticket ticket = Ticket.__new__(Ticket)
-        ticket.ticket = GetResultValue(
-            CTicket.Deserialize(tobytes(serialized)))
+        cdef:
+            CTicket c_ticket
+            Ticket ticket
+        check_flight_status(
+            CTicket.Deserialize(tobytes(serialized), &c_ticket))
+        ticket = Ticket.__new__(Ticket)
+        ticket.ticket = c_ticket
         return ticket
 
     def __eq__(self, Ticket other):
@@ -764,7 +774,9 @@ cdef class FlightInfo(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        return GetResultValue(self.info.get().SerializeToString())
+        cdef c_string out
+        check_flight_status(self.info.get().SerializeToString(&out))
+        return out
 
     @classmethod
     def deserialize(cls, serialized):
@@ -775,8 +787,8 @@ cdef class FlightInfo(_Weakrefable):
 
         """
         cdef FlightInfo info = FlightInfo.__new__(FlightInfo)
-        info.info = move(GetResultValue(
-            CFlightInfo.Deserialize(tobytes(serialized))))
+        check_flight_status(CFlightInfo.Deserialize(
+            tobytes(serialized), &info.info))
         return info
 
 
@@ -823,7 +835,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         """Get the schema for this reader."""
         cdef shared_ptr[CSchema] c_schema
         with nogil:
-            check_flight_status(self.reader.get().GetSchema().Value(&c_schema))
+            c_schema = GetResultValue(self.reader.get().GetSchema())
         return pyarrow_wrap_schema(c_schema)
 
     def read_all(self):
@@ -1450,21 +1462,6 @@ cdef class FlightClient(_Weakrefable):
         py_reader = FlightStreamReader()
         py_reader.reader.reset(c_do_exchange_result.reader.release())
         return py_writer, py_reader
-
-    def close(self):
-        """Close the client and disconnect."""
-        check_flight_status(self.client.get().Close())
-
-    def __del__(self):
-        # Not ideal, but close() wasn't originally present so
-        # applications may not be calling it
-        self.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
 
 
 cdef class FlightDataStream(_Weakrefable):

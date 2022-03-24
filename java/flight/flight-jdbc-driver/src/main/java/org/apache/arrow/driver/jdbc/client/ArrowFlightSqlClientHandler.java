@@ -50,8 +50,6 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.Meta.StatementType;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
  * A {@link FlightSqlClient} handler.
  */
@@ -60,7 +58,6 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   private final FlightSqlClient sqlClient;
   private final Set<CallOption> options = new HashSet<>();
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of FlightSqlClient.")
   ArrowFlightSqlClientHandler(final FlightSqlClient sqlClient,
                               final Collection<CallOption> options) {
     this.options.addAll(options);

@@ -123,7 +123,6 @@ cdef extern from "arrow/result.h" namespace "arrow" nogil:
         CResult(T)
         c_bool ok()
         CStatus status()
-        CStatus Value(T*)
         T operator*()
 
 

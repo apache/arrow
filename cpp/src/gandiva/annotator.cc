@@ -57,12 +57,6 @@ FieldDescriptorPtr Annotator::MakeDesc(FieldPtr field, bool is_output) {
                                            data_buffer_ptr_idx);
 }
 
-int Annotator::AddHolderPointer(void* holder) {
-  int size = static_cast<int>(holder_pointers_.size());
-  holder_pointers_.push_back(holder);
-  return size;
-}
-
 void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
                                        const arrow::ArrayData& array_data,
                                        EvalBatch* eval_batch, bool is_output) {

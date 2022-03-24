@@ -511,7 +511,8 @@ For extension arrays, the :c:member:`ArrowSchema.format` string encodes the
 metadata key ``ARROW:extension:name``  encodes the extension type name,
 and the metadata key ``ARROW:extension:metadata`` encodes the
 implementation-specific serialization of the extension type (for
-parameterized extension types).
+parameterized extension types).  The base64 encoding of metadata values
+ensures that any possible serialization is representable.
 
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.

@@ -71,7 +71,7 @@ public class ArrowFlightJdbcDriverTest {
   public void tearDown() throws Exception {
     Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
     AutoCloseables.close(childAllocators.toArray(new AutoCloseable[0]));
-    AutoCloseables.close(server, allocator);
+    AutoCloseables.close(dataSource, allocator);
   }
 
   /**
@@ -131,25 +131,6 @@ public class ArrowFlightJdbcDriverTest {
     final String malformedUri = "yes:??/chainsaw.i=T333";
 
     driver.connect(malformedUri, dataSource.getProperties("flight", "flight123"));
-  }
-
-  /**
-   * Tests whether server-side parameters are sent in CallHeaders.
-   */
-  @Test
-  public void testShouldAcceptServerSideParameters() throws SQLException {
-    // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    final URI uri = server.getLocation().getUri();
-
-    try (Connection connection = driver.connect(
-        "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort() + ";schema=test;testParameter=yes",
-        PropertiesSample.CONFORMING.getProperties())) {
-      assertEquals(connection.getClientInfo().get("schema"), "test");
-      assertEquals(connection.getClientInfo().get("testParameter"), "yes");
-      assert connection.isValid(300);
-    }
   }
 
   /**
@@ -215,6 +196,33 @@ public class ArrowFlightJdbcDriverTest {
 
     final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
         "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
+
+    // Check size == the amount of args provided (prefix not included!)
+    assertEquals(5, parsedArgs.size());
+
+    // Check host == the provided host
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.HOST.camelName()), "localhost");
+
+    // Check port == the provided port
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.PORT.camelName()), 2222);
+
+    // Check all other non-default arguments
+    assertEquals(parsedArgs.get("key1"), "value1");
+    assertEquals(parsedArgs.get("key2"), "value2");
+    assertEquals(parsedArgs.get("a"), "b");
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithSemicolon() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final Method parseUrl = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
+
+    parseUrl.setAccessible(true);
+
+    final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
+        "jdbc:arrow-flight://localhost:2222/;key1=value1;key2=value2;a=b");
 
     // Check size == the amount of args provided (prefix not included!)
     assertEquals(5, parsedArgs.size());

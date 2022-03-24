@@ -19,7 +19,6 @@
 
 from pyarrow.includes.common cimport *
 
-
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()

@@ -35,7 +35,12 @@ jobs:
       - name: Pull Arrow dependencies
         run: |
           cd arrow/r
-          make sync-cpp
+          # This is `make build`, but with no vignettes and not running `make doc`
+          cp ../NOTICE.txt inst/NOTICE.txt
+          rsync --archive --delete ../cpp tools/
+          cp -p ../.env tools/
+          cp -p ../NOTICE.txt tools/
+          cp -p ../LICENSE.txt tools/
           R CMD build --no-build-vignettes --no-manual .
           built_tar=$(ls -1 arrow*.tar.gz | head -n 1)
           R -e "source('R/install-arrow.R'); create_package_with_all_dependencies(dest_file = 'arrow_with_deps.tar.gz', source_file = \"${built_tar}\")"

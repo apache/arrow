@@ -24,8 +24,6 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.DurationVector;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
  * Accessor for the Arrow type {@link DurationVector}.
  */
@@ -33,7 +31,6 @@ public class ArrowFlightJdbcDurationVectorAccessor extends ArrowFlightJdbcAccess
 
   private final DurationVector vector;
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of vectors")
   public ArrowFlightJdbcDurationVectorAccessor(DurationVector vector,
                                                IntSupplier currentRowSupplier,
                                                ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {

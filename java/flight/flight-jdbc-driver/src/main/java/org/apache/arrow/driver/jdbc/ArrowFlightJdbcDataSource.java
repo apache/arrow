@@ -30,8 +30,6 @@ import javax.sql.DataSource;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.util.Preconditions;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
  * {@link DataSource} implementation for Arrow Flight JDBC Driver.
  */
@@ -109,13 +107,11 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     return false;
   }
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP", justification = "PrintWriter can only be set from external.")
   @Override
   public PrintWriter getLogWriter() {
     return this.logWriter;
   }
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "You can only get PrintWriter from external.")
   @Override
   public void setLogWriter(PrintWriter logWriter) {
     this.logWriter = logWriter;

@@ -38,9 +38,7 @@ const (
 	invalidBearer   = "PANDABEAR"
 )
 
-type HeaderAuthTestFlight struct {
-	flight.BaseFlightServer
-}
+type HeaderAuthTestFlight struct{}
 
 func (h *HeaderAuthTestFlight) ListFlights(c *flight.Criteria, fs flight.FlightService_ListFlightsServer) error {
 	fs.Send(&flight.FlightInfo{
@@ -71,10 +69,13 @@ func (*validator) IsValid(bearerToken string) (interface{}, error) {
 
 func TestErrorAuths(t *testing.T) {
 	unary, stream := flight.CreateServerBearerTokenAuthInterceptors(&validator{})
-	s := flight.NewFlightServer(grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
+	s := flight.NewFlightServer(nil, grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
 	s.Init("localhost:0")
 	f := &HeaderAuthTestFlight{}
-	s.RegisterFlightService(f)
+	s.RegisterFlightService(&flight.FlightServiceService{
+		ListFlights: f.ListFlights,
+		GetSchema:   f.GetSchema,
+	})
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -147,10 +148,13 @@ func TestErrorAuths(t *testing.T) {
 }
 
 func TestBasicAuthHelpers(t *testing.T) {
-	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{flight.CreateServerBasicAuthMiddleware(&validator{})})
+	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{flight.CreateServerBasicAuthMiddleware(&validator{})})
 	s.Init("localhost:0")
 	f := &HeaderAuthTestFlight{}
-	s.RegisterFlightService(f)
+	s.RegisterFlightService(&flight.FlightServiceService{
+		ListFlights: f.ListFlights,
+		GetSchema:   f.GetSchema,
+	})
 
 	go s.Serve()
 	defer s.Shutdown()

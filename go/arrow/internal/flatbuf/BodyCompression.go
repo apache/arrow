@@ -45,8 +45,7 @@ func (rcv *BodyCompression) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-/// Compressor library.
-/// For LZ4_FRAME, each compressed buffer must consist of a single frame.
+/// Compressor library
 func (rcv *BodyCompression) Codec() CompressionType {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
@@ -55,8 +54,7 @@ func (rcv *BodyCompression) Codec() CompressionType {
 	return 0
 }
 
-/// Compressor library.
-/// For LZ4_FRAME, each compressed buffer must consist of a single frame.
+/// Compressor library
 func (rcv *BodyCompression) MutateCodec(n CompressionType) bool {
 	return rcv._tab.MutateInt8Slot(4, int8(n))
 }

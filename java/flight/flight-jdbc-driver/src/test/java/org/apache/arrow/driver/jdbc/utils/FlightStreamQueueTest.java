@@ -57,13 +57,14 @@ public class FlightStreamQueueTest {
   @Test
   public void testNextShouldThrowExceptionUponClose() throws Exception {
     queue.close();
-    collector.checkThrows(IllegalStateException.class, () -> queue.next());
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class, () -> queue.next());
   }
 
   @Test
   public void testEnqueueShouldThrowExceptionUponClose() throws Exception {
     queue.close();
-    collector.checkThrows(IllegalStateException.class, () -> queue.enqueue(mock(FlightStream.class)));
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class,
+        () -> queue.enqueue(mock(FlightStream.class)));
   }
 
   @Test
@@ -73,7 +74,7 @@ public class FlightStreamQueueTest {
       return true;
     });
     queue.close();
-    collector.checkThrows(IllegalStateException.class, () -> queue.checkOpen());
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class, () -> queue.checkOpen());
   }
 
   @Test
