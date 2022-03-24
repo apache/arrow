@@ -716,7 +716,8 @@ cdef class ConvertOptions(_Weakrefable):
     n_legs: [[2,4,5,100,6]]
     location: [5 nulls]
 
-    Define a column as a dictionary:
+    Define columns as dictionary type (by default only the
+    string/binary columns are dictionary encoded):
 
     >>> convert_options = csv.ConvertOptions(
     ...                   timestamp_parsers=["%m/%d/%Y", "%m-%d-%Y"],
