@@ -56,3 +56,88 @@ Compression
 
 .. doxygenclass:: arrow::util::Decompressor
    :members:
+
+Visitors
+========
+
+.. doxygenfunction:: arrow::VisitTypeInline
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::VisitScalarInline
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::VisitArrayInline
+   :project: arrow_cpp
+
+
+Type Traits
+===========
+
+These types provide relationships between Arrow types at compile time. :cpp:type:`TypeTraits`
+maps Arrow DataTypes to other types, and :cpp:type:`CTypeTraits ` maps C types to
+Arrow types.
+
+.. TODO: Table of Arrow type and ctype?
+
+TypeTraits
+----------
+
+Each specialized type defines the following associated types:
+
+.. cpp:type:: TypeTraits::ArrayType
+
+  Corresponding :doc:`Arrow array type </cpp/api/array.rst>`
+
+.. cpp:type:: TypeTraits::BuilderType
+
+  Corresponding :doc:`array builder type </cpp/api/builders.rst>`
+
+.. cpp:type:: TypeTraits::ScalarType
+
+  Corresponding :doc:`Arrow scalar type </cpp/api/scalar.rst>`
+
+.. cpp:var:: TypeTraits::is_parameter_free
+
+  Whether the type has any type parameters, such as field types in nested types
+  or scale and precision in decimal types.
+
+
+In addition, the following are defined for many but not all of the types:
+
+.. cpp:type:: TypeTraits::CType
+
+  Corresponding C type. For example, ``int64_t`` for ``Int64Array``.
+
+.. cpp:type:: TypeTraits::TensorType
+
+  Corresponding :doc:`Arrow tensor type </cpp/api/tensor.rst>`
+
+.. cpp:function:: static inline constexpr int64_t bytes_required(int64_t elements)
+
+  Return the number of bytes required for given number of elements. Defined for 
+  types with a fixed size.
+
+.. cpp:function:: static inline std::shared_ptr<DataType> TypeTraits::type_singleton()
+
+  For types where is_parameter_free is true, returns a pointer to the type
+  singleton.
+
+
+.. doxygengroup:: type-traits
+   :content-only:
+   :members:
+   :undoc-members:
+
+CTypeTraits
+-----------
+
+Each specialized type defines the following associated types:
+
+.. cpp:type:: CTypeTraits::ArrowType
+
+  Corresponding :doc:`Arrow type </cpp/api/datatype.rst>`
+
+.. doxygengroup:: c-type-traits
+   :content-only:
+   :members:
+   :undoc-members:

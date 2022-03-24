@@ -106,6 +106,21 @@ For example::
 .. seealso::
    :doc:`API reference for error reporting <api/support>`
 
+
+Type Traits
+-----------
+
+
+.. list-table:: Type traits essentials
+   :header-rows: 1
+
+   * - DataType
+     - CType
+     - BuilderType
+     - ScalarType
+     - ArrayType
+   * 
+
 Visitor Pattern
 ---------------
 

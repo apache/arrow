@@ -21,6 +21,8 @@
 
 #include "arrow/array.h"                    // IYWU pragma: export
 #include "arrow/array/concatenate.h"        // IYWU pragma: export
+#include "arrow/visit_array_inline.h"       // IYWU pragma: export
+#include "arrow/visit_scalar_inline.h"       // IYWU pragma: export
 #include "arrow/buffer.h"                   // IYWU pragma: export
 #include "arrow/builder.h"                  // IYWU pragma: export
 #include "arrow/chunked_array.h"            // IYWU pragma: export
