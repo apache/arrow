@@ -1212,7 +1212,7 @@ struct Strptime {
     int64_t* out_data = out->GetMutableValues<int64_t>(1);
 
     if (self.error_is_null) {
-      if (!in.MayHaveNulls()) {
+      if (out->buffers[0] == nullptr) {
         ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(in.length));
         bit_util::SetBitmap(out->buffers[0]->mutable_data(), out->offset, out->length);
       }
