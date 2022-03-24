@@ -2085,9 +2085,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CStrptimeOptions \
             "arrow::compute::StrptimeOptions"(CFunctionOptions):
-        CStrptimeOptions(c_string format, TimeUnit unit)
+        CStrptimeOptions(c_string format, TimeUnit unit, c_bool raise_error)
         c_string format
         TimeUnit unit
+        c_bool raise_error
 
     cdef cppclass CStrftimeOptions \
             "arrow::compute::StrftimeOptions"(CFunctionOptions):
