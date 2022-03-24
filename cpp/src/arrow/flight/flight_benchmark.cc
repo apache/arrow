@@ -486,7 +486,7 @@ int main(int argc, char** argv) {
                                                          FLAGS_server_port).Value(&location));
       } else {
         ABORT_NOT_OK(arrow::flight::Location::ForGrpcTls(FLAGS_server_host,
-                                                         FLAGS_server_port, &location));
+                                                         FLAGS_server_port).Value(&location));
         options.disable_server_verification = true;
       }
     }

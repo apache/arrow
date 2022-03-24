@@ -249,9 +249,9 @@ int main(int argc, char** argv) {
       if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
         if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
           ARROW_CHECK_OK(
-              arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port, &bind_location));
+              arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port).Value(&bind_location));
           ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTls(
-              FLAGS_server_host, FLAGS_port, &connect_location));
+              FLAGS_server_host, FLAGS_port).Value(&connect_location));
         } else {
           std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
           return EXIT_FAILURE;

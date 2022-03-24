@@ -346,14 +346,13 @@ class TestTls : public ::testing::Test {
 
     server_.reset(new TlsTestServer);
 
-    Location location;
-    ASSERT_OK(Location::ForGrpcTls("localhost", 0, &location));
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTls("localhost", 0));
     FlightServerOptions options(location);
     ASSERT_RAISES(UnknownError, server_->Init(options));
     ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));
     ASSERT_OK(server_->Init(options));
 
-    ASSERT_OK(Location::ForGrpcTls("localhost", server_->port(), &location_));
+    ASSERT_OK_AND_ASSIGN(location_, Location::ForGrpcTls("localhost", server_->port()));
     ASSERT_OK(ConnectClient());
   }
 
