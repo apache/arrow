@@ -264,9 +264,9 @@ int main(int argc, char** argv) {
       }
     } else {
       ARROW_CHECK_OK(
-          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &bind_location));
+          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&bind_location));
       ARROW_CHECK_OK(
-          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &connect_location));
+          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&connect_location));
     }
   } else {
     std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;
