@@ -309,6 +309,31 @@ register_bindings_duration <- function() {
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
+  register_binding("decimal_date", function(date) {
+    y <- call_binding("year", date)
+    timezone <- call_binding("tz", date)
+    start <- call_binding("make_datetime", year = y, tz = timezone)
+    end <- call_binding("make_datetime", year = y + 1L, tz = timezone)
+    # maybe use yday here
+    sofar <- call_binding("difftime", date, start, units = "secs")
+    total <- call_binding("difftime", end, start, units = "secs")
+    y + call_binding("as.numeric", sofar) / call_binding("as.numeric", total)
+  })
+  register_binding("date_decimal", function(decimal, tz = "UTC") {
+    y <- call_binding(
+      "cast",
+      decimal,
+      options = cast_options(to_type = int32(), safe = FALSE)
+    )
+
+    start <- call_binding("make_datetime", year = y, tz = tz)
+    end <- call_binding("make_datetime", year = y + 1, tz = tz)
+
+    seconds <- call_binding("difftime", end, start, unit = "secs")
+    fraction <- decimal - y
+    end <- start + seconds * fraction
+    end
+    })
 }
 
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
