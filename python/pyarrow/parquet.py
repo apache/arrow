@@ -2767,6 +2767,44 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 pass
         raise
 
+_write_table_example = """\
+Generate an example PyArrow Table:
+
+>>> import pyarrow as pa
+>>> import pandas as pd
+>>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+...                    'month': [3, 5, 7, 9, 11, 12],
+...                    'day': [1, 5, 9, 13, 17, 23],
+...                    'n_legs': [2, 2, 4, 4, 5, 100],
+...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+...                    "Brittle stars", "Centipede"]})
+>>> table = pa.Table.from_pandas(df)
+
+and write the Table into Parquet file:
+
+>>> import pyarrow.parquet as pq
+>>> pq.write_table(table, 'example.parquet')
+
+Defining row group size for the Parquet file:
+
+>>> pq.write_table(table, 'example.parquet', row_group_size=3)
+
+Defining row group compression (default is Snappy):
+
+>>> pq.write_table(table, 'example.parquet', compression='none')
+
+Defining row group compression and encoding per-column:
+
+>>> pq.write_table(table, 'example.parquet',
+...                compression={'foo': 'snappy', 'bar': 'gzip'},
+...                use_dictionary=['foo', 'bar'])
+
+
+Defining column encoding per-column:
+
+>>> pq.write_table(table, 'example.parquet', column_encoding={'animals':'PLAIN'},
+...                use_dictionary=False)
+"""
 
 write_table.__doc__ = """
 Write a Table to Parquet format.
@@ -2782,7 +2820,11 @@ row_group_size : int
 {}
 **kwargs : optional
     Additional options for ParquetWriter
-""".format(_parquet_writer_arg_docs)
+
+Examples
+--------
+{}
+""".format(_parquet_writer_arg_docs, _write_table_example)
 
 
 def _mkdir_if_not_exists(fs, path):
