@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .docker
-          key: conda-docs-${{ hashFiles('docs/**') }}
+          key: conda-docs-${{ hashFiles('cpp/**') }}
           restore-keys: conda-docs-
       - name: Setup Python
         uses: actions/setup-python@v2
