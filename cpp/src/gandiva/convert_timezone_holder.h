@@ -120,7 +120,6 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
           src_offset_tz = std::make_shared<OffsetZone>(secs);
         } else {
           src_timezone = locate_zone(srcTz);
-          std::cout<<src_timezone->name();
         }
       }
 
@@ -133,10 +132,8 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
         dest_offset_tz = std::make_shared<OffsetZone>(secs);
       } else {
         dest_timezone = locate_zone(destTz);
-        std::cout<<dest_timezone->name();
       }
     } catch (...) {
-      std::cout<<src_timezone->name();
       status = false;
     }
   }
