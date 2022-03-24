@@ -81,32 +81,7 @@ public class ConnectionTlsTest {
   @After
   public void tearDown() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
-    AutoCloseables.close(tlsServer, allocator);
-  }
-
-  /**
-   * Validate the user's credential on a FlightServer.
-   *
-   * @param username flight server username.
-   * @param password flight server password.
-   * @return the result of validation.
-   */
-  private CallHeaderAuthenticator.AuthResult validate(final String username,
-                                                      final String password) {
-    if (Strings.isNullOrEmpty(username)) {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Credentials not supplied.").toRuntimeException();
-    }
-    final String identity;
-    if (flightTestUtils.getUsername1().equals(username) &&
-        flightTestUtils.getPassword1().equals(password)) {
-      identity = flightTestUtils.getUsername1();
-    } else {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Username or password is invalid.")
-          .toRuntimeException();
-    }
-    return () -> identity;
+    AutoCloseables.close(allocator);
   }
 
   /**
@@ -310,6 +285,7 @@ public class ConnectionTlsTest {
   public void testTLSConnectionPropertyTrueCorrectCastUrlWithDriverManager() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
+
     final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s?user=%s&password=%s" +
@@ -321,7 +297,6 @@ public class ConnectionTlsTest {
             keyStorePath,
             BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(),
             keyStorePass));
-
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
@@ -350,9 +325,8 @@ public class ConnectionTlsTest {
     final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s",
-            tlsServer.getPort()),
+            FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
-
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
@@ -381,7 +355,7 @@ public class ConnectionTlsTest {
     final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight://localhost:%s",
-            tlsServer.getPort()),
+            FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
     connection.close();
@@ -435,9 +409,8 @@ public class ConnectionTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), "0");
 
     final Connection connection = DriverManager.getConnection(
-        String.format("jdbc:arrow-flight://localhost:%s", tlsServer.getPort()),
+        String.format("jdbc:arrow-flight://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
-
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
@@ -465,9 +438,8 @@ public class ConnectionTlsTest {
 
     final Connection connection = DriverManager.getConnection(
         String.format("jdbc:arrow-flight://localhost:%s",
-            tlsServer.getPort()),
+            FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
-
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }

@@ -364,10 +364,118 @@ class ClientStreamWriter : public FlightStreamWriter {
     }
   }
 
-  Status Begin(const std::shared_ptr<Schema>& schema,
-               const ipc::IpcWriteOptions& options) override {
-    if (batch_writer_) {
-      return Status::Invalid("This writer has already been started.");
+ private:
+  std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> reader_;
+  std::shared_ptr<std::mutex> read_mutex_;
+};
+
+namespace {
+// Dummy self-signed certificate to be used because TlsCredentials
+// requires root CA certs, even if you are skipping server
+// verification.
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+constexpr char kDummyRootCert[] =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIICwzCCAaugAwIBAgIJAM12DOkcaqrhMA0GCSqGSIb3DQEBBQUAMBQxEjAQBgNV\n"
+    "BAMTCWxvY2FsaG9zdDAeFw0yMDEwMDcwODIyNDFaFw0zMDEwMDUwODIyNDFaMBQx\n"
+    "EjAQBgNVBAMTCWxvY2FsaG9zdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC\n"
+    "ggEBALjJ8KPEpF0P4GjMPrJhjIBHUL0AX9E4oWdgJRCSFkPKKEWzQabTQBikMOhI\n"
+    "W4VvBMaHEBuECE5OEyrzDRiAO354I4F4JbBfxMOY8NIW0uWD6THWm2KkCzoZRIPW\n"
+    "yZL6dN+mK6cEH+YvbNuy5ZQGNjGG43tyiXdOCAc4AI9POeTtjdMpbbpR2VY4Ad/E\n"
+    "oTEiS3gNnN7WIAdgMhCJxjzvPwKszV3f7pwuTHzFMsuHLKr6JeaVUYfbi4DxxC8Z\n"
+    "k6PF6dLlLf3ngTSLBJyaXP1BhKMvz0TaMK3F0y2OGwHM9J8np2zWjTlNVEzffQZx\n"
+    "SWMOQManlJGs60xYx9KCPJMZZsMCAwEAAaMYMBYwFAYDVR0RBA0wC4IJbG9jYWxo\n"
+    "b3N0MA0GCSqGSIb3DQEBBQUAA4IBAQC0LrmbcNKgO+D50d/wOc+vhi9K04EZh8bg\n"
+    "WYAK1kLOT4eShbzqWGV/1EggY4muQ6ypSELCLuSsg88kVtFQIeRilA6bHFqQSj6t\n"
+    "sqgh2cWsMwyllCtmX6Maf3CLb2ZdoJlqUwdiBdrbIbuyeAZj3QweCtLKGSQzGDyI\n"
+    "KH7G8nC5d0IoRPiCMB6RnMMKsrhviuCdWbAFHop7Ff36JaOJ8iRa2sSf2OXE8j/5\n"
+    "obCXCUvYHf4Zw27JcM2AnnQI9VJLnYxis83TysC5s2Z7t0OYNS9kFmtXQbUNlmpS\n"
+    "doQ/Eu47vWX7S0TXeGziGtbAOKxbHE0BGGPDOAB/jGW/JVbeTiXY\n"
+    "-----END CERTIFICATE-----\n";
+#endif
+}  // namespace
+class FlightClient::FlightClientImpl {
+ public:
+  Status Connect(const Location& location, const FlightClientOptions& options) {
+    const std::string& scheme = location.scheme();
+
+    std::stringstream grpc_uri;
+    std::shared_ptr<grpc::ChannelCredentials> creds;
+    if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
+      grpc_uri << arrow::internal::UriEncodeHost(location.uri_->host()) << ':'
+               << location.uri_->port_text();
+
+      if (scheme == kSchemeGrpcTls) {
+        if (options.disable_server_verification) {
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+          namespace ge = GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
+
+          // A callback to supply to TlsCredentialsOptions that accepts any server
+          // arguments.
+          struct NoOpTlsAuthorizationCheck
+              : public ge::TlsServerAuthorizationCheckInterface {
+            int Schedule(ge::TlsServerAuthorizationCheckArg* arg) override {
+              arg->set_success(1);
+              arg->set_status(GRPC_STATUS_OK);
+              return 0;
+            }
+          };
+          auto server_authorization_check = std::make_shared<NoOpTlsAuthorizationCheck>();
+          noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
+              server_authorization_check);
+#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+          auto certificate_provider =
+              std::make_shared<grpc::experimental::StaticDataCertificateProvider>(
+                  kDummyRootCert);
+#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+          grpc::experimental::TlsChannelCredentialsOptions tls_options(
+              certificate_provider);
+#else
+          // While gRPC >= 1.36 does not require a root cert (it has a default)
+          // in practice the path it hardcodes is broken. See grpc/grpc#21655.
+          grpc::experimental::TlsChannelCredentialsOptions tls_options;
+          tls_options.set_certificate_provider(certificate_provider);
+#endif
+          tls_options.watch_root_certs();
+          tls_options.set_root_cert_name("dummy");
+          tls_options.set_server_verification_option(
+              grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
+          tls_options.set_server_authorization_check_config(noop_auth_check_);
+#elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+          auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
+          materials_config->set_pem_root_certs(kDummyRootCert);
+          ge::TlsCredentialsOptions tls_options(
+              GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
+              GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
+              std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
+#endif
+          creds = ge::TlsCredentials(tls_options);
+#else
+          return Status::NotImplemented(
+              "Using encryption with server verification disabled is unsupported. "
+              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
+#endif
+        } else {
+          grpc::SslCredentialsOptions ssl_options;
+          if (!options.tls_root_certs.empty()) {
+            ssl_options.pem_root_certs = options.tls_root_certs;
+          }
+          if (!options.cert_chain.empty()) {
+            ssl_options.pem_cert_chain = options.cert_chain;
+          }
+          if (!options.private_key.empty()) {
+            ssl_options.pem_private_key = options.private_key;
+          }
+          creds = grpc::SslCredentials(ssl_options);
+        }
+      } else {
+        creds = grpc::InsecureChannelCredentials();
+      }
+    } else if (scheme == kSchemeGrpcUnix) {
+      grpc_uri << "unix://" << location.uri_->path();
+      creds = grpc::InsecureChannelCredentials();
+    } else {
+      return Status::NotImplemented("Flight scheme " + scheme + " is not supported.");
     }
     std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(
         new ClientPutPayloadWriter(stream_, std::move(descriptor_),
@@ -474,21 +582,25 @@ class ClientStreamWriter : public FlightStreamWriter {
   // Close() is expected to be idempotent
   Status final_status_;
 
-  // Temporary state to construct the IPC payload writer
-  ipc::IpcWriteOptions write_options_;
+ private:
+  std::unique_ptr<pb::FlightService::Stub> stub_;
+  std::shared_ptr<ClientAuthHandler> auth_handler_;
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+  // Scope the TlsServerAuthorizationCheckConfig to be at the class instance level, since
+  // it gets created during Connect() and needs to persist to DoAction() calls. gRPC does
+  // not correctly increase the reference count of this object:
+  // https://github.com/grpc/grpc/issues/22287
+  std::shared_ptr<
+      GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS::TlsServerAuthorizationCheckConfig>
+      noop_auth_check_;
+#endif
   int64_t write_size_limit_bytes_;
   FlightDescriptor descriptor_;
 };
 
 FlightClient::FlightClient() : closed_(false), write_size_limit_bytes_(0) {}
 
-FlightClient::~FlightClient() {
-  auto st = Close();
-  if (!st.ok()) {
-    ARROW_LOG(WARNING) << "FlightClient::~FlightClient(): Close() failed: "
-                       << st.ToString();
-  }
-}
+FlightClient::~FlightClient() {}
 
 arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
     const Location& location) {
@@ -520,15 +632,13 @@ Status FlightClient::Connect(const Location& location, const FlightClientOptions
 
 Status FlightClient::Authenticate(const FlightCallOptions& options,
                                   std::unique_ptr<ClientAuthHandler> auth_handler) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->Authenticate(options, std::move(auth_handler));
+  return impl_->Authenticate(options, std::move(auth_handler));
 }
 
 arrow::Result<std::pair<std::string, std::string>> FlightClient::AuthenticateBasicToken(
     const FlightCallOptions& options, const std::string& username,
     const std::string& password) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->AuthenticateBasicToken(options, username, password);
+  return impl_->AuthenticateBasicToken(options, username, password);
 }
 
 arrow::Result<std::unique_ptr<ResultStream>> FlightClient::DoAction(
@@ -541,52 +651,39 @@ arrow::Result<std::unique_ptr<ResultStream>> FlightClient::DoAction(
 
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
                               std::unique_ptr<ResultStream>* results) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->DoAction(options, action, results);
+  return impl_->DoAction(options, action, results);
 }
 
 Status FlightClient::ListActions(const FlightCallOptions& options,
                                  std::vector<ActionType>* actions) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->ListActions(options, actions);
+  return impl_->ListActions(options, actions);
 }
 
 Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor,
                                    std::unique_ptr<FlightInfo>* info) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->GetFlightInfo(options, descriptor, info);
+  return impl_->GetFlightInfo(options, descriptor, info);
 }
 
 Status FlightClient::GetSchema(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<SchemaResult>* schema_result) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->GetSchema(options, descriptor, schema_result);
+  return impl_->GetSchema(options, descriptor, schema_result);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
-  RETURN_NOT_OK(CheckOpen());
   return ListFlights({}, {}, listing);
 }
 
 Status FlightClient::ListFlights(const FlightCallOptions& options,
                                  const Criteria& criteria,
                                  std::unique_ptr<FlightListing>* listing) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->ListFlights(options, criteria, listing);
+  return impl_->ListFlights(options, criteria, listing);
 }
 
 Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
                            std::unique_ptr<FlightStreamReader>* stream) {
-  RETURN_NOT_OK(CheckOpen());
-  std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
-  *stream = std::unique_ptr<ClientStreamReader>(
-      new ClientStreamReader(std::move(remote_stream), options.read_options,
-                             options.stop_token, options.memory_manager));
-  // Eagerly read the schema
-  return static_cast<ClientStreamReader*>(stream->get())->EnsureDataStarted();
+  return impl_->DoGet(options, ticket, stream);
 }
 
 Status FlightClient::DoPut(const FlightCallOptions& options,
@@ -594,51 +691,14 @@ Status FlightClient::DoPut(const FlightCallOptions& options,
                            const std::shared_ptr<Schema>& schema,
                            std::unique_ptr<FlightStreamWriter>* writer,
                            std::unique_ptr<FlightMetadataReader>* reader) {
-  RETURN_NOT_OK(CheckOpen());
-  std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(transport_->DoPut(options, &remote_stream));
-  std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
-  *reader =
-      std::unique_ptr<FlightMetadataReader>(new ClientMetadataReader(shared_stream));
-  *stream = std::unique_ptr<FlightStreamWriter>(
-      new ClientStreamWriter(std::move(shared_stream), options.write_options,
-                             write_size_limit_bytes_, descriptor));
-  RETURN_NOT_OK((*stream)->Begin(schema, options.write_options));
-  return Status::OK();
+  return impl_->DoPut(options, descriptor, schema, stream, reader);
 }
 
 Status FlightClient::DoExchange(const FlightCallOptions& options,
                                 const FlightDescriptor& descriptor,
                                 std::unique_ptr<FlightStreamWriter>* writer,
                                 std::unique_ptr<FlightStreamReader>* reader) {
-  RETURN_NOT_OK(CheckOpen());
-  std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(transport_->DoExchange(options, &remote_stream));
-  std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
-  *reader = std::unique_ptr<FlightStreamReader>(new ClientStreamReader(
-      shared_stream, options.read_options, options.stop_token, options.memory_manager));
-  auto stream_writer = std::unique_ptr<ClientStreamWriter>(
-      new ClientStreamWriter(std::move(shared_stream), options.write_options,
-                             write_size_limit_bytes_, descriptor));
-  RETURN_NOT_OK(stream_writer->Begin());
-  *writer = std::move(stream_writer);
-  return Status::OK();
-}
-
-Status FlightClient::Close() {
-  if (!closed_) {
-    closed_ = true;
-    RETURN_NOT_OK(transport_->Close());
-    transport_.reset(nullptr);
-  }
-  return Status::OK();
-}
-
-Status FlightClient::CheckOpen() const {
-  if (closed_) {
-    return Status::Invalid("FlightClient is closed");
-  }
-  return Status::OK();
+  return impl_->DoExchange(options, descriptor, writer, reader);
 }
 
 }  // namespace flight

@@ -366,8 +366,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   std::string ComputeFingerprint() const override;
   std::string ComputeMetadataFingerprint() const override;
 
-  ARROW_EXPORT friend void PrintTo(const Field& field, std::ostream* os);
-
   // Field name
   std::string name_;
 

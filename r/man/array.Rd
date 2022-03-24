@@ -9,7 +9,6 @@
 \alias{ListArray}
 \alias{LargeListArray}
 \alias{FixedSizeListArray}
-\alias{MapArray}
 \alias{StructScalar}
 \title{Arrow Arrays}
 \description{

@@ -32,8 +32,6 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
  * Accessor for the Arrow type {@link IntervalDayVector}.
  */
@@ -58,7 +56,6 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
    * @param currentRowSupplier the supplier to track the rows.
    * @param setCursorWasNull   the consumer to set if value was null.
    */
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of vectors")
   public ArrowFlightJdbcIntervalVectorAccessor(IntervalDayVector vector,
                                                IntSupplier currentRowSupplier,
                                                ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
@@ -75,7 +72,6 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
    * @param currentRowSupplier the supplier to track the rows.
    * @param setCursorWasNull   the consumer to set if value was null.
    */
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of vectors")
   public ArrowFlightJdbcIntervalVectorAccessor(IntervalYearVector vector,
                                                IntSupplier currentRowSupplier,
                                                ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {

@@ -17,90 +17,76 @@
   under the License.
 -->
 
-# MATLAB Interface to Apache Arrow
+## MATLAB Library for Apache Arrow
 
 ## Status
 
 This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
-The current code only supports reading/writing numeric types from/to Feather v1 files.
+The current code only supports reading/writing numeric types from/to Feather files.
 
-## Prerequisites
+## Building from source
 
-To build the MATLAB Interface to Apache Arrow from source, the following software must be installed on the target machine:
+### Get Arrow and build Arrow CPP
 
-1. [MATLAB](https://www.mathworks.com/products/get-matlab.html)
-2. [CMake](https://cmake.org/cmake/help/latest/)
-3. C++ compiler which supports C++11 (e.g. [`gcc`](https://gcc.gnu.org/) on Linux, [`Xcode`](https://developer.apple.com/xcode/) on macOS, or [`Visual Studio`](https://visualstudio.microsoft.com/) on Windows)
-4. [Git](https://git-scm.com/)
+See: [Arrow CPP README](../cpp/README.md)
 
-## Setup
+### Build MATLAB interface to Apache Arrow using MATLAB R2018a:
 
-To set up a local working copy of the source code, start by cloning the [`apache/arrow`](https://github.com/apache/arrow) GitHub repository using [Git](https://git-scm.com/):
+    cd arrow/matlab
+    mkdir build
+    cd build
+    cmake ..
+    make
 
-```console
-$ git clone https://github.com/apache/arrow.git
-```
+#### Non-standard MATLAB and Arrow installations
 
-After cloning, change the working directory to the `matlab` subdirectory:
+To specify a non-standard MATLAB install location, use the Matlab_ROOT_DIR CMake flag:
 
-```console
-$ cd arrow/matlab
-```
+    cmake .. -DMatlab_ROOT_DIR=/<PATH_TO_MATLAB_INSTALL>
 
-## Build
+To specify a non-standard Arrow install location, use the ARROW_HOME CMake flag:
 
-To build the MATLAB interface, use [CMake](https://cmake.org/cmake/help/latest/):
+    cmake .. -DARROW_HOME=/<PATH_TO_ARROW_INSTALL>
 
-```console
-$ cmake -S . -B build 
-$ cmake --build build --config Release
-```
+### Build MATLAB interface to Arrow using MATLAB R2018b or later:
 
-## Install
+This may be preferred if you are using MATLAB R2018b or later and have encountered [linker errors](https://gitlab.kitware.com/cmake/cmake/issues/18391) when using CMake.
 
-To install the MATLAB interface to the default software installation location for the target machine (e.g. `/usr/local` on Linux or `C:\Program Files` on Windows), pass the `--target install` flag to CMake.
+Prerequisite: Ensure that the Arrow C++ library is already installed and the `ARROW_HOME` environment variable is set to the installation root.
 
-```console
-$ cmake --build build --config Release --target install
-```
-
-As part of the install step, the installation directory is added to the [MATLAB Search Path](https://mathworks.com/help/matlab/matlab_env/what-is-the-matlab-search-path.html).
-
-**Note**: This step may fail if the current user is lacking necessary filesystem permissions. If the install step fails, the installation directory can be manually added to the MATLAB Search Path using the [`addpath`](https://www.mathworks.com/help/matlab/ref/addpath.html) command. 
-
-## Test
-
-There are two kinds of tests for the MATLAB Interface: MATLAB and C++. 
-
-### MATLAB
-
-To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call the [`runtests`](https://mathworks.com/help/matlab/ref/runtests.html) command on the `test` directory:
+To verify this, you can run:
 
 ``` matlab
->> runtests test;
+>> getenv ARROW_HOME
 ```
 
-### C++
+This should print a path that contains `include` and `lib` directories with Arrow C++ headers and libraries.
 
-To enable the C++ tests, set the `MATLAB_BUILD_TESTS` flag to `ON` at build time: 
+Navigate to the `build_support` subfolder and run the `compile` function to build the necessary MEX files:
 
-```console
-$ cmake -S . -B build -D MATLAB_BUILD_TESTS=ON
-$ cmake --build build --config Release
+``` matlab
+>> cd build_support
+>> compile
 ```
 
-After building with the `MATLAB_BUILD_TESTS` flag enabled, the C++ tests can be run using [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html):
+Run the `test` function to execute the unit tests:
 
-```console
-$ ctest --test-dir build
+``` matlab
+>> test
 ```
 
-## Usage
+## Try it out
 
-Included below are some example code snippets that illustrate how to use the MATLAB interface.
+### Add the src and build directories to your MATLAB path
 
-### Write a MATLAB table to a Feather v1 file
+``` matlab
+>> cd(fullfile('arrow', 'matlab'));
+>> addpath src;
+>> addpath build;
+```
+
+### Write a MATLAB table to a Feather file
 
 ``` matlab
 >> t = array2table(rand(10, 10));
@@ -108,10 +94,19 @@ Included below are some example code snippets that illustrate how to use the MAT
 >> featherwrite(filename,t);
 ```
 
-### Read a Feather v1 file into a MATLAB table
+### Read a Feather file into a MATLAB table
 
 ``` matlab
 >> filename = 'table.feather';
 >> t = featherread(filename);
 ```
 
+## Running the tests
+
+``` matlab
+>> cd(fullfile('arrow', 'matlab'));
+>> addpath src;
+>> addpath build;
+>> cd test;
+>> runtests .;
+```

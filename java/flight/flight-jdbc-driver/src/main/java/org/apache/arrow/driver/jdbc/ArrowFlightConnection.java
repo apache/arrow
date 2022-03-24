@@ -80,9 +80,9 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    */
   static ArrowFlightConnection createNewConnection(final ArrowFlightJdbcDriver driver,
                                                    final AvaticaFactory factory,
-                                                   String url,
-                                                   final Properties properties,
-                                                   final BufferAllocator allocator) throws SQLException {
+                                                   String url, final Properties properties,
+                                                   final BufferAllocator allocator)
+      throws SQLException {
     url = parsePropertiesAndUrl(url, properties);
     final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
     final ArrowFlightSqlClientHandler clientHandler = createNewClientHandler(config, allocator);

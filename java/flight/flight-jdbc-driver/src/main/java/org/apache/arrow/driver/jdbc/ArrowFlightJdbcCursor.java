@@ -34,8 +34,6 @@ import org.apache.calcite.avatica.util.ArrayImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
  * Arrow Flight Jdbc's Cursor class.
  */
@@ -50,7 +48,6 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
     LOGGER = LoggerFactory.getLogger(ArrowFlightJdbcCursor.class);
   }
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of VectorSchemaRoot")
   public ArrowFlightJdbcCursor(VectorSchemaRoot root) {
     this.root = root;
     rowCount = root.getRowCount();

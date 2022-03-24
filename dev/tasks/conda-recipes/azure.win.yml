@@ -37,20 +37,16 @@ jobs:
 
     - task: CondaEnvironment@1
       inputs:
-        packageSpecs: 'python=3.9 conda-build conda "conda-forge-ci-setup=3" pip boa' # Optional
+        packageSpecs: 'python=3.9 conda-build conda conda-forge::conda-forge-ci-setup=3 pip' # Optional
         installOptions: "-c conda-forge"
         updateConda: true
       displayName: Install conda-build and activate environment
-
     - script: set PYTHONUNBUFFERED=1
-      displayName: Set PYTHONUNBUFFERED
 
     {{ macros.azure_checkout_arrow()|indent(2) }}
 
     # Configure the VM
-    - script: |
-        call activate base
-        setup_conda_rc .\ .\ .\.ci_support\%CONFIG%.yaml
+    - script: setup_conda_rc .\ .\ .\.ci_support\%CONFIG%.yaml
       workingDirectory: arrow\dev\tasks\conda-recipes
 
     # Configure the VM.
@@ -62,8 +58,7 @@ jobs:
       workingDirectory: arrow\dev\tasks\conda-recipes
 
     - script: |
-        call activate base
-        conda.exe mambabuild arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
+        conda.exe build arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
       displayName: Build recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
@@ -71,8 +66,7 @@ jobs:
       condition: not(contains(variables['CONFIG'], 'vs2008'))
 
     - script: |
-        call activate base
-        conda.exe mambabuild r-arrow -m .ci_support\r\%R_CONFIG%.yaml
+        conda.exe build r-arrow -m .ci_support\r\%R_CONFIG%.yaml
       displayName: Build recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:

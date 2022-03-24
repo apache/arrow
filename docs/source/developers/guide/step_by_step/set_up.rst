@@ -64,8 +64,6 @@ a username and password each time you execute a git command.
 Get the source code
 ===================
 
-.. _fork-repo-guide:
-
 Fork the repository
 -------------------
 

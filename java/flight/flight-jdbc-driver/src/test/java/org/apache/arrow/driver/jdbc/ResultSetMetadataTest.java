@@ -28,7 +28,6 @@ import java.sql.Statement;
 import java.sql.Types;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
-import org.apache.arrow.util.AutoCloseables;
 import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -64,7 +63,6 @@ public class ResultSetMetadataTest {
   @AfterClass
   public static void teardown() throws SQLException {
     connection.close();
-    AutoCloseables.closeNoChecked(SERVER_TEST_RULE);
   }
 
   /**

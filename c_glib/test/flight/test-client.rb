@@ -36,13 +36,6 @@ class TestFlightClient < Test::Unit::TestCase
     @server.shutdown
   end
 
-  def test_close
-    client = ArrowFlight::Client.new(@location)
-    client.close
-    # Idempotent
-    client.close
-  end
-
   def test_list_flights
     client = ArrowFlight::Client.new(@location)
     generator = Helper::FlightInfoGenerator.new

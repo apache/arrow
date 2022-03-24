@@ -27,8 +27,6 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
  * Accessor for the Arrow type {@link MapVector}.
  */
@@ -36,7 +34,6 @@ public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcLis
 
   private final MapVector vector;
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of vectors")
   public ArrowFlightJdbcMapVectorAccessor(MapVector vector, IntSupplier currentRowSupplier,
                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);

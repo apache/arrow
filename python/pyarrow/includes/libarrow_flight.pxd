@@ -45,11 +45,6 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string username
         c_string password
 
-        CResult[c_string] SerializeToString()
-
-        @staticmethod
-        CResult[CBasicAuth] Deserialize(const c_string& serialized)
-
     cdef cppclass CResultStream" arrow::flight::ResultStream":
         CResult[unique_ptr[CFlightResult]] Next()
 
@@ -68,20 +63,21 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CDescriptorType type
         c_string cmd
         vector[c_string] path
-        CResult[c_string] SerializeToString()
+        CStatus SerializeToString(c_string* out)
 
         @staticmethod
-        CResult[CFlightDescriptor] Deserialize(const c_string& serialized)
+        CStatus Deserialize(const c_string& serialized,
+                            CFlightDescriptor* out)
         bint operator==(CFlightDescriptor)
 
     cdef cppclass CTicket" arrow::flight::Ticket":
         CTicket()
         c_string ticket
         bint operator==(CTicket)
-        CResult[c_string] SerializeToString()
+        CStatus SerializeToString(c_string* out)
 
         @staticmethod
-        CResult[CTicket] Deserialize(const c_string& serialized)
+        CStatus Deserialize(const c_string& serialized, CTicket* out)
 
     cdef cppclass CCriteria" arrow::flight::Criteria":
         CCriteria()
@@ -119,11 +115,11 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
-        CResult[c_string] SerializeToString()
+        CStatus SerializeToString(c_string* out)
 
         @staticmethod
-        CResult[unique_ptr[CFlightInfo]] Deserialize(
-            const c_string& serialized)
+        CStatus Deserialize(const c_string& serialized,
+                            unique_ptr[CFlightInfo]* out)
 
     cdef cppclass CSchemaResult" arrow::flight::SchemaResult":
         CSchemaResult(CSchemaResult result)
@@ -358,7 +354,6 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
                            CFlightDescriptor& descriptor,
                            unique_ptr[CFlightStreamWriter]* writer,
                            unique_ptr[CFlightStreamReader]* reader)
-        CStatus Close()
 
     cdef cppclass CFlightStatusCode" arrow::flight::FlightStatusCode":
         bint operator==(CFlightStatusCode)
@@ -554,6 +549,15 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef CStatus CreateSchemaResult" arrow::py::flight::CreateSchemaResult"(
         shared_ptr[CSchema] schema,
         unique_ptr[CSchemaResult]* out)
+
+    cdef CStatus DeserializeBasicAuth\
+        " arrow::py::flight::DeserializeBasicAuth"(
+            c_string buf,
+            unique_ptr[CBasicAuth]* out)
+
+    cdef CStatus SerializeBasicAuth" arrow::py::flight::SerializeBasicAuth"(
+        CBasicAuth basic_auth,
+        c_string* out)
 
 
 cdef extern from "arrow/util/variant.h" namespace "arrow" nogil:

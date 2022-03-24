@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
-import org.apache.arrow.util.AutoCloseables;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -64,7 +63,6 @@ public class ResultSetTest {
   @AfterClass
   public static void tearDown() throws SQLException {
     connection.close();
-    AutoCloseables.closeNoChecked(SERVER_TEST_RULE);
   }
 
   private static void resultSetNextUntilDone(ResultSet resultSet) throws SQLException {
