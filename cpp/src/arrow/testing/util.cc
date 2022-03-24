@@ -108,6 +108,15 @@ Status GetTestResourceRoot(std::string* out) {
   return Status::OK();
 }
 
+Result<std::string> GetTestTimezoneDatabaseRoot() {
+  const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
+  if (!c_root) {
+    return Status::IOError(
+        "Test resources not found, set ARROW_TIMEZONE_DATABASE");
+  }
+  return std::string(c_root);
+}
+
 int GetListenPort() {
   // Get a new available port number by binding a socket to an ephemeral port
   // and then closing it.  Since ephemeral port allocation tends to avoid

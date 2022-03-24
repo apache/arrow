@@ -86,6 +86,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 namespace arrow {
 
@@ -104,29 +105,38 @@ TEST(Misc, BuildInfo) {
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
 }
 
-class ConfigTest : public ::testing::Test {
-  protected:
-    void TearDown() override {
-      // Reset global options to defaults
-      arrow::GlobalOptions default_options;
-      default_options.timezone_db_path = util::optional<std::string>();
-      ASSERT_OK(arrow::Initialize(default_options));
-    }
-};
+// class ConfigTest : public ::testing::Test {
+//  protected:
+//   void TearDown() override {
+//     // Reset global options to defaults
+//     arrow::GlobalOptions default_options;
+//     default_options.timezone_db_path = util::optional<std::string>();
+//     ASSERT_OK(arrow::Initialize(default_options));
+//   }
+// };
 
-TEST_F(ConfigTest, SetTimezoneConfig) {
+TEST(Misc, SetTimezoneConfig) {
 #ifndef _WIN32
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
 #elif !defined(ARROW_FILESYSTEM)
   GTEST_SKIP() << "Need filesystem support to test timezone config.";
 #else
   auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
-  auto home_raw = std::getenv("USERPROFILE");
-  std::string home = home_raw == nullptr ? "~" : std::string(home_raw);
-  ASSERT_OK_AND_ASSIGN(std::string tzdata_dir,
-                       fs->NormalizePath(home + "\\Downloads\\tzdata"));
+
+  Result<std::string> tzdata_result = GetTestTimezoneDatabaseRoot();
+  std::string tzdata_dir;
+  if (tzdata_result.ok()) {
+    tzdata_dir = tzdata_result.ValueUnsafe();
+  } else {
+    auto home_raw = std::getenv("USERPROFILE");
+    std::string home = home_raw == nullptr ? "~" : std::string(home_raw);
+    ASSERT_OK_AND_ASSIGN(tzdata_dir, fs->NormalizePath(home + "\\Downloads\\tzdata"));
+  }
+  ASSERT_OK_AND_ASSIGN(tzdata_dir, fs->NormalizePath(tzdata_dir));
   ASSERT_OK_AND_ASSIGN(auto tzdata_path,
                        arrow::internal::PlatformFilename::FromString(tzdata_dir));
+  
+
   if (!arrow::internal::FileExists(tzdata_path).ValueOr(false)) {
     GTEST_SKIP() << "Couldn't find timezone database in expected dir: " << tzdata_dir;
   }
@@ -145,8 +155,7 @@ TEST_F(ConfigTest, SetTimezoneConfig) {
 
   // Validate that tzdb is working
   ASSERT_OK(arrow::Initialize(options));
-#endif  // ARROW_FILESYSTEM
-#endif  // _WIN32
+#endif
 }
 
 }  // namespace arrow
