@@ -17,9 +17,11 @@
 
 #include "arrow/testing/util.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <random>
+#include <sstream>
 
 #ifdef _WIN32
 // clang-format off
@@ -158,6 +160,24 @@ int GetListenPort() {
 #endif
 
   return port;
+}
+
+std::string GetListenAddress() {
+  // Using GetListenPort() alone may still suffer from race conditions,
+  // so this function maximizes the chances of finding an available address
+  // by using a different loopback address every time (there are 2**24 of them).
+  static std::atomic<uint32_t> next_addr{1U};  // start at "127.0.0.1"
+  const auto addr = next_addr++ & 0xffffffU;   // keep bottom 24 bits
+  const auto port = GetListenPort();
+  std::stringstream ss;
+  // Format loopback IPv4 address and port
+  ss << "127";
+  for (int shift = 16; shift >= 0; shift -= 8) {
+    const auto byte = (addr >> shift) & 0xFFU;
+    ss << "." << byte;
+  }
+  ss << ":" << port;
+  return ss.str();
 }
 
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {
