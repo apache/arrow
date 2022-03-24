@@ -525,7 +525,7 @@ cdef class Location(_Weakrefable):
         CLocation location
 
     def __init__(self, uri):
-        check_flight_status(CLocation.Parse(tobytes(uri), &self.location))
+        check_flight_status(CLocation.Parse(tobytes(uri)).Value(&self.location))
 
     def __repr__(self):
         return '<Location {}>'.format(self.location.ToString())
@@ -550,7 +550,7 @@ cdef class Location(_Weakrefable):
             int c_port = port
             Location result = Location.__new__(Location)
         check_flight_status(
-            CLocation.ForGrpcTcp(c_host, c_port, &result.location))
+            CLocation.ForGrpcTcp(c_host, c_port).Value(&result.location))
         return result
 
     @staticmethod
@@ -561,7 +561,7 @@ cdef class Location(_Weakrefable):
             int c_port = port
             Location result = Location.__new__(Location)
         check_flight_status(
-            CLocation.ForGrpcTls(c_host, c_port, &result.location))
+            CLocation.ForGrpcTls(c_host, c_port).Value(&result.location))
         return result
 
     @staticmethod
@@ -570,7 +570,7 @@ cdef class Location(_Weakrefable):
         cdef:
             c_string c_path = tobytes(path)
             Location result = Location.__new__(Location)
-        check_flight_status(CLocation.ForGrpcUnix(c_path, &result.location))
+        check_flight_status(CLocation.ForGrpcUnix(c_path).Value(&result.location))
         return result
 
     @staticmethod
@@ -584,7 +584,7 @@ cdef class Location(_Weakrefable):
         cdef CLocation c_location
         if isinstance(location, str):
             check_flight_status(
-                CLocation.Parse(tobytes(location), &c_location))
+                CLocation.Parse(tobytes(location)).Value(&c_location))
             return c_location
         elif not isinstance(location, Location):
             raise TypeError("Must provide a Location, not '{}'".format(
@@ -626,7 +626,7 @@ cdef class FlightEndpoint(_Weakrefable):
             else:
                 c_location = CLocation()
                 check_flight_status(
-                    CLocation.Parse(tobytes(location), &c_location))
+                    CLocation.Parse(tobytes(location)).Value(&c_location))
             self.endpoint.locations.push_back(c_location)
 
     @property

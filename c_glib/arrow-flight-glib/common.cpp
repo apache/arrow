@@ -245,7 +245,7 @@ gaflight_location_new(const gchar *uri,
   auto location = GAFLIGHT_LOCATION(g_object_new(GAFLIGHT_TYPE_LOCATION, NULL));
   auto flight_location = gaflight_location_get_raw(location);
   if (garrow::check(error,
-                    arrow::flight::Location::Parse(uri, flight_location),
+                    arrow::flight::Location::Parse(uri).Value(flight_location),
                     "[flight-location][new]")) {
     return location;
   } else {

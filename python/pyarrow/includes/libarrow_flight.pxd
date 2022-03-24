@@ -93,16 +93,16 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_bool Equals(const CLocation& other)
 
         @staticmethod
-        CStatus Parse(c_string& uri_string, CLocation* location)
+        CResult[CLocation] Parse(c_string& uri_string)
 
         @staticmethod
-        CStatus ForGrpcTcp(c_string& host, int port, CLocation* location)
+        CResult[CLocation] ForGrpcTcp(c_string& host, int port)
 
         @staticmethod
-        CStatus ForGrpcTls(c_string& host, int port, CLocation* location)
+        CResult[CLocation] ForGrpcTls(c_string& host, int port)
 
         @staticmethod
-        CStatus ForGrpcUnix(c_string& path, CLocation* location)
+        CResult[CLocation] ForGrpcUnix(c_string& path)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
         CFlightEndpoint()

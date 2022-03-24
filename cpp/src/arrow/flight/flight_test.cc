@@ -122,10 +122,8 @@ TEST(TestFlight, ConnectUri) {
   std::string uri = ss.str();
 
   std::unique_ptr<FlightClient> client;
-  Location location1;
-  Location location2;
-  ASSERT_OK(Location::Parse(uri, &location1));
-  ASSERT_OK(Location::Parse(uri, &location2));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::Parse(uri));
   ASSERT_OK(FlightClient::Connect(location1, &client));
   ASSERT_OK(client->Close());
   ASSERT_OK(FlightClient::Connect(location2, &client));
@@ -143,10 +141,8 @@ TEST(TestFlight, ConnectUriUnix) {
   std::string uri = ss.str();
 
   std::unique_ptr<FlightClient> client;
-  Location location1;
-  Location location2;
-  ASSERT_OK(Location::Parse(uri, &location1));
-  ASSERT_OK(Location::Parse(uri, &location2));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::Parse(uri));
   ASSERT_OK(FlightClient::Connect(location1, &client));
   ASSERT_OK(client->Close());
   ASSERT_OK(FlightClient::Connect(location2, &client));
