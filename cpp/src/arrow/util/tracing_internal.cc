@@ -23,6 +23,10 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+#include <sys/sysinfo.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #ifdef _MSC_VER
 #pragma warning(push)

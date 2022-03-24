@@ -76,10 +76,14 @@ class SinkNode : public ExecNode {
   const char* kind_name() const override { return "SinkNode"; }
 
   Status StartProducing() override {
-    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
-               {{"node.label", label()},
-                {"node.detail", ToString()},
-                {"node.kind", kind_name()}});
+    START_SPAN(
+        span_, std::string(kind_name()) + ":" + label(),
+        {{"node.label", label()},
+         {"node.detail", ToString()},
+         {"node.kind", kind_name()},
+         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
     finished_ = Future<>::Make();
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
 
@@ -106,8 +110,13 @@ class SinkNode : public ExecNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                           {{"node.label", label()}, {"batch.length", batch.length}});
+    START_SPAN_WITH_PARENT(
+        span, span_, "InputReceived",
+        {{"node.label", label()},
+         {"batch.length", batch.length},
+         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
 
     DCHECK_EQ(input, inputs_[0]);
 
@@ -174,10 +183,14 @@ class ConsumingSinkNode : public ExecNode {
   const char* kind_name() const override { return "ConsumingSinkNode"; }
 
   Status StartProducing() override {
-    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
-               {{"node.label", label()},
-                {"node.detail", ToString()},
-                {"node.kind", kind_name()}});
+    START_SPAN(
+        span_, std::string(kind_name()) + ":" + label(),
+        {{"node.label", label()},
+         {"node.detail", ToString()},
+         {"node.kind", kind_name()},
+         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
     DCHECK_GT(inputs_.size(), 0);
     RETURN_NOT_OK(consumer_->Init(inputs_[0]->output_schema()));
     finished_ = Future<>::Make();
@@ -204,8 +217,13 @@ class ConsumingSinkNode : public ExecNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                           {{"node.label", label()}, {"batch.length", batch.length}});
+    START_SPAN_WITH_PARENT(
+        span, span_, "InputReceived",
+        {{"node.label", label()},
+         {"batch.length", batch.length},
+         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
 
     DCHECK_EQ(input, inputs_[0]);
 
@@ -354,8 +372,13 @@ struct OrderBySinkNode final : public SinkNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                           {{"node.label", label()}, {"batch.length", batch.length}});
+    START_SPAN_WITH_PARENT(
+        span, span_, "InputReceived",
+        {{"node.label", label()},
+         {"batch.length", batch.length},
+         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
 
     DCHECK_EQ(input, inputs_[0]);
 
@@ -392,7 +415,12 @@ struct OrderBySinkNode final : public SinkNode {
 
   void Finish() override {
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(span, span_, "Finish", {{"node.label", label()}});
+    START_SPAN_WITH_PARENT(
+        span, span_, "Finish",
+        {{"node.label", label()},
+         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
     Status st = DoFinish();
     if (ErrorIfNotOk(st)) {
       producer_.Push(std::move(st));

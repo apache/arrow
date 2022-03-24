@@ -51,6 +51,7 @@
 
 #include <fcntl.h>
 #include <signal.h>
+#include <arrow/util/string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>  // IWYU pragma: keep
@@ -68,11 +69,18 @@
 
 #ifdef _WIN32
 #include "arrow/io/mman.h"
+#include "psapi.h"
+#include "windows.h"
 #undef Realloc
 #undef Free
 #else  // POSIX-like platforms
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
+#include <sys/sysinfo.h>
 #include <unistd.h>
+#include <fstream>
 #endif
 
 // define max read/write count
@@ -1865,6 +1873,61 @@ uint64_t GetThreadId() {
 uint64_t GetOptionalThreadId() {
   auto tid = GetThreadId();
   return (tid == 0) ? tid - 1 : tid;
+}
+
+int parseLine(std::string line){
+  // This assumes that a digit will be found and the line ends in " Kb".
+  uint64_t i = line.length();
+  uint64_t index = 0;
+  while (line[index] <'0' || line[index] > '9') index++;
+  line[i-3] = '\0';
+  i = atoi(&line[index]);
+  return i;
+}
+
+int64_t GetMemoryUsedByProcess() {
+#ifdef _WIN32
+  PROCESS_MEMORY_COUNTERS_EX pmc;
+  PROCESS_MEMORY_COUNTERS_EX pmc;
+  GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+  return pmc.WorkingSetSize;
+#else
+  std::string line;
+  std::string name;
+  uint64_t result;
+  std::ifstream status_info("/proc/self/status", std::ios::in);
+  while (status_info) {
+    std::getline(status_info, line);
+    int64_t colon = line.find(':');
+    if (colon != std::string::npos) {
+      name = TrimString(line.substr(0, colon - 1));
+      if (name.compare("VmRSS") == 0){
+        result = parseLine(line);
+        break;
+      }
+    }
+  }
+  if (status_info.is_open()) status_info.close();
+  return result * 1024;
+#endif
+}
+
+//TODO: Reutilize PR-11426 functions
+int64_t GetMemoryUsed() {
+#ifdef _WIN32
+  MEMORYSTATUSEX memInfo;
+  memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+  GlobalMemoryStatusEx(&memInfo);
+  return memInfo.ullTotalPhys - memInfo.ullAvailPhys;
+#else
+#endif
+  int64_t total_memory_size;
+  int64_t used_memory_size;
+  struct sysinfo si;
+  sysinfo(&si);
+  total_memory_size = static_cast<int64_t>(si.totalram);
+  used_memory_size = total_memory_size - static_cast<int64_t>(si.freeram);
+  return used_memory_size;
 }
 
 }  // namespace internal

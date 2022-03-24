@@ -346,5 +346,17 @@ int64_t GetRandomSeed();
 ARROW_EXPORT
 uint64_t GetThreadId();
 
+/// \brief Get the current Memory used in bytes
+///
+/// This function support Windows and Linux
+ARROW_EXPORT
+int64_t GetMemoryUsed();
+
+/// \brief Get the current memory used by current process in bytes
+///
+/// This function support Windows and Linux
+ARROW_EXPORT
+int64_t GetMemoryUsedByProcess();
+
 }  // namespace internal
 }  // namespace arrow

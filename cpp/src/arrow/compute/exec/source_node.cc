@@ -70,11 +70,15 @@ struct SourceNode : ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
-    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
-               {{"node.kind", kind_name()},
-                {"node.label", label()},
-                {"node.output_schema", output_schema()->ToString()},
-                {"node.detail", ToString()}});
+    START_SPAN(
+        span_, std::string(kind_name()) + ":" + label(),
+        {{"node.kind", kind_name()},
+         {"node.label", label()},
+         {"node.output_schema", output_schema()->ToString()},
+         {"node.detail", ToString()},
+         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this

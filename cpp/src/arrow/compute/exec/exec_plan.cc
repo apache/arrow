@@ -81,7 +81,12 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
-    START_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
+    START_SPAN(
+        span_, "ExecPlan",
+        {{"plan", ToString()},
+         {"memory_pool_bytes", exec_context_->memory_pool()->bytes_allocated()},
+         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
 #ifdef ARROW_WITH_OPENTELEMETRY
     if (HasMetadata()) {
       auto pairs = metadata().get()->sorted_pairs();
@@ -389,7 +394,12 @@ void MapNode::InputFinished(ExecNode* input, int total_batches) {
 Status MapNode::StartProducing() {
   START_SPAN(
       span_, std::string(kind_name()) + ":" + label(),
-      {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
+      {{"node.label", label()},
+       {"node.detail", ToString()},
+       {"node.kind", kind_name()},
+       {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+       {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+       {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
   finished_ = Future<>::Make();
   END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
   return Status::OK();

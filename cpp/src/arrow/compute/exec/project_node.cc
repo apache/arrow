@@ -80,10 +80,14 @@ class ProjectNode : public MapNode {
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
       util::tracing::Span span;
-      START_SPAN(span, "Project",
-                 {{"project.descr", exprs_[i].descr().ToString()},
-                  {"project.length", target.length},
-                  {"project.expression", exprs_[i].ToString()}});
+      START_SPAN(
+          span, "Project",
+          {{"project.descr", exprs_[i].descr().ToString()},
+           {"project.length", target.length},
+           {"project.expression", exprs_[i].ToString()},
+           {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+           {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+           {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
                             SimplifyWithGuarantee(exprs_[i], target.guarantee));
 
@@ -98,10 +102,14 @@ class ProjectNode : public MapNode {
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
       util::tracing::Span span;
-      START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                             {{"project", ToStringExtra()},
-                              {"node.label", label()},
-                              {"batch.length", batch.length}});
+      START_SPAN_WITH_PARENT(
+          span, span_, "InputReceived",
+          {{"project", ToStringExtra()},
+           {"node.label", label()},
+           {"batch.length", batch.length},
+           {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
+           {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+           {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
       auto result = DoProject(std::move(batch));
       MARK_SPAN(span, result.status());
       END_SPAN(span);

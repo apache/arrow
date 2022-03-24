@@ -215,10 +215,14 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   }
 
   util::tracing::Span span;
-  START_SPAN(span, name(),
-             {{"function.name", name()},
-              {"function.options", options ? options->ToString() : "<NULLPTR>"},
-              {"function.kind", kind()}});
+  START_SPAN(
+      span, name(),
+      {{"function.name", name()},
+       {"function.options", options ? options->ToString() : "<NULLPTR>"},
+       {"function.kind", kind()},
+       {"memory_pool_bytes", ctx->memory_pool()->bytes_allocated()},
+       {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
+       {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
