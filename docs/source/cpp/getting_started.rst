@@ -34,6 +34,7 @@ User Guide
    streaming_execution
    io
    ipc
+   orc
    parquet
    csv
    json

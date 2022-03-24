@@ -94,12 +94,19 @@ the whole file (due to the columnar layout):
 We need not use a string to specify the origin of the file. It can be any of:
 
 * A file path as a string
-* A :ref:`NativeFile <io.native_file>` from PyArrow
 * A Python file object
+* A pathlib.Path object
+* A :ref:`NativeFile <io.native_file>` from PyArrow
 
 In general, a Python file object will have the worst read performance, while a
 string file path or an instance of :class:`~.NativeFile` (especially memory
 maps) will perform the best.
+
+We can also read partitioned datasets with multiple ORC files through the
+:mod:`pyarrow.dataset <dataset>` interface.
+
+.. seealso::
+   :ref:`Documentation for datasets <dataset>`.
 
 ORC file writing options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,7 +133,7 @@ Finer-grained Reading and Writing
    orc_file.schema
    orc_file.nrows
 
-See the :class:`~pyarrow.orc.ORCFile()` docstring for more details.
+See the :class:`~pyarrow.orc.ORCFile` docstring for more details.
 
 As you can learn more in the `Apache ORC format
 <https://orc.apache.org/specification/>`_, an ORC file consists of
@@ -177,4 +184,4 @@ filesystems, through the ``filesystem`` keyword:
     table = orc.read_table("bucket/object/key/prefix", filesystem=s3)
 
 .. seealso::
-   :ref:`Documentation for filesystems <filesystems>`.
+   :ref:`Documentation for filesystems <filesystem>`.

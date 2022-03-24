@@ -49,6 +49,7 @@ files into Arrow structures.
    numpy
    pandas
    timestamps
+   orc
    csv
    feather
    json

@@ -181,5 +181,3 @@ An ORC file is written to a :class:`~arrow::io::OutputStream`.
             // Handle close error...
         }
     }
-
-.. note:: The writer does not yet support all Arrow types.
