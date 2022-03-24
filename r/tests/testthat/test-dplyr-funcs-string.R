@@ -261,7 +261,7 @@ test_that("grepl with ignore.case = TRUE and fixed = TRUE", {
   expect_equal(
     df %>%
       Table$create() %>%
-      transmute(
+      mutate(
         a = grepl("O", x, ignore.case = TRUE, fixed = TRUE)
       ) %>%
       collect(),
