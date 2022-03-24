@@ -2245,6 +2245,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CCumulativeSumOptions \
             "arrow::compute::CumulativeSumOptions"(CFunctionOptions):
+        CCumulativeSumOptions(int64_t start)
         CCumulativeSumOptions(shared_ptr[CScalar] start, c_bool skip_nulls)
         shared_ptr[CScalar] start
         c_bool skip_nulls

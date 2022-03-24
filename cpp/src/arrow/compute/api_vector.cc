@@ -179,14 +179,14 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
-CumulativeSumOptions::CumulativeSumOptions(uint64_t start, bool skip_nulls)
-    : CumulativeSumOptions(std::make_shared<UInt64Scalar>(start), skip_nulls) {}
-
-CumulativeSumOptions::CumulativeSumOptions(int64_t start, bool skip_nulls)
-    : CumulativeSumOptions(std::make_shared<Int64Scalar>(start), skip_nulls) {}
-
-CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls)
-    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
+// CumulativeSumOptions::CumulativeSumOptions(uint64_t start, bool skip_nulls)
+//     : CumulativeSumOptions(std::make_shared<UInt64Scalar>(start), skip_nulls) {}
+//
+// CumulativeSumOptions::CumulativeSumOptions(int64_t start, bool skip_nulls)
+//     : CumulativeSumOptions(std::make_shared<Int64Scalar>(start), skip_nulls) {}
+//
+// CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls)
+//     : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
 
 CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls)
     : FunctionOptions(internal::kCumulativeSumOptionsType),
