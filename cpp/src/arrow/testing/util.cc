@@ -37,6 +37,7 @@
 #include <unistd.h>      // IWYU pragma: keep
 #endif
 
+#include "arrow/config.h"
 #include "arrow/table.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -108,13 +109,25 @@ Status GetTestResourceRoot(std::string* out) {
   return Status::OK();
 }
 
-Result<std::string> GetTestTimezoneDatabaseRoot() {
+util::optional<std::string> GetTestTimezoneDatabaseRoot() {
   const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
   if (!c_root) {
-    return Status::IOError(
-        "Test resources not found, set ARROW_TIMEZONE_DATABASE");
+    return util::make_optional<std::string>();
   }
-  return std::string(c_root);
+  return util::make_optional(std::string(c_root));
+}
+
+// This is only relevant on Windows, since other OSs have compatible databases built-in
+Status InitTestTimezoneDatabase() {
+  auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
+  // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
+  if (!maybe_tzdata.has_value()) return Status::OK();
+
+  auto tzdata_path = std::string(maybe_tzdata.value());
+  arrow::GlobalOptions options = {util::make_optional(tzdata_path)};
+  std::cout << "timezone db path set to: " << tzdata_path;  // TODO: remove
+  ARROW_RETURN_NOT_OK(arrow::Initialize(options));
+  return Status::OK();
 }
 
 int GetListenPort() {

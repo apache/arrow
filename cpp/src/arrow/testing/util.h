@@ -34,6 +34,7 @@
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -110,9 +111,11 @@ UnionTypeFactories() {
 // Status
 ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
 
-// Return the value of the ARROW_TIMEZONE_DATABASE environment variable or return error
-// Status
-ARROW_TESTING_EXPORT Result<std::string> GetTestTimezoneDatabaseRoot();
+// Return the value of the ARROW_TIMEZONE_DATABASE environment variable
+ARROW_TESTING_EXPORT util::optional<std::string> GetTestTimezoneDatabaseRoot();
+
+//
+ARROW_TESTING_EXPORT Status InitTestTimezoneDatabase();
 
 // Get a TCP port number to listen on.  This is a different number every time,
 // as reusing the same port across tests can produce spurious bind errors on

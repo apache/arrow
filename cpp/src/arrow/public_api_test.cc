@@ -123,10 +123,10 @@ TEST(Misc, SetTimezoneConfig) {
 #else
   auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
 
-  Result<std::string> tzdata_result = GetTestTimezoneDatabaseRoot();
+  util::optional<std::string> tzdata_result = GetTestTimezoneDatabaseRoot();
   std::string tzdata_dir;
-  if (tzdata_result.ok()) {
-    tzdata_dir = tzdata_result.ValueUnsafe();
+  if (tzdata_result.has_value()) {
+    tzdata_dir = tzdata_result.value();
   } else {
     auto home_raw = std::getenv("USERPROFILE");
     std::string home = home_raw == nullptr ? "~" : std::string(home_raw);
@@ -135,7 +135,6 @@ TEST(Misc, SetTimezoneConfig) {
   ASSERT_OK_AND_ASSIGN(tzdata_dir, fs->NormalizePath(tzdata_dir));
   ASSERT_OK_AND_ASSIGN(auto tzdata_path,
                        arrow::internal::PlatformFilename::FromString(tzdata_dir));
-  
 
   if (!arrow::internal::FileExists(tzdata_path).ValueOr(false)) {
     GTEST_SKIP() << "Couldn't find timezone database in expected dir: " << tzdata_dir;

@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
@@ -407,6 +408,14 @@ class ScalarTemporalTest : public ::testing::Test {
   RoundTemporalOptions round_to_15_quarters =
       RoundTemporalOptions(15, CalendarUnit::QUARTER);
   RoundTemporalOptions round_to_15_years = RoundTemporalOptions(15, CalendarUnit::YEAR);
+
+ protected:
+  void SetUp() override {
+#ifdef _WIN32
+    // Initialize timezone database on Windows
+    ASSERT_OK(InitTestTimezoneDatabase());
+#endif
+  }
 };
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
