@@ -2018,9 +2018,19 @@ Examples
             DeprecationWarning, stacklevel=2)
         return self._metadata.fs
 
-    common_metadata = property(
+    _common_metadata = property(
         operator.attrgetter('_metadata.common_metadata')
     )
+
+    @property
+    def common_metadata(self):
+        """
+        DEPRECATED
+        """
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.common_metadata", ""),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.common_metadata
 
     @property
     def fragments(self):
@@ -2938,17 +2948,12 @@ def write_to_dataset(table, root_path, partition_cols=None,
     'dataset_name/year=2022/month=5/day=5/202255.parquet',
     'dataset_name/year=2022/month=9/day=13/2022913.parquet']
 
-    Write to single Parquet file:
+    Write to a single Parquet file:
 
     >>> import pyarrow.parquet as pq
     >>> pq.write_to_dataset(table, root_path='dataset_name')
-
-
-
     >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
     ['dataset_name/0c7a313fcfee4b31b3380ee480739153.parquet']
-
-
 
     >>> pq.write_to_dataset(table, root_path='dataset_name', use_legacy_dataset=False)
     >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
