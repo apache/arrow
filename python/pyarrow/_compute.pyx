@@ -1754,7 +1754,7 @@ class CumulativeSumOptions(_CumulativeSumOptions):
         When false, propagates the first null/NaN encountered
     """
 
-    def __init__(self, start=0, skip_nulls=false):
+    def __init__(self, start=0, skip_nulls=False):
         self._set_options(start, skip_nulls)
 
 

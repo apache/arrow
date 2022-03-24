@@ -28,16 +28,11 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-namespace {
-
-std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
-  return KernelSignature::Make({InputType::Array(get_id.id)}, OutputType(FirstType));
-}
-
-}  // namespace
-
 template <typename OutType, typename ArgType, typename Op>
-struct CumulativeMeta {
+struct CumulativeGeneric {
+  using OutValue = typename GetOutputType<OutType>::T;
+  using ArgValue = typename GetViewType<ArgType>::T;
+
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = OptionsWrapper<CumulativeSumOptions>::Get(ctx);
     auto start = UnboxScalar<ArgType>::Unbox(*options.start);
@@ -45,13 +40,13 @@ struct CumulativeMeta {
 
     switch (batch[0].kind()) {
       case Datum::ARRAY: {
-        return Op::template Call(ctx, *batch[0].array(), start, out);
+        return Call(ctx, *batch[0].array(), start, out, skip_nulls);
       }
       case Datum::CHUNKED_ARRAY: {
         const auto& input = batch[0].chunked_array();
 
         for (const auto& chunk : input->chunks()) {
-          RETURN_NOT_OK(Op::template Call(ctx, chunk->data(), start, out));
+          RETURN_NOT_OK(Call(ctx, *chunk->data(), start, out, skip_nulls));
         }
       }
       default:
@@ -62,22 +57,15 @@ struct CumulativeMeta {
 
     return Status::OK();
   }
-};
 
-template <typename OutType, typename ArgType>
-struct CumulativeSum {
-
-  using OutValue = typename GetOutputType<OutType>::T;
-  using ArgValue = typename GetViewType<ArgType>::T;
-
-  static Status Call(KernelContext* ctx, const ArrayData& arg0, const ArgValue& sum,
-                            Datum* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& arg0, ArgValue& partial_scan,
+                            Datum* out, bool skip_nulls) {
     Status st = Status::OK();
     ArrayIterator<ArgType> arg0_it(arg0);
-    RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      sum = Add::template Call<OutValue, ArgValue, ArgValue>(ctx, arg0_it(), sum,
+    RETURN_NOT_OK(applicator::OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
+      partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(ctx, arg0_it(), partial_scan,
                                                                &st);
-      return sum;
+      return partial_scan;
     }));
     return st;
   }
@@ -86,11 +74,8 @@ struct CumulativeSum {
 const FunctionDoc cumulative_sum_doc(
     "Compute the cumulative sum over an array of numbers",
     ("`values` must be an array of numeric type values.\n"
-     "`start` is a single value of the same type.\n"
-     "Return an array which is the cumulative sum computed over `values.`\n"
-     "Null entries remain in place but are not used in calucating sum.\n"
-     "`start` is an optional starting sum of computation."),
-    {"values", "start"});
+     "Return an array which is the cumulative sum computed over `values.`"),
+    {"values"});
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
   auto cumulative_sum = std::make_shared<VectorFunction>(
@@ -105,7 +90,7 @@ void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
     kernel.null_handling = NullHandling::type::INTERSECTION;
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
-    kernel.exec = std::move(ArithmeticExecFromOp<CumulativeMeta, CumulativeSum>(ty));
+    kernel.exec = std::move(ArithmeticExecFromOp<CumulativeGeneric, Add>(ty));
     kernel.init = OptionsWrapper<CumulativeSumOptions>::Init;
     DCHECK_OK(cumulative_sum->AddKernel(std::move(kernel)));
   }
