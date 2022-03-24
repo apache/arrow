@@ -152,15 +152,14 @@ TEST(TestFlight, ConnectUriUnix) {
 
 // CI environments don't have an IPv6 interface configured
 TEST(TestFlight, DISABLED_IpV6Port) {
-  Location location, location2;
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-  ASSERT_OK(Location::ForGrpcTcp("[::1]", 0, &location));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("[::1]", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
   ASSERT_GT(server->port(), 0);
 
-  ASSERT_OK(Location::ForGrpcTcp("[::1]", server->port(), &location2));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTcp("[::1]", server->port()));
   std::unique_ptr<FlightClient> client;
   ASSERT_OK(FlightClient::Connect(location2, &client));
   std::unique_ptr<FlightListing> listing;
@@ -175,8 +174,7 @@ class TestFlightClient : public ::testing::Test {
   void SetUp() {
     server_ = ExampleTestServer();
 
-    Location location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
     FlightServerOptions options(location);
     ASSERT_OK(server_->Init(options));
 
@@ -189,8 +187,7 @@ class TestFlightClient : public ::testing::Test {
   }
 
   Status ConnectClient() {
-    Location location;
-    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
+    ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", server_->port()));
     return FlightClient::Connect(location, &client_);
   }
 
@@ -975,8 +972,7 @@ TEST_F(TestFlightClient, GenericOptions) {
   auto options = FlightClientOptions::Defaults();
   // Set a very low limit at the gRPC layer to fail all calls
   options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
-  Location location;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", server_->port()));
   ASSERT_OK(FlightClient::Connect(location, options, &client));
   auto descr = FlightDescriptor::Path({"examples", "ints"});
   std::unique_ptr<SchemaResult> schema_result;
@@ -990,8 +986,7 @@ TEST_F(TestFlightClient, GenericOptions) {
 TEST_F(TestFlightClient, TimeoutFires) {
   // Server does not exist on this port, so call should fail
   std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 30001, &location));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 30001));
   ASSERT_OK(FlightClient::Connect(location, &client));
   FlightCallOptions options;
   options.timeout = TimeoutDuration{0.2};

@@ -196,9 +196,8 @@ class MiddlewareServer : public FlightServerBase {
         descriptor.cmd == "success") {
       // Don't fail
       std::shared_ptr<Schema> schema = arrow::schema({});
-      Location location;
       // Return a fake location - the test doesn't read it
-      RETURN_NOT_OK(Location::ForGrpcTcp("localhost", 10010, &location));
+      ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 10010));
       std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {location}}};
       ARROW_ASSIGN_OR_RAISE(auto info,
                             FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));

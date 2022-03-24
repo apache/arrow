@@ -483,7 +483,7 @@ int main(int argc, char** argv) {
                 << "Server port: " << FLAGS_server_port << std::endl;
       if (FLAGS_cert_file.empty()) {
         ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host,
-                                                         FLAGS_server_port, &location));
+                                                         FLAGS_server_port).Value(&location));
       } else {
         ABORT_NOT_OK(arrow::flight::Location::ForGrpcTls(FLAGS_server_host,
                                                          FLAGS_server_port, &location));

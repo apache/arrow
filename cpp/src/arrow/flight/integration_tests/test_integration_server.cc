@@ -88,8 +88,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
       }
       auto flight = data->second;
 
-      Location server_location;
-      RETURN_NOT_OK(Location::ForGrpcTcp("127.0.0.1", port(), &server_location));
+      ARROW_ASSIGN_OR_RAISE(auto server_location, Location::ForGrpcTcp("127.0.0.1", port()));
       FlightEndpoint endpoint1({{request.path[0]}, {server_location}});
 
       FlightInfo::Data flight_data;
@@ -196,7 +195,7 @@ int main(int argc, char** argv) {
         std::make_shared<arrow::flight::integration_tests::IntegrationTestScenario>();
   }
   arrow::flight::Location location;
-  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port).Value(&location));
   arrow::flight::FlightServerOptions options(location);
 
   ARROW_CHECK_OK(scenario->MakeServer(&g_server, &options));

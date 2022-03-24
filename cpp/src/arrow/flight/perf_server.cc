@@ -258,9 +258,9 @@ int main(int argc, char** argv) {
         }
       } else {
         ARROW_CHECK_OK(
-            arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &bind_location));
-        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port,
-                                                           &connect_location));
+            arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port).Value(&bind_location));
+        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port
+                                                           ).Value(&connect_location));
       }
     } else {
       ARROW_CHECK_OK(
