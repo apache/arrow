@@ -671,7 +671,7 @@ cdef class SchemaResult(_Weakrefable):
             shared_ptr[CSchema] schema
             CDictionaryMemo dummy_memo
 
-        check_flight_status(self.result.get().GetSchema(&dummy_memo, &schema))
+        check_flight_status(self.result.get().GetSchema(&dummy_memo).Value(&schema))
         return pyarrow_wrap_schema(schema)
 
 
@@ -731,7 +731,7 @@ cdef class FlightInfo(_Weakrefable):
             shared_ptr[CSchema] schema
             CDictionaryMemo dummy_memo
 
-        check_flight_status(self.info.get().GetSchema(&dummy_memo, &schema))
+        check_flight_status(self.info.get().GetSchema(&dummy_memo).Value(&schema))
         return pyarrow_wrap_schema(schema)
 
     @property
@@ -1354,7 +1354,7 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_status(
                 self.client.get()
-                    .GetSchema(deref(c_options), c_descriptor, &result.result)
+                    .GetSchema(deref(c_options), c_descriptor).Value(&result.result)
             )
 
         return result
