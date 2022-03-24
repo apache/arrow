@@ -38,7 +38,8 @@ DEFINE_int32(port, 31337, "The port of the Flight SQL server.");
 DEFINE_string(query, "SELECT * FROM intTable WHERE value >= 0", "The query to execute.");
 
 arrow::Status Main() {
-  ARROW_ASSIGN_OR_RAISE(auto location, flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
+  ARROW_ASSIGN_OR_RAISE(auto location,
+                        flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
   std::cout << "Connecting to " << location.ToString() << std::endl;
 
   // Set up the Flight SQL client
