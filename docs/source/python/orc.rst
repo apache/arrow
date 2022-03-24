@@ -143,15 +143,8 @@ We can write an ORC file using ``ORCWriter``:
 
 .. ipython:: python
 
-   table = pa.table(
-       {
-           'one': [-1, np.nan, 2.5],
-           'two': ['foo', 'bar', 'baz'],
-           'three': [True, False, True]
-       }
-   )
    with orc.ORCWriter('example2.orc') as writer:
-       writer.write_table(table)
+       writer.write(table)
 
 Compression
 ---------------------------------------------
