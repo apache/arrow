@@ -71,15 +71,17 @@ struct CumulativeGeneric {
   }
 };
 
-const FunctionDoc cumulative_sum_doc(
+const FunctionDoc cumulative_sum_doc{
     "Compute the cumulative sum over an array of numbers",
     ("`values` must be an array of numeric type values.\n"
      "Return an array which is the cumulative sum computed over `values.`"),
-    {"values"});
+    {"values"},
+    "CumulativeSumOptions"};
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
+  auto options = CumulativeSumOptions::Defaults();
   auto cumulative_sum = std::make_shared<VectorFunction>(
-      "cumulative_sum", Arity::Unary(), &cumulative_sum_doc);
+      "cumulative_sum", Arity::Unary(), &cumulative_sum_doc, &options);
 
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
@@ -90,7 +92,7 @@ void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
     kernel.null_handling = NullHandling::type::INTERSECTION;
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
-    kernel.exec = std::move(ArithmeticExecFromOp<CumulativeGeneric, Add>(ty));
+    kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Add>(ty);
     kernel.init = OptionsWrapper<CumulativeSumOptions>::Init;
     DCHECK_OK(cumulative_sum->AddKernel(std::move(kernel)));
   }

@@ -191,10 +191,10 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 /// \brief Options for cumulative sum function
 class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
-  explicit CumulativeSumOptions(uint64_t start, bool skip_nulls = false);
-  explicit CumulativeSumOptions(int64_t start, bool skip_nulls = false);
-  explicit CumulativeSumOptions(double start, bool skip_nulls = false);
-  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start = nullptr,
+  // explicit CumulativeSumOptions(uint64_t start, bool skip_nulls = false);
+  // explicit CumulativeSumOptions(int64_t start, bool skip_nulls = false);
+  // explicit CumulativeSumOptions(double start, bool skip_nulls = false);
+  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start = std::make_shared<NumericScalar<UInt8Type>>(0),
                                 bool skip_nulls = false);
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
   static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
@@ -541,14 +541,7 @@ Result<Datum> DictionaryEncode(
     ExecContext* ctx = NULLPTR);
 
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> CumulativeSum(const Array& values,
-                                             const CumulativeSumOptions& options,
-                                             ExecContext* ctx = NULLPTR);
-
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> CumulativeSum(const ChunkedArray& chunked_array,
-                                             const CumulativeSumOptions& options,
-                                             ExecContext* ctx = NULLPTR);
+Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(), ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions
