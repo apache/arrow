@@ -37,11 +37,9 @@ Obtaining pyarrow with ORC Support
 --------------------------------------
 
 If you installed ``pyarrow`` with pip or conda, it should be built with ORC
-support bundled:
+support bundled::
 
-.. ipython:: python
-
-   from pyarrow import orc
+   >>> from pyarrow import orc
 
 If you are building ``pyarrow`` from source, you must use
 ``-DARROW_ORC=ON`` when compiling the C++ libraries and enable the ORC
@@ -54,14 +52,12 @@ Reading and Writing Single Files
 The functions :func:`~.orc.read_table` and :func:`~.orc.write_table`
 read and write the :ref:`pyarrow.Table <data.table>` object, respectively.
 
-Let's look at a simple table:
+Let's look at a simple table::
 
-.. ipython:: python
+   >>> import numpy as np
+   >>> import pyarrow as pa
 
-   import numpy as np
-   import pyarrow as pa
-
-   table = pa.table(
+   >>> table = pa.table(
        {
            'one': [-1, np.nan, 2.5],
            'two': ['foo', 'bar', 'baz'],
@@ -69,27 +65,27 @@ Let's look at a simple table:
        }
    )
 
-We write this to ORC format with ``write_table``:
+We write this to ORC format with ``write_table``::
 
-.. ipython:: python
-
-   from pyarrow import orc
-   orc.write_table(table, 'example.orc')
+   >>> from pyarrow import orc
+   >>> orc.write_table(table, 'example.orc')
 
 This creates a single ORC file. In practice, an ORC dataset may consist
 of many files in many directories. We can read a single file back with
-``read_table``:
+``read_table``::
 
-.. ipython:: python
-
-   table2 = orc.read_table('example.orc')
+   >>> table2 = orc.read_table('example.orc')
 
 You can pass a subset of columns to read, which can be much faster than reading
-the whole file (due to the columnar layout):
+the whole file (due to the columnar layout)::
 
-.. ipython:: python
-
-   orc.read_table('example.orc', columns=['one', 'three'])
+   >>> orc.read_table('example.orc', columns=['one', 'three'])
+   pyarrow.Table
+   one: double
+   three: bool
+   ----
+   one: [[-1,nan,2.5]]
+   three: [[true,false,true]]
 
 We need not use a string to specify the origin of the file. It can be any of:
 
@@ -124,14 +120,18 @@ See the :func:`~pyarrow.orc.write_table()` docstring for more details.
 Finer-grained Reading and Writing
 ---------------------------------
 
-``read_table`` uses the :class:`~.ORCFile` class, which has other features:
+``read_table`` uses the :class:`~.ORCFile` class, which has other features::
 
-.. ipython:: python
+   >>> orc_file = orc.ORCFile('example.orc')
+   >>> orc_file.metadata
 
-   orc_file = orc.ORCFile('example.orc')
-   orc_file.metadata
-   orc_file.schema
-   orc_file.nrows
+   -- metadata --
+   >>> orc_file.schema
+   one: double
+   two: string
+   three: bool
+   >>> orc_file.nrows
+   3
 
 See the :class:`~pyarrow.orc.ORCFile` docstring for more details.
 
@@ -139,33 +139,32 @@ As you can learn more in the `Apache ORC format
 <https://orc.apache.org/specification/>`_, an ORC file consists of
 multiple stripes. ``read_table`` will read all of the stripes and
 concatenate them into a single table. You can read individual stripes with
-``read_stripe``:
+``read_stripe``::
 
-.. ipython:: python
+   >>> orc_file.nstripes
+   1
+   >>> orc_file.read_stripe(0)
+   pyarrow.RecordBatch
+   one: double
+   two: string
+   three: bool
 
-   orc_file.nstripes
-   orc_file.read_stripe(0)
+We can write an ORC file using ``ORCWriter``::
 
-We can write an ORC file using ``ORCWriter``:
-
-.. ipython:: python
-
-   with orc.ORCWriter('example2.orc') as writer:
-       writer.write(table)
+   >>> with orc.ORCWriter('example2.orc') as writer:
+           writer.write(table)
 
 Compression
 ---------------------------------------------
 
 The data pages within a column in a row group can be compressed after the
 encoding passes (dictionary, RLE encoding). In PyArrow we don't use compression
-by default, but Snappy, ZSTD, Gzip/Zlib, and LZ4 are also supported:
+by default, but Snappy, ZSTD, Gzip/Zlib, and LZ4 are also supported::
 
-.. code-block:: python
-
-   orc.write_table(table, where, compression='uncompressed')
-   orc.write_table(table, where, compression='gzip')
-   orc.write_table(table, where, compression='zstd')
-   orc.write_table(table, where, compression='snappy')
+   >>> orc.write_table(table, where, compression='uncompressed')
+   >>> orc.write_table(table, where, compression='gzip')
+   >>> orc.write_table(table, where, compression='zstd')
+   >>> orc.write_table(table, where, compression='snappy')
 
 Snappy generally results in better performance, while Gzip may yield smaller
 files.
@@ -174,14 +173,12 @@ Reading from cloud storage
 --------------------------
 
 In addition to local files, pyarrow supports other filesystems, such as cloud
-filesystems, through the ``filesystem`` keyword:
+filesystems, through the ``filesystem`` keyword::
 
-.. code-block:: python
+   >>> from pyarrow import fs
 
-    from pyarrow import fs
-
-    s3  = fs.S3FileSystem(region="us-east-2")
-    table = orc.read_table("bucket/object/key/prefix", filesystem=s3)
+   >>> s3  = fs.S3FileSystem(region="us-east-2")
+   >>> table = orc.read_table("bucket/object/key/prefix", filesystem=s3)
 
 .. seealso::
    :ref:`Documentation for filesystems <filesystem>`.
