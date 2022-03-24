@@ -403,7 +403,6 @@ endif()
 set(CYTHON_EXTENSIONS
     lib
     _compute
-    _engine
     _csv
     _exec_plan
     _feather

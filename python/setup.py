@@ -108,6 +108,7 @@ class build_ext(_build_ext):
                       'namespace of boost (default: boost)'),
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
+                     ('with-engine', None, 'build the Engine extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-parquet-encryption', None,
