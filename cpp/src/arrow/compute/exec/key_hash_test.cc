@@ -85,7 +85,7 @@ class TestVectorHash {
     constexpr int min_num_unique = 100;
     constexpr int max_num_unique = 1000;
     constexpr int min_num_rows = 4000;
-    constexpr int max_num_rows = 64000;
+    constexpr int max_num_rows = 8000;
 
     std::uniform_int_distribution<int> num_unique_gen(min_num_unique, max_num_unique);
     std::uniform_int_distribution<int> num_rows_gen(min_num_rows, max_num_rows);
@@ -120,12 +120,6 @@ class TestVectorHash {
     const uint32_t* key_offsets =
         reinterpret_cast<const uint32_t*>(keys_array->raw_value_offsets());
 
-    constexpr int min_rows_for_timing = 1 << 23;
-    int num_repeats = static_cast<int>(bit_util::CeilDiv(min_rows_for_timing, num_rows));
-#ifndef NDEBUG
-    num_repeats = 1;
-#endif
-
     std::vector<uint32_t> hashes_scalar32;
     std::vector<uint64_t> hashes_scalar64;
     hashes_scalar32.resize(num_rows);
@@ -143,37 +137,34 @@ class TestVectorHash {
     temp_buffer.resize(mini_batch_size * 4);
 
     for (bool use_simd : {false, true}) {
-      for (int i = 0; i < num_repeats; ++i) {
-        if (use_32bit_hash) {
-          if (!use_varlen_input) {
-            Hashing32::HashFixed(use_simd ? hardware_flags_simd : hardware_flags_scalar,
-                                 /*combine_hashes=*/false, num_rows, fixed_length, keys,
-                                 use_simd ? hashes_simd32.data() : hashes_scalar32.data(),
-                                 temp_buffer.data());
-          } else {
-            for (int first_row = 0; first_row < num_rows;) {
-              int batch_size_next = std::min(num_rows - first_row, mini_batch_size);
-
-              Hashing32::HashVarLen(
-                  use_simd ? hardware_flags_simd : hardware_flags_scalar,
-                  /*combine_hashes=*/false, batch_size_next, key_offsets + first_row,
-                  keys,
-                  (use_simd ? hashes_simd32.data() : hashes_scalar32.data()) + first_row,
-                  temp_buffer.data());
-
-              first_row += batch_size_next;
-            }
-          }
+      if (use_32bit_hash) {
+        if (!use_varlen_input) {
+          Hashing32::HashFixed(use_simd ? hardware_flags_simd : hardware_flags_scalar,
+                               /*combine_hashes=*/false, num_rows, fixed_length, keys,
+                               use_simd ? hashes_simd32.data() : hashes_scalar32.data(),
+                               temp_buffer.data());
         } else {
-          if (!use_varlen_input) {
-            Hashing64::HashFixed(
-                /*combine_hashes=*/false, num_rows, fixed_length, keys,
-                use_simd ? hashes_simd64.data() : hashes_scalar64.data());
-          } else {
-            Hashing64::HashVarLen(
-                /*combine_hashes=*/false, num_rows, key_offsets, keys,
-                use_simd ? hashes_simd64.data() : hashes_scalar64.data());
+          for (int first_row = 0; first_row < num_rows;) {
+            int batch_size_next = std::min(num_rows - first_row, mini_batch_size);
+
+            Hashing32::HashVarLen(
+                use_simd ? hardware_flags_simd : hardware_flags_scalar,
+                /*combine_hashes=*/false, batch_size_next, key_offsets + first_row, keys,
+                (use_simd ? hashes_simd32.data() : hashes_scalar32.data()) + first_row,
+                temp_buffer.data());
+
+            first_row += batch_size_next;
           }
+        }
+      } else {
+        if (!use_varlen_input) {
+          Hashing64::HashFixed(
+              /*combine_hashes=*/false, num_rows, fixed_length, keys,
+              use_simd ? hashes_simd64.data() : hashes_scalar64.data());
+        } else {
+          Hashing64::HashVarLen(
+              /*combine_hashes=*/false, num_rows, key_offsets, keys,
+              use_simd ? hashes_simd64.data() : hashes_scalar64.data());
         }
       }
     }
@@ -220,7 +211,7 @@ class TestVectorHash {
 TEST(VectorHash, Basic) {
   random::pcg32_fast gen(/*seed=*/0);
 
-  int numtest = 100;
+  int numtest = 40;
 
   constexpr int min_length = 0;
   constexpr int max_length = 50;
