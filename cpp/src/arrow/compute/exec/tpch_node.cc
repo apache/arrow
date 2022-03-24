@@ -3201,17 +3201,17 @@ class NationGenerator : public TpchTableGenerator {
 
   static constexpr size_t kRowCount = 25;
   static constexpr int32_t kNameByteWidth = 25;
-  const int32_t kNationKey[kRowCount] = {0,  1,  2,  3,  4,  5,  6,  7,  8,
+  static constexpr int32_t kNationKey[kRowCount] = {0,  1,  2,  3,  4,  5,  6,  7,  8,
                                          9,  10, 11, 12, 13, 14, 15, 16, 17,
                                          18, 19, 20, 21, 22, 23, 24};
-  const char* kCountryNames[kRowCount] = {
+  static constexpr const char* kCountryNames[kRowCount] = {
       "ALGERIA",      "ARGENTINA",  "BRAZIL",  "CANADA",         "EGYPT",
       "ETHIOPIA",     "FRANCE",     "GERMANY", "INDIA",          "INDONESIA",
       "IRAN",         "IRAQ",       "JAPAN",   "JORDAN",         "KENYA",
       "MOROCCO",      "MOZAMBIQUE", "PERU",    "CHINA",          "ROMANIA",
       "SAUDI ARABIA", "VIETNAM",    "RUSSIA",  "UNITED KINGDOM", "UNITED STATES"};
-  const int32_t kRegionKey[kRowCount] = {0, 1, 1, 1, 4, 0, 3, 3, 2, 2, 4, 4, 2,
-                                         4, 0, 0, 0, 1, 2, 3, 4, 2, 3, 3, 1};
+  static constexpr int32_t kRegionKey[kRowCount] = {0, 1, 1, 1, 4, 0, 3, 3, 2, 2, 4, 4, 2,
+      4, 0, 0, 0, 1, 2, 3, 4, 2, 3, 3, 1};
 
   struct NATION {
     enum {
@@ -3239,6 +3239,10 @@ class NationGenerator : public TpchTableGenerator {
   std::shared_ptr<Schema> schema_;
   std::vector<int> column_indices_;
 };
+
+constexpr int32_t NationGenerator::kNationKey[NationGenerator::kRowCount];
+constexpr const char *NationGenerator::kCountryNames[NationGenerator::kRowCount];
+constexpr int32_t NationGenerator::kRegionKey[NationGenerator::kRowCount];
 
 class RegionGenerator : public TpchTableGenerator {
  public:
@@ -3286,9 +3290,9 @@ class RegionGenerator : public TpchTableGenerator {
 
   static constexpr size_t kRowCount = 5;
   static constexpr int32_t kNameByteWidth = 25;
-  const int32_t kRegionKey[kRowCount] = {0, 1, 2, 3, 4};
-  const char* kRegionNames[kRowCount] = {"AFRICA", "AMERICA", "ASIA", "EUROPE",
-                                         "MIDDLE EAST"};
+  static constexpr int32_t kRegionKey[kRowCount] = {0, 1, 2, 3, 4};
+  static constexpr const char* kRegionNames[kRowCount] = {"AFRICA", "AMERICA", "ASIA", "EUROPE",
+      "MIDDLE EAST"};
 
   struct REGION {
     enum {
@@ -3314,6 +3318,9 @@ class RegionGenerator : public TpchTableGenerator {
   std::shared_ptr<Schema> schema_;
   std::vector<int> column_indices_;
 };
+
+constexpr int32_t RegionGenerator::kRegionKey[RegionGenerator::kRowCount];
+constexpr const char *RegionGenerator::kRegionNames[RegionGenerator::kRowCount];
 
 class TpchNode : public ExecNode {
  public:
