@@ -301,6 +301,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
   return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
 }
 
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
     const std::shared_ptr<compute::ExecPlan>& plan,
     int scale_factor,
