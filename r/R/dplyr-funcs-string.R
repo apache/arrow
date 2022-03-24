@@ -192,27 +192,39 @@ register_bindings_string_join <- function() {
 
 register_bindings_string_regex <- function() {
 
-  register_binding("grepl", function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
-    arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
-    Expression$create(
+  create_string_match_expr <- function(arrow_fun, string, pattern, ignore_case, negate) {
+    out <- Expression$create(
       arrow_fun,
-      x,
-      options = list(pattern = pattern, ignore_case = ignore.case)
-    )
-  })
-
-  register_binding("str_detect", function(string, pattern, negate = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
-    out <- call_binding("grepl",
-                            pattern = opts$pattern,
-                            x = string,
-                            ignore.case = opts$ignore_case,
-                            fixed = opts$fixed
+      string,
+      options = list(pattern = pattern, ignore_case = ignore_case)
     )
     if (negate) {
       out <- !out
     }
     out
+  }
+
+  register_binding("grepl", function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
+    arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
+    out <- create_string_match_expr(
+      arrow_fun,
+      string = x,
+      pattern = pattern,
+      ignore_case = ignore.case,
+      negate = FALSE
+    )
+    call_binding("if_else", call_binding("is.na", out), FALSE, out)
+  })
+
+
+  register_binding("str_detect", function(string, pattern, negate = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    arrow_fun <- ifelse(opts$fixed, "match_substring", "match_substring_regex")
+    create_string_match_expr(arrow_fun,
+                             string = string,
+                             pattern = opts$pattern,
+                             ignore_case = opts$ignore_case,
+                             negate = negate)
   })
 
   register_binding("str_like", function(string, pattern, ignore_case = TRUE) {
@@ -257,11 +269,13 @@ register_bindings_string_regex <- function() {
     if (opts$fixed) {
       out <- call_binding("startsWith", x = string, prefix = opts$pattern)
     } else {
-      out <- call_binding("grepl", pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
-    }
-
-    if (negate) {
-      out <- !out
+      out <- create_string_match_expr(
+        arrow_fun = "match_substring_regex",
+        string = string,
+        pattern = paste0("^", opts$pattern),
+        ignore_case = opts$ignore_case,
+        negate = negate
+      )
     }
     out
   })
@@ -271,11 +285,13 @@ register_bindings_string_regex <- function() {
     if (opts$fixed) {
       out <- call_binding("endsWith", x = string, suffix = opts$pattern)
     } else {
-      out <- call_binding("grepl", pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
-    }
-
-    if (negate) {
-      out <- !out
+      out <- create_string_match_expr(
+        arrow_fun = "match_substring_regex",
+        string = string,
+        pattern = paste0(opts$pattern, "$"),
+        ignore_case = opts$ignore_case,
+        negate = negate
+      )
     }
     out
   })
