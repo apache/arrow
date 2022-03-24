@@ -294,16 +294,22 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
   int64_t start_total_records = stats->total_records;
 
   auto test_loop = test_put ? &RunDoPutTest : &RunDoGetTest;
-  auto ConsumeStream = [&stats, &test_loop, &client_options,
+  auto ConsumeStream = [&client, &stats, &test_loop, &client_options,
                         &call_options](const FlightEndpoint& endpoint) {
-    std::unique_ptr<FlightClient> client;
-    RETURN_NOT_OK(
-        FlightClient::Connect(endpoint.locations.front(), client_options, &client));
+    std::unique_ptr<FlightClient> local_client;
+    FlightClient* data_client;
+    if (endpoint.locations.empty()) {
+      data_client = client;
+    } else {
+      RETURN_NOT_OK(FlightClient::Connect(endpoint.locations.front(), client_options,
+                                          &local_client));
+      data_client = local_client.get();
+    }
 
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
 
-    const auto& result = test_loop(client.get(), call_options, token, endpoint, stats);
+    const auto& result = test_loop(data_client, call_options, token, endpoint, stats);
     if (result.ok()) {
       const PerformanceResult& perf = result.ValueOrDie();
       stats->Update(perf.num_batches, perf.num_records, perf.num_bytes);
