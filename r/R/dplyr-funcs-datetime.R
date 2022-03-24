@@ -280,9 +280,9 @@ register_bindings_duration <- function() {
 
     if (call_binding("is.character", x)) {
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-      # Complex casting only due to cast type restrictions: time64 -> int64 -> duration(us) -> duration(s)
-      x <- x$cast(time64("us"))$cast(int64())$cast(duration("us"))$cast(duration("s"))
-      return(x)
+      # complex casting only due to cast type restrictions: time64 -> int64 -> duration(us)
+      # and then we cast to duration ("s") at the end
+      x <- x$cast(time64("us"))$cast(int64())$cast(duration("us"))
     }
 
     # numeric -> duration not supported in Arrow yet so we use int64() as an
@@ -296,8 +296,6 @@ register_bindings_duration <- function() {
       # if we abort for all doubles, we risk erroring in cases in which
       # coercion to int64() would work
       x <- build_expr("cast", x, options = cast_options(to_type = int64()))
-      x <- build_expr("cast", x, options = cast_options(to_type = duration("s")))
-      return(x)
     }
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
