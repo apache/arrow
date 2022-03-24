@@ -57,6 +57,22 @@ Status AsyncTaskGroup::AddTask(std::function<Result<Future<>>()> task) {
   return AddTaskUnlocked(*maybe_task_fut, std::move(guard));
 }
 
+Status AsyncTaskGroup::AddTaskIfNotEnded(std::function<Result<Future<>>()> task) {
+  auto guard = mutex_.Lock();
+  if (finished_adding_) {
+    return Status::OK();
+  }
+  if (!err_.ok()) {
+    return err_;
+  }
+  Result<Future<>> maybe_task_fut = task();
+  if (!maybe_task_fut.ok()) {
+    err_ = maybe_task_fut.status();
+    return err_;
+  }
+  return AddTaskUnlocked(*maybe_task_fut, std::move(guard));
+}
+
 Status AsyncTaskGroup::AddTaskUnlocked(const Future<>& task_fut,
                                        util::Mutex::Guard guard) {
   // If the task is already finished there is nothing to track so lets save
@@ -82,6 +98,17 @@ Status AsyncTaskGroup::AddTask(const Future<>& task_fut) {
   auto guard = mutex_.Lock();
   if (finished_adding_) {
     return Status::Cancelled("Ignoring task added after the task group has been ended");
+  }
+  if (!err_.ok()) {
+    return err_;
+  }
+  return AddTaskUnlocked(task_fut, std::move(guard));
+}
+
+Status AsyncTaskGroup::AddTaskIfNotEnded(const Future<>& task_fut) {
+  auto guard = mutex_.Lock();
+  if (finished_adding_) {
+    return Status::OK();
   }
   if (!err_.ok()) {
     return err_;

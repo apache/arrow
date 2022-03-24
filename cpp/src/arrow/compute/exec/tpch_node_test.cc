@@ -44,6 +44,20 @@ static constexpr uint32_t kStartDate =
 static constexpr uint32_t kEndDate =
     10591;  // December 12, 1998 is 10591 days after January 1, 1970
 
+Result<std::vector<ExecBatch>> GenerateTable(
+    Result<ExecNode*> (TpchGen::*table)(std::vector<std::string>),
+    double scale_factor = 1.0) {
+  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
+  ARROW_ASSIGN_OR_RAISE(TpchGen gen, TpchGen::Make(plan.get(), scale_factor));
+  ARROW_ASSIGN_OR_RAISE(ExecNode * table_node, ((gen.*table)({})));
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  Declaration sink("sink", {Declaration::Input(table_node)}, SinkNodeOptions{&sink_gen});
+  ARROW_RETURN_NOT_OK(sink.AddToPlan(plan.get()));
+  auto fut = StartAndCollect(plan.get(), sink_gen);
+  return fut.MoveResult();
+}
+
 // Verifies that the data is valid Arrow and ensures it's not null.
 void ValidateBatch(const ExecBatch& batch) {
   for (const Datum& d : batch.values) {
@@ -224,18 +238,17 @@ void VerifyCorrectNumberOfWords_Varlen(const Datum& d, int num_words) {
     int32_t start = offsets[i];
     int32_t end = offsets[i + 1];
     int32_t str_len = end - start;
-    char tmp_str[256] = {};
-    std::memcpy(tmp_str, str + start, str_len);
+    util::string_view view(str + start, str_len);
     bool is_only_alphas_or_spaces = true;
-    for (int32_t j = offsets[i]; j < offsets[i + 1]; j++) {
-      bool is_space = str[j] == ' ';
+    for (const char& c : view) {
+      bool is_space = c == ' ';
       actual_num_spaces += is_space;
-      is_only_alphas_or_spaces &= (is_space || std::isalpha(str[j]));
+      is_only_alphas_or_spaces &= (is_space || std::isalpha(c));
     }
     ASSERT_TRUE(is_only_alphas_or_spaces)
-        << "Words must be composed only of letters, got " << tmp_str;
+        << "Words must be composed only of letters, got " << view;
     ASSERT_EQ(actual_num_spaces, expected_num_spaces)
-        << "Wrong number of spaces in " << tmp_str;
+        << "Wrong number of spaces in " << view;
   }
 }
 
@@ -286,48 +299,37 @@ void VerifyOneOf(const Datum& d, int32_t byte_width,
 }
 
 // Counts the number of instances of each integer
-void CountInstances(std::unordered_map<int32_t, int32_t>& counts, const Datum& d) {
+void CountInstances(std::unordered_map<int32_t, int32_t>* counts, const Datum& d) {
   int64_t length = d.length();
   const int32_t* nums = reinterpret_cast<const int32_t*>(d.array()->buffers[1]->data());
-  for (int64_t i = 0; i < length; i++) counts[nums[i]]++;
+  for (int64_t i = 0; i < length; i++) (*counts)[nums[i]]++;
 }
 
 // For the S_COMMENT column, some of the columns must be modified to contain
 // "Customer...Complaints" or "Customer...Recommends". This function counts the number of
 // good and bad comments.
-void CountModifiedComments(const Datum& d, int& good_count, int& bad_count) {
+void CountModifiedComments(const Datum& d, int* good_count, int* bad_count) {
   int64_t length = d.length();
   const int32_t* offsets =
       reinterpret_cast<const int32_t*>(d.array()->buffers[1]->data());
   const char* str = reinterpret_cast<const char*>(d.array()->buffers[2]->data());
-  // Length of S_COMMENT is at most 100
-  char tmp_string[101];
   for (int64_t i = 0; i < length; i++) {
     const char* row = str + offsets[i];
     int32_t row_length = offsets[i + 1] - offsets[i];
-    std::memset(tmp_string, 0, sizeof(tmp_string));
-    std::memcpy(tmp_string, row, row_length);
-    char* customer = std::strstr(tmp_string, "Customer");
-    char* recommends = std::strstr(tmp_string, "Recommends");
-    char* complaints = std::strstr(tmp_string, "Complaints");
+    util::string_view view(row, row_length);
+    bool customer = view.find("Customer") != util::string_view::npos;
+    bool recommends = view.find("Recommends") != util::string_view::npos;
+    bool complaints = view.find("Complaints") != util::string_view::npos;
     if (customer) {
-      ASSERT_TRUE((recommends != nullptr) ^ (complaints != nullptr));
-      if (recommends) good_count++;
-      if (complaints) bad_count++;
+      ASSERT_TRUE(recommends ^ complaints);
+      if (recommends) *good_count += 1;
+      if (complaints) *bad_count += 1;
     }
   }
 }
 
 TEST(TpchNode, ScaleFactor) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get(), 0.25f);
-  ExecNode* table = *gen.Supplier();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier, 0.25));
 
   int64_t kExpectedRows = 2500;
   int64_t num_rows = 0;
@@ -336,16 +338,7 @@ TEST(TpchNode, ScaleFactor) {
 }
 
 TEST(TpchNode, Supplier) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get());
-  ExecNode* table = *gen.Supplier();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
-
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier));
   int64_t kExpectedRows = 10000;
   int64_t num_rows = 0;
 
@@ -362,7 +355,7 @@ TEST(TpchNode, Supplier) {
     VerifyNationKey(batch[3]);
     VerifyPhone(batch[4]);
     VerifyDecimalsBetween(batch[5], -99999, 999999);
-    CountModifiedComments(batch[6], good_count, bad_count);
+    CountModifiedComments(batch[6], &good_count, &bad_count);
     num_rows += batch.length;
   }
   ASSERT_EQ(seen_suppkey.size(), kExpectedRows);
@@ -372,15 +365,7 @@ TEST(TpchNode, Supplier) {
 }
 
 TEST(TpchNode, Part) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get());
-  ExecNode* table = *gen.Part();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Part));
 
   int64_t kExpectedRows = 200000;
   int64_t num_rows = 0;
@@ -412,15 +397,7 @@ TEST(TpchNode, Part) {
 }
 
 TEST(TpchNode, PartSupp) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get());
-  ExecNode* table = *gen.PartSupp();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::PartSupp));
 
   constexpr int64_t kExpectedRows = 800000;
   int64_t num_rows = 0;
@@ -428,7 +405,7 @@ TEST(TpchNode, PartSupp) {
   std::unordered_map<int32_t, int32_t> counts;
   for (auto& batch : res) {
     ValidateBatch(batch);
-    CountInstances(counts, batch[0]);
+    CountInstances(&counts, batch[0]);
     VerifyAllBetween(batch[2], 1, 9999);
     VerifyDecimalsBetween(batch[3], 100, 100000);
     num_rows += batch.length;
@@ -442,15 +419,7 @@ TEST(TpchNode, PartSupp) {
 }
 
 TEST(TpchNode, Customer) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get());
-  ExecNode* table = *gen.Customer();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Customer));
 
   const int64_t kExpectedRows = 150000;
   int64_t num_rows = 0;
@@ -476,15 +445,7 @@ TEST(TpchNode, Customer) {
 }
 
 TEST(TpchNode, Orders) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get());
-  ExecNode* table = *gen.Orders();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Orders));
 
   constexpr int64_t kExpectedRows = 1500000;
   int64_t num_rows = 0;
@@ -519,19 +480,12 @@ TEST(TpchNode, Orders) {
 }
 
 TEST(TpchNode, Lineitem) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get());
-  ExecNode* table = *gen.Lineitem();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Lineitem));
+
   std::unordered_map<int32_t, int32_t> counts;
   for (auto& batch : res) {
     ValidateBatch(batch);
-    CountInstances(counts, batch[0]);
+    CountInstances(&counts, batch[0]);
     VerifyAllBetween(batch[1], /*min=*/1, /*max=*/200000);
     VerifyAllBetween(batch[3], /*min=*/1, /*max=*/7);
     VerifyDecimalsBetween(batch[4], /*min=*/100, /*max=*/5000);
@@ -569,15 +523,7 @@ TEST(TpchNode, Lineitem) {
 }
 
 TEST(TpchNode, Nation) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get());
-  ExecNode* table = *gen.Nation();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Nation));
 
   constexpr int64_t kExpectedRows = 25;
   int64_t num_rows = 0;
@@ -601,15 +547,7 @@ TEST(TpchNode, Nation) {
 }
 
 TEST(TpchNode, Region) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
-  TpchGen gen = *TpchGen::Make(plan.get());
-  ExecNode* table = *gen.Region();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table)}, SinkNodeOptions{&sink_gen});
-  std::ignore = *sink.AddToPlan(plan.get());
-  auto fut = StartAndCollect(plan.get(), sink_gen);
-  auto res = *fut.MoveResult();
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Region));
 
   constexpr int64_t kExpectedRows = 5;
   int64_t num_rows = 0;

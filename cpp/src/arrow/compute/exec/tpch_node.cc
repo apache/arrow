@@ -3372,7 +3372,7 @@ class TpchNode : public ExecNode {
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
     auto executor = plan_->exec_context()->executor();
     if (executor) {
-      RETURN_NOT_OK(task_group_.AddTask([&] {
+      RETURN_NOT_OK(task_group_.AddTaskIfNotEnded([&] {
         return executor->Submit([this, func] {
           size_t thread_index = thread_indexer_();
           Status status = func(thread_index);
