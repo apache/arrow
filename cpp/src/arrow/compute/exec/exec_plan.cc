@@ -453,7 +453,7 @@ void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
 }
 
 void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
-    this->finished_.MarkFinished(finish_st);
+  this->finished_.MarkFinished(finish_st);
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
