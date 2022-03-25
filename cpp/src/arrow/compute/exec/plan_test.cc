@@ -478,6 +478,11 @@ TEST(ExecPlanExecution, SourceSinkError) {
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(Raises(StatusCode::Invalid, HasSubstr("Artificial"))));
+  // Note: the plan may or may not be finished at this point.  When an error
+  // hits the sink node it starts to mark itself finished but before that it emits
+  // the error to the producer which will cause the above wait to finish (possibly
+  // before the plan has marked itself finished).  So we wait for the plan to finish.
+  ASSERT_FINISHES_OK(plan->finished());
 }
 
 TEST(ExecPlanExecution, SourceConsumingSink) {
@@ -527,7 +532,7 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
   }
 }
 
-TEST(ExecPlanExecution, SourceTableConsumingSink) {
+TEST(ExecPlanExecution, SourceTableSink) {
   for (bool slow : {false, true}) {
     SCOPED_TRACE(slow ? "slowed" : "unslowed");
 
@@ -549,11 +554,12 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
       ASSERT_OK(plan->StartProducing());
       // Source should finish fairly quickly
       ASSERT_FINISHES_OK(source->finished());
-      SleepABit();
-      ASSERT_OK_AND_ASSIGN(auto actual,
+      ASSERT_OK_AND_ASSIGN(auto expected,
                            TableFromExecBatches(basic_data.schema, basic_data.batches));
       ASSERT_EQ(5, out->num_rows());
-      AssertTablesEqual(*actual, *out);
+      ASSERT_OK_AND_ASSIGN(auto expected_sorted, SortTableOnAllFields(expected));
+      ASSERT_OK_AND_ASSIGN(auto out_sorted, SortTableOnAllFields(out));
+      AssertTablesEqual(*expected_sorted, *out_sorted);
       ASSERT_FINISHES_OK(plan->finished());
     }
   }
@@ -856,11 +862,11 @@ TEST(ExecPlanExecution, SourceGroupedSum) {
                   })
                   .AddToPlan(plan.get()));
 
-    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+    ASSERT_THAT(StartAndCollectSortedByField(plan.get(), sink_gen, 0),
                 Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
                     {int64(), utf8()},
-                    parallel ? R"([[800, "alfa"], [1000, "beta"], [400, "gama"]])"
-                             : R"([[8, "alfa"], [10, "beta"], [4, "gama"]])")}))));
+                    parallel ? R"([[400, "gama"], [800, "alfa"], [1000, "beta"]])"
+                             : R"([[4, "gama"], [8, "alfa"], [10, "beta"]])")}))));
   }
 }
 
@@ -900,9 +906,9 @@ TEST(ExecPlanExecution, NestedSourceProjectGroupedSum) {
 
     auto input = MakeNestedBatches();
     auto expected = ExecBatchFromJSON({int64(), boolean()}, R"([
-      [null, true],
+      [5, null],
       [17, false],
-      [5, null]
+      [null, true]
 ])");
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
@@ -926,7 +932,7 @@ TEST(ExecPlanExecution, NestedSourceProjectGroupedSum) {
             })
             .AddToPlan(plan.get()));
 
-    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+    ASSERT_THAT(StartAndCollectSortedByField(plan.get(), sink_gen, 0),
                 Finishes(ResultWith(UnorderedElementsAreArray({expected}))));
   }
 }
@@ -962,10 +968,10 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
             })
             .AddToPlan(plan.get()));
 
-    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+    ASSERT_THAT(StartAndCollectSortedByField(plan.get(), sink_gen, 0),
                 Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
-                    {int64(), utf8()}, parallel ? R"([[3600, "alfa"], [2000, "beta"]])"
-                                                : R"([[36, "alfa"], [20, "beta"]])")}))));
+                    {int64(), utf8()}, parallel ? R"([[2000, "beta"], [3600, "alfa"]])"
+                                                : R"([[20, "beta"], [36, "alfa"]])")}))));
   }
 }
 
@@ -1123,7 +1129,7 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
               .AddToPlan(plan.get()));
     }
 
-    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+    ASSERT_THAT(StartAndCollectSortedByField(plan.get(), sink_gen, 1),
                 Finishes(ResultWith(UnorderedElementsAreArray({
                     ExecBatchFromJSON({int64(), utf8()},
                                       R"([[500, "alfa"], [200, "beta"], [200, "gama"]])"),
@@ -1211,7 +1217,7 @@ TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
                 })
                 .AddToPlan(plan.get()));
 
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+  ASSERT_THAT(StartAndCollectSortedByField(plan.get(), sink_gen, 0),
               Finishes(ResultWith(UnorderedElementsAreArray({
                   ExecBatchFromJSON({int64(), boolean()}, R"([[6, true], [18, false]])"),
               }))));
@@ -1223,8 +1229,8 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
 
     auto input = MakeGroupableBatches();
 
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+    auto exec_ctx = arrow::internal::make_unique<ExecContext>(default_memory_pool());
+    exec_ctx->set_use_threads(parallel);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -1280,8 +1286,8 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
     auto input = MakeGroupableBatches();
 
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+    auto exec_ctx = arrow::internal::make_unique<ExecContext>(default_memory_pool());
+    exec_ctx->set_use_threads(parallel);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;

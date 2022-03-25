@@ -118,9 +118,10 @@ Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
 }
 
 Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
-    const std::shared_ptr<ScanOptions>& options) {
+    const std::shared_ptr<ScanOptions>& options,
+    ::arrow::internal::Executor* cpu_executor) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
-  return format_->ScanBatchesAsync(options, self);
+  return format_->ScanBatchesAsync(options, self, cpu_executor);
 }
 
 Future<util::optional<int64_t>> FileFragment::CountRows(
@@ -332,13 +333,10 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   util::SerializedAsyncTaskGroup task_group_;
 };
 
-}  // namespace
-
-Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
-                                std::shared_ptr<Scanner> scanner) {
+Future<> DoWriteAsync(const FileSystemDatasetWriteOptions& write_options,
+                      std::shared_ptr<Scanner> scanner,
+                      ::arrow::internal::Executor* cpu_executor) {
   const io::IOContext& io_context = scanner->options()->io_context;
-  auto cpu_executor =
-      scanner->options()->use_threads ? ::arrow::internal::GetCpuThreadPool() : nullptr;
   std::shared_ptr<compute::ExecContext> exec_context =
       std::make_shared<compute::ExecContext>(io_context.pool(), cpu_executor);
 
@@ -366,7 +364,26 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
           .AddToPlan(plan.get()));
 
   RETURN_NOT_OK(plan->StartProducing());
-  return plan->finished().status();
+  return plan->finished().Then([plan, exec_context]() {
+    // Keep plan and exec_context alive until the plan is finished
+  });
+}
+
+}  // namespace
+
+Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
+                                std::shared_ptr<Scanner> scanner) {
+  if (scanner->options()->use_threads) {
+    return DoWriteAsync(std::move(write_options), std::move(scanner),
+                        ::arrow::internal::GetCpuThreadPool())
+        .status();
+  } else {
+    return ::arrow::internal::SerialExecutor::RunInSerialExecutor<
+        ::arrow::internal::Empty>(
+        [write_options, scanner](::arrow::internal::Executor* executor) {
+          return DoWriteAsync(std::move(write_options), std::move(scanner), executor);
+        });
+  }
 }
 
 Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,

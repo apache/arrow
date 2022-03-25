@@ -102,9 +102,6 @@ struct DummyNode : ExecNode {
 
   void StopProducing() override {
     if (started_) {
-      for (const auto& input : inputs_) {
-        input->StopProducing(this);
-      }
       if (stop_producing_) {
         stop_producing_(this);
       }
@@ -128,6 +125,41 @@ struct DummyNode : ExecNode {
   std::unordered_set<ExecNode*> requested_stop_;
   bool started_ = false;
 };
+
+std::shared_ptr<Schema> AnonymousSchema(const ExecBatch& batch) {
+  FieldVector fields;
+  for (int i = 0; i < batch.num_values(); i++) {
+    fields.push_back(field("f" + std::to_string(i), batch[i].type()));
+  }
+  return schema(std::move(fields));
+}
+
+Result<std::shared_ptr<RecordBatch>> ExecBatchToAnonymousRecordBatch(
+    const ExecBatch& batch) {
+  return batch.ToRecordBatch(AnonymousSchema(batch));
+}
+
+Result<std::shared_ptr<Table>> ExecBatchesToAnonymousTable(
+    const std::vector<ExecBatch>& batches) {
+  DCHECK_GT(batches.size(), 0);
+  std::shared_ptr<Schema> schema = AnonymousSchema(batches[0]);
+  return TableFromExecBatches(schema, batches);
+}
+
+std::vector<ExecBatch> TableToExecBatches(const Table& table) {
+  std::vector<ExecBatch> exec_batches;
+  std::shared_ptr<ChunkedArray> sample_array = table.column(0);
+  for (int i = 0; i < sample_array->num_chunks(); i++) {
+    std::vector<Datum> datums;
+    for (int j = 0; j < table.num_columns(); j++) {
+      DCHECK_EQ(sample_array->chunk(i)->length(), table.column(j)->chunk(i)->length());
+      datums.push_back(table.column(j)->chunk(i));
+    }
+    exec_batches.push_back(
+        ExecBatch(std::move(datums), sample_array->chunk(i)->length()));
+  }
+  return exec_batches;
+}
 
 }  // namespace
 
@@ -181,6 +213,14 @@ Future<std::vector<ExecBatch>> StartAndCollect(
       });
 }
 
+Future<std::vector<ExecBatch>> StartAndCollectSortedByField(
+    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen, int field_index) {
+  return StartAndCollect(plan, std::move(gen))
+      .Then([field_index](const std::vector<ExecBatch>& batches) {
+        return SortBatchesByField(batches, field_index);
+      });
+}
+
 BatchesWithSchema MakeBasicBatches() {
   BatchesWithSchema out;
   out.batches = {
@@ -229,6 +269,24 @@ Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>
   ARROW_ASSIGN_OR_RAISE(auto sort_ids, SortIndices(tab, SortOptions(sort_keys)));
   ARROW_ASSIGN_OR_RAISE(auto tab_sorted, Take(tab, sort_ids));
   return tab_sorted.table();
+}
+
+Result<ExecBatch> SortBatchByField(const ExecBatch& batch, int field_index) {
+  ARROW_ASSIGN_OR_RAISE(auto sort_indices,
+                        SortIndices(batch[field_index], SortOptions{}));
+  ARROW_ASSIGN_OR_RAISE(auto record_batch, ExecBatchToAnonymousRecordBatch(batch));
+  ARROW_ASSIGN_OR_RAISE(auto sorted_data, Take(record_batch, sort_indices));
+  return ExecBatch(*sorted_data.record_batch());
+}
+
+Result<std::vector<ExecBatch>> SortBatchesByField(const std::vector<ExecBatch>& batches,
+                                                  int field_index) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
+                        ExecBatchesToAnonymousTable(batches));
+  ARROW_ASSIGN_OR_RAISE(auto sort_indices,
+                        SortIndices(table->column(field_index), SortOptions{}));
+  ARROW_ASSIGN_OR_RAISE(auto sorted_data, Take(table, sort_indices));
+  return TableToExecBatches(*sorted_data.table());
 }
 
 void AssertTablesEqual(const std::shared_ptr<Table>& exp,

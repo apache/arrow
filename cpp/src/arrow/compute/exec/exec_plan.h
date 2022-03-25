@@ -273,7 +273,7 @@ class ARROW_EXPORT ExecNode {
 class MapNode : public ExecNode {
  public:
   MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-          std::shared_ptr<Schema> output_schema, bool async_mode);
+          std::shared_ptr<Schema> output_schema, bool use_threads);
 
   void ErrorReceived(ExecNode* input, Status error) override;
 
@@ -303,7 +303,10 @@ class MapNode : public ExecNode {
   // The task group for the corresponding batches
   util::AsyncTaskGroup task_group_;
 
-  ::arrow::internal::Executor* executor_;
+  // If true then tasks will be spawned for each item
+  //
+  // If false the item will be processed immediately and synchronously
+  bool use_threads_;
 
   // Variable used to cancel remaining tasks in the executor
   StopSource stop_source_;

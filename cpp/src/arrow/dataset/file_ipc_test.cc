@@ -166,7 +166,8 @@ TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
   fragment_scan_options->options = std::make_shared<ipc::IpcReadOptions>();
   fragment_scan_options->options->max_recursion_depth = 0;
   opts_->fragment_scan_options = fragment_scan_options;
-  ASSERT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(
+                                           opts_, ::arrow::internal::GetCpuThreadPool()));
   ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(batch_gen));
 }
 INSTANTIATE_TEST_SUITE_P(TestScan, TestIpcFileFormatScan,

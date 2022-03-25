@@ -246,7 +246,6 @@ class ScalarAggregateNode : public ExecNode {
     if (input_counter_.Cancel()) {
       finished_.MarkFinished();
     }
-    inputs_[0]->StopProducing(this);
   }
 
   Future<> finished() override { return finished_; }
@@ -531,7 +530,7 @@ class GroupByNode : public ExecNode {
 
     auto executor = ctx_->executor();
     for (int i = 0; i < num_output_batches; ++i) {
-      if (executor) {
+      if (ctx_->use_threads()) {
         // bail if StopProducing was called
         if (finished_.is_finished()) break;
 
@@ -610,7 +609,6 @@ class GroupByNode : public ExecNode {
     if (output_counter_.Cancel()) {
       finished_.MarkFinished();
     }
-    inputs_[0]->StopProducing(this);
   }
 
   void StopProducing() override { StopProducing(outputs_[0]); }

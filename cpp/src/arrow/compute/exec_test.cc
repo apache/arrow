@@ -44,6 +44,7 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -70,10 +71,12 @@ TEST(ExecContext, BasicWorkings) {
   // Now, let's customize all the things
   LoggingMemoryPool my_pool(default_memory_pool());
   std::unique_ptr<FunctionRegistry> custom_reg = FunctionRegistry::Make();
-  ExecContext ctx(&my_pool, /*executor=*/nullptr, custom_reg.get());
+  ASSERT_OK_AND_ASSIGN(auto executor, ::arrow::internal::ThreadPool::Make(1));
+  ExecContext ctx(&my_pool, executor.get(), custom_reg.get());
 
   ASSERT_EQ(custom_reg.get(), ctx.func_registry());
   ASSERT_EQ(&my_pool, ctx.memory_pool());
+  ASSERT_EQ(executor.get(), ctx.executor());
 
   ctx.set_exec_chunksize(1 << 20);
   ASSERT_EQ(1 << 20, ctx.exec_chunksize());

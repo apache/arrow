@@ -122,7 +122,9 @@ class ParquetFormatHelper {
 class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper> {
  public:
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    EXPECT_OK_AND_ASSIGN(
+        auto batch_gen,
+        fragment->ScanBatchesAsync(opts_, ::arrow::internal::GetCpuThreadPool()));
     return MakeGeneratorIterator(batch_gen);
   }
 
@@ -586,8 +588,10 @@ TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
   SetFilter(greater(field_ref("i64"), literal(3)));
   CountRowsAndBatchesInScan(row_groups_fragment({2, 3, 4, 5}), 4 + 5 + 6, 3);
 
-  ASSERT_OK_AND_ASSIGN(auto batch_gen,
-                       row_groups_fragment({kNumRowGroups + 1})->ScanBatchesAsync(opts_));
+  ASSERT_OK_AND_ASSIGN(
+      auto batch_gen,
+      row_groups_fragment({kNumRowGroups + 1})
+          ->ScanBatchesAsync(opts_, ::arrow::internal::GetCpuThreadPool()));
   Status scan_status = CollectAsyncGenerator(batch_gen).status();
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(

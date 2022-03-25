@@ -375,7 +375,8 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
 
 Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& file) const {
+    const std::shared_ptr<FileFragment>& file,
+    ::arrow::internal::Executor* cpu_executor) const {
   auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(file);
   std::vector<int> row_groups;
   bool pre_filtered = false;
@@ -409,10 +410,9 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     // Assume 1 row group corresponds to 1 batch (this factor could be
     // improved by looking at metadata)
     int row_group_readahead = options->batch_readahead;
-    ARROW_ASSIGN_OR_RAISE(
-        auto generator, reader->GetRecordBatchGenerator(
-                            reader, row_groups, column_projection,
-                            ::arrow::internal::GetCpuThreadPool(), row_group_readahead));
+    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
+                                              reader, row_groups, column_projection,
+                                              cpu_executor, row_group_readahead));
     return generator;
   };
   return MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)

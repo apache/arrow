@@ -131,17 +131,11 @@ class UnionNode : public ExecNode {
     if (batch_count_.Cancel()) {
       finished_.MarkFinished();
     }
-    for (auto&& input : inputs_) {
-      input->StopProducing(this);
-    }
   }
 
   void StopProducing() override {
     if (batch_count_.Cancel()) {
       finished_.MarkFinished();
-    }
-    for (auto&& input : inputs_) {
-      input->StopProducing(this);
     }
   }
 

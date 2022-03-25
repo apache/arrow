@@ -29,8 +29,6 @@
 #include <arrow/util/optional.h>
 #include <arrow/util/thread_pool.h>
 
-#include <iostream>
-
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,

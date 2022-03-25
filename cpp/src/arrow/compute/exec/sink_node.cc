@@ -53,7 +53,10 @@ class SinkNode : public ExecNode {
            util::BackpressureOptions backpressure)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
                  /*num_outputs=*/0),
-        producer_(MakeProducer(generator, std::move(backpressure))) {}
+        producer_(MakeProducer(generator, std::move(backpressure))) {
+    DCHECK_EQ(1, inputs_.size());
+    output_schema_ = inputs_[0]->output_schema();
+  }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -96,9 +99,9 @@ class SinkNode : public ExecNode {
 
   void StopProducing() override {
     EVENT(span_, "StopProducing");
-
-    Finish();
-    inputs_[0]->StopProducing(this);
+    if (input_counter_.Cancel()) {
+      Finish();
+    }
   }
 
   Future<> finished() override { return finished_; }
@@ -128,7 +131,6 @@ class SinkNode : public ExecNode {
     if (input_counter_.Cancel()) {
       Finish();
     }
-    inputs_[0]->StopProducing(this);
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
@@ -140,9 +142,8 @@ class SinkNode : public ExecNode {
 
  protected:
   virtual void Finish() {
-    if (producer_.Close()) {
-      finished_.MarkFinished();
-    }
+    producer_.Close();
+    finished_.MarkFinished();
   }
 
   AtomicCounter input_counter_;
@@ -193,8 +194,9 @@ class ConsumingSinkNode : public ExecNode {
 
   void StopProducing() override {
     EVENT(span_, "StopProducing");
-    Finish(Status::Invalid("ExecPlan was stopped early"));
-    inputs_[0]->StopProducing(this);
+    if (input_counter_.Cancel()) {
+      Finish(Status::OK());
+    }
   }
 
   Future<> finished() override { return finished_; }
@@ -218,7 +220,6 @@ class ConsumingSinkNode : public ExecNode {
       if (input_counter_.Cancel()) {
         Finish(std::move(consumption_status));
       }
-      inputs_[0]->StopProducing(this);
       return;
     }
 
@@ -234,8 +235,6 @@ class ConsumingSinkNode : public ExecNode {
     if (input_counter_.Cancel()) {
       Finish(std::move(error));
     }
-
-    inputs_[0]->StopProducing(this);
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {

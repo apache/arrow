@@ -120,7 +120,8 @@ Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source)
 
 Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& file) const {
+    const std::shared_ptr<FileFragment>& file,
+    ::arrow::internal::Executor* cpu_executor) const {
   auto self = shared_from_this();
   auto source = file->source();
   auto open_reader = OpenReaderAsync(source);
@@ -143,10 +144,10 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
     RecordBatchGenerator generator;
     if (ipc_scan_options->cache_options) {
       // Transferring helps performance when coalescing
-      ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
-                                           /*coalesce=*/true, options->io_context,
-                                           *ipc_scan_options->cache_options,
-                                           ::arrow::internal::GetCpuThreadPool()));
+      ARROW_ASSIGN_OR_RAISE(generator,
+                            reader->GetRecordBatchGenerator(
+                                /*coalesce=*/true, options->io_context,
+                                *ipc_scan_options->cache_options, cpu_executor));
     } else {
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));

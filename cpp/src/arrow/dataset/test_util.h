@@ -158,7 +158,9 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(options_));
+    ASSERT_OK_AND_ASSIGN(
+        auto batch_gen,
+        fragment->ScanBatchesAsync(options_, ::arrow::internal::GetCpuThreadPool()));
     AssertScanTaskEquals(expected, batch_gen);
 
     if (ensure_drained) {
@@ -581,7 +583,9 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
   // Scan the fragment directly, without using the scanner.
   RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
     opts_->use_threads = GetParam().use_threads;
-    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    EXPECT_OK_AND_ASSIGN(
+        auto batch_gen,
+        fragment->ScanBatchesAsync(opts_, ::arrow::internal::GetCpuThreadPool()));
     auto batch_it = MakeGeneratorIterator(std::move(batch_gen));
     return batch_it;
   }
@@ -880,7 +884,8 @@ class DummyFileFormat : public FileFormat {
   /// \brief Open a file for scanning (always returns an empty generator)
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& fragment) const override {
+      const std::shared_ptr<FileFragment>& fragment,
+      ::arrow::internal::Executor* cpu_executor) const override {
     return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
   }
 
@@ -920,7 +925,8 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& fragment) const override {
+      const std::shared_ptr<FileFragment>& fragment,
+      ::arrow::internal::Executor* cpu_executor) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));

@@ -48,6 +48,7 @@ using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 
+using internal::Executor;
 using internal::GetCpuThreadPool;
 using internal::Iota;
 
@@ -481,8 +482,8 @@ class CountRowsOnlyFragment : public InMemoryFragment {
     }
     return Future<util::optional<int64_t>>::MakeFinished(sum);
   }
-  Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>&) override {
+  Result<RecordBatchGenerator> ScanBatchesAsync(const std::shared_ptr<ScanOptions>&,
+                                                Executor* cpu_executor) override {
     return Status::Invalid("Don't scan me!");
   }
 };
@@ -495,8 +496,8 @@ class ScanOnlyFragment : public InMemoryFragment {
       compute::Expression predicate, const std::shared_ptr<ScanOptions>&) override {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
-  Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>&) override {
+  Result<RecordBatchGenerator> ScanBatchesAsync(const std::shared_ptr<ScanOptions>&,
+                                                Executor*) override {
     return MakeVectorGenerator(record_batches_);
   }
 };
@@ -588,7 +589,7 @@ class FailingFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
   Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options) override {
+      const std::shared_ptr<ScanOptions>& options, Executor*) override {
     struct {
       Future<std::shared_ptr<RecordBatch>> operator()() {
         if (index > 16) {
@@ -612,7 +613,7 @@ class FailingScanFragment : public InMemoryFragment {
   // There are two places to fail - during iteration (covered by FailingFragment) or at
   // the initial scan (covered here)
   Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options) override {
+      const std::shared_ptr<ScanOptions>& options, Executor*) override {
     return Status::Invalid("Oh no, we failed!");
   }
 };
@@ -767,7 +768,7 @@ class ControlledFragment : public Fragment {
   std::string type_name() const override { return "scanner_test.cc::ControlledFragment"; }
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options) override {
+      const std::shared_ptr<ScanOptions>& options, Executor*) override {
     return tracking_generator_;
   };
 

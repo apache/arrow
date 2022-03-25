@@ -1044,6 +1044,8 @@ ExecContext::ExecContext(MemoryPool* pool, ::arrow::internal::Executor* executor
                          FunctionRegistry* func_registry)
     : pool_(pool), executor_(executor) {
   this->func_registry_ = func_registry == nullptr ? GetFunctionRegistry() : func_registry;
+  DCHECK_NE(nullptr, executor_);
+  this->use_threads_ = executor_->GetCapacity() > 1;
 }
 
 CpuInfo* ExecContext::cpu_info() const { return CpuInfo::GetInstance(); }

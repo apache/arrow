@@ -154,7 +154,8 @@ Result<std::shared_ptr<Schema>> OrcFileFormat::Inspect(const FileSource& source)
 
 Result<RecordBatchGenerator> OrcFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& file) const {
+    const std::shared_ptr<FileFragment>& file,
+    ::arrow::internal::Executor* cpu_executor) const {
   // TODO investigate "true" async version
   // (https://issues.apache.org/jira/browse/ARROW-13795)
   ARROW_ASSIGN_OR_RAISE(auto task_iter, OrcScanTaskIterator::Make(options, file));

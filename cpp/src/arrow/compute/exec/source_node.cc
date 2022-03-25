@@ -88,14 +88,12 @@ struct SourceNode : ExecNode {
 
     CallbackOptions options;
     auto executor = plan()->exec_context()->executor();
-    if (executor) {
-      // These options will transfer execution to the desired Executor if necessary.
-      // This can happen for in-memory scans where batches didn't require
-      // any CPU work to decode. Otherwise, parsing etc should have already
-      // been placed us on the desired Executor and no queues will be pushed to.
-      options.executor = executor;
-      options.should_schedule = ShouldSchedule::IfDifferentExecutor;
-    }
+    // These options will transfer execution to the desired Executor if necessary.
+    // This can happen for in-memory scans where batches didn't require
+    // any CPU work to decode. Otherwise, parsing etc should have already
+    // been placed us on the desired Executor and no queues will be pushed to.
+    options.executor = executor;
+    options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     finished_ =
         Loop([this, executor, options] {
           std::unique_lock<std::mutex> lock(mutex_);
@@ -149,6 +147,7 @@ struct SourceNode : ExecNode {
           outputs_[0]->InputFinished(this, total_batches);
           return task_group_.End();
         });
+    finished_.AddCallback([](const Status& st) { return Status::OK(); });
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }

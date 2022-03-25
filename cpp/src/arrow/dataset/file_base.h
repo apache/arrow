@@ -147,9 +147,26 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Return the schema of the file if possible.
   virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const = 0;
 
+  /// \brief Scan the fragment returning the data as a stream of batches
+  ///
+  /// Typically it is expected that each generator task will involve some amount
+  /// of I/O work and some amount of CPU work.  The format is responsible for transferring
+  /// the work back and forth between the I/O executor (obtained from the filesystem) and
+  /// CPU executor (passed in directly) as needed.
+  ///
+  /// If the underlying format does not support asynchronous operation then the correct
+  /// workaround is to schedule the entire task on the I/O executor.  There is typically
+  /// no need to transfer back to the CPU executor as this will be done automatically by
+  /// the scan node.
+  ///
+  /// If the underlying format spends a lot of time blocked on I/O then it may be
+  /// neccesary to make the I/O executor considerably larger than the # of cores on the
+  /// device to ensure maximum parallelism.  This could potentially lead to excess context
+  /// switching which is why an async approach is preferred.
   virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const = 0;
+      const std::shared_ptr<FileFragment>& file,
+      ::arrow::internal::Executor* cpu_executor) const = 0;
 
   virtual Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
@@ -182,7 +199,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
   Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options) override;
+      const std::shared_ptr<ScanOptions>& options,
+      ::arrow::internal::Executor* cpu_executor) override;
   Future<util::optional<int64_t>> CountRows(
       compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;

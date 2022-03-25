@@ -91,7 +91,8 @@ class MockFileFormat : public FileFormat {
  public:
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const override {
+      const std::shared_ptr<FileFragment>& file,
+      ::arrow::internal::Executor* cpu_executor) const override {
     auto sch = schema({field("i32", int32())});
     RecordBatchVector batches;
     for (int i = 0; i < kNumBatches; i++) {
@@ -119,7 +120,8 @@ class MockFileFormat : public FileFormat {
 TEST(FileFormat, ScanAsync) {
   MockFileFormat format;
   auto scan_options = std::make_shared<ScanOptions>();
-  ASSERT_OK_AND_ASSIGN(auto batch_gen, format.ScanBatchesAsync(scan_options, nullptr));
+  ASSERT_OK_AND_ASSIGN(auto batch_gen,
+                       format.ScanBatchesAsync(scan_options, nullptr, nullptr));
   ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, CollectAsyncGenerator(batch_gen));
   ASSERT_EQ(kNumBatches, static_cast<int>(batches.size()));
   for (int i = 0; i < kNumBatches; i++) {

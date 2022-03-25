@@ -87,6 +87,10 @@ Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen);
 
 ARROW_TESTING_EXPORT
+Future<std::vector<ExecBatch>> StartAndCollectSortedByField(
+    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen, int field_index);
+
+ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBasicBatches();
 
 ARROW_TESTING_EXPORT
@@ -98,6 +102,13 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
 
 ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab);
+
+ARROW_TESTING_EXPORT
+Result<ExecBatch> SortBatchByField(const ExecBatch& batch, int field_index);
+
+ARROW_TESTING_EXPORT
+Result<std::vector<ExecBatch>> SortBatchesByField(const std::vector<ExecBatch>& batches,
+                                                  int field_index);
 
 ARROW_TESTING_EXPORT
 void AssertTablesEqual(const std::shared_ptr<Table>& exp,

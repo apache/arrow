@@ -34,6 +34,7 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -60,9 +61,10 @@ static constexpr int64_t kDefaultExecChunksize = UINT16_MAX;
 class ARROW_EXPORT ExecContext {
  public:
   // If no function registry passed, the default is used.
-  explicit ExecContext(MemoryPool* pool = default_memory_pool(),
-                       ::arrow::internal::Executor* executor = NULLPTR,
-                       FunctionRegistry* func_registry = NULLPTR);
+  explicit ExecContext(
+      MemoryPool* pool = default_memory_pool(),
+      ::arrow::internal::Executor* executor = ::arrow::internal::GetCpuThreadPool(),
+      FunctionRegistry* func_registry = NULLPTR);
 
   /// \brief The MemoryPool used for allocations, default is
   /// default_memory_pool().

@@ -81,7 +81,8 @@ InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
 }
 
 Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
-    const std::shared_ptr<ScanOptions>& options) {
+    const std::shared_ptr<ScanOptions>& options,
+    ::arrow::internal::Executor* cpu_executor) {
   struct State {
     State(std::shared_ptr<InMemoryFragment> fragment, int64_t batch_size)
         : fragment(std::move(fragment)),

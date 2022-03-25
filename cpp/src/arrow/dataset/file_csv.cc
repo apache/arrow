@@ -46,7 +46,6 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::Executor;
-using internal::SerialExecutor;
 
 namespace dataset {
 
@@ -245,11 +244,11 @@ Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source)
 
 Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& scan_options,
-    const std::shared_ptr<FileFragment>& file) const {
+    const std::shared_ptr<FileFragment>& file,
+    ::arrow::internal::Executor* cpu_executor) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
   auto source = file->source();
-  auto reader_fut =
-      OpenReaderAsync(source, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
+  auto reader_fut = OpenReaderAsync(source, *this, scan_options, cpu_executor);
   return GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
 }
 

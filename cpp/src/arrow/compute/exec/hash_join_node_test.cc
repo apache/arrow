@@ -63,13 +63,24 @@ BatchesWithSchema GenerateBatchesFromString(
   return out_batches;
 }
 
+std::unique_ptr<ExecContext> SimpleExecContext(
+    bool parallel, std::shared_ptr<::arrow::internal::ThreadPool>* owned_thread_pool) {
+  if (parallel) {
+    return arrow::internal::make_unique<ExecContext>();
+  } else {
+    EXPECT_OK_AND_ASSIGN(*owned_thread_pool, ::arrow::internal::ThreadPool::Make(1));
+    return arrow::internal::make_unique<ExecContext>(default_memory_pool(),
+                                                     owned_thread_pool->get());
+  }
+}
+
 void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r_batches,
                     const std::vector<FieldRef>& left_keys,
                     const std::vector<FieldRef>& right_keys,
                     const BatchesWithSchema& exp_batches, bool parallel = false) {
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-      default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+  std::shared_ptr<::arrow::internal::ThreadPool> owned_thread_pool;
+  auto exec_ctx = SimpleExecContext(parallel, &owned_thread_pool);
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
@@ -889,8 +900,8 @@ void HashJoinWithExecPlan(Random64Bit& rng, bool parallel,
                           const std::vector<std::shared_ptr<Array>>& l,
                           const std::vector<std::shared_ptr<Array>>& r, int num_batches_l,
                           int num_batches_r, std::shared_ptr<Table>* output) {
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-      default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+  std::shared_ptr<::arrow::internal::ThreadPool> owned_thread_pool;
+  auto exec_ctx = SimpleExecContext(parallel, &owned_thread_pool);
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
@@ -998,8 +1009,8 @@ TEST(HashJoin, Random) {
 #endif
   for (int test_id = 0; test_id < num_tests; ++test_id) {
     bool parallel = (rng.from_range(0, 1) == 1);
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+    std::shared_ptr<::arrow::internal::ThreadPool> owned_thread_pool;
+    auto exec_ctx = SimpleExecContext(parallel, &owned_thread_pool);
 
     // Constraints
     RandomDataTypeConstraints type_constraints;
@@ -1282,8 +1293,8 @@ void TestHashJoinDictionaryHelper(
     }
   }
 
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-      default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+  std::shared_ptr<::arrow::internal::ThreadPool> owned_thread_pool;
+  auto exec_ctx = SimpleExecContext(parallel, &owned_thread_pool);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
   ASSERT_OK_AND_ASSIGN(
       ExecNode * l_source,
@@ -1684,8 +1695,8 @@ TEST(HashJoin, DictNegative) {
                          ExecBatch::Make({i == 2 ? datumSecondB : datumSecondA,
                                           i == 3 ? datumSecondB : datumSecondA}));
 
-    auto exec_ctx =
-        arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+    std::shared_ptr<::arrow::internal::ThreadPool> owned_thread_pool;
+    auto exec_ctx = SimpleExecContext(/*parallel=*/false, &owned_thread_pool);
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
     ASSERT_OK_AND_ASSIGN(
         ExecNode * l_source,
@@ -1713,6 +1724,7 @@ TEST(HashJoin, DictNegative) {
     EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Unifying differing dictionaries"),
         StartAndCollect(plan.get(), sink_gen));
+    ASSERT_FINISHES_OK(plan->finished());
   }
 }
 
@@ -1771,8 +1783,8 @@ TEST(HashJoin, ResidualFilter) {
     input_right.schema =
         schema({field("r1", int32()), field("r2", int32()), field("r_str", utf8())});
 
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+    std::shared_ptr<::arrow::internal::ThreadPool> owned_thread_pool;
+    auto exec_ctx = SimpleExecContext(parallel, &owned_thread_pool);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -1848,9 +1860,8 @@ TEST(HashJoin, TrivialResidualFilter) {
                  ])")};
       input_right.schema = schema({field("r1", int32()), field("r_str", utf8())});
 
-      auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-          default_memory_pool(),
-          parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+      std::shared_ptr<::arrow::internal::ThreadPool> owned_thread_pool;
+      auto exec_ctx = SimpleExecContext(parallel, &owned_thread_pool);
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;

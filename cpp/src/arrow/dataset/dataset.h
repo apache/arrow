@@ -31,6 +31,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace dataset {
@@ -55,9 +56,10 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// The schema is cached after being read once, or may be specified at construction.
   Result<std::shared_ptr<Schema>> ReadPhysicalSchema();
 
-  /// An asynchronous version of Scan
+  /// \brief Scans the fragment and returns the data as batches
   virtual Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options) = 0;
+      const std::shared_ptr<ScanOptions>& options,
+      ::arrow::internal::Executor* cpu_executor) = 0;
 
   /// \brief Count the number of rows in this fragment matching the filter using metadata
   /// only. That is, this method may perform I/O, but will not load data.
@@ -119,7 +121,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
                             compute::Expression = compute::literal(true));
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options) override;
+      const std::shared_ptr<ScanOptions>& options,
+      ::arrow::internal::Executor* cpu_executor) override;
   Future<util::optional<int64_t>> CountRows(
       compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;

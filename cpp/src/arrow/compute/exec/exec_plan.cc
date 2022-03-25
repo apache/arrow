@@ -360,16 +360,11 @@ bool ExecNode::ErrorIfNotOk(Status status) {
 }
 
 MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                 std::shared_ptr<Schema> output_schema, bool async_mode)
+                 std::shared_ptr<Schema> output_schema, bool use_threads)
     : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
                std::move(output_schema),
-               /*num_outputs=*/1) {
-  if (async_mode) {
-    executor_ = plan_->exec_context()->executor();
-  } else {
-    executor_ = nullptr;
-  }
-}
+               /*num_outputs=*/1),
+      use_threads_(use_threads) {}
 
 void MapNode::ErrorReceived(ExecNode* input, Status error) {
   DCHECK_EQ(input, inputs_[0]);
@@ -406,13 +401,14 @@ void MapNode::StopProducing(ExecNode* output) {
 
 void MapNode::StopProducing() {
   EVENT(span_, "StopProducing");
-  if (executor_) {
+  if (use_threads_) {
+    // If we are using tasks we may have a bunch of queued tasks that we should
+    // cancel
     this->stop_source_.RequestStop();
   }
   if (input_counter_.Cancel()) {
     this->Finish();
   }
-  inputs_[0]->StopProducing(this);
 }
 
 Future<> MapNode::finished() { return finished_; }
@@ -436,15 +432,16 @@ void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
     return Status::OK();
   };
 
-  if (executor_) {
+  if (use_threads_) {
     status = task_group_.AddTask([this, task]() -> Result<Future<>> {
-      return this->executor_->Submit(this->stop_source_.token(), [this, task]() {
-        auto status = task();
-        if (this->input_counter_.Increment()) {
-          this->Finish(status);
-        }
-        return status;
-      });
+      return this->plan()->exec_context()->executor()->Submit(
+          this->stop_source_.token(), [this, task]() {
+            auto status = task();
+            if (this->input_counter_.Increment()) {
+              this->Finish(status);
+            }
+            return status;
+          });
     });
   } else {
     status = task();
@@ -458,13 +455,12 @@ void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
     if (input_counter_.Cancel()) {
       this->Finish(status);
     }
-    inputs_[0]->StopProducing(this);
     return;
   }
 }
 
 void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
-  if (executor_) {
+  if (use_threads_) {
     task_group_.End().AddCallback([this, finish_st](const Status& st) {
       Status final_status = finish_st & st;
       this->finished_.MarkFinished(final_status);

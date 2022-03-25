@@ -98,7 +98,9 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    EXPECT_OK_AND_ASSIGN(
+        auto batch_gen,
+        fragment->ScanBatchesAsync(opts_, ::arrow::internal::GetCpuThreadPool()));
     return MakeGeneratorIterator(batch_gen);
   }
 };

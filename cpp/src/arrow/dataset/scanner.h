@@ -404,17 +404,24 @@ class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(
       std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
-      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR,
-      bool require_sequenced_output = false)
+      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
       : dataset(std::move(dataset)),
         scan_options(std::move(scan_options)),
-        backpressure_toggle(std::move(backpressure_toggle)),
-        require_sequenced_output(require_sequenced_output) {}
+        backpressure_toggle(std::move(backpressure_toggle)) {}
 
+  /// \brief The dataset to scan
   std::shared_ptr<Dataset> dataset;
+  /// \brief Instructions on how to scan the dataset.
+  ///
+  /// The use_threads option will be ignored.  The scanner will always
+  /// use the exec plan's executor (which may be a serial executor)
   std::shared_ptr<ScanOptions> scan_options;
+  /// \brief An optional toggle to allow pausing the scan.
+  ///
+  /// The node will cease reading from the scanner while the toggle is closed.
+  /// The scanner will continue until its readahead queue has filled up at which
+  /// point scanning will pause.
   std::shared_ptr<util::AsyncToggle> backpressure_toggle;
-  bool require_sequenced_output;
 };
 
 /// @}

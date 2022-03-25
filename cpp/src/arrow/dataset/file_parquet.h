@@ -97,7 +97,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const override;
+      const std::shared_ptr<FileFragment>& file,
+      ::arrow::internal::Executor* cpu_executor) const override;
 
   Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
