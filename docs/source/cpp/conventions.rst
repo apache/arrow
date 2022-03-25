@@ -107,19 +107,81 @@ For example::
    :doc:`API reference for error reporting <api/support>`
 
 
+.. TODO: Maybe move below to Datatypes.rst?
+
 Type Traits
 -----------
 
+Writing code that can handle all Arrow types would be verbose, if it weren't for
+type traits. They are empty structs with type declarations that map the Arrow 
+DataTypes to the specialized array, scalar, builder, and other associated types. 
+For example, boolean type has traits:
 
-.. list-table:: Type traits essentials
-   :header-rows: 1
+.. TODO: Should code blocks go in a place where they are executed?
 
-   * - DataType
-     - CType
-     - BuilderType
-     - ScalarType
-     - ArrayType
-   * 
+.. code-block:: cpp
+
+   template <>
+   struct TypeTraits<BooleanType> {
+     using ArrayType = BooleanArray;
+     using BuilderType = BooleanBuilder;
+     using ScalarType = BooleanScalar;
+     using CType = bool;
+
+     static constexpr int64_t bytes_required(int64_t elements) {
+       return bit_util::BytesForBits(elements);
+     }
+     constexpr static bool is_parameter_free = true;
+     static inline std::shared_ptr<DataType> type_singleton() { return boolean(); }
+   };
+
+See the :ref:`type-traits` for an explanation of each of these fields.
+
+Using type traits, one can write template functions that can handle a variety
+of Arrow types. For example, to write a function that creates an array of nulls
+for any type:
+
+.. code-block:: cpp
+
+   template<typename DataType, typename BuilderType=DataType::BuilderType, typename ArrayType=DataType::ArrayType>
+   ArrayType make_nulls(int32_t n) {
+      BuilderType builder = BuilderType::Make();
+      for (int32_t i = 0; i < n; ++i) {
+         builder.AppendNull();
+      }
+      ArrayType out;
+      builder.Finish(&out);
+      return out;
+   }
+
+For some common cases, there are type associations on the classes themselves. Use:
+
+* ``Scalar::TypeClass`` to get data type class of a scalar
+* ``Array::TypeClass`` to get data type class of an array
+* ``DataType::c_type`` to get associated C type of an Arrow data type
+
+There are also template type definitions for constraining template functions to a 
+subset of Arrow types. For example, to write a sum function for any numeric
+(integer or float) array:
+
+.. code-block:: cpp
+
+   template <typename ArrayType, typename DataType = typename ArrayType::TypeClass>
+   arrow::enable_if_number<DataType, DataType::c_type> Visit(const ArrayType& array) {
+     DataType::c_type sum = 0;
+     for (arrow::util::optional<typename DataType::c_type> value : array) {
+       if (value.has_value()) {
+         sum += value.value();
+       }
+     }
+     return sum;
+   }
+
+See :ref:`type-predicates-api` for a list of these.
+
+
+:ref:`building them yourself <type-predicates-api>`.
+.. TODO: test these snippets
 
 Visitor Pattern
 ---------------

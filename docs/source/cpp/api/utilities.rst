@@ -70,6 +70,8 @@ Visitors
    :project: arrow_cpp
 
 
+.. _type-traits:
+
 Type Traits
 ===========
 
@@ -138,6 +140,30 @@ Each specialized type defines the following associated types:
   Corresponding :doc:`Arrow type </cpp/api/datatype.rst>`
 
 .. doxygengroup:: c-type-traits
+   :content-only:
+   :members:
+   :undoc-members:
+
+
+.. _type-predicates-api:
+
+Type Predicates
+---------------
+
+Type predicates that can be used with templates.
+
+.. doxygengroup:: type-predicates
+   :content-only:
+   :members:
+   :undoc-members:
+
+
+Runtime Type Predicates
+-----------------------
+
+Type predicates that can be applied at runtime.
+
+.. doxygengroup:: runtime-type-predicates
    :content-only:
    :members:
    :undoc-members:

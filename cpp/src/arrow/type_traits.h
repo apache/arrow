@@ -518,6 +518,9 @@ using void_t = typename make_void<Ts...>::type;
 // Useful type predicates
 //
 
+/// \addtogroup type-predicates
+/// @{
+
 // only in C++14
 template <bool B, typename T = void>
 using enable_if_t = typename std::enable_if<B, T>::type;
@@ -841,6 +844,10 @@ template <typename T, typename R = void>
 using enable_if_physical_floating_point =
     enable_if_t<is_physical_floating_type<T>::value, R>;
 
+/// @}
+
+/// \addtogroup runtime-type-predicates
+/// @{
 static inline bool is_integer(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
@@ -1084,5 +1091,7 @@ static inline int offset_bit_width(Type::type type_id) {
   }
   return 0;
 }
+
+/// @}
 
 }  // namespace arrow
