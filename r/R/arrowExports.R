@@ -1708,8 +1708,8 @@ InitializeMainRThread <- function() {
   invisible(.Call(`_arrow_InitializeMainRThread`))
 }
 
-TestSafeCallIntoR <- function(fun_that_returns_a_string, opt) {
-  .Call(`_arrow_TestSafeCallIntoR`, fun_that_returns_a_string, opt)
+TestSafeCallIntoR <- function(r_fun_that_returns_a_string, opt) {
+  .Call(`_arrow_TestSafeCallIntoR`, r_fun_that_returns_a_string, opt)
 }
 
 Array__GetScalar <- function(x, i) {

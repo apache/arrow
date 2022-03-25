@@ -49,7 +49,7 @@ arrow::Status MainRThread::RunTask(Task* task) {
 void InitializeMainRThread() { main_r_thread.Initialize(); }
 
 // [[arrow::export]]
-std::string TestSafeCallIntoR(cpp11::sexp fun_that_returns_a_string, std::string opt) {
+std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::string opt) {
   if (opt == "async_with_executor") {
     // std::thread* thread_ptr;
 
@@ -60,13 +60,10 @@ std::string TestSafeCallIntoR(cpp11::sexp fun_that_returns_a_string, std::string
   } else if (opt == "async_without_executor") {
     std::thread* thread_ptr;
 
-    SEXP fun_sexp = fun_that_returns_a_string;
     auto fut = arrow::Future<std::string>::Make();
-
-    thread_ptr = new std::thread([fut, fun_sexp]() mutable {
+    thread_ptr = new std::thread([fut, r_fun_that_returns_a_string]() mutable {
         auto result = SafeCallIntoR<std::string>([&] {
-          cpp11::function fun(fun_sexp);
-          return cpp11::as_cpp<std::string>(fun());
+          return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
         });
 
         if (result.ok()) {
@@ -89,8 +86,7 @@ std::string TestSafeCallIntoR(cpp11::sexp fun_that_returns_a_string, std::string
 
   } else if (opt == "on_main_thread") {
     auto result = SafeCallIntoR<std::string>([&]() {
-        cpp11::function fun(fun_that_returns_a_string);
-        return cpp11::as_cpp<std::string>(fun());
+        return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
       });
     GetMainRThread()->ClearError();
     arrow::StopIfNotOk(result.status());
