@@ -2383,11 +2383,21 @@ TEST(TestStringOps, TestFromHex) {
   EXPECT_EQ(output, "");
   EXPECT_EQ(out_valid, false);
 }
+
 TEST(TestStringOps, TestSoundex) {
   gandiva::ExecutionContext ctx;
   auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
   const char* out;
+
+  out = soundex_utf8(ctx_ptr, "Luke Garcia", 11, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "L226");
+
+  out = soundex_utf8(ctx_ptr, "123 321 Luke 987 Gar4cia", 24, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "L226");
+
+  out = soundex_utf8(ctx_ptr, "Alice Ichabod", 13, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A422");
 
   out = soundex_utf8(ctx_ptr, "Miller", 6, &out_len);
   EXPECT_EQ(std::string(out, out_len), "M460");

@@ -2862,7 +2862,7 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 // the input string followed by a phonetic code. Characters that are not alphabetic are
 // ignored. If expression evaluates to the null value, null is returned.
 //
-// The soundex algorith works with the following steps:
+// The soundex algorithm works with the following steps:
 //    1. Retain the first letter of the string and drop all other occurrences of a, e, i,
 //    o, u, y, h, w.
 //    2. Replace consonants with digits as follows (after the first letter):
@@ -2888,14 +2888,17 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   }
 
   // The soundex code is composed by one letter and three numbers
+  char* soundex = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, in_len));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, 4));
-  if (ret == nullptr) {
+
+  if (soundex == nullptr || ret == nullptr) {
     gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }
 
   int si = 1;
+  int ret_len = 1;
   unsigned char c;
 
   int start_idx = 0;
@@ -2910,21 +2913,25 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   for (int i = start_idx, l = in_len; i < l; i++) {
     if (isalpha(in[i]) > 0) {
       c = toupper(in[i]) - 65;
-      if (mappings[c] != '0') {
-        if (mappings[c] != ret[si - 1]) {
-          ret[si] = mappings[c];
-          si++;
-        }
-
-        if (si > 3) break;
+      if (mappings[c] != soundex[si - 1]) {
+        soundex[si] = mappings[c];
+        si++;
       }
     }
   }
 
-  if (si <= 3) {
-    while (si <= 3) {
-      ret[si] = '0';
-      si++;
+  for (int i = 1; i < si; i++) {
+    if (soundex[i] != '0') {
+      ret[ret_len] = soundex[i];
+      ret_len++;
+    }
+    if (ret_len > 3) break;
+  }
+
+  if (ret_len <= 3) {
+    while (ret_len <= 3) {
+      ret[ret_len] = '0';
+      ret_len++;
     }
   }
   *out_len = 4;
