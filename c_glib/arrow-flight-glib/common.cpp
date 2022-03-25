@@ -1314,7 +1314,7 @@ gaflight_record_batch_reader_read_all(GAFlightRecordBatchReader *reader,
 {
   auto flight_reader = gaflight_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::Table> arrow_table;
-  auto status = flight_reader->ReadAll(&arrow_table);
+  auto status = flight_reader->ToTable().Value(&arrow_table);
   if (garrow::check(error, status, "[flight-record-batch-reader][read-all]")) {
     return garrow_table_new_raw(&arrow_table);
   } else {
