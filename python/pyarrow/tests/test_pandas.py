@@ -1044,7 +1044,7 @@ class TestConvertDateTimeLikeTypes:
             df = pd.DataFrame({'datetime': values})
             _check_pandas_roundtrip(df)
 
-    @h.given(st.none() | st.timezones())
+    @h.given(st.none() | past.timezones())
     @h.settings(deadline=None)
     def test_python_datetime_with_pytz_timezone(self, tz):
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
