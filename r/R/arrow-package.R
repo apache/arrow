@@ -71,7 +71,7 @@
       tzdb::tzdb_initialize()
       set_timezone_database(tzdb::tzdb_path("text"))
     } else {
-      warning("tzdb not installed. Timezones will not be available.")
+      warning("The tzdb package is not installed. Timezones will not be available.")
     }
   }
 
