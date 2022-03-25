@@ -42,7 +42,7 @@ void set_timezone_database(cpp11::strings path) {
     cpp11::stop("Must provide a single path to the timezone database.");
   }
 
-  arrow::ArrowGlobalOptions options;
+  arrow::GlobalOptions options;
   options.timezone_db_path = arrow::util::make_optional(paths[0]);
   arrow::StopIfNotOk(arrow::Initialize(options));
 }

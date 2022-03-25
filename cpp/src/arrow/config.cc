@@ -97,8 +97,8 @@ Status Initialize(const GlobalOptions& options) noexcept {
     timezone_db_path = options.timezone_db_path.value();
 #else
     return Status::Invalid(
-        "Arrow was set to use OS timezone database at compile time, so a downloaded database "
-        "cannot be provided at runtime.");
+        "Arrow was set to use OS timezone database at compile time, "
+        "so a downloaded database cannot be provided at runtime.");
 #endif  // !USE_OS_TZDB
   }
   return Status::OK();
