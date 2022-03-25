@@ -994,8 +994,7 @@ def test_sequence_timestamp():
     'ns'
 ])
 def test_sequence_timestamp_with_timezone(timezone, unit):
-    pytest.importorskip("pytz")
-    import pytz
+    pytz = pytest.importorskip("pytz")
 
     def expected_integer_value(dt):
         units = ['s', 'ms', 'us', 'ns']
