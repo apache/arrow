@@ -101,10 +101,8 @@ struct CTypeTraits {};
 
 /// \addtogroup type-traits
 /// @{
-/// \brief Type traits for null type
 template <>
 struct TypeTraits<NullType> {
-  /// \brief associated array type
   using ArrayType = NullArray;
   using BuilderType = NullBuilder;
   using ScalarType = NullScalar;

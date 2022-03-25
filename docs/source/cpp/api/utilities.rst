@@ -63,6 +63,9 @@ Visitors
 .. doxygenfunction:: arrow::VisitTypeInline
    :project: arrow_cpp
 
+.. doxygenfunction:: arrow::VisitTypeIdInline
+   :project: arrow_cpp
+
 .. doxygenfunction:: arrow::VisitScalarInline
    :project: arrow_cpp
 
@@ -78,8 +81,6 @@ Type Traits
 These types provide relationships between Arrow types at compile time. :cpp:type:`TypeTraits`
 maps Arrow DataTypes to other types, and :cpp:type:`CTypeTraits ` maps C types to
 Arrow types.
-
-.. TODO: Table of Arrow type and ctype?
 
 TypeTraits
 ----------

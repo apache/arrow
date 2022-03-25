@@ -39,8 +39,8 @@ namespace arrow {
 /// 
 /// ```
 /// class ExampleVisitor {
-///   arrow::Status Visit(arrow::Int32Array arr) { ... }
-///   arrow::Status Visit(arrow::Int64Array arr) { ... }
+///   arrow::Status Visit(arrow::NumericArray<Int32Type> arr) { ... }
+///   arrow::Status Visit(arrow::NumericArray<Int64Type> arr) { ... }
 ///   ...
 /// }
 /// ExampleVisitor visitor;
