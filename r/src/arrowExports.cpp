@@ -3442,6 +3442,30 @@ BEGIN_CPP11
 END_CPP11
 }
 // io.cpp
+std::shared_ptr<arrow::io::InputStream> MakeRConnectionInputStream(cpp11::sexp con);
+extern "C" SEXP _arrow_MakeRConnectionInputStream(SEXP con_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type con(con_sexp);
+	return cpp11::as_sexp(MakeRConnectionInputStream(con));
+END_CPP11
+}
+// io.cpp
+std::shared_ptr<arrow::io::OutputStream> MakeRConnectionOutputStream(cpp11::sexp con);
+extern "C" SEXP _arrow_MakeRConnectionOutputStream(SEXP con_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type con(con_sexp);
+	return cpp11::as_sexp(MakeRConnectionOutputStream(con));
+END_CPP11
+}
+// io.cpp
+std::shared_ptr<arrow::io::RandomAccessFile> MakeRConnectionRandomAccessFile(cpp11::sexp con);
+extern "C" SEXP _arrow_MakeRConnectionRandomAccessFile(SEXP con_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type con(con_sexp);
+	return cpp11::as_sexp(MakeRConnectionRandomAccessFile(con));
+END_CPP11
+}
+// io.cpp
 std::shared_ptr<arrow::io::InputStream> MakeReencodeInputStream(const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from);
 extern "C" SEXP _arrow_MakeReencodeInputStream(SEXP wrapped_sexp, SEXP from_sexp){
 BEGIN_CPP11
@@ -5440,6 +5464,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC) &_arrow_io___BufferOutputStream__Finish, 1}, 
 		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1}, 
 		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2}, 
+		{ "_arrow_MakeRConnectionInputStream", (DL_FUNC) &_arrow_MakeRConnectionInputStream, 1}, 
+		{ "_arrow_MakeRConnectionOutputStream", (DL_FUNC) &_arrow_MakeRConnectionOutputStream, 1}, 
+		{ "_arrow_MakeRConnectionRandomAccessFile", (DL_FUNC) &_arrow_MakeRConnectionRandomAccessFile, 1}, 
 		{ "_arrow_MakeReencodeInputStream", (DL_FUNC) &_arrow_MakeReencodeInputStream, 2}, 
 		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 2}, 
 		{ "_arrow_json___ParseOptions__initialize1", (DL_FUNC) &_arrow_json___ParseOptions__initialize1, 1}, 

@@ -199,6 +199,15 @@ test_that("Maps are preserved when writing/reading from Parquet", {
   expect_equal(df, df_read, ignore_attr = TRUE)
 })
 
+test_that("read_parquet() and write_parquet() accept connection objects", {
+  expect_identical(read_parquet(file(pq_file)), read_parquet(pq_file))
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_parquet(tibble::tibble(x = 1:5), file(tf))
+  expect_identical(read_parquet(tf), tibble::tibble(x = 1:5))
+})
+
 test_that("write_parquet() to stream", {
   df <- tibble::tibble(x = 1:5)
   tf <- tempfile()
@@ -229,6 +238,14 @@ test_that("write_parquet() handles version argument", {
   purrr::walk(list("3.0", 3.0, 3L, "A"), ~ {
     expect_error(write_parquet(df, tf, version = .x))
   })
+})
+
+test_that("ParquetFileReader raises an error for non-RandomAccessFile source", {
+  skip_if_not_available("gzip")
+  expect_error(
+    ParquetFileReader$create(CompressedInputStream$create(pq_file)),
+    'file must be a "RandomAccessFile"'
+  )
 })
 
 test_that("ParquetFileWriter raises an error for non-OutputStream sink", {

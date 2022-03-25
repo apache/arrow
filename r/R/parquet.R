@@ -38,7 +38,7 @@ read_parquet <- function(file,
                          as_data_frame = TRUE,
                          props = ParquetArrowReaderProperties$create(),
                          ...) {
-  if (is.string(file)) {
+  if (!inherits(file, "RandomAccessFile")) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }
@@ -541,6 +541,7 @@ ParquetFileReader$create <- function(file,
                                      ...) {
   file <- make_readable_file(file, mmap)
   assert_is(props, "ParquetArrowReaderProperties")
+  assert_is(file, "RandomAccessFile")
 
   parquet___arrow___FileReader__OpenFile(file, props)
 }

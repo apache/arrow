@@ -292,6 +292,17 @@ test_that("more informative error when reading a CSV with headers and schema", {
   )
 })
 
+test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_csv_arrow(tibble::tibble(x = 1:5), file(tf))
+  expect_identical(read_csv_arrow(tf), tibble::tibble(x = 1:5))
+
+  # read_csv_arrow() on a connection may error because it can call
+  # the stream's Read() method from another thread
+  # expect_identical(read_csv_arrow(file(tf)), read_csv_arrow(tf))
+})
+
 test_that("CSV reader works on files with non-UTF-8 encoding", {
   strings <- c("a", "\u00e9", "\U0001f4a9")
   file_string <- paste0(

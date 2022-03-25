@@ -1384,6 +1384,18 @@ io___BufferOutputStream__Write <- function(stream, bytes) {
   invisible(.Call(`_arrow_io___BufferOutputStream__Write`, stream, bytes))
 }
 
+MakeRConnectionInputStream <- function(con) {
+  .Call(`_arrow_MakeRConnectionInputStream`, con)
+}
+
+MakeRConnectionOutputStream <- function(con) {
+  .Call(`_arrow_MakeRConnectionOutputStream`, con)
+}
+
+MakeRConnectionRandomAccessFile <- function(con) {
+  .Call(`_arrow_MakeRConnectionRandomAccessFile`, con)
+}
+
 MakeReencodeInputStream <- function(wrapped, from) {
   .Call(`_arrow_MakeReencodeInputStream`, wrapped, from)
 }

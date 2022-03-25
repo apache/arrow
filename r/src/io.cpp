@@ -27,6 +27,8 @@
 #include <arrow/io/transform.h>
 #include <arrow/util/key_value_metadata.h>
 
+#include <thread>
+
 // ------ arrow::io::Readable
 
 // [[arrow::export]]
@@ -207,7 +209,223 @@ void io___BufferOutputStream__Write(
   StopIfNotOk(stream->Write(RAW(bytes), bytes.size()));
 }
 
-// TransformInputStream::TransformFunc wrapper
+// ------ RConnectionInputStream / RConnectionOutputStream
+
+class RConnectionFileInterface : public virtual arrow::io::FileInterface {
+ public:
+  explicit RConnectionFileInterface(cpp11::sexp connection_sexp)
+      : connection_sexp_(connection_sexp),
+        closed_(false),
+        thread_id_(std::this_thread::get_id()) {
+    check_closed();
+  }
+
+  arrow::Status Close() {
+    if (closed_) {
+      return arrow::Status::OK();
+    }
+
+    RETURN_NOT_OK(check_thread_is_r_main());
+    cpp11::package("base")["close"](connection_sexp_);
+    closed_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Result<int64_t> Tell() const {
+    if (closed()) {
+      return arrow::Status::IOError("R connection is closed");
+    }
+
+    cpp11::sexp result = cpp11::package("base")["seek"](connection_sexp_);
+    return cpp11::as_cpp<int64_t>(result);
+  }
+
+  bool closed() const { return closed_; }
+
+ protected:
+  cpp11::sexp connection_sexp_;
+
+  // Define the logic here because multiple inheritance makes it difficult
+  // for this base class, the InputStream and the RandomAccessFile
+  // interfaces to co-exist.
+  arrow::Result<int64_t> ReadBase(int64_t nbytes, void* out) {
+    if (closed()) {
+      return arrow::Status::IOError("R connection is closed");
+    }
+
+    try {
+      RETURN_NOT_OK(check_thread_is_r_main());
+      cpp11::function read_bin = cpp11::package("base")["readBin"];
+      cpp11::writable::raws ptype((R_xlen_t)0);
+      cpp11::integers n = cpp11::as_sexp<int>(nbytes);
+
+      cpp11::sexp result = read_bin(connection_sexp_, ptype, n);
+
+      int64_t result_size = cpp11::safe[Rf_xlength](result);
+      memcpy(out, cpp11::safe[RAW](result), result_size);
+      return result_size;
+    } catch (std::exception& e) {
+      return arrow::Status::IOError(e.what());
+    }
+  }
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> ReadBase(int64_t nbytes) {
+    arrow::BufferBuilder builder;
+    RETURN_NOT_OK(builder.Reserve(nbytes));
+
+    arrow::Result<int64_t> result;
+    RETURN_NOT_OK(result = ReadBase(nbytes, builder.mutable_data()));
+
+    builder.UnsafeAdvance(result.ValueOrDie());
+    return builder.Finish();
+  }
+
+  arrow::Status WriteBase(const void* data, int64_t nbytes) {
+    if (closed()) {
+      return arrow::Status::IOError("R connection is closed");
+    }
+
+    try {
+      RETURN_NOT_OK(check_thread_is_r_main());
+      cpp11::writable::raws data_raw(nbytes);
+      memcpy(cpp11::safe[RAW](data_raw), data, nbytes);
+
+      cpp11::function write_bin = cpp11::package("base")["writeBin"];
+      write_bin(data_raw, connection_sexp_);
+      return arrow::Status::OK();
+    } catch (std::exception& e) {
+      return arrow::Status::IOError(e.what());
+    }
+  }
+
+  arrow::Status SeekBase(int64_t pos) {
+    if (closed()) {
+      return arrow::Status::IOError("R connection is closed");
+    }
+
+    try {
+      RETURN_NOT_OK(check_thread_is_r_main());
+      cpp11::package("base")["seek"](connection_sexp_, cpp11::as_sexp<double>(pos));
+      return arrow::Status::OK();
+    } catch (std::exception& e) {
+      return arrow::Status::IOError(e.what());
+    }
+  }
+
+  arrow::Status check_thread_is_r_main() {
+    if (std::this_thread::get_id() != thread_id_) {
+      return arrow::Status::IOError("Attempt to call into R from a non-R thread");
+    } else {
+      return arrow::Status::OK();
+    }
+  }
+
+ private:
+  bool closed_;
+  std::thread::id thread_id_;
+
+  bool check_closed() {
+    if (closed_) {
+      return true;
+    }
+
+    // safer than maybe calling into R and crashing it while checking
+    if (!check_thread_is_r_main().ok()) {
+      closed_ = true;
+      return true;
+    }
+
+    try {
+      cpp11::sexp result = cpp11::package("base")["isOpen"](connection_sexp_);
+      closed_ = !cpp11::as_cpp<bool>(result);
+    } catch (std::exception& e) {
+      closed_ = true;
+    }
+
+    return closed_;
+  }
+};
+
+class RConnectionInputStream : public virtual arrow::io::InputStream,
+                               public RConnectionFileInterface {
+ public:
+  explicit RConnectionInputStream(cpp11::sexp connection_sexp)
+      : RConnectionFileInterface(connection_sexp) {}
+
+  arrow::Result<int64_t> Read(int64_t nbytes, void* out) { return ReadBase(nbytes, out); }
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) {
+    return ReadBase(nbytes);
+  }
+};
+
+class RConnectionRandomAccessFile : public arrow::io::RandomAccessFile,
+                                    public RConnectionFileInterface {
+ public:
+  explicit RConnectionRandomAccessFile(cpp11::sexp connection_sexp)
+      : RConnectionFileInterface(connection_sexp) {
+    // save the current position to seek back to it
+    auto current_pos = Tell();
+    if (!current_pos.ok()) {
+      cpp11::stop("Tell() returned an error");
+    }
+    int64_t initial_pos = current_pos.ValueUnsafe();
+
+    cpp11::package("base")["seek"](connection_sexp_, 0, "end");
+    current_pos = Tell();
+    if (!current_pos.ok()) {
+      cpp11::stop("Tell() returned an error");
+    }
+    size_ = current_pos.ValueUnsafe();
+
+    auto status = Seek(initial_pos);
+    if (!status.ok()) {
+      cpp11::stop("Seek() reutrned an error");
+    }
+  }
+
+  arrow::Result<int64_t> GetSize() { return size_; }
+
+  arrow::Status Seek(int64_t pos) { return SeekBase(pos); }
+
+  arrow::Result<int64_t> Read(int64_t nbytes, void* out) { return ReadBase(nbytes, out); }
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) {
+    return ReadBase(nbytes);
+  }
+
+ private:
+  int64_t size_;
+};
+
+class RConnectionOutputStream : public arrow::io::OutputStream,
+                                public RConnectionFileInterface {
+ public:
+  explicit RConnectionOutputStream(cpp11::sexp connection_sexp)
+      : RConnectionFileInterface(connection_sexp) {}
+
+  arrow::Status Write(const void* data, int64_t nbytes) {
+    return WriteBase(data, nbytes);
+  }
+};
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::InputStream> MakeRConnectionInputStream(cpp11::sexp con) {
+  return std::make_shared<RConnectionInputStream>(con);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::OutputStream> MakeRConnectionOutputStream(cpp11::sexp con) {
+  return std::make_shared<RConnectionOutputStream>(con);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::RandomAccessFile> MakeRConnectionRandomAccessFile(
+    cpp11::sexp con) {
+  return std::make_shared<RConnectionRandomAccessFile>(con);
+}
+
+// ------ MakeReencodeInputStream()
 
 class RIconvWrapper {
  public:

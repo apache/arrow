@@ -27,6 +27,102 @@ test_that("RandomAccessFile$ReadMetadata() works for LocalFileSystem", {
   )
 })
 
+test_that("RConnectionInputStream can read from R connections", {
+  con <- rawConnection(as.raw(1:100))
+  seek(con, 12)
+  stream <- MakeRConnectionRandomAccessFile(con)
+  expect_identical(stream$GetSize(), 100L)
+  expect_identical(stream$tell(), 12L)
+
+  expect_identical(as.raw(stream$ReadAt(50, 50)), as.raw(51:100))
+  expect_identical(as.raw(stream$ReadAt(0, 50)), as.raw(1:50))
+  stream$close()
+  expect_error(isOpen(con), "invalid connection")
+})
+
+test_that("RConnectionRandomAccessFile can read from R connections", {
+  con <- rawConnection(as.raw(1:100))
+  stream <- MakeRConnectionInputStream(con)
+
+  expect_identical(as.raw(stream$Read(50)), as.raw(1:50))
+  expect_identical(as.raw(stream$Read(50)), as.raw(51:100))
+  stream$close()
+  expect_error(isOpen(con), "invalid connection")
+})
+
+test_that("RConnectionOutputStream can write to R connections", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  con <- file(tf, open = "wb")
+  stream <- MakeRConnectionOutputStream(con)
+  stream$write(as.raw(1:50))
+  stream$write(as.raw(51:100))
+  stream$close()
+  expect_error(isOpen(con), "invalid connection")
+
+  con <- file(tf, open = "rb")
+  expect_identical(readBin(con, raw(), 100), as.raw(1:100))
+  expect_identical(readBin(con, raw(), 100), raw())
+  close(con)
+})
+
+test_that("make_readable_file() works for non-filesystem URLs", {
+  skip_if_offline()
+
+  readable_file <- make_readable_file(
+    "https://github.com/apache/arrow/raw/master/r/inst/v0.7.1.parquet"
+  )
+  expect_r6_class(readable_file, "InputStream")
+  expect_identical(rawToChar(as.raw(readable_file$Read(3))), "PAR")
+  readable_file$close()
+})
+
+test_that("make_readable_file() works for seekable connection objects", {
+  con <- rawConnection(as.raw(1:100))
+  readable_file <- make_readable_file(con)
+  expect_r6_class(readable_file, "RandomAccessFile")
+  expect_identical(as.raw(readable_file$Read(100)), as.raw(1:100))
+  readable_file$close()
+})
+
+test_that("make_readable_file() and make_writable_file() open connections", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # check a seekable connection
+  write("abcdefg", tf)
+  readable_file <- make_readable_file(file(tf))
+  expect_r6_class(readable_file, "RandomAccessFile")
+  expect_identical(
+    rawToChar(as.raw(readable_file$Read(7))),
+    "abcdefg"
+  )
+  readable_file$close()
+
+  # check output stream/non-seekable connection
+  con <- gzfile(tf)
+  stream <- make_output_stream(con)
+  stream$write(as.raw(1:100))
+  stream$close()
+
+  readable_file <- make_readable_file(gzfile(tf))
+  expect_identical(
+    as.raw(readable_file$Read(100)),
+    as.raw(1:100)
+  )
+  readable_file$close()
+})
+
+test_that("make_output_stream() works for connection objects", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  con <- rawConnection(as.raw(1:100))
+  expect_r6_class(make_readable_file(con), "InputStream")
+  close(con)
+})
+
 test_that("reencoding input stream works for windows-1252", {
   string <- "province_name\nQu\u00e9bec"
   bytes_windows1252 <- iconv(

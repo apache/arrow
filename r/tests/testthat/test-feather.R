@@ -181,6 +181,17 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
   )
 })
 
+test_that("read_feather() and write_feather() accept connection objects", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_feather(tibble::tibble(x = 1:5), file(tf))
+  expect_identical(read_feather(tf), tibble::tibble(x = 1:5))
+
+  # read_feather() on a connection may error because it can call
+  # the stream's Read() method from another thread
+  # expect_identical(read_feather(file(feather_file)), read_feather(feather_file))
+})
+
 test_that("read_feather closes connection to file", {
   tf <- tempfile()
   on.exit(unlink(tf))
