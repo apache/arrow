@@ -51,12 +51,32 @@ void InitializeMainRThread() { main_r_thread.Initialize(); }
 // [[arrow::export]]
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::string opt) {
   if (opt == "async_with_executor") {
-    // std::thread* thread_ptr;
+    std::thread* thread_ptr;
 
+    auto result = RunWithCapturedR<std::string>([&thread_ptr, r_fun_that_returns_a_string]() {
+      auto fut = arrow::Future<std::string>::Make();
+      thread_ptr = new std::thread([fut, r_fun_that_returns_a_string]() mutable {
+        auto result = SafeCallIntoR<std::string>([&] {
+            return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
+          });
 
-    // thread_ptr->join();
-    // delete thread_ptr;
-    return "";
+        if (result.ok()) {
+          fut.MarkFinished(result.ValueUnsafe());
+        } else {
+          fut.MarkFinished(result.status());
+        }
+      });
+
+      return fut;
+    });
+
+    thread_ptr->join();
+    delete thread_ptr;
+
+    // Stop for any R execution errors that may have occurred
+    GetMainRThread()->ClearError();
+
+    return arrow::ValueOrStop(result);
   } else if (opt == "async_without_executor") {
     std::thread* thread_ptr;
 
