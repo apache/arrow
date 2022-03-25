@@ -88,7 +88,7 @@ TYPE_ID_TRAIT(EXTENSION, ExtensionType)
 /// \addtogroup type-traits
 /// \brief Base template for type traits of Arrow data types
 /// Type traits provide various information about a type at compile time, such
-/// as the associated ArrayType, BuilderType, and ScalarType. Not all types 
+/// as the associated ArrayType, BuilderType, and ScalarType. Not all types
 /// provide all information.
 /// \tparam T An Arrow data type
 template <typename T>

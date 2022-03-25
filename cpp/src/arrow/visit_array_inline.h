@@ -36,7 +36,7 @@ namespace arrow {
 ///
 /// A visitor is a type that implements specialized logic for each Arrow type.
 /// Example usage:
-/// 
+///
 /// ```
 /// class ExampleVisitor {
 ///   arrow::Status Visit(arrow::NumericArray<Int32Type> arr) { ... }

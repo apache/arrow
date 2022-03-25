@@ -21,8 +21,6 @@
 
 #include "arrow/array.h"                    // IYWU pragma: export
 #include "arrow/array/concatenate.h"        // IYWU pragma: export
-#include "arrow/visit_array_inline.h"       // IYWU pragma: export
-#include "arrow/visit_scalar_inline.h"      // IYWU pragma: export
 #include "arrow/buffer.h"                   // IYWU pragma: export
 #include "arrow/builder.h"                  // IYWU pragma: export
 #include "arrow/chunked_array.h"            // IYWU pragma: export
@@ -40,6 +38,8 @@
 #include "arrow/tensor.h"                   // IYWU pragma: export
 #include "arrow/type.h"                     // IYWU pragma: export
 #include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
+#include "arrow/visit_array_inline.h"       // IYWU pragma: export
+#include "arrow/visit_scalar_inline.h"      // IYWU pragma: export
 #include "arrow/visitor.h"                  // IYWU pragma: export
 
 /// \brief Top-level namespace for Apache Arrow C++ API
