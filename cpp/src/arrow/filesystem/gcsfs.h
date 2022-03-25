@@ -27,11 +27,36 @@
 namespace arrow {
 namespace fs {
 
-struct GcsCredentials;
+// Opaque wrapper for GCS's library credentials to avoid exposing in Arrow headers.
+struct GcsCredentialsHolder;
+class GcsFileSystem;
+
+/// \brief Container for GCS Credentials and information necessary to recreate them.
+class GcsCredentials {
+ public:
+  bool Equals(const GcsCredentials& other) const;
+  bool anonymous() const { return anonymous_; }
+  const std::string& access_token() { return access_token_; }
+  TimePoint expiration() const { return expiration_; }
+  const std::string& target_service_account() { return target_service_account_; }
+  const std::string& json_credentials() { return json_credentials_; }
+  const std::shared_ptr<GcsCredentialsHolder>& holder() const { return holder_; }
+
+ private:
+  GcsCredentials() = default;
+  bool anonymous_ = false;
+  std::string access_token_;
+  TimePoint expiration_;
+  std::string target_service_account_;
+  std::string json_credentials_;
+  std::shared_ptr<GcsCredentialsHolder> holder_;
+  friend class GcsFileSystem;
+  friend struct GcsOptions;
+};
 
 /// Options for the GcsFileSystem implementation.
 struct ARROW_EXPORT GcsOptions {
-  std::shared_ptr<GcsCredentials> credentials;
+  GcsCredentials credentials;
 
   std::string endpoint_override;
   std::string scheme;
@@ -68,7 +93,7 @@ struct ARROW_EXPORT GcsOptions {
   /// tokens. Note that access tokens are time limited, you will need to manually refresh
   /// the tokens created by the out-of-band mechanism.
   static GcsOptions FromAccessToken(const std::string& access_token,
-                                    std::chrono::system_clock::time_point expiration);
+                                    TimePoint expiration);
 
   /// \brief Initialize with service account impersonation
   ///
@@ -141,6 +166,7 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
   ~GcsFileSystem() override = default;
 
   std::string type_name() const override;
+  const GcsOptions& options() const;
 
   bool Equals(const FileSystem& other) const override;
 

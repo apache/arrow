@@ -662,6 +662,9 @@ test_python() {
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     export PYARROW_WITH_GANDIVA=1
   fi
+  if [ "${ARROW_GCS}" = "ON" ]; then
+    export PYARROW_WITH_GCS=1
+  fi
   if [ "${ARROW_PLASMA}" = "ON" ]; then
     export PYARROW_WITH_PLASMA=1
   fi
@@ -694,12 +697,16 @@ import pyarrow.parquet
   if [ "${ARROW_GANDIVA}" == "ON" ]; then
     python -c "import pyarrow.gandiva"
   fi
+  if [ "${ARROW_GCS}" == "ON" ]; then
+    python -c "import pyarrow._gcsfs"
+  fi
   if [ "${ARROW_PLASMA}" == "ON" ]; then
     python -c "import pyarrow.plasma"
   fi
   if [ "${ARROW_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
   fi
+
 
   # Install test dependencies
   pip install -r requirements-test.txt
@@ -1000,6 +1007,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
+  local check_gcs=ON
   local check_s3=ON
   local check_flight=ON
 
@@ -1019,6 +1027,7 @@ test_macos_wheels() {
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
       if [[ "$platform" == *"10_9"* ]]; then
+        check_gcs=OFF
         check_s3=OFF
       fi
 
@@ -1026,7 +1035,7 @@ test_macos_wheels() {
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
         ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
@@ -1155,9 +1164,9 @@ fi
 : ${ARROW_CUDA:=OFF}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
+: ${ARROW_GCS:=OFF}
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=OFF}
-: ${ARROW_GCS:=OFF}
 
 TEST_SUCCESS=no
 

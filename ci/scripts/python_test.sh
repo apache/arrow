@@ -38,6 +38,7 @@ export ARROW_DEBUG_MEMORY_POOL=trap
 : ${PYARROW_TEST_DATASET:=${ARROW_DATASET:-ON}}
 : ${PYARROW_TEST_FLIGHT:=${ARROW_FLIGHT:-ON}}
 : ${PYARROW_TEST_GANDIVA:=${ARROW_GANDIVA:-ON}}
+: ${PYARROW_TEST_GCS:=${ARROW_GCS:-ON}}
 : ${PYARROW_TEST_HDFS:=${ARROW_HDFS:-ON}}
 : ${PYARROW_TEST_ORC:=${ARROW_ORC:-ON}}
 : ${PYARROW_TEST_PARQUET:=${ARROW_PARQUET:-ON}}
@@ -47,9 +48,15 @@ export PYARROW_TEST_CUDA
 export PYARROW_TEST_DATASET
 export PYARROW_TEST_FLIGHT
 export PYARROW_TEST_GANDIVA
+export PYARROW_TEST_GCS
 export PYARROW_TEST_HDFS
 export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
+# DO NOT SUBMIT
+# Without this, the previous install of testbench doesn't seem to be put in a
+# place that the python env can find it. Need githash because of recent 
+# dependency changes.
+python -m pip install "https://github.com/googleapis/storage-testbench/archive/c80ed7604824428a7b8269504ec948a62b445f5d.tar.gz"
 pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow

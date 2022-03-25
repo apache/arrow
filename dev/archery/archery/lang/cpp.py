@@ -56,7 +56,7 @@ class CppConfiguration:
                  with_ipc=True, with_json=None, with_jni=None,
                  with_mimalloc=None, with_jemalloc=None,
                  with_parquet=None, with_plasma=None, with_python=True,
-                 with_r=None, with_s3=None,
+                 with_r=None, with_gcs=None, with_s3=None,
                  # Compressions
                  with_brotli=None, with_bz2=None, with_lz4=None,
                  with_snappy=None, with_zlib=None, with_zstd=None,
@@ -106,6 +106,7 @@ class CppConfiguration:
         self.with_plasma = with_plasma
         self.with_python = with_python
         self.with_r = with_r
+        self.with_gcs = with_gcs
         self.with_s3 = with_s3
 
         self.with_brotli = with_brotli
@@ -218,7 +219,7 @@ class CppConfiguration:
         yield ("ARROW_FILESYSTEM", truthifier(self.with_filesystem))
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
-        yield ("ARROW_PARQUET", truthifier(self.with_parquet))
+        yield ("ARROW_GCS", truthifier(self.with_gcs))
         yield ("ARROW_HDFS", truthifier(self.with_hdfs))
         yield ("ARROW_HIVESERVER2", truthifier(self.with_hiveserver2))
         yield ("ARROW_IPC", truthifier(self.with_ipc))
@@ -226,6 +227,7 @@ class CppConfiguration:
         yield ("ARROW_JNI", truthifier(self.with_jni))
         yield ("ARROW_MIMALLOC", truthifier(self.with_mimalloc))
         yield ("ARROW_JEMALLOC", truthifier(self.with_jemalloc))
+        yield ("ARROW_PARQUET", truthifier(self.with_parquet))
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_PYTHON", truthifier(self.with_python))
         yield ("ARROW_S3", truthifier(self.with_s3))

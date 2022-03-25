@@ -50,6 +50,7 @@ namespace bp = boost::process;
 namespace gc = google::cloud;
 namespace gcs = google::cloud::storage;
 
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
@@ -291,15 +292,15 @@ TEST(GcsFileSystem, OptionsCompare) {
 
 TEST(GcsFileSystem, OptionsAnonymous) {
   GcsOptions a = GcsOptions::Anonymous();
-  EXPECT_THAT(a.credentials, NotNull());
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.anonymous(), true);
   EXPECT_EQ(a.scheme, "http");
 }
 
 TEST(GcsFileSystem, OptionsFromUri) {
   std::string path;
-  GcsOptions options;
 
-  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs://", &path));
+  ASSERT_OK_AND_ASSIGN(GcsOptions options, GcsOptions::FromUri("gs://", &path));
   EXPECT_EQ(options.default_bucket_location, "");
   EXPECT_EQ(options.scheme, "https");
   EXPECT_EQ(options.endpoint_override, "");
@@ -342,20 +343,24 @@ TEST(GcsFileSystem, OptionsFromUri) {
 }
 
 TEST(GcsFileSystem, OptionsAccessToken) {
-  auto a = GcsOptions::FromAccessToken(
-      "invalid-access-token-test-only",
-      std::chrono::system_clock::now() + std::chrono::minutes(5));
-  EXPECT_THAT(a.credentials, NotNull());
+  TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
+  auto a = GcsOptions::FromAccessToken(/*access_token=*/"accesst", expiration);
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.access_token(), Eq("accesst"));
+  EXPECT_THAT(a.credentials.expiration(), Eq(expiration));
   EXPECT_EQ(a.scheme, "https");
 }
 
 TEST(GcsFileSystem, OptionsImpersonateServiceAccount) {
-  auto base = GcsOptions::FromAccessToken(
-      "invalid-access-token-test-only",
-      std::chrono::system_clock::now() + std::chrono::minutes(5));
-  auto a = GcsOptions::FromImpersonatedServiceAccount(
-      *base.credentials, "invalid-sa-test-only@my-project.iam.gserviceaccount.com");
-  EXPECT_THAT(a.credentials, NotNull());
+  TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
+  auto base = GcsOptions::FromAccessToken(/*access_token=*/"at", expiration);
+  std::string account = "invalid-sa-test-only@my-project.iam.gserviceaccount.com";
+  auto a = GcsOptions::FromImpersonatedServiceAccount(base.credentials, account);
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.access_token(), Eq("at"));
+  EXPECT_THAT(a.credentials.expiration(), Eq(expiration));
+  EXPECT_THAT(a.credentials.target_service_account(), Eq(account));
+
   EXPECT_EQ(a.scheme, "https");
 }
 
@@ -378,7 +383,8 @@ TEST(GcsFileSystem, OptionsServiceAccountCredentials) {
   })""";
 
   auto a = GcsOptions::FromServiceAccountCredentials(kJsonKeyfileContents);
-  EXPECT_THAT(a.credentials, NotNull());
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.json_credentials(), kJsonKeyfileContents);
   EXPECT_EQ(a.scheme, "https");
 }
 
@@ -425,13 +431,13 @@ TEST(GcsFileSystem, ToArrowStatus) {
 }
 
 TEST(GcsFileSystem, FileSystemCompare) {
-  GcsOptions a_options;
+  GcsOptions a_options = GcsOptions::Defaults();
   a_options.scheme = "http";
   auto a = GcsFileSystem::Make(a_options);
   EXPECT_THAT(a, NotNull());
   EXPECT_TRUE(a->Equals(*a));
 
-  GcsOptions b_options;
+  GcsOptions b_options = GcsOptions::Defaults();
   b_options.scheme = "http";
   b_options.endpoint_override = "localhost:1234";
   auto b = GcsFileSystem::Make(b_options);
@@ -568,7 +574,46 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
   ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
 }
 
-TEST_F(GcsIntegrationTest, GetFileInfoObject) {
+TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
+  ASSERT_OK_AND_ASSIGN(
+      auto output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName, /*metadata=*/{}));
+  const auto data = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(PreexistingBucketPath() +
+                                                        "test-object-dir/some_other_dir0",
+                                                    /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(
+      output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName + "0", /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName, FileType::File);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName + "/",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir/",
+                 FileType::Directory);
+
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-di",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_di",
+                 FileType::NotFound);
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoObjectNoExplicitObject) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   auto object =
       GcsClient().GetObjectMetadata(PreexistingBucketName(), PreexistingObjectName());
