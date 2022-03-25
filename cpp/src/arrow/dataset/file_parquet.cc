@@ -156,7 +156,8 @@ void AddColumnIndices(const SchemaField& schema_field,
 }
 
 Status ResolveOneFieldRef(
-    const SchemaManifest& manifest, const FieldRef& field_ref,
+    const SchemaManifest& manifest, const std::shared_ptr<Schema> dataset_schema,
+    const FieldRef& field_ref,
     const std::unordered_map<std::string, const SchemaField*>& field_lookup,
     const std::unordered_set<std::string>& duplicate_fields,
     std::vector<int>* columns_selection) {
@@ -183,9 +184,7 @@ Status ResolveOneFieldRef(
       return Status::NotImplemented("Provided FieldRef ", field_ref.ToString(),
                                     ", Nested FieldPaths are not supported!");
     }
-    int index = indices[0];
-    auto schema_field = manifest.schema_fields[index];
-    auto col_name = schema_field.field->name();
+    auto col_name = dataset_schema->field(indices[0])->name();
     RETURN_NOT_OK(resolve_field_ref(&col_name));
     return Status::OK();
   }
@@ -256,6 +255,8 @@ Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader&
   // Checks if the field is needed in either the projection or the filter.
   auto field_refs = options.MaterializedFields();
 
+  auto dataset_schema = options.dataset_schema;
+
   // Build a lookup table from top level field name to field metadata.
   // This is to avoid quadratic-time mapping of projected fields to
   // column indices, in the common case of selecting top level
@@ -274,8 +275,8 @@ Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader&
 
   std::vector<int> columns_selection;
   for (const auto& ref : field_refs) {
-    RETURN_NOT_OK(ResolveOneFieldRef(manifest, ref, field_lookup, duplicate_fields,
-                                     &columns_selection));
+    RETURN_NOT_OK(ResolveOneFieldRef(manifest, dataset_schema, ref, field_lookup,
+                                     duplicate_fields, &columns_selection));
   }
   return columns_selection;
 }
