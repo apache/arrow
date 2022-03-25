@@ -444,6 +444,18 @@ ExecNode_TableSourceNode <- function(plan, table) {
   .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
 }
 
+engine__internal__SubstraitToJSON <- function(serialized_plan) {
+  .Call(`_arrow_engine__internal__SubstraitToJSON`, serialized_plan)
+}
+
+engine__internal__SubstraitFromJSON <- function(substrait_json) {
+  .Call(`_arrow_engine__internal__SubstraitFromJSON`, substrait_json)
+}
+
+ExecPlan_run_substrait <- function(plan, serialized_plan, out_names) {
+  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan, out_names)
+}
+
 RecordBatch__cast <- function(batch, schema, options) {
   .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }

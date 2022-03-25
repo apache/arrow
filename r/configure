@@ -244,6 +244,14 @@ if [ $? -eq 0 ]; then
     # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
     # so there is no need to add its location to PKG_DIRS
   fi
+  # Check for Arrow Engine subcomponent
+  grep -i 'set(ARROW_ENGINE "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ENGINE"
+    PKG_LIBS="-larrow_engine $PKG_LIBS"
+    # NOTE: arrow-engine is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
+  fi
   # Check for S3
   grep -i 'set(ARROW_S3 "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then

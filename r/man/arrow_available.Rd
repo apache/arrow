@@ -3,6 +3,7 @@
 \name{arrow_available}
 \alias{arrow_available}
 \alias{arrow_with_dataset}
+\alias{arrow_with_engine}
 \alias{arrow_with_parquet}
 \alias{arrow_with_s3}
 \alias{arrow_with_json}
@@ -11,6 +12,8 @@
 arrow_available()
 
 arrow_with_dataset()
+
+arrow_with_engine()
 
 arrow_with_parquet()
 
