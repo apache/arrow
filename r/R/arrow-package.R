@@ -31,8 +31,10 @@
 
 #' @importFrom vctrs s3_register vec_size vec_cast vec_unique
 .onLoad <- function(...) {
-  # Make sure C++ knows on which thread it is safe to call the R API
-  InitializeMainRThread()
+  if (arrow_available()) {
+    # Make sure C++ knows on which thread it is safe to call the R API
+    InitializeMainRThread()
+  }
 
   dplyr_methods <- paste0(
     "dplyr::",
