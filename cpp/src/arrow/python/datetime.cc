@@ -561,7 +561,7 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return result;
   }
 
-  // if zoneinfo is installed and tzinfo is and instance of zoneinfo.ZoneInfo
+  // if zoneinfo is installed and tzinfo is an instance of zoneinfo.ZoneInfo
   if (module_zoneinfo.obj() != nullptr &&
       PyObject_IsInstance(tzinfo, class_zoneinfo.obj())) {
     OwnedRef key(PyObject_GetAttrString(tzinfo, "key"));
@@ -571,9 +571,7 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return result;
   }
 
-  // try to look up _filename attribute
-  // in case of dateutil.tz object
-  // if dateutil is installed and tzinfo is and instance of dateutil.tz.tzfile
+  // if dateutil is installed and tzinfo is an instance of dateutil.tz.tzfile
   if (module_dateutil.obj() != nullptr &&
       PyObject_IsInstance(tzinfo, class_tzfile.obj())) {
     OwnedRef _filename(PyObject_GetAttrString(tzinfo, "_filename"));
