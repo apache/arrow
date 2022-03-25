@@ -138,20 +138,28 @@ For example, boolean type has traits:
 See the :ref:`type-traits` for an explanation of each of these fields.
 
 Using type traits, one can write template functions that can handle a variety
-of Arrow types. For example, to write a function that creates an array of nulls
-for any type:
+of Arrow types. For example, to write a function that creates an array of 
+fibonacci values:
 
 .. code-block:: cpp
 
-   template<typename DataType, typename BuilderType=DataType::BuilderType, typename ArrayType=DataType::ArrayType>
-   ArrayType make_nulls(int32_t n) {
-      BuilderType builder = BuilderType::Make();
-      for (int32_t i = 0; i < n; ++i) {
-         builder.AppendNull();
-      }
-      ArrayType out;
-      builder.Finish(&out);
-      return out;
+   template <typename DataType,
+             typename BuilderType = typename arrow::TypeTraits<DataType>::BuilderType,
+             typename ArrayType = typename arrow::TypeTraits<DataType>::ArrayType,
+             typename CType = typename arrow::TypeTraits<DataType>::CType>
+   arrow::Result<std::shared_ptr<ArrayType>> make_fibonacci(int32_t n) {
+     BuilderType builder;
+     CType val = 0;
+     CType next_val = 1;
+     for (int32_t i = 0; i < n; ++i) {
+       builder.Append(val);
+       CType temp = val + next_val;
+       val = next_val;
+       next_val = temp;
+     }
+     std::shared_ptr<ArrayType> out;
+     ARROW_RETURN_NOT_OK(builder.Finish(&out));
+     return out;
    }
 
 For some common cases, there are type associations on the classes themselves. Use:
@@ -161,15 +169,17 @@ For some common cases, there are type associations on the classes themselves. Us
 * ``DataType::c_type`` to get associated C type of an Arrow data type
 
 There are also template type definitions for constraining template functions to a 
-subset of Arrow types. For example, to write a sum function for any numeric
+subset of Arrow types using ``std::enable_if_t``, which are useful if other overloads
+need to be implemented. For example, to write a sum function for any numeric
 (integer or float) array:
 
 .. code-block:: cpp
 
-   template <typename ArrayType, typename DataType = typename ArrayType::TypeClass>
-   arrow::enable_if_number<DataType, DataType::c_type> Visit(const ArrayType& array) {
-     DataType::c_type sum = 0;
-     for (arrow::util::optional<typename DataType::c_type> value : array) {
+   template <typename ArrayType, typename DataType = typename ArrayType::TypeClass,
+             typename CType = typename DataType::c_type>
+   arrow::enable_if_number<DataType, CType> sum_array(const ArrayType& array) {
+     CType sum = 0;
+     for (arrow::util::optional<CType> value : array) {
        if (value.has_value()) {
          sum += value.value();
        }
@@ -179,9 +189,6 @@ subset of Arrow types. For example, to write a sum function for any numeric
 
 See :ref:`type-predicates-api` for a list of these.
 
-
-:ref:`building them yourself <type-predicates-api>`.
-.. TODO: test these snippets
 
 Visitor Pattern
 ---------------
