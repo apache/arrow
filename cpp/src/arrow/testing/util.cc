@@ -112,7 +112,7 @@ Status GetTestResourceRoot(std::string* out) {
 util::optional<std::string> GetTestTimezoneDatabaseRoot() {
   const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
   if (!c_root) {
-    return util::make_optional<std::string>();
+    return util::optional<std::string>();
   }
   return util::make_optional(std::string(c_root));
 }
