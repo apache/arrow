@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
+
 #include <functional>
 #include <thread>
 #include "./safe-call-into-r.h"
@@ -116,3 +119,5 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
     return "";
   }
 }
+
+#endif
