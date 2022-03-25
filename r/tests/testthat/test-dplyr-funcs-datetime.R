@@ -1103,6 +1103,17 @@ test_that("difftime works correctly", {
     test_df_with_tz
   )
 
+  test_df_with_tz %>%
+    arrow_table() %>%
+    mutate(
+      secs2 = difftime(
+        as.POSIXct("2022-03-07", tz = "Europe/Bucharest"),
+        time1,
+        units = "secs"
+      )
+    ) %>%
+    collect()
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1193,12 +1204,26 @@ test_that("`decimal_date()` and `date_decimal()`", {
           2009.43465948477, 1975.71251467871, NA),
     b = as.POSIXct(
       c("2007-05-23 08:18:30", "1970-10-11 17:19:45", "2020-12-17 14:04:06",
-      "2009-06-08 15:37:01", "1975-09-18 01:37:42", NA)
+        "2009-06-08 15:37:01", "1975-09-18 01:37:42", NA)
     ),
     c = c(1179908310.24298, 24513585.5584592, 1608213846.55522,
           1244475421.51183, 180236262.90795, NA)
   )
 
   test_df %>%
-    mutate(date_from_decimal_date = date_decimal(a))
+    # arrow_table() %>%
+    mutate(decimal_date_from_r_obj = decimal_date(ymd("2022-03-25"))) %>%
+    collect()
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(decimal_date_from_date = decimal_date(b),
+             decimal_date_from_r_obj = decimal_date(ymd("2022-03-25"))) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE,
+    # in some cases there are small differences in the decimal dates
+    tolerance = 0.0001
+  )
+
 })
