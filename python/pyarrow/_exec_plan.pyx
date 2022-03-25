@@ -142,7 +142,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 def tables_join(join_type, left_table not None, left_keys,
                 right_table not None, right_keys,
                 left_suffix=None, right_suffix=None,
-                use_threads=True, deduplicate=False):
+                use_threads=True, coalesce_keys=False):
     """
     Perform join of two tables.
 
@@ -168,7 +168,7 @@ def tables_join(join_type, left_table not None, left_keys,
         when the columns in left and right tables have colliding names.
     use_threads : bool, default True
         Whenever to use multithreading or not.
-    deduplicate : bool, default False
+    coalesce_keys : bool, default False
         If the duplicated keys should be omitted from one of the sides
         in the join result.
 
@@ -246,7 +246,7 @@ def tables_join(join_type, left_table not None, left_keys,
             right_column_keys_indices[colname] = idx
 
     # Add the join node to the execplan
-    if deduplicate:
+    if coalesce_keys:
         c_decl_plan.push_back(
             CDeclaration(tobytes("hashjoin"), CHashJoinNodeOptions(
                 c_join_type, c_left_keys, c_right_keys,

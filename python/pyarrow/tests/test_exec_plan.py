@@ -97,7 +97,7 @@ def test_joins(jointype, expected, use_threads):
     })
 
     r = ep.tables_join(jointype, t1, "colA", t2, "colB",
-                       use_threads=use_threads, deduplicate=True)
+                       use_threads=use_threads, coalesce_keys=True)
     r = r.combine_chunks()
     if "right" in jointype:
         r = r.sort_by("colB")
@@ -133,7 +133,7 @@ def test_table_join_collisions():
     ], names=["colA", "colB", "colVals", "colB", "colVals", "colUniq", "colA"])
 
     result = ep.tables_join("full outer", t1, "colA",
-                            t2, "colA", right_suffix="_r", deduplicate=False)
+                            t2, "colA", right_suffix="_r", coalesce_keys=False)
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, None],
         "colB": [10, 20, 60, None],
@@ -145,7 +145,7 @@ def test_table_join_collisions():
     })
 
     result = ep.tables_join("full outer", t1, "colA",
-                            t2, "colA", right_suffix="_r", deduplicate=True)
+                            t2, "colA", right_suffix="_r", coalesce_keys=True)
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, 99],
         "colB": [10, 20, 60, None],
@@ -170,7 +170,7 @@ def test_table_join_keys_order():
 
     result = ep.tables_join("full outer", t1, "colA", t2, "colX",
                             left_suffix="_l", right_suffix="_r",
-                            deduplicate=True)
+                            coalesce_keys=True)
     assert result.combine_chunks() == pa.table({
         "colB": [10, 20, 60, None],
         "colA": [1, 2, 6, 99],
