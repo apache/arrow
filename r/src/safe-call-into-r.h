@@ -95,7 +95,7 @@ template <typename T>
 arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
   class TypedTask : public MainRThread::Task {
    public:
-    TypedTask(std::function<T(void)> fun) : fun_(fun){};
+    explicit TypedTask(std::function<T(void)> fun) : fun_(fun) {}
 
     arrow::Status run() {
       result = fun_();
