@@ -259,7 +259,7 @@ register_bindings_duration <- function() {
     if (!missing(tz)) {
       warn("`tz` argument is not supported in Arrow, so it will be ignored")
     }
-
+# browser()
     # cast to timestamp if time1 and time2 are not dates or timestamp expressions
     # (the subtraction of which would output a `duration`)
     if (!call_binding("is.instant", time1)) {
@@ -268,6 +268,17 @@ register_bindings_duration <- function() {
 
     if (!call_binding("is.instant", time2)) {
       time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
+    }
+
+    # if time1 or time2 are timestamps they need to be in "us"
+    if (inherits(time1, "Expression") &&
+        time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp("us")))
+    }
+
+    if (inherits(time2, "Expression") &&
+        time2$type_id() %in% Type[c("TIMESTAMP")] && time2$type()$unit() != 2L) {
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp("us")))
     }
 
     # we need to go build the subtract expression instead of `time1 - time2` to
@@ -310,17 +321,18 @@ register_bindings_duration <- function() {
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
   register_binding("decimal_date", function(date) {
-    y <- call_binding("year", date)
-    timezone <- call_binding("tz", date)
-    start <- call_binding("make_datetime", year = y, tz = timezone)
-    end <- call_binding("make_datetime", year = y + 1L, tz = timezone)
+    # browser()
+    y <- build_expr("year", date)
+    # timezone <- call_binding("tz", date)
+    start <- call_binding("make_datetime", year = y, tz = "UTC")
+    end <- call_binding("make_datetime", year = y + 1L, tz = "UTC")
     # maybe use yday here
     sofar <- call_binding("difftime", date, start, units = "secs")
     total <- call_binding("difftime", end, start, units = "secs")
-    y + call_binding("as.numeric", sofar) / call_binding("as.numeric", total)
+    y + sofar$cast(int64()) / total$cast(int64())
   })
   register_binding("date_decimal", function(decimal, tz = "UTC") {
-    y <- call_binding(
+    y <- build_expr(
       "cast",
       decimal,
       options = cast_options(to_type = int32(), safe = FALSE)
@@ -329,11 +341,13 @@ register_bindings_duration <- function() {
     start <- call_binding("make_datetime", year = y, tz = tz)
     end <- call_binding("make_datetime", year = y + 1, tz = tz)
 
-    seconds <- call_binding("difftime", end, start, unit = "secs")
+    seconds <- call_binding("difftime", end, start, units = "secs")
     fraction <- decimal - y
-    end <- start + seconds * fraction
+    delta <- seconds$cast(int64()) * fraction
+    delta <- delta$cast(int64(), safe = FALSE)
+    end <- start + delta$cast(duration("s"))
     end
-    })
+  })
 }
 
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
