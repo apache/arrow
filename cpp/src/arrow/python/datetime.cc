@@ -502,25 +502,6 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   RETURN_NOT_OK(
       internal::ImportFromModule(module_datetime.obj(), "timezone", &class_timezone));
 
-  // Try to import pytz if it is available
-  if (internal::ImportModule("pytz", &module_pytz).ok()) {
-    RETURN_NOT_OK(internal::ImportFromModule(module_pytz.obj(), "_FixedOffset",
-                                             &class_fixedoffset));
-    RETURN_NOT_OK(
-        internal::ImportFromModule(module_pytz.obj(), "BaseTzInfo", &class_basetzinfo));
-  }
-
-  // Try to import zoneinfo if it is available
-  if (internal::ImportModule("zoneinfo", &module_zoneinfo).ok()) {
-    RETURN_NOT_OK(
-        internal::ImportFromModule(module_zoneinfo.obj(), "ZoneInfo", &class_zoneinfo));
-  }
-  // Try to import dateutil if it is available
-  if (internal::ImportModule("dateutil.tz", &module_dateutil).ok()) {
-    RETURN_NOT_OK(
-        internal::ImportFromModule(module_dateutil.obj(), "tzfile", &class_tzfile));
-  }
-
   // check that it's a valid tzinfo object
   if (!PyTZInfo_Check(tzinfo)) {
     return Status::TypeError("Not an instance of datetime.tzinfo");
@@ -542,6 +523,14 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return PyTZInfo_utcoffset_hhmm(tzinfo);
   }
 
+  // Try to import pytz if it is available
+  if (internal::ImportModule("pytz", &module_pytz).ok()) {
+    RETURN_NOT_OK(internal::ImportFromModule(module_pytz.obj(), "_FixedOffset",
+                                             &class_fixedoffset));
+    RETURN_NOT_OK(
+        internal::ImportFromModule(module_pytz.obj(), "BaseTzInfo", &class_basetzinfo));
+  }
+
   // if tzinfo is an instance of pytz._FixedOffset return the
   // HH:MM offset string representation
   if (module_pytz.obj() != nullptr &&
@@ -561,6 +550,12 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return result;
   }
 
+  // Try to import zoneinfo if it is available
+  if (internal::ImportModule("zoneinfo", &module_zoneinfo).ok()) {
+    RETURN_NOT_OK(
+        internal::ImportFromModule(module_zoneinfo.obj(), "ZoneInfo", &class_zoneinfo));
+  }
+
   // if zoneinfo is installed and tzinfo is an instance of zoneinfo.ZoneInfo
   if (module_zoneinfo.obj() != nullptr &&
       PyObject_IsInstance(tzinfo, class_zoneinfo.obj())) {
@@ -569,6 +564,12 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     std::string result;
     RETURN_NOT_OK(internal::PyUnicode_AsStdString(key.obj(), &result));
     return result;
+  }
+
+  // Try to import dateutil if it is available
+  if (internal::ImportModule("dateutil.tz", &module_dateutil).ok()) {
+    RETURN_NOT_OK(
+        internal::ImportFromModule(module_dateutil.obj(), "tzfile", &class_tzfile));
   }
 
   // if dateutil is installed and tzinfo is an instance of dateutil.tz.tzfile
