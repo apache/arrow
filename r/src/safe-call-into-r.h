@@ -21,6 +21,7 @@
 #include "./arrow_types.h"
 
 #include <arrow/util/future.h>
+#include <arrow/util/thread_pool.h>
 
 #include <functional>
 #include <thread>
@@ -33,7 +34,7 @@
 // SafeCallIntoR<cpp_type>([&]() { some_expression_returning_sexp; }).
 class MainRThread {
  public:
-  MainRThread() : initialized_(false) {}
+  MainRThread() : initialized_(false), executor_(nullptr) {}
 
   // Call this method from the R thread (e.g., on package load)
   // to save an internal copy of the thread id.
@@ -48,6 +49,8 @@ class MainRThread {
   // Check if the current thread is the main R thread
   bool IsMainThread() { return initialized_ && std::this_thread::get_id() == thread_id_; }
 
+
+
   // Class whose run() method will be called from the main R thread
   // but whose results may be accessed (as class fields) from
   // potentially another thread.
@@ -57,9 +60,12 @@ class MainRThread {
     virtual arrow::Status run() = 0;
   };
 
-  // Synchronously run `task` if it is safe to do so or return an
-  // error otherwise.
+  // Run `task` if it is safe to do so or return an error otherwise.
   arrow::Status RunTask(Task* task);
+
+  arrow::internal::Executor*& Executor() {
+    return executor_;
+  }
 
   // Save an error token generated from a cpp11::unwind_exception
   // so that it can be properly handled after some cleanup code
@@ -83,6 +89,7 @@ class MainRThread {
   bool initialized_;
   std::thread::id thread_id_;
   cpp11::sexp error_token_;
+  arrow::internal::Executor* executor_;
 };
 
 // Retrieve the MainRThread singleton
@@ -111,6 +118,24 @@ arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
   TypedTask task(fun);
   ARROW_RETURN_NOT_OK(GetMainRThread()->RunTask(&task));
   return task.result;
+}
+
+template <typename T>
+arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> task) {
+  if (GetMainRThread()->Executor() != nullptr) {
+    return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
+  }
+
+  arrow::Result<T> result = arrow::internal::SerialExecutor::RunInSerialExecutor<T>(
+      [task](arrow::internal::Executor* executor) {
+        GetMainRThread()->Executor() = executor;
+        arrow::Future<T> result = task();
+        return result;
+      });
+
+  GetMainRThread()->Executor() = nullptr;
+
+  return result;
 }
 
 #endif

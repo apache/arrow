@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "./safe-call-into-r.h"
+#include "safe-call-into-r.h"
 #include <functional>
 #include <thread>
 
@@ -25,6 +25,7 @@ MainRThread* GetMainRThread() { return &main_r_thread; }
 
 arrow::Status MainRThread::RunTask(Task* task) {
   if (IsMainThread()) {
+    // If we're on the main thread, run the task immediately
     try {
       ARROW_RETURN_NOT_OK(task->run());
       return arrow::Status::OK();
@@ -32,8 +33,15 @@ arrow::Status MainRThread::RunTask(Task* task) {
       SetError(e.token);
       return arrow::Status::UnknownError("R code execution error");
     }
+  } else if (executor_ != nullptr) {
+    // If we are not on the main thread and have an Executor
+    // use it to run the task on the main R thread.
+    auto fut = executor_->Submit([task]() { return task->run(); });
+    ARROW_RETURN_NOT_OK(fut);
+    ARROW_RETURN_NOT_OK(fut.ValueUnsafe().result());
+    return arrow::Status::OK();
   } else {
-    return arrow::Status::NotImplemented("Call to R from a non-R thread");
+    return arrow::Status::NotImplemented("Call to R from a non-R thread without an event loop");
   }
 }
 
