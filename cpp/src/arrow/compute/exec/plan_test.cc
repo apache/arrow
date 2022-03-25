@@ -493,7 +493,7 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
         TestConsumer(std::atomic<uint32_t>* batches_seen, Future<> finish)
             : batches_seen(batches_seen), finish(std::move(finish)) {}
 
-        Status Consume(ExecBatch batch) override {
+        Status Consume(ExecBatch batch, const std::shared_ptr<Schema>& schema) override {
           (*batches_seen)++;
           return Status::OK();
         }
@@ -561,11 +561,15 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
 
 TEST(ExecPlanExecution, ConsumingSinkError) {
   struct ConsumeErrorConsumer : public SinkNodeConsumer {
-    Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }
+    Status Consume(ExecBatch batch, const std::shared_ptr<Schema>& schema) override {
+      return Status::Invalid("XYZ");
+    }
     Future<> Finish() override { return Future<>::MakeFinished(); }
   };
   struct FinishErrorConsumer : public SinkNodeConsumer {
-    Status Consume(ExecBatch batch) override { return Status::OK(); }
+    Status Consume(ExecBatch batch, const std::shared_ptr<Schema>& schema) override {
+      return Status::OK();
+    }
     Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
   };
   std::vector<std::shared_ptr<SinkNodeConsumer>> consumers{
@@ -593,7 +597,9 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
 TEST(ExecPlanExecution, ConsumingSinkErrorFinish) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   struct FinishErrorConsumer : public SinkNodeConsumer {
-    Status Consume(ExecBatch batch) override { return Status::OK(); }
+    Status Consume(ExecBatch batch, const std::shared_ptr<Schema>& schema) override {
+      return Status::OK();
+    }
     Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
   };
   std::shared_ptr<FinishErrorConsumer> consumer = std::make_shared<FinishErrorConsumer>();

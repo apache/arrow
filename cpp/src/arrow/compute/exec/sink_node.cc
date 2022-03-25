@@ -213,7 +213,8 @@ class ConsumingSinkNode : public ExecNode {
       return;
     }
 
-    Status consumption_status = consumer_->Consume(std::move(batch));
+    Status consumption_status =
+        consumer_->Consume(std::move(batch), input->output_schema());
     if (!consumption_status.ok()) {
       if (input_counter_.Cancel()) {
         Finish(std::move(consumption_status));
@@ -268,13 +269,12 @@ class ConsumingSinkNode : public ExecNode {
 
 struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
  public:
-  TableSinkNodeConsumer(std::shared_ptr<Table>* out,
-                        std::shared_ptr<Schema> output_schema, MemoryPool* pool)
-      : out_(out), output_schema_(std::move(output_schema)), pool_(pool) {}
+  TableSinkNodeConsumer(std::shared_ptr<Table>* out, MemoryPool* pool)
+      : out_(out), pool_(pool) {}
 
-  Status Consume(ExecBatch batch) override {
+  Status Consume(ExecBatch batch, const std::shared_ptr<Schema>& schema) override {
     std::lock_guard<std::mutex> guard(consume_mutex_);
-    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(output_schema_, pool_));
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema, pool_));
     batches_.push_back(rb);
     return Status::OK();
   }
@@ -286,7 +286,6 @@ struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
 
  private:
   std::shared_ptr<Table>* out_;
-  std::shared_ptr<Schema> output_schema_;
   MemoryPool* pool_;
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   std::mutex consume_mutex_;
@@ -298,8 +297,8 @@ static Result<ExecNode*> MakeTableConsumingSinkNode(
   RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TableConsumingSinkNode"));
   const auto& sink_options = checked_cast<const TableSinkNodeOptions&>(options);
   MemoryPool* pool = plan->exec_context()->memory_pool();
-  auto tb_consumer = std::make_shared<TableSinkNodeConsumer>(
-      sink_options.output_table, sink_options.output_schema, pool);
+  auto tb_consumer =
+      std::make_shared<TableSinkNodeConsumer>(sink_options.output_table, pool);
   auto consuming_sink_node_options = ConsumingSinkNodeOptions{tb_consumer};
   return MakeExecNode("consuming_sink", plan, inputs, consuming_sink_node_options);
 }

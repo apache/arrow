@@ -40,7 +40,8 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
  public:
   explicit IgnoringConsumer(size_t tag) : tag_{tag} {}
 
-  arrow::Status Consume(cp::ExecBatch batch) override {
+  arrow::Status Consume(cp::ExecBatch batch,
+                        const std::shared_ptr<arrow::Schema>& schema) override {
     // Consume a batch of data
     // (just print its row count to stdout)
     std::cout << "-" << tag_ << " consumed " << batch.length << " rows" << std::endl;

@@ -146,7 +146,7 @@ class ARROW_EXPORT SinkNodeConsumer {
  public:
   virtual ~SinkNodeConsumer() = default;
   /// \brief Consume a batch of data
-  virtual Status Consume(ExecBatch batch) = 0;
+  virtual Status Consume(ExecBatch batch, const std::shared_ptr<Schema>& schema) = 0;
   /// \brief Signal to the consumer that the last batch has been delivered
   ///
   /// The returned future should only finish when all outstanding tasks have completed
@@ -310,10 +310,9 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
  public:
   TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
                        std::shared_ptr<Schema> output_schema)
-      : output_table(output_table), output_schema(std::move(output_schema)) {}
+      : output_table(output_table) {}
 
   std::shared_ptr<Table>* output_table;
-  std::shared_ptr<Schema> output_schema;
 };
 
 }  // namespace compute

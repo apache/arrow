@@ -408,14 +408,12 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
  public:
   explicit WriteNodeOptions(
-      FileSystemDatasetWriteOptions options, std::shared_ptr<Schema> schema,
+      FileSystemDatasetWriteOptions options,
       std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
       : write_options(std::move(options)),
-        schema(std::move(schema)),
         backpressure_toggle(std::move(backpressure_toggle)) {}
 
   FileSystemDatasetWriteOptions write_options;
-  std::shared_ptr<Schema> schema;
   std::shared_ptr<util::AsyncToggle> backpressure_toggle;
 };
 
