@@ -606,11 +606,11 @@ TEST_P(MergedGeneratorTestFixture, MergedInnerFailCleanup) {
       int my_count = (*count)++;
       if (my_count == 1) {
         if (fails) {
-          failing_task_gate->Task()();
-          return Status::Invalid("XYZ");
+          return failing_task_gate->AsyncTask().Then(
+              []() -> Result<TestInt> { return Status::Invalid("XYZ"); });
         } else {
-          passing_task_gate->Task()();
-          return IterationEnd<TestInt>();
+          return passing_task_gate->AsyncTask().Then(
+              []() -> Result<TestInt> { return IterationEnd<TestInt>(); });
         }
       } else {
         return SleepABitAsync().Then([] { return TestInt(0); });
