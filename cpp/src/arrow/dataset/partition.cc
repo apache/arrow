@@ -553,6 +553,32 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
                                                                utf8());
   }
 
+Status InspectPartitionSegments(std::vector<std::string> segments, std::vector<std::string> field_names){
+    size_t field_index = 0;
+    for(auto&& segment:segments){
+    if (field_index == field_names.size()) break;
+
+      switch (options_.segment_encoding) {
+        case SegmentEncoding::None: {
+          if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
+            return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
+          }
+          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
+          break;
+        }
+        case SegmentEncoding::Uri: {
+          ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
+          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
+          break;
+        }
+        default:
+          return Status::NotImplemented("Unknown segment encoding: ",
+                                        options_.segment_encoding);
+      }
+    }
+    return Status::OK();
+  }
+
   PartitioningFactoryOptions options_;
   ArrayVector dictionaries_;
   std::unordered_map<std::string, int> name_to_index_;
@@ -573,30 +599,10 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) override {
     for (auto path : paths) {
-      size_t field_index = 0;
-      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
-        if (field_index == field_names_.size()) break;
-
-        switch (options_.segment_encoding) {
-          case SegmentEncoding::None: {
-            if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
-              return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
-            }
-            RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
-            break;
-          }
-          case SegmentEncoding::Uri: {
-            ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
-            RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
-            break;
-          }
-          default:
-            return Status::NotImplemented("Unknown segment encoding: ",
-                                          options_.segment_encoding);
-        }
-      }
+      std::vector<std::string> segments;
+      segments = fs::internal::SplitAbstractPath(path);
+      RETURN_NOT_OK(InspectPartitionSegments(segments,field_names_));
     }
-
     return DoInspect();
   }
 
@@ -640,31 +646,10 @@ class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) override {
     for (const auto& path : paths) {
-      size_t field_index = 0;
-      for (auto&& segment :
-           fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep)) {
-        if (field_index == field_names_.size()) break;
-
-        switch (options_.segment_encoding) {
-          case SegmentEncoding::None: {
-            if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
-              return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
-            }
-            RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
-            break;
-          }
-          case SegmentEncoding::Uri: {
-            ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
-            RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
-            break;
-          }
-          default:
-            return Status::NotImplemented("Unknown segment encoding: ",
-                                          options_.segment_encoding);
-        }
-      }
+      std::vector<std::string> segments;
+      segments = fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+      RETURN_NOT_OK(InspectPartitionSegments(segments,field_names_));
     }
-
     return DoInspect();
   }
 
