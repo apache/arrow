@@ -1704,8 +1704,12 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
   .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
 }
 
-TestSafeCallIntoR <- function(funs_that_return_a_string) {
-  .Call(`_arrow_TestSafeCallIntoR`, funs_that_return_a_string)
+InitializeMainRThread <- function() {
+  invisible(.Call(`_arrow_InitializeMainRThread`))
+}
+
+TestSafeCallIntoR <- function(funs_that_return_a_string, async) {
+  .Call(`_arrow_TestSafeCallIntoR`, funs_that_return_a_string, async)
 }
 
 Array__GetScalar <- function(x, i) {
