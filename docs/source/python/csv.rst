@@ -105,7 +105,9 @@ Available parsing options are:
   ~ParseOptions.ignore_empty_lines
   ~ParseOptions.invalid_row_handler
 
-For more examples see :class:`ParseOptions`.
+.. seealso::
+
+   For more examples see :class:`ParseOptions`.
 
 Customized conversion
 ---------------------
@@ -141,7 +143,9 @@ Available convert options are:
   ~ConvertOptions.include_columns
   ~ConvertOptions.include_missing_columns
 
-For more examples see :class:`ConvertOptions`.
+.. seealso::
+
+   For more examples see :class:`ConvertOptions`.
 
 Incremental reading
 -------------------
@@ -186,7 +190,9 @@ Available read options are:
   ~ReadOptions.autogenerate_column_names
   ~ReadOptions.encoding
 
-For more examples see :class:`ReadOptions`.
+.. seealso::
+
+   For more examples see :class:`ReadOptions`.
 
 Customized writing
 ------------------
