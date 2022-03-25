@@ -58,12 +58,12 @@ Let's look at a simple table::
    >>> import pyarrow as pa
 
    >>> table = pa.table(
-       {
-           'one': [-1, np.nan, 2.5],
-           'two': ['foo', 'bar', 'baz'],
-           'three': [True, False, True]
-       }
-   )
+   ...     {
+   ...         'one': [-1, np.nan, 2.5],
+   ...         'two': ['foo', 'bar', 'baz'],
+   ...         'three': [True, False, True]
+   ...     }
+   ... )
 
 We write this to ORC format with ``write_table``::
 
