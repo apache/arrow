@@ -17,6 +17,7 @@
 
 import argparse
 import pyarrow as pa
+from pyarrow.lib import tobytes
 
 from pyarrow.engine import run_query
 
@@ -37,7 +38,7 @@ python3 query_execution_example.py --filename <path-to-parquet-file>
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--filename", help="display a square of a given number",
-                    type=str)
+                    type=str, required=True)
 args = parser.parse_args()
 
 query = """
@@ -71,10 +72,9 @@ query = """
   }
 """
 
-query = query.replace("FILENAME_PLACEHOLDER", args.filename)
+query = tobytes(query.replace("FILENAME_PLACEHOLDER", args.filename))
 
 schema = pa.schema({"i": pa.int64(), "b": pa.bool_()})
-
 
 reader = run_query(query, schema)
 

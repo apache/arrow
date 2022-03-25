@@ -541,12 +541,9 @@ if(PYARROW_BUILD_FLIGHT)
 endif()
 
 # Engine
-
 if(PYARROW_BUILD_ENGINE)
-find_package(ArrowEngine REQUIRED)
+  find_package(ArrowEngine REQUIRED)
   if(PYARROW_BUNDLE_ARROW_CPP)
-    message("ARROW_ENGINE_SHARED_LIB")
-    message(""${ARROW_ENGINE_SHARED_LIB})
     bundle_arrow_lib(ARROW_ENGINE_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
   endif()
 

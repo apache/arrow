@@ -19,16 +19,19 @@
 
 import sys
 
-from cython.operator cimport dereference as deref
-
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
-import pyarrow.lib as lib
-
-import numpy as np
 
 
 def run_query(plan, output_schema):
+    """
+    executes a substrait plan and returns a RecordBatchReader
+
+    Paramters
+    ---------
+    plan : bytes
+    output_schema: expected output schema
+    """
 
     cdef:
         CResult[shared_ptr[CRecordBatchReader]] c_res_reader
@@ -37,7 +40,7 @@ def run_query(plan, output_schema):
         c_string c_plan
         RecordBatchReader reader
 
-    c_plan = plan.encode()
+    c_plan = plan
 
     c_schema = pyarrow_unwrap_schema(output_schema)
 
