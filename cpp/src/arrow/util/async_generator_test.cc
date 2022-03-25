@@ -551,11 +551,131 @@ TEST_P(MergedGeneratorTestFixture, Merged) {
   ASSERT_EQ(expected, concat_set);
 }
 
+TEST_P(MergedGeneratorTestFixture, OuterSubscriptionEmpty) {
+  auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>({});
+  if (IsSlow()) {
+    gen = SlowdownABit(gen);
+  }
+  auto merged_gen = MakeMergedGenerator(gen, 10);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected,
+                                CollectAsyncGenerator(std::move(merged_gen)));
+  ASSERT_TRUE(collected.empty());
+}
+
 TEST_P(MergedGeneratorTestFixture, MergedInnerFail) {
   auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>(
-      {MakeSource({1, 2, 3}), MakeFailingSource()});
+      {MakeSource({1, 2, 3}), FailsAt(MakeSource({1, 2, 3}), 1), MakeSource({1, 2, 3})});
   auto merged_gen = MakeMergedGenerator(gen, 10);
-  ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(merged_gen));
+  // Merged generator can be pulled async-reentrantly and we need to make
+  // sure, if it is, that all futures are marked complete, even if there is an error
+  std::vector<Future<TestInt>> futures;
+  for (int i = 0; i < 20; i++) {
+    futures.push_back(merged_gen());
+  }
+  // Items could come in any order so the only guarantee is that we see at least
+  // one item before the failure.  After the failure the behavior is undefined
+  // except that we know the futures must complete.
+  bool error_seen = false;
+  for (int i = 0; i < 20; i++) {
+    Future<TestInt> fut = futures[i];
+    ASSERT_TRUE(fut.Wait(arrow::kDefaultAssertFinishesWaitSeconds));
+    Status status = futures[i].status();
+    if (!status.ok()) {
+      ASSERT_GT(i, 0);
+      if (!error_seen) {
+        error_seen = true;
+        ASSERT_TRUE(status.IsInvalid());
+      }
+    }
+  }
+}
+
+TEST_P(MergedGeneratorTestFixture, MergedInnerFailCleanup) {
+  // The purpose of this test is to ensure we do not emit an error until all outstanding
+  // futures have completed.  This is part of the AsyncGenerator contract
+  std::shared_ptr<GatingTask> failing_task_gate = GatingTask::Make();
+  std::shared_ptr<GatingTask> passing_task_gate = GatingTask::Make();
+  // A passing inner source emits one item and then waits on a gate and then
+  // emits a terminal item.
+  //
+  // A failing inner source emits one item and then waits on a gate and then
+  // emits an error.
+  auto make_source = [&](bool fails) -> AsyncGenerator<TestInt> {
+    std::shared_ptr<std::atomic<int>> count = std::make_shared<std::atomic<int>>(0);
+    return [&, fails, count]() -> Future<TestInt> {
+      int my_count = (*count)++;
+      if (my_count == 1) {
+        if (fails) {
+          return failing_task_gate->AsyncTask().Then(
+              []() -> Result<TestInt> { return Status::Invalid("XYZ"); });
+        } else {
+          return passing_task_gate->AsyncTask().Then(
+              []() -> Result<TestInt> { return IterationEnd<TestInt>(); });
+        }
+      } else {
+        return SleepABitAsync().Then([] { return TestInt(0); });
+      }
+    };
+  };
+  auto outer = MakeVectorGenerator<AsyncGenerator<TestInt>>(
+      {make_source(false), make_source(true), make_source(false)});
+  auto merged_gen = MakeMergedGenerator(outer, 10);
+
+  constexpr int NUM_FUTURES = 20;
+  std::vector<Future<TestInt>> futures;
+  for (int i = 0; i < NUM_FUTURES; i++) {
+    futures.push_back(merged_gen());
+  }
+
+  auto count_completed_futures = [&] {
+    int count = 0;
+    for (const auto& future : futures) {
+      if (future.is_finished()) {
+        count++;
+      }
+    }
+    return count;
+  };
+
+  // The first future from each source can be emitted.  The second from
+  // each source should be blocked by the gates.
+  ASSERT_OK(passing_task_gate->WaitForRunning(2));
+  ASSERT_OK(failing_task_gate->WaitForRunning(1));
+  ASSERT_EQ(count_completed_futures(), 3);
+  // We will unlock the error now but it should not be emitted because
+  // the other futures are blocked
+  // std::cout << "Unlocking failing gate\n";
+  ASSERT_OK(failing_task_gate->Unlock());
+  SleepABit();
+  ASSERT_EQ(count_completed_futures(), 3);
+  // Now we will unlock the in-progress futures and everything should complete
+  // We don't know exactly what order things will emit in but after the failure
+  // we should only see terminal items
+  // std::cout << "Unlocking passing gate\n";
+  ASSERT_OK(passing_task_gate->Unlock());
+
+  bool error_seen = false;
+  for (const auto& fut : futures) {
+    ASSERT_TRUE(fut.Wait(arrow::kDefaultAssertFinishesWaitSeconds));
+    if (fut.status().ok()) {
+      if (error_seen) {
+        ASSERT_TRUE(IsIterationEnd(*fut.result()));
+      }
+    } else {
+      // We should only see one error
+      ASSERT_FALSE(error_seen);
+      error_seen = true;
+      ASSERT_TRUE(fut.status().IsInvalid());
+    }
+  }
+}
+
+TEST_P(MergedGeneratorTestFixture, FinishesQuickly) {
+  // Testing a source that finishes on the first pull
+  auto source = AsyncVectorIt<AsyncGenerator<TestInt>>({MakeSource({1})});
+  auto merged = MakeMergedGenerator(std::move(source), 10);
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), merged());
+  AssertGeneratorExhausted(merged);
 }
 
 TEST_P(MergedGeneratorTestFixture, MergedOuterFail) {
@@ -1310,6 +1430,23 @@ TEST(TestAsyncUtil, Readahead) {
   ASSERT_TRUE(IsIterationEnd(last_val));
 }
 
+TEST(TestAsyncUtil, ReadaheadOneItem) {
+  bool delivered = false;
+  auto source = [&delivered]() {
+    if (!delivered) {
+      delivered = true;
+      return Future<TestInt>::MakeFinished(0);
+    } else {
+      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
+    }
+  };
+  auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
+  auto collected = CollectAsyncGenerator(std::move(readahead));
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto actual, collected);
+  ASSERT_EQ(1, actual.size());
+  ASSERT_EQ(TestInt(0), actual[0]);
+}
+
 TEST(TestAsyncUtil, ReadaheadCopy) {
   auto source = AsyncVectorIt<TestInt>(RangeVector(6));
   auto gen = MakeReadaheadGenerator(std::move(source), 2);
@@ -1373,6 +1510,60 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   // Don't need to know the exact number of successful tasks (and it may vary)
   for (std::size_t i = 0; i < remaining_results.size(); i++) {
     ASSERT_EQ(TestInt(static_cast<int>(i) + 1), remaining_results[i]);
+  }
+}
+
+TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
+  // If a failure causes an early end then we should not emit that failure
+  // until all in-flight futures have completed.  This is to prevent tasks from
+  // outliving the generator
+  std::atomic<int32_t> counter(0);
+  auto failure_gating_task = GatingTask::Make();
+  auto in_flight_gating_task = GatingTask::Make();
+  auto source = [&]() -> Future<TestInt> {
+    auto count = counter++;
+    return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
+      if (count == 0) {
+        failure_gating_task->Task()();
+        return Status::Invalid("X");
+      }
+      in_flight_gating_task->Task()();
+      // These are our in-flight tasks
+      return TestInt(0);
+    }));
+  };
+  auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
+  auto should_be_invalid = readahead();
+  ASSERT_OK(in_flight_gating_task->WaitForRunning(10));
+  ASSERT_OK(failure_gating_task->Unlock());
+  SleepABit();
+  // Can't be finished because in-flight tasks are still running
+  AssertNotFinished(should_be_invalid);
+  ASSERT_OK(in_flight_gating_task->Unlock());
+  ASSERT_FINISHES_AND_RAISES(Invalid, should_be_invalid);
+}
+
+TEST(TestAsyncUtil, ReadaheadFailedStress) {
+  constexpr int NTASKS = 10;
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
+  for (int i = 0; i < NTASKS; i++) {
+    std::atomic<int32_t> counter(0);
+    std::atomic<bool> finished(false);
+    AsyncGenerator<TestInt> source = [&]() -> Future<TestInt> {
+      auto count = counter++;
+      return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
+        SleepABit();
+        if (count == 5) {
+          return Status::Invalid("X");
+        }
+        // Generator should not have been finished at this point
+        EXPECT_FALSE(finished);
+        return TestInt(0);
+      }));
+    };
+    ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(source));
+    finished.store(false);
   }
 }
 
