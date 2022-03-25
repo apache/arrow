@@ -152,7 +152,7 @@ concatenate them into a single table. You can read individual stripes with
 We can write an ORC file using ``ORCWriter``::
 
    >>> with orc.ORCWriter('example2.orc') as writer:
-           writer.write(table)
+   ...     writer.write(table)
 
 Compression
 ---------------------------------------------
