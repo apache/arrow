@@ -105,7 +105,7 @@ Status RunMain() {
   std::unique_ptr<FlightClient> client;
   Location location;
   ARROW_RETURN_NOT_OK(Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
-  ARROW_RETURN_NOT_OK(FlightClient::Connect(location, &client));
+  ARROW_ASSIGN_OR_RAISE(client, FlightClient::Connect(location));
 
   FlightCallOptions call_options;
 

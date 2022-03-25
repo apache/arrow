@@ -162,7 +162,7 @@ class TestFlightSqlServer : public ::testing::Test {
     std::unique_ptr<FlightClient> client;
     Location location;
     ASSERT_OK(Location::Parse(uri, &location));
-    ASSERT_OK(FlightClient::Connect(location, &client));
+    ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location));
 
     sql_client.reset(new FlightSqlClient(std::move(client)));
   }

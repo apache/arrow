@@ -44,7 +44,7 @@ arrow::Status Main() {
 
   // Set up the Flight SQL client
   std::unique_ptr<flight::FlightClient> flight_client;
-  ARROW_RETURN_NOT_OK(flight::FlightClient::Connect(location, &flight_client));
+  ARROW_ASSIGN_OR_RAISE(flight_client, flight::FlightClient::Connect(location));
   std::unique_ptr<flightsql::FlightSqlClient> client(
       new flightsql::FlightSqlClient(std::move(flight_client)));
 
