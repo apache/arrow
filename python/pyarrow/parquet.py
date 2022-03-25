@@ -829,6 +829,7 @@ and write the RecordBatch into the Parquet file:
 5  2021     12   23     100      Centipede
 """
 
+
 class ParquetWriter:
 
     __doc__ = """
@@ -1601,6 +1602,7 @@ create a ParquetDataset object with filter:
 0       4     Dog  2021     7   9
 1       4   Horse  2022     9  13
 """
+
 
 class ParquetDataset:
 
@@ -2598,6 +2600,7 @@ You can also read data from a single Parquet file:
 5       4          Horse  2022     9  13
 """
 
+
 def read_table(source, columns=None, use_threads=True, metadata=None,
                schema=None, use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
@@ -2711,6 +2714,7 @@ switched to False.""",
     Content of the file as a table (of columns)""",
     _DNF_filter_doc, _parquet_dataset_example)
 
+
 def read_pandas(source, columns=None, **kwargs):
     return read_table(
         source, columns=columns, use_pandas_metadata=True, **kwargs
@@ -2776,6 +2780,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
             except os.error:
                 pass
         raise
+
 
 _write_table_example = """\
 Generate an example PyArrow Table:
