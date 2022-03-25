@@ -40,43 +40,41 @@ Future<> SubstraitSinkConsumer::Finish() {
 Status SubstraitExecutor::MakePlan() {
   ARROW_ASSIGN_OR_RAISE(auto serialized_plan,
                         engine::internal::SubstraitFromJSON("Plan", substrait_json_));
-
-  auto maybe_plan_json = engine::internal::SubstraitToJSON("Plan", *serialized_plan);
-  RETURN_NOT_OK(maybe_plan_json.status());
-
+  RETURN_NOT_OK(engine::internal::SubstraitToJSON("Plan", *serialized_plan));
   std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
   std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
-    // All batches produced by the plan will be fed into IgnoringConsumers:
     consumers.emplace_back(new SubstraitSinkConsumer{generator_});
     return consumers.back();
   };
-
-  // Deserialize each relation tree in the substrait plan to an Arrow compute Declaration
-  ARROW_ASSIGN_OR_RAISE(declerations_,
+  ARROW_ASSIGN_OR_RAISE(declarations_,
                         engine::DeserializePlan(*serialized_plan, consumer_factory));
-
-  // It's safe to drop the serialized plan; we don't leave references to its memory
-  serialized_plan.reset();
-
-  // Construct an empty plan (note: configure Function registry and ThreadPool here)
   return Status::OK();
 }
 
+arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer
+SubstraitSinkConsumer::MakeProducer(
+    AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* out_gen,
+    arrow::util::BackpressureOptions backpressure) {
+  arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>> push_gen(
+      std::move(backpressure));
+  auto out = push_gen.producer();
+  *out_gen = std::move(push_gen);
+  return out;
+}
+
 Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::Execute() {
-  for (const cp::Declaration& decl : declerations_) {
+  RETURN_NOT_OK(SubstraitExecutor::MakePlan());
+  for (const cp::Declaration& decl : declarations_) {
     RETURN_NOT_OK(decl.AddToPlan(plan_.get()).status());
   }
-
   ARROW_RETURN_NOT_OK(plan_->Validate());
-
   ARROW_RETURN_NOT_OK(plan_->StartProducing());
-
   std::shared_ptr<RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
       schema_, std::move(*generator_), exec_context_.memory_pool());
   return sink_reader;
 }
 
-Status SubstraitExecutor::Finalize() {
+Status SubstraitExecutor::Close() {
   ARROW_RETURN_NOT_OK(plan_->finished().status());
   return Status::OK();
 }
@@ -87,17 +85,12 @@ Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::GetRecordBatchRead
                                ::arrow::internal::GetCpuThreadPool());
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
   ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
-
   arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, schema,
                                             exec_context);
   RETURN_NOT_OK(executor.MakePlan());
-
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
-
-  RETURN_NOT_OK(executor.Finalize());
-
+  RETURN_NOT_OK(executor.Close());
   return sink_reader;
 }
 

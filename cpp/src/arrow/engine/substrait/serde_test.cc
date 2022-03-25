@@ -730,6 +730,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
   EXPECT_EQ(decoded_add_func.name, "add");
 }
 
+<<<<<<< HEAD
 TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
     "relations": [],
@@ -757,6 +758,9 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
 }
 
 TEST(Substrait, GetRecordBatchIterator) {
+=======
+TEST(Substrait, GetRecordBatchReader) {
+>>>>>>> 7ed254e6a (addressing review comments)
   const auto parquet_root = std::getenv("PARQUET_TEST_DATA");
   std::string dir_string(parquet_root);
   std::stringstream ss;
@@ -800,16 +804,14 @@ TEST(Substrait, GetRecordBatchIterator) {
   ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
   engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, in_schema,
                                      exec_context);
-  auto status = executor.MakePlan();
-  ASSERT_OK(status);
   ASSERT_OK_AND_ASSIGN(auto reader, executor.Execute());
-  auto finish = executor.Finalize();
-  ASSERT_OK(finish);
+  ASSERT_OK(executor.Close());
+  
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
   EXPECT_GT(table->num_rows(), 0);
 }
 
-TEST(Substrait, GetRecordBatchIteratorUtil) {
+TEST(Substrait, GetRecordBatchReaderUtil) {
   const auto parquet_root = std::getenv("PARQUET_TEST_DATA");
   std::string dir_string(parquet_root);
   std::stringstream ss;

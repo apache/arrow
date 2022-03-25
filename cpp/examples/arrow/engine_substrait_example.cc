@@ -19,8 +19,8 @@
 #include <arrow/compute/api.h>
 #include <arrow/engine/api.h>
 #include <arrow/engine/substrait/util.h>
-#include "arrow/util/async_generator.h"
-#include "arrow/util/iterator.h"
+#include <arrow/util/async_generator.h>
+#include <arrow/util/iterator.h>
 
 #include <cstdlib>
 #include <iostream>
@@ -75,6 +75,31 @@ std::string GetSubstraitPlanFromServer(const std::string& filename) {
   return substrait_json;
 }
 
+arrow::Status Main(std::string substrait_json) {
+  auto schema = arrow::schema(
+      {arrow::field("i", arrow::int64()), arrow::field("b", arrow::boolean())});
+
+  cp::ExecContext exec_context;
+
+  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
+
+  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, schema,
+                                            exec_context);
+
+  ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
+
+  ARROW_ASSIGN_OR_RAISE(auto table,
+                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
+
+  std::cout << "Results : " << table->ToString() << std::endl;
+
+  RETURN_NOT_OK(executor.Close());
+
+  return arrow::Status::OK();
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) {
     std::cout << "Please specify a parquet file to scan" << std::endl;
@@ -83,46 +108,11 @@ int main(int argc, char** argv) {
   }
   auto substrait_json = GetSubstraitPlanFromServer(argv[1]);
 
-  auto schema = arrow::schema(
-      {arrow::field("i", arrow::int64()), arrow::field("b", arrow::boolean())});
+  auto status = Main(substrait_json);
 
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
-
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
-  auto maybe_plan = cp::ExecPlan::Make();
-  if (!maybe_plan.status().ok()) {
-    return EXIT_FAILURE;
-  }
-  auto plan = maybe_plan.ValueOrDie();
-  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, schema,
-                                            exec_context);
-  auto status = executor.MakePlan();
   if (!status.ok()) {
+    std::cout << "Error ocurred: " << status.message() << std::endl;
     return EXIT_FAILURE;
   }
-  auto maybe_reader = executor.Execute();
-
-  if (!maybe_reader.status().ok()) {
-    return EXIT_FAILURE;
-  }
-
-  auto sink_reader = maybe_reader.ValueOrDie();
-
-  std::shared_ptr<arrow::Table> response_table;
-
-  auto maybe_table = arrow::Table::FromRecordBatchReader(sink_reader.get());
-  ABORT_ON_FAILURE(maybe_table.status());
-  response_table = maybe_table.ValueOrDie();
-
-  std::cout << "Results : " << response_table->ToString() << std::endl;
-
-  auto finish = executor.Finalize();
-
-  if (!finish.ok()) {
-    return EXIT_FAILURE;
-  }
-
   return EXIT_SUCCESS;
 }

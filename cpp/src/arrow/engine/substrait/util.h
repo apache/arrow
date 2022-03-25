@@ -17,11 +17,14 @@
 
 #pragma once
 
-#include "arrow/api.h"
-#include "arrow/compute/api.h"
+#include <memory>
+#include <string>
+#include <vector>
+#include "arrow/compute/type_fwd.h"
 #include "arrow/engine/api.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -29,6 +32,7 @@ namespace cp = arrow::compute;
 
 namespace engine {
 
+/// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
 class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public cp::SinkNodeConsumer {
  public:
   explicit SubstraitSinkConsumer(
@@ -40,13 +44,7 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public cp::SinkNodeConsumer {
 
   static arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer
   MakeProducer(AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* out_gen,
-               arrow::util::BackpressureOptions backpressure) {
-    arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>> push_gen(
-        std::move(backpressure));
-    auto out = push_gen.producer();
-    *out_gen = std::move(push_gen);
-    return out;
-  }
+               arrow::util::BackpressureOptions backpressure);
 
   Future<> Finish() override;
 
@@ -54,6 +52,9 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public cp::SinkNodeConsumer {
   PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer producer_;
 };
 
+/// \brief An executor to run a Substrait Query
+/// This interface is provided as a utility when creating language
+/// bindings for consuming a Substrait plan.
 class ARROW_ENGINE_EXPORT SubstraitExecutor {
  public:
   explicit SubstraitExecutor(
@@ -67,11 +68,9 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
         schema_(schema),
         exec_context_(exec_context) {}
 
-  Status MakePlan();
-
   Result<std::shared_ptr<RecordBatchReader>> Execute();
 
-  Status Finalize();
+  Status Close();
 
   static Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
       std::string& substrait_json, std::shared_ptr<arrow::Schema> schema);
@@ -79,10 +78,12 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
  private:
   std::string substrait_json_;
   AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator_;
-  std::vector<cp::Declaration> declerations_;
+  std::vector<cp::Declaration> declarations_;
   std::shared_ptr<cp::ExecPlan> plan_;
   std::shared_ptr<Schema> schema_;
   cp::ExecContext exec_context_;
+
+  Status MakePlan();
 };
 
 }  // namespace engine
