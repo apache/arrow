@@ -34,10 +34,6 @@
 #include "arrow/testing/gtest_util.h"  // IntegralArrowTypes
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/decimal.h"
 
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -63,7 +59,7 @@ class TestCumulativeSum : public ::testing::Test {
   void SetUp() override {}
 
   void Assert(const std::shared_ptr<Array>& expected, const std::shared_ptr<Array>& input,
-                                const CumulativeSumOptions& options) {
+                                const CumulativeGenericOptions& options) {
     ASSERT_OK_AND_ASSIGN(auto result, CallFunction("cumulative_sum", {Datum(input)}, &options, nullptr));
     AssertArraysEqual(*expected, *result.make_array(), false, EqualOptions::Defaults());
   }
@@ -80,8 +76,8 @@ TYPED_TEST_SUITE(TestCumulativeSumIntegral, IntegralArrowTypes);
 TYPED_TEST(TestCumulativeSumIntegral, NoStartNoSkipNulls) {
   using ArrowType = typename TestFixture::ArrowType;
 
-  CumulativeSumOptions options{std::make_shared<NumericScalar<ArrowType>>(0)};
-  // CumulativeSumOptions options;
+  CumulativeGenericOptions options{std::make_shared<NumericScalar<ArrowType>>(0)};
+  // CumulativeGenericOptions options;
 
   auto values = ArrayFromJSON(this->type_singleton(), "[1, 3]");
   auto expected = ArrayFromJSON(this->type_singleton(), "[1, 4]");

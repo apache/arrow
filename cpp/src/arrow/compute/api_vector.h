@@ -189,15 +189,16 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 };
 
 /// \brief Options for cumulative sum function
-class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
+class ARROW_EXPORT CumulativeGenericOptions : public FunctionOptions {
  public:
-  // explicit CumulativeSumOptions(uint64_t start, bool skip_nulls = false);
-  // explicit CumulativeSumOptions(int64_t start, bool skip_nulls = false);
-  // explicit CumulativeSumOptions(double start, bool skip_nulls = false);
-  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start = std::make_shared<NumericScalar<UInt8Type>>(0),
+  // explicit CumulativeGenericOptions(uint64_t start, bool skip_nulls = false);
+  // explicit CumulativeGenericOptions(int64_t start, bool skip_nulls = false);
+  // explicit CumulativeGenericOptions(double start, bool skip_nulls = false);
+  explicit CumulativeGenericOptions(
+      std::shared_ptr<Scalar> start = std::make_shared<NumericScalar<Int8Type>>(0),
                                 bool skip_nulls = false);
-  static constexpr char const kTypeName[] = "CumulativeSumOptions";
-  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
+  static constexpr char const kTypeName[] = "CumulativeGenericOptions";
+  static CumulativeGenericOptions Defaults() { return CumulativeGenericOptions(); }
 
   /// Optional starting value for sum computation
   std::shared_ptr<Scalar> start;
@@ -541,7 +542,9 @@ Result<Datum> DictionaryEncode(
     ExecContext* ctx = NULLPTR);
 
 ARROW_EXPORT
-Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(), ExecContext* ctx = NULLPTR);
+Result<Datum> CumulativeSum(const Datum& values,
+                            const CumulativeGenericOptions& options = CumulativeGenericOptions::Defaults(),
+                            ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions

@@ -1736,13 +1736,13 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
-cdef class _CumulativeSumOptions(FunctionOptions):
+cdef class _CumulativeGenericOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
-        self.wrapped.reset(new CCumulativeSumOptions(
+        self.wrapped.reset(new CCumulativeGenericOptions(
             pyarrow_unwrap_scalar(start), skip_nulls))
 
 
-class CumulativeSumOptions(_CumulativeSumOptions):
+class CumulativeGenericOptions(_CumulativeGenericOptions):
     """
     Options for `cumulative_sum` function.
 
