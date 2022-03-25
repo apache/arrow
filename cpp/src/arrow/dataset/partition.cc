@@ -305,6 +305,39 @@ Result<Partitioning::PartitionPathFormat> KeyValuePartitioning::Format(
   return FormatValues(values);
 }
 
+inline util::optional<int> NextValid(const ScalarVector& values, int first_null) {
+  auto it = std::find_if(values.begin() + first_null + 1, values.end(),
+                         [](const std::shared_ptr<Scalar>& v) { return v != nullptr; });
+
+  if (it == values.end()) {
+    return util::nullopt;
+  }
+
+  return static_cast<int>(it - values.begin());
+}
+
+Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(const ScalarVector& values) const{
+    std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
+
+    for (int i = 0; i < schema_->num_fields(); ++i) {
+    if (values[i] != nullptr && values[i]->is_valid) {
+      segments[i] = values[i]->ToString();
+      continue;
+    }
+
+    if (auto illegal_index = NextValid(values, i)) {
+      // XXX maybe we should just ignore keys provided after the first absent one?
+      return Status::Invalid("No partition key for ", schema_->field(i)->name(),
+                             " but a key was provided subsequently for ",
+                             schema_->field(*illegal_index)->name(), ".");
+    }
+
+    // if all subsequent keys are absent we'll just print the available keys
+    break;
+  }
+  return segments;
+}
+
 DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
                                              ArrayVector dictionaries,
                                              KeyValuePartitioningOptions options)
@@ -380,61 +413,17 @@ Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
   return keys;
 }
 
-inline util::optional<int> NextValid(const ScalarVector& values, int first_null) {
-  auto it = std::find_if(values.begin() + first_null + 1, values.end(),
-                         [](const std::shared_ptr<Scalar>& v) { return v != nullptr; });
-
-  if (it == values.end()) {
-    return util::nullopt;
-  }
-
-  return static_cast<int>(it - values.begin());
-}
-
 Result<Partitioning::PartitionPathFormat> DirectoryPartitioning::FormatValues(
     const ScalarVector& values) const {
-  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
-
-  for (int i = 0; i < schema_->num_fields(); ++i) {
-    if (values[i] != nullptr && values[i]->is_valid) {
-      segments[i] = values[i]->ToString();
-      continue;
-    }
-
-    if (auto illegal_index = NextValid(values, i)) {
-      // XXX maybe we should just ignore keys provided after the first absent one?
-      return Status::Invalid("No partition key for ", schema_->field(i)->name(),
-                             " but a key was provided subsequently for ",
-                             schema_->field(*illegal_index)->name(), ".");
-    }
-
-    // if all subsequent keys are absent we'll just print the available keys
-    break;
-  }
-
+  std::vector<std::string> segments;
+  ARROW_ASSIGN_OR_RAISE(segments,FormatPartitionSegments(values));
   return PartitionPathFormat{fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
 
 Result<Partitioning::PartitionPathFormat> FilenamePartitioning::FormatValues(
     const ScalarVector& values) const {
-  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
-
-  for (int i = 0; i < schema_->num_fields(); ++i) {
-    if (values[i] != nullptr && values[i]->is_valid) {
-      segments[i] = values[i]->ToString();
-      continue;
-    }
-
-    if (auto illegal_index = NextValid(values, i)) {
-      // XXX maybe we should just ignore keys provided after the first absent one?
-      return Status::Invalid("No partition key for ", schema_->field(i)->name(),
-                             " but a key was provided subsequently for ",
-                             schema_->field(*illegal_index)->name(), ".");
-    }
-
-    // if all subsequent keys are absent we'll just print the available keys
-    break;
-  }
+  std::vector<std::string> segments;
+  ARROW_ASSIGN_OR_RAISE(segments,FormatPartitionSegments(values));
   return Partitioning::PartitionPathFormat{
       "", fs::internal::JoinAbstractPath(std::move(segments), kFilenamePartitionSep) +
               kFilenamePartitionSep};
