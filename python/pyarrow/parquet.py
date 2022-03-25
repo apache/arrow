@@ -2158,6 +2158,47 @@ def _is_local_file_system(fs):
 class _ParquetDatasetV2:
     """
     ParquetDataset shim using the Dataset API under the hood.
+
+    Examples
+    --------
+    Generate an example PyArrow Table and write it to a partitioned dataset:
+
+    >>> import pyarrow as pa
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+    ...                    'month': [3, 5, 7, 9, 11, 12],
+    ...                    'day': [1, 5, 9, 13, 17, 23],
+    ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
+    ...                    "Brittle stars", "Centipede"]})
+    >>> table = pa.Table.from_pandas(df)
+
+    >>> import pyarrow.parquet as pq
+    >>> pq.write_to_dataset(table, root_path='dataset_name',
+    ...                     partition_cols=['year', 'month', 'day'])
+
+    create a _ParquetDatasetV2 object from the dataset source:
+
+    >>> dataset = pq._ParquetDatasetV2('dataset_name/')
+
+    and read the data:
+
+    >>> dataset.read().to_pandas()
+       n_legs        animals  year month day
+    0       5  Brittle stars  2019    11  17
+    1       2       Flamingo  2020     3   1
+    2     100      Centipede  2021    12  23
+    3       4            Dog  2021     7   9
+    4       2         Parrot  2022     5   5
+    5       4          Horse  2022     9  13
+
+    create a _ParquetDatasetV2 object with filter:
+
+    >>> dataset = pq._ParquetDatasetV2('dataset_name/', filters=[('n_legs','=',4)])
+    >>> dataset.read().to_pandas()
+       n_legs animals  year month day
+    0       4     Dog  2021     7   9
+    1       4   Horse  2022     9  13
     """
 
     def __init__(self, path_or_paths, filesystem=None, filters=None,
@@ -2915,54 +2956,40 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
     and write it to a partitioned dataset:
 
-    >>> pq.write_to_dataset(table, root_path='dataset_name',
+    >>> import pyarrow.parquet as pq
+    >>> pq.write_to_dataset(table, root_path='dataset_name_3',
     ...                     partition_cols=['year', 'month', 'day'],
     ...                     use_legacy_dataset=False
     ...                    )
-    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
-    ['dataset_name/year=2019/month=11/day=17/part-0.parquet',
-    'dataset_name/year=2020/month=3/day=1/part-0.parquet',
-    'dataset_name/year=2021/month=12/day=23/part-0.parquet',
-    'dataset_name/year=2021/month=7/day=9/part-0.parquet',
-    'dataset_name/year=2022/month=5/day=5/part-0.parquet',
-    'dataset_name/year=2022/month=9/day=13/part-0.parquet']
+    >>> pq.ParquetDataset('dataset_name_3', use_legacy_dataset=False).files
+    ['dataset_name_3/year=2019/month=11/day=17/part-0.parquet', 'dataset_name_3/year=2020/month=3/day=1/part-0.parquet', 'dataset_name_3/year=2021/month=12/day=23/part-0.parquet', 'dataset_name_3/year=2021/month=7/day=9/part-0.parquet', 'dataset_name_3/year=2022/month=5/day=5/part-0.parquet', 'dataset_name_3/year=2022/month=9/day=13/part-0.parquet']
 
     Use old Arrow Dataset API:
 
-    >>> pq.write_to_dataset(table, root_path='dataset_name',
+    >>> pq.write_to_dataset(table, root_path='dataset_name_4',
     ...                     partition_cols=['year', 'month', 'day'])
-    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
-    ['dataset_name/year=2019/month=11/day=17/59cfd909d9a54fe49540edb359a19331.parquet',
-    'dataset_name/year=2020/month=3/day=1/1e2cf97bb5db400f832900628081e9a0.parquet',
-    'dataset_name/year=2021/month=12/day=23/93f54630e5a3483a8f6aa808a7e9b469.parquet',
-    'dataset_name/year=2021/month=7/day=9/9a34bf7a2f37482b99f77d6895f09b88.parquet',
-    'dataset_name/year=2022/month=5/day=5/de2e52d6142940dca04558335a9af892.parquet',
-    'dataset_name/year=2022/month=9/day=13/9307aabc3d8149b3acb8f3a31a07dbd7.parquet']
+    >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
+    ['dataset_name_4/year=2019/month=11/day=17/59cfd909d9a54fe49540edb359a19331.parquet', 'dataset_name_4/year=2020/month=3/day=1/1e2cf97bb5db400f832900628081e9a0.parquet', 'dataset_name_4/year=2021/month=12/day=23/93f54630e5a3483a8f6aa808a7e9b469.parquet', 'dataset_name_4/year=2021/month=7/day=9/9a34bf7a2f37482b99f77d6895f09b88.parquet', 'dataset_name_4/year=2022/month=5/day=5/de2e52d6142940dca04558335a9af892.parquet', 'dataset_name_4/year=2022/month=9/day=13/9307aabc3d8149b3acb8f3a31a07dbd7.parquet']
 
     Use old Arrow Dataset API and override the partition filename:
 
-    >>> pq.write_to_dataset(table, root_path='dataset_name',
+    >>> pq.write_to_dataset(table, root_path='dataset_name_5',
     ...                     partition_cols=['year', 'month', 'day'],
     ...                     partition_filename_cb=lambda x: str(x[0]) + str(x[1]) + str(x[2])  + '.parquet'
     ...                    )
-    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
-    ['dataset_name/year=2019/month=11/day=17/20191117.parquet',
-    'dataset_name/year=2020/month=3/day=1/202031.parquet',
-    'dataset_name/year=2021/month=12/day=23/20211223.parquet',
-    'dataset_name/year=2021/month=7/day=9/202179.parquet',
-    'dataset_name/year=2022/month=5/day=5/202255.parquet',
-    'dataset_name/year=2022/month=9/day=13/2022913.parquet']
+    >>> pq.ParquetDataset('dataset_name_5/', use_legacy_dataset=False).files
+    ['dataset_name_5/year=2019/month=11/day=17/20191117.parquet', 'dataset_name_5/year=2020/month=3/day=1/202031.parquet', 'dataset_name_5/year=2021/month=12/day=23/20211223.parquet', 'dataset_name_5/year=2021/month=7/day=9/202179.parquet', 'dataset_name_5/year=2022/month=5/day=5/202255.parquet', 'dataset_name_5/year=2022/month=9/day=13/2022913.parquet']
 
     Write to a single Parquet file:
 
     >>> import pyarrow.parquet as pq
-    >>> pq.write_to_dataset(table, root_path='dataset_name')
-    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
-    ['dataset_name/0c7a313fcfee4b31b3380ee480739153.parquet']
+    >>> pq.write_to_dataset(table, root_path='dataset_name_3')
+    >>> pq.ParquetDataset('dataset_name_3/', use_legacy_dataset=False).files
+    ['dataset_name_3/0c7a313fcfee4b31b3380ee480739153.parquet']
 
     >>> pq.write_to_dataset(table, root_path='dataset_name', use_legacy_dataset=False)
-    >>> pq.ParquetDataset('dataset_name/', use_legacy_dataset=False).files
-    ['dataset_name/part-0.parquet']
+    >>> pq.ParquetDataset('dataset_name_3/', use_legacy_dataset=False).files
+    ['dataset_name_3/part-0.parquet']
     """
     if use_legacy_dataset is None:
         # if a new filesystem is passed -> default to new implementation
