@@ -502,7 +502,7 @@ Compute Options
    CastOptions
    CountOptions
    CountOptions
-   CumulativeSumOptions
+   CumulativeGenericOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
    ElementWiseAggregateOptions
