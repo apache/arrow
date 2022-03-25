@@ -150,7 +150,25 @@ Each specialized type defines the following associated types:
 Type Predicates
 ---------------
 
-Type predicates that can be used with templates.
+Type predicates that can be used with templates. Predicates of the form ``is_XXX`` 
+resolve to constant boolean values, while predicates of the form ``enable_if_XXX`` 
+resolve to the second type parameter ``R`` if the first parameter ``T`` passes 
+the test.
+
+Example usage:
+
+.. code-block:: cpp
+
+  template<typename TypeClass>
+  arrow::enable_if_number<TypeClass, RETURN_TYPE> my_function(const TypeClass& type) {
+    ..
+  }
+
+  template<typename ArrayType, typename TypeClass=ArrayType::TypeClass>
+  arrow::enable_if_number<TypeClass, RETURN_TYPE> my_function(const ArrayType& array) {
+    ..
+  }
+
 
 .. doxygengroup:: type-predicates
    :content-only:
