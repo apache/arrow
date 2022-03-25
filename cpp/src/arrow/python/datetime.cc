@@ -482,7 +482,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
     return tzinfo;
   }
 
-  return Status::Invalid("Pytz package must be installed.");
+  return Status::Invalid("Pytz package or Python>=3.8 for zoneinfo module must be installed.");
 }
 
 Result<std::string> TzinfoToString(PyObject* tzinfo) {
