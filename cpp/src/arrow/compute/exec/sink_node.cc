@@ -49,18 +49,19 @@ namespace {
 class SinkNode : public ExecNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+          std::shared_ptr<Schema> output_schema,
            AsyncGenerator<util::optional<ExecBatch>>* generator,
            util::BackpressureOptions backpressure)
-      : ExecNode(plan, std::move(inputs), {"collected"}, {},
+      : ExecNode(plan, std::move(inputs), {"collected"}, std::move(output_schema),
                  /*num_outputs=*/0),
         producer_(MakeProducer(generator, std::move(backpressure))) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SinkNode"));
-
+    auto schema = inputs[0]->output_schema();
     const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
-    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
+    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), std::move(schema), sink_options.generator,
                                        sink_options.backpressure);
   }
 
@@ -307,10 +308,11 @@ static Result<ExecNode*> MakeTableConsumingSinkNode(
 // A sink node that accumulates inputs, then sorts them before emitting them.
 struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                  std::shared_ptr<Schema> output_schema,
                   std::unique_ptr<OrderByImpl> impl,
                   AsyncGenerator<util::optional<ExecBatch>>* generator,
                   util::BackpressureOptions backpressure)
-      : SinkNode(plan, std::move(inputs), generator, std::move(backpressure)),
+      : SinkNode(plan, std::move(inputs), std::move(output_schema), generator, std::move(backpressure)),
         impl_{std::move(impl)} {}
 
   const char* kind_name() const override { return "OrderBySinkNode"; }
@@ -319,13 +321,13 @@ struct OrderBySinkNode final : public SinkNode {
   static Result<ExecNode*> MakeSort(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                     const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
-
+    auto schema = inputs[0]->output_schema();
     const auto& sink_options = checked_cast<const OrderBySinkNodeOptions&>(options);
     ARROW_ASSIGN_OR_RAISE(
         std::unique_ptr<OrderByImpl> impl,
-        OrderByImpl::MakeSort(plan->exec_context(), inputs[0]->output_schema(),
+        OrderByImpl::MakeSort(plan->exec_context(), schema,
                               sink_options.sort_options));
-    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
+    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(schema), std::move(impl),
                                               sink_options.generator,
                                               sink_options.backpressure);
   }
@@ -334,13 +336,13 @@ struct OrderBySinkNode final : public SinkNode {
   static Result<ExecNode*> MakeSelectK(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                        const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
-
+    auto schema = inputs[0]->output_schema();
     const auto& sink_options = checked_cast<const SelectKSinkNodeOptions&>(options);
     ARROW_ASSIGN_OR_RAISE(
         std::unique_ptr<OrderByImpl> impl,
-        OrderByImpl::MakeSelectK(plan->exec_context(), inputs[0]->output_schema(),
+        OrderByImpl::MakeSelectK(plan->exec_context(), schema,
                                  sink_options.select_k_options));
-    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
+    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(schema), std::move(impl),
                                               sink_options.generator,
                                               sink_options.backpressure);
   }
