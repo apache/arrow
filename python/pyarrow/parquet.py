@@ -804,7 +804,7 @@ and write the Table into the Parquet file:
 >>> pq.read_table('example.parquet').to_pandas()
    year  month  day  n_legs        animals
 0  2020      3    1       2       Flamingo
-1  2022      5    5       2          Parrot
+1  2022      5    5       2         Parrot
 2  2021      7    9       4            Dog
 3  2022      9   13       4          Horse
 4  2019     11   17       5  Brittle stars
@@ -822,7 +822,7 @@ and write the RecordBatch into the Parquet file:
 >>> pq.read_table('example2.parquet').to_pandas()
    year  month  day  n_legs        animals
 0  2020      3    1       2       Flamingo
-1  2022      5    5       2          Parrot
+1  2022      5    5       2         Parrot
 2  2021      7    9       4            Dog
 3  2022      9   13       4          Horse
 4  2019     11   17       5  Brittle stars
@@ -1590,7 +1590,7 @@ and read the data:
 1       2       Flamingo  2020     3   1
 2     100      Centipede  2021    12  23
 3       4            Dog  2021     7   9
-4       2          Parrot  2022     5   5
+4       2         Parrot  2022     5   5
 5       4          Horse  2022     9  13
 
 create a ParquetDataset object with filter:
@@ -2537,18 +2537,18 @@ Generate an example PyArrow Table and write it to a partitioned dataset:
 >>> table = pa.Table.from_pandas(df)
 
 >>> import pyarrow.parquet as pq
->>> pq.write_to_dataset(table, root_path='dataset_name',
+>>> pq.write_to_dataset(table, root_path='dataset_name_2',
 ...                     partition_cols=['year', 'month', 'day'])
 
 Read the data:
 
->>> pq.read_table('dataset_name').to_pandas()
+>>> pq.read_table('dataset_name_2').to_pandas()
    n_legs        animals  year month day
 0       5  Brittle stars  2019    11  17
 1       2       Flamingo  2020     3   1
 2     100      Centipede  2021    12  23
 3       4            Dog  2021     7   9
-4       2         ßParrot  2022     5   5
+4       2         Parrot  2022     5   5
 5       4          Horse  2022     9  13
 
 
@@ -2564,7 +2564,7 @@ animals: [["Brittle stars"],["Flamingo"],...,["Parrot"],["Horse"]]
 
 Read a subset of columns and read one column as DictionaryArray:
 
->>> pq.read_table('dataset_name', columns=["n_legs", "animals"], read_dictionary=["animals"])
+>>> pq.read_table('dataset_name_2', columns=["n_legs", "animals"], read_dictionary=["animals"])
 pyarrow.Table
 n_legs: int64
 animals: dictionary<values=string, indices=int32, ordered=0>
@@ -2582,10 +2582,10 @@ animals: [  -- dictionary:
 
 Read the table with filter:
 
->>> pq.read_table('dataset_name', columns=["n_legs", "animals"], filters=[('n_legs','<',4)]).to_pandas()
+>>> pq.read_table('dataset_name_2', columns=["n_legs", "animals"], filters=[('n_legs','<',4)]).to_pandas()
    n_legs   animals
 0       2  Flamingo
-1       2     Parrot
+1       2    Parrot
 
 You can also read data from a single Parquet file:
 
@@ -2596,7 +2596,7 @@ You can also read data from a single Parquet file:
 1       2       Flamingo  2020     3   1
 2     100      Centipede  2021    12  23
 3       4            Dog  2021     7   9
-4       2         ßParrot  2022     5   5
+4       2         Parrot  2022     5   5
 5       4          Horse  2022     9  13
 """
 
@@ -2712,7 +2712,7 @@ switched to False.""",
     index columns are also loaded.""")),
     """pyarrow.Table
     Content of the file as a table (of columns)""",
-    _DNF_filter_doc, _parquet_dataset_example)
+    _DNF_filter_doc, _read_table_example)
 
 
 def read_pandas(source, columns=None, **kwargs):
