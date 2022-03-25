@@ -1097,7 +1097,9 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     .input %>%
       transmute(a = str_starts(x, "b.*"),
                 b = str_starts(x, "b.*", negate = TRUE),
-                d = str_starts(x, fixed("b"))) %>%
+                c = str_starts(x, fixed("b")),
+                d = str_starts(x, fixed("b"), negate = TRUE)
+                ) %>%
       collect(),
     df
   )

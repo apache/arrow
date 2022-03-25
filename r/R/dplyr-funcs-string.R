@@ -192,16 +192,12 @@ register_bindings_string_join <- function() {
 
 register_bindings_string_regex <- function() {
 
-  create_string_match_expr <- function(arrow_fun, string, pattern, ignore_case, negate) {
+  create_string_match_expr <- function(arrow_fun, string, pattern, ignore_case) {
     out <- Expression$create(
       arrow_fun,
       string,
       options = list(pattern = pattern, ignore_case = ignore_case)
     )
-    if (negate) {
-      out <- !out
-    }
-    out
   }
 
   register_binding("grepl", function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
@@ -210,8 +206,7 @@ register_bindings_string_regex <- function() {
       arrow_fun,
       string = x,
       pattern = pattern,
-      ignore_case = ignore.case,
-      negate = FALSE
+      ignore_case = ignore.case
     )
     call_binding("if_else", call_binding("is.na", out), FALSE, out)
   })
@@ -220,11 +215,14 @@ register_bindings_string_regex <- function() {
   register_binding("str_detect", function(string, pattern, negate = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     arrow_fun <- ifelse(opts$fixed, "match_substring", "match_substring_regex")
-    create_string_match_expr(arrow_fun,
-                             string = string,
-                             pattern = opts$pattern,
-                             ignore_case = opts$ignore_case,
-                             negate = negate)
+    out <- create_string_match_expr(arrow_fun,
+                                    string = string,
+                                    pattern = opts$pattern,
+                                    ignore_case = opts$ignore_case)
+    if (negate) {
+      out <- !out
+    }
+    out
   })
 
   register_binding("str_like", function(string, pattern, ignore_case = TRUE) {
@@ -273,9 +271,11 @@ register_bindings_string_regex <- function() {
         arrow_fun = "match_substring_regex",
         string = string,
         pattern = paste0("^", opts$pattern),
-        ignore_case = opts$ignore_case,
-        negate = negate
+        ignore_case = opts$ignore_case
       )
+    }
+    if (negate) {
+      out <- !out
     }
     out
   })
@@ -289,9 +289,11 @@ register_bindings_string_regex <- function() {
         arrow_fun = "match_substring_regex",
         string = string,
         pattern = paste0(opts$pattern, "$"),
-        ignore_case = opts$ignore_case,
-        negate = negate
+        ignore_case = opts$ignore_case
       )
+    }
+    if (negate) {
+      out <- !out
     }
     out
   })
