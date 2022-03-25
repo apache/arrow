@@ -395,7 +395,6 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
   OwnedRef datetime;
 
   if (internal::ImportModule("pytz", &pytz).ok()) {
-    RETURN_NOT_OK(internal::ImportModule("pytz", &pytz));
 
     if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
       int sign = -1;
@@ -471,7 +470,6 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
 
   // fallback on zoneinfo if tz is string and pytz is not present
   if (internal::ImportModule("zoneinfo", &zoneinfo).ok()) {
-    RETURN_NOT_OK(internal::ImportModule("zoneinfo", &zoneinfo));
 
     OwnedRef class_zoneinfo;
     RETURN_NOT_OK(
@@ -506,7 +504,6 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
 
   // Try to import pytz if it is available
   if (internal::ImportModule("pytz", &module_pytz).ok()) {
-    RETURN_NOT_OK(internal::ImportModule("pytz", &module_pytz));
     RETURN_NOT_OK(internal::ImportFromModule(module_pytz.obj(), "_FixedOffset",
                                              &class_fixedoffset));
     RETURN_NOT_OK(
@@ -515,13 +512,11 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
 
   // Try to import zoneinfo if it is available
   if (internal::ImportModule("zoneinfo", &module_zoneinfo).ok()) {
-    RETURN_NOT_OK(internal::ImportModule("zoneinfo", &module_zoneinfo));
     RETURN_NOT_OK(
         internal::ImportFromModule(module_zoneinfo.obj(), "ZoneInfo", &class_zoneinfo));
   }
   // Try to import dateutil if it is available
   if (internal::ImportModule("dateutil.tz", &module_dateutil).ok()) {
-    RETURN_NOT_OK(internal::ImportModule("dateutil.tz", &module_dateutil));
     RETURN_NOT_OK(
         internal::ImportFromModule(module_dateutil.obj(), "tzfile", &class_tzfile));
   }
