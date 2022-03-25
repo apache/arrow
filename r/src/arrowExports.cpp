@@ -6728,16 +6728,16 @@ extern "C" SEXP _arrow_InitializeMainRThread(){
 
 // safe-call-into-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-cpp11::strings TestSafeCallIntoR(cpp11::list funs_that_return_a_string, bool async);
-extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP funs_that_return_a_string_sexp, SEXP async_sexp){
+std::string TestSafeCallIntoR(cpp11::sexp fun_that_returns_a_string, std::string opt);
+extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP fun_that_returns_a_string_sexp, SEXP opt_sexp){
 BEGIN_CPP11
-	arrow::r::Input<cpp11::list>::type funs_that_return_a_string(funs_that_return_a_string_sexp);
-	arrow::r::Input<bool>::type async(async_sexp);
-	return cpp11::as_sexp(TestSafeCallIntoR(funs_that_return_a_string, async));
+	arrow::r::Input<cpp11::sexp>::type fun_that_returns_a_string(fun_that_returns_a_string_sexp);
+	arrow::r::Input<std::string>::type opt(opt_sexp);
+	return cpp11::as_sexp(TestSafeCallIntoR(fun_that_returns_a_string, opt));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP funs_that_return_a_string_sexp, SEXP async_sexp){
+extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP fun_that_returns_a_string_sexp, SEXP opt_sexp){
 	Rf_error("Cannot call TestSafeCallIntoR(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif

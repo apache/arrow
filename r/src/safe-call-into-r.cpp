@@ -49,42 +49,33 @@ arrow::Status MainRThread::RunTask(Task* task) {
 void InitializeMainRThread() { main_r_thread.Initialize(); }
 
 // [[arrow::export]]
-cpp11::strings TestSafeCallIntoR(cpp11::list funs_that_return_a_string, bool async) {
-  std::vector<std::string> results;
+std::string TestSafeCallIntoR(cpp11::sexp fun_that_returns_a_string, std::string opt) {
+  if (opt == "async_with_executor") {
+    // std::thread* thread_ptr;
 
-  if (async) {
-    // Probably a better test would be to submit all the jobs at once and
-    // wait for them all to finish, but I'm not sure how to do that yet!
 
-    // This simulates the Arrow thread pool. Just imagine it is static and lives forever.
+    // thread_ptr->join();
+    // delete thread_ptr;
+    return "";
+  } else if (opt == "async_without_executor") {
     std::thread* thread_ptr;
 
-    SEXP funs_sexp = funs_that_return_a_string;
-    R_xlen_t n_funs = funs_that_return_a_string.size();
+    SEXP fun_sexp = fun_that_returns_a_string;
+    auto fut = arrow::Future<std::string>::Make();
 
-    auto fut = arrow::Future<std::vector<std::string>>::Make();
-
-    thread_ptr = new std::thread([fut, funs_sexp, n_funs]() mutable {
-      std::vector<std::string> results_local;
-
-      for (R_xlen_t i = 0; i < n_funs; i++) {
+    thread_ptr = new std::thread([fut, fun_sexp]() mutable {
         auto result = SafeCallIntoR<std::string>([&] {
-          cpp11::function fun(VECTOR_ELT(funs_sexp, i));
+          cpp11::function fun(fun_sexp);
           return cpp11::as_cpp<std::string>(fun());
         });
 
         if (result.ok()) {
-          results_local.push_back(result.ValueUnsafe());
+          fut.MarkFinished(result.ValueUnsafe());
         } else {
           fut.MarkFinished(result.status());
-          return;
         }
-      }
-
-      fut.MarkFinished(results_local);
     });
 
-    // Simulated thread pool
     thread_ptr->join();
     delete thread_ptr;
 
@@ -94,26 +85,17 @@ cpp11::strings TestSafeCallIntoR(cpp11::list funs_that_return_a_string, bool asy
 
     // We should be able to get this far, but fut will contain an error
     // because it tried to evaluate R code from another thread
-    results = arrow::ValueOrStop(fut.result());
+    return arrow::ValueOrStop(fut.result());
 
-  } else {
-    for (R_xlen_t i = 0; i < funs_that_return_a_string.size(); i++) {
-      auto result = SafeCallIntoR<std::string>([&]() {
-        cpp11::function fun(funs_that_return_a_string[i]);
+  } else if (opt == "on_main_thread") {
+    auto result = SafeCallIntoR<std::string>([&]() {
+        cpp11::function fun(fun_that_returns_a_string);
         return cpp11::as_cpp<std::string>(fun());
       });
-      GetMainRThread()->ClearError();
-      arrow::StopIfNotOk(result.status());
-      results.push_back(result.ValueUnsafe());
-    }
+    GetMainRThread()->ClearError();
+    arrow::StopIfNotOk(result.status());
+    return result.ValueUnsafe();
+  } else {
+    return "";
   }
-
-  // To make sure the results are correct
-  cpp11::writable::strings results_sexp;
-
-  for (std::string& result : results) {
-    results_sexp.push_back(result);
-  }
-
-  return results_sexp;
 }
