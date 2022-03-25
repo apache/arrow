@@ -37,6 +37,11 @@ namespace example {
 /// \return            The equivalent ArrowType.
 std::shared_ptr<DataType> GetArrowType(const char* sqlite_type);
 
+/// \brief Convert a column type name to SQLite type.
+/// \param type_name the type name.
+/// \return          The equivalent SQLite type.
+int32_t GetSqlTypeFromTypeName(const char* type_name);
+
 /// \brief  Get the DataType used when parameter type is not known.
 /// \return DataType used when parameter type is not known.
 inline std::shared_ptr<DataType> GetUnknownColumnDataType() {

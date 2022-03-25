@@ -19,6 +19,7 @@
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/server.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
@@ -264,7 +265,20 @@ class MiddlewareScenario : public Scenario {
 /// \brief Schema to be returned for mocking the statement/prepared statement results.
 /// Must be the same across all languages.
 std::shared_ptr<Schema> GetQuerySchema() {
-  return arrow::schema({arrow::field("id", int64())});
+  std::string table_name = "test";
+  std::string schema_name = "schema_test";
+  std::string catalog_name = "catalog_test";
+  return arrow::schema({arrow::field("id", int64(), true,
+                                     arrow::flight::sql::ColumnMetadata::Builder()
+                                         .TableName(table_name)
+                                         .IsAutoIncrement(true)
+                                         .IsCaseSensitive(false)
+                                         .SchemaName(schema_name)
+                                         .IsSearchable(true)
+                                         .CatalogName(catalog_name)
+                                         .Precision(100)
+                                         .Build()
+                                         .metadata_map())});
 }
 
 constexpr int64_t kUpdateStatementExpectedRows = 10000L;

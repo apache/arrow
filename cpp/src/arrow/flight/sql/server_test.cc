@@ -21,11 +21,14 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <sqlite3.h>
+
 #include <condition_variable>
 #include <thread>
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
+#include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
 #include "arrow/flight/test_util.h"
@@ -361,14 +364,26 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
+  const char* db_table_name = "intTable";
+
   const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
   const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
   const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
   const std::shared_ptr<Schema> schema_table = arrow::schema(
-      {arrow::field("id", int64(), true), arrow::field("keyName", utf8(), true),
-       arrow::field("value", int64(), true), arrow::field("foreignId", int64(), true)});
+      {arrow::field(
+           "id", int64(), true,
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
+       arrow::field(
+           "keyName", utf8(), true,
+           example::GetColumnMetadata(SQLITE_TEXT, db_table_name).metadata_map()),
+       arrow::field(
+           "value", int64(), true,
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
+       arrow::field(
+           "foreignId", int64(), true,
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map())});
 
   ASSERT_OK_AND_ASSIGN(auto schema_buffer, ipc::SerializeSchema(*schema_table));
 
@@ -465,9 +480,21 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  const std::shared_ptr<Schema>& expected_schema =
-      arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
-                     arrow::field("value", int64()), arrow::field("foreignId", int64())});
+  const char* db_table_name = "intTable";
+
+  const std::shared_ptr<Schema>& expected_schema = arrow::schema(
+      {arrow::field(
+           "id", int64(),
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
+       arrow::field(
+           "keyName", utf8(),
+           example::GetColumnMetadata(SQLITE_TEXT, db_table_name).metadata_map()),
+       arrow::field(
+           "value", int64(),
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
+       arrow::field(
+           "foreignId", int64(),
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map())});
 
   const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
   const auto keyname_array =

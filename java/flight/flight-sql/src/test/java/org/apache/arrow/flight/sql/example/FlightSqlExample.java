@@ -91,6 +91,7 @@ import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.SqlInfoBuilder;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
@@ -494,20 +495,36 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           final Map<String, List<Field>> tableToFields = new HashMap<>();
 
           while (columnsData.next()) {
+            final String catalogName = columnsData.getString("TABLE_CAT");
+            final String schemaName = columnsData.getString("TABLE_SCHEM");
             final String tableName = columnsData.getString("TABLE_NAME");
             final String fieldName = columnsData.getString("COLUMN_NAME");
             final int dataType = columnsData.getInt("DATA_TYPE");
             final boolean isNullable = columnsData.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls;
-            final int precision = columnsData.getInt("NUM_PREC_RADIX");
+            final int precision = columnsData.getInt("COLUMN_SIZE");
             final int scale = columnsData.getInt("DECIMAL_DIGITS");
+            boolean isAutoIncrement =
+                Objects.equals(columnsData.getString("IS_AUTOINCREMENT"), "YES");
+
             final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
+
+            final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata.Builder()
+                .catalogName(catalogName)
+                .schemaName(schemaName)
+                .tableName(tableName)
+                .precision(precision)
+                .scale(scale)
+                .isAutoIncrement(isAutoIncrement)
+                .build();
+
             final Field field =
                 new Field(
                     fieldName,
                     new FieldType(
                         isNullable,
                         getArrowTypeFromJdbcType(dataType, precision, scale),
-                        null),
+                        null,
+                        columnMetadata.getMetadataMap()),
                     null);
             fields.add(field);
           }

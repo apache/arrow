@@ -55,7 +55,7 @@ message CommandGetSqlInfo {
    * Initially, Flight SQL will support the following information types:
    * - Server Information - Range [0-500)
    * - Syntax Information - Range [500-1000)
-   * Range [0-10,000) is reserved for defaults (see SqlInfo enum for default options). 
+   * Range [0-10,000) is reserved for defaults (see SqlInfo enum for default options).
    * Custom options should start at 10,000.
    *
    * If omitted, then all metadata will be retrieved.
@@ -80,7 +80,7 @@ enum SqlInfo {
   // Retrieves a UTF-8 string with the Arrow format version of the Flight SQL Server.
   FLIGHT_SQL_SERVER_ARROW_VERSION = 2;
 
-  /* 
+  /*
    * Retrieves a boolean value indicating whether the Flight SQL Server is read only.
    *
    * Returns:
@@ -933,6 +933,16 @@ message CommandGetDbSchemas {
  *  [optional] table_schema: bytes not null (schema of the table as described in Schema.fbs::Schema,
  *                                           it is serialized as an IPC message.)
  * >
+ * Fields on table_schema may contain the following metadata:
+ *  - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+ *  - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+ *  - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+ *  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+ *  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
  */
 message CommandGetTables {
@@ -1235,11 +1245,11 @@ message ActionCreatePreparedStatementResult {
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
 
-  // If a result set generating query was provided, dataset_schema contains the 
+  // If a result set generating query was provided, dataset_schema contains the
   // schema of the dataset as described in Schema.fbs::Schema, it is serialized as an IPC message.
   bytes dataset_schema = 2;
 
-  // If the query provided contained parameters, parameter_schema contains the 
+  // If the query provided contained parameters, parameter_schema contains the
   // schema of the expected parameters as described in Schema.fbs::Schema, it is serialized as an IPC message.
   bytes parameter_schema = 3;
 }
@@ -1262,6 +1272,16 @@ message ActionClosePreparedStatementRequest {
  * Represents a SQL query. Used in the command member of FlightDescriptor
  * for the following RPC calls:
  *  - GetSchema: return the Arrow schema of the query.
+ *    Fields on this schema may contain the following metadata:
+ *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+ *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+ *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+ *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+ *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  *  - GetFlightInfo: execute the query.
  */
 message CommandStatementQuery {
@@ -1285,6 +1305,17 @@ message TicketStatementQuery {
 /*
  * Represents an instance of executing a prepared statement. Used in the command member of FlightDescriptor for
  * the following RPC calls:
+ *  - GetSchema: return the Arrow schema of the query.
+ *    Fields on this schema may contain the following metadata:
+ *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+ *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+ *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+ *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+ *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  *  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
  *  - GetFlightInfo: execute the prepared statement instance.
  */

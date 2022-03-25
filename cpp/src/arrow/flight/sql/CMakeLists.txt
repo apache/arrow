@@ -36,8 +36,12 @@ set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENER
 
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
-set(ARROW_FLIGHT_SQL_SRCS server.cc sql_info_internal.cc client.cc
-                          "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
+set(ARROW_FLIGHT_SQL_SRCS
+    server.cc
+    sql_info_internal.cc
+    column_metadata.cc
+    client.cc
+    "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
