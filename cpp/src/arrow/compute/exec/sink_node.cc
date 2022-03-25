@@ -49,7 +49,7 @@ namespace {
 class SinkNode : public ExecNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-          std::shared_ptr<Schema> output_schema,
+           std::shared_ptr<Schema> output_schema,
            AsyncGenerator<util::optional<ExecBatch>>* generator,
            util::BackpressureOptions backpressure)
       : ExecNode(plan, std::move(inputs), {"collected"}, std::move(output_schema),
@@ -61,8 +61,8 @@ class SinkNode : public ExecNode {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SinkNode"));
     auto schema = inputs[0]->output_schema();
     const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
-    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), std::move(schema), sink_options.generator,
-                                       sink_options.backpressure);
+    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), std::move(schema),
+                                       sink_options.generator, sink_options.backpressure);
   }
 
   static PushGenerator<util::optional<ExecBatch>>::Producer MakeProducer(
@@ -158,18 +158,19 @@ class SinkNode : public ExecNode {
 class ConsumingSinkNode : public ExecNode {
  public:
   ConsumingSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                    std::shared_ptr<Schema> output_schema,
                     std::shared_ptr<SinkNodeConsumer> consumer)
-      : ExecNode(plan, std::move(inputs), {"to_consume"}, {},
+      : ExecNode(plan, std::move(inputs), {"to_consume"}, std::move(output_schema),
                  /*num_outputs=*/0),
         consumer_(std::move(consumer)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SinkNode"));
-
+    auto schema = inputs[0]->output_schema();
     const auto& sink_options = checked_cast<const ConsumingSinkNodeOptions&>(options);
-    return plan->EmplaceNode<ConsumingSinkNode>(plan, std::move(inputs),
-                                                std::move(sink_options.consumer));
+    return plan->EmplaceNode<ConsumingSinkNode>(
+        plan, std::move(inputs), std::move(schema), std::move(sink_options.consumer));
   }
 
   const char* kind_name() const override { return "ConsumingSinkNode"; }
@@ -312,7 +313,8 @@ struct OrderBySinkNode final : public SinkNode {
                   std::unique_ptr<OrderByImpl> impl,
                   AsyncGenerator<util::optional<ExecBatch>>* generator,
                   util::BackpressureOptions backpressure)
-      : SinkNode(plan, std::move(inputs), std::move(output_schema), generator, std::move(backpressure)),
+      : SinkNode(plan, std::move(inputs), std::move(output_schema), generator,
+                 std::move(backpressure)),
         impl_{std::move(impl)} {}
 
   const char* kind_name() const override { return "OrderBySinkNode"; }
@@ -325,10 +327,9 @@ struct OrderBySinkNode final : public SinkNode {
     const auto& sink_options = checked_cast<const OrderBySinkNodeOptions&>(options);
     ARROW_ASSIGN_OR_RAISE(
         std::unique_ptr<OrderByImpl> impl,
-        OrderByImpl::MakeSort(plan->exec_context(), schema,
-                              sink_options.sort_options));
-    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(schema), std::move(impl),
-                                              sink_options.generator,
+        OrderByImpl::MakeSort(plan->exec_context(), schema, sink_options.sort_options));
+    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(schema),
+                                              std::move(impl), sink_options.generator,
                                               sink_options.backpressure);
   }
 
@@ -338,12 +339,11 @@ struct OrderBySinkNode final : public SinkNode {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
     auto schema = inputs[0]->output_schema();
     const auto& sink_options = checked_cast<const SelectKSinkNodeOptions&>(options);
-    ARROW_ASSIGN_OR_RAISE(
-        std::unique_ptr<OrderByImpl> impl,
-        OrderByImpl::MakeSelectK(plan->exec_context(), schema,
-                                 sink_options.select_k_options));
-    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(schema), std::move(impl),
-                                              sink_options.generator,
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<OrderByImpl> impl,
+                          OrderByImpl::MakeSelectK(plan->exec_context(), schema,
+                                                   sink_options.select_k_options));
+    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(schema),
+                                              std::move(impl), sink_options.generator,
                                               sink_options.backpressure);
   }
 
