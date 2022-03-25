@@ -59,17 +59,13 @@ SerialExecutor::~SerialExecutor() {
   auto state = state_;
   std::unique_lock<std::mutex> lk(state->mutex);
   if (!state->task_queue.empty()) {
-    // We may have remaining tasks if the executor is being abandoned.  In general
-    // we could have resource leakage in this case.  However, we can make a best effort
-    // and clean up running work.
+    // We may have remaining tasks if the executor is being abandoned.  We could have
+    // resource leakage in this case.  However, we can force the cleanup to happen now
     state->paused = false;
     lk.unlock();
     RunLoop();
     lk.lock();
   }
-  // Just in case some I/O thread comes in and tries to schedule something as we are
-  // tearing down.
-  state_->finished = true;
 }
 
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
@@ -133,6 +129,8 @@ void SerialExecutor::RunLoop() {
   // state is guaranteed to be kept alive.
   std::unique_lock<std::mutex> lk(state_->mutex);
 
+  // If paused we break out immediately.  If finished we only break out
+  // when all work is done.
   while (!state_->paused && !(state_->finished && state_->task_queue.empty())) {
     // The inner loop is to check if we need to sleep (e.g. while waiting on some
     // async task to finish from another thread pool).  We still need to check paused

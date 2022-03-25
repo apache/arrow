@@ -276,7 +276,7 @@ TEST(SerialExecutor, AsyncGenerator) {
 }
 
 TEST(SerialExecutor, AsyncGeneratorWithFollowUp) {
-  // Sometimes a task will generate follow-up tasks.  These must be run
+  // Sometimes a task will generate follow-up tasks.  These should be run
   // before the next task is started
   bool follow_up_ran = false;
   bool first = true;
@@ -285,9 +285,10 @@ TEST(SerialExecutor, AsyncGeneratorWithFollowUp) {
         return [=, &first, &follow_up_ran]() -> Future<TestInt> {
           if (first) {
             first = false;
-            Future<TestInt> end = DeferNotOk(executor->Submit([] { return TestInt(0); }));
+            Future<TestInt> item =
+                DeferNotOk(executor->Submit([] { return TestInt(0); }));
             RETURN_NOT_OK(executor->Spawn([&] { follow_up_ran = true; }));
-            return end;
+            return item;
           }
           return DeferNotOk(executor->Submit([] { return IterationEnd<TestInt>(); }));
         };
@@ -361,10 +362,10 @@ TEST(SerialExecutor, AbandonIteratorWithCleanup) {
           return [=, &first, &follow_up_ran]() -> Future<TestInt> {
             if (first) {
               first = false;
-              Future<TestInt> end =
+              Future<TestInt> item =
                   DeferNotOk(executor->Submit([] { return TestInt(0); }));
               RETURN_NOT_OK(executor->Spawn([&] { follow_up_ran = true; }));
-              return end;
+              return item;
             }
             return DeferNotOk(executor->Submit([] { return IterationEnd<TestInt>(); }));
           };

@@ -528,9 +528,9 @@ TEST_P(MergedGeneratorTestFixture, Merged) {
 }
 
 TEST_P(MergedGeneratorTestFixture, OuterSubscriptionEmpty) {
-  auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>({});
+  auto gen = util::AsyncVectorIt<AsyncGenerator<TestInt>>({});
   if (IsSlow()) {
-    gen = SlowdownABit(gen);
+    gen = util::SlowdownABit(gen);
   }
   auto merged_gen = MakeMergedGenerator(gen, 10);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto collected,

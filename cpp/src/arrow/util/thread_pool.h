@@ -313,8 +313,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 
       Result<T> Next() {
         executor->Unpause();
-        // This call will probably lead to a bunch of tasks being
-        // scheduled in the serial executor
+        // This call may lead to tasks being scheduled in the serial executor
         Future<T> next_fut = generator();
         next_fut.AddCallback([this](const Result<T>& res) {
           // If we're done iterating we should drain the rest of the tasks in the executor
@@ -329,7 +328,9 @@ class ARROW_EXPORT SerialExecutor : public Executor {
         // Borrow this thread and run tasks until the future is finished
         executor->RunLoop();
         if (!next_fut.is_finished()) {
-          // Not clear this is possible
+          // Not clear this is possible since RunLoop wouldn't generally exit
+          // unless we paused/finished which would imply next_fut has been
+          // finished.
           return Status::Invalid(
               "Serial executor terminated before next result computed");
         }
@@ -352,8 +353,14 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   std::shared_ptr<State> state_;
 
   void RunLoop();
+  // We mark the serial executor "finished" when there should be
+  // no more tasks scheduled on it.  It's not strictly needed but
+  // can help catch bugs where we are trying to use the executor
+  // after we are done with it.
   void Finish();
   bool IsFinished();
+  // We pause the executor when we are running an async generator
+  // and we have received an item that we can deliver.
   void Pause();
   void Unpause();
 
