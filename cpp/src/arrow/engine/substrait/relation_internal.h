@@ -25,13 +25,14 @@
 #include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 
-#include "substrait/relations.pb.h"  // IWYU pragma: export
+#include "substrait/algebra.pb.h"  // IWYU pragma: export
 
 namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&);
+Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&,
+	                               std::vector<std::string> = {});
 
 }  // namespace engine
 }  // namespace arrow

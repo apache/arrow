@@ -164,7 +164,7 @@ Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
       set.functions_[i] = {rec->id, rec->function_name};
       continue;
     }
-    return Status::Invalid("Function ", function_ids[i].uri, "#", type_ids[i].name,
+    return Status::Invalid("Function ", function_ids[i].uri, "#", function_ids[i].name,
                            " not found");
   }
 
@@ -252,6 +252,9 @@ ExtensionIdRegistry* default_extension_id_registry() {
                std::make_pair("power", "power"),
                std::make_pair("clip_lower", "maximum"),
                std::make_pair("clip_upper", "minimum"),
+               std::make_pair("equals", "equal"),
+               std::make_pair("cast", "cast"),
+               std::make_pair("negate", "negate"),
            }) {
         DCHECK_OK(RegisterFunction(
             {kArrowExtTypesUri, name_pair.first}, name_pair.second.to_string()));

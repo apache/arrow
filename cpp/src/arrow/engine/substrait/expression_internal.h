@@ -26,7 +26,8 @@
 #include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 
-#include "substrait/expression.pb.h"  // IWYU pragma: export
+#include "substrait/algebra.pb.h"  // IWYU pragma: export
+#include "substrait/type_expressions.pb.h"  // IWYU pragma: export
 
 namespace arrow {
 namespace engine {

@@ -1869,6 +1869,17 @@ Result<ValueDescr> ResolveDecimalDivisionOutput(KernelContext*,
       });
 }
 
+Result<ValueDescr> ResolveDecimalMinimumOrMaximumOutput(
+    KernelContext*, const std::vector<ValueDescr>& args) {
+  return ResolveDecimalBinaryOperationOutput(
+      args, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+        DCHECK_EQ(s1, s2);
+        const int32_t scale = s1;
+        const int32_t precision = std::max(p1, p2);
+        return std::make_pair(precision, scale);
+      });
+}
+
 Result<ValueDescr> ResolveTemporalOutput(KernelContext*,
                                          const std::vector<ValueDescr>& args) {
   DCHECK_EQ(args[0].type->id(), args[1].type->id());
@@ -1907,7 +1918,10 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
     out_type = OutputType(ResolveDecimalDivisionOutput);
+  } else if (op == "minimum" || op == "maximum") {
+    out_type = OutputType(ResolveDecimalMinimumOrMaximumOutput);
   } else {
+    ARROW_LOG(FATAL) << "AddDecimalBinaryKernels failed: name is " << name;
     DCHECK(false);
   }
 
@@ -2478,7 +2492,7 @@ const FunctionDoc min_checked_doc{
     "Take the minimum of the argumentss element-wise",
     ("This function returns a number if one is input.  For a variant that\n"
      "returns a NaN if one is input, use function \"minimum\"."),
-    {"x"}};
+    {"x", "y"}};
 
 const FunctionDoc max_doc{"Take the maximum of the arguments element-wise",
                           ("Results will take the first NaN if at least one is input.\n"
@@ -2490,7 +2504,7 @@ const FunctionDoc max_checked_doc{
     "Take the maximum of the argumentss element-wise",
     ("This function returns a number  if one is input.  For a variant that\n"
      "returns a NaN if one is input, use function \"maximum\"."),
-    {"x"}};
+    {"x", "y"}};
 
 const FunctionDoc pow_doc{
     "Raise arguments to power element-wise",

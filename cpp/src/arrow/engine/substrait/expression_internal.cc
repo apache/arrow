@@ -165,7 +165,22 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
         ARROW_ASSIGN_OR_RAISE(arguments[i], FromProto(scalar_fn.args(i), ext_set));
       }
 
-      return compute::call(decoded_function.name.to_string(), std::move(arguments));
+      auto func_name = decoded_function.name.to_string();
+      if (func_name != "cast") {
+        return compute::call(func_name, std::move(arguments));
+      } else {
+        switch (scalar_fn.output_type().kind_case()) {
+          case substrait::Type::kTimestamp: // fall through
+          case substrait::Type::kTimestampTz: {
+            auto cast_options =
+                compute::CastOptions::Safe(arrow::timestamp(TimeUnit::NANO, "utc"));
+            return compute::call(func_name, std::move(arguments), cast_options);
+          }
+
+          default:
+            break;
+	}
+      }
     }
 
     default:

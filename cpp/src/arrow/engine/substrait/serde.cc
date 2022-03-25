@@ -67,20 +67,14 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
 
   std::vector<compute::Declaration> sink_decls;
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto decl,
-        FromProto(plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel(),
-                  ext_set));
+    const substrait::Rel& rel =
+        plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel();
+    std::vector<std::string> names;
     if (plan_rel.has_root()) {
-      compute::ProjectNodeOptions* options_with_names =
-          dynamic_cast<compute::ProjectNodeOptions*>(decl.options.get());
-      if (options_with_names == nullptr) {
-        return Status::NotImplemented(
-            "substrait::PlanRel with custom output field names");
-      }
-      auto names = plan_rel.root().names();
-      options_with_names->names = {names.begin(), names.end()};
+      const auto& root_names = plan_rel.root().names();
+      names.assign(root_names.begin(), root_names.end());
     }
+    ARROW_ASSIGN_OR_RAISE(auto decl, FromProto(rel, ext_set, names));
 
     // pipe each relation into a consuming_sink node
     auto sink_decl = compute::Declaration::Sequence({
