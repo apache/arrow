@@ -6711,7 +6711,7 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
-// safe-call-into-r.cpp
+// safe-call-into-r-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void InitializeMainRThread();
 extern "C" SEXP _arrow_InitializeMainRThread(){
@@ -6726,7 +6726,7 @@ extern "C" SEXP _arrow_InitializeMainRThread(){
 }
 #endif
 
-// safe-call-into-r.cpp
+// safe-call-into-r-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::string opt);
 extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP r_fun_that_returns_a_string_sexp, SEXP opt_sexp){
