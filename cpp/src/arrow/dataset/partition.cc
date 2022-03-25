@@ -338,19 +338,10 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(c
   return segments;
 }
 
-DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
-                                             ArrayVector dictionaries,
-                                             KeyValuePartitioningOptions options)
-    : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
-  util::InitializeUTF8();
-}
-
-Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
-    const std::string& path) const {
-  std::vector<Key> keys;
-
-  int i = 0;
-  for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
+Result<std::vector<KeyValuePartitioning::Key>> KeyValuePartitioning::ParsePartitionSegments(const std::vector<std::string>& segments) const{
+    int i = 0;
+    std::vector<Key> keys;
+    for (auto&& segment : segments) {
     if (i >= schema_->num_fields()) break;
 
     switch (options_.segment_encoding) {
@@ -371,8 +362,20 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
                                       options_.segment_encoding);
     }
   }
-
   return keys;
+}
+
+DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
+                                             ArrayVector dictionaries,
+                                             KeyValuePartitioningOptions options)
+    : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
+  util::InitializeUTF8();
+}
+
+Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
+    const std::string& path) const {
+  std::vector<std::string> segments = fs::internal::SplitAbstractPath(path);
+  return ParsePartitionSegments(segments);
 }
 
 FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
@@ -384,33 +387,8 @@ FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
 
 Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
     const std::string& path) const {
-  std::vector<Key> keys;
-  keys.reserve(schema_->num_fields());
-  int i = 0;
-  for (auto&& segment :
-       fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep)) {
-    if (i >= schema_->num_fields()) break;
-
-    switch (options_.segment_encoding) {
-      case SegmentEncoding::None: {
-        if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
-          return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
-        }
-        keys.push_back({schema_->field(i++)->name(), std::move(segment)});
-        break;
-      }
-      case SegmentEncoding::Uri: {
-        ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
-        keys.push_back({schema_->field(i++)->name(), std::move(decoded)});
-        break;
-      }
-      default:
-        return Status::NotImplemented("Unknown segment encoding: ",
-                                      options_.segment_encoding);
-    }
-  }
-
-  return keys;
+  std::vector<std::string> segments = fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+  return ParsePartitionSegments(segments);
 }
 
 Result<Partitioning::PartitionPathFormat> DirectoryPartitioning::FormatValues(
@@ -553,7 +531,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
                                                                utf8());
   }
 
-Status InspectPartitionSegments(std::vector<std::string> segments, std::vector<std::string> field_names){
+Status InspectPartitionSegments(std::vector<std::string> segments, const std::vector<std::string>& field_names){
     size_t field_index = 0;
     for(auto&& segment:segments){
     if (field_index == field_names.size()) break;
@@ -577,7 +555,7 @@ Status InspectPartitionSegments(std::vector<std::string> segments, std::vector<s
       }
     }
     return Status::OK();
-  }
+}
 
   PartitioningFactoryOptions options_;
   ArrayVector dictionaries_;
