@@ -277,9 +277,7 @@ Result<std::shared_ptr<Table>> Table::MakeEmpty(std::shared_ptr<Schema> schema,
 }
 
 Result<std::shared_ptr<Table>> Table::FromRecordBatchReader(RecordBatchReader* reader) {
-  std::shared_ptr<Table> table = nullptr;
-  RETURN_NOT_OK(reader->ReadAll(&table));
-  return table;
+  return reader->ToTable();
 }
 
 Result<std::shared_ptr<Table>> Table::FromRecordBatches(

@@ -2771,79 +2771,6 @@ void AddAsciiStringSplitRegex(FunctionRegistry* registry) {
 #endif  // ARROW_WITH_RE2
 
 // ----------------------------------------------------------------------
-// strptime string parsing
-
-using StrptimeState = OptionsWrapper<StrptimeOptions>;
-
-struct ParseStrptime {
-  explicit ParseStrptime(const StrptimeOptions& options)
-      : parser(TimestampParser::MakeStrptime(options.format)), unit(options.unit) {}
-
-  template <typename... Ignored>
-  int64_t Call(KernelContext*, util::string_view val, Status* st) const {
-    int64_t result = 0;
-    if (!(*parser)(val.data(), val.size(), unit, &result)) {
-      *st = Status::Invalid("Failed to parse string: '", val, "' as a scalar of type ",
-                            TimestampType(unit).ToString());
-    }
-    return result;
-  }
-
-  std::shared_ptr<TimestampParser> parser;
-  TimeUnit::type unit;
-};
-
-template <typename InputType>
-struct StrptimeExec {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    applicator::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime>
-        kernel{ParseStrptime(StrptimeState::Get(ctx))};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
-                                         const std::vector<ValueDescr>&) {
-  if (!ctx->state()) {
-    return Status::Invalid("strptime does not provide default StrptimeOptions");
-  }
-  const StrptimeOptions& options = StrptimeState::Get(ctx);
-  // Check for use of %z or %Z
-  size_t cur = 0;
-  std::string zone = "";
-  while (cur < options.format.size() - 1) {
-    if (options.format[cur] == '%') {
-      if (options.format[cur + 1] == 'z') {
-        zone = "UTC";
-        break;
-      }
-      cur++;
-    }
-    cur++;
-  }
-  return ::arrow::timestamp(options.unit, zone);
-}
-
-const FunctionDoc strptime_doc(
-    "Parse timestamps",
-    ("For each string in `strings`, parse it as a timestamp.\n"
-     "The timestamp unit and the expected string pattern must be given\n"
-     "in StrptimeOptions.  Null inputs emit null.  If a non-null string\n"
-     "fails parsing, an error is returned."),
-    {"strings"}, "StrptimeOptions", /*options_required=*/true);
-
-void AddAsciiStringStrptime(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary(), &strptime_doc);
-
-  OutputType out_ty(ResolveStrptimeOutput);
-  for (const auto& ty : StringTypes()) {
-    auto exec = GenerateVarBinaryToVarBinary<StrptimeExec>(ty);
-    DCHECK_OK(func->AddKernel({ty}, out_ty, std::move(exec), StrptimeState::Init));
-  }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-// ----------------------------------------------------------------------
 // Binary join
 
 template <typename BinaryType, typename ListType>
@@ -3518,7 +3445,6 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   AddAsciiStringSplitRegex(registry);
 #endif
-  AddAsciiStringStrptime(registry);
   AddAsciiStringJoin(registry);
   AddAsciiStringRepeat(registry);
 }

@@ -737,7 +737,7 @@ TEST(Expression, ExecuteCall) {
   ])"));
 
   ExpectExecute(call("strptime", {field_ref("a")},
-                     compute::StrptimeOptions("%m/%d/%Y", TimeUnit::MICRO)),
+                     compute::StrptimeOptions("%m/%d/%Y", TimeUnit::MICRO, true)),
                 ArrayFromJSON(struct_({field("a", utf8())}), R"([
     {"a": "5/1/2020"},
     {"a": null},

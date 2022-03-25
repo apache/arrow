@@ -146,10 +146,7 @@ ArrayVector GetPhysicalChunks(const ChunkedArray& chunked_array,
 }
 
 Result<RecordBatchVector> BatchesFromTable(const Table& table) {
-  RecordBatchVector batches;
-  TableBatchReader reader(table);
-  RETURN_NOT_OK(reader.ReadAll(&batches));
-  return batches;
+  return TableBatchReader(table).ToRecordBatches();
 }
 
 // ----------------------------------------------------------------------
@@ -937,11 +934,7 @@ class TableSorter {
 
   Status SortInternal() {
     // Sort each batch independently and merge to sorted indices.
-    RecordBatchVector batches;
-    {
-      TableBatchReader reader(table_);
-      RETURN_NOT_OK(reader.ReadAll(&batches));
-    }
+    ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches, BatchesFromTable(table_));
     const int64_t num_batches = static_cast<int64_t>(batches.size());
     if (num_batches == 0) {
       return Status::OK();

@@ -370,8 +370,8 @@ struct GrouperFastImpl : Grouper {
       encoder_.PrepareEncodeSelected(start_row, batch_size_next, cols_);
 
       // Compute hash
-      Hashing::HashMultiColumn(encoder_.GetBatchColumns(), &encode_ctx_,
-                               minibatch_hashes_.data());
+      Hashing32::HashMultiColumn(encoder_.GetBatchColumns(), &encode_ctx_,
+                                 minibatch_hashes_.data());
 
       // Map
       auto match_bitvector =

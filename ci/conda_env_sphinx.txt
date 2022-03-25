@@ -23,4 +23,5 @@ numpydoc
 pydata-sphinx-theme
 sphinx-design
 sphinx>=4.2
+sphinx-copybutton
 sphinx-tabs

@@ -8,4 +8,5 @@ numpydoc
 pydata-sphinx-theme
 sphinx-tabs
 sphinx-design
+sphinx-copybutton
 sphinx>=4.2

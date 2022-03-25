@@ -297,9 +297,15 @@ class ARROW_EXPORT RecordBatchReader {
   RecordBatchReaderIterator end() { return RecordBatchReaderIterator(); }
 
   /// \brief Consume entire stream as a vector of record batches
+  Result<RecordBatchVector> ToRecordBatches();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
   Status ReadAll(RecordBatchVector* batches);
 
   /// \brief Read all batches and concatenate as arrow::Table
+  Result<std::shared_ptr<Table>> ToTable();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
   Status ReadAll(std::shared_ptr<Table>* table);
 
   /// \brief Create a RecordBatchReader from a vector of RecordBatch.

@@ -47,8 +47,7 @@ class IpcFormatHelper {
   static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
     ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
     ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(sink, reader->schema()));
-    std::vector<std::shared_ptr<RecordBatch>> batches;
-    RETURN_NOT_OK(reader->ReadAll(&batches));
+    ARROW_ASSIGN_OR_RAISE(auto batches, reader->ToRecordBatches());
     for (auto batch : batches) {
       RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
     }
