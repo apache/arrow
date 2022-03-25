@@ -316,10 +316,11 @@ inline util::optional<int> NextValid(const ScalarVector& values, int first_null)
   return static_cast<int>(it - values.begin());
 }
 
-Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(const ScalarVector& values) const{
-    std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
+Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
+    const ScalarVector& values) const {
+  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
-    for (int i = 0; i < schema_->num_fields(); ++i) {
+  for (int i = 0; i < schema_->num_fields(); ++i) {
     if (values[i] != nullptr && values[i]->is_valid) {
       segments[i] = values[i]->ToString();
       continue;
@@ -338,10 +339,12 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(c
   return segments;
 }
 
-Result<std::vector<KeyValuePartitioning::Key>> KeyValuePartitioning::ParsePartitionSegments(const std::vector<std::string>& segments) const{
-    int i = 0;
-    std::vector<Key> keys;
-    for (auto&& segment : segments) {
+Result<std::vector<KeyValuePartitioning::Key>>
+KeyValuePartitioning::ParsePartitionSegments(
+    const std::vector<std::string>& segments) const {
+  int i = 0;
+  std::vector<Key> keys;
+  for (auto&& segment : segments) {
     if (i >= schema_->num_fields()) break;
 
     switch (options_.segment_encoding) {
@@ -387,21 +390,22 @@ FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
 
 Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
     const std::string& path) const {
-  std::vector<std::string> segments = fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+  std::vector<std::string> segments =
+      fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
   return ParsePartitionSegments(segments);
 }
 
 Result<Partitioning::PartitionPathFormat> DirectoryPartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments;
-  ARROW_ASSIGN_OR_RAISE(segments,FormatPartitionSegments(values));
+  ARROW_ASSIGN_OR_RAISE(segments, FormatPartitionSegments(values));
   return PartitionPathFormat{fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
 
 Result<Partitioning::PartitionPathFormat> FilenamePartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments;
-  ARROW_ASSIGN_OR_RAISE(segments,FormatPartitionSegments(values));
+  ARROW_ASSIGN_OR_RAISE(segments, FormatPartitionSegments(values));
   return Partitioning::PartitionPathFormat{
       "", fs::internal::JoinAbstractPath(std::move(segments), kFilenamePartitionSep) +
               kFilenamePartitionSep};
@@ -531,10 +535,11 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
                                                                utf8());
   }
 
-Status InspectPartitionSegments(std::vector<std::string> segments, const std::vector<std::string>& field_names){
+  Status InspectPartitionSegments(std::vector<std::string> segments,
+                                  const std::vector<std::string>& field_names) {
     size_t field_index = 0;
-    for(auto&& segment:segments){
-    if (field_index == field_names.size()) break;
+    for (auto&& segment : segments) {
+      if (field_index == field_names.size()) break;
 
       switch (options_.segment_encoding) {
         case SegmentEncoding::None: {
@@ -555,7 +560,7 @@ Status InspectPartitionSegments(std::vector<std::string> segments, const std::ve
       }
     }
     return Status::OK();
-}
+  }
 
   PartitioningFactoryOptions options_;
   ArrayVector dictionaries_;
@@ -579,7 +584,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
     for (auto path : paths) {
       std::vector<std::string> segments;
       segments = fs::internal::SplitAbstractPath(path);
-      RETURN_NOT_OK(InspectPartitionSegments(segments,field_names_));
+      RETURN_NOT_OK(InspectPartitionSegments(segments, field_names_));
     }
     return DoInspect();
   }
@@ -625,8 +630,9 @@ class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
       const std::vector<std::string>& paths) override {
     for (const auto& path : paths) {
       std::vector<std::string> segments;
-      segments = fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
-      RETURN_NOT_OK(InspectPartitionSegments(segments,field_names_));
+      segments =
+          fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+      RETURN_NOT_OK(InspectPartitionSegments(segments, field_names_));
     }
     return DoInspect();
   }

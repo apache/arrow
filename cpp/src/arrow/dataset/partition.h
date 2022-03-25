@@ -198,8 +198,10 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// Convert a Key to a full expression.
   Result<compute::Expression> ConvertKey(const Key& key) const;
 
-  Result<std::vector<std::string>> FormatPartitionSegments(const ScalarVector& values) const;
-  Result<std::vector<Key>> ParsePartitionSegments(const std::vector<std::string>& segments) const;
+  Result<std::vector<std::string>> FormatPartitionSegments(
+      const ScalarVector& values) const;
+  Result<std::vector<Key>> ParsePartitionSegments(
+      const std::vector<std::string>& segments) const;
 
   ArrayVector dictionaries_;
   KeyValuePartitioningOptions options_;

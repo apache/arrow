@@ -136,7 +136,8 @@ def partitioning(schema=None, field_names=None, flavor=None,
         inferred from the file paths (only valid for DirectoryPartitioning).
     flavor : str, default None
         The default is DirectoryPartitioning. Specify ``flavor="hive"`` for
-        a HivePartitioning, and ``flavor="filename"`` for a FilenamePartitioning.
+        a HivePartitioning, and ``flavor="filename"`` for a
+        FilenamePartitioning.
     dictionaries : dict[str, Array]
         If the type of any field of `schema` is a dictionary type, the
         corresponding entry of `dictionaries` must be an array containing
