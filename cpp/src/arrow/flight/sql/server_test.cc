@@ -31,6 +31,7 @@
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
+#include "arrow/flight/sql/example/sqlite_type_info.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/testing/builder.h"
@@ -393,6 +394,37 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetTablesSchemaWithIncludedSchema(),
                   {catalog_name, schema_name, table_name, table_type, table_schema});
+
+  AssertTablesEqual(*expected_table, *table);
+}
+
+TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetXdbcTypeInfo({}));
+
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+
+  auto batch = example::DoGetTypeInfoResult();
+
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  AssertTablesEqual(*expected_table, *table);
+}
+
+TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
+  int data_type = -4;
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetXdbcTypeInfo({}, data_type));
+
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+
+  auto batch = example::DoGetTypeInfoResult(data_type);
+
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
 
   AssertTablesEqual(*expected_table, *table);
 }

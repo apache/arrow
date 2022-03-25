@@ -154,6 +154,18 @@ arrow::Result<StatementQuery> ParseCommandStatementQuery(
   return result;
 }
 
+arrow::Result<GetXdbcTypeInfo> ParseCommandGetXdbcTypeInfo(
+    const google::protobuf::Any& any) {
+  pb::sql::CommandGetXdbcTypeInfo command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetXdbcTypeInfo.");
+  }
+
+  GetXdbcTypeInfo result;
+  result.data_type = PROPERTY_TO_OPTIONAL(command, data_type);
+  return result;
+}
+
 arrow::Result<GetTables> ParseCommandGetTables(const google::protobuf::Any& any) {
   pb::sql::CommandGetTables command;
   if (!any.UnpackTo(&command)) {
@@ -288,6 +300,12 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     ARROW_ASSIGN_OR_RAISE(*info, GetFlightInfoTableTypes(context, request));
     return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetXdbcTypeInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(GetXdbcTypeInfo internal_command,
+                          ParseCommandGetXdbcTypeInfo(any));
+    ARROW_ASSIGN_OR_RAISE(*info,
+                          GetFlightInfoXdbcTypeInfo(context, internal_command, request))
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
                           ParseCommandGetSqlInfo(any, sql_info_id_to_result_));
@@ -354,6 +372,10 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
     return Status::OK();
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     ARROW_ASSIGN_OR_RAISE(*stream, DoGetTableTypes(context));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetXdbcTypeInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(GetXdbcTypeInfo command, ParseCommandGetXdbcTypeInfo(any));
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetXdbcTypeInfo(context, command))
     return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
@@ -536,6 +558,17 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSql
                                                       descriptor, endpoints, -1, -1))
 
   return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoXdbcTypeInfo(
+    const ServerCallContext& context, const GetXdbcTypeInfo& command,
+    const FlightDescriptor& descriptor) {
+  return Status::NotImplemented("GetFlightInfoXdbcTypeInfo not implemented");
+}
+
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetXdbcTypeInfo(
+    const ServerCallContext& context, const GetXdbcTypeInfo& command) {
+  return Status::NotImplemented("DoGetXdbcTypeInfo not implemented");
 }
 
 void FlightSqlServerBase::RegisterSqlInfo(int32_t id, const SqlInfoResult& result) {
@@ -757,6 +790,29 @@ std::shared_ptr<Schema> SqlSchema::GetSqlInfoSchema() {
                               false)});
 }
 
+std::shared_ptr<Schema> SqlSchema::GetXdbcTypeInfoSchema() {
+  return arrow::schema({
+      field("type_name", utf8(), false),
+      field("data_type", int32(), false),
+      field("column_size", int32()),
+      field("literal_prefix", utf8()),
+      field("literal_suffix", utf8()),
+      field("create_params", list(field("item", utf8(), false))),
+      field("nullable", int32(), false),
+      field("case_sensitive", boolean(), false),
+      field("searchable", int32(), false),
+      field("unsigned_attribute", boolean()),
+      field("fixed_prec_scale", boolean(), false),
+      field("auto_increment", boolean()),
+      field("local_type_name", utf8()),
+      field("minimum_scale", int32()),
+      field("maximum_scale", int32()),
+      field("sql_data_type", int32(), false),
+      field("datetime_subcode", int32()),
+      field("num_prec_radix", int32()),
+      field("interval_precision", int32()),
+  });
+}
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow

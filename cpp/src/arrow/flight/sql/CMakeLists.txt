@@ -75,6 +75,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
 
   set(ARROW_FLIGHT_SQL_TEST_SERVER_SRCS
       example/sqlite_sql_info.cc
+      example/sqlite_type_info.cc
       example/sqlite_statement.cc
       example/sqlite_statement_batch_reader.cc
       example/sqlite_server.cc

@@ -25,6 +25,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReferenc
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetXdbcTypeInfo;
 import static org.apache.arrow.vector.complex.MapVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.complex.MapVector.KEY_NAME;
 import static org.apache.arrow.vector.complex.MapVector.VALUE_NAME;
@@ -124,6 +125,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else if (command.is(CommandGetCrossReference.class)) {
       return getFlightInfoCrossReference(
           FlightSqlUtils.unpackOrThrow(command, CommandGetCrossReference.class), context, descriptor);
+    } else if (command.is(CommandGetXdbcTypeInfo.class)) {
+      return getFlightInfoTypeInfo(
+          FlightSqlUtils.unpackOrThrow(command, CommandGetXdbcTypeInfo.class), context, descriptor);
     }
 
     throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
@@ -153,6 +157,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return new SchemaResult(Schemas.GET_TABLE_TYPES_SCHEMA);
     } else if (command.is(CommandGetSqlInfo.class)) {
       return new SchemaResult(Schemas.GET_SQL_INFO_SCHEMA);
+    } else if (command.is(CommandGetXdbcTypeInfo.class)) {
+      return new SchemaResult(Schemas.GET_TYPE_INFO_SCHEMA);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
       return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
     } else if (command.is(CommandGetImportedKeys.class)) {
@@ -210,6 +216,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       getStreamImportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class), context, listener);
     } else if (command.is(CommandGetCrossReference.class)) {
       getStreamCrossReference(FlightSqlUtils.unpackOrThrow(command, CommandGetCrossReference.class), context, listener);
+    } else if (command.is(CommandGetXdbcTypeInfo.class)) {
+      getStreamTypeInfo(FlightSqlUtils.unpackOrThrow(command, CommandGetXdbcTypeInfo.class), context, listener);
     } else {
       throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
     }
@@ -417,6 +425,25 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @param listener An interface for sending data back to the client.
    */
   void getStreamSqlInfo(CommandGetSqlInfo command, CallContext context, ServerStreamListener listener);
+
+
+  /**
+   * Returns a description of all the data types supported by source.
+   * 
+   * @param request     request filter parameters.
+   * @param descriptor  The descriptor identifying the data stream.
+   * @return  Metadata about the stream.
+   */
+  FlightInfo getFlightInfoTypeInfo(CommandGetXdbcTypeInfo request, CallContext context,
+                                   FlightDescriptor descriptor);
+
+  /**
+   * Returns data for type info based data stream.
+   *
+   * @param context  Per-call context.
+   * @param listener An interface for sending data back to the client.
+   */
+  void getStreamTypeInfo(CommandGetXdbcTypeInfo request, CallContext context, ServerStreamListener listener);
 
   /**
    * Returns the available catalogs by returning a stream of
@@ -652,6 +679,30 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                 FieldType.notNullable(
                     new Union(UnionMode.Dense, range(0, GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS.size()).toArray())),
                 GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS)));
+    public static final Schema GET_TYPE_INFO_SCHEMA =
+        new Schema(asList(
+            Field.notNullable("type_name", VARCHAR.getType()),
+            Field.notNullable("data_type", INT.getType()),
+            Field.nullable("column_size", INT.getType()),
+            Field.nullable("literal_prefix", VARCHAR.getType()),
+            Field.nullable("literal_suffix", VARCHAR.getType()),
+            new Field(
+                "create_params", FieldType.nullable(LIST.getType()),
+                singletonList(Field.notNullable("item", VARCHAR.getType()))),
+            Field.notNullable("nullable", INT.getType()),
+            Field.notNullable("case_sensitive", BIT.getType()),
+            Field.notNullable("searchable", INT.getType()),
+            Field.nullable("unsigned_attribute", BIT.getType()),
+            Field.notNullable("fixed_prec_scale", BIT.getType()),
+            Field.nullable("auto_increment", BIT.getType()),
+            Field.nullable("local_type_name", VARCHAR.getType()),
+            Field.nullable("minimum_scale", INT.getType()),
+            Field.nullable("maximum_scale", INT.getType()),
+            Field.notNullable("sql_data_type", INT.getType()),
+            Field.nullable("datetime_subcode", INT.getType()),
+            Field.nullable("num_prec_radix", INT.getType()),
+            Field.nullable("interval_precision", INT.getType())
+        ));
     public static final Schema GET_PRIMARY_KEYS_SCHEMA =
         new Schema(asList(
             Field.nullable("catalog_name", VARCHAR.getType()),

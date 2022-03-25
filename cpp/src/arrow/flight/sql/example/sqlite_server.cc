@@ -29,6 +29,7 @@
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/sql/example/sqlite_tables_schema_batch_reader.h"
+#include "arrow/flight/sql/example/sqlite_type_info.h"
 #include "arrow/flight/sql/server.h"
 
 namespace arrow {
@@ -508,6 +509,22 @@ class SQLiteFlightSqlServer::Impl {
     return DoGetSQLiteQuery(db_, query, SqlSchema::GetTableTypesSchema());
   }
 
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command,
+      const FlightDescriptor& descriptor) {
+    return GetFlightInfoForCommand(descriptor, SqlSchema::GetXdbcTypeInfoSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command) {
+    const std::shared_ptr<RecordBatch>& type_info_result =
+        command.data_type.has_value() ? DoGetTypeInfoResult(command.data_type.value())
+                                      : DoGetTypeInfoResult();
+
+    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({type_info_result}));
+    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+  }
+
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPrimaryKeys(
       const ServerCallContext& context, const GetPrimaryKeys& command,
       const FlightDescriptor& descriptor) {
@@ -777,6 +794,19 @@ arrow::Result<std::unique_ptr<FlightInfo>> SQLiteFlightSqlServer::GetFlightInfoT
 arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetTableTypes(
     const ServerCallContext& context) {
   return impl_->DoGetTableTypes(context);
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>>
+SQLiteFlightSqlServer::GetFlightInfoXdbcTypeInfo(
+    const ServerCallContext& context, const arrow::flight::sql::GetXdbcTypeInfo& command,
+    const FlightDescriptor& descriptor) {
+  return impl_->GetFlightInfoTypeInfo(context, command, descriptor);
+}
+
+arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetXdbcTypeInfo(
+    const ServerCallContext& context,
+    const arrow::flight::sql::GetXdbcTypeInfo& command) {
+  return impl_->DoGetTypeInfo(context, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>>

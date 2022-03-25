@@ -867,6 +867,187 @@ enum SqlSupportsConvert {
   SQL_CONVERT_VARCHAR = 19;
 }
 
+/**
+ * The JDBC/ODBC-defined type of any object.
+ * All the values here are the sames as in the JDBC and ODBC specs.
+ */
+enum XdbcDataType {
+  XDBC_UNKNOWN_TYPE = 0;
+  XDBC_CHAR = 1;
+  XDBC_NUMERIC = 2;
+  XDBC_DECIMAL = 3;
+  XDBC_INTEGER = 4;
+  XDBC_SMALLINT = 5;
+  XDBC_FLOAT = 6;
+  XDBC_REAL = 7;
+  XDBC_DOUBLE = 8;
+  XDBC_DATETIME = 9;
+  XDBC_INTERVAL = 10;
+  XDBC_VARCHAR = 12;
+  XDBC_DATE = 91;
+  XDBC_TIME = 92;
+  XDBC_TIMESTAMP = 93;
+  XDBC_LONGVARCHAR = -1;
+  XDBC_BINARY = -2;
+  XDBC_VARBINARY = -3;
+  XDBC_LONGVARBINARY = -4;
+  XDBC_BIGINT = -5;
+  XDBC_TINYINT = -6;
+  XDBC_BIT = -7;
+  XDBC_WCHAR = -8;
+  XDBC_WVARCHAR = -9;
+}
+
+/**
+ * Detailed subtype information for XDBC_TYPE_DATETIME and XDBC_TYPE_INTERVAL.
+ */
+enum XdbcDatetimeSubcode {
+  option allow_alias = true;
+  XDBC_SUBCODE_UNKNOWN = 0;
+  XDBC_SUBCODE_YEAR = 1;
+  XDBC_SUBCODE_DATE = 1;
+  XDBC_SUBCODE_TIME = 2;
+  XDBC_SUBCODE_MONTH = 2;
+  XDBC_SUBCODE_TIMESTAMP = 3;
+  XDBC_SUBCODE_DAY = 3;
+  XDBC_SUBCODE_TIME_WITH_TIMEZONE = 4;
+  XDBC_SUBCODE_HOUR = 4;
+  XDBC_SUBCODE_TIMESTAMP_WITH_TIMEZONE = 5;
+  XDBC_SUBCODE_MINUTE = 5;
+  XDBC_SUBCODE_SECOND = 6;
+  XDBC_SUBCODE_YEAR_TO_MONTH = 7;
+  XDBC_SUBCODE_DAY_TO_HOUR = 8;
+  XDBC_SUBCODE_DAY_TO_MINUTE = 9;
+  XDBC_SUBCODE_DAY_TO_SECOND = 10;
+  XDBC_SUBCODE_HOUR_TO_MINUTE = 11;
+  XDBC_SUBCODE_HOUR_TO_SECOND = 12;
+  XDBC_SUBCODE_MINUTE_TO_SECOND = 13;
+  XDBC_SUBCODE_INTERVAL_YEAR = 101;
+  XDBC_SUBCODE_INTERVAL_MONTH = 102;
+  XDBC_SUBCODE_INTERVAL_DAY = 103;
+  XDBC_SUBCODE_INTERVAL_HOUR = 104;
+  XDBC_SUBCODE_INTERVAL_MINUTE = 105;
+  XDBC_SUBCODE_INTERVAL_SECOND = 106;
+  XDBC_SUBCODE_INTERVAL_YEAR_TO_MONTH = 107;
+  XDBC_SUBCODE_INTERVAL_DAY_TO_HOUR = 108;
+  XDBC_SUBCODE_INTERVAL_DAY_TO_MINUTE = 109;
+  XDBC_SUBCODE_INTERVAL_DAY_TO_SECOND = 110;
+  XDBC_SUBCODE_INTERVAL_HOUR_TO_MINUTE = 111;
+  XDBC_SUBCODE_INTERVAL_HOUR_TO_SECOND = 112;
+  XDBC_SUBCODE_INTERVAL_MINUTE_TO_SECOND = 113;
+}
+
+enum Nullable {
+  /**
+   * Indicates that the fields does not allow the use of null values.
+   */
+  NULLABILITY_NO_NULLS = 0;
+
+  /**
+   * Indicates that the fields allow the use of null values.
+   */
+  NULLABILITY_NULLABLE = 1;
+
+  /**
+   * Indicates that nullability of the fields can not be determined.
+   */
+  NULLABILITY_UNKNOWN = 2;
+}
+
+enum Searchable {
+  /**
+   * Indicates that column can not be used in a WHERE clause.
+   */
+  SEARCHABLE_NONE = 0;
+
+  /**
+   * Indicates that the column can be used in a WHERE clause if it is using a
+   * LIKE operator.
+   */
+  SEARCHABLE_CHAR = 1;
+
+  /**
+   * Indicates that the column can be used In a WHERE clause with any
+   * operator other than LIKE.
+   *
+   * - Allowed operators: comparison, quantified comparison, BETWEEN,
+   *                      DISTINCT, IN, MATCH, and UNIQUE.
+   */
+  SEARCHABLE_BASIC = 2;
+
+  /**
+   * Indicates that the column can be used in a WHERE clause using any operator.
+   */
+  SEARCHABLE_FULL = 3;
+}
+
+/*
+ * Represents a request to retrieve information about data type supported on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *   type_name: utf8 not null (The name of the data type, for example: VARCHAR, INTEGER, etc),
+ *   data_type: int not null (The SQL data type),
+ *   column_size: int (The maximum size supported by that column.
+ *                     In case of exact numeric types, this represents the maximum precision.
+ *                     In case of string types, this represents the character length.
+ *                     In case of datetime data types, this represents the length in characters of the string representation.
+ *                     NULL is returned for data types where column size is not applicable.),
+ *   literal_prefix: utf8 (Character or characters used to prefix a literal, NULL is returned for
+ *                         data types where a literal prefix is not applicable.),
+ *   literal_suffix: utf8 (Character or characters used to terminate a literal,
+ *                         NULL is returned for data types where a literal suffix is not applicable.),
+ *   create_params: list<utf8 not null>
+ *                        (A list of keywords corresponding to which parameters can be used when creating
+ *                         a column for that specific type.
+ *                         NULL is returned if there are no parameters for the data type definition.),
+ *   nullable: int not null (Shows if the data type accepts a NULL value. The possible values can be seen in the
+ *                           Nullable enum.),
+ *   case_sensitive: bool not null (Shows if a character data type is case-sensitive in collations and comparisons),
+ *   searchable: int not null (Shows how the data type is used in a WHERE clause. The possible values can be seen in the
+ *                             Searchable enum.),
+ *   unsigned_attribute: bool (Shows if the data type is unsigned. NULL is returned if the attribute is
+ *                             not applicable to the data type or the data type is not numeric.),
+ *   fixed_prec_scale: bool not null (Shows if the data type has predefined fixed precision and scale.),
+ *   auto_increment: bool (Shows if the data type is auto incremental. NULL is returned if the attribute
+ *                         is not applicable to the data type or the data type is not numeric.),
+ *   local_type_name: utf8 (Localized version of the data source-dependent name of the data type. NULL
+ *                          is returned if a localized name is not supported by the data source),
+ *   minimum_scale: int (The minimum scale of the data type on the data source.
+ *                       If a data type has a fixed scale, the MINIMUM_SCALE and MAXIMUM_SCALE
+ *                       columns both contain this value. NULL is returned if scale is not applicable.),
+ *   maximum_scale: int (The maximum scale of the data type on the data source.
+ *                       NULL is returned if scale is not applicable.),
+ *   sql_data_type: int not null (The value of the SQL DATA TYPE which has the same values
+ *                                as data_type value. Except for interval and datetime, which
+ *                                uses generic values. More info about those types can be
+ *                                obtained through datetime_subcode. The possible values can be seen
+ *                                in the XdbcDataType enum.),
+ *   datetime_subcode: int (Only used when the SQL DATA TYPE is interval or datetime. It contains
+ *                          its sub types. For type different from interval and datetime, this value
+ *                          is NULL. The possible values can be seen in the XdbcDatetimeSubcode enum.),
+ *   num_prec_radix: int (If the data type is an approximate numeric type, this column contains
+ *                        the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
+ *                        exact numeric types, this column contains the value 10 to indicate that
+ *                        column size specifies a number of decimal digits. Otherwise, this column is NULL.),
+ *   interval_precision: int (If the data type is an interval data type, then this column contains the value
+ *                            of the interval leading precision. Otherwise, this column is NULL. This fields
+ *                            is only relevant to be used by ODBC).
+ * >
+ * The returned data should be ordered by data_type and then by type_name.
+ */
+message CommandGetXdbcTypeInfo {
+  option (experimental) = true;
+
+  /*
+   * Specifies the data type to search for the info.
+   */
+  optional int32 data_type = 1;
+}
+
 /*
  * Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
  * The definition of a catalog depends on vendor/implementation. It is usually the database itself
