@@ -49,8 +49,6 @@ class MainRThread {
   // Check if the current thread is the main R thread
   bool IsMainThread() { return initialized_ && std::this_thread::get_id() == thread_id_; }
 
-
-
   // Class whose run() method will be called from the main R thread
   // but whose results may be accessed (as class fields) from
   // potentially another thread.
@@ -63,9 +61,7 @@ class MainRThread {
   // Run `task` if it is safe to do so or return an error otherwise.
   arrow::Status RunTask(Task* task);
 
-  arrow::internal::Executor*& Executor() {
-    return executor_;
-  }
+  arrow::internal::Executor*& Executor() { return executor_; }
 
   // Save an error token generated from a cpp11::unwind_exception
   // so that it can be properly handled after some cleanup code

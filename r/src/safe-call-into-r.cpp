@@ -41,7 +41,8 @@ arrow::Status MainRThread::RunTask(Task* task) {
     ARROW_RETURN_NOT_OK(fut.ValueUnsafe().result());
     return arrow::Status::OK();
   } else {
-    return arrow::Status::NotImplemented("Call to R from a non-R thread without an event loop");
+    return arrow::Status::NotImplemented(
+        "Call to R from a non-R thread without an event loop");
   }
 }
 
@@ -49,26 +50,28 @@ arrow::Status MainRThread::RunTask(Task* task) {
 void InitializeMainRThread() { main_r_thread.Initialize(); }
 
 // [[arrow::export]]
-std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::string opt) {
+std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
+                              std::string opt) {
   if (opt == "async_with_executor") {
     std::thread* thread_ptr;
 
-    auto result = RunWithCapturedR<std::string>([&thread_ptr, r_fun_that_returns_a_string]() {
-      auto fut = arrow::Future<std::string>::Make();
-      thread_ptr = new std::thread([fut, r_fun_that_returns_a_string]() mutable {
-        auto result = SafeCallIntoR<std::string>([&] {
-            return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
+    auto result =
+        RunWithCapturedR<std::string>([&thread_ptr, r_fun_that_returns_a_string]() {
+          auto fut = arrow::Future<std::string>::Make();
+          thread_ptr = new std::thread([fut, r_fun_that_returns_a_string]() mutable {
+            auto result = SafeCallIntoR<std::string>([&] {
+              return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
+            });
+
+            if (result.ok()) {
+              fut.MarkFinished(result.ValueUnsafe());
+            } else {
+              fut.MarkFinished(result.status());
+            }
           });
 
-        if (result.ok()) {
-          fut.MarkFinished(result.ValueUnsafe());
-        } else {
-          fut.MarkFinished(result.status());
-        }
-      });
-
-      return fut;
-    });
+          return fut;
+        });
 
     thread_ptr->join();
     delete thread_ptr;
@@ -82,15 +85,14 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::
 
     auto fut = arrow::Future<std::string>::Make();
     thread_ptr = new std::thread([fut, r_fun_that_returns_a_string]() mutable {
-        auto result = SafeCallIntoR<std::string>([&] {
-          return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
-        });
+      auto result = SafeCallIntoR<std::string>(
+          [&] { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
 
-        if (result.ok()) {
-          fut.MarkFinished(result.ValueUnsafe());
-        } else {
-          fut.MarkFinished(result.status());
-        }
+      if (result.ok()) {
+        fut.MarkFinished(result.ValueUnsafe());
+      } else {
+        fut.MarkFinished(result.status());
+      }
     });
 
     thread_ptr->join();
@@ -105,9 +107,8 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::
     return arrow::ValueOrStop(fut.result());
 
   } else if (opt == "on_main_thread") {
-    auto result = SafeCallIntoR<std::string>([&]() {
-        return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
-      });
+    auto result = SafeCallIntoR<std::string>(
+        [&]() { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
     GetMainRThread()->ClearError();
     arrow::StopIfNotOk(result.status());
     return result.ValueUnsafe();
