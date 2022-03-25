@@ -1398,7 +1398,7 @@ cdef class FlightClient(_Weakrefable):
             check_flight_status(self.client.get().DoPut(
                 deref(c_options),
                 c_descriptor,
-                c_schema).Value(c_do_put_result))
+                c_schema).Value(&c_do_put_result))
         py_writer = FlightStreamWriter()
         py_writer.writer.reset(c_do_put_result.stream.release())
         py_reader = FlightMetadataReader()
