@@ -254,7 +254,7 @@ struct CastStructSubset {
       }
     }
 
-    if (out_field_index < out_field_count - 1) {
+    if (out_field_index < out_field_count) {
       return Status::TypeError(
           "struct subfields names don't match or are in the wrong order: ",
           in_type.ToString(), " ", out_type.ToString());

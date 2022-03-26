@@ -2330,23 +2330,40 @@ TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
 }
 
 TEST(Cats, StructSubset) {
-  std::vector<std::string> field_names = {"a", "b", "c"};
-  std::shared_ptr<Array> a, b, c;
+  std::vector<std::string> field_names = {"a", "b", "c", "d", "e"};
+  std::shared_ptr<Array> a, b, c, d, e;
   a = ArrayFromJSON(int8(), "[1, 2, 5]");
   b = ArrayFromJSON(int8(), "[3, 4, 7]");
   c = ArrayFromJSON(int8(), "[9, 11, 44]");
-  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b, c}, field_names));
-  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a, c}, {"a", "c"}));
+  d = ArrayFromJSON(int8(), "[6, 51, 49]");
+  e = ArrayFromJSON(int8(), "[19, 17, 74]");
 
-  //  const auto dest = arrow::struct_(
-  //      {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int8())});
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b, c, d, e}, field_names));
+  ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({a, c}, {"a", "c"}));
+  CheckCast(src, dest1);
 
-  //  const auto options = CastOptions::Safe(dest);
-  //
-  //  auto res = Cast(src, options).ValueOrDie();
-  //  ARROW_LOG(WARNING) << res.make_array()->ToString();
+  ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({b, d}, {"b", "d"}));
+  CheckCast(src, dest2);
 
-  CheckCast(src, dest);
+  ASSERT_OK_AND_ASSIGN(auto dest3, StructArray::Make({c, e}, {"c", "e"}));
+  CheckCast(src, dest3);
+
+  const auto dest4 = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                     std::make_shared<Field>("d", int16()),
+                                     std::make_shared<Field>("e", int64())});
+  const auto options4 = CastOptions::Safe(dest4);
+  auto res = Cast(src, options4).ValueOrDie();
+  ARROW_LOG(WARNING) << res.make_array()->ToString();
+
+  const auto dest5 = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                     std::make_shared<Field>("d", int16()),
+                                     std::make_shared<Field>("f", int64())});
+  const auto options5 = CastOptions::Safe(dest5);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr(
+          "struct subfields names don't match or are in the wrong order"),
+      Cast(src, options5));
 }
 
 TEST(Cast, IdentityCasts) {
