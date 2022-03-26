@@ -53,8 +53,6 @@ that changing their value later will have an effect.
 
 .. envvar:: ARROW_IO_THREADS
 
-   .. _env_arrow_io_threads:
-
    Override the default number of threads for the global IO thread pool.
    The value of this environment variable should be a positive integer.
 
@@ -124,8 +122,6 @@ that changing their value later will have an effect.
    required for HDFS support if Java is installed in a non-standard location.
 
 .. envvar:: OMP_NUM_THREADS
-
-   .. _env_omp_num_threads:
 
    The number of worker threads in the global (process-wide) CPU thread pool.
    If this environment variable is not defined, the available hardware

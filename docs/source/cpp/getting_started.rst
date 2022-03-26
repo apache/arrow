@@ -27,7 +27,6 @@ User Guide
    conventions
    build_system
    memory
-   threading
    arrays
    datatypes
    tables
@@ -41,4 +40,5 @@ User Guide
    dataset
    flight
    gdb
+   threading
    env_vars
