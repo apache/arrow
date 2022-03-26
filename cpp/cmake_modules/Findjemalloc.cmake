@@ -28,7 +28,7 @@
 # This module defines
 #  JEMALLOC_INCLUDE_DIR, directory containing headers
 #  JEMALLOC_SHARED_LIB, path to libjemalloc.so/dylib
-#  JEMALLOC_FOUND, whether flatbuffers has been found
+#  JEMALLOC_FOUND, whether jemalloc has been found
 
 if(NOT "${JEMALLOC_HOME}" STREQUAL "")
   file(TO_CMAKE_PATH "${JEMALLOC_HOME}" _native_path)
@@ -78,7 +78,7 @@ if(JEMALLOC_FOUND)
 else()
   if(NOT jemalloc_FIND_QUIETLY)
     set(JEMALLOC_ERR_MSG "Could not find the jemalloc library. Looked in ")
-    if(_flatbuffers_roots)
+    if(_jemalloc_roots)
       set(JEMALLOC_ERR_MSG "${JEMALLOC_ERR_MSG} in ${_jemalloc_roots}.")
     else()
       set(JEMALLOC_ERR_MSG "${JEMALLOC_ERR_MSG} system search paths.")
