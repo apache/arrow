@@ -2329,6 +2329,26 @@ TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
       Cast(src2, options));
 }
 
+TEST(Cats, StructSubset) {
+  std::vector<std::string> field_names = {"a", "b", "c"};
+  std::shared_ptr<Array> a, b, c;
+  a = ArrayFromJSON(int8(), "[1, 2, 5]");
+  b = ArrayFromJSON(int8(), "[3, 4, 7]");
+  c = ArrayFromJSON(int8(), "[9, 11, 44]");
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b, c}, field_names));
+  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a, c}, {"a", "c"}));
+
+  //  const auto dest = arrow::struct_(
+  //      {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int8())});
+
+  //  const auto options = CastOptions::Safe(dest);
+  //
+  //  auto res = Cast(src, options).ValueOrDie();
+  //  ARROW_LOG(WARNING) << res.make_array()->ToString();
+
+  CheckCast(src, dest);
+}
+
 TEST(Cast, IdentityCasts) {
   // ARROW-4102
   auto CheckIdentityCast = [](std::shared_ptr<DataType> type, const std::string& json) {
