@@ -2262,8 +2262,7 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr(
-          "struct subfields names don't match or are in the wrong order"),
+      ::testing::HasSubstr("struct (sub)fields don't match or are in the wrong order"),
       Cast(src, options));
 }
 
@@ -2281,8 +2280,7 @@ TEST(Cast, StructToDifferentSizeStruct) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr(
-          "struct subfields names don't match or are in the wrong order"),
+      ::testing::HasSubstr("struct (sub)fields don't match or are in the wrong order"),
       Cast(src, options));
 }
 
@@ -2339,31 +2337,43 @@ TEST(Cast, StructSubset) {
   e = ArrayFromJSON(int8(), "[19, 17, 74]");
 
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b, c, d, e}, field_names));
-  ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({a, c}, {"a", "c"}));
+  ASSERT_OK_AND_ASSIGN(auto dest1,
+                       StructArray::Make({a, c}, std::vector<std::string>{"a", "c"}));
   CheckCast(src, dest1);
 
-  ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({b, d}, {"b", "d"}));
+  ASSERT_OK_AND_ASSIGN(auto dest2,
+                       StructArray::Make({b, d}, std::vector<std::string>{"b", "d"}));
   CheckCast(src, dest2);
 
-  ASSERT_OK_AND_ASSIGN(auto dest3, StructArray::Make({c, e}, {"c", "e"}));
+  ASSERT_OK_AND_ASSIGN(auto dest3,
+                       StructArray::Make({c, e}, std::vector<std::string>{"c", "e"}));
   CheckCast(src, dest3);
 
-  const auto dest4 = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                     std::make_shared<Field>("d", int16()),
-                                     std::make_shared<Field>("e", int64())});
-  const auto options4 = CastOptions::Safe(dest4);
-  auto res = Cast(src, options4).ValueOrDie();
-  ARROW_LOG(WARNING) << res.make_array()->ToString();
+  ASSERT_OK_AND_ASSIGN(
+      auto dest4, StructArray::Make({a, d, e}, std::vector<std::string>{"a", "d", "e"}));
+  CheckCast(src, dest4);
 
-  const auto dest5 = arrow::struct_({std::make_shared<Field>("a", int8()),
+  ASSERT_OK_AND_ASSIGN(
+      auto dest5, StructArray::Make({b, c, e}, std::vector<std::string>{"b", "c", "e"}));
+  CheckCast(src, dest5);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto dest6,
+      StructArray::Make({a, b, c, e}, std::vector<std::string>{"a", "b", "c", "e"}));
+  CheckCast(src, dest6);
+
+  ASSERT_OK_AND_ASSIGN(auto dest7,
+                       StructArray::Make({a, b, c, d, e}, {"a", "b", "c", "d", "e"}));
+  CheckCast(src, dest7);
+
+  const auto dest8 = arrow::struct_({std::make_shared<Field>("a", int8()),
                                      std::make_shared<Field>("d", int16()),
                                      std::make_shared<Field>("f", int64())});
-  const auto options5 = CastOptions::Safe(dest5);
+  const auto options = CastOptions::Safe(dest8);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr(
-          "struct subfields names don't match or are in the wrong order"),
-      Cast(src, options5));
+      ::testing::HasSubstr("struct (sub)fields don't match or are in the wrong order"),
+      Cast(src, options));
 }
 
 TEST(Cast, StructSubsetWithNulls) {
@@ -2380,31 +2390,51 @@ TEST(Cast, StructSubsetWithNulls) {
 
   ASSERT_OK_AND_ASSIGN(auto src,
                        StructArray::Make({a, b, c, d, e}, field_names, null_bitmap));
-  ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({a, c}, {"a", "c"}, null_bitmap));
+  ASSERT_OK_AND_ASSIGN(
+      auto dest1,
+      StructArray::Make({a, c}, std::vector<std::string>{"a", "c"}, null_bitmap));
   CheckCast(src, dest1);
 
-  ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({b, d}, {"b", "d"}, null_bitmap));
+  ASSERT_OK_AND_ASSIGN(
+      auto dest2,
+      StructArray::Make({b, d}, std::vector<std::string>{"b", "d"}, null_bitmap));
   CheckCast(src, dest2);
 
-  ASSERT_OK_AND_ASSIGN(auto dest3, StructArray::Make({c, e}, {"c", "e"}, null_bitmap));
+  ASSERT_OK_AND_ASSIGN(
+      auto dest3,
+      StructArray::Make({c, e}, std::vector<std::string>{"c", "e"}, null_bitmap));
   CheckCast(src, dest3);
 
-  const auto dest4 = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                     std::make_shared<Field>("d", int16()),
-                                     std::make_shared<Field>("e", int64())});
-  const auto options4 = CastOptions::Safe(dest4);
-  auto res = Cast(src, options4).ValueOrDie();
-  ARROW_LOG(WARNING) << res.make_array()->ToString();
+  ASSERT_OK_AND_ASSIGN(
+      auto dest4,
+      StructArray::Make({a, d, e}, std::vector<std::string>{"a", "d", "e"}, null_bitmap));
+  CheckCast(src, dest4);
 
-  const auto dest5 = arrow::struct_({std::make_shared<Field>("a", int8()),
+  ASSERT_OK_AND_ASSIGN(
+      auto dest5,
+      StructArray::Make({b, c, e}, std::vector<std::string>{"b", "c", "e"}, null_bitmap));
+  CheckCast(src, dest5);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto dest6,
+      StructArray::Make({a, b, c, e}, std::vector<std::string>{"a", "b", "c", "e"},
+                        null_bitmap));
+  CheckCast(src, dest6);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto dest7,
+      StructArray::Make({a, b, c, d, e},
+                        std::vector<std::string>{"a", "b", "c", "d", "e"}, null_bitmap));
+  CheckCast(src, dest7);
+
+  const auto dest8 = arrow::struct_({std::make_shared<Field>("a", int8()),
                                      std::make_shared<Field>("d", int16()),
                                      std::make_shared<Field>("f", int64())});
-  const auto options5 = CastOptions::Safe(dest5);
+  const auto options = CastOptions::Safe(dest8);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr(
-          "struct subfields names don't match or are in the wrong order"),
-      Cast(src, options5));
+      ::testing::HasSubstr("struct (sub)fields don't match or are in the wrong order"),
+      Cast(src, options));
 }
 
 TEST(Cast, IdentityCasts) {

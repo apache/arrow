@@ -236,7 +236,7 @@ struct CastStructSubset {
     const int in_field_count = in_type.num_fields();
     const int out_field_count = out_type.num_fields();
 
-    std::vector<bool> fields_to_select(in_field_count, false);
+    std::vector<int> fields_to_select(out_field_count, -1);
 
     int out_field_index = 0;
     for (int in_field_index = 0;
@@ -249,15 +249,14 @@ struct CastStructSubset {
           return Status::TypeError("cannot cast nullable struct to non-nullable struct: ",
                                    in_type.ToString(), " ", out_type.ToString());
         }
-        fields_to_select[in_field_index] = true;
-        ++out_field_index;
+        fields_to_select[out_field_index++] = in_field_index;
       }
     }
 
     if (out_field_index < out_field_count) {
       return Status::TypeError(
-          "struct subfields names don't match or are in the wrong order: ",
-          in_type.ToString(), " ", out_type.ToString());
+          "struct (sub)fields don't match or are in the wrong order: Input fields: ",
+          in_type.ToString(), " output fields: ", out_type.ToString());
     }
 
     if (out->kind() == Datum::SCALAR) {
@@ -267,15 +266,13 @@ struct CastStructSubset {
       DCHECK(!out_scalar->is_valid);
       if (in_scalar.is_valid) {
         out_field_index = 0;
-        for (int in_field_index = 0; in_field_index < in_field_count; in_field_index++) {
-          if (fields_to_select[in_field_index]) {
-            auto values = in_scalar.value[in_field_index];
-            auto target_type = out->type()->field(out_field_index++)->type();
-            ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(values, target_type, options,
-                                                          ctx->exec_context()));
-            DCHECK_EQ(Datum::SCALAR, cast_values.kind());
-            out_scalar->value.push_back(cast_values.scalar());
-          }
+        for (int field_index : fields_to_select) {
+          auto values = in_scalar.value[field_index];
+          auto target_type = out->type()->field(out_field_index++)->type();
+          ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                                Cast(values, target_type, options, ctx->exec_context()));
+          DCHECK_EQ(Datum::SCALAR, cast_values.kind());
+          out_scalar->value.push_back(cast_values.scalar());
         }
         out_scalar->is_valid = true;
       }
@@ -292,18 +289,16 @@ struct CastStructSubset {
     }
 
     out_field_index = 0;
-    for (int in_field_index = 0; in_field_index < in_field_count; in_field_index++) {
-      if (fields_to_select[in_field_index]) {
-        auto values =
-            in_array.child_data[in_field_index]->Slice(in_array.offset, in_array.length);
-        auto target_type = out->type()->field(out_field_index++)->type();
+    for (int field_index : fields_to_select) {
+      auto values =
+          in_array.child_data[field_index]->Slice(in_array.offset, in_array.length);
+      auto target_type = out->type()->field(out_field_index++)->type();
 
-        ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                              Cast(values, target_type, options, ctx->exec_context()));
+      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                            Cast(values, target_type, options, ctx->exec_context()));
 
-        DCHECK_EQ(Datum::ARRAY, cast_values.kind());
-        out_array->child_data.push_back(cast_values.array());
-      }
+      DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+      out_array->child_data.push_back(cast_values.array());
     }
 
     return Status::OK();
