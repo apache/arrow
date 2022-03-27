@@ -253,6 +253,11 @@ ExtensionIdRegistry* default_extension_id_registry() {
                std::make_pair("clip_lower", "maximum"),
                std::make_pair("clip_upper", "minimum"),
                std::make_pair("equals", "equal"),
+               std::make_pair("not_equals", "not_equal"),
+               std::make_pair("less", "less"),
+               std::make_pair("greater", "greater"),
+               std::make_pair("less_equal", "less_equal"),
+               std::make_pair("greater_equal", "greater_equal"),
                std::make_pair("cast", "cast"),
                std::make_pair("negate", "negate"),
            }) {
