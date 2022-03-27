@@ -20,6 +20,7 @@ register_bindings_type <- function() {
   register_bindings_type_cast()
   register_bindings_type_inspect()
   register_bindings_type_elementwise()
+  register_bindings_type_format()
 }
 
 register_bindings_type_cast <- function() {
@@ -43,13 +44,13 @@ register_bindings_type_cast <- function() {
   # as.* type casting functions
   # as.factor() is mapped in expression.R
   register_binding("as.character", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = string()))
+    build_expr("cast", x, options = cast_options(to_type = string()))
   })
   register_binding("as.double", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = float64()))
+    build_expr("cast", x, options = cast_options(to_type = float64()))
   })
   register_binding("as.integer", function(x) {
-    Expression$create(
+    build_expr(
       "cast",
       x,
       options = cast_options(
@@ -60,7 +61,7 @@ register_bindings_type_cast <- function() {
     )
   })
   register_binding("as.integer64", function(x) {
-    Expression$create(
+    build_expr(
       "cast",
       x,
       options = cast_options(
@@ -71,10 +72,54 @@ register_bindings_type_cast <- function() {
     )
   })
   register_binding("as.logical", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = boolean()))
+    build_expr("cast", x, options = cast_options(to_type = boolean()))
   })
   register_binding("as.numeric", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = float64()))
+    build_expr("cast", x, options = cast_options(to_type = float64()))
+  })
+  register_binding("as.Date", function(x,
+                                       format = NULL,
+                                       tryFormats = "%Y-%m-%d",
+                                       origin = "1970-01-01",
+                                       tz = "UTC") {
+
+    # the origin argument will be better supported once we implement temporal
+    # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
+    # TODO revisit once the above has been sorted
+    if (call_binding("is.numeric", x) & origin != "1970-01-01") {
+      abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
+    }
+
+    # this could be improved with tryFormats once strptime returns NA and we
+    # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
+    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
+    if (is.null(format) && length(tryFormats) > 1) {
+      abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+    }
+
+    if (call_binding("is.Date", x)) {
+      return(x)
+
+    # cast from POSIXct
+    } else if (call_binding("is.POSIXct", x)) {
+      # base::as.Date() first converts to the desired timezone and then extracts
+      # the date, which is why we need to go through timestamp() first
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+
+    # cast from character
+    } else if (call_binding("is.character", x)) {
+      format <- format %||% tryFormats[[1]]
+      # unit = 0L is the identifier for seconds in valid_time32_units
+      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
+
+    # cast from numeric
+    } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
+      # Arrow does not support direct casting from double to date32()
+      # https://issues.apache.org/jira/browse/ARROW-15798
+      # TODO revisit if arrow decides to support double -> date casting
+      abort("`as.Date()` with double/float is not supported in Arrow")
+    }
+    build_expr("cast", x, options = cast_options(to_type = date32()))
   })
 
   register_binding("is", function(object, class2) {
@@ -246,5 +291,22 @@ register_bindings_type_elementwise <- function() {
     is_inf <- Expression$create("is_inf", x)
     # for compatibility with base::is.infinite(), return FALSE for NA_real_
     is_inf & !call_binding("is.na", is_inf)
+  })
+}
+
+register_bindings_type_format <- function() {
+  register_binding("format", function(x, ...) {
+    # We use R's format if we get a single R object here since we don't (yet)
+    # support all of the possible options for casting to string
+    if (!inherits(x, "Expression")) {
+      return(format(x, ...))
+    }
+
+    if (inherits(x, "Expression") &&
+        x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
+      binding_format_datetime(x, ...)
+    } else {
+      build_expr("cast", x, options = cast_options(to_type = string()))
+    }
   })
 }

@@ -60,6 +60,12 @@ namespace arrow {
 // Readahead operators, and some other operators, may introduce queueing.  Any operators
 // that introduce buffering should detail the amount of buffering they introduce in their
 // MakeXYZ function comments.
+//
+// A generator should always be fully consumed before it is destroyed.
+// A generator should not mark a future complete with an error status or a terminal value
+//   until all outstanding futures have completed.  Generators that spawn multiple
+//   concurrent futures may need to hold onto an error while other concurrent futures wrap
+//   up.
 template <typename T>
 using AsyncGenerator = std::function<Future<T>()>;
 
@@ -750,19 +756,32 @@ class ReadaheadGenerator {
   Future<T> AddMarkFinishedContinuation(Future<T> fut) {
     auto state = state_;
     return fut.Then(
-        [state](const T& result) -> Result<T> {
+        [state](const T& result) -> Future<T> {
           state->MarkFinishedIfDone(result);
+          if (state->finished.load()) {
+            if (state->num_running.fetch_sub(1) == 1) {
+              state->final_future.MarkFinished();
+            }
+          } else {
+            state->num_running.fetch_sub(1);
+          }
           return result;
         },
-        [state](const Status& err) -> Result<T> {
+        [state](const Status& err) -> Future<T> {
+          // If there is an error we need to make sure all running
+          // tasks finish before we return the error.
           state->finished.store(true);
-          return err;
+          if (state->num_running.fetch_sub(1) == 1) {
+            state->final_future.MarkFinished();
+          }
+          return state->final_future.Then([err]() -> Result<T> { return err; });
         });
   }
 
   Future<T> operator()() {
     if (state_->readahead_queue.empty()) {
       // This is the first request, let's pump the underlying queue
+      state_->num_running.store(state_->max_readahead);
       for (int i = 0; i < state_->max_readahead; i++) {
         auto next = state_->source_generator();
         auto next_after_check = AddMarkFinishedContinuation(std::move(next));
@@ -775,6 +794,7 @@ class ReadaheadGenerator {
     if (state_->finished.load()) {
       state_->readahead_queue.push(AsyncGeneratorEnd<T>());
     } else {
+      state_->num_running.fetch_add(1);
       auto back_of_queue = state_->source_generator();
       auto back_of_queue_after_check =
           AddMarkFinishedContinuation(std::move(back_of_queue));
@@ -786,9 +806,7 @@ class ReadaheadGenerator {
  private:
   struct State {
     State(AsyncGenerator<T> source_generator, int max_readahead)
-        : source_generator(std::move(source_generator)), max_readahead(max_readahead) {
-      finished.store(false);
-    }
+        : source_generator(std::move(source_generator)), max_readahead(max_readahead) {}
 
     void MarkFinishedIfDone(const T& next_result) {
       if (IsIterationEnd(next_result)) {
@@ -798,7 +816,9 @@ class ReadaheadGenerator {
 
     AsyncGenerator<T> source_generator;
     int max_readahead;
-    std::atomic<bool> finished;
+    Future<> final_future = Future<>::Make();
+    std::atomic<int> num_running{0};
+    std::atomic<bool> finished{false};
     std::queue<Future<T>> readahead_queue;
   };
 
@@ -990,39 +1010,140 @@ AsyncGenerator<T> MakeVectorGenerator(std::vector<T> vec) {
 /// \see MakeMergedGenerator
 template <typename T>
 class MergedGenerator {
+  // Note, the implementation of this class is quite complex at the moment (PRs to
+  // simplify are always welcome)
+  //
+  // Terminology is borrowed from rxjs.  This is a pull based implementation of the
+  // mergeAll operator.  The "outer subscription" refers to the async
+  // generator that the caller provided when creating this.  The outer subscription
+  // yields generators.
+  //
+  // Each of these generators is then subscribed to (up to max_subscriptions) and these
+  // are referred to as "inner subscriptions".
+  //
+  // As soon as we start we try and establish `max_subscriptions` inner subscriptions. For
+  // each inner subscription we will cache up to 1 value.  This means we may have more
+  // values than we have been asked for.  In our example, if a caller asks for one record
+  // batch we will start scanning `max_subscriptions` different files.  For each file we
+  // will only queue up to 1 batch (so a separate readahead is needed on the file if batch
+  // readahead is desired).
+  //
+  // If the caller is slow we may accumulate ready-to-deliver items.  These are stored
+  // in `delivered_jobs`.
+  //
+  // If the caller is very quick we may accumulate requests.  These are stored in
+  // `waiting_jobs`.
+  //
+  // It may be helpful to consider an example, in the scanner the outer subscription
+  // is some kind of asynchronous directory listing.  The inner subscription is
+  // then a scan on a file yielded by the directory listing.
+  //
+  // An "outstanding" request is when we have polled either the inner or outer
+  // subscription but that future hasn't completed yet.
+  //
+  // There are three possible "events" that can happen.
+  // * A caller could request the next future
+  // * An outer callback occurs when the next subscription is ready (e.g. the directory
+  //     listing has produced a new file)
+  // * An inner callback occurs when one of the inner subscriptions emits a value (e.g.
+  //     a file scan emits a record batch)
+  //
+  // Any time an event happens the logic is broken into two phases.  First, we grab the
+  // lock and modify the shared state.  While doing this we figure out what callbacks we
+  // will need to execute.  Then, we give up the lock and execute these callbacks.  It is
+  // important to execute these callbacks without the lock to avoid deadlock.
  public:
   explicit MergedGenerator(AsyncGenerator<AsyncGenerator<T>> source,
                            int max_subscriptions)
       : state_(std::make_shared<State>(std::move(source), max_subscriptions)) {}
 
   Future<T> operator()() {
+    // A caller has requested a future
     Future<T> waiting_future;
     std::shared_ptr<DeliveredJob> delivered_job;
+    bool mark_generator_complete = false;
     {
       auto guard = state_->mutex.Lock();
       if (!state_->delivered_jobs.empty()) {
+        // If we have a job sitting around we can deliver it
         delivered_job = std::move(state_->delivered_jobs.front());
         state_->delivered_jobs.pop_front();
-      } else if (state_->finished) {
-        return IterationTraits<T>::End();
+        if (state_->IsCompleteUnlocked(guard)) {
+          // It's possible this waiting job was the only thing left to handle and
+          // we have now completed the generator.
+          mark_generator_complete = true;
+        } else {
+          // Since we had a job sitting around we also had an inner subscription
+          // that had paused.  We are going to restart this inner subscription and
+          // so there will be a new outstanding request.
+          state_->outstanding_requests++;
+        }
+      } else if (state_->broken ||
+                 (!state_->first && state_->num_running_subscriptions == 0)) {
+        // If we are broken or exhausted then prepare a terminal item but
+        // we won't complete it until we've finished.
+        Result<T> end_res = IterationEnd<T>();
+        if (!state_->final_error.ok()) {
+          end_res = state_->final_error;
+          state_->final_error = Status::OK();
+        }
+        return state_->all_finished.Then([end_res]() -> Result<T> { return end_res; });
       } else {
+        // Otherwise we just queue the request and it will be completed when one of the
+        // ongoing inner subscriptions delivers a result
         waiting_future = Future<T>::Make();
         state_->waiting_jobs.push_back(std::make_shared<Future<T>>(waiting_future));
       }
+      if (state_->first) {
+        // On the first request we are going to try and immediately fill our queue
+        // of subscriptions.  We assume we are going to be able to start them all.
+        state_->outstanding_requests +=
+            static_cast<int>(state_->active_subscriptions.size());
+        state_->num_running_subscriptions +=
+            static_cast<int>(state_->active_subscriptions.size());
+      }
     }
+    // If we grabbed a finished item from the delivered_jobs queue then we may need
+    // to mark the generator finished or issue a request for a new item to fill in
+    // the spot we just vacated.  Notice that we issue that request to the same
+    // subscription that delivered it (deliverer).
     if (delivered_job) {
-      // deliverer will be invalid if outer callback encounters an error and delivers a
-      // failed result
-      if (delivered_job->deliverer) {
+      if (mark_generator_complete) {
+        state_->all_finished.MarkFinished();
+      } else {
         delivered_job->deliverer().AddCallback(
             InnerCallback{state_, delivered_job->index});
       }
       return std::move(delivered_job->value);
     }
+    // On the first call we try and fill up our subscriptions.  It's possible the outer
+    // generator only has a few items and we can't fill up to what we were hoping.  In
+    // that case we have to bail early.
     if (state_->first) {
       state_->first = false;
-      for (std::size_t i = 0; i < state_->active_subscriptions.size(); i++) {
-        state_->PullSource().AddCallback(OuterCallback{state_, i});
+      mark_generator_complete = false;
+      for (int i = 0; i < static_cast<int>(state_->active_subscriptions.size()); i++) {
+        state_->PullSource().AddCallback(
+            OuterCallback{state_, static_cast<std::size_t>(i)});
+        // If we have to bail early then we need to update the shared state again so
+        // we need to reacquire the lock.
+        auto guard = state_->mutex.Lock();
+        if (state_->source_exhausted) {
+          int excess_requests =
+              static_cast<int>(state_->active_subscriptions.size()) - i - 1;
+          state_->outstanding_requests -= excess_requests;
+          state_->num_running_subscriptions -= excess_requests;
+          if (excess_requests > 0) {
+            // It's possible that we are completing the generator by reducing the number
+            // of outstanding requests (e.g. this happens when the outer subscription and
+            // all inner subscriptions are synchronous)
+            mark_generator_complete = state_->IsCompleteUnlocked(guard);
+          }
+          break;
+        }
+      }
+      if (mark_generator_complete) {
+        state_->MarkFinishedAndPurge();
       }
     }
     return waiting_future;
@@ -1034,8 +1155,13 @@ class MergedGenerator {
                           std::size_t index_)
         : deliverer(deliverer_), value(std::move(value_)), index(index_) {}
 
+    // The generator that delivered this result, we will request another item
+    // from this generator once the result is delivered
     AsyncGenerator<T> deliverer;
+    // The result we received from the generator
     Result<T> value;
+    // The index of the generator (in active_subscriptions) that delivered this
+    // result.  This is used if we need to replace a finished generator.
     std::size_t index;
   };
 
@@ -1047,9 +1173,11 @@ class MergedGenerator {
           waiting_jobs(),
           mutex(),
           first(true),
+          broken(false),
           source_exhausted(false),
-          finished(false),
-          num_active_subscriptions(max_subscriptions) {}
+          outstanding_requests(0),
+          num_running_subscriptions(0),
+          final_error(Status::OK()) {}
 
     Future<AsyncGenerator<T>> PullSource() {
       // Need to guard access to source() so we don't pull sync-reentrantly which
@@ -1058,50 +1186,178 @@ class MergedGenerator {
       return source();
     }
 
+    void SignalErrorUnlocked(const util::Mutex::Guard& guard) {
+      broken = true;
+      // Empty any results that have arrived but not asked for.
+      while (!delivered_jobs.empty()) {
+        delivered_jobs.pop_front();
+      }
+    }
+
+    // This function is called outside the mutex but it will only ever be
+    // called once
+    void MarkFinishedAndPurge() {
+      all_finished.MarkFinished();
+      while (!waiting_jobs.empty()) {
+        waiting_jobs.front()->MarkFinished(IterationEnd<T>());
+        waiting_jobs.pop_front();
+      }
+    }
+
+    // This is called outside the mutex but it is only ever called
+    // once and Future<>::AddCallback is thread-safe
+    void MarkFinalError(const Status& err, Future<T> maybe_sink) {
+      if (maybe_sink.is_valid()) {
+        // Someone is waiting for this error so lets mark it complete when
+        // all the work is done
+        all_finished.AddCallback([maybe_sink, err](const Status& status) mutable {
+          maybe_sink.MarkFinished(err);
+        });
+      } else {
+        // No one is waiting for this error right now so it will be delivered
+        // next.
+        final_error = err;
+      }
+    }
+
+    bool IsCompleteUnlocked(const util::Mutex::Guard& guard) {
+      return outstanding_requests == 0 &&
+             (broken || (source_exhausted && num_running_subscriptions == 0 &&
+                         delivered_jobs.empty()));
+    }
+
+    bool MarkTaskFinishedUnlocked(const util::Mutex::Guard& guard) {
+      --outstanding_requests;
+      return IsCompleteUnlocked(guard);
+    }
+
+    // The outer generator.  Each item we pull from this will be its own generator
+    // and become an inner subscription
     AsyncGenerator<AsyncGenerator<T>> source;
     // active_subscriptions and delivered_jobs will be bounded by max_subscriptions
     std::vector<AsyncGenerator<T>> active_subscriptions;
+    // Results delivered by the inner subscriptions that weren't yet asked for by the
+    // caller
     std::deque<std::shared_ptr<DeliveredJob>> delivered_jobs;
     // waiting_jobs is unbounded, reentrant pulls (e.g. AddReadahead) will provide the
     // backpressure
     std::deque<std::shared_ptr<Future<T>>> waiting_jobs;
+    // A future that will be marked complete when the terminal item has arrived and all
+    // outstanding futures have completed.  It is used to hold off emission of an error
+    // until all outstanding work is done.
+    Future<> all_finished = Future<>::Make();
     util::Mutex mutex;
+    // A flag cleared when the caller firsts asks for a future.  Used to start polling.
     bool first;
+    // A flag set when an error arrives, prevents us from issuing new requests.
+    bool broken;
+    // A flag set when the outer subscription has been exhausted.  Prevents us from
+    // pulling it further (even though it would be generally harmless) and lets us know we
+    // are finishing up.
     bool source_exhausted;
-    bool finished;
-    int num_active_subscriptions;
+    // The number of futures that we have requested from either the outer or inner
+    // subscriptions that have not yet completed.  We cannot mark all_finished until this
+    // reaches 0.  This will never be greater than max_subscriptions
+    int outstanding_requests;
+    // The number of running subscriptions.  We ramp this up to `max_subscriptions` as
+    // soon as the first item is requested and then it stays at that level (each exhausted
+    // inner subscription is replaced by a new inner subscription) until the outer
+    // subscription is exhausted at which point this descends to 0 (and source_exhausted)
+    // is then set to true.
+    int num_running_subscriptions;
+    // If an error arrives, and the caller hasn't asked for that item, we store the error
+    // here.  It is analagous to delivered_jobs but for errors instead of finished
+    // results.
+    Status final_error;
   };
 
   struct InnerCallback {
     void operator()(const Result<T>& maybe_next_ref) {
+      // An item has been delivered by one of the inner subscriptions
       Future<T> next_fut;
       const Result<T>* maybe_next = &maybe_next_ref;
 
+      // When an item is delivered (and the caller has asked for it) we grab the
+      // next item from the inner subscription.  To avoid this behavior leading to an
+      // infinite loop (this can happen if the caller's callback asks for the next item)
+      // we use a while loop.
       while (true) {
         Future<T> sink;
         bool sub_finished = maybe_next->ok() && IsIterationEnd(**maybe_next);
+        bool pull_next_sub = false;
+        bool was_broken = false;
+        bool should_mark_gen_complete = false;
+        bool should_mark_final_error = false;
         {
           auto guard = state->mutex.Lock();
-          if (state->finished) {
-            // We've errored out so just ignore this result and don't keep pumping
-            return;
+          if (state->broken) {
+            // We've errored out previously so ignore the result.  If anyone was waiting
+            // for this they will get IterationEnd when we purge
+            was_broken = true;
+          } else {
+            if (!sub_finished) {
+              // There is a result to deliver.  Either we can deliver it now or we will
+              // queue it up
+              if (state->waiting_jobs.empty()) {
+                state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
+                    state->active_subscriptions[index], *maybe_next, index));
+              } else {
+                sink = std::move(*state->waiting_jobs.front());
+                state->waiting_jobs.pop_front();
+              }
+            }
+
+            // If this is the first error then we transition the state to a broken state
+            if (!maybe_next->ok()) {
+              should_mark_final_error = true;
+              state->SignalErrorUnlocked(guard);
+            }
           }
-          if (!sub_finished) {
-            if (state->waiting_jobs.empty()) {
-              state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
-                  state->active_subscriptions[index], *maybe_next, index));
-            } else {
-              sink = std::move(*state->waiting_jobs.front());
-              state->waiting_jobs.pop_front();
+
+          // If we finished this inner subscription then we need to grab a new inner
+          // subscription to take its spot.  If we can't (because we're broken or
+          // exhausted) then we aren't going to be starting any new futures and so
+          // the number of running subscriptions drops.
+          pull_next_sub = sub_finished && !state->source_exhausted && !was_broken;
+          if (sub_finished && !pull_next_sub) {
+            state->num_running_subscriptions--;
+          }
+          // There are three situations we won't pull again.  If an error occurred or we
+          // are already finished or if no one was waiting for our result and so we queued
+          // it up.  We will decrement outstanding_requests and possibly mark the
+          // generator completed.
+          if (state->broken || (!sink.is_valid() && !sub_finished) ||
+              (sub_finished && state->source_exhausted)) {
+            if (state->MarkTaskFinishedUnlocked(guard)) {
+              should_mark_gen_complete = true;
             }
           }
         }
-        if (sub_finished) {
+
+        // Now we have given up the lock and we can take all the actions we decided we
+        // need to take.
+        if (should_mark_final_error) {
+          state->MarkFinalError(maybe_next->status(), std::move(sink));
+        }
+
+        if (should_mark_gen_complete) {
+          state->MarkFinishedAndPurge();
+        }
+
+        // An error occurred elsewhere so there is no need to mark any future
+        // finished (will happen during the purge) or pull from anything
+        if (was_broken) {
+          return;
+        }
+
+        if (pull_next_sub) {
+          // We pulled an end token so we need to start a new subscription
+          // in our spot
           state->PullSource().AddCallback(OuterCallback{state, index});
         } else if (sink.is_valid()) {
+          // We pulled a valid result and there was someone waiting for it
+          // so lets fetch the next result from our subscription
           sink.MarkFinished(*maybe_next);
-          if (!maybe_next->ok()) return;
-
           next_fut = state->active_subscriptions[index]();
           if (next_fut.TryAddCallback([this]() { return *this; })) {
             return;
@@ -1111,6 +1367,8 @@ class MergedGenerator {
           maybe_next = &next_fut.result();
           continue;
         }
+        // else: We pulled a valid result but no one was waiting for it so
+        // we can just stop.
         return;
       }
     }
@@ -1120,43 +1378,45 @@ class MergedGenerator {
 
   struct OuterCallback {
     void operator()(const Result<AsyncGenerator<T>>& maybe_next) {
-      bool should_purge = false;
+      // We have been given a new inner subscription
       bool should_continue = false;
+      bool should_mark_gen_complete = false;
+      bool should_deliver_error = false;
+      bool source_exhausted = maybe_next.ok() && IsIterationEnd(*maybe_next);
       Future<T> error_sink;
       {
         auto guard = state->mutex.Lock();
-        if (!maybe_next.ok() || IsIterationEnd(*maybe_next)) {
-          state->source_exhausted = true;
-          if (!maybe_next.ok() || --state->num_active_subscriptions == 0) {
-            state->finished = true;
-            should_purge = true;
-          }
-          if (!maybe_next.ok()) {
-            if (state->waiting_jobs.empty()) {
-              state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
-                  AsyncGenerator<T>(), maybe_next.status(), index));
-            } else {
+        if (!maybe_next.ok() || source_exhausted || state->broken) {
+          // If here then we will not pull any more from the outer source
+          if (!state->broken && !maybe_next.ok()) {
+            state->SignalErrorUnlocked(guard);
+            // If here then we are the first error so we need to deliver it
+            should_deliver_error = true;
+            if (!state->waiting_jobs.empty()) {
               error_sink = std::move(*state->waiting_jobs.front());
               state->waiting_jobs.pop_front();
             }
+          }
+          if (source_exhausted) {
+            state->source_exhausted = true;
+            state->num_running_subscriptions--;
+          }
+          if (state->MarkTaskFinishedUnlocked(guard)) {
+            should_mark_gen_complete = true;
           }
         } else {
           state->active_subscriptions[index] = *maybe_next;
           should_continue = true;
         }
       }
-      if (error_sink.is_valid()) {
-        error_sink.MarkFinished(maybe_next.status());
+      if (should_deliver_error) {
+        state->MarkFinalError(maybe_next.status(), std::move(error_sink));
+      }
+      if (should_mark_gen_complete) {
+        state->MarkFinishedAndPurge();
       }
       if (should_continue) {
         (*maybe_next)().AddCallback(InnerCallback{state, index});
-      } else if (should_purge) {
-        // At this point state->finished has been marked true so no one else
-        // will be interacting with waiting_jobs and we can iterate outside lock
-        while (!state->waiting_jobs.empty()) {
-          state->waiting_jobs.front()->MarkFinished(IterationTraits<T>::End());
-          state->waiting_jobs.pop_front();
-        }
       }
     }
     std::shared_ptr<State> state;

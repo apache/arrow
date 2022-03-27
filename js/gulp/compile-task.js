@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Observable } from "rxjs";
-import { npmPkgName } from "./util.js";
-import { memoizeTask } from "./memoize-task.js";
+import { Observable } from 'rxjs';
+import { npmPkgName } from './util.js';
+import { memoizeTask } from './memoize-task.js';
 
-import closureTask from "./closure-task.js";
-import typescriptTask from "./typescript-task.js";
-import { arrowTask, arrowTSTask } from "./arrow-task.js";
+import closureTask from './closure-task.js';
+import typescriptTask from './typescript-task.js';
+import { arrowTask, arrowTSTask } from './arrow-task.js';
 
 const compileTask = ((cache) => memoizeTask(cache, function compile(target, format, ...args) {
     return target === `src`                    ? Observable.empty()

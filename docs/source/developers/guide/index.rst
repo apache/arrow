@@ -113,13 +113,14 @@ of adding a basic feature.
 
    **Finding an issue**
 
-   You might already have a bug to fix in mind, or a new feature that you want to implement. But if you
-   don't and you need an issue to work on, then you may need help finding it. Read
-   through the :ref:`finding-issues`  section to get some ideas.
+   You might already have a bug to fix in mind, or a new feature that you want to
+   implement. But if you don't and you need an issue to work on, then you may need
+   help finding it. Read through the :ref:`finding-issues`  section to get some ideas.
 
    **Finding your way through the project**
 
-   The first step when starting a new project is the hardest and so we've wrote some guides to help you with this.
+   The first step when starting a new project is the hardest and so we've
+   wrote some guides to help you with this.
 
    You can start by reading through :ref:`arrow-codebase` section.
 
@@ -134,7 +135,9 @@ of adding a basic feature.
 
 #. **Once you implemented the planned fix or feature, write and run tests for it**
 
-   See detailed instructions on how to :ref:`test <testing>`.
+   See detailed instructions on how to :ref:`test <testing>`. Also run the linter
+   to make sure the code is :ref:`styled <styling>` correctly before proceeding
+   to the next step!
 
 #. **Push the branch on your fork and create a Pull Request**
 

@@ -29,13 +29,12 @@ ARROW_ROOT=$WORKDIR/arrow
 export ARROW_HOME=$WORKDIR/dist
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 
-virtualenv $WORKDIR/venv
+python3 -m venv $WORKDIR/venv
 source $WORKDIR/venv/bin/activate
 
-git clone https://github.com/apache/arrow.git $ARROW_ROOT
+git clone --depth=100 https://github.com/apache/arrow.git $ARROW_ROOT
 
-pip install -r $ARROW_ROOT/python/requirements-build.txt \
-     -r $ARROW_ROOT/python/requirements-test.txt
+pip install -r $ARROW_ROOT/python/requirements-build.txt
 
 #----------------------------------------------------------------------
 # Build C++ library
@@ -47,6 +46,7 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=DEBUG \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DCMAKE_INSTALL_LIBDIR=lib \
+      -DARROW_BUILD_STATIC=OFF \
       -DARROW_WITH_BZ2=ON \
       -DARROW_WITH_ZLIB=ON \
       -DARROW_WITH_ZSTD=ON \
@@ -80,5 +80,7 @@ python setup.py develop
 git submodule update --init
 export PARQUET_TEST_DATA="$ARROW_ROOT/cpp/submodules/parquet-testing/data"
 export ARROW_TEST_DATA="$ARROW_ROOT/testing/data"
+
+pip install -r $ARROW_ROOT/python/requirements-test.txt
 
 py.test pyarrow

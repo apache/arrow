@@ -605,6 +605,11 @@ encryption_properties : FileEncryptionProperties, default None
     If None, no encryption will be done.
     The encryption properties can be created using:
     ``CryptoFactory.file_encryption_properties()``.
+write_batch_size : int, default None
+    Number of values to write to a page at a time. If None, use the default of
+    1024. ``write_batch_size`` is complementary to ``data_page_size``. If pages
+    are exceeding the ``data_page_size`` due to large column values, lowering
+    the batch size can help keep page sizes closer to the intended size.
 """
 
 
@@ -640,6 +645,7 @@ writer_engine_version : unused
                  data_page_version='1.0',
                  use_compliant_nested_type=False,
                  encryption_properties=None,
+                 write_batch_size=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -693,6 +699,7 @@ writer_engine_version : unused
             data_page_version=data_page_version,
             use_compliant_nested_type=use_compliant_nested_type,
             encryption_properties=encryption_properties,
+            write_batch_size=write_batch_size,
             **options)
         self.is_open = True
 
@@ -1908,7 +1915,8 @@ use_legacy_dataset : bool, default False
     pyarrow 1.0.0. Among other things, this allows to pass `filters`
     for all columns and not only the partition keys, enables
     different partitioning schemes, etc.
-    Set to True to use the legacy behaviour.
+    Set to True to use the legacy behaviour (this option is deprecated,
+    and the legacy implementation will be removed in a future version).
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process if use_legacy_dataset=False.
@@ -2006,6 +2014,12 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
 
+    warnings.warn(
+        "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
+        "deprecated as of pyarrow 8.0.0, and the legacy implementation will "
+        "be removed in a future version.",
+        DeprecationWarning, stacklevel=2)
+
     if ignore_prefixes is not None:
         raise ValueError(
             "The 'ignore_prefixes' keyword is only supported when "
@@ -2079,6 +2093,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 data_page_version='1.0',
                 use_compliant_nested_type=False,
                 encryption_properties=None,
+                write_batch_size=None,
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -2101,6 +2116,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 data_page_version=data_page_version,
                 use_compliant_nested_type=use_compliant_nested_type,
                 encryption_properties=encryption_properties,
+                write_batch_size=write_batch_size,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

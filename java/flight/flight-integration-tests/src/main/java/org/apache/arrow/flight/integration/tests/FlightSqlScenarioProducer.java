@@ -31,6 +31,7 @@ import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.memory.ArrowBuf;
@@ -61,7 +62,16 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   static Schema getQuerySchema() {
     return new Schema(
         singletonList(
-            new Field("id", FieldType.nullable(new ArrowType.Int(64, true)), null)
+            new Field("id", new FieldType(true, new ArrowType.Int(64, true),
+                null, new FlightSqlColumnMetadata.Builder()
+                .tableName("test")
+                .isAutoIncrement(true)
+                .isCaseSensitive(false)
+                .schemaName("schema_test")
+                .isSearchable(true)
+                .catalogName("catalog_test")
+                .precision(100)
+                .build().getMetadataMap()), null)
         )
     );
   }
@@ -192,6 +202,18 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   public void getStreamSqlInfo(FlightSql.CommandGetSqlInfo command, CallContext context,
                                ServerStreamListener listener) {
     putEmptyBatchToStreamListener(listener, Schemas.GET_SQL_INFO_SCHEMA);
+  }
+
+  @Override
+  public void getStreamTypeInfo(FlightSql.CommandGetXdbcTypeInfo request,
+                                CallContext context, ServerStreamListener listener) {
+    putEmptyBatchToStreamListener(listener, Schemas.GET_TYPE_INFO_SCHEMA);
+  }
+
+  @Override
+  public FlightInfo getFlightInfoTypeInfo(FlightSql.CommandGetXdbcTypeInfo request, CallContext context,
+                                          FlightDescriptor descriptor) {
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_TYPE_INFO_SCHEMA);
   }
 
   @Override

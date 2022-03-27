@@ -60,7 +60,7 @@ func (r *ReaderProperties) Allocator() memory.Allocator { return r.alloc }
 //
 // If BufferedStreamEnabled is true, it creates an io.SectionReader, otherwise it will read the entire section
 // into a buffer in memory and return a bytes.NewReader for that buffer.
-func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (ReaderAtSeeker, error) {
+func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (io.ReadSeeker, error) {
 	if r.BufferedStreamEnabled {
 		return io.NewSectionReader(source, start, nbytes), nil
 	}

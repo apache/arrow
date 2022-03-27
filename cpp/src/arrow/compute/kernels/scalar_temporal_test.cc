@@ -1061,15 +1061,15 @@ TEST_F(ScalarTemporalTest, TestTemporalAddDateAndDuration) {
         ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date_and_time);
     auto timestamps_ms =
         ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
-    CheckScalarBinary(op, dates32, durations_ms, timestamps_ms);
-    CheckScalarBinary(op, dates64, durations_ms, timestamps_ms);
+    CheckScalarBinaryCommutative(op, dates32, durations_ms, timestamps_ms);
+    CheckScalarBinaryCommutative(op, dates64, durations_ms, timestamps_ms);
 
     auto durations_us =
         ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_date_and_time);
     auto timestamps_us =
         ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
-    CheckScalarBinary(op, dates32, durations_us, timestamps_us);
-    CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+    CheckScalarBinaryCommutative(op, dates32, durations_us, timestamps_us);
+    CheckScalarBinaryCommutative(op, dates64, durations_us, timestamps_us);
   }
 }
 
@@ -1142,29 +1142,33 @@ TEST_F(ScalarTemporalTest, TestTemporalAddTimestampAndDuration) {
       auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
       auto duration_unit_ns = duration(TimeUnit::NANO);
 
-      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision),
-                        ArrayFromJSON(duration_unit_s, seconds_between),
-                        ArrayFromJSON(timestamp_unit_s, times_seconds_precision2));
-      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision),
-                        ArrayFromJSON(duration_unit_ms, milliseconds_between),
-                        ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2));
-      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision),
-                        ArrayFromJSON(duration_unit_us, microseconds_between),
-                        ArrayFromJSON(timestamp_unit_us, times_seconds_precision2));
-      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision),
-                        ArrayFromJSON(duration_unit_ns, nanoseconds_between),
-                        ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2));
+      CheckScalarBinaryCommutative(
+          op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision),
+          ArrayFromJSON(duration_unit_s, seconds_between),
+          ArrayFromJSON(timestamp_unit_s, times_seconds_precision2));
+      CheckScalarBinaryCommutative(
+          op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision),
+          ArrayFromJSON(duration_unit_ms, milliseconds_between),
+          ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2));
+      CheckScalarBinaryCommutative(
+          op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision),
+          ArrayFromJSON(duration_unit_us, microseconds_between),
+          ArrayFromJSON(timestamp_unit_us, times_seconds_precision2));
+      CheckScalarBinaryCommutative(
+          op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision),
+          ArrayFromJSON(duration_unit_ns, nanoseconds_between),
+          ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2));
     }
 
     auto seconds_1 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([1, null])");
     auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
     auto milliseconds_3k = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([3000, null])");
-    CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
+    CheckScalarBinaryCommutative(op, seconds_1, milliseconds_2k, milliseconds_3k);
 
     auto seconds_1_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([1, null])");
     auto milliseconds_3k_tz =
         ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([3000, null])");
-    CheckScalarBinary(op, seconds_1_tz, milliseconds_2k, milliseconds_3k_tz);
+    CheckScalarBinaryCommutative(op, seconds_1_tz, milliseconds_2k, milliseconds_3k_tz);
   }
 }
 
@@ -1329,18 +1333,18 @@ TEST_F(ScalarTemporalTest, TestTemporalAddTimeAndDuration) {
     auto arr_ns = ArrayFromJSON(time64(TimeUnit::NANO), times_ns);
     auto arr_ns2 = ArrayFromJSON(time64(TimeUnit::NANO), times_ns2);
 
-    CheckScalarBinary(op, arr_s,
-                      ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_time),
-                      arr_s2);
-    CheckScalarBinary(op, arr_ms,
-                      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time),
-                      arr_ms2);
-    CheckScalarBinary(op, arr_us,
-                      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time),
-                      arr_us2);
-    CheckScalarBinary(op, arr_ns,
-                      ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
-                      arr_ns2);
+    CheckScalarBinaryCommutative(
+        op, arr_s, ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_time),
+        arr_s2);
+    CheckScalarBinaryCommutative(
+        op, arr_ms, ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time),
+        arr_ms2);
+    CheckScalarBinaryCommutative(
+        op, arr_us, ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time),
+        arr_us2);
+    CheckScalarBinaryCommutative(
+        op, arr_ns, ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
+        arr_ns2);
 
     auto seconds_1 = ArrayFromJSON(time32(TimeUnit::SECOND), R"([1, null])");
     auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
@@ -1349,9 +1353,9 @@ TEST_F(ScalarTemporalTest, TestTemporalAddTimeAndDuration) {
     auto microseconds_2M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([2000000, null])");
     auto nanoseconds_3M = ArrayFromJSON(time64(TimeUnit::NANO), R"([3000000000, null])");
     auto microseconds_3M = ArrayFromJSON(time64(TimeUnit::MICRO), R"([3000000, null])");
-    CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
-    CheckScalarBinary(op, nanoseconds_1G, microseconds_2M, nanoseconds_3M);
-    CheckScalarBinary(op, seconds_1, microseconds_2M, microseconds_3M);
+    CheckScalarBinaryCommutative(op, seconds_1, milliseconds_2k, milliseconds_3k);
+    CheckScalarBinaryCommutative(op, nanoseconds_1G, microseconds_2M, nanoseconds_3M);
+    CheckScalarBinaryCommutative(op, seconds_1, microseconds_2M, microseconds_3M);
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
@@ -1472,10 +1476,10 @@ TEST_F(ScalarTemporalTest, TestTemporalMultiplyDuration) {
     auto multipliers = ArrayFromJSON(int64(), R"([0, 3, 2, 7, null])");
     auto durations_multiplied = ArrayFromJSON(unit, R"([0, -3, 4, 42, null])");
 
-    CheckScalarBinary("multiply", durations, multipliers, durations_multiplied);
-    CheckScalarBinary("multiply", multipliers, durations, durations_multiplied);
-    CheckScalarBinary("multiply_checked", durations, multipliers, durations_multiplied);
-    CheckScalarBinary("multiply_checked", multipliers, durations, durations_multiplied);
+    CheckScalarBinaryCommutative("multiply", durations, multipliers,
+                                 durations_multiplied);
+    CheckScalarBinaryCommutative("multiply_checked", durations, multipliers,
+                                 durations_multiplied);
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Invalid: overflow"),

@@ -28,6 +28,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetXdbcTypeInfo;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
@@ -227,6 +228,36 @@ public class FlightSqlClient implements AutoCloseable {
   public FlightInfo getSqlInfo(final Iterable<Integer> info, final CallOption... options) {
     final CommandGetSqlInfo.Builder builder = CommandGetSqlInfo.newBuilder();
     builder.addAllInfo(info);
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Request the information about the data types supported related to
+   * a filter data type.
+   *
+   * @param dataType  the data type to be used as filter.
+   * @param options   RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getXdbcTypeInfo(final int dataType, final CallOption... options) {
+    final CommandGetXdbcTypeInfo.Builder builder = CommandGetXdbcTypeInfo.newBuilder();
+
+    builder.setDataType(dataType);
+
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Request the information about all the data types supported.
+   *
+   * @param options   RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getXdbcTypeInfo(final CallOption... options) {
+    final CommandGetXdbcTypeInfo.Builder builder = CommandGetXdbcTypeInfo.newBuilder();
+
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
   }

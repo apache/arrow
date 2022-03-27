@@ -15,6 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
+test_that("RandomAccessFile$ReadMetadata() works for LocalFileSystem", {
+  fs <- LocalFileSystem$create()
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write("abcdefg", tf)
+
+  expect_identical(
+    fs$OpenInputFile(tf)$ReadMetadata(),
+    list()
+  )
+})
+
 test_that("reencoding input stream works for windows-1252", {
   string <- "province_name\nQu\u00e9bec"
   bytes_windows1252 <- iconv(

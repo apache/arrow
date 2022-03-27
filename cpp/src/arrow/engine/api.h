@@ -19,5 +19,6 @@
 
 #pragma once
 
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/serde.h"

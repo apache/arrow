@@ -38,17 +38,27 @@ std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
 // [[arrow::export]]
 cpp11::list RecordBatchReader__batches(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  std::vector<std::shared_ptr<arrow::RecordBatch>> res;
-  StopIfNotOk(reader->ReadAll(&res));
-  return arrow::r::to_r_list(res);
+  return arrow::r::to_r_list(ValueOrStop(reader->ToRecordBatches()));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  std::shared_ptr<arrow::Table> table = nullptr;
-  StopIfNotOk(reader->ReadAll(&table));
-  return table;
+  return ValueOrStop(reader->ToTable());
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> RecordBatchReader__Head(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows) {
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  std::shared_ptr<arrow::RecordBatch> this_batch;
+  while (num_rows > 0) {
+    this_batch = ValueOrStop(reader->Next());
+    if (this_batch == nullptr) break;
+    batches.push_back(this_batch->Slice(0, num_rows));
+    num_rows -= this_batch->num_rows();
+  }
+  return ValueOrStop(arrow::Table::FromRecordBatches(reader->schema(), batches));
 }
 
 // -------- RecordBatchStreamReader

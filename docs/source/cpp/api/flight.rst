@@ -200,3 +200,9 @@ error codes.
 
 .. doxygenfunction:: arrow::flight::MakeFlightError
    :project: arrow_cpp
+
+Implementing Custom Transports
+==============================
+
+.. doxygenfile:: arrow/flight/transport_impl.h
+   :sections: briefdescription detaileddescription

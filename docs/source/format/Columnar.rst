@@ -208,17 +208,19 @@ right-to-left: ::
               0  0  1  0  1  0  1  1
 
 Arrays having a 0 null count may choose to not allocate the validity
-bitmap. Implementations may choose to always allocate one anyway as a
-matter of convenience, but this should be noted when memory is being
-shared.
+bitmap; how this is represented depends on the implementation (for
+example, a C++ implementation may represent such an "absent" validity
+bitmap using a NULL pointer). Implementations may choose to always allocate
+a validity bitmap anyway as a matter of convenience. Consumers of Arrow
+arrays should be ready to handle those two possibilities.
 
-Nested type arrays except for union types have their own validity bitmap and
-null count regardless of the null count and valid bits of their child arrays.
+Nested type arrays (except for union types as noted above) have their own
+top-level validity bitmap and null count, regardless of the null count and
+valid bits of their child arrays.
 
-Array slots which are null are not required to have a particular
-value; any "masked" memory can have any value and need not be zeroed,
-though implementations frequently choose to zero memory for null
-values.
+Array slots which are null are not required to have a particular value;
+any "masked" memory can have any value and need not be zeroed, though
+implementations frequently choose to zero memory for null values.
 
 Fixed-size Primitive Layout
 ---------------------------
@@ -452,13 +454,10 @@ types (which can all be distinct), called its fields. Each field must
 have a UTF8-encoded name, and these field names are part of the type
 metadata.
 
-A struct array does not have any additional allocated physical storage
-for its values.  A struct array must still have an allocated validity
-bitmap, if it has one or more null values.
-
 Physically, a struct array has one child array for each field. The
 child arrays are independent and need not be adjacent to each other in
-memory.
+memory. A struct array also has a validity bitmap to encode top-level
+validity information.
 
 For example, the struct (field names shown here as strings for illustration
 purposes)::
@@ -522,19 +521,24 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
           |------------|-------------|-------------|-------------|-------------|
           | 1          | 2           | unspecified | 4           | unspecified |
 
-While a struct does not have physical storage for each of its semantic
-slots (i.e. each scalar C-like struct), an entire struct slot can be
-set to null via the validity bitmap. Any of the child field arrays can
-have null values according to their respective independent validity
-bitmaps. This implies that for a particular struct slot the validity
-bitmap for the struct array might indicate a null slot when one or
-more of its child arrays has a non-null value in their corresponding
-slot.  When reading the struct array the parent validity bitmap takes
-priority.  This is illustrated in the example above, the child arrays
-have valid entries for the null struct but are 'hidden' from the
-consumer by the parent array's validity bitmap.  However, when treated
-independently corresponding values of the children array will be
-non-null.
+Struct Validity
+~~~~~~~~~~~~~~~
+
+A struct array has its own validity bitmap that is independent of its
+child arrays' validity bitmaps. The validity bitmap for the struct
+array might indicate a null when one or more of its child arrays has
+a non-null value in its corresponding slot; or conversely, a child
+array might have a null in its validity bitmap while the struct array's
+validity bitmap shows a non-null value.
+
+Therefore, to know whether a particular child entry is valid, one must
+take the logical AND of the corresponding bits in the two validity bitmaps
+(the struct array's and the child array's).
+
+This is illustrated in the example above, the child arrays have valid entries
+for the null struct but they are "hidden" by the struct array's validity
+bitmap. However, when treated independently, corresponding entries of the
+children array will be non-null.
 
 Union Layout
 ------------

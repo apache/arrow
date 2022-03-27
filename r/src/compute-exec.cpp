@@ -113,16 +113,16 @@ void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan) {
   plan->StopProducing();
 }
 
-#if defined(ARROW_R_WITH_DATASET)
-
-#include <arrow/dataset/plan.h>
-#include <arrow/dataset/scanner.h>
-
-// [[dataset::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<compute::ExecNode>& node) {
   return node->output_schema();
 }
+
+#if defined(ARROW_R_WITH_DATASET)
+
+#include <arrow/dataset/plan.h>
+#include <arrow/dataset/scanner.h>
 
 // [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
@@ -159,7 +159,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 
 #endif
 
-// [[dataset::export]]
+// [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Filter(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::shared_ptr<compute::Expression>& filter) {
@@ -167,7 +167,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Filter(
                             compute::FilterNodeOptions{*filter});
 }
 
-// [[dataset::export]]
+// [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Project(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::vector<std::shared_ptr<compute::Expression>>& exprs,
@@ -182,7 +182,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
       compute::ProjectNodeOptions{std::move(expressions), std::move(names)});
 }
 
-// [[dataset::export]]
+// [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
     std::vector<std::string> target_names, std::vector<std::string> out_field_names,
@@ -212,12 +212,13 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
                                     std::move(out_field_names), std::move(keys)});
 }
 
-// [[dataset::export]]
+// [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Join(
     const std::shared_ptr<compute::ExecNode>& input, int type,
     const std::shared_ptr<compute::ExecNode>& right_data,
     std::vector<std::string> left_keys, std::vector<std::string> right_keys,
-    std::vector<std::string> left_output, std::vector<std::string> right_output) {
+    std::vector<std::string> left_output, std::vector<std::string> right_output,
+    std::string output_suffix_for_left, std::string output_suffix_for_right) {
   std::vector<arrow::FieldRef> left_refs, right_refs, left_out_refs, right_out_refs;
   for (auto&& name : left_keys) {
     left_refs.emplace_back(std::move(name));
@@ -261,12 +262,14 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
 
   return MakeExecNodeOrStop(
       "hashjoin", input->plan(), {input.get(), right_data.get()},
-      compute::HashJoinNodeOptions{join_type, std::move(left_refs), std::move(right_refs),
-                                   std::move(left_out_refs), std::move(right_out_refs)});
+      compute::HashJoinNodeOptions{
+          join_type, std::move(left_refs), std::move(right_refs),
+          std::move(left_out_refs), std::move(right_out_refs), compute::literal(true),
+          std::move(output_suffix_for_left), std::move(output_suffix_for_right)});
 }
 
 // [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(
+std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   arrow::compute::SourceNodeOptions options{
@@ -275,6 +278,17 @@ std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(
           compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))};
 
   return MakeExecNodeOrStop("source", plan.get(), {}, options);
+}
+
+// [[arrow::export]]
+std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<arrow::Table>& table) {
+  arrow::compute::TableSourceNodeOptions options{/*table=*/table,
+                                                 // TODO: make batch_size configurable
+                                                 /*batch_size=*/1048576};
+
+  return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
 }
 
 #endif

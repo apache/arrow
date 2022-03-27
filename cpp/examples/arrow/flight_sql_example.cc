@@ -18,7 +18,7 @@
 // A minimal example of executing a SQL query via Flight SQL.
 //
 // For a corresponding server to test against, this will work with the
-// SQLite example included in the test suite, "flight_sql_test_server".
+// SQLite example included in the test suite, "flight-sql-test-server".
 // Building this example will also build the server; then, start the
 // server before running this example.
 

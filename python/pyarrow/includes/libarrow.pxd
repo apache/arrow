@@ -852,10 +852,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CRecordBatchReader" arrow::RecordBatchReader":
         shared_ptr[CSchema] schema()
         CStatus ReadNext(shared_ptr[CRecordBatch]* batch)
-        CStatus ReadAll(shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ToTable()
 
     cdef cppclass TableBatchReader(CRecordBatchReader):
         TableBatchReader(const CTable& table)
+        TableBatchReader(shared_ptr[CTable] table)
         void set_chunksize(int64_t chunksize)
 
     cdef cppclass CTensor" arrow::Tensor":
@@ -2084,9 +2085,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CStrptimeOptions \
             "arrow::compute::StrptimeOptions"(CFunctionOptions):
-        CStrptimeOptions(c_string format, TimeUnit unit)
+        CStrptimeOptions(c_string format, TimeUnit unit, c_bool raise_error)
         c_string format
         TimeUnit unit
+        c_bool raise_error
 
     cdef cppclass CStrftimeOptions \
             "arrow::compute::StrftimeOptions"(CFunctionOptions):

@@ -74,6 +74,7 @@ target environment.**
    format/Versioning
    format/Columnar
    format/Flight
+   format/FlightSql
    format/Integration
    format/CDataInterface
    format/CStreamInterface
@@ -89,6 +90,7 @@ target environment.**
    developers/guide/index
    developers/reviewing
    developers/cpp/index
+   developers/java/index
    developers/python
    developers/continuous_integration/index
    developers/benchmarks

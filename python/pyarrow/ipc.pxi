@@ -606,7 +606,7 @@ cdef class RecordBatchReader(_Weakrefable):
         """
         cdef shared_ptr[CTable] table
         with nogil:
-            check_status(self.reader.get().ReadAll(&table))
+            check_status(self.reader.get().ToTable().Value(&table))
         return pyarrow_wrap_table(table)
 
     read_pandas = _ReadPandasMixin.read_pandas

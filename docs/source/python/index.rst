@@ -56,6 +56,7 @@ files into Arrow structures.
    dataset
    extending_types
    integration
+   env_vars
    api
    getting_involved
    benchmarks

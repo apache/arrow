@@ -959,8 +959,10 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Future<> AsyncTask() {
+    std::lock_guard<std::mutex> lk(mx_);
     num_launched_++;
     num_running_++;
+    running_cv_.notify_all();
     /// TODO(ARROW-13004) Could maybe implement this check with future chains
     /// if we check to see if the future has been "consumed" or not
     num_finished_++;

@@ -21,11 +21,14 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static java.util.UUID.randomUUID;
+import static java.util.stream.IntStream.range;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
+import static org.apache.arrow.flight.sql.impl.FlightSql.*;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
@@ -41,7 +44,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -75,6 +77,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
@@ -91,6 +94,7 @@ import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.SqlInfoBuilder;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
@@ -110,6 +114,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -141,6 +146,8 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -323,6 +330,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         (theData, fieldVector) -> fieldVector.setSafe(index, theData));
   }
 
+  private static void saveToVector(final Byte data, final BitVector vector, final int index) {
+    vectorConsumer(
+        data,
+        vector,
+        fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, theData));
+  }
+
   private static void saveToVector(final String data, final VarCharVector vector, final int index) {
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
@@ -375,29 +390,68 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
                                                            final ResultSet data, boolean emptyToNull)
       throws SQLException {
+    Predicate<ResultSet> alwaysTrue = (resultSet) -> true;
+    return saveToVectors(vectorToColumnName, data, emptyToNull, alwaysTrue);
+  }
+
+  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
+                                                           final ResultSet data, boolean emptyToNull,
+                                                           Predicate<ResultSet> resultSetPredicate)
+      throws SQLException {
     Objects.requireNonNull(vectorToColumnName, "vectorToColumnName cannot be null.");
     Objects.requireNonNull(data, "data cannot be null.");
     final Set<Entry<T, String>> entrySet = vectorToColumnName.entrySet();
     int rows = 0;
-    for (; data.next(); rows++) {
+
+    while (data.next()) {
+      if (!resultSetPredicate.test(data)) {
+        continue;
+      }
       for (final Entry<T, String> vectorToColumn : entrySet) {
         final T vector = vectorToColumn.getKey();
         final String columnName = vectorToColumn.getValue();
         if (vector instanceof VarCharVector) {
           String thisData = data.getString(columnName);
           saveToVector(emptyToNull ? emptyToNull(thisData) : thisData, (VarCharVector) vector, rows);
-          continue;
         } else if (vector instanceof IntVector) {
           final int intValue = data.getInt(columnName);
           saveToVector(data.wasNull() ? null : intValue, (IntVector) vector, rows);
-          continue;
         } else if (vector instanceof UInt1Vector) {
           final byte byteValue = data.getByte(columnName);
           saveToVector(data.wasNull() ? null : byteValue, (UInt1Vector) vector, rows);
-          continue;
+        } else if (vector instanceof BitVector) {
+          final byte byteValue = data.getByte(columnName);
+          saveToVector(data.wasNull() ? null : byteValue, (BitVector) vector, rows);
+        } else if (vector instanceof ListVector) {
+          String createParamsValues = data.getString(columnName);
+
+          UnionListWriter writer = ((ListVector) vector).getWriter();
+
+          BufferAllocator allocator = vector.getAllocator();
+          final ArrowBuf buf = allocator.buffer(1024);
+
+          writer.setPosition(rows);
+          writer.startList();
+
+          if (createParamsValues != null) {
+            String[] split = createParamsValues.split(",");
+
+            range(0, split.length)
+                .forEach(i -> {
+                  byte[] bytes = split[i].getBytes(UTF_8);
+                  Preconditions.checkState(bytes.length < 1024,
+                      "The amount of bytes is greater than what the ArrowBuf supports");
+                  buf.setBytes(0, bytes);
+                  writer.varChar().writeVarChar(0, bytes.length, buf);
+                });
+          }
+          buf.close();
+          writer.endList();
+        } else {
+          throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
         }
-        throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
       }
+      rows ++;
     }
     for (final Entry<T, String> vectorToColumn : entrySet) {
       vectorToColumn.getKey().setValueCount(rows);
@@ -431,6 +485,52 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final int rows = dataVector.getValueCount();
     dataVector.setValueCount(rows);
     return new VectorSchemaRoot(singletonList(dataVector));
+  }
+
+  private static VectorSchemaRoot getTypeInfoRoot(CommandGetXdbcTypeInfo request, ResultSet typeInfo,
+                                                  final BufferAllocator allocator)
+      throws SQLException {
+    Preconditions.checkNotNull(allocator, "BufferAllocator cannot be null.");
+
+    VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TYPE_INFO_SCHEMA, allocator);
+
+    Map<FieldVector, String> mapper = new HashMap<>();
+    mapper.put(root.getVector("type_name"), "TYPE_NAME");
+    mapper.put(root.getVector("data_type"), "DATA_TYPE");
+    mapper.put(root.getVector("column_size"), "PRECISION");
+    mapper.put(root.getVector("literal_prefix"), "LITERAL_PREFIX");
+    mapper.put(root.getVector("literal_suffix"), "LITERAL_SUFFIX");
+    mapper.put(root.getVector("create_params"), "CREATE_PARAMS");
+    mapper.put(root.getVector("nullable"), "NULLABLE");
+    mapper.put(root.getVector("case_sensitive"), "CASE_SENSITIVE");
+    mapper.put(root.getVector("searchable"), "SEARCHABLE");
+    mapper.put(root.getVector("unsigned_attribute"), "UNSIGNED_ATTRIBUTE");
+    mapper.put(root.getVector("fixed_prec_scale"), "FIXED_PREC_SCALE");
+    mapper.put(root.getVector("auto_increment"), "AUTO_INCREMENT");
+    mapper.put(root.getVector("local_type_name"), "LOCAL_TYPE_NAME");
+    mapper.put(root.getVector("minimum_scale"), "MINIMUM_SCALE");
+    mapper.put(root.getVector("maximum_scale"), "MAXIMUM_SCALE");
+    mapper.put(root.getVector("sql_data_type"), "SQL_DATA_TYPE");
+    mapper.put(root.getVector("datetime_subcode"), "SQL_DATETIME_SUB");
+    mapper.put(root.getVector("num_prec_radix"), "NUM_PREC_RADIX");
+
+    Predicate<ResultSet> predicate;
+    if (request.hasDataType()) {
+      predicate = (resultSet) -> {
+        try {
+          return resultSet.getInt("DATA_TYPE") == request.getDataType();
+        } catch (SQLException e) {
+          throw new RuntimeException(e);
+        }
+      };
+    } else {
+      predicate = (resultSet -> true);
+    }
+
+    int rows = saveToVectors(mapper, typeInfo, true, predicate);
+
+    root.setRowCount(rows);
+    return root;
   }
 
   private static VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
@@ -494,20 +594,36 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           final Map<String, List<Field>> tableToFields = new HashMap<>();
 
           while (columnsData.next()) {
+            final String catalogName = columnsData.getString("TABLE_CAT");
+            final String schemaName = columnsData.getString("TABLE_SCHEM");
             final String tableName = columnsData.getString("TABLE_NAME");
             final String fieldName = columnsData.getString("COLUMN_NAME");
             final int dataType = columnsData.getInt("DATA_TYPE");
             final boolean isNullable = columnsData.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls;
-            final int precision = columnsData.getInt("NUM_PREC_RADIX");
+            final int precision = columnsData.getInt("COLUMN_SIZE");
             final int scale = columnsData.getInt("DECIMAL_DIGITS");
+            boolean isAutoIncrement =
+                Objects.equals(columnsData.getString("IS_AUTOINCREMENT"), "YES");
+
             final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
+
+            final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata.Builder()
+                .catalogName(catalogName)
+                .schemaName(schemaName)
+                .tableName(tableName)
+                .precision(precision)
+                .scale(scale)
+                .isAutoIncrement(isAutoIncrement)
+                .build();
+
             final Field field =
                 new Field(
                     fieldName,
                     new FieldType(
                         isNullable,
                         getArrowTypeFromJdbcType(dataType, precision, scale),
-                        null),
+                        null,
+                        columnMetadata.getMetadataMap()),
                     null);
             fields.add(field);
           }
@@ -593,7 +709,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoStatement(final CommandStatementQuery request, final CallContext context,
                                            final FlightDescriptor descriptor) {
-    ByteString handle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+    ByteString handle = copyFrom(randomUUID().toString().getBytes(UTF_8));
 
     try {
       // Ownership of the connection will be passed to the context. Do NOT close!
@@ -670,7 +786,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     // Running on another thread
     executorService.submit(() -> {
       try {
-        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
         final Connection connection = dataSource.getConnection();
         final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
@@ -1300,6 +1416,28 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context,
                                final ServerStreamListener listener) {
     this.sqlInfoBuilder.send(command.getInfoList(), listener);
+  }
+
+  @Override
+  public FlightInfo getFlightInfoTypeInfo(CommandGetXdbcTypeInfo request, CallContext context,
+                                          FlightDescriptor descriptor) {
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_TYPE_INFO_SCHEMA);
+  }
+
+  @Override
+  public void getStreamTypeInfo(CommandGetXdbcTypeInfo request, CallContext context,
+                                ServerStreamListener listener) {
+    try (final Connection connection = dataSource.getConnection();
+         final ResultSet typeInfo = connection.getMetaData().getTypeInfo();
+         final VectorSchemaRoot vectorSchemaRoot = getTypeInfoRoot(request, typeInfo, rootAllocator)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
+    } catch (SQLException e) {
+      LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override

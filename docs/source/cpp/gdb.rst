@@ -22,6 +22,8 @@
 Debugging code using Arrow
 ==========================
 
+.. _cpp_gdb_extension:
+
 GDB extension for Arrow C++
 ===========================
 

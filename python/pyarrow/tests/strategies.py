@@ -263,8 +263,10 @@ def arrays(draw, type, size=None, nullable=True):
     elif pa.types.is_timestamp(ty):
         min_int64 = -(2**63)
         max_int64 = 2**63 - 1
-        min_datetime = datetime.datetime.fromtimestamp(min_int64 // 10**9)
-        max_datetime = datetime.datetime.fromtimestamp(max_int64 // 10**9)
+        min_datetime = datetime.datetime.fromtimestamp(
+            min_int64 // 10**9) + datetime.timedelta(hours=12)
+        max_datetime = datetime.datetime.fromtimestamp(
+            max_int64 // 10**9) - datetime.timedelta(hours=12)
         try:
             offset_hours = int(ty.tz)
             tz = pytz.FixedOffset(offset_hours * 60)

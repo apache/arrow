@@ -92,7 +92,7 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
 
-  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, NULLPTR, &writer, &reader));
+  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, arrow::schema({}), &writer, &reader));
 
   std::shared_ptr<Buffer> metadata;
 
@@ -236,6 +236,22 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCrossReference(
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTableTypes(
     const FlightCallOptions& options) {
   flight_sql_pb::CommandGetTableTypes command;
+
+  return GetFlightInfoForCommand(*this, options, command);
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetXdbcTypeInfo(
+    const FlightCallOptions& options) {
+  flight_sql_pb::CommandGetXdbcTypeInfo command;
+
+  return GetFlightInfoForCommand(*this, options, command);
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetXdbcTypeInfo(
+    const FlightCallOptions& options, int data_type) {
+  flight_sql_pb::CommandGetXdbcTypeInfo command;
+
+  command.set_data_type(data_type);
 
   return GetFlightInfoForCommand(*this, options, command);
 }

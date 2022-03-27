@@ -21,6 +21,7 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 
 namespace arrow {
@@ -42,6 +43,34 @@ std::shared_ptr<DataType> GetDataTypeFromSqliteType(const int column_type) {
     default:
       return null();
   }
+}
+
+int32_t GetPrecisionFromColumn(int column_type) {
+  switch (column_type) {
+    case SQLITE_INTEGER:
+      return 10;
+    case SQLITE_FLOAT:
+      return 15;
+    case SQLITE_NULL:
+    default:
+      return 0;
+  }
+}
+
+ColumnMetadata GetColumnMetadata(int column_type, const char* table) {
+  ColumnMetadata::ColumnMetadataBuilder builder = ColumnMetadata::Builder();
+
+  builder.Scale(15).IsAutoIncrement(false).IsReadOnly(false);
+  if (table == NULLPTR) {
+    return builder.Build();
+  } else if (column_type == SQLITE_TEXT || column_type == SQLITE_BLOB) {
+    std::string table_name(table);
+    builder.TableName(table_name);
+  } else {
+    std::string table_name(table);
+    builder.TableName(table_name).Precision(GetPrecisionFromColumn(column_type));
+  }
+  return builder.Build();
 }
 
 arrow::Result<std::shared_ptr<SqliteStatement>> SqliteStatement::Create(
@@ -83,6 +112,7 @@ arrow::Result<std::shared_ptr<Schema>> SqliteStatement::GetSchema() const {
     // prepared statements, in this case it returns a dense_union type covering any type
     // SQLite supports.
     const int column_type = sqlite3_column_type(stmt_, i);
+    const char* table = sqlite3_column_table_name(stmt_, i);
     std::shared_ptr<DataType> data_type = GetDataTypeFromSqliteType(column_type);
     if (data_type->id() == Type::NA) {
       // Try to retrieve column type from sqlite3_column_decltype
@@ -95,8 +125,10 @@ arrow::Result<std::shared_ptr<Schema>> SqliteStatement::GetSchema() const {
         data_type = GetUnknownColumnDataType();
       }
     }
+    ColumnMetadata column_metadata = GetColumnMetadata(column_type, table);
 
-    fields.push_back(arrow::field(column_name, data_type));
+    fields.push_back(
+        arrow::field(column_name, data_type, column_metadata.metadata_map()));
   }
 
   return arrow::schema(fields);

@@ -135,6 +135,19 @@ class ARROW_EXPORT FlightSqlClient {
   arrow::Result<std::unique_ptr<FlightInfo>> GetTableTypes(
       const FlightCallOptions& options);
 
+  /// \brief Request the information about all the data types supported.
+  /// \param[in] options          RPC-layer hints for this call.
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetXdbcTypeInfo(
+      const FlightCallOptions& options);
+
+  /// \brief Request the information about all the data types supported.
+  /// \param[in] options          RPC-layer hints for this call.
+  /// \param[in] data_type        The data type to search for as filtering.
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetXdbcTypeInfo(
+      const FlightCallOptions& options, int data_type);
+
   /// \brief Request a list of SQL information.
   /// \param[in] options RPC-layer hints for this call.
   /// \param[in] sql_info the SQL info required.
