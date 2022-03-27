@@ -100,4 +100,3 @@ struct AddTimeDurationChecked {
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
-

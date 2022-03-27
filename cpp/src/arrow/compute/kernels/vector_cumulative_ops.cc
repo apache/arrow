@@ -18,12 +18,12 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/result.h"
-#include "arrow/visit_type_inline.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace compute {
@@ -36,7 +36,6 @@ struct CumulativeGeneric {
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = OptionsWrapper<OptionsType>::Get(ctx);
-    // auto start = (options.start) ? UnboxScalar<ArgType>::Unbox(*options.start) : checked_cast<ArgValue>(0);
     auto start = UnboxScalar<ArgType>::Unbox(*options.start);
     bool skip_nulls = options.skip_nulls;
 
@@ -61,7 +60,7 @@ struct CumulativeGeneric {
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& arg0, ArgValue& partial_scan,
-                            Datum* out, bool skip_nulls) {
+                     Datum* out, bool skip_nulls) {
     Status st = Status::OK();
     ArrayData* out_arr = out->mutable_array();
     auto out_data = out_arr->GetMutableValues<OutValue>(1);
@@ -70,8 +69,8 @@ struct CumulativeGeneric {
       VisitArrayValuesInline<ArgType>(
           arg0,
           [&](ArgValue v) {
-            partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(ctx, v,
-                                                                          partial_scan, &st);
+            partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(
+                ctx, v, partial_scan, &st);
             *out_data++ = partial_scan;
           },
           [&]() {
@@ -88,8 +87,8 @@ struct CumulativeGeneric {
             if (encounted_null) {
               *out_data++ = OutValue{};
             } else {
-              partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(ctx, v,
-                                                                            partial_scan, &st);    
+              partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(
+                  ctx, v, partial_scan, &st);
               *out_data++ = partial_scan;
               ++start_null_idx;
             }
@@ -97,10 +96,7 @@ struct CumulativeGeneric {
           [&]() {
             // null
             *out_data++ = OutValue{};
-            if (!encounted_null) {
-              ++start_null_idx;
-              encounted_null = true;
-            }
+            encounted_null = true;
           });
 
       auto out_bitmap = out_arr->GetMutableValues<uint8_t>(0);
@@ -121,8 +117,8 @@ const FunctionDoc cumulative_sum_doc{
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
   auto options = CumulativeGenericOptions::Defaults();
-  auto cumulative_sum = std::make_shared<VectorFunction>(
-      "cumulative_sum", Arity::Unary(), &cumulative_sum_doc, &options);
+  auto cumulative_sum = std::make_shared<VectorFunction>("cumulative_sum", Arity::Unary(),
+                                                         &cumulative_sum_doc, &options);
 
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
@@ -133,7 +129,8 @@ void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
     kernel.null_handling = NullHandling::type::INTERSECTION;
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
-    kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Add, CumulativeGenericOptions>(ty);
+    kernel.exec =
+        ArithmeticExecFromOp<CumulativeGeneric, Add, CumulativeGenericOptions>(ty);
     kernel.init = OptionsWrapper<CumulativeGenericOptions>::Init;
     DCHECK_OK(cumulative_sum->AddKernel(std::move(kernel)));
   }
