@@ -135,9 +135,10 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
-static auto kCumulativeGenericOptionsType = GetFunctionOptionsType<CumulativeGenericOptions>(
-    DataMember("start", &CumulativeGenericOptions::start),
-    DataMember("skip_nulls", &CumulativeGenericOptions::skip_nulls));
+static auto kCumulativeGenericOptionsType =
+    GetFunctionOptionsType<CumulativeGenericOptions>(
+        DataMember("start", &CumulativeGenericOptions::start),
+        DataMember("skip_nulls", &CumulativeGenericOptions::skip_nulls));
 }  // namespace
 }  // namespace internal
 
@@ -188,7 +189,8 @@ constexpr char SelectKOptions::kTypeName[];
 // CumulativeGenericOptions::CumulativeGenericOptions(double start, bool skip_nulls)
 //     : CumulativeGenericOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
 
-CumulativeGenericOptions::CumulativeGenericOptions(std::shared_ptr<Scalar> start, bool skip_nulls)
+CumulativeGenericOptions::CumulativeGenericOptions(std::shared_ptr<Scalar> start,
+                                                   bool skip_nulls)
     : FunctionOptions(internal::kCumulativeGenericOptionsType),
       start(std::move(start)),
       skip_nulls(skip_nulls) {}
@@ -344,8 +346,7 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
   return out.make_array();
 }
 
-Result<Datum> CumulativeSum(const Datum& values,
-                            const CumulativeGenericOptions& options,
+Result<Datum> CumulativeSum(const Datum& values, const CumulativeGenericOptions& options,
                             ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum out,
                         CallFunction("cumulative_sum", {Datum(values)}, &options, ctx));
