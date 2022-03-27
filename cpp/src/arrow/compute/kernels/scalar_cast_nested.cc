@@ -285,20 +285,10 @@ struct CastStructSubset {
     const ArrayData& in_array = *batch[0].array();
     ArrayData* out_array = out->mutable_array();
 
-    if (in_array.GetNullCount() > 0) {
-      auto out_bitmap_builder = TypedBufferBuilder<bool>(ctx->memory_pool());
-      const auto in_bitmap = in_array.buffers[0]->data();
-
-      for (int in_field_index = 0; in_field_index < in_field_count; in_field_index++) {
-        if (fields_to_select[in_field_index]) {
-          if (bit_util::GetBit(in_bitmap, in_array.offset + in_field_index)) {
-            ARROW_RETURN_NOT_OK(out_bitmap_builder.Append(true));
-          } else {
-            ARROW_RETURN_NOT_OK(out_bitmap_builder.Append(false));
-          }
-        }
-      }
-      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0], out_bitmap_builder.Finish());
+    if (in_array.buffers[0]) {
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                                       in_array.offset, in_array.length));
     }
 
     out_field_index = 0;

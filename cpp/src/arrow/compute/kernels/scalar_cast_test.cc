@@ -2262,8 +2262,8 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr("Type error: struct field names do not match: struct<a: int8, "
-                           "b: int8> struct<c: int8, d: int8>"),
+      ::testing::HasSubstr(
+          "struct subfields names don't match or are in the wrong order"),
       Cast(src, options));
 }
 
@@ -2281,8 +2281,8 @@ TEST(Cast, StructToDifferentSizeStruct) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr("Type error: struct field sizes do not match: struct<a: int8, "
-                           "b: int8> struct<a: int8, b: int8, c: int8>"),
+      ::testing::HasSubstr(
+          "struct subfields names don't match or are in the wrong order"),
       Cast(src, options));
 }
 
@@ -2329,7 +2329,7 @@ TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
       Cast(src2, options));
 }
 
-TEST(Cats, StructSubset) {
+TEST(Cast, StructSubset) {
   std::vector<std::string> field_names = {"a", "b", "c", "d", "e"};
   std::shared_ptr<Array> a, b, c, d, e;
   a = ArrayFromJSON(int8(), "[1, 2, 5]");
@@ -2346,6 +2346,47 @@ TEST(Cats, StructSubset) {
   CheckCast(src, dest2);
 
   ASSERT_OK_AND_ASSIGN(auto dest3, StructArray::Make({c, e}, {"c", "e"}));
+  CheckCast(src, dest3);
+
+  const auto dest4 = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                     std::make_shared<Field>("d", int16()),
+                                     std::make_shared<Field>("e", int64())});
+  const auto options4 = CastOptions::Safe(dest4);
+  auto res = Cast(src, options4).ValueOrDie();
+  ARROW_LOG(WARNING) << res.make_array()->ToString();
+
+  const auto dest5 = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                     std::make_shared<Field>("d", int16()),
+                                     std::make_shared<Field>("f", int64())});
+  const auto options5 = CastOptions::Safe(dest5);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr(
+          "struct subfields names don't match or are in the wrong order"),
+      Cast(src, options5));
+}
+
+TEST(Cast, StructSubsetWithNulls) {
+  std::vector<std::string> field_names = {"a", "b", "c", "d", "e"};
+  std::shared_ptr<Array> a, b, c, d, e;
+  a = ArrayFromJSON(int8(), "[1, 2, 5]");
+  b = ArrayFromJSON(int8(), "[3, 4, 7]");
+  c = ArrayFromJSON(int8(), "[9, 11, 44]");
+  d = ArrayFromJSON(int8(), "[6, 51, 49]");
+  e = ArrayFromJSON(int8(), "[19, 17, 74]");
+
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<int>({0, 1, 0}, &null_bitmap);
+
+  ASSERT_OK_AND_ASSIGN(auto src,
+                       StructArray::Make({a, b, c, d, e}, field_names, null_bitmap));
+  ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({a, c}, {"a", "c"}, null_bitmap));
+  CheckCast(src, dest1);
+
+  ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({b, d}, {"b", "d"}, null_bitmap));
+  CheckCast(src, dest2);
+
+  ASSERT_OK_AND_ASSIGN(auto dest3, StructArray::Make({c, e}, {"c", "e"}, null_bitmap));
   CheckCast(src, dest3);
 
   const auto dest4 = arrow::struct_({std::make_shared<Field>("a", int8()),

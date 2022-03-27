@@ -1656,7 +1656,10 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
 
   // TODO(ARROW-1888): allow scanner to "patch up" structs with casts
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      TypeError, ::testing::HasSubstr("struct field sizes do not match"), plan.Run());
+      TypeError,
+      ::testing::HasSubstr(
+          "struct subfields names don't match or are in the wrong order"),
+      plan.Run());
 }
 
 TEST(ScanNode, MinimalEndToEnd) {
