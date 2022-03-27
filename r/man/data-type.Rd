@@ -209,9 +209,14 @@ time64("ns")
 
 # Use the cast method to change the type of data contained in Arrow objects.
 # Please check the documentation of each data object class for details.
-Scalar$create(0L)$cast(int64())$cast(timestamp("ns"))
-Array$create(0L)$cast(int64())$cast(timestamp("s", timezone = "UTC"))
-chunked_array(0L, 1L)$cast(date32())
+my_scalar <- Scalar$create(0L, type = int64()) # int64
+my_scalar$cast(timestamp("ns")) # timestamp[ns]
+
+my_array <- Array$create(0L, type = int64()) # int64
+my_array$cast(timestamp("s", timezone = "UTC")) # timestamp[s, tz=UTC]
+
+my_chunked_array <- chunked_array(0L, 1L) # int32
+my_chunked_array$cast(date32()) # date32[day]
 
 # You can also use `cast()` in an Arrow dplyr query.
 if (requireNamespace("dplyr", quietly = TRUE)) {
