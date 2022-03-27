@@ -201,27 +201,28 @@ Use \code{decimal128()} or \code{decimal256()} as the names are more informative
 \code{decimal()}.
 }
 \examples{
-\dontshow{if (arrow_available() && arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")
 time64("ns")
 
-# Use the cast method to change the type of data contained in Arrow Objects.
+# Use the cast method to change the type of data contained in Arrow objects.
 # Please check the documentation of each data object class for details.
 Scalar$create(0L)$cast(int64())$cast(timestamp("ns"))
 Array$create(0L)$cast(int64())$cast(timestamp("s", timezone = "UTC"))
 chunked_array(0L, 1L)$cast(date32())
 
-# You can also use `cast()` in dplyr query.
-library(dplyr)
-data.frame(col1 = 1:10, col2 = 1:10) \%>\%
-  arrow_table() \%>\%
-  mutate(
-    col1 = cast(col1, string()),
-    col2 = cast(col2, date32())
-  ) \%>\%
-  compute()
+# You can also use `cast()` in an Arrow dplyr query.
+if (requireNamespace("dplyr", quietly = TRUE)) {
+  library(dplyr, warn.conflicts = FALSE)
+  arrow_table(mtcars) \%>\%
+    transmute(
+      col1 = cast(cyl, string()),
+      col2 = cast(cyl, int8())
+    ) \%>\%
+    compute()
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{
