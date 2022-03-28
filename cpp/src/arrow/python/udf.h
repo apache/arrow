@@ -50,10 +50,13 @@ DECLARE_CALL_UDF(Array, array, make_array)
 
 #undef DECLARE_CALL_UDF
 
+// Exposing the UDFOptions: https://issues.apache.org/jira/browse/ARROW-16041
+struct UDFOptions {};
+
 class ARROW_PYTHON_EXPORT UdfBuilder {
  public:
   UdfBuilder(const std::string func_name, const cp::Function::Kind kind,
-             const cp::Arity arity, const cp::FunctionDoc* func_doc,
+             const cp::Arity arity, const cp::FunctionDoc func_doc,
              const std::vector<cp::InputType> in_types, const cp::OutputType out_type,
              const cp::MemAllocation::type mem_allocation,
              const cp::NullHandling::type null_handling)
@@ -72,7 +75,7 @@ class ARROW_PYTHON_EXPORT UdfBuilder {
 
   const cp::Arity& arity() const { return arity_; }
 
-  const cp::FunctionDoc& doc() const { return *func_doc_; }
+  const cp::FunctionDoc doc() const { return func_doc_; }
 
   const std::vector<cp::InputType>& input_types() const { return in_types_; }
 
@@ -86,7 +89,7 @@ class ARROW_PYTHON_EXPORT UdfBuilder {
   std::string func_name_;
   cp::Function::Kind kind_;
   cp::Arity arity_;
-  const cp::FunctionDoc* func_doc_;
+  const cp::FunctionDoc func_doc_;
   std::vector<cp::InputType> in_types_;
   cp::OutputType out_type_;
   cp::MemAllocation::type mem_allocation_;
@@ -96,7 +99,7 @@ class ARROW_PYTHON_EXPORT UdfBuilder {
 class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
  public:
   ScalarUdfBuilder(const std::string func_name, const cp::Arity arity,
-                   const cp::FunctionDoc* func_doc,
+                   const cp::FunctionDoc func_doc,
                    const std::vector<cp::InputType> in_types,
                    const cp::OutputType out_type,
                    const cp::MemAllocation::type mem_allocation,
@@ -104,7 +107,7 @@ class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
       : UdfBuilder(func_name, cp::Function::SCALAR, arity, func_doc, in_types, out_type,
                    mem_allocation, null_handling) {}
 
-  Status MakeFunction(PyObject* function);
+  Status MakeFunction(PyObject* function, UDFOptions* options = NULLPTR);
 };
 
 }  // namespace py

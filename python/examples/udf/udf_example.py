@@ -341,12 +341,12 @@ if __name__ == '__main__':
 
     # scalar function examples
     scalar_unary_example()
-    scalar_binary_example()
-    scalar_ternary_function()
-    scalar_varargs_function()
+    # scalar_binary_example()
+    # scalar_ternary_function()
+    # scalar_varargs_function()
 
-    # array function examples
-    array_unary_example()
-    array_binary_example()
-    array_ternary_example()
-    array_varargs_example()
+    # # array function examples
+    # array_unary_example()
+    # array_binary_example()
+    # array_ternary_example()
+    # array_varargs_example()

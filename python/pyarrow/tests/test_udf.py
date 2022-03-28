@@ -22,7 +22,7 @@ import pytest
 import pyarrow as pa
 from pyarrow import compute as pc
 from pyarrow.compute import register_function
-from pyarrow.compute import InputType, UDFRegistrationError
+from pyarrow.compute import InputType
 
 
 def get_function_doc(summary: str, desc: str, arg_names: List[str]):
@@ -278,7 +278,7 @@ def test_scalar_udf_function_with_scalar_data(function_names,
         func = pc.get_function(name)
         assert func.name == name
 
-        result = pc.call_function(name, input, options=None, memory_pool=None)
+        result = pc.call_function(name, input)
         assert result == expected_output
 
 

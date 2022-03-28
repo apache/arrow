@@ -71,11 +71,10 @@ Status VerifyArityAndInput(cp::Arity arity, const cp::ExecBatch& batch) {
   return Status::OK();
 }
 
-Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
+Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
   Status st;
-  auto func_doc = this->doc();
-  auto func =
-      std::make_shared<cp::ScalarFunction>(this->name(), this->arity(), &func_doc);
+  auto doc = this->doc();
+  auto func = std::make_shared<cp::ScalarFunction>(this->name(), this->arity(), &doc);
   // creating a copy of objects for the lambda function
   auto py_function = function;
   auto arity = this->arity();
