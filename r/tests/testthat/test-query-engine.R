@@ -45,29 +45,6 @@ test_that("do_exec_plan_substrait can evaluate a simple plan", {
           }
         }
       }}
-    ],
-    "extension_uris": [
-      {
-        "extension_uri_anchor": 7,
-        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
-      }
-    ],
-    "extensions": [
-      {"extension_type": {
-        "extension_uri_reference": 7,
-        "type_anchor": 42,
-        "name": "null"
-      }},
-      {"extension_type_variation": {
-        "extension_uri_reference": 7,
-        "type_variation_anchor": 23,
-        "name": "u8"
-      }},
-      {"extension_function": {
-        "extension_uri_reference": 7,
-        "function_anchor": 42,
-        "name": "add"
-      }}
     ]
   }', tf)
 
