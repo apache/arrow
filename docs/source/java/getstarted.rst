@@ -20,6 +20,7 @@
 
 .. _getstarted:
 
+===============
 Getting Started
 ===============
 
