@@ -522,6 +522,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           location = Location.forGrpcInsecure(host, port);
         }
         clientBuilder.location(location);
+
+        if (disableCertificateVerification) {
+          clientBuilder.verifyServer(false);
+        }
+
         if (keyStorePath != null) {
           clientBuilder.trustedCertificates(
               ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
