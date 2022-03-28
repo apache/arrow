@@ -2046,7 +2046,7 @@ cdef class Scanner(_Weakrefable):
         include (order and duplicates will be preserved), or a dictionary
         with {{new_column_name: expression}} values for more advanced
         projections.
-        
+
         The list of columns or expressions may use the special fields
         like  `__batch_index` (the index of the batch within the fragment), 
         `__fragment_index` (the index of the fragment within the dataset), 
@@ -2058,8 +2058,8 @@ cdef class Scanner(_Weakrefable):
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
         By default all of the available columns are projected. 
-        Raises an exception if any of the referenced column names 
-        does not exist in the dataset's Schema.
+        An error will be returned if any of the referenced column name 
+        does not exist in the dataset's schema.
     filter : Expression, default None
         Scan will return only the rows matching the filter.
         If possible the predicate will be pushed down to exploit the
