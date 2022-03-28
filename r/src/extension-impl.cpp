@@ -46,7 +46,7 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
   }
 
   cpp11::environment instance = r6_instance();
-  cpp11::function instance_ExtensionEquals(instance[".ExtensionEquals"]);
+  cpp11::function instance_ExtensionEquals(instance["ExtensionEquals"]);
 
   std::shared_ptr<DataType> other_shared =
       ValueOrStop(other.Deserialize(other.storage_type(), other.Serialize()));

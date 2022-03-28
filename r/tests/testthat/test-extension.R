@@ -127,7 +127,7 @@ test_that("extension subclasses can override the ExtensionEquals method", {
         self$field_values <- unserialize(self$Serialize())
       },
 
-      .ExtensionEquals = function(other) {
+      ExtensionEquals = function(other) {
         if (!inherits(other, "SomeExtensionTypeSubclass")) {
           return(FALSE)
         }
@@ -150,7 +150,7 @@ test_that("extension subclasses can override the ExtensionEquals method", {
 
   register_extension_type(type)
 
-  expect_true(type$.ExtensionEquals(type))
+  expect_true(type$ExtensionEquals(type))
   expect_true(type$Equals(type))
 
   type2 <- new_extension_type(
@@ -160,7 +160,7 @@ test_that("extension subclasses can override the ExtensionEquals method", {
     type_class = SomeExtensionTypeSubclass
   )
 
-  expect_true(type$.ExtensionEquals(type2))
+  expect_true(type$ExtensionEquals(type2))
   expect_true(type$Equals(type2))
 
   unregister_extension_type("some_extension_subclass")

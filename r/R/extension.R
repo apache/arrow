@@ -163,7 +163,7 @@ ExtensionType <- R6Class("ExtensionType",
       # to populate R6 class members.
     },
 
-    .ExtensionEquals = function(other) {
+    ExtensionEquals = function(other) {
       inherits(other, "ExtensionType") &&
         identical(other$extension_name(), self$extension_name()) &&
         identical(other$Serialize(), self$Serialize())
@@ -443,7 +443,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       private$.ptype <- unserialize(self$Serialize())
     },
 
-    .ExtensionEquals = function(other) {
+    ExtensionEquals = function(other) {
       if (!inherits(other, "VctrsExtensionType")) {
         return(FALSE)
       }
