@@ -1290,31 +1290,14 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
 
 test_that("as_date()", {
   test_df <- tibble::tibble(
-    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
+    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Pacific/Marquesas"),
     date_var = as.Date("2022-02-25"),
-    difference_date = ymd_hms("2010-08-03 00:50:50", tz= "Europe/London"),
+    difference_date = ymd_hms("2010-08-03 00:50:50", tz= "Pacific/Marquesas"),
     character_ymd_var = "2022-02-25 00:00:01",
     character_ydm_var = "2022/25/02 00:00:01",
     integer_var = 32L,
     integerish_var = 32,
     double_var = 34.56
-  )
-
-  # difference between as.Date() and as_date():
-  #`as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
-  # to `as.Date()`
-  # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
-  # passsed if`tz` is NULL
-  compare_dplyr_binding(
-    .input %>%
-      # test_df %>%
-      # arrow_table() %>%
-      transmute(
-        date_diff_lubridate = as_date(difference_date),
-        date_diff_base = as.Date(difference_date)
-      ) %>%
-      collect(),
-    test_df
   )
 
   # casting from POSIXct treated separately so we can skip on Windows
@@ -1368,6 +1351,21 @@ test_that("as_date()", {
       collect(),
     test_df
   )
+
+  # difference between as.Date() and as_date():
+  #`as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
+  # to `as.Date()`
+  # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
+  # passsed if`tz` is NULL
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        date_diff_lubridate = as_date(difference_date),
+        date_diff_base = as.Date(difference_date)
+      ) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("`as_datetime()`", {
@@ -1384,7 +1382,6 @@ test_that("`as_datetime()`", {
       mutate(
         ddate = as_datetime(date),
         dchar_date_no_tz = as_datetime(char_date),
-        dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
         dint_date = as_datetime(int_date, origin = "1970-01-02"),
         dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
         dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
@@ -1403,5 +1400,16 @@ test_that("`as_datetime()`", {
       ) %>%
       collect(),
     regexp = "Float value 10.1 was truncated converting to int64"
+  )
+
+  # separate tz test so we can skip on Windows
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_df
   )
 })
