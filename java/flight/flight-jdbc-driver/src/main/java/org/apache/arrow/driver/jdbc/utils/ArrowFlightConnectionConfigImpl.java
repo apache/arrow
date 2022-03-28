@@ -101,6 +101,10 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     return ArrowFlightConnectionProperty.USE_TLS.getBoolean(properties);
   }
 
+  public boolean getDisableCertificateVerification() {
+    return ArrowFlightConnectionProperty.CERTIFICATE_VERIFICATION.getBoolean(properties);
+  }
+
   /**
    * Gets the thread pool size.
    *
@@ -130,6 +134,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     USER("user", null, Type.STRING, false),
     PASSWORD("password", null, Type.STRING, false),
     USE_TLS("useTls", false, Type.BOOLEAN, false),
+    CERTIFICATE_VERIFICATION("disableCertificateVerification", false, Type.BOOLEAN, false),
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
     TOKEN("token", null, Type.STRING, false);
 
