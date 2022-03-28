@@ -2245,9 +2245,131 @@ static void CheckStructToStruct(
   }
 }
 
-TEST(Cast, StructToSameSizedAndNamedStruct) {
-  CheckStructToStruct({int32(), float32(), int64()});
+static void CheckStructToStructSubset(
+    const std::vector<std::shared_ptr<DataType>>& value_types) {
+  for (const auto& src_value_type : value_types) {
+    for (const auto& dest_value_type : value_types) {
+      std::vector<std::string> field_names = {"a", "b", "c", "d", "e"};
+
+      std::shared_ptr<Array> a1, b1, c1, d1, e1;
+      a1 = ArrayFromJSON(src_value_type, "[1, 2, 5]");
+      b1 = ArrayFromJSON(src_value_type, "[3, 4, 7]");
+      c1 = ArrayFromJSON(src_value_type, "[9, 11, 44]");
+      d1 = ArrayFromJSON(src_value_type, "[6, 51, 49]");
+      e1 = ArrayFromJSON(src_value_type, "[19, 17, 74]");
+
+      std::shared_ptr<Array> a2, b2, c2, d2, e2;
+      a2 = ArrayFromJSON(dest_value_type, "[1, 2, 5]");
+      b2 = ArrayFromJSON(dest_value_type, "[3, 4, 7]");
+      c2 = ArrayFromJSON(dest_value_type, "[9, 11, 44]");
+      d2 = ArrayFromJSON(dest_value_type, "[6, 51, 49]");
+      e2 = ArrayFromJSON(dest_value_type, "[19, 17, 74]");
+
+      ASSERT_OK_AND_ASSIGN(auto src,
+                           StructArray::Make({a1, b1, c1, d1, e1}, field_names));
+      ASSERT_OK_AND_ASSIGN(
+          auto dest1, StructArray::Make({a2, c2}, std::vector<std::string>{"a", "c"}));
+      CheckCast(src, dest1);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest2, StructArray::Make({b2, d2}, std::vector<std::string>{"b", "d"}));
+      CheckCast(src, dest2);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest3, StructArray::Make({c2, e2}, std::vector<std::string>{"c", "e"}));
+      CheckCast(src, dest3);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest4,
+          StructArray::Make({a2, d2, e2}, std::vector<std::string>{"a", "d", "e"}));
+      CheckCast(src, dest4);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest5,
+          StructArray::Make({b2, c2, e2}, std::vector<std::string>{"b", "c", "e"}));
+      CheckCast(src, dest5);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest6, StructArray::Make({a2, b2, c2, e2},
+                                        std::vector<std::string>{"a", "b", "c", "e"}));
+      CheckCast(src, dest6);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest7, StructArray::Make({a2, b2, c2, d2, e2}, {"a", "b", "c", "d", "e"}));
+      CheckCast(src, dest7);
+
+      const auto dest8 = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                         std::make_shared<Field>("d", int16()),
+                                         std::make_shared<Field>("f", int64())});
+      const auto options = CastOptions::Safe(dest8);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          TypeError,
+          ::testing::HasSubstr(
+              "struct (sub)fields don't match or are in the wrong order"),
+          Cast(src, options));
+
+      // With nulls
+      std::shared_ptr<Buffer> null_bitmap;
+      BitmapFromVector<int>({0, 1, 0}, &null_bitmap);
+
+      ASSERT_OK_AND_ASSIGN(auto src_null, StructArray::Make({a1, b1, c1, d1, e1},
+                                                            field_names, null_bitmap));
+      ASSERT_OK_AND_ASSIGN(
+          auto dest1_null,
+          StructArray::Make({a2, c2}, std::vector<std::string>{"a", "c"}, null_bitmap));
+      CheckCast(src_null, dest1_null);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest2_null,
+          StructArray::Make({b2, d2}, std::vector<std::string>{"b", "d"}, null_bitmap));
+      CheckCast(src_null, dest2_null);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest3_null,
+          StructArray::Make({c2, e2}, std::vector<std::string>{"c", "e"}, null_bitmap));
+      CheckCast(src_null, dest3_null);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest4_null,
+          StructArray::Make({a2, d2, e2}, std::vector<std::string>{"a", "d", "e"},
+                            null_bitmap));
+      CheckCast(src_null, dest4_null);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest5_null,
+          StructArray::Make({b2, c2, e2}, std::vector<std::string>{"b", "c", "e"},
+                            null_bitmap));
+      CheckCast(src_null, dest5_null);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest6_null,
+          StructArray::Make({a2, b2, c2, e2},
+                            std::vector<std::string>{"a", "b", "c", "e"}, null_bitmap));
+      CheckCast(src_null, dest6_null);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest7_null,
+          StructArray::Make({a2, b2, c2, d2, e2},
+                            std::vector<std::string>{"a", "b", "c", "d", "e"},
+                            null_bitmap));
+      CheckCast(src_null, dest7_null);
+
+      const auto dest8_null = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                              std::make_shared<Field>("d", int16()),
+                                              std::make_shared<Field>("f", int64())});
+      const auto options_null = CastOptions::Safe(dest8_null);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          TypeError,
+          ::testing::HasSubstr(
+              "struct (sub)fields don't match or are in the wrong order"),
+          Cast(src_null, options_null));
+    }
+  }
 }
+
+TEST(Cast, StructToSameSizedAndNamedStruct) { CheckStructToStruct(NumericTypes()); }
+
+TEST(Cast, StructToStructSubset) { CheckStructToStructSubset(NumericTypes()); }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   std::vector<std::string> field_names = {"a", "b"};
@@ -2266,7 +2388,7 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
       Cast(src, options));
 }
 
-TEST(Cast, StructToDifferentSizeStruct) {
+TEST(Cast, StructToLargerSizeStruct) {
   std::vector<std::string> field_names = {"a", "b"};
   std::shared_ptr<Array> a, b;
   a = ArrayFromJSON(int8(), "[1, 2]");
@@ -2325,116 +2447,6 @@ TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
           "Type error: cannot cast nullable struct to non-nullable "
           "struct: struct<a: int8, b: int8> struct<a: int8 not null, b: int8 not null>"),
       Cast(src2, options));
-}
-
-TEST(Cast, StructSubset) {
-  std::vector<std::string> field_names = {"a", "b", "c", "d", "e"};
-  std::shared_ptr<Array> a, b, c, d, e;
-  a = ArrayFromJSON(int8(), "[1, 2, 5]");
-  b = ArrayFromJSON(int8(), "[3, 4, 7]");
-  c = ArrayFromJSON(int8(), "[9, 11, 44]");
-  d = ArrayFromJSON(int8(), "[6, 51, 49]");
-  e = ArrayFromJSON(int8(), "[19, 17, 74]");
-
-  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b, c, d, e}, field_names));
-  ASSERT_OK_AND_ASSIGN(auto dest1,
-                       StructArray::Make({a, c}, std::vector<std::string>{"a", "c"}));
-  CheckCast(src, dest1);
-
-  ASSERT_OK_AND_ASSIGN(auto dest2,
-                       StructArray::Make({b, d}, std::vector<std::string>{"b", "d"}));
-  CheckCast(src, dest2);
-
-  ASSERT_OK_AND_ASSIGN(auto dest3,
-                       StructArray::Make({c, e}, std::vector<std::string>{"c", "e"}));
-  CheckCast(src, dest3);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest4, StructArray::Make({a, d, e}, std::vector<std::string>{"a", "d", "e"}));
-  CheckCast(src, dest4);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest5, StructArray::Make({b, c, e}, std::vector<std::string>{"b", "c", "e"}));
-  CheckCast(src, dest5);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest6,
-      StructArray::Make({a, b, c, e}, std::vector<std::string>{"a", "b", "c", "e"}));
-  CheckCast(src, dest6);
-
-  ASSERT_OK_AND_ASSIGN(auto dest7,
-                       StructArray::Make({a, b, c, d, e}, {"a", "b", "c", "d", "e"}));
-  CheckCast(src, dest7);
-
-  const auto dest8 = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                     std::make_shared<Field>("d", int16()),
-                                     std::make_shared<Field>("f", int64())});
-  const auto options = CastOptions::Safe(dest8);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct (sub)fields don't match or are in the wrong order"),
-      Cast(src, options));
-}
-
-TEST(Cast, StructSubsetWithNulls) {
-  std::vector<std::string> field_names = {"a", "b", "c", "d", "e"};
-  std::shared_ptr<Array> a, b, c, d, e;
-  a = ArrayFromJSON(int8(), "[1, 2, 5]");
-  b = ArrayFromJSON(int8(), "[3, 4, 7]");
-  c = ArrayFromJSON(int8(), "[9, 11, 44]");
-  d = ArrayFromJSON(int8(), "[6, 51, 49]");
-  e = ArrayFromJSON(int8(), "[19, 17, 74]");
-
-  std::shared_ptr<Buffer> null_bitmap;
-  BitmapFromVector<int>({0, 1, 0}, &null_bitmap);
-
-  ASSERT_OK_AND_ASSIGN(auto src,
-                       StructArray::Make({a, b, c, d, e}, field_names, null_bitmap));
-  ASSERT_OK_AND_ASSIGN(
-      auto dest1,
-      StructArray::Make({a, c}, std::vector<std::string>{"a", "c"}, null_bitmap));
-  CheckCast(src, dest1);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest2,
-      StructArray::Make({b, d}, std::vector<std::string>{"b", "d"}, null_bitmap));
-  CheckCast(src, dest2);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest3,
-      StructArray::Make({c, e}, std::vector<std::string>{"c", "e"}, null_bitmap));
-  CheckCast(src, dest3);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest4,
-      StructArray::Make({a, d, e}, std::vector<std::string>{"a", "d", "e"}, null_bitmap));
-  CheckCast(src, dest4);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest5,
-      StructArray::Make({b, c, e}, std::vector<std::string>{"b", "c", "e"}, null_bitmap));
-  CheckCast(src, dest5);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest6,
-      StructArray::Make({a, b, c, e}, std::vector<std::string>{"a", "b", "c", "e"},
-                        null_bitmap));
-  CheckCast(src, dest6);
-
-  ASSERT_OK_AND_ASSIGN(
-      auto dest7,
-      StructArray::Make({a, b, c, d, e},
-                        std::vector<std::string>{"a", "b", "c", "d", "e"}, null_bitmap));
-  CheckCast(src, dest7);
-
-  const auto dest8 = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                     std::make_shared<Field>("d", int16()),
-                                     std::make_shared<Field>("f", int64())});
-  const auto options = CastOptions::Safe(dest8);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct (sub)fields don't match or are in the wrong order"),
-      Cast(src, options));
 }
 
 TEST(Cast, IdentityCasts) {
