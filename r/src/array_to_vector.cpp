@@ -29,6 +29,7 @@
 #include <cpp11/altrep.hpp>
 #include <type_traits>
 
+#include "./extension.h"
 #include "./r_task_group.h"
 
 namespace arrow {
@@ -65,7 +66,14 @@ class Converter {
 
   // converter is passed as self to outlive the scope of Converter::Convert()
   SEXP ScheduleConvertTasks(RTasks& tasks, std::shared_ptr<Converter> self) {
-    // try altrep first
+    // ExtensionType has to go through the ExensionType R6 instance
+    auto extension_type =
+        dynamic_cast<const RExtensionType*>(chunked_array_->type().get());
+    if (extension_type != nullptr) {
+      return extension_type->Convert(chunked_array_);
+    }
+
+    // try altrep before the Converter api:
     SEXP alt = altrep::MakeAltrepVector(chunked_array_);
     if (!Rf_isNull(alt)) {
       return alt;
@@ -1154,6 +1162,28 @@ class Converter_Null : public Converter {
   }
 };
 
+class Converter_Extension : public Converter {
+ public:
+  explicit Converter_Extension(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : Converter(chunked_array) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    Rf_error("Can't use Converter() API for ExtensionType directoy");
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::NotImplemented("Converter API for ExtensionType");
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    return Status::NotImplemented("Converter API for ExtensionType");
+  }
+
+ private:
+  std::shared_ptr<Converter> storage_converter_;
+};
+
 bool ArraysCanFitInteger(ArrayVector arrays) {
   bool all_can_fit = true;
   auto i32 = arrow::int32();
@@ -1315,6 +1345,9 @@ std::shared_ptr<Converter> Converter::Make(
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(chunked_array);
+
+    case Type::EXTENSION:
+      return std::make_shared<arrow::r::Converter_Extension>(chunked_array);
 
     default:
       break;

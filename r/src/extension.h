@@ -42,9 +42,9 @@ class RExtensionType : public arrow::ExtensionType {
 
   std::string ToString() const;
 
-  cpp11::sexp Convert(const std::shared_ptr<arrow::Array>& array);
+  cpp11::sexp Convert(const std::shared_ptr<arrow::Array>& array) const;
 
-  cpp11::sexp Convert(const std::shared_ptr<arrow::ChunkedArray>& array);
+  cpp11::sexp Convert(const std::shared_ptr<arrow::ChunkedArray>& array) const;
 
   std::unique_ptr<RExtensionType> Clone() const;
 

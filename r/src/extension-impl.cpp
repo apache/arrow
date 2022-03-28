@@ -25,7 +25,7 @@
 #include <arrow/extension_type.h>
 #include <arrow/type.h>
 
-#include "extension.h"
+#include "./extension.h"
 
 bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
   // Avoid materializing the R6 instance if at all possible, since this is slow
@@ -98,14 +98,15 @@ std::string RExtensionType::ToString() const {
   return cpp11::as_cpp<std::string>(result);
 }
 
-cpp11::sexp RExtensionType::Convert(const std::shared_ptr<arrow::Array>& array) {
+cpp11::sexp RExtensionType::Convert(const std::shared_ptr<arrow::Array>& array) const {
   cpp11::environment instance = r6_instance();
   cpp11::function instance_Convert(instance[".array_as_vector"]);
   cpp11::sexp array_sexp = cpp11::to_r6<arrow::Array>(array, "ExtensionArray");
   return instance_Convert(array_sexp);
 }
 
-cpp11::sexp RExtensionType::Convert(const std::shared_ptr<arrow::ChunkedArray>& array) {
+cpp11::sexp RExtensionType::Convert(
+    const std::shared_ptr<arrow::ChunkedArray>& array) const {
   cpp11::environment instance = r6_instance();
   cpp11::function instance_Convert(instance[".chunked_array_as_vector"]);
   cpp11::sexp array_sexp = cpp11::to_r6<arrow::ChunkedArray>(array, "ChunkedArray");
