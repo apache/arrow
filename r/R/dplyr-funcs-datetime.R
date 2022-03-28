@@ -259,7 +259,7 @@ register_bindings_duration <- function() {
     if (!missing(tz)) {
       warn("`tz` argument is not supported in Arrow, so it will be ignored")
     }
-# browser()
+
     # cast to timestamp if time1 and time2 are not dates or timestamp expressions
     # (the subtraction of which would output a `duration`)
     if (!call_binding("is.instant", time1)) {
