@@ -191,54 +191,6 @@ register_bindings_datetime <- function() {
 }
 
 register_bindings_duration <- function() {
-  register_binding("make_datetime", function(year = 1970L,
-                                             month = 1L,
-                                             day = 1L,
-                                             hour = 0L,
-                                             min = 0L,
-                                             sec = 0,
-                                             tz = "UTC") {
-
-    # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
-    # Stop if tz other than 'UTC' is provided.
-    if (tz != "UTC") {
-      arrow_not_supported("Time zone other than 'UTC'")
-    }
-
-    x <- call_binding("str_c", year, month, day, hour, min, sec, sep = "-")
-    build_expr("strptime", x, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
-  })
-  register_binding("make_date", function(year = 1970L, month = 1L, day = 1L) {
-    x <- call_binding("make_datetime", year, month, day)
-    build_expr("cast", x, options = cast_options(to_type = date32()))
-  })
-  register_binding("ISOdatetime", function(year,
-                                           month,
-                                           day,
-                                           hour,
-                                           min,
-                                           sec,
-                                           tz = "UTC") {
-
-    # NAs for seconds aren't propagated (but treated as 0) in the base version
-    sec <- call_binding(
-      "if_else",
-      call_binding("is.na", sec),
-      0,
-      sec
-    )
-
-    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
-  })
-  register_binding("ISOdate", function(year,
-                                       month,
-                                       day,
-                                       hour = 12,
-                                       min = 0,
-                                       sec = 0,
-                                       tz = "UTC") {
-    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
-  })
   register_binding("difftime", function(time1,
                                         time2,
                                         tz,
@@ -299,6 +251,158 @@ register_bindings_duration <- function() {
     }
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
+  })
+}
+
+register_bindings_datetime_helpers <- function() {
+  register_binding("make_datetime", function(year = 1970L,
+                                             month = 1L,
+                                             day = 1L,
+                                             hour = 0L,
+                                             min = 0L,
+                                             sec = 0,
+                                             tz = "UTC") {
+
+    # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
+    # Stop if tz other than 'UTC' is provided.
+    if (tz != "UTC") {
+      arrow_not_supported("Time zone other than 'UTC'")
+    }
+
+    x <- call_binding("str_c", year, month, day, hour, min, sec, sep = "-")
+    build_expr("strptime", x, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
+  })
+  register_binding("make_date", function(year = 1970L, month = 1L, day = 1L) {
+    x <- call_binding("make_datetime", year, month, day)
+    build_expr("cast", x, options = cast_options(to_type = date32()))
+  })
+  register_binding("ISOdatetime", function(year,
+                                           month,
+                                           day,
+                                           hour,
+                                           min,
+                                           sec,
+                                           tz = "UTC") {
+
+    # NAs for seconds aren't propagated (but treated as 0) in the base version
+    sec <- call_binding(
+      "if_else",
+      call_binding("is.na", sec),
+      0,
+      sec
+    )
+
+    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
+  })
+  register_binding("ISOdate", function(year,
+                                       month,
+                                       day,
+                                       hour = 12,
+                                       min = 0,
+                                       sec = 0,
+                                       tz = "UTC") {
+    call_binding("make_datetime", year, month, day, hour, min, sec, tz)
+  })
+  register_binding("as.Date", function(x,
+                                       format = NULL,
+                                       tryFormats = "%Y-%m-%d",
+                                       origin = "1970-01-01",
+                                       tz = "UTC") {
+
+    # the origin argument will be better supported once we implement temporal
+    # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
+    # TODO revisit once the above has been sorted
+    if (call_binding("is.numeric", x) & origin != "1970-01-01") {
+      abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
+    }
+
+    # this could be improved with tryFormats once strptime returns NA and we
+    # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
+    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
+    if (is.null(format) && length(tryFormats) > 1) {
+      abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+    }
+
+    if (call_binding("is.Date", x)) {
+      return(x)
+
+      # cast from POSIXct
+    } else if (call_binding("is.POSIXct", x)) {
+      # base::as.Date() first converts to the desired timezone and then extracts
+      # the date, which is why we need to go through timestamp() first
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+
+      # cast from character
+    } else if (call_binding("is.character", x)) {
+      format <- format %||% tryFormats[[1]]
+      # unit = 0L is the identifier for seconds in valid_time32_units
+      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
+
+      # cast from numeric
+    } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
+      # Arrow does not support direct casting from double to date32(), but for
+      # integer-like values we can go via int32()
+      # https://issues.apache.org/jira/browse/ARROW-15798
+      # TODO revisit if arrow decides to support double -> date casting
+      x <- build_expr("cast", x, options = cast_options(to_type = int32()))
+    }
+    build_expr("cast", x, options = cast_options(to_type = date32()))
+  })
+  register_binding("as_date", function(x,
+                                       format = NULL,
+                                       origin = "1970-01-01",
+                                       tz = "UTC") {
+    # the origin argument will be better supported once we implement temporal
+    # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
+    # TODO revisit once the above has been sorted
+    if (call_binding("is.numeric", x) & origin != "1970-01-01") {
+      abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
+    }
+
+    # assume format is ISO if unspecified (to align with lubridate::as_date)
+    if (is.null(format)) {
+      format <- "%Y-%m-%d"
+    }
+
+    if (call_binding("is.Date", x)) {
+      return(x)
+
+      # cast from POSIXct
+    } else if (call_binding("is.POSIXct", x)) {
+      # this is where as_date() differs from as.Date()
+      if (!missing(tz)) {
+        x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+      }
+      # POSIXct is of type double -> we need this to prevent going down the
+      # "double" branch
+      x <- x
+
+      # cast from character
+    } else if (call_binding("is.character", x)) {
+      # unit = 0L is the identifier for seconds in valid_time32_units
+      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
+
+      # cast from numeric
+    } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
+      # Arrow does not support direct casting from double to date32(), but for
+      # integer-like values we can go via int32()
+      # https://issues.apache.org/jira/browse/ARROW-15798
+      # TODO revisit if arrow decides to support double -> date casting
+      x <- build_expr("cast", x, options = cast_options(to_type = int32()))
+    }
+    build_expr("cast", x, options = cast_options(to_type = date32()))
+  })
+  register_binding("as_datetime", function(x,
+                                           origin = "1970-01-01",
+                                           tz = "UTC") {
+    if (call_binding("is.numeric", x)) {
+      delta <- call_binding("difftime", origin, "1970-01-01")
+      output <- build_expr("+", x, delta)
+      output <- build_expr("cast", output, options = cast_options(to_type = timestamp()))
+    } else {
+      output <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
+    }
+    build_expr("assume_timezone", output, options = list(timezone = tz))
   })
 }
 
