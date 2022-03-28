@@ -101,7 +101,7 @@ std::string RExtensionType::ToString() const {
 cpp11::sexp RExtensionType::Convert(
     const std::shared_ptr<arrow::ChunkedArray>& array) const {
   cpp11::environment instance = r6_instance();
-  cpp11::function instance_Convert(instance[".chunked_array_as_vector"]);
+  cpp11::function instance_Convert(instance["as_vector"]);
   cpp11::sexp array_sexp = cpp11::to_r6<arrow::ChunkedArray>(array, "ChunkedArray");
   return instance_Convert(array_sexp);
 }

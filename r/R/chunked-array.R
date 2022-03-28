@@ -87,7 +87,7 @@ ChunkedArray <- R6Class("ChunkedArray",
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
     as_vector = function() {
       if (inherits(self$type, "ExtensionType")) {
-        self$type$.chunked_array_as_vector(self)
+        self$type$as_vector(self)
       } else {
         ChunkedArray__as_vector(self, option_use_threads())
       }

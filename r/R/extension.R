@@ -46,7 +46,7 @@ ExtensionArray <- R6Class("ExtensionArray",
     },
 
     as_vector = function() {
-      self$type$.array_as_vector(self)
+      self$type$as_vector(self)
     }
   )
 )
@@ -85,24 +85,18 @@ ExtensionArray$create <- function(x, type) {
 #' In addition, subclasses may override the following methos to customize
 #' the behaviour of extension classes.
 #'
-#' - `$Deserialize()`
-#'   This method is called when a new [ExtensionType]
+#' - `$Deserialize()`: This method is called when a new [ExtensionType]
 #'   is initialized and is responsible for parsing and validating
-#'   the serialized `extension_metadata` (a [raw()] vector)
+#'   the serialized extension_metadata (a [raw()] vector)
 #'   such that its contents can be inspected by fields and/or methods
 #'   of the R6 ExtensionType subclass. Implementations must also check the
 #'   `storage_type` to make sure it is compatible with the extension type.
-#' - `$.array_as_vector(extension_array)`: Convert an [Array] to an R
+#' - `$as_vector(extension_array)`: Convert an [Array] or [ChunkedArray] to an R
 #'   vector. This method is called by [as.vector()] on [ExtensionArray]
-#'   objects or when a [RecordBatch] containing an [ExtensionArray] is
-#'   converted to a [data.frame()]. The default method returns the converted
-#'   storage array.
-#' - `$.chunked_array_as_vector(chunked_array)`: Convert a [ChunkedArray]
-#'   to an R vector. This method is called by [as.vector()] on a [ChunkedArray]
-#'   whose type matches this extension type or when a [Table] containing
-#'   such a column is converted to a [data.frame()]. The default method
-#'   converts each array using `$.array_as_vector()` and concatenates them
-#'   using [vctrs::vec_c()].
+#'   objects, when a [RecordBatch] containing an [ExtensionArray] is
+#'   converted to a [data.frame()], or when a [ChunkedArray] (e.g., a column
+#'   in a [Table]) is converted to an R vector. The default method returns the
+#'   converted storage array.
 #' - `$ToString()` Return a string representation that will be printed
 #'   to the console when this type or an Array of this type is printed.
 #'
@@ -169,21 +163,21 @@ ExtensionType <- R6Class("ExtensionType",
         identical(other$Serialize(), self$Serialize())
     },
 
-    .array_as_vector = function(extension_array) {
-      extension_array$storage()$as_vector()
-    },
+    as_vector = function(extension_array) {
+      if (inherits(extension_array, "ChunkedArray")) {
+        # Converting one array at a time so that users don't have to remember
+        # to implement two methods. Converting all the storage arrays to
+        # a ChunkedArray and then converting is probably faster
+        # (VctrsExtensionType does this).
+        storage_vectors <- lapply(
+          seq_len(extension_array$num_chunks) - 1L,
+          function(i) self$as_vector(extension_array$chunk(i)$storage())
+        )
 
-    .chunked_array_as_vector = function(chunked_array) {
-      # Converting one array at a time so that users don't have to remember
-      # to implement two methods. Converting all the storage arrays to
-      # a ChunkedArray and then converting is probably faster
-      # (VctrsExtensionType does this).
-      storage_vectors <- lapply(
-        seq_len(chunked_array$num_chunks) - 1L,
-        function(i) chunked_array$chunk(i)$as_vector()
-      )
-
-      vctrs::vec_c(!!! storage_vectors)
+        vctrs::vec_c(!!! storage_vectors)
+      } else if (inherits(extension_array, "ExtensionArray")) {
+        extension_array$storage()$as_vector()
+      }
     },
 
     ToString = function() {
@@ -318,7 +312,7 @@ ExtensionType$create <- function(storage_type,
 #'     scale = function() private$.scale,
 #'
 #'     # called when an Array of this type is converted to an R vector
-#'     .array_as_vector = function(extension_array) {
+#'     as_vector = function(extension_array) {
 #'       unquantized_arrow <-
 #'         (extension_array$storage()$cast(float64()) / private$.scale) +
 #'         private$.center
@@ -451,23 +445,25 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       identical(self$ptype(), other$ptype())
     },
 
-    .chunked_array_as_vector = function(chunked_array) {
-      # rather than convert one array at a time, use more Arrow
-      # machinery to convert the whole ChunkedArray at once
-      storage_arrays <- lapply(
-        seq_len(chunked_array$num_chunks) - 1L,
-        function(i) chunked_array$chunk(i)$storage()
-      )
-      storage <- chunked_array(!!! storage_arrays, type = self$storage_type())
+    as_vector = function(extension_array) {
+      if (inherits(extension_array, "ChunkedArray")) {
+        # rather than convert one array at a time, use more Arrow
+        # machinery to convert the whole ChunkedArray at once
+        storage_arrays <- lapply(
+          seq_len(extension_array$num_chunks) - 1L,
+          function(i) extension_array$chunk(i)$storage()
+        )
+        storage <- chunked_array(!!! storage_arrays, type = self$storage_type())
 
-      vctrs::vec_restore(storage$as_vector(), self$ptype())
-    },
-
-    .array_as_vector = function(extension_array) {
-      vctrs::vec_restore(
-        super$.array_as_vector(extension_array),
-        self$ptype()
-      )
+        vctrs::vec_restore(storage$as_vector(), self$ptype())
+      } else if (inherits(extension_array, "Array")) {
+        vctrs::vec_restore(
+          super$as_vector(extension_array),
+          self$ptype()
+        )
+      } else {
+        super$as_vector(extension_array)
+      }
     }
   ),
   private = list(

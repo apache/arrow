@@ -99,7 +99,7 @@ QuantizedType <- R6::R6Class(
     scale = function() private$.scale,
 
     # called when an Array of this type is converted to an R vector
-    .array_as_vector = function(extension_array) {
+    as_vector = function(extension_array) {
       unquantized_arrow <-
         (extension_array$storage()$cast(float64()) / private$.scale) +
         private$.center

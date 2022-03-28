@@ -27,24 +27,18 @@ with this extension type.
 In addition, subclasses may override the following methos to customize
 the behaviour of extension classes.
 \itemize{
-\item \verb{$Deserialize()}
-This method is called when a new \link{ExtensionType}
+\item \verb{$Deserialize()}: This method is called when a new \link{ExtensionType}
 is initialized and is responsible for parsing and validating
-the serialized \code{extension_metadata} (a \code{\link[=raw]{raw()}} vector)
+the serialized extension_metadata (a \code{\link[=raw]{raw()}} vector)
 such that its contents can be inspected by fields and/or methods
 of the R6 ExtensionType subclass. Implementations must also check the
 \code{storage_type} to make sure it is compatible with the extension type.
-\item \verb{$.array_as_vector(extension_array)}: Convert an \link{Array} to an R
+\item \verb{$as_vector(extension_array)}: Convert an \link{Array} or \link{ChunkedArray} to an R
 vector. This method is called by \code{\link[=as.vector]{as.vector()}} on \link{ExtensionArray}
-objects or when a \link{RecordBatch} containing an \link{ExtensionArray} is
-converted to a \code{\link[=data.frame]{data.frame()}}. The default method returns the converted
-storage array.
-\item \verb{$.chunked_array_as_vector(chunked_array)}: Convert a \link{ChunkedArray}
-to an R vector. This method is called by \code{\link[=as.vector]{as.vector()}} on a \link{ChunkedArray}
-whose type matches this extension type or when a \link{Table} containing
-such a column is converted to a \code{\link[=data.frame]{data.frame()}}. The default method
-converts each array using \verb{$.array_as_vector()} and concatenates them
-using \code{\link[vctrs:vec_c]{vctrs::vec_c()}}.
+objects, when a \link{RecordBatch} containing an \link{ExtensionArray} is
+converted to a \code{\link[=data.frame]{data.frame()}}, or when a \link{ChunkedArray} (e.g., a column
+in a \link{Table}) is converted to an R vector. The default method returns the
+converted storage array.
 \item \verb{$ToString()} Return a string representation that will be printed
 to the console when this type or an Array of this type is printed.
 }
