@@ -722,6 +722,9 @@ TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
 
 TEST_F(TestThreadPoolForkSafety, NestedChild) {
   {
+#ifndef __APPLE__
+    GTEST_SKIP() << "Nested fork is not supported on macos";
+#endif
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
     ASSERT_OK_AND_EQ(9, fut.result());
