@@ -262,7 +262,7 @@ void DataTest::TestOverflowServerBatch() {
     RecordBatchVector batches;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
-        reader->ReadAll(&batches));
+        reader->ToRecordBatches().Value(&batches));
     ARROW_UNUSED(writer->Close());
   }
 }

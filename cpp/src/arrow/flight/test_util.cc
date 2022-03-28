@@ -234,8 +234,7 @@ class FlightTestServer : public FlightServerBase {
 
   Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
-    RecordBatchVector batches;
-    return reader->ReadAll(&batches);
+    return reader->ToRecordBatches().status();
   }
 
   Status DoExchange(const ServerCallContext& context,

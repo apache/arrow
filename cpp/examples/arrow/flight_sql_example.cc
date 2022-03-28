@@ -66,8 +66,7 @@ arrow::Status Main() {
     ARROW_ASSIGN_OR_RAISE(auto stream, client->DoGet(call_options, endpoint.ticket));
     // Read all results into an Arrow Table, though we can iteratively process record
     // batches as they arrive as well
-    std::shared_ptr<arrow::Table> table;
-    ARROW_RETURN_NOT_OK(stream->ReadAll(&table));
+    ARROW_ASSIGN_OR_RAISE(auto table, stream->ToTable());
     std::cout << "Read one chunk:" << std::endl;
     std::cout << table->ToString() << std::endl;
   }

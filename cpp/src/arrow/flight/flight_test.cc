@@ -202,9 +202,8 @@ class TestFlightClient : public ::testing::Test {
     ASSERT_OK(client_->GetFlightInfo(descr, &info));
     check_endpoints(info->endpoints());
 
-    std::shared_ptr<Schema> schema;
     ipc::DictionaryMemo dict_memo;
-    ASSERT_OK(info->GetSchema(&dict_memo, &schema));
+    ASSERT_OK_AND_ASSIGN(auto schema, info->GetSchema(&dict_memo));
     AssertSchemaEqual(*expected_schema, *schema);
 
     // By convention, fetch the first endpoint
@@ -901,13 +900,11 @@ TEST_F(TestFlightClient, GetFlightInfo) {
 
 TEST_F(TestFlightClient, GetSchema) {
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<SchemaResult> schema_result;
-  std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
 
-  ASSERT_OK(client_->GetSchema(descr, &schema_result));
+  ASSERT_OK_AND_ASSIGN(auto schema_result, client_->GetSchema(descr));
   ASSERT_NE(schema_result, nullptr);
-  ASSERT_OK(schema_result->GetSchema(&dict_memo, &schema));
+  ASSERT_OK(schema_result->GetSchema(&dict_memo));
 }
 
 TEST_F(TestFlightClient, GetFlightInfoNotFound) {
@@ -975,10 +972,9 @@ TEST_F(TestFlightClient, GenericOptions) {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", server_->port()));
   ASSERT_OK(FlightClient::Connect(location, options, &client));
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<SchemaResult> schema_result;
   std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
-  auto status = client->GetSchema(descr, &schema_result);
+  auto status = client->GetSchema(descr).status();
   ASSERT_RAISES(Invalid, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("resource exhausted"));
 }
@@ -1393,8 +1389,7 @@ TEST_F(TestPropagatingMiddleware, GetFlightInfo) {
 TEST_F(TestPropagatingMiddleware, GetSchema) {
   client_middleware_->Reset();
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<SchemaResult> result;
-  const Status status = client_->GetSchema(descr, &result);
+  const Status status = client_->GetSchema(descr).status();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::GetSchema);
 }
@@ -1552,13 +1547,12 @@ TEST_F(TestCancel, DoGet) {
   stop_source.RequestStop(Status::Cancelled("StopSource"));
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(client_->DoGet(options, {}, &stream));
-  std::shared_ptr<Table> table;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ReadAll(&table));
+                                  stream->ToTable());
 
   ASSERT_OK(client_->DoGet({}, &stream));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ReadAll(&table, options.stop_token));
+                                  stream->ToTable(options.stop_token));
 }
 
 TEST_F(TestCancel, DoExchange) {
@@ -1571,14 +1565,13 @@ TEST_F(TestCancel, DoExchange) {
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(
       client_->DoExchange(options, FlightDescriptor::Command(""), &writer, &stream));
-  std::shared_ptr<Table> table;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ReadAll(&table));
+                                  stream->ToTable());
   ARROW_UNUSED(writer->Close());
 
   ASSERT_OK(client_->DoExchange(FlightDescriptor::Command(""), &writer, &stream));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ReadAll(&table, options.stop_token));
+                                  stream->ToTable(options.stop_token));
   ARROW_UNUSED(writer->Close());
 }
 
