@@ -119,12 +119,6 @@ Arrow java is divided in these modules to offer in-memory columnar data structur
 For more detail about how to install this modules please review
 :doc:`Installing Java Modules <install>`.
 
-.. figure:: img/arrow_java_wks_deps.png
-   :scale: 75 %
-   :alt: Offer a workspace dependency view for arrow java modules
-
-   Workspace dependency view for arrow java modules.
-
 .. note::
 
     Arrow java modules offer support to work data: (1) in-memory,
