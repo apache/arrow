@@ -395,7 +395,6 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
   OwnedRef datetime;
 
   if (internal::ImportModule("pytz", &pytz).ok()) {
-
     if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
       int sign = -1;
       if (sign_str == "+") {
@@ -470,7 +469,6 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
 
   // fallback on zoneinfo if tz is string and pytz is not present
   if (internal::ImportModule("zoneinfo", &zoneinfo).ok()) {
-
     OwnedRef class_zoneinfo;
     RETURN_NOT_OK(
         internal::ImportFromModule(zoneinfo.obj(), "ZoneInfo", &class_zoneinfo));
@@ -482,7 +480,8 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
     return tzinfo;
   }
 
-  return Status::Invalid("Pytz package or Python>=3.8 for zoneinfo module must be installed.");
+  return Status::Invalid(
+    "Pytz package or Python>=3.8 for zoneinfo module must be installed.");
 }
 
 Result<std::string> TzinfoToString(PyObject* tzinfo) {
