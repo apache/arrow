@@ -175,13 +175,31 @@ TEST(FlightTypes, RoundtripStatus) {
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 }
 
+TEST(FlightTypes, LocationConstruction) {
+  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI").status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcTcp("This is not a hostname", 12345).status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcTls("This is not a hostname", 12345).status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename").status());
+
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("s3://test"));
+  ASSERT_EQ(location.ToString(), "s3://test");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", 12345));
+  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTls("localhost", 12345));
+  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcUnix("/tmp/test.sock"));
+  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
+}
+
 ARROW_SUPPRESS_DEPRECATION_WARNING
 TEST(FlightTypes, DeprecatedLocationConstruction) {
   Location location;
-  ASSERT_NOT_OK(Location::Parse("This is not an URI", &location));
-  ASSERT_NOT_OK(Location::ForGrpcTcp("This is not a hostname", 12345, &location));
-  ASSERT_NOT_OK(Location::ForGrpcTls("This is not a hostname", 12345, &location));
-  ASSERT_NOT_OK(Location::ForGrpcUnix("This is not a filename", &location));
+  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI", &location));
+  ASSERT_RAISES(Invalid, Location::ForGrpcTcp("This is not a hostname", 12345,
+                                              &location));
+  ASSERT_RAISES(Invalid, Location::ForGrpcTls("This is not a hostname", 12345,
+                                              &location));
+  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename", &location));
 
   ASSERT_OK(Location::Parse("s3://test", &location));
   ASSERT_EQ(location.ToString(), "s3://test");
