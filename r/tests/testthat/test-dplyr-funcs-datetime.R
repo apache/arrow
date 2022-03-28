@@ -121,8 +121,6 @@ test_that("errors in strptime", {
 test_that("strptime returns NA when format doesn't match the data", {
   df <- tibble(str_date = c("2022-02-07", "2022 02-07"))
 
-  # "2022 02-07 10:12:14"
-
   expect_equal(
     df %>%
       arrow_table() %>%
@@ -136,7 +134,7 @@ test_that("strptime returns NA when format doesn't match the data", {
   )
 
 
-  # something is weird when the Ym separator is something else than a hyphen
+  # something is weird when the first element fails to parse
   expect_equal(
     df %>%
       arrow_table() %>%
