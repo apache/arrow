@@ -35,7 +35,7 @@ integrations in other projects, we'd be happy to have you involved:
    <https://github.com/apache/arrow/tree/master/format>`_
 
 
-.. _py_arch_overview::
+.. _py_arch_overview:
 
 PyArrow Architecture
 --------------------
