@@ -165,7 +165,8 @@ class IntegrationTestScenario : public Scenario {
 
     auto do_put_result = client->DoPut(descr, original_schema).ValueOrDie();
     std::unique_ptr<FlightStreamWriter> write_stream = std::move(do_put_result.stream);
-    std::unique_ptr<FlightMetadataReader> metadata_reader = std::move(do_put_result.reader);
+    std::unique_ptr<FlightMetadataReader> metadata_reader =
+        std::move(do_put_result.reader);
     ABORT_NOT_OK(UploadBatchesToFlight(original_data, *write_stream, *metadata_reader));
 
     // 2. Get the ticket for the data.
