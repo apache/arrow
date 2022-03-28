@@ -103,7 +103,7 @@ ExtensionArray$create <- function(x, type) {
 #'   such a column is converted to a [data.frame()]. The default method
 #'   converts each array using `$.array_as_vector()` and concatenates them
 #'   using [vctrs::vec_c()].
-#' - `$.ToString()` Return a string representation that will be printed
+#' - `$ToString()` Return a string representation that will be printed
 #'   to the console when this type or an Array of this type is printed.
 #'
 #' @rdname ExtensionType
@@ -186,7 +186,7 @@ ExtensionType <- R6Class("ExtensionType",
       vctrs::vec_c(!!! storage_vectors)
     },
 
-    .ToString = function() {
+    ToString = function() {
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
       # and it's confusing to error when printing the object. This herustic
       # isn't perfect (but subclasses should override this method anyway)
@@ -428,7 +428,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       private$.ptype
     },
 
-    .ToString = function() {
+    ToString = function() {
       tf <- tempfile()
       sink(tf)
       on.exit({

@@ -93,7 +93,7 @@ std::string RExtensionType::ToString() const {
   }
 
   cpp11::environment instance = r6_instance();
-  cpp11::function instance_ToString(instance[".ToString"]);
+  cpp11::function instance_ToString(instance["ToString"]);
   cpp11::sexp result = instance_ToString();
   return cpp11::as_cpp<std::string>(result);
 }
