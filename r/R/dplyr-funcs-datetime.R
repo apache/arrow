@@ -270,7 +270,8 @@ register_bindings_duration <- function() {
       time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
     }
 
-    # if time1 or time2 are timestamps they need to be in "us"
+    # if time1 or time2 are timestamps they cannot be expressed in "s" /seconds
+    # otherwise they cannot be added subtracted with durations
     if (inherits(time1, "Expression") &&
         time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
       time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp("us")))
