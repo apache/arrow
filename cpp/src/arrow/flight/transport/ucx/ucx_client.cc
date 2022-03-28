@@ -110,6 +110,9 @@ class ClientConnection {
       // Create endpoint for remote worker
       struct sockaddr_storage connect_addr;
       ARROW_ASSIGN_OR_RAISE(auto addrlen, UriToSockaddr(uri, &connect_addr));
+      std::string peer;
+      ARROW_UNUSED(SockaddrToString(connect_addr).Value(&peer));
+      ARROW_LOG(DEBUG) << "Connecting to " << peer;
 
       ucp_ep_params_t params;
       params.field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_NAME |

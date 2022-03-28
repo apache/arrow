@@ -296,6 +296,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
       raw_uri += ":";
       raw_uri += std::to_string(
           ntohs(reinterpret_cast<const sockaddr_in*>(&attr.sockaddr)->sin_port));
+      FLIGHT_LOG(DEBUG) << "Listening on " << raw_uri;
       RETURN_NOT_OK(Location::Parse(raw_uri, &location_));
     }
 
