@@ -71,7 +71,12 @@ strides: {0.strides}""".format(self)
 
     def equals(self, Tensor other):
         """
-        Return true if the tensors contains exactly equal data
+        Return true if the tensors contains exactly equal data.
+
+        Parameters
+        ----------
+        other : Tensor
+            The other tensor to compare for equality.
         """
         return self.tp.Equals(deref(other.tp))
 
@@ -364,6 +369,11 @@ shape: {0.shape}""".format(self)
     def equals(self, SparseCOOTensor other):
         """
         Return true if sparse tensors contains exactly equal data.
+
+        Parameters
+        ----------
+        other : SparseCOOTensor
+            The other tensor to compare for equality.
         """
         return self.stp.Equals(deref(other.stp))
 
@@ -590,6 +600,11 @@ shape: {0.shape}""".format(self)
     def equals(self, SparseCSRMatrix other):
         """
         Return true if sparse tensors contains exactly equal data.
+
+        Parameters
+        ----------
+        other : SparseCSRMatrix
+            The other tensor to compare for equality.
         """
         return self.stp.Equals(deref(other.stp))
 
@@ -800,6 +815,11 @@ shape: {0.shape}""".format(self)
     def equals(self, SparseCSCMatrix other):
         """
         Return true if sparse tensors contains exactly equal data
+
+        Parameters
+        ----------
+        other : SparseCSCMatrix
+            The other tensor to compare for equality.
         """
         return self.stp.Equals(deref(other.stp))
 
@@ -987,6 +1007,11 @@ shape: {0.shape}""".format(self)
     def equals(self, SparseCSFTensor other):
         """
         Return true if sparse tensors contains exactly equal data
+
+        Parameters
+        ----------
+        other : SparseCSFTensor
+            The other tensor to compare for equality.
         """
         return self.stp.Equals(deref(other.stp))
 
