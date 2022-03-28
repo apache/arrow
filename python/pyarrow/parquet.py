@@ -2145,7 +2145,7 @@ Examples
         ...                     partition_cols=['year', 'month', 'day'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_name_fragments/')
-        
+
         List the fragments:
 
         >>> dataset.fragments
@@ -2180,7 +2180,7 @@ Examples
         ...                     partition_cols=['year', 'month', 'day'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_name_files/')
-        
+
         List the files:
 
         >>> dataset.files
@@ -2585,7 +2585,7 @@ class _ParquetDatasetV2:
         ...                     partition_cols=['year', 'month', 'day'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_v2_fragments/')
-        
+
         List the fragments:
 
         >>> dataset.fragments
@@ -2616,7 +2616,7 @@ class _ParquetDatasetV2:
         ...                     partition_cols=['year', 'month', 'day'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_v2_files/')
-        
+
         List the files:
 
         >>> dataset.files
