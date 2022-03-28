@@ -75,7 +75,7 @@ Type Traits
 Writing code that can handle concrete :class:`arrow::DataType` subclasses would 
 be verbose, if it weren't for type traits. They are empty structs with type 
 declarations that map the Arrow data types to the specialized array, scalar, 
-builder, and other associated types. For example, boolean type has traits:
+builder, and other associated types. For example, the Boolean type has traits:
 
 .. code-block:: cpp
 
@@ -97,7 +97,7 @@ See the :ref:`type-traits` for an explanation of each of these fields.
 
 Using type traits, one can write template functions that can handle a variety
 of Arrow types. For example, to write a function that creates an array of 
-fibonacci values:
+Fibonacci values for any Arrow numeric type:
 
 .. code-block:: cpp
 
