@@ -195,10 +195,10 @@ ARROW_SUPPRESS_DEPRECATION_WARNING
 TEST(FlightTypes, DeprecatedLocationConstruction) {
   Location location;
   ASSERT_RAISES(Invalid, Location::Parse("This is not an URI", &location));
-  ASSERT_RAISES(Invalid, Location::ForGrpcTcp("This is not a hostname", 12345,
-                                              &location));
-  ASSERT_RAISES(Invalid, Location::ForGrpcTls("This is not a hostname", 12345,
-                                              &location));
+  ASSERT_RAISES(Invalid,
+                Location::ForGrpcTcp("This is not a hostname", 12345, &location));
+  ASSERT_RAISES(Invalid,
+                Location::ForGrpcTls("This is not a hostname", 12345, &location));
   ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename", &location));
 
   ASSERT_OK(Location::Parse("s3://test", &location));
