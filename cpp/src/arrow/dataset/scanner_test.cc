@@ -128,7 +128,7 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
     AssertScanBatchesEquals(expected.get(), scanner.get());
   }
 
-  void AssertScanForAugmentedFields(std::shared_ptr<Scanner> scanner) {
+  void AssertNoAugmentedFields(std::shared_ptr<Scanner> scanner) {
     ASSERT_OK_AND_ASSIGN(auto table, scanner.get()->ToTable());
     auto columns = table.get()->ColumnNames();
     EXPECT_TRUE(std::none_of(columns.begin(), columns.end(), [](std::string& x) {
@@ -266,7 +266,7 @@ TEST_P(TestScanner, ProjectionDefaults) {
     options_->projection = literal(true);
     options_->projected_schema = nullptr;
     AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch_in), batch_in);
-    AssertScanForAugmentedFields(MakeScanner(batch_in));
+    AssertNoAugmentedFields(MakeScanner(batch_in));
   }
   // If we only specify a projection expression then infer the projected schema
   // from the projection expression
