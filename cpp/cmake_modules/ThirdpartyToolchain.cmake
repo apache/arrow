@@ -504,7 +504,8 @@ if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
   set_urls(GTEST_SOURCE_URL
-           "https://github.com/google/googletest/archive/${ARROW_GTEST_BUILD_VERSION}.zip")
+           "https://github.com/google/googletest/archive/${ARROW_GTEST_BUILD_VERSION}.zip"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
