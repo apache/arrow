@@ -52,6 +52,9 @@ if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
 
   sed -i.bak -E -e 's/(CXXFLAGS = )(.*)/\1 -g -O3 -Wall -pedantic -frtti -fPIC/' $(${R_BIN} RHOME)/etc/Makeconf
   rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
+
+  sed -i.bak -E -e 's/(LDFLAGS =.*)/\1 -stdlib=libc++/g' $(${R_BIN} RHOME)/etc/Makeconf
+  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
 fi
 
 # Special hacking to try to reproduce quirks on centos using non-default build
