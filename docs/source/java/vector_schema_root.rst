@@ -109,7 +109,7 @@ Here is the example of building a :class:`VectorSchemaRoot`
 
 The vectors within a :class:`VectorSchemaRoot` could be loaded/unloaded via :class:`VectorLoader` and :class:`VectorUnloader`.
 :class:`VectorLoader` and :class:`VectorUnloader` handles converting between :class:`VectorSchemaRoot` and :class:`ArrowRecordBatch` (
-representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message). Examples as below
+representation of a RecordBatch :doc:`IPC <../format/IPC>` message). Examples as below
 
 .. code-block:: Java
 
