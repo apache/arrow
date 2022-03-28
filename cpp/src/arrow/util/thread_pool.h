@@ -152,6 +152,7 @@ class ARROW_EXPORT Executor {
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.
   template <typename Function, typename... Args,
+            typename FuncResult = ::arrow::detail::result_of_t<Function && (Args && ...)>,
             typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
                 Function && (Args && ...)>>
   Result<FutureType> Submit(TaskHints hints, StopToken stop_token, Function&& func,
@@ -161,15 +162,15 @@ class ARROW_EXPORT Executor {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
     struct {
-      void operator()(Args&&... args) {
+      FuncResult operator()(Args&&... args) {
         auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
-        std::move(func)(args...);
+        return std::move(func)(args...);
       }
       Function func;
       opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
     } wrapper{std::forward<Function>(func), ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
     auto task = std::bind(::arrow::detail::ContinueFuture{}, future,
-                          std::forward<Function>(wrapper), std::forward<Args>(args)...);
+                          std::function<FuncResult(Args...)>(wrapper), std::forward<Args>(args)...);
 #else
     auto task = std::bind(::arrow::detail::ContinueFuture{}, future,
                           std::forward<Function>(func), std::forward<Args>(args)...);
