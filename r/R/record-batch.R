@@ -113,7 +113,9 @@ RecordBatch <- R6Class("RecordBatch",
     },
     # Take, Filter, and SortIndices are methods on ArrowTabular
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
-    to_data_frame = function() RecordBatch__to_dataframe(self, option_use_threads()),
+    to_data_frame = function() {
+      RecordBatch__to_dataframe(self, use_threads = option_use_threads())
+    },
     cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")

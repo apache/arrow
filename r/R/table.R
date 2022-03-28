@@ -97,7 +97,9 @@ Table <- R6Class("Table",
     },
     field = function(i) Table__field(self, i),
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
-    to_data_frame = function() Table__to_dataframe(self, option_use_threads()),
+    to_data_frame = function() {
+      Table__to_dataframe(self, use_threads = option_use_threads())
+    },
     cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
