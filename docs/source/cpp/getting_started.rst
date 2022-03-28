@@ -40,4 +40,5 @@ User Guide
    dataset
    flight
    gdb
+   threading
    env_vars

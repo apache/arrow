@@ -15,30 +15,16 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+Thread (management)
+===================
 
-.. toctree::
-   :maxdepth: 3
+Thread Pools
+------------
 
-   api/support
-   api/memory
-   api/thread
-   api/datatype
-   api/array
-   api/scalar
-   api/builder
-   api/table
-   api/c_abi
-   api/compute
-   api/tensor
-   api/utilities
-   api/async
-   api/io
-   api/ipc
-   api/formats
-   api/cuda
-   api/flight
-   api/filesystem
-   api/dataset
+.. doxygenfunction:: arrow::GetCpuThreadPoolCapacity
+
+.. doxygenfunction:: arrow::SetCpuThreadPoolCapacity
+
+.. doxygenfunction:: arrow::io::GetIOThreadPoolCapacity
+
+.. doxygenfunction:: arrow::io::SetIOThreadPoolCapacity
