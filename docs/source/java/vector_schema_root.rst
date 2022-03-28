@@ -30,7 +30,7 @@ several abstractions to handle such data conveniently and efficiently.
 Fields
 ======
 
-Fields are used to denote the particular columns of a table.
+Fields are used to denote the particular columns of tabular data.
 A field, i.e. an instance of `Field`_, holds together a field name, a data
 type, and some optional key-value metadata.
 
