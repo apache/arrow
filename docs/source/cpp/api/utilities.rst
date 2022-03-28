@@ -160,12 +160,12 @@ Example usage:
 .. code-block:: cpp
 
   template<typename TypeClass>
-  arrow::enable_if_number<TypeClass, RETURN_TYPE> my_function(const TypeClass& type) {
+  arrow::enable_if_number<TypeClass, RETURN_TYPE> MyFunction(const TypeClass& type) {
     ..
   }
 
   template<typename ArrayType, typename TypeClass=ArrayType::TypeClass>
-  arrow::enable_if_number<TypeClass, RETURN_TYPE> my_function(const ArrayType& array) {
+  arrow::enable_if_number<TypeClass, RETURN_TYPE> MyFunction(const ArrayType& array) {
     ..
   }
 

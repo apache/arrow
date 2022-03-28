@@ -73,10 +73,9 @@ Type Traits
 -----------
 
 Writing code that can handle concrete :class:`arrow::DataType` subclasses would 
-be verbose, if it weren't for type traits. Similar to the type traits provided
-in `std::type_traits <https://en.cppreference.com/w/cpp/header/type_traits>`_,
-Arrow's type traits map the Arrow data types to the specialized array, scalar, 
-builder, and other associated types. For example, the Boolean type has traits:
+be verbose, if it weren't for type traits. Arrow's type traits map the Arrow 
+data types to the specialized array, scalar, builder, and other associated types.
+For example, the Boolean type has traits:
 
 .. code-block:: cpp
 
@@ -127,10 +126,13 @@ For some common cases, there are type associations on the classes themselves. Us
 * ``Array::TypeClass`` to get data type class of an array
 * ``DataType::c_type`` to get associated C type of an Arrow data type
 
-There are also template type definitions for constraining template functions to a 
-subset of Arrow types using ``std::enable_if_t``, which are useful if other overloads
-need to be implemented. For example, to write a sum function for any numeric
-(integer or float) array:
+Similar to the type traits provided in
+`std::type_traits <https://en.cppreference.com/w/cpp/header/type_traits>`_,
+Arrow provides type predicates such as ``is_number_type`` as well as 
+corresponding templates that wrap ``std::enable_if_t`` such as ``enable_if_number``.
+These can constrain template functions to only compile for relevant types, which
+is useful if other overloads need to be implemented. For example, to write a sum
+function for any numeric (integer or float) array:
 
 .. code-block:: cpp
 
