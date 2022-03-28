@@ -581,13 +581,12 @@ void DataTest::TestIssue5095() {
   // Make sure the server-side error message is reflected to the
   // client
   Ticket ticket1{"ARROW-5095-fail"};
-  std::unique_ptr<FlightStreamReader> stream;
-  Status status = client_->DoGet(ticket1).Value(&stream);
+  Status status = client_->DoGet(ticket1).status();
   ASSERT_RAISES(UnknownError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Server-side error"));
 
   Ticket ticket2{"ARROW-5095-success"};
-  status = client_->DoGet(ticket2).Value(&stream);
+  status = client_->DoGet(ticket2).status();
   ASSERT_RAISES(KeyError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("No data"));
 }
