@@ -2425,7 +2425,7 @@ cdef CFunctionDoc _make_function_doc(func_doc):
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
         c_bool c_options_required
-    if isinstance(func_doc, dict):
+    if func_doc and isinstance(func_doc, dict):
         if func_doc["summary"] and isinstance(func_doc["summary"], str):
             f_doc.summary = func_doc["summary"].encode()
         else:
@@ -2456,7 +2456,7 @@ cdef CFunctionDoc _make_function_doc(func_doc):
 
         return f_doc
     else:
-        raise TypeError(f"func_doc must be a dictionary")
+        raise ValueError(f"func_doc must be a dictionary")
 
 
 cdef class UDFError(Exception):
@@ -2641,9 +2641,18 @@ def register_function(func_name, num_args, function_doc, in_types,
         for in_type in in_types:
             in_tmp = (<InputType> in_type).input_type
             c_in_types.push_back(in_tmp)
+    else:
+        raise ValueError("input types must be of type InputType")
 
-    c_type = pyarrow_unwrap_data_type(out_type)
-    c_callback = <PyObject*>callback
+    if out_type:
+        c_type = pyarrow_unwrap_data_type(out_type)
+    else:
+        raise ValueError("Output value type must be defined")
+
+    if callback and callable(callback):
+        c_callback = <PyObject*>callback
+    else:
+        raise ValueError("callback must be a callable")
 
     c_out_type = new COutputType(c_type)
     c_mem_allocation = <MemAllocation>_mem_allocation_map[mem_allocation]

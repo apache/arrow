@@ -22,7 +22,7 @@ import pytest
 import pyarrow as pa
 from pyarrow import compute as pc
 from pyarrow.compute import register_function
-from pyarrow.compute import InputType
+from pyarrow.compute import InputType, UDFRegistrationError
 
 
 def get_function_doc(summary: str, desc: str, arg_names: List[str]):
@@ -280,3 +280,71 @@ def test_scalar_udf_function_with_scalar_data(function_names,
 
         result = pc.call_function(name, input, options=None, memory_pool=None)
         assert result == expected_output
+
+
+def test_udf_input():
+    def unary_scalar_function(scalar):
+        return pc.call_function("add", [scalar, 1])
+
+    # validate arity
+    arity = -1
+    func_name = "py_scalar_add_func"
+    in_types = [InputType.scalar(pa.int64())]
+    out_type = pa.int64()
+    doc = get_function_doc("scalar add function", "scalar add function",
+                           ["scalar_value"])
+    try:
+        register_function(func_name, arity, doc, in_types,
+                          out_type, unary_scalar_function)
+    except Exception as ex:
+        assert isinstance(ex, AssertionError)
+
+    # validate function name
+    try:
+        register_function(None, 1, doc, in_types,
+                          out_type, unary_scalar_function)
+    except Exception as ex:
+        assert isinstance(ex, ValueError)
+
+    # validate docs
+    try:
+        register_function(func_name, 1, None, in_types,
+                          out_type, unary_scalar_function)
+    except Exception as ex:
+        assert isinstance(ex, ValueError)
+
+    # validate function not matching defined arity config
+    def invalid_function(array1, array2):
+        return pc.call_function("add", [array1, array2])
+
+    try:
+        register_function("invalid_function", 1, doc, in_types,
+                          out_type, invalid_function)
+        pc.call_function("invalid_function", [pa.array([10]), pa.array([20])],
+                         options=None, memory_pool=None)
+    except Exception as ex:
+        assert isinstance(ex, pa.lib.ArrowInvalid)
+
+    # validate function
+    try:
+        register_function("none_function", 1, doc, in_types,
+                          out_type, None)
+    except Exception as ex:
+        assert isinstance(ex, ValueError)
+        assert "callback must be a callable" == str(ex)
+
+    # validate output type
+    try:
+        register_function(func_name, 1, doc, in_types,
+                          None, unary_scalar_function)
+    except Exception as ex:
+        assert isinstance(ex, ValueError)
+        assert "Output value type must be defined" == str(ex)
+
+    # validate input type
+    try:
+        register_function(func_name, 1, doc, None,
+                          out_type, unary_scalar_function)
+    except Exception as ex:
+        assert isinstance(ex, ValueError)
+        assert "input types must be of type InputType" == str(ex)
