@@ -1049,7 +1049,7 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_pytz_timezone(self, tz):
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
         df = pd.DataFrame({'datetime': values})
-        _check_pandas_roundtrip(df)
+        _check_pandas_roundtrip(df, check_dtype=False)
 
     def test_python_datetime_with_timezone_tzinfo(self):
         pytz = pytest.importorskip("pytz")
