@@ -1388,7 +1388,7 @@ cdef class DirectoryPartitioning(KeyValuePartitioning):
     Examples
     --------
     >>> from pyarrow.dataset import DirectoryPartitioning
-    >>> partition = DirectoryPartitioning(
+    >>> partitioning = DirectoryPartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
     >>> print(partitioning.parse("/2009/11"))
     ((year == 2009:int16) and (month == 11:int8))
@@ -1639,7 +1639,7 @@ cdef class FilenamePartitioning(KeyValuePartitioning):
     Examples
     --------
     >>> from pyarrow.dataset import FilenamePartitioning
-    >>> partition = FilenamePartitioning(
+    >>> partitioning = FilenamePartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
     >>> print(partitioning.parse("2009_11"))
     ((year == 2009:int16) and (month == 11:int8))
