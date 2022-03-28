@@ -1379,31 +1379,29 @@ test_that("`as_datetime()`", {
     double_date = c(10.1, 25.2, NA)
   )
 
-  test_df %>%
-    arrow_table() %>%
-    mutate(
-      # ddate = as_datetime(date)#,
-      # dchar_date_no_tz = as_datetime(char_date)#,
-      # dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas")#,
-      # dint_date = as_datetime(int_date, origin = "1970-01-02")#,
-      # dint_date2 = as_datetime(int_date, origin = "1970-01-01"),
-      # dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-      # dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01"),
-      ddouble_date = as_datetime(double_date)
-    ) %>%
-    collect()
-
   compare_dplyr_binding(
     .input %>%
       mutate(
-        # ddate = as_datetime(date)#,
-        # dchar_date_no_tz = as_datetime(char_date)#,
-        # dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas")#,
-        dint_date = as_datetime(int_date, origin = "1970-01-02")#,
-        # dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-        # ddouble_date = as_datetime(double_date)
+        ddate = as_datetime(date),
+        dchar_date_no_tz = as_datetime(char_date),
+        dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
+        dint_date = as_datetime(int_date, origin = "1970-01-02"),
+        dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
+        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
       ) %>%
       collect(),
     test_df
+  )
+
+  # Arrow does not support conversion of double to date
+  # the below should error with an error message originating in the C++ code
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        ddouble_date = as_datetime(double_date)
+      ) %>%
+      collect(),
+    regexp = "Float value 10.1 was truncated converting to int64"
   )
 })

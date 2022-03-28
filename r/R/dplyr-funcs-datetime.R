@@ -206,11 +206,11 @@ register_bindings_duration <- function() {
     # cast to timestamp if time1 and time2 are not dates or timestamp expressions
     # (the subtraction of which would output a `duration`)
     if (!call_binding("is.instant", time1)) {
-      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = "UTC")))
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp()))
     }
 
     if (!call_binding("is.instant", time2)) {
-      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp()))
     }
 
     # we need to go build the subtract expression instead of `time1 - time2` to
@@ -397,6 +397,8 @@ register_bindings_datetime_helpers <- function() {
                                            tz = "UTC") {
     if (call_binding("is.numeric", x)) {
       delta <- call_binding("difftime", origin, "1970-01-01")
+      delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
+      x <- build_expr("cast", x, options = cast_options(to_type = int64()))
       output <- build_expr("+", x, delta)
       output <- build_expr("cast", output, options = cast_options(to_type = timestamp()))
     } else {
