@@ -89,18 +89,21 @@ arrow::Result<std::string> SockaddrToString(const struct sockaddr_storage& addre
   uint16_t port = 0;
   if (address.ss_family == AF_INET) {
     result.resize(INET_ADDRSTRLEN + 1);
-    if (!inet_ntop(address.ss_family, &address, &result[0], INET_ADDRSTRLEN)) {
+    const auto* in_addr = reinterpret_cast<const struct sockaddr_in*>(&address);
+    if (!inet_ntop(address.ss_family, &in_addr->sin_addr, &result[0], INET_ADDRSTRLEN)) {
       return arrow::internal::IOErrorFromErrno(errno,
                                                "Could not convert address to string");
     }
-    port = ntohs(reinterpret_cast<const struct sockaddr_in*>(&address)->sin_port);
+    port = ntohs(in_addr->sin_port);
   } else {
     result.resize(INET6_ADDRSTRLEN + 1);
-    if (!inet_ntop(address.ss_family, &address, &result[0], INET6_ADDRSTRLEN)) {
+    const auto* in6_addr = reinterpret_cast<const struct sockaddr_in6*>(&address);
+    if (!inet_ntop(address.ss_family, &in6_addr->sin6_addr, &result[0],
+                   INET6_ADDRSTRLEN)) {
       return arrow::internal::IOErrorFromErrno(errno,
                                                "Could not convert address to string");
     }
-    port = ntohs(reinterpret_cast<const struct sockaddr_in6*>(&address)->sin6_port);
+    port = ntohs(in6_addr->sin6_port);
   }
 
   const size_t pos = result.find('\0');
