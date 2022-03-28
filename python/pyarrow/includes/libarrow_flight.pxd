@@ -153,7 +153,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             " arrow::flight::MetadataRecordBatchReader":
         CResult[shared_ptr[CSchema]] GetSchema()
         CResult[CFlightStreamChunk] Next()
-        CStatus ReadAll(shared_ptr[CTable]* table)
+        CResult[shared_ptr[CTable]] ToTable()
 
     CResult[shared_ptr[CRecordBatchReader]] MakeRecordBatchReader\
         " arrow::flight::MakeRecordBatchReader"(
@@ -170,8 +170,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CFlightStreamReader \
             " arrow::flight::FlightStreamReader"(CMetadataRecordBatchReader):
         void Cancel()
-        CStatus ReadAllWithStopToken" ReadAll"\
-            (shared_ptr[CTable]* table, const CStopToken& stop_token)
+        CResult[shared_ptr[CTable]] ToTableWithStopToken" ToTable"\
+            (const CStopToken& stop_token)
 
     cdef cppclass CFlightMessageReader \
             " arrow::flight::FlightMessageReader"(CMetadataRecordBatchReader):

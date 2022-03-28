@@ -1195,7 +1195,7 @@ class CudaTestServer : public FlightServerBase {
 
   Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
-    RETURN_NOT_OK(reader->ReadAll(&batches_));
+    RETURN_NOT_OK(reader->ToRecordBatches().Value(&batches_));
     return Status::OK();
   }
 

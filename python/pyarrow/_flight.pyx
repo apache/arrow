@@ -831,7 +831,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         cdef:
             shared_ptr[CTable] c_table
         with nogil:
-            check_flight_status(self.reader.get().ReadAll(&c_table))
+            check_flight_status(self.reader.get().ToTable().Value(&c_table))
         return pyarrow_wrap_table(c_table)
 
     def read_chunk(self):
@@ -894,7 +894,7 @@ cdef class FlightStreamReader(MetadataRecordBatchReader):
             with nogil:
                 check_flight_status(
                     (<CFlightStreamReader*> self.reader.get())
-                    .ReadAllWithStopToken(&c_table, stop_token))
+                    .ToTableWithStopToken(stop_token).Value(&c_table))
         return pyarrow_wrap_table(c_table)
 
 

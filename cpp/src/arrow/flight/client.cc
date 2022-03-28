@@ -550,7 +550,6 @@ Status FlightClient::GetSchema(const FlightCallOptions& options,
   return GetSchema(options, descriptor).Value(schema_result);
 }
 
-
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
   RETURN_NOT_OK(CheckOpen());
   return ListFlights({}, {}, listing);
