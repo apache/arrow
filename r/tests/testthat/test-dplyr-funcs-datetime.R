@@ -1218,5 +1218,4 @@ test_that("`decimal_date()` and `date_decimal()`", {
     test_df,
     ignore_attr = "tzone"
   )
-
 })
