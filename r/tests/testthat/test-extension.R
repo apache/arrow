@@ -211,6 +211,10 @@ test_that("vctrs extension type works", {
     chunked_array_out$as_vector(),
     custom_vctr
   )
+
+  expect_snapshot_error(
+    type$as_vector("not an extension array or chunked array")
+  )
 })
 
 test_that("chunked arrays can roundtrip extension types", {
