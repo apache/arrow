@@ -2187,12 +2187,14 @@ TEST_F(TestProjector, TestConcatFromHex) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 6;
-  auto array0 = MakeArrowArrayUtf8({"414243", "", "41", "4f4D", "6f6d", "4f"},
-                                   {true, true, true, true, true, true});
+  int num_records = 8;
+  auto array0 = MakeArrowArrayUtf8({"414243", "", "41", "4f4D", "6f6d", "4f",
+                                    "egular courts above th", "lites. fluffily even de"},
+                                   {true, true, true, true, true, true, true, true});
   // expected output
-  auto exp_from_hex = MakeArrowArrayBinary({"ABC", "", "A", "OM", "om", "O"},
-                                           {true, true, true, true, true, true});
+  auto exp_from_hex =
+      MakeArrowArrayBinary({"ABC", "", "A", "OM", "om", "O", "", ""},
+                           {true, true, true, true, true, true, false, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
