@@ -39,6 +39,7 @@
 #include <unistd.h>      // IWYU pragma: keep
 #endif
 
+#include "arrow/config.h"
 #include "arrow/table.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -107,6 +108,25 @@ Status GetTestResourceRoot(std::string* out) {
         "Test resources not found, set ARROW_TEST_DATA to <repo root>/testing/data");
   }
   *out = std::string(c_root);
+  return Status::OK();
+}
+
+util::optional<std::string> GetTestTimezoneDatabaseRoot() {
+  const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
+  if (!c_root) {
+    return util::optional<std::string>();
+  }
+  return util::make_optional(std::string(c_root));
+}
+
+Status InitTestTimezoneDatabase() {
+  auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
+  // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
+  if (!maybe_tzdata.has_value()) return Status::OK();
+
+  auto tzdata_path = std::string(maybe_tzdata.value());
+  arrow::GlobalOptions options = {util::make_optional(tzdata_path)};
+  ARROW_RETURN_NOT_OK(arrow::Initialize(options));
   return Status::OK();
 }
 

@@ -150,12 +150,6 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
             return Status::OK();
           }));
     } else {
-#ifdef _WIN32
-      // TODO(ARROW-13168):
-      return Status::NotImplemented(
-          "Casting a timestamp with time zone to string is not yet supported on "
-          "Windows.");
-#else
       switch (ty.unit()) {
         case TimeUnit::SECOND:
           RETURN_NOT_OK(ConvertZoned<std::chrono::seconds>(input, timezone, &builder));
@@ -176,7 +170,6 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
           DCHECK(false);
           return Status::NotImplemented("Unimplemented time unit");
       }
-#endif
     }
     std::shared_ptr<Array> output_array;
     RETURN_NOT_OK(builder.Finish(&output_array));

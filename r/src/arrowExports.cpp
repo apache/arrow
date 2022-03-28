@@ -1842,6 +1842,22 @@ extern "C" SEXP _arrow_runtime_info(){
 }
 #endif
 
+// config.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void set_timezone_database(cpp11::strings path);
+extern "C" SEXP _arrow_set_timezone_database(SEXP path_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::strings>::type path(path_sexp);
+	set_timezone_database(path);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_set_timezone_database(SEXP path_sexp){
+	Rf_error("Cannot call set_timezone_database(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(cpp11::list options);
@@ -7758,6 +7774,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
 		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
 		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
+		{ "_arrow_set_timezone_database", (DL_FUNC) &_arrow_set_timezone_database, 1}, 
 		{ "_arrow_csv___WriteOptions__initialize", (DL_FUNC) &_arrow_csv___WriteOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 

@@ -65,6 +65,14 @@
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
+
+    # Try to set timezone database
+    if (requireNamespace("tzdb", quietly = TRUE)) {
+      tzdb::tzdb_initialize()
+      set_timezone_database(tzdb::tzdb_path("text"))
+    } else {
+      warning("The tzdb package is not installed. Timezones will not be available.")
+    }
   }
 
   invisible()

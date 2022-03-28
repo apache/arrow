@@ -73,6 +73,16 @@ introduced API).
    ``"7.0.1"``.
 
 
+Runtime Configuration
+=====================
+
+.. doxygenstruct:: arrow::ArrowGlobalOptions
+   :members:
+
+
+.. doxygenfunction:: arrow::Initialize
+
+
 Error return and reporting
 ==========================
 
