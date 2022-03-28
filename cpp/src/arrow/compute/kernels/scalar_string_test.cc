@@ -1845,10 +1845,12 @@ TYPED_TEST(TestStringKernels, Strptime) {
   std::string input3 = R"(["5/1/2020", "AA/BB/CCCC"])";
   std::string input4 = R"(["5/1/2020", "AA/BB/CCCC", "AA/BB/CCCC", "AA/BB/CCCC", null])";
   std::string input5 = R"(["5/1/2020 %z", null, null, "12/13/1900 %z", null])";
+  std::string input6 = R"(["2022-02-07", "1989 12-22"])";
   std::string output1 = R"(["2020-05-01", null, null, "1900-12-13", null])";
   std::string output2 = R"([null, "1900-12-13"])";
   std::string output3 = R"(["2020-05-01", null])";
   std::string output4 = R"(["2020-01-05", null, null, null, null])";
+  std::string output6 = R"([null, "1989-12-22"])";
 
   StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, /*error_is_null=*/true);
   auto unit = timestamp(TimeUnit::MICRO);
@@ -1861,6 +1863,9 @@ TYPED_TEST(TestStringKernels, Strptime) {
 
   options.format = "%m/%d/%Y %%z";
   this->CheckUnary("strptime", input5, unit, output1, &options);
+
+  options.format = "%Y %m-%d";
+  this->CheckUnary("strptime", input6, unit, output6, &options);
 
   options.error_is_null = false;
   this->CheckUnary("strptime", input5, unit, output1, &options);
