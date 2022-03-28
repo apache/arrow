@@ -109,7 +109,7 @@ QuantizedType <- R6::R6Class(
 
     # populate the custom metadata fields from the serialized metadata
     .Deserialize = function() {
-      vals <- as.numeric(strsplit(self$extension_metadata_utf8(), ";")[[1]])
+      vals <- as.numeric(strsplit(self$SerializeUTF8(), ";")[[1]])
       private$.center <- vals[1]
       private$.scale <- vals[2]
     }

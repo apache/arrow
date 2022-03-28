@@ -18,7 +18,7 @@ values.
 \item \verb{$storage_id()}: Returns the \link{Type} identifier corresponding to the
 \verb{$storage_type()}.
 \item \verb{$extension_name()}: Returns the extension name.
-\item \verb{$extension_metadata()}: Returns the serialized version of the extension
+\item \verb{$Serialize()}: Returns the serialized version of the extension
 metadata as a \code{\link[=raw]{raw()}} vector.
 \item \verb{$WrapArray(array)}: Wraps a storage \link{Array} into an \link{ExtensionArray}
 with this extension type.
@@ -45,7 +45,7 @@ whose type matches this extension type or when a \link{Table} containing
 such a column is converted to a \code{\link[=data.frame]{data.frame()}}. The default method
 converts each array using \verb{$.array_as_vector()} and concatenates them
 using \code{\link[vctrs:vec_c]{vctrs::vec_c()}}.
-\item \verb{$.ToString()} Return a string representation that will be printed
+\item \verb{$ToString()} Return a string representation that will be printed
 to the console when this type or an Array of this type is printed.
 }
 }

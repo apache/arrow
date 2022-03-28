@@ -77,7 +77,7 @@ ExtensionArray$create <- function(x, type) {
 #' - `$storage_id()`: Returns the [Type] identifier corresponding to the
 #'   `$storage_type()`.
 #' - `$extension_name()`: Returns the extension name.
-#' - `$extension_metadata()`: Returns the serialized version of the extension
+#' - `$Serialize()`: Returns the serialized version of the extension
 #'   metadata as a [raw()] vector.
 #' - `$WrapArray(array)`: Wraps a storage [Array] into an [ExtensionArray]
 #'   with this extension type.
@@ -142,13 +142,13 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__extension_name(self)
     },
 
-    extension_metadata = function() {
+    Serialize = function() {
       ExtensionType__Serialize(self)
     },
 
     # To make sure this conversion is done properly
-    extension_metadata_utf8 = function() {
-      metadata_utf8 <- rawToChar(self$extension_metadata())
+    SerializeUTF8 = function() {
+      metadata_utf8 <- rawToChar(self$Serialize())
       Encoding(metadata_utf8) <- "UTF-8"
       metadata_utf8
     },
@@ -166,7 +166,7 @@ ExtensionType <- R6Class("ExtensionType",
     .ExtensionEquals = function(other) {
       inherits(other, "ExtensionType") &&
         identical(other$extension_name(), self$extension_name()) &&
-        identical(other$extension_metadata(), self$extension_metadata())
+        identical(other$Serialize(), self$Serialize())
     },
 
     .array_as_vector = function(extension_array) {
@@ -190,7 +190,7 @@ ExtensionType <- R6Class("ExtensionType",
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
       # and it's confusing to error when printing the object. This herustic
       # isn't perfect (but subclasses should override this method anyway)
-      metadata_raw <- self$extension_metadata()
+      metadata_raw <- self$Serialize()
 
       if (as.raw(0x00) %in% metadata_raw) {
         if (length(metadata_raw) > 20) {
@@ -208,7 +208,7 @@ ExtensionType <- R6Class("ExtensionType",
         }
 
       } else {
-        paste0(class(self)[1], " <", self$extension_metadata_utf8(), ">")
+        paste0(class(self)[1], " <", self$SerializeUTF8(), ">")
       }
     }
   )
@@ -328,7 +328,7 @@ ExtensionType$create <- function(storage_type,
 #'
 #'     # populate the custom metadata fields from the serialized metadata
 #'     .Deserialize = function() {
-#'       vals <- as.numeric(strsplit(self$extension_metadata_utf8(), ";")[[1]])
+#'       vals <- as.numeric(strsplit(self$SerializeUTF8(), ";")[[1]])
 #'       private$.center <- vals[1]
 #'       private$.scale <- vals[2]
 #'     }
@@ -440,7 +440,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
     },
 
     .Deserialize = function() {
-      private$.ptype <- unserialize(self$extension_metadata())
+      private$.ptype <- unserialize(self$Serialize())
     },
 
     .ExtensionEquals = function(other) {
