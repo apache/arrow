@@ -28,11 +28,12 @@ namespace sql {
 /// \brief Helper class to set column metadata.
 class ColumnMetadata {
  private:
-  std::shared_ptr<arrow::KeyValueMetadata> metadata_map_;
-  explicit ColumnMetadata(std::shared_ptr<arrow::KeyValueMetadata> metadata_map);
+  std::shared_ptr<const arrow::KeyValueMetadata> metadata_map_;
 
  public:
   class ColumnMetadataBuilder;
+
+  explicit ColumnMetadata(std::shared_ptr<const arrow::KeyValueMetadata> metadata_map);
 
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
@@ -103,7 +104,7 @@ class ColumnMetadata {
 
   /// \brief  Return the KeyValueMetadata.
   /// \return The KeyValueMetadata.
-  const std::shared_ptr<arrow::KeyValueMetadata>& metadata_map() const;
+  const std::shared_ptr<const arrow::KeyValueMetadata>& metadata_map() const;
 
   /// \brief A builder class to construct the ColumnMetadata object.
   class ColumnMetadataBuilder {
