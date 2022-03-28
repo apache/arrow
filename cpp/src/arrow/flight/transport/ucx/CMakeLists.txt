@@ -19,7 +19,7 @@ add_custom_target(arrow_flight_transport_ucx)
 arrow_install_all_headers("arrow/flight/transport/ucx")
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(UCX REQUIRED ucx)
+pkg_check_modules(UCX REQUIRED IMPORTED_TARGET ucx)
 
 set(ARROW_FLIGHT_TRANSPORT_UCX_SRCS
     ucx_client.cc
@@ -30,7 +30,7 @@ set(ARROW_FLIGHT_TRANSPORT_UCX_SRCS
 set(ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS)
 
 include_directories(SYSTEM ${UCX_INCLUDE_DIRS})
-list(APPEND ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS ${UCX_LIBRARIES})
+list(APPEND ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS PkgConfig::UCX)
 
 add_arrow_lib(arrow_flight_transport_ucx
               # CMAKE_PACKAGE_NAME
