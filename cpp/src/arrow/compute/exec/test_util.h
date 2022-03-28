@@ -21,6 +21,7 @@
 #include <arrow/util/vector.h>
 
 #include <functional>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/pcg_random.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -111,6 +113,20 @@ bool operator==(const Declaration&, const Declaration&);
 
 ARROW_TESTING_EXPORT
 void PrintTo(const Declaration& decl, std::ostream* os);
+
+class Random64Bit {
+ public:
+  explicit Random64Bit(int32_t seed) : rng_(seed) {}
+  uint64_t next() { return dist_(rng_); }
+  template <typename T>
+  inline T from_range(const T& min_val, const T& max_val) {
+    return static_cast<T>(min_val + (next() % (max_val - min_val + 1)));
+  }
+
+ private:
+  random::pcg32_fast rng_;
+  std::uniform_int_distribution<uint64_t> dist_;
+};
 
 }  // namespace compute
 }  // namespace arrow

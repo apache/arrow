@@ -25,6 +25,7 @@
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/time.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/vendored/datetime.h"
 
 namespace arrow {
@@ -72,6 +73,7 @@ using std::chrono::minutes;
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
 using WeekState = OptionsWrapper<WeekOptions>;
 using StrftimeState = OptionsWrapper<StrftimeOptions>;
+using StrptimeState = OptionsWrapper<StrptimeOptions>;
 using AssumeTimezoneState = OptionsWrapper<AssumeTimezoneOptions>;
 using RoundTemporalState = OptionsWrapper<RoundTemporalOptions>;
 
@@ -1144,6 +1146,130 @@ struct Strftime {
 #endif
 
 // ----------------------------------------------------------------------
+// Convert string representations of timestamps in arbitrary format to timestamps
+
+const std::string GetZone(const std::string& format) {
+  // Check for use of %z or %Z
+  size_t cur = 0;
+  size_t count = 0;
+  std::string zone = "";
+  while (cur < format.size() - 1) {
+    if (format[cur] == '%') {
+      count++;
+      if (format[cur + 1] == 'z' && count % 2 == 1) {
+        zone = "UTC";
+        break;
+      }
+      cur++;
+    } else {
+      count = 0;
+    }
+    cur++;
+  }
+  return zone;
+}
+
+template <typename Duration, typename InType>
+struct Strptime {
+  const std::shared_ptr<TimestampParser> parser;
+  const TimeUnit::type unit;
+  const std::string zone;
+  const bool error_is_null;
+
+  static Result<Strptime> Make(KernelContext* ctx, const DataType& type) {
+    const StrptimeOptions& options = StrptimeState::Get(ctx);
+
+    return Strptime{TimestampParser::MakeStrptime(options.format),
+                    std::move(options.unit), GetZone(options.format),
+                    options.error_is_null};
+  }
+
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+
+    if (in.is_valid) {
+      auto s = internal::UnboxScalar<InType>::Unbox(in);
+      int64_t result;
+      if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
+        *checked_cast<TimestampScalar*>(out) =
+            TimestampScalar(result, timestamp(self.unit, self.zone));
+      } else {
+        if (self.error_is_null) {
+          out->is_valid = false;
+        } else {
+          return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
+                                 TimestampType(self.unit).ToString());
+        }
+      }
+    } else {
+      out->is_valid = false;
+    }
+    return Status::OK();
+  }
+
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+    int64_t* out_data = out->GetMutableValues<int64_t>(1);
+
+    if (self.error_is_null) {
+      if (out->buffers[0] == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(in.length));
+        bit_util::SetBitmap(out->buffers[0]->mutable_data(), out->offset, out->length);
+      }
+
+      int64_t null_count = 0;
+      arrow::internal::BitmapWriter out_writer(out->GetMutableValues<uint8_t>(0, 0),
+                                               out->offset, out->length);
+      auto visit_null = [&]() {
+        out_data++;
+        out_writer.Next();
+        null_count++;
+      };
+      auto visit_value = [&](util::string_view s) {
+        int64_t result;
+        if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
+          *out_data++ = result;
+        } else {
+          out_writer.Clear();
+          null_count++;
+        }
+        out_writer.Next();
+      };
+      VisitArrayDataInline<InType>(in, visit_value, visit_null);
+      out_writer.Finish();
+      out->null_count = null_count;
+    } else {
+      auto visit_null = [&]() {
+        out_data++;
+        return Status::OK();
+      };
+      auto visit_value = [&](util::string_view s) {
+        int64_t result;
+        if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
+          *out_data++ = result;
+          return Status::OK();
+        } else {
+          return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
+                                 TimestampType(self.unit).ToString());
+        }
+      };
+      RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
+    }
+    return Status::OK();
+  }
+};
+
+Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
+                                         const std::vector<ValueDescr>&) {
+  if (!ctx->state()) {
+    return Status::Invalid("strptime does not provide default StrptimeOptions");
+  }
+  const StrptimeOptions& options = StrptimeState::Get(ctx);
+  auto type = timestamp(options.unit, GetZone(options.format));
+  return ValueDescr(std::move(type));
+}
+
+// ----------------------------------------------------------------------
 // Convert timestamps from local timestamp without a timezone to timestamps with a
 // timezone, interpreting the local timestamp as being in the specified timezone
 
@@ -1399,6 +1525,7 @@ struct SimpleUnaryTemporalFactory {
   void AddKernel(InputType in_type) {
     auto exec = SimpleUnary<Op<Duration, InType>>;
     DCHECK_OK(func->AddKernel({std::move(in_type)}, out_type, std::move(exec), init));
+    ScalarKernel kernel({std::move(in_type)}, out_type, exec, init);
   }
 };
 
@@ -1590,7 +1717,13 @@ const FunctionDoc strftime_doc{
      "does not exist on this system."),
     {"timestamps"},
     "StrftimeOptions"};
-
+const FunctionDoc strptime_doc(
+    "Parse timestamps",
+    ("For each string in `strings`, parse it as a timestamp.\n"
+     "The timestamp unit and the expected string pattern must be given\n"
+     "in StrptimeOptions. Null inputs emit null. If a non-null string\n"
+     "fails parsing, an error is returned by default."),
+    {"strings"}, "StrptimeOptions", /*options_required=*/true);
 const FunctionDoc assume_timezone_doc{
     "Convert naive timestamp to timezone-aware timestamp",
     ("Input timestamps are assumed to be relative to the timezone given in the\n"
@@ -1779,6 +1912,11 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
           "strftime", utf8(), &strftime_doc, &default_strftime_options,
           StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
+
+  auto strptime = SimpleUnaryTemporalFactory<Strptime>::Make<WithStringTypes>(
+      "strptime", OutputType::Resolver(ResolveStrptimeOutput), &strptime_doc, nullptr,
+      StrptimeState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(strptime)));
 
   auto assume_timezone =
       UnaryTemporalFactory<AssumeTimezone, AssumeTimezoneExtractor, TimestampType>::Make<

@@ -66,6 +66,7 @@ extensions = [
     'IPython.sphinxext.ipython_directive',
     'numpydoc',
     'sphinx_tabs.tabs',
+    'sphinx_copybutton',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
@@ -89,6 +90,10 @@ breathe_default_project = "arrow_cpp"
 
 # Overriden conditionally below
 autodoc_mock_imports = []
+
+# copybutton configuration
+copybutton_prompt_text = "$"
+copybutton_line_continuation_character = "\\"
 
 # ipython directive options
 ipython_mplbackend = ''

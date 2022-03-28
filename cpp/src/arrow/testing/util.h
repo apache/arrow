@@ -115,6 +115,11 @@ ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
 // Windows.
 ARROW_TESTING_EXPORT int GetListenPort();
 
+// Get a IPv4 "address:port" to listen on.  The address will be a loopback
+// address.  Compared to GetListenPort(), this will minimize the risk of
+// port conflicts.
+ARROW_TESTING_EXPORT std::string GetListenAddress();
+
 ARROW_TESTING_EXPORT
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types();
 

@@ -180,10 +180,16 @@ test_that("paste, paste0, and str_c", {
 })
 
 test_that("grepl with ignore.case = FALSE and fixed = TRUE", {
-  df <- tibble(x = c("Foo", "bar"))
+  df <- tibble(x = c("Foo", "bar", NA_character_))
   compare_dplyr_binding(
     .input %>%
       filter(grepl("o", x, fixed = TRUE)) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = grepl("o", x, fixed = TRUE)) %>%
       collect(),
     df
   )
@@ -209,7 +215,7 @@ test_that("sub and gsub with ignore.case = FALSE and fixed = TRUE", {
 skip_if_not_available("re2")
 
 test_that("grepl", {
-  df <- tibble(x = c("Foo", "bar"))
+  df <- tibble(x = c("Foo", "bar", NA_character_))
 
   for (fixed in c(TRUE, FALSE)) {
     compare_dplyr_binding(
@@ -234,7 +240,7 @@ test_that("grepl", {
 })
 
 test_that("grepl with ignore.case = TRUE and fixed = TRUE", {
-  df <- tibble(x = c("Foo", "bar"))
+  df <- tibble(x = c("Foo", "bar", NA_character_))
 
   # base::grepl() ignores ignore.case = TRUE with a warning when fixed = TRUE,
   # so we can't use compare_dplyr_binding() for these tests
@@ -248,14 +254,26 @@ test_that("grepl with ignore.case = TRUE and fixed = TRUE", {
   expect_equal(
     df %>%
       Table$create() %>%
-      filter(x = grepl("^B.+", x, ignore.case = TRUE, fixed = TRUE)) %>%
+      filter(grepl("^B.+", x, ignore.case = TRUE, fixed = TRUE)) %>%
       collect(),
     tibble(x = character(0))
+  )
+  expect_equal(
+    df %>%
+      Table$create() %>%
+      mutate(
+        a = grepl("O", x, ignore.case = TRUE, fixed = TRUE)
+      ) %>%
+      collect(),
+    tibble(
+      x = c("Foo", "bar", NA_character_),
+      a = c(TRUE, FALSE, FALSE)
+    )
   )
 })
 
 test_that("str_detect", {
-  df <- tibble(x = c("Foo", "bar"))
+  df <- tibble(x = c("Foo", "bar", NA_character_))
 
   compare_dplyr_binding(
     .input %>%
@@ -1045,7 +1063,7 @@ test_that("str_sub", {
 })
 
 test_that("str_starts, str_ends, startsWith, endsWith", {
-  df <- tibble(x = c("Foo", "bar", "baz", "qux"))
+  df <- tibble(x = c("Foo", "bar", "baz", "qux", NA_character_))
 
   compare_dplyr_binding(
     .input %>%
@@ -1071,6 +1089,17 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
   compare_dplyr_binding(
     .input %>%
       filter(str_starts(x, fixed("b"))) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(a = str_starts(x, "b.*"),
+                b = str_starts(x, "b.*", negate = TRUE),
+                c = str_starts(x, fixed("b")),
+                d = str_starts(x, fixed("b"), negate = TRUE)
+                ) %>%
       collect(),
     df
   )
@@ -1105,6 +1134,15 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 
   compare_dplyr_binding(
     .input %>%
+      transmute(a = str_ends(x, "r"),
+                b = str_ends(x, "r", negate = TRUE),
+                c = str_ends(x, fixed("r")),
+                d = str_ends(x, fixed("r"), negate = TRUE)) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
       filter(startsWith(x, "b")) %>%
       collect(),
     df
@@ -1127,6 +1165,14 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
   compare_dplyr_binding(
     .input %>%
       filter(endsWith(x, "r$")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(a = startsWith(x, "b"),
+                b = endsWith(x, "r")) %>%
       collect(),
     df
   )

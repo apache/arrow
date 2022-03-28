@@ -1076,3 +1076,140 @@ test_that("ISO_datetime & ISOdate", {
     ignore_attr = TRUE
   )
 })
+
+test_that("difftime works correctly", {
+  test_df <- tibble(
+    time1 = as.POSIXct(
+      c("2021-02-20", "2021-07-31 0:0:0", "2021-10-30", "2021-01-31 0:0:0")
+    ),
+    time2 = as.POSIXct(
+      c("2021-02-20 00:02:01", "2021-07-31 00:03:54", "2021-10-30 00:05:45", "2021-01-31 00:07:36")
+      ),
+    secs = c(121L, 234L, 345L, 456L)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        secs2 = difftime(time1, time2, units = "secs")
+      ) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
+
+  # units other than "secs" not supported in arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        mins = difftime(time1, time2, units = "mins")
+      ) %>%
+      collect(),
+    test_df,
+    warning = TRUE,
+    ignore_attr = TRUE
+  )
+
+  skip_on_os("windows")
+  test_df_with_tz <- tibble(
+    time1 = as.POSIXct(
+      c("2021-02-20", "2021-07-31", "2021-10-30", "2021-01-31"),
+      tz = "Pacific/Marquesas"
+    ),
+    time2 = as.POSIXct(
+      c("2021-02-20 00:02:01", "2021-07-31 00:03:54", "2021-10-30 00:05:45", "2021-01-31 00:07:36"),
+      tz = "Asia/Kathmandu"
+    ),
+    secs = c(121L, 234L, 345L, 456L)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(secs2 = difftime(time2, time1, units = "secs")) %>%
+      collect(),
+    test_df_with_tz
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        secs2 = difftime(
+          as.POSIXct("2022-03-07", tz = "Europe/Bucharest"),
+          time1,
+          units = "secs"
+        )
+      ) %>%
+      collect(),
+    test_df_with_tz
+  )
+
+  # `tz` is effectively ignored both in R (used only if inputs are POSIXlt) and Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(secs2 = difftime(time2, time1, units = "secs", tz = "Pacific/Marquesas")) %>%
+      collect(),
+    test_df_with_tz,
+    warning = "`tz` argument is not supported in Arrow, so it will be ignored"
+  )
+})
+
+test_that("as.difftime()", {
+  test_df <- tibble(
+    hms_string = c("0:7:45", "12:34:56"),
+    hm_string = c("7:45", "12:34"),
+    int = c(30L, 75L),
+    integerish_dbl = c(31, 76),
+    dbl = c(31.2, 76.4)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(hms_difftime = as.difftime(hms_string, units = "secs")) %>%
+      collect(),
+    test_df
+  )
+
+  # TODO add test with `format` mismatch returning NA once
+  # https://issues.apache.org/jira/browse/ARROW-15659 is solved
+  # for example: as.difftime("07:", format = "%H:%M") should return NA
+  compare_dplyr_binding(
+    .input %>%
+      mutate(hm_difftime = as.difftime(hm_string, units = "secs", format = "%H:%M")) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(int_difftime = as.difftime(int, units = "secs")) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(integerish_dbl_difftime = as.difftime(integerish_dbl, units = "secs")) %>%
+      collect(),
+    test_df
+  )
+
+  # "mins" or other values for units cannot be handled in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(int_difftime = as.difftime(int, units = "mins")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  # only integer (or integer-like) -> duration conversion supported in Arrow.
+  # double -> duration not supported. we're not testing the content of the
+  # error message as it is being generated in the C++ code and it might change,
+  # but we want to make sure that this error is raised in our binding implementation
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(dbl_difftime = as.difftime(dbl, units = "secs")) %>%
+      collect()
+  )
+})

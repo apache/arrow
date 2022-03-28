@@ -23,6 +23,7 @@ from pathlib import Path
 import click
 
 from .command import Bash, Command, default_bin
+from ..compat import _get_module
 from .cmake import CMake
 from .git import git
 from .logger import logger
@@ -284,7 +285,7 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
         doc = getattr(obj, '__doc__', '')
         name = getattr(obj, '__name__', '')
         qualname = getattr(obj, '__qualname__', '')
-        module = getattr(obj, '__module__', '')
+        module = _get_module(obj, default='')
         instance = getattr(obj, '__self__', '')
         if instance:
             klass = instance.__class__.__name__

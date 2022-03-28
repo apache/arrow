@@ -353,7 +353,8 @@ static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
     DataMember("format", &StrftimeOptions::format));
 static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
-    DataMember("unit", &StrptimeOptions::unit));
+    DataMember("unit", &StrptimeOptions::unit),
+    DataMember("error_is_null", &StrptimeOptions::error_is_null));
 static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
     DataMember("indices", &StructFieldOptions::indices));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
@@ -544,11 +545,13 @@ StrftimeOptions::StrftimeOptions() : StrftimeOptions(kDefaultFormat) {}
 constexpr char StrftimeOptions::kTypeName[];
 constexpr const char* StrftimeOptions::kDefaultFormat;
 
-StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
+StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit,
+                                 bool error_is_null)
     : FunctionOptions(internal::kStrptimeOptionsType),
       format(std::move(format)),
-      unit(unit) {}
-StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
+      unit(unit),
+      error_is_null(error_is_null) {}
+StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::MICRO, false) {}
 constexpr char StrptimeOptions::kTypeName[];
 
 StructFieldOptions::StructFieldOptions(std::vector<int> indices)
@@ -820,6 +823,10 @@ Result<Datum> RoundTemporal(const Datum& arg, RoundTemporalOptions options,
 
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {
   return CallFunction("strftime", {arg}, &options, ctx);
+}
+
+Result<Datum> Strptime(const Datum& arg, StrptimeOptions options, ExecContext* ctx) {
+  return CallFunction("strptime", {arg}, &options, ctx);
 }
 
 Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {

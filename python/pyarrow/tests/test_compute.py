@@ -162,7 +162,7 @@ def test_option_class_equality():
         pc.SplitOptions(),
         pc.SplitPatternOptions("pattern"),
         pc.StrftimeOptions(),
-        pc.StrptimeOptions("%Y", "s"),
+        pc.StrptimeOptions("%Y", "s", True),
         pc.StructFieldOptions(indices=[]),
         pc.TakeOptions(),
         pc.TDigestOptions(),
@@ -1721,6 +1721,22 @@ def test_strptime():
     assert got == expected
     # Positional format
     assert pc.strptime(arr, '%m/%d/%Y', unit='s') == got
+
+    expected = pa.array([datetime(2020, 1, 5), None, None],
+                        type=pa.timestamp('s'))
+    got = pc.strptime(arr, format='%d/%m/%Y', unit='s', error_is_null=True)
+    assert got == expected
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Failed to parse string: '5/1/2020'"):
+        pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=False)
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Failed to parse string: '5/1/2020'"):
+        pc.strptime(arr, format='%Y-%m-%d', unit='s')
+
+    got = pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=True)
+    assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
 # TODO: We should test on windows once ARROW-13168 is resolved.

@@ -91,11 +91,8 @@ Status UploadBatchesToFlight(const std::vector<std::shared_ptr<RecordBatch>>& ch
 
 /// \brief Retrieve the given Flight and compare to the original expected batches.
 Status ConsumeFlightLocation(
-    const Location& location, const Ticket& ticket,
+    FlightClient* read_client, const Ticket& ticket,
     const std::vector<std::shared_ptr<RecordBatch>>& retrieved_data) {
-  std::unique_ptr<FlightClient> read_client;
-  RETURN_NOT_OK(FlightClient::Connect(location, &read_client));
-
   std::unique_ptr<FlightStreamReader> stream;
   RETURN_NOT_OK(read_client->DoGet(ticket, &stream));
 
@@ -187,15 +184,17 @@ class IntegrationTestScenario : public Scenario {
     for (const FlightEndpoint& endpoint : info->endpoints()) {
       const auto& ticket = endpoint.ticket;
 
-      auto locations = endpoint.locations;
-      if (locations.size() == 0) {
-        return Status::IOError("No locations returned from Flight server.");
-      }
-
-      for (const auto& location : locations) {
-        std::cout << "Verifying location " << location.ToString() << std::endl;
-        // 3. Stream data from the server, comparing individual batches.
-        ABORT_NOT_OK(ConsumeFlightLocation(location, ticket, original_data));
+      // 3. Stream data from the server, comparing individual batches.
+      if (endpoint.locations.size() == 0) {
+        RETURN_NOT_OK(ConsumeFlightLocation(client.get(), ticket, original_data));
+      } else {
+        for (const auto& location : endpoint.locations) {
+          std::cout << "Verifying location " << location.ToString() << std::endl;
+          std::unique_ptr<FlightClient> read_client;
+          RETURN_NOT_OK(FlightClient::Connect(location, &read_client));
+          RETURN_NOT_OK(ConsumeFlightLocation(read_client.get(), ticket, original_data));
+          RETURN_NOT_OK(read_client->Close());
+        }
       }
     }
     return Status::OK();

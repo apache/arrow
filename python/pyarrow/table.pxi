@@ -122,7 +122,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        full: bool, default False
+        full : bool, default False
             If True, run expensive checks, otherwise cheap checks only.
 
         Raises
@@ -253,7 +253,17 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def fill_null(self, fill_value):
         """
-        See pyarrow.compute.fill_null docstring for usage.
+        See :func:`pyarrow.compute.fill_null` for usage.
+
+        Parameters
+        ----------
+        fill_value
+            The replacement value for null entries.
+
+        Returns
+        -------
+        result : Array or ChunkedArray
+            A new array with nulls replaced by the given value.
         """
         return _pc().fill_null(self, fill_value)
 
@@ -335,18 +345,36 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Cast array values to another data type
 
-        See pyarrow.compute.cast for usage
+        See :func:`pyarrow.compute.cast` for usage.
+
+        Parameters
+        ----------
+        target_type : DataType
+            Type to cast array to.
+        safe : boolean, default True
+            Whether to check for conversion errors such as overflow.
+
+        Returns
+        -------
+        cast : Array or ChunkedArray
         """
         return _pc().cast(self, target_type, safe=safe)
 
     def dictionary_encode(self, null_encoding='mask'):
         """
-        Compute dictionary-encoded representation of array
+        Compute dictionary-encoded representation of array.
+
+        See :func:`pyarrow.compute.dictionary_encode` for full usage.
+
+        Parameters
+        ----------
+        null_encoding
+            How to handle null entries.
 
         Returns
         -------
-        pyarrow.ChunkedArray
-            Same chunking as the input, all chunks share a common dictionary.
+        encoded : ChunkedArray
+            A dictionary-encoded version of this array.
         """
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
@@ -440,8 +468,22 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def filter(self, mask, object null_selection_behavior="drop"):
         """
-        Select values from a chunked array. See pyarrow.compute.filter for full
-        usage.
+        Select values from the chunked array.
+
+        See :func:`pyarrow.compute.filter` for full usage.
+
+        Parameters
+        ----------
+        mask : Array or array-like
+            The boolean mask to filter the chunked array with.
+        null_selection_behavior
+            How nulls in the mask should be handled.
+
+        Returns
+        -------
+        filtered : Array or ChunkedArray
+            An array of the same type, with only the elements selected by
+            the boolean mask.
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -449,21 +491,48 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Find the first index of a value.
 
-        See pyarrow.compute.index for full usage.
+        See :func:`pyarrow.compute.index` for full usage.
+
+        Parameters
+        ----------
+        value : Scalar or object
+            The value to look for in the array.
+        start : int, optional
+            The start index where to look for `value`.
+        end : int, optional
+            The end index where to look for `value`.
+        memory_pool : MemoryPool, optional
+            A memory pool for potential memory allocations.
+
+        Returns
+        -------
+        index : Int64Scalar
+            The index of the value in the array (-1 if not found).
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
     def take(self, object indices):
         """
-        Select values from a chunked array. See pyarrow.compute.take for full
-        usage.
+        Select values from the chunked array.
+
+        See :func:`pyarrow.compute.take` for full usage.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices in the array whose values will be returned.
+
+        Returns
+        -------
+        taken : Array or ChunkedArray
+            An array with the same datatype, containing the taken values.
         """
         return _pc().take(self, indices)
 
     def drop_null(self):
         """
         Remove missing values from a chunked array.
-        See pyarrow.compute.drop_null for full description.
+        See :func:`pyarrow.compute.drop_null` for full description.
         """
         return _pc().drop_null(self)
 
@@ -795,7 +864,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         Parameters
         ----------
-        full: bool, default False
+        full : bool, default False
             If True, run expensive checks, otherwise cheap checks only.
 
         Raises
@@ -1069,8 +1138,22 @@ cdef class RecordBatch(_PandasConvertible):
 
     def filter(self, mask, object null_selection_behavior="drop"):
         """
-        Select record from a record batch. See pyarrow.compute.filter for full
-        usage.
+        Select rows from the record batch.
+
+        See :func:`pyarrow.compute.filter` for full usage.
+
+        Parameters
+        ----------
+        mask : Array or array-like
+            The boolean mask to filter the record batch with.
+        null_selection_behavior
+            How nulls in the mask should be handled.
+
+        Returns
+        -------
+        filtered : RecordBatch
+            A record batch of the same schema, with only the rows selected
+            by the boolean mask.
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -1104,15 +1187,26 @@ cdef class RecordBatch(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Select records from a RecordBatch. See pyarrow.compute.take for full
-        usage.
+        Select rows from the record batch.
+
+        See :func:`pyarrow.compute.take` for full usage.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices in the record batch whose rows will be returned.
+
+        Returns
+        -------
+        taken : RecordBatch
+            A record batch with the same schema, containing the taken rows.
         """
         return _pc().take(self, indices)
 
     def drop_null(self):
         """
         Remove missing values from a RecordBatch.
-        See pyarrow.compute.drop_null for full usage.
+        See :func:`pyarrow.compute.drop_null` for full usage.
         """
         return _pc().drop_null(self)
 
@@ -1443,7 +1537,7 @@ cdef class Table(_PandasConvertible):
 
         Parameters
         ----------
-        full: bool, default False
+        full : bool, default False
             If True, run expensive checks, otherwise cheap checks only.
 
         Raises
@@ -1513,15 +1607,40 @@ cdef class Table(_PandasConvertible):
 
     def filter(self, mask, object null_selection_behavior="drop"):
         """
-        Select records from a Table. See :func:`pyarrow.compute.filter` for
-        full usage.
+        Select rows from the table.
+
+        See :func:`pyarrow.compute.filter` for full usage.
+
+        Parameters
+        ----------
+        mask : Array or array-like
+            The boolean mask to filter the table with.
+        null_selection_behavior
+            How nulls in the mask should be handled.
+
+        Returns
+        -------
+        filtered : Table
+            A table of the same schema, with only the rows selected
+            by the boolean mask.
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
     def take(self, object indices):
         """
-        Select records from a Table. See :func:`pyarrow.compute.take` for full
-        usage.
+        Select rows from the table.
+
+        See :func:`pyarrow.compute.take` for full usage.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices in the table whose rows will be returned.
+
+        Returns
+        -------
+        taken : Table
+            A table with the same schema, containing the taken rows.
         """
         return _pc().take(self, indices)
 
@@ -1966,9 +2085,12 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(c_table)
 
-    def to_batches(self, max_chunksize=None, **kwargs):
+    def to_batches(self, max_chunksize=None):
         """
-        Convert Table to list of (contiguous) RecordBatch objects.
+        Convert Table to a list of RecordBatch objects.
+
+        Note that this method is zero-copy, it merely exposes the same data
+        under a different API.
 
         Parameters
         ----------
@@ -1988,13 +2110,6 @@ cdef class Table(_PandasConvertible):
 
         reader.reset(new TableBatchReader(deref(self.table)))
 
-        if 'chunksize' in kwargs:
-            max_chunksize = kwargs['chunksize']
-            msg = ('The parameter chunksize is deprecated for '
-                   'pyarrow.Table.to_batches as of 0.15, please use '
-                   'the parameter max_chunksize instead')
-            warnings.warn(msg, FutureWarning)
-
         if max_chunksize is not None:
             c_max_chunksize = max_chunksize
             reader.get().set_chunksize(c_max_chunksize)
@@ -2012,7 +2127,17 @@ cdef class Table(_PandasConvertible):
 
     def to_reader(self, max_chunksize=None):
         """
-        Convert a Table to RecordBatchReader
+        Convert the Table to a RecordBatchReader.
+
+        Note that this method is zero-copy, it merely exposes the same data
+        under a different API.
+
+        Parameters
+        ----------
+        max_chunksize : int, default None
+            Maximum size for RecordBatch chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns.
+
         Returns
         -------
         RecordBatchReader        

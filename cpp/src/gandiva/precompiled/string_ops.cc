@@ -2736,16 +2736,16 @@ const char* to_hex_int32(int64_t context, int32_t data, int32_t* out_len) {
 
 FORCE_INLINE
 const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
-                          int32_t* out_len) {
+                          bool text_validity, bool* out_valid, int32_t* out_len) {
   if (text_len == 0) {
+    *out_valid = true;
     *out_len = 0;
     return "";
   }
 
-  // the input string should have a length multiple of two
-  if (text_len % 2 != 0) {
-    gdv_fn_context_set_error_msg(
-        context, "Error parsing hex string, length was not a multiple of two.");
+  // the input string should have a length multiple of two and a true validity
+  if (text_len % 2 != 0 || !text_validity) {
+    *out_valid = false;
     *out_len = 0;
     return "";
   }
@@ -2753,7 +2753,7 @@ const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, text_len / 2));
 
   if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_valid = false;
     *out_len = 0;
     return "";
   }
@@ -2767,12 +2767,12 @@ const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
       // [a-fA-F0-9]
       ret[j++] = to_binary_from_hex(b1) * 16 + to_binary_from_hex(b2);
     } else {
-      gdv_fn_context_set_error_msg(
-          context, "Error parsing hex string, one or more bytes are not valid.");
+      *out_valid = false;
       *out_len = 0;
       return "";
     }
   }
+  *out_valid = true;
   *out_len = j;
   return ret;
 }

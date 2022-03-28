@@ -188,6 +188,9 @@ register_bindings_datetime <- function() {
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
   })
+}
+
+register_bindings_duration <- function() {
   register_binding("make_datetime", function(year = 1970L,
                                              month = 1L,
                                              day = 1L,
@@ -235,6 +238,67 @@ register_bindings_datetime <- function() {
                                        sec = 0,
                                        tz = "UTC") {
     call_binding("make_datetime", year, month, day, hour, min, sec, tz)
+  })
+  register_binding("difftime", function(time1,
+                                        time2,
+                                        tz,
+                                        units = "secs") {
+    if (units != "secs") {
+      abort("`difftime()` with units other than `secs` not supported in Arrow")
+    }
+
+    if (!missing(tz)) {
+      warn("`tz` argument is not supported in Arrow, so it will be ignored")
+    }
+
+    # cast to timestamp if time1 and time2 are not dates or timestamp expressions
+    # (the subtraction of which would output a `duration`)
+    if (!call_binding("is.instant", time1)) {
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = "UTC")))
+    }
+
+    if (!call_binding("is.instant", time2)) {
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
+    }
+
+    # we need to go build the subtract expression instead of `time1 - time2` to
+    # prevent complaints when we try to subtract an R object from an Expression
+    subtract_output <- build_expr("-", time1, time2)
+    build_expr("cast", subtract_output, options = cast_options(to_type = duration("s")))
+  })
+  register_binding("as.difftime", function(x,
+                                           format = "%X",
+                                           units = "secs") {
+    # windows doesn't seem to like "%X"
+    if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
+      format <- "%H:%M:%S"
+    }
+
+    if (units != "secs") {
+      abort("`as.difftime()` with units other than 'secs' not supported in Arrow")
+    }
+
+    if (call_binding("is.character", x)) {
+      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
+      # complex casting only due to cast type restrictions: time64 -> int64 -> duration(us)
+      # and then we cast to duration ("s") at the end
+      x <- x$cast(time64("us"))$cast(int64())$cast(duration("us"))
+    }
+
+    # numeric -> duration not supported in Arrow yet so we use int64() as an
+    # intermediate step
+    # TODO revisit if https://issues.apache.org/jira/browse/ARROW-15862 results
+    # in numeric -> duration support
+
+    if (call_binding("is.numeric", x)) {
+      # coerce x to be int64(). it should work for integer-like doubles and fail
+      # for pure doubles
+      # if we abort for all doubles, we risk erroring in cases in which
+      # coercion to int64() would work
+      x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+    }
+
+    build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
 }
 
