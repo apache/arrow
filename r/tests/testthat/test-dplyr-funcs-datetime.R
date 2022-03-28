@@ -120,6 +120,9 @@ test_that("errors in strptime", {
 
 test_that("strptime returns NA when format doesn't match the data", {
   df <- tibble(str_date = c("2022-02-07", "2022 02-07"))
+  df <- tibble(
+    str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07")
+  )
 
   expect_equal(
     df %>%
@@ -127,32 +130,23 @@ test_that("strptime returns NA when format doesn't match the data", {
       mutate(parsed_date = strptime(str_date, format = "%Y-%m-%d")) %>%
       collect(),
     tibble(
-      str_date = c("2022-02-07", "2022 02-07"),
-      parsed_date = as.POSIXct(c("2022-02-07 00:00:00", NA))
+      str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07"),
+      parsed_date = as.POSIXct(c("2022-02-07 00:00:00", NA, NA, NA))
     ),
     ignore_attr = TRUE
   )
 
-
-  # something is weird when the first element fails to parse
   expect_equal(
     df %>%
       arrow_table() %>%
-      mutate(parsed_date = strptime(str_date, format = "%Y %m-%d")) %>%
+      mutate(parsed_date = strptime(str_date, format = "%Y/%m-%d")) %>%
       collect(),
     tibble(
-      str_date = c("2022-02-07", "2022 02-07"),
-      parsed_date = as.POSIXct(c(NA, "2022-02-07 00:00:00"))
+      str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07"),
+      parsed_date = as.POSIXct(c(NA, "2012-02-07", "1975-01-02", "1981-01-07"))
     ),
     ignore_attr = TRUE
   )
-
-  # compare_dplyr_binding(
-  #   .input %>%
-  #     mutate(b = strptime(str_date, format = "%Y %m-%d")) %>%
-  #     collect(),
-  #   df
-  # )
 })
 
 test_that("strftime", {
