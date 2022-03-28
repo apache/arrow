@@ -104,7 +104,7 @@ test_that("extension types can use UTF-8 for metadata", {
     "\U0001f4a9\U0001f4a9\U0001f4a9\U0001f4a9"
   )
 
-  expect_match(type$ToString(), "\U0001f4a9{4}")
+  expect_match(type$ToString(), "\U0001f4a9", fixed = TRUE)
 })
 
 test_that("extension types can be printed that don't use UTF-8 for metadata", {
