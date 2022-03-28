@@ -817,7 +817,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     std::string str;
     RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    return arrow::internal::make_unique<SchemaResult>(str);
+    return arrow::internal::make_unique<SchemaResult>(std::move(str));
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
