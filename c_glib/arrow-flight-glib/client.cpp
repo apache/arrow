@@ -255,7 +255,7 @@ gaflight_client_new(GAFlightLocation *location,
                                                   *flight_options
                                           ).Value(&flight_client);
   } else {
-    status = arrow::flight::FlightClient::Connect(*flight_location,
+    status = arrow::flight::FlightClient::Connect(*flight_location
                                                   ).Value(&flight_client);
   }
   if (garrow::check(error, status, "[flight-client][new]")) {
@@ -370,7 +370,7 @@ gaflight_client_do_get(GAFlightClient *client,
   }
   std::unique_ptr<arrow::flight::FlightStreamReader> flight_reader;
   auto status = flight_client->DoGet(*flight_options,
-                                     *flight_ticket,
+                                     *flight_ticket
                                ).Value(&flight_reader);
   if (garrow::check(error,
                     status,
