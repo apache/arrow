@@ -1168,7 +1168,7 @@ class Converter_Extension : public Converter {
       : Converter(chunked_array) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rf_error("Can't use Converter() API for ExtensionType directoy");
+    Rf_error("Can't use Converter() API for ExtensionType directly");
   }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
@@ -1179,9 +1179,6 @@ class Converter_Extension : public Converter {
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     return Status::NotImplemented("Converter API for ExtensionType");
   }
-
- private:
-  std::shared_ptr<Converter> storage_converter_;
 };
 
 bool ArraysCanFitInteger(ArrayVector arrays) {
