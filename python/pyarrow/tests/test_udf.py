@@ -22,17 +22,14 @@ import pytest
 import pyarrow as pa
 from pyarrow import compute as pc
 from pyarrow.compute import register_function
-from pyarrow.compute import Arity, InputType
+from pyarrow.compute import InputType
 
 
-def get_function_doc(summary: str, desc: str, arg_names: List[str],
-                     options_class: str, options_required: bool = False):
+def get_function_doc(summary: str, desc: str, arg_names: List[str]):
     func_doc = {}
     func_doc["summary"] = summary
     func_doc["description"] = desc
     func_doc["arg_names"] = arg_names
-    func_doc["options_class"] = options_class
-    func_doc["options_required"] = False
     return func_doc
 
 # scalar unary function data
@@ -40,8 +37,7 @@ def get_function_doc(summary: str, desc: str, arg_names: List[str],
 
 unary_doc = get_function_doc("add function",
                              "test add function",
-                             ["scalar1"],
-                             "None")
+                             ["scalar1"])
 
 
 def unary_function(scalar1):
@@ -52,8 +48,7 @@ def unary_function(scalar1):
 
 binary_doc = get_function_doc("y=mx",
                               "find y from y = mx",
-                              ["m", "x"],
-                              "None")
+                              ["m", "x"])
 
 
 def binary_function(m, x):
@@ -64,8 +59,7 @@ def binary_function(m, x):
 
 ternary_doc = get_function_doc("y=mx+c",
                                "find y from y = mx + c",
-                               ["m", "x", "c"],
-                               "None")
+                               ["m", "x", "c"])
 
 
 def ternary_function(m, x, c):
@@ -77,8 +71,7 @@ def ternary_function(m, x, c):
 
 varargs_doc = get_function_doc("z=ax+by+c",
                                "find z from z = ax + by + c",
-                               ["a", "x", "b", "y", "c"],
-                               "None")
+                               ["a", "x", "b", "y", "c"])
 
 
 def varargs_function(a, x, b, y, c):
@@ -163,10 +156,10 @@ def function_names():
 @pytest.fixture
 def function_arities():
     return [
-        Arity.unary(),
-        Arity.binary(),
-        Arity.ternary(),
-        Arity.varargs(5),
+        1,
+        2,
+        3,
+        5,
     ]
 
 

@@ -15,19 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This example showcases various ways to work with Datasets. It's
-// intended to be paired with the documentation.
-
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/expression.h>
-#include <arrow/compute/exec/options.h>
-#include <arrow/datum.h>
-#include <arrow/record_batch.h>
-#include <arrow/result.h>
-#include <arrow/status.h>
-#include <arrow/table.h>
+#include <arrow/compute/exec/exec_plan.h>  // ARROW-15263
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
 #include <arrow/util/vector.h>
@@ -35,6 +25,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <type_traits>
+#include <vector>
 
 namespace cp = arrow::compute;
 

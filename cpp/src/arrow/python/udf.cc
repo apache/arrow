@@ -66,7 +66,7 @@ Status VerifyArityAndInput(cp::Arity arity, const cp::ExecBatch& batch) {
   bool match = (uint64_t)arity.num_args == batch.values.size();
   if (!match) {
     return Status::Invalid(
-        "Function Arity and Input data shape doesn't match, expceted {}");
+        "Function Arity and Input data shape doesn't match, expected {}");
   }
   return Status::OK();
 }

@@ -17,23 +17,21 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/expression.h>
-#include <arrow/compute/exec/options.h>
-#include <arrow/datum.h>
-#include <arrow/record_batch.h>
-#include <arrow/result.h>
-#include <arrow/status.h>
-#include <arrow/table.h>
+#include <arrow/compute/exec/exec_plan.h>  // ARROW-15263
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
+#include <arrow/util/make_unique.h>
 #include <arrow/util/vector.h>
 
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
-// Demonstrate registering an user-defined Arrow compute function outside of the Arrow
+// Demonstrate registering a user-defined Arrow compute function outside of the Arrow
 // source tree
 
 namespace cp = ::arrow::compute;
@@ -61,14 +59,6 @@ arrow::Result<std::shared_ptr<arrow::Array>> GetArrayDataSample(
   ARROW_RETURN_NOT_OK(builder.AppendValues(values));
   ARROW_RETURN_NOT_OK(builder.Finish(&array));
   return array;
-}
-
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
-    const arrow::ArrayVector array_vector, const arrow::FieldVector& field_vector) {
-  std::shared_ptr<arrow::RecordBatch> record_batch;
-  ARROW_ASSIGN_OR_RAISE(auto struct_result,
-                        arrow::StructArray::Make(array_vector, field_vector));
-  return record_batch->FromStructArray(struct_result);
 }
 
 arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
@@ -103,10 +93,12 @@ class UDFOptionsType : public cp::FunctionOptionsType {
   std::string Stringify(const cp::FunctionOptions&) const override {
     return "UDFOptionsType";
   }
-  bool Compare(const cp::FunctionOptions&, const cp::FunctionOptions&) const override {
+  bool Compare(const cp::FunctionOptions& options,
+               const cp::FunctionOptions& other) const override {
     return true;
   }
-  std::unique_ptr<cp::FunctionOptions> Copy(const cp::FunctionOptions&) const override;
+  std::unique_ptr<cp::FunctionOptions> Copy(
+      const cp::FunctionOptions& options) const override;
 };
 
 cp::FunctionOptionsType* GetUDFOptionsType() {
@@ -169,29 +161,26 @@ const cp::FunctionDoc func_doc{
     {"x", "y", "z"},
     "UDFOptions"};
 
-arrow::Status Execute() {
-  const std::string name = "x+x";
-  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Ternary(), &func_doc);
+arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                             arrow::Datum* out) {
+  auto in_res = cp::CallFunction("add", {batch[0].array(), batch[1].array()});
+  auto in_arr = in_res.ValueOrDie().make_array();
+  auto final_res = cp::CallFunction("add", {in_arr, batch[2].array()});
+  auto final_arr = final_res.ValueOrDie().array();
+  auto datum = new arrow::Datum(final_arr);
+  *out = *datum;
+  return arrow::Status::OK();
+}
 
-  auto exec_func = [](cp::KernelContext* ctx, const cp::ExecBatch& batch,
-                      arrow::Datum* out) -> arrow::Status {
-    auto in_res = cp::CallFunction("add", {batch[0].array(), batch[1].array()});
-    auto in_arr = in_res.ValueOrDie().make_array();
-    auto final_res = cp::CallFunction("add", {in_arr, batch[2].array()});
-    auto final_arr = final_res.ValueOrDie().array();
-    auto datum = new arrow::Datum(final_arr);
-    *out = *datum;
-    return arrow::Status::OK();
-  };
+arrow::Status Execute() {
+  const std::string name = "add_three";
+  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Ternary(), &func_doc);
 
   auto options = std::make_shared<UDFOptions>();
   cp::ScalarKernel kernel(
-      {
-        cp::InputType::Array(arrow::int64()),
-        cp::InputType::Array(arrow::int64()),
-        cp::InputType::Array(arrow::int64())
-       },
-      arrow::int64(), exec_func);
+      {cp::InputType::Array(arrow::int64()), cp::InputType::Array(arrow::int64()),
+       cp::InputType::Array(arrow::int64())},
+      arrow::int64(), SampleFunction);
 
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = cp::NullHandling::COMPUTED_NO_PREALLOCATE;

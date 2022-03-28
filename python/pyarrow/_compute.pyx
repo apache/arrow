@@ -293,6 +293,14 @@ cdef class Arity(_Weakrefable):
         self.arity = arity
 
     @staticmethod
+    def nullary():
+        """
+        create a nullary arity object
+        """
+        cdef CArity c_arity = CArity.Nullary()
+        return wrap_arity(c_arity)
+
+    @staticmethod
     def unary():
         """
         create a unary arity object
@@ -621,9 +629,6 @@ cdef class FunctionRegistry(_Weakrefable):
         with nogil:
             func = GetResultValue(self.registry.GetFunction(c_name))
         return wrap_function(func)
-
-    def register_function(self, name, arity, input_types, output_type, function_kind):
-        pass
 
 
 cdef FunctionRegistry _global_func_registry = FunctionRegistry()
@@ -2442,16 +2447,12 @@ cdef CFunctionDoc _make_function_doc(func_doc):
         else:
             raise ValueError("key `arg_names` cannot be None")
 
-        if func_doc["options_class"] and isinstance(func_doc["options_class"], str):
-            f_doc.options_class = func_doc["options_class"].encode()
-        else:
-            raise ValueError("key `options_class` cannot be None")
+        # UDFOptions integration:
+        # TODO: https://issues.apache.org/jira/browse/ARROW-16041
+        f_doc.options_class = tobytes("None")
 
-        if isinstance(func_doc["options_required"], bool):
-            c_options_required = func_doc["options_required"]
-            f_doc.options_required = c_options_required
-        else:
-            raise ValueError("key `options_required` must be bool")
+        c_options_required = False
+        f_doc.options_required = c_options_required
 
         return f_doc
     else:
@@ -2480,26 +2481,24 @@ cdef class UDFRegistrationError(UDFError):
         return CStatus_UnknownError(message)
 
 
-def register_function(func_name, arity, function_doc, in_types,
+def register_function(func_name, num_args, function_doc, in_types,
                       out_type, callback, mem_allocation="no_preallocate",
                       null_handling="computed_no_preallocate"):
     """
-    Register a user-defined-function (function) 
+    Register a user-defined-function
 
     Parameters
     ----------
 
     func_name: str
         function name 
-    arity: Arity
-        arity of the function
+    num_args: int
+       number of arguments in the function
     function_doc: dict
         a dictionary object with keys 
         ("summary", 
         "description", 
-        "arg_names", 
-        "options_class", (not supported yet)
-        "options_required" (not supported yet)
+        "arg_names"
         )
     in_types: List[InputType]
         list of InputType objects which defines the input 
@@ -2507,15 +2506,54 @@ def register_function(func_name, arity, function_doc, in_types,
     out_type: DataType
         output type of the function
     callback: callable
-        user defined function 
+        user defined function
+        function includes arguments equal to the number
+        of input_types defined. The return type of the 
+        function is of the type defined as output_type. 
+        The output is a datum object which can be
+        an Array or a ChunkedArray or a Table or a RecordBatch.
     mem_allocation: str
-        memory allocation mode 
-        "preallocate" or "no_preallocate"
+        For data types that support pre-allocation (i.e. fixed-width), the
+        kernel expects to be provided a pre-allocated data buffer to write
+        into. Non-fixed-width types must always allocate their own data
+        buffers. The allocation made for the same length as the execution batch,
+        so vector kernels yielding differently sized output should not use this.
+        It is valid for the data to not be preallocated but the validity bitmap
+        is (or is computed using the intersection/bitwise-and method). 
+
+        memory allocation mode
+
+        "preallocate"
+            For variable-size output types like BinaryType or StringType, or for
+            nested types, this option has no effect.
+        "no_preallocate"
+            The kernel is responsible for allocating its own data buffer for
+            fixed-width type outputs.
+
     null_handling: str
+
         null handling mode
-        one of "intersect", "computed_preallocate",
-        "computed_no_preallocate", 
+
+        "intersect"
+            Compute the output validity bitmap by intersecting the validity bitmaps
+            of the arguments using bitwise-and operations. This means that values
+            in the output are valid/non-null only if the corresponding values in
+            all input arguments were valid/non-null. Kernel generally need not
+            touch the bitmap thereafter, but a kernel's exec function is permitted
+            to alter the bitmap after the null intersection is computed if it needs
+            to.
+
+        "computed_preallocate"
+            Kernel expects a pre-allocated buffer to write the result bitmap
+            into. The preallocated memory is not zeroed (except for the last byte),
+            so the kernel should ensure to completely populate the bitmap.
+
+        "computed_no_preallocate"
+            Kernel allocates and sets the validity bitmap of the output.
+
         "output_not_null"
+            Kernel output is never null and a validity bitmap does not need to be 
+            allocated.
 
     Example
     -------
@@ -2528,8 +2566,6 @@ def register_function(func_name, arity, function_doc, in_types,
     >>> func_doc["summary"] = "simple udf"
     >>> func_doc["description"] = "add a constant to a scalar"
     >>> func_doc["arg_names"] = ["x"]
-    >>> func_doc["options_class"] = "None"
-    >>> func_doc["options_required"] = False
     >>> 
     >>> def add_constant(array):
     ...     return pc.call_function("add", [array, 1])
@@ -2584,8 +2620,18 @@ def register_function(func_name, arity, function_doc, in_types,
     else:
         raise ValueError("func_name should be str")
 
-    if arity and isinstance(arity, Arity):
-        c_arity = (<Arity> arity).arity
+    if num_args and isinstance(num_args, int):
+        assert num_args > 0
+        if num_args == 0:
+            c_arity = (<Arity> Arity.nullary()).arity
+        elif num_args == 1:
+            c_arity = (<Arity> Arity.unary()).arity
+        elif num_args == 2:
+            c_arity = (<Arity> Arity.binary()).arity
+        elif num_args == 3:
+            c_arity = (<Arity> Arity.ternary()).arity
+        elif num_args > 3:
+            c_arity = (<Arity> Arity.varargs(num_args)).arity
     else:
         raise ValueError("arity must be an instance of Arity")
 
