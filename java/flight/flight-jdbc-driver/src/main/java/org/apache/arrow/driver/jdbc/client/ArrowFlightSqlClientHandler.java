@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
+import org.apache.arrow.driver.jdbc.utils.FlightToJDBCExceptionMapper;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
@@ -531,8 +532,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         }
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
 
-      } catch (final IllegalArgumentException | GeneralSecurityException | IOException | FlightRuntimeException e) {
-        final SQLException originalException = new SQLException(e);
+      } catch (final IllegalArgumentException | GeneralSecurityException | IOException e) {
+        SQLException originalException = new SQLException(e);
         if (client != null) {
           try {
             client.close();
@@ -541,6 +542,17 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           }
         }
         throw originalException;
+      } catch (final FlightRuntimeException e) {
+        SQLException runtimeToSQLException = FlightToJDBCExceptionMapper
+            .map(e, "Failure in connection: ");
+        if (client != null) {
+          try {
+            client.close();
+          } catch (final InterruptedException interruptedException) {
+            runtimeToSQLException.addSuppressed(interruptedException);
+          }
+        }
+        throw runtimeToSQLException;
       }
     }
   }
