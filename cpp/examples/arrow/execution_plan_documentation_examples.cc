@@ -879,8 +879,7 @@ int main(int argc, char** argv) {
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
   // execution context
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
+  cp::ExecContext exec_context;
   switch (mode) {
     case SOURCE_SINK:
       PrintBlock("Source Sink Example");
