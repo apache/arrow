@@ -877,6 +877,88 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
   )
 })
 
+test_that("as_date()", {
+  test_df <- tibble::tibble(
+    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
+    date_var = as.Date("2022-02-25"),
+    difference_date = ymd_hms("2010-08-03 00:50:50", tz= "Europe/London"),
+    character_ymd_var = "2022-02-25 00:00:01",
+    character_ydm_var = "2022/25/02 00:00:01",
+    integer_var = 32L,
+    integerish_var = 32,
+    double_var = 34.56
+  )
+
+  # difference between as.Date() and as_date():
+  #`as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
+  # to `as.Date()`
+  # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
+  # passsed if`tz` is NULL
+  compare_dplyr_binding(
+    .input %>%
+      # test_df %>%
+      # arrow_table() %>%
+      transmute(
+        date_diff_lubridate = as_date(difference_date),
+        date_diff_base = as.Date(difference_date)
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # casting from POSIXct treated separately so we can skip on Windows
+  # TODO move the test for casting from POSIXct below once ARROW-13168 is done
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_dv = as_date(date_var),
+        date_char_ymd = as_date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm = as_date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_int = as_date(integer_var, origin = "1970-01-01"),
+        date_integerish = as_date(integerish_var, origin = "1970-01-01")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # currently we do not support an origin different to "1970-01-01"
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_int = as_date(integer_var, origin = "1970-01-03")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  # strptime does not support a partial format -
+  # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_char_ymd = as_date(character_ymd_var)) %>%
+      collect()
+  )
+
+  # we do not support as.Date() with double/ float (error surfaced from C++)
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = as_date(double_var, origin = "1970-01-01")) %>%
+      collect()
+  )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_pv = as_date(posixct_var),
+        date_pv_tz = as_date(posixct_var, tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("format date/time", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
