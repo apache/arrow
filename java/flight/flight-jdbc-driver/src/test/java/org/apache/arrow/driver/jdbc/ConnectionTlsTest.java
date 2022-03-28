@@ -91,6 +91,30 @@ public class ConnectionTlsTest {
    * @throws Exception on error.
    */
   @Test
+  public void testGetEncryptedClientAuthenticatedWithDisableCertVerification() throws Exception {
+    final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
+        userTest, passTest);
+
+    try (ArrowFlightSqlClientHandler client =
+             new ArrowFlightSqlClientHandler.Builder()
+                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                 .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+                 .withUsername(credentials.getUserName())
+                 .withPassword(credentials.getPassword())
+                 .withDisableCertificateVerification(true)
+                 .withBufferAllocator(allocator)
+                 .withTlsEncryption(true)
+                 .build()) {
+      assertNotNull(client);
+    }
+  }
+
+  /**
+   * Try to instantiate an encrypted FlightClient.
+   *
+   * @throws Exception on error.
+   */
+  @Test
   public void testGetEncryptedClientAuthenticated() throws Exception {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         userTest, passTest);
@@ -125,6 +149,33 @@ public class ConnectionTlsTest {
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withKeyStorePath(noCertificateKeyStorePath)
                  .withKeyStorePassword(noCertificateKeyStorePassword)
+                 .withBufferAllocator(allocator)
+                 .withTlsEncryption(true)
+                 .build()) {
+      Assert.fail();
+    }
+  }
+
+  /**
+   * Try to instantiate an encrypted FlightClient with cert verification
+   * disabled and passing some valid certification.
+   *
+   * @throws Exception on error.
+   */
+  @Test(expected = SQLException.class)
+  public void testGetEncryptedClientWithDisableCertVerificationPassingCertification() throws Exception {
+    final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
+        userTest, passTest);
+
+    try (ArrowFlightSqlClientHandler client =
+             new ArrowFlightSqlClientHandler.Builder()
+                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                 .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+                 .withUsername(credentials.getUserName())
+                 .withPassword(credentials.getPassword())
+                 .withDisableCertificateVerification(true)
+                 .withKeyStorePath(keyStorePath)
+                 .withKeyStorePassword(keyStorePass)
                  .withBufferAllocator(allocator)
                  .withTlsEncryption(true)
                  .build()) {
