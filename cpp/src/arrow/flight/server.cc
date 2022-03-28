@@ -309,15 +309,10 @@ Status FlightServerBase::ListActions(const ServerCallContext& context,
   return Status::NotImplemented("NYI");
 }
 
-arrow::Result<std::unique_ptr<SchemaResult>> FlightServerBase::GetSchema(
-    const ServerCallContext& context, const FlightDescriptor& request) {
-  return Status::NotImplemented("NYI");
-}
-
 Status FlightServerBase::GetSchema(const ServerCallContext& context,
                                    const FlightDescriptor& request,
                                    std::unique_ptr<SchemaResult>* schema) {
-  return GetSchema(context, request).Value(schema);
+  return Status::NotImplemented("NYI");
 }
 
 // ----------------------------------------------------------------------

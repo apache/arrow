@@ -417,7 +417,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
     std::unique_ptr<SchemaResult> result;
     SERVICE_RETURN_NOT_OK(flight_context,
-                          impl_->base()->GetSchema(flight_context, descr).Value(&result));
+                          impl_->base()->GetSchema(flight_context, descr, &result));
 
     if (!result) {
       // Treat null listing as no flights available
