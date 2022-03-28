@@ -253,7 +253,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def fill_null(self, fill_value):
         """
-        See pyarrow.compute.fill_null for usage.
+        See :func:`pyarrow.compute.fill_null` for usage.
 
         Parameters
         ----------
@@ -345,7 +345,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Cast array values to another data type
 
-        See pyarrow.compute.cast for usage.
+        See :func:`pyarrow.compute.cast` for usage.
 
         Parameters
         ----------
@@ -364,7 +364,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Compute dictionary-encoded representation of array.
 
-        See `pyarrow.compute.dictionary_encode` for full usage.
+        See :func:`pyarrow.compute.dictionary_encode` for full usage.
 
         Parameters
         ----------
@@ -470,7 +470,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Select values from the chunked array.
 
-        See pyarrow.compute.filter for full usage.
+        See :func:`pyarrow.compute.filter` for full usage.
 
         Parameters
         ----------
@@ -491,7 +491,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Find the first index of a value.
 
-        See pyarrow.compute.index for full usage.
+        See :func:`pyarrow.compute.index` for full usage.
 
         Parameters
         ----------
@@ -515,7 +515,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Select values from the chunked array.
 
-        See pyarrow.compute.take for full usage.
+        See :func:`pyarrow.compute.take` for full usage.
 
         Parameters
         ----------
@@ -532,7 +532,7 @@ cdef class ChunkedArray(_PandasConvertible):
     def drop_null(self):
         """
         Remove missing values from a chunked array.
-        See pyarrow.compute.drop_null for full description.
+        See :func:`pyarrow.compute.drop_null` for full description.
         """
         return _pc().drop_null(self)
 
@@ -1140,7 +1140,7 @@ cdef class RecordBatch(_PandasConvertible):
         """
         Select rows from the record batch.
 
-        See pyarrow.compute.filter for full usage.
+        See :func:`pyarrow.compute.filter` for full usage.
 
         Parameters
         ----------
@@ -1189,7 +1189,7 @@ cdef class RecordBatch(_PandasConvertible):
         """
         Select rows from the record batch.
 
-        See pyarrow.compute.take for full usage.
+        See :func:`pyarrow.compute.take` for full usage.
 
         Parameters
         ----------
@@ -1206,7 +1206,7 @@ cdef class RecordBatch(_PandasConvertible):
     def drop_null(self):
         """
         Remove missing values from a RecordBatch.
-        See pyarrow.compute.drop_null for full usage.
+        See :func:`pyarrow.compute.drop_null` for full usage.
         """
         return _pc().drop_null(self)
 
@@ -1609,7 +1609,7 @@ cdef class Table(_PandasConvertible):
         """
         Select rows from the table.
 
-        See pyarrow.compute.filter for full usage.
+        See :func:`pyarrow.compute.filter` for full usage.
 
         Parameters
         ----------
@@ -1630,7 +1630,7 @@ cdef class Table(_PandasConvertible):
         """
         Select rows from the table.
 
-        See pyarrow.compute.take for full usage.
+        See :func:`pyarrow.compute.take` for full usage.
 
         Parameters
         ----------

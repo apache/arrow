@@ -725,9 +725,6 @@ cdef class FileFormat(_Weakrefable):
         """
         Make a FileFragment from a given file.
 
-        The filter may not reference fields absent from the provided schema.
-        If no schema is provided then one will be inferred.
-
         Parameters
         ----------
         file : file-like object, path-like or str
