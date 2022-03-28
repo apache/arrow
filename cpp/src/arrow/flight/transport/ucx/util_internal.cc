@@ -62,22 +62,27 @@ arrow::Result<size_t> UriToSockaddr(const arrow::internal::Uri& uri,
     }
   }
 
-  if (!info) {
-    return Status::IOError("[getaddrinfo] Failure resolving ", host,
-                           ": no results returned");
+  struct addrinfo* cur_info = info;
+  while (cur_info) {
+    if (cur_info->ai_family != AF_INET && cur_info->ai_family != AF_INET6) {
+      cur_info = cur_info->ai_next;
+      continue;
+    }
+
+    std::memcpy(addr, info->ai_addr, info->ai_addrlen);
+    if (cur_info->ai_family == AF_INET) {
+      reinterpret_cast<sockaddr_in*>(addr)->sin_port = htons(uri.port());
+    } else if (cur_info->ai_family == AF_INET6) {
+      reinterpret_cast<sockaddr_in6*>(addr)->sin6_port = htons(uri.port());
+    }
+    size_t addrlen = info->ai_addrlen;
+    freeaddrinfo(info);
+    return addrlen;
   }
 
-  std::memcpy(addr, info->ai_addr, info->ai_addrlen);
-  const size_t addrlen = info->ai_addrlen;
-  if (info->ai_family == AF_INET) {
-    reinterpret_cast<sockaddr_in*>(addr)->sin_port = htons(uri.port());
-  } else if (info->ai_family == AF_INET6) {
-    reinterpret_cast<sockaddr_in6*>(addr)->sin6_port = htons(uri.port());
-  } else {
-    freeaddrinfo(info);
-    return Status::Invalid("Unknown address family: ", info->ai_family);
-  }
-  return addrlen;
+  if (info) freeaddrinfo(info);
+  return Status::IOError("[getaddrinfo] Failure resolving ", host,
+                         ": no results of a supported family returned");
 }
 
 arrow::Result<std::string> SockaddrToString(const struct sockaddr_storage& address) {
