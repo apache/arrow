@@ -171,12 +171,20 @@ ExtensionType <- R6Class("ExtensionType",
         # (VctrsExtensionType does this).
         storage_vectors <- lapply(
           seq_len(extension_array$num_chunks) - 1L,
-          function(i) self$as_vector(extension_array$chunk(i)$storage())
+          function(i) self$as_vector(extension_array$chunk(i))
         )
 
         vctrs::vec_c(!!! storage_vectors)
       } else if (inherits(extension_array, "ExtensionArray")) {
         extension_array$storage()$as_vector()
+      } else {
+        classes <- paste(class(extension_array), collapse = " / ")
+        abort(
+          c(
+            "`extension_array` must be a ChunkedArray or ExtensionArray",
+            i = glue::glue("Got object of type {classes}")
+          )
+        )
       }
     },
 
@@ -313,11 +321,15 @@ ExtensionType$create <- function(storage_type,
 #'
 #'     # called when an Array of this type is converted to an R vector
 #'     as_vector = function(extension_array) {
-#'       unquantized_arrow <-
-#'         (extension_array$storage()$cast(float64()) / private$.scale) +
-#'         private$.center
+#'       if (inherits(extension_array, "ExtensionArray"))
+#'         unquantized_arrow <-
+#'           (extension_array$storage()$cast(float64()) / private$.scale) +
+#'           private$.center
 #'
-#'       as.vector(unquantized_arrow)
+#'         as.vector(unquantized_arrow)
+#'       } else {
+#'         super$as_vector(extension_array)
+#'       }
 #'     },
 #'
 #'     # populate the custom metadata fields from the serialized metadata

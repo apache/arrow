@@ -36,6 +36,13 @@ test_that("extension types can be created", {
 
   expect_true(array$type == type)
   expect_true(all(array$storage() == storage))
+
+  expect_identical(array$as_vector(), 1:10)
+  expect_identical(chunked_array(array)$as_vector(), 1:10)
+
+  expect_snapshot_error(
+    type$as_vector("not an extension array or chunked array")
+  )
 })
 
 test_that("extension type subclasses work", {
