@@ -72,7 +72,7 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   cloned->extension_metadata_ = serialized_data;
 
   // We probably should create an ephemeral R6 instance here, which will call
-  // the R6 instance's .Deserialize() method, possibly erroring when the metadata is
+  // the R6 instance's Deserialize() method, possibly erroring when the metadata is
   // invalid or the deserialized values are invalid. When there is an error it will be
   // confusing, since it will only occur when the result surfaces to R
   // (which might be much later). Unfortunately, the Deserialize() method gets

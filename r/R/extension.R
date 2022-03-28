@@ -85,7 +85,7 @@ ExtensionArray$create <- function(x, type) {
 #' In addition, subclasses may override the following methos to customize
 #' the behaviour of extension classes.
 #'
-#' - `$.Deserialize()`
+#' - `$Deserialize()`
 #'   This method is called when a new [ExtensionType]
 #'   is initialized and is responsible for parsing and validating
 #'   the serialized `extension_metadata` (a [raw()] vector)
@@ -114,11 +114,11 @@ ExtensionType <- R6Class("ExtensionType",
   public = list(
 
     # In addition to the initialization that occurs for all
-    # ArrowObject instances, we call .Deserialize(), which can
+    # ArrowObject instances, we call Deserialize(), which can
     # be overridden to populate custom fields
     initialize = function(xp) {
       super$initialize(xp)
-      self$.Deserialize()
+      self$Deserialize()
     },
 
     # Because of how C++ shared_ptr<> objects are converted to R objects,
@@ -158,7 +158,7 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__MakeArray(self, array$data())
     },
 
-    .Deserialize = function() {
+    Deserialize = function() {
       # Do nothing by default but allow other classes to override this method
       # to populate R6 class members.
     },
@@ -265,7 +265,7 @@ ExtensionType$create <- function(storage_type,
 #' and [ExtensionArray] objects. To use an extension type you will have to:
 #'
 #' - Define an [R6::R6Class] that inherits from [ExtensionType] and reimplement
-#'   one or more methods (e.g., `.Deserialize()`).
+#'   one or more methods (e.g., `Deserialize()`).
 #' - Make a type constructor function (e.g., `my_extension_type()`) that calls
 #'   [new_extension_type()] to create an R6 instance that can be used as a
 #'   [data type][data-type] elsewhere in the package.
@@ -327,7 +327,7 @@ ExtensionType$create <- function(storage_type,
 #'     },
 #'
 #'     # populate the custom metadata fields from the serialized metadata
-#'     .Deserialize = function() {
+#'     Deserialize = function() {
 #'       vals <- as.numeric(strsplit(self$SerializeUTF8(), ";")[[1]])
 #'       private$.center <- vals[1]
 #'       private$.scale <- vals[2]
@@ -439,7 +439,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       paste0(readLines(tf), collapse = "\n")
     },
 
-    .Deserialize = function() {
+    Deserialize = function() {
       private$.ptype <- unserialize(self$Serialize())
     },
 
