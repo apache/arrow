@@ -49,7 +49,8 @@ const char* ColumnMetadata::kIsCaseSensitive = "ARROW:FLIGHT:SQL:IS_CASE_SENSITI
 const char* ColumnMetadata::kIsReadOnly = "ARROW:FLIGHT:SQL:IS_READ_ONLY";
 const char* ColumnMetadata::kIsSearchable = "ARROW:FLIGHT:SQL:IS_SEARCHABLE";
 
-ColumnMetadata::ColumnMetadata(std::shared_ptr<arrow::KeyValueMetadata> metadata_map)
+ColumnMetadata::ColumnMetadata(
+    std::shared_ptr<const arrow::KeyValueMetadata> metadata_map)
     : metadata_map_(std::move(metadata_map)) {}
 
 arrow::Result<std::string> ColumnMetadata::GetCatalogName() const {
@@ -106,7 +107,8 @@ ColumnMetadata::ColumnMetadataBuilder ColumnMetadata::Builder() {
   return ColumnMetadataBuilder{};
 }
 
-const std::shared_ptr<arrow::KeyValueMetadata>& ColumnMetadata::metadata_map() const {
+const std::shared_ptr<const arrow::KeyValueMetadata>& ColumnMetadata::metadata_map()
+    const {
   return metadata_map_;
 }
 
