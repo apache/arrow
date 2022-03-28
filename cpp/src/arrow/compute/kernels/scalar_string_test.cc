@@ -1841,14 +1841,14 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
 
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, null, "12/13/1900", null])";
-  std::string input2 = R"(["5/1/2020", "12/13/1900"])";
+  std::string input2 = R"(["5-1-2020", "12/13/1900"])";
   std::string input3 = R"(["5/1/2020", "AA/BB/CCCC"])";
   std::string input4 = R"(["5/1/2020", "AA/BB/CCCC", "AA/BB/CCCC", "AA/BB/CCCC", null])";
   std::string input5 = R"(["5/1/2020 %z", null, null, "12/13/1900 %z", null])";
   std::string output1 = R"(["2020-05-01", null, null, "1900-12-13", null])";
-  std::string output4 = R"(["2020-01-05", null, null, null, null])";
-  std::string output2 = R"(["2020-05-01", "1900-12-13"])";
+  std::string output2 = R"([null, "1900-12-13"])";
   std::string output3 = R"(["2020-05-01", null])";
+  std::string output4 = R"(["2020-01-05", null, null, null, null])";
 
   StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, /*error_is_null=*/true);
   auto unit = timestamp(TimeUnit::MICRO);
