@@ -166,6 +166,21 @@ register_bindings_type_cast <- function() {
     build_expr("cast", x, options = cast_options(to_type = date32()))
   })
 
+  register_binding("as_datetime", function(x,
+                                           origin = "1970-01-01",
+                                           tz = "UTC") {
+    if (call_binding("is.numeric", x)) {
+      delta <- call_binding("difftime", origin, "1970-01-01")
+      delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
+      x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+      output <- build_expr("+", x, delta)
+      output <- build_expr("cast", output, options = cast_options(to_type = timestamp()))
+    } else {
+      output <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
+    }
+    build_expr("assume_timezone", output, options = list(timezone = tz))
+  })
+
   register_binding("is", function(object, class2) {
     if (is.string(class2)) {
       switch(class2,
