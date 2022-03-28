@@ -1230,6 +1230,7 @@ struct Strptime {
         if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
           *out_data++ = result;
         } else {
+          out_data++;
           out_writer.Clear();
           null_count++;
         }
