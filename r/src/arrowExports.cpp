@@ -4167,7 +4167,7 @@ extern "C" SEXP _arrow_compute___expr__type_id(SEXP x_sexp, SEXP schema_sexp){
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 cpp11::environment ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_class);
 extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_class_sexp){
@@ -4185,7 +4185,7 @@ extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP ex
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string ExtensionType__extension_name(const std::shared_ptr<arrow::ExtensionType>& type);
 extern "C" SEXP _arrow_ExtensionType__extension_name(SEXP type_sexp){
@@ -4200,7 +4200,7 @@ extern "C" SEXP _arrow_ExtensionType__extension_name(SEXP type_sexp){
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 cpp11::raws ExtensionType__Serialize(const std::shared_ptr<arrow::ExtensionType>& type);
 extern "C" SEXP _arrow_ExtensionType__Serialize(SEXP type_sexp){
@@ -4215,7 +4215,7 @@ extern "C" SEXP _arrow_ExtensionType__Serialize(SEXP type_sexp){
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> ExtensionType__storage_type(const std::shared_ptr<arrow::ExtensionType>& type);
 extern "C" SEXP _arrow_ExtensionType__storage_type(SEXP type_sexp){
@@ -4230,7 +4230,7 @@ extern "C" SEXP _arrow_ExtensionType__storage_type(SEXP type_sexp){
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> ExtensionType__MakeArray(const std::shared_ptr<arrow::ExtensionType>& type, const std::shared_ptr<arrow::ArrayData>& data);
 extern "C" SEXP _arrow_ExtensionType__MakeArray(SEXP type_sexp, SEXP data_sexp){
@@ -4246,7 +4246,7 @@ extern "C" SEXP _arrow_ExtensionType__MakeArray(SEXP type_sexp, SEXP data_sexp){
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 cpp11::environment ExtensionType__r6_class(const std::shared_ptr<arrow::ExtensionType>& type);
 extern "C" SEXP _arrow_ExtensionType__r6_class(SEXP type_sexp){
@@ -4261,7 +4261,7 @@ extern "C" SEXP _arrow_ExtensionType__r6_class(SEXP type_sexp){
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> ExtensionArray__storage(const std::shared_ptr<arrow::ExtensionArray>& array);
 extern "C" SEXP _arrow_ExtensionArray__storage(SEXP array_sexp){
@@ -4276,7 +4276,7 @@ extern "C" SEXP _arrow_ExtensionArray__storage(SEXP array_sexp){
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void arrow__RegisterRExtensionType(const std::shared_ptr<arrow::DataType>& type);
 extern "C" SEXP _arrow_arrow__RegisterRExtensionType(SEXP type_sexp){
@@ -4292,7 +4292,7 @@ extern "C" SEXP _arrow_arrow__RegisterRExtensionType(SEXP type_sexp){
 }
 #endif
 
-// extension.cpp
+// extension-impl.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void arrow__UnregisterRExtensionType(std::string type_name);
 extern "C" SEXP _arrow_arrow__UnregisterRExtensionType(SEXP type_name_sexp){
