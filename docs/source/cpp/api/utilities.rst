@@ -122,8 +122,7 @@ In addition, the following are defined for many but not all of the types:
 
 .. cpp:function:: static inline std::shared_ptr<DataType> TypeTraits::type_singleton()
 
-  For types where is_parameter_free is true, returns a pointer to the type
-  singleton.
+  For types where is_parameter_free is true, returns an instance of the data type.
 
 
 .. doxygengroup:: type-traits

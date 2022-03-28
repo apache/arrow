@@ -73,8 +73,9 @@ Type Traits
 -----------
 
 Writing code that can handle concrete :class:`arrow::DataType` subclasses would 
-be verbose, if it weren't for type traits. They are empty structs with type 
-declarations that map the Arrow data types to the specialized array, scalar, 
+be verbose, if it weren't for type traits. Similar to the type traits provided
+in `std::type_traits <https://en.cppreference.com/w/cpp/header/type_traits>`_,
+Arrow's type traits map the Arrow data types to the specialized array, scalar, 
 builder, and other associated types. For example, the Boolean type has traits:
 
 .. code-block:: cpp
@@ -105,7 +106,7 @@ Fibonacci values for any Arrow numeric type:
              typename BuilderType = typename arrow::TypeTraits<DataType>::BuilderType,
              typename ArrayType = typename arrow::TypeTraits<DataType>::ArrayType,
              typename CType = typename arrow::TypeTraits<DataType>::CType>
-   arrow::Result<std::shared_ptr<ArrayType>> make_fibonacci(int32_t n) {
+   arrow::Result<std::shared_ptr<ArrayType>> MakeFibonacci(int32_t n) {
      BuilderType builder;
      CType val = 0;
      CType next_val = 1;
@@ -135,7 +136,7 @@ need to be implemented. For example, to write a sum function for any numeric
 
    template <typename ArrayType, typename DataType = typename ArrayType::TypeClass,
              typename CType = typename DataType::c_type>
-   arrow::enable_if_number<DataType, CType> sum_array(const ArrayType& array) {
+   arrow::enable_if_number<DataType, CType> SumArray(const ArrayType& array) {
      CType sum = 0;
      for (arrow::util::optional<CType> value : array) {
        if (value.has_value()) {
