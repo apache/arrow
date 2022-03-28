@@ -101,7 +101,7 @@ add_suffix <- function(fields, common_cols, suffix) {
   # for join relation the selected columns are the
   # columns with same name in left and right relation
   col_names <- names(fields)
-  new_col_names <- col_names %>% map(function(x) {
+  new_col_names <- map(col_names, function(x) {
     if (is.element(x, common_cols)) {
       paste0(x, suffix)
     } else {
