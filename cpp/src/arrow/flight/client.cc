@@ -544,6 +544,13 @@ arrow::Result<std::unique_ptr<SchemaResult>> FlightClient::GetSchema(
   return transport_->GetSchema(options, descriptor);
 }
 
+Status FlightClient::GetSchema(const FlightCallOptions& options,
+                               const FlightDescriptor& descriptor,
+                               std::unique_ptr<SchemaResult>* schema_result) {
+  return GetSchema(options, descriptor).Value(schema_result);
+}
+
+
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
   RETURN_NOT_OK(CheckOpen());
   return ListFlights({}, {}, listing);
