@@ -3378,6 +3378,14 @@ class TpchNode : public ExecNode {
 
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
     auto executor = plan_->exec_context()->executor();
+
+    // Due to the way that the generators schedule tasks, there may be more tasks
+    // than output batches. After outputting the last batch, the generator will
+    // end the task group, but there may still be other threads that try to schedule
+    // tasks while the task group is being ended. This can result in adding tasks after
+    // the task group is ended. If those tasks were to be executed, correctness would
+    // not be affected as they'd see the generator is done and exit immediately. As such,
+    // if the task group is ended we can just skip scheduling these tasks in general.
     if (executor) {
       RETURN_NOT_OK(task_group_.AddTaskIfNotEnded([&] {
         return executor->Submit([this, func] {
