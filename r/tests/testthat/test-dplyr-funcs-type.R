@@ -911,8 +911,6 @@ test_that("`as.Date()` and `as_date()`", {
   # passsed if`tz` is NULL
   compare_dplyr_binding(
     .input %>%
-      # test_df %>%
-      # arrow_table() %>%
       transmute(
         date_diff_lubridate = as_date(difference_date),
         date_diff_base = as.Date(difference_date)
