@@ -219,7 +219,11 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
   }
 
   Status Init(const FlightServerOptions& options, const arrow::internal::Uri& uri) {
+    // TODO: this pool should be resized to match CPU cores
     ARROW_ASSIGN_OR_RAISE(rpc_pool_, arrow::internal::ThreadPool::Make(8));
+
+    struct sockaddr_storage listen_addr;
+    ARROW_ASSIGN_OR_RAISE(auto addrlen, UriToSockaddr(uri, &listen_addr));
 
     // Init UCX
     {
@@ -229,6 +233,12 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
 
       status = ucp_config_read(nullptr, nullptr, &ucp_config);
       RETURN_NOT_OK(FromUcsStatus("ucp_config_read", status));
+
+      // If location is IPv6, must adjust UCX config
+      if (listen_addr.ss_family == AF_INET6) {
+        status = ucp_config_modify(ucp_config, "AF_PRIO", "inet6");
+        RETURN_NOT_OK(FromUcsStatus("ucp_config_modify", status));
+      }
 
       // Allow application to override UCP config
       if (options.builder_hook) options.builder_hook(ucp_config);
@@ -265,9 +275,6 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
       ucp_listener_params_t params;
       ucs_status_t status;
 
-      struct sockaddr_storage listen_addr;
-      ARROW_ASSIGN_OR_RAISE(auto addrlen, UriToSockaddr(uri, &listen_addr));
-
       params.field_mask =
           UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER;
       params.sockaddr.addr = reinterpret_cast<const sockaddr*>(&listen_addr);
@@ -296,7 +303,9 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
       raw_uri += ":";
       raw_uri += std::to_string(
           ntohs(reinterpret_cast<const sockaddr_in*>(&attr.sockaddr)->sin_port));
-      FLIGHT_LOG(DEBUG) << "Listening on " << raw_uri;
+      std::string listen_str;
+      ARROW_UNUSED(SockaddrToString(attr.sockaddr).Value(&listen_str));
+      FLIGHT_LOG(DEBUG) << "Listening on " << listen_str;
       RETURN_NOT_OK(Location::Parse(raw_uri, &location_));
     }
 

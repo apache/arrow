@@ -127,6 +127,7 @@ class ClientConnection {
     }
 
     driver_.reset(new UcpCallDriver(ucp_worker_, remote_endpoint_));
+    ARROW_LOG(DEBUG) << "Connected to " << driver_->peer();
 
     {
       // Set up Active Message (AM) handler
@@ -527,6 +528,18 @@ class ARROW_FLIGHT_EXPORT UcxClientImpl
 
       status = ucp_config_read(nullptr, nullptr, &ucp_config);
       RETURN_NOT_OK(FromUcsStatus("ucp_config_read", status));
+
+      // If location is IPv6, must adjust UCX config
+      // XXX: we assume locations always resolve to IPv6 or IPv4 but
+      // that is not necessarily true.
+      {
+        struct sockaddr_storage connect_addr;
+        RETURN_NOT_OK(UriToSockaddr(uri, &connect_addr));
+        if (connect_addr.ss_family == AF_INET6) {
+          status = ucp_config_modify(ucp_config, "AF_PRIO", "inet6");
+          RETURN_NOT_OK(FromUcsStatus("ucp_config_modify", status));
+        }
+      }
 
       std::memset(&ucp_params, 0, sizeof(ucp_params));
       ucp_params.field_mask = UCP_PARAM_FIELD_FEATURES;
