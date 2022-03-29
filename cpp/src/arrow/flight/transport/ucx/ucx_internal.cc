@@ -538,8 +538,6 @@ class UcpCallDriver::Impl {
   }
 
   Status SendFrame(FrameType frame_type, const uint8_t* data, const int64_t size) {
-    static uint8_t kZeroes[1] = {0};
-
     RETURN_NOT_OK(CheckClosed());
 
     void* request = nullptr;
@@ -553,7 +551,7 @@ class UcpCallDriver::Impl {
     if (size == 0) {
       // UCX appears to crash on zero-byte payloads
       request = ucp_am_send_nbx(endpoint_, kUcpAmHandlerId, header.data(), header.size(),
-                                kZeroes,
+                                padding_bytes_.data(),
                                 /*size=*/1, &request_param);
     } else {
       request = ucp_am_send_nbx(endpoint_, kUcpAmHandlerId, header.data(), header.size(),
@@ -691,13 +689,17 @@ class UcpCallDriver::Impl {
       pending_send = arrow::internal::make_unique<PendingContigSend>();
       auto* pending_contig = reinterpret_cast<PendingContigSend*>(pending_send.get());
 
-      ARROW_ASSIGN_OR_RAISE(
-          pending_contig->ipc_message,
-          AllocateBuffer(payload.ipc_message.body_length, write_memory_pool_));
+      const int64_t body_length = std::max<int64_t>(payload.ipc_message.body_length, 1);
+      ARROW_ASSIGN_OR_RAISE(pending_contig->ipc_message,
+                            AllocateBuffer(body_length, write_memory_pool_));
       TryMapBuffer(worker_->context().get(), *pending_contig->ipc_message,
                    &pending_contig->memh_p);
 
       uint8_t* ipc_message = pending_contig->ipc_message->mutable_data();
+      if (payload.ipc_message.body_length == 0) {
+        std::memset(ipc_message, '\0', 1);
+      }
+
       for (const auto& buffer : payload.ipc_message.body_buffers) {
         if (!buffer || buffer->size() == 0) continue;
 
@@ -750,9 +752,20 @@ class UcpCallDriver::Impl {
         }
       }
 
+      if (total_buffers == 0) {
+        // UCX cannot handle zero-byte payloads
+        pending_iov->iovs.resize(1);
+        pending_iov->iovs[0].buffer =
+            const_cast<void*>(reinterpret_cast<const void*>(padding_bytes_.data()));
+        pending_iov->iovs[0].length = 1;
+      }
+
       send_data = pending_iov->iovs.data();
       send_size = pending_iov->iovs.size();
     }
+
+    DCHECK(send_data) << "Payload cannot be nullptr";
+    DCHECK_GT(send_size, 0) << "Payload cannot be empty";
 
     RETURN_NOT_OK(pending_send->header.Set(FrameType::kPayloadBody, counter_++,
                                            payload.ipc_message.body_length));
