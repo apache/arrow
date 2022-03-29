@@ -25,6 +25,34 @@ cdef class ChunkedArray(_PandasConvertible):
     Warnings
     --------
     Do not call this class's constructor directly.
+
+    Examples
+    --------
+    To construct a ChunkedArray object use `pyarrow.chunked_array()`:
+
+    >>> import pyarrow as pa
+    >>> pa.chunked_array([], type=pa.int8())
+    <pyarrow.lib.ChunkedArray object at 0x10644f450>
+    [
+
+    ]
+
+    >>> pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+    <pyarrow.lib.ChunkedArray object at 0x11cac2ea0>
+    [
+      [
+        2,
+        2,
+        4
+      ],
+      [
+        4,
+        5,
+        100
+      ]
+    ]
+    >>> isinstance(pa.chunked_array([[2, 2, 4], [4, 5, 100]]), pa.ChunkedArray)
+    True
     """
 
     def __cinit__(self):
@@ -85,6 +113,15 @@ cdef class ChunkedArray(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.to_string()
+        '[\\n  [\\n    2,\\n    ...    5,\\n    100\\n  ]\\n]'
+        >>> n_legs.to_string(skip_new_lines=True)
+        '[[2,2,4],[4,5,100]]'
         """
         cdef:
             c_string result
@@ -105,6 +142,9 @@ cdef class ChunkedArray(_PandasConvertible):
         return frombytes(result, safe=True)
 
     def format(self, **kwargs):
+        """
+        DEPRECATED
+        """
         import warnings
         warnings.warn('ChunkedArray.format is deprecated, '
                       'use ChunkedArray.to_string')
@@ -144,6 +184,13 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.null_count
+        1
         """
         return self.chunked_array.null_count()
 
@@ -162,6 +209,13 @@ cdef class ChunkedArray(_PandasConvertible):
 
         The dictionary of dictionary arrays will always be counted in their 
         entirety even if the array only references a portion of the dictionary.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.nbytes
+        49
         """
         cdef:
             CResult[int64_t] c_res_buffer
@@ -180,6 +234,13 @@ cdef class ChunkedArray(_PandasConvertible):
 
         If a buffer is referenced multiple times then it will
         only be counted once.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.get_total_buffer_size()
+        49
         """
         cdef:
             int64_t total_buffer_size
@@ -235,6 +296,25 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         array : boolean Array or ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.is_null()
+        <pyarrow.lib.ChunkedArray object at 0x11caca0e0>
+        [
+          [
+            false,
+            false,
+            false
+          ],
+          [
+            false,
+            true,
+            false
+          ]
+        ]
         """
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
@@ -242,6 +322,25 @@ cdef class ChunkedArray(_PandasConvertible):
     def is_valid(self):
         """
         Return boolean array indicating the non-null values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.is_valid()
+        <pyarrow.lib.ChunkedArray object at 0x11caca040>
+        [
+          [
+            true,
+            true,
+            true
+          ],
+          [
+            true,
+            false,
+            true
+          ]
+        ]
         """
         return _pc().is_valid(self)
 
@@ -264,6 +363,24 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         result : Array or ChunkedArray
             A new array with nulls replaced by the given value.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> fill_value = pa.scalar(5, type=pa.int8())
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.fill_null(5)
+        <pyarrow.lib.ChunkedArray object at 0x11caca270>
+        [
+          [
+            2,
+            2,
+            4,
+            4,
+            5,
+            100
+          ]
+        ]
         """
         return _pc().fill_null(self, fill_value)
 
@@ -279,6 +396,19 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         are_equal : bool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> animals = pa.chunked_array((
+        ...             ["Flamingo", "Parot", "Dog"],
+        ...             ["Horse", "Brittle stars", "Centipede"]
+        ...             ))
+        >>> n_legs.equals(n_legs)
+        True
+        >>> n_legs.equals(animals)
+        False
         """
         if other is None:
             return False
@@ -303,6 +433,13 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         array : numpy.ndarray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.to_numpy()
+        array([  2,   2,   4,   4,   5, 100])
         """
         cdef:
             PyObject* out
@@ -357,6 +494,29 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         cast : Array or ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.type
+        DataType(int64)
+        >>> n_legs.cast(pa.duration('s')).type
+        DurationType(duration[s])
+        >>> n_legs.cast(pa.duration('s'))
+        <pyarrow.lib.ChunkedArray object at 0x11caca1d0>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
         """
         return _pc().cast(self, target_type, safe=safe)
 
@@ -375,6 +535,50 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         encoded : ChunkedArray
             A dictionary-encoded version of this array.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> animals = pa.chunked_array((
+        ...             ["Flamingo", "Parot", "Dog"],
+        ...             ["Horse", "Brittle stars", "Centipede"]
+        ...             ))
+        >>> animals.dictionary_encode()
+        <pyarrow.lib.ChunkedArray object at 0x11caca310>
+        [
+
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog",
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              0,
+              1,
+              2
+            ],
+
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog",
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              3,
+              4,
+              5
+            ]
+        ]
         """
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
@@ -392,6 +596,54 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         result : list of ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> pa.chunked_array(n_legs.value_counts())
+        <pyarrow.lib.ChunkedArray object at 0x11caca310>
+        [
+          -- is_valid: all not null
+          -- child 0 type: int64
+            [
+              2,
+              4,
+              5,
+              100
+            ]
+          -- child 1 type: int64
+            [
+              2,
+              2,
+              1,
+              1
+            ]
+        ]
+        >>> pa.chunked_array(n_legs.value_counts()).flatten
+        <built-in method flatten of pyarrow.lib.ChunkedArray object at 0x11caca270>
+        >>> pa.chunked_array(n_legs.value_counts()).flatten()
+        [<pyarrow.lib.ChunkedArray object at 0x11caca3b0>
+        [
+          [
+            2,
+            4,
+            5,
+            100
+          ]
+        ], <pyarrow.lib.ChunkedArray object at 0x11caca360>
+        [
+          [
+            2,
+            2,
+            1,
+            1
+          ]
+        ]]
+        >>> pa.chunked_array(n_legs.value_counts()).type
+        StructType(struct<values: int64, counts: int64>)
+        >>> n_legs.type
+        DataType(int64)
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] flattened
@@ -414,6 +666,35 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         result : Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11caca040>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.combine_chunks()
+        <pyarrow.lib.Int64Array object at 0x11ca9de80>
+        [
+          2,
+          2,
+          4,
+          4,
+          5,
+          100
+        ]
         """
         return concat_arrays(self.chunks)
 
@@ -424,6 +705,33 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         pyarrow.Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11caca040>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.unique()
+        <pyarrow.lib.Int64Array object at 0x11ca9dd60>
+        [
+          2,
+          4,
+          5,
+          100
+        ]
         """
         return _pc().call_function('unique', [self])
 
@@ -434,6 +742,42 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         An array of  <input type "Values", int64_t "Counts"> structs
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11caca040>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.value_counts()
+        <pyarrow.lib.StructArray object at 0x11ca9de80>
+        -- is_valid: all not null
+        -- child 0 type: int64
+          [
+            2,
+            4,
+            5,
+            100
+          ]
+        -- child 1 type: int64
+          [
+            2,
+            2,
+            1,
+            1
+          ]
         """
         return _pc().call_function('value_counts', [self])
 
@@ -452,6 +796,33 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         sliced : ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11caca040>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.slice(3,2)
+        <pyarrow.lib.ChunkedArray object at 0x11caca2c0>
+        [
+          [
+            4,
+            5
+          ]
+        ]
         """
         cdef shared_ptr[CChunkedArray] result
 
@@ -484,6 +855,49 @@ cdef class ChunkedArray(_PandasConvertible):
         filtered : Array or ChunkedArray
             An array of the same type, with only the elements selected by
             the boolean mask.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11caca040>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> mask = pa.array([True, False, None, True, False, True])
+        >>> n_legs.filter(mask)
+        <pyarrow.lib.ChunkedArray object at 0x11caca270>
+        [
+          [
+            2
+          ],
+          [
+            4,
+            100
+          ]
+        ]
+        >>> n_legs.filter(mask, null_selection_behavior="emit_null")
+        <pyarrow.lib.ChunkedArray object at 0x11caca400>
+        [
+          [
+            2,
+            null
+          ],
+          [
+            4,
+            100
+          ]
+        ]
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -508,6 +922,30 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         index : Int64Scalar
             The index of the value in the array (-1 if not found).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11caca040>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.index(4)
+        <pyarrow.Int64Scalar: 2>
+        >>> n_legs.index(4, start=3)
+        <pyarrow.Int64Scalar: 3>
+
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
@@ -526,6 +964,34 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         taken : Array or ChunkedArray
             An array with the same datatype, containing the taken values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11caca040>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.take([1,4,5])
+        <pyarrow.lib.ChunkedArray object at 0x11caca450>
+        [
+          [
+            2,
+            5,
+            100
+          ]
+        ]
         """
         return _pc().take(self, indices)
 
@@ -533,6 +999,38 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Remove missing values from a chunked array.
         See :func:`pyarrow.compute.drop_null` for full description.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11caca450>
+        [
+          [
+            2,
+            2,
+            null
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.drop_null()
+        <pyarrow.lib.ChunkedArray object at 0x11caca400>
+        [
+          [
+            2,
+            2
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
         """
         return _pc().drop_null(self)
 
@@ -555,6 +1053,79 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         result : ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
+        >>> animals = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
+        >>> c_arr = pa.chunked_array([n_legs, animals])
+        >>> c_arr
+        <pyarrow.lib.ChunkedArray object at 0x11caca2c0>
+        [
+
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog"
+            ]
+          -- indices:
+            [
+              0,
+              1,
+              2
+            ],
+
+          -- dictionary:
+            [
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              0,
+              1,
+              2
+            ]
+        ]
+        >>> c_arr.unify_dictionaries()
+        <pyarrow.lib.ChunkedArray object at 0x11caca270>
+        [
+
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog",
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              0,
+              1,
+              2
+            ],
+
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog",
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              3,
+              4,
+              5
+            ]
+        ]
         """
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -574,6 +1145,13 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
+        >>> n_legs.num_chunks
+        2
         """
         return self.chunked_array.num_chunks()
 
@@ -588,6 +1166,18 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         pyarrow.Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
+        >>> n_legs.chunk(1)
+        <pyarrow.lib.Int64Array object at 0x11ca9dee0>
+        [
+          4,
+          5,
+          100
+        ]
         """
         if i >= self.num_chunks or i < 0:
             raise IndexError('Chunk index out of range.')
@@ -625,6 +1215,30 @@ def chunked_array(arrays, type=None):
     Returns
     -------
     ChunkedArray
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.chunked_array([], type=pa.int8())
+    <pyarrow.lib.ChunkedArray object at 0x10644f450>
+    [
+
+    ]
+
+    >>> pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+    <pyarrow.lib.ChunkedArray object at 0x11cac2ea0>
+    [
+      [
+        2,
+        2,
+        4
+      ],
+      [
+        4,
+        5,
+        100
+      ]
+    ]
     """
     cdef:
         Array arr
