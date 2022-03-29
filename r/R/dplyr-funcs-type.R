@@ -173,11 +173,9 @@ register_bindings_type_cast <- function() {
       delta <- call_binding("difftime", origin, "1970-01-01")
       delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
       x <- build_expr("cast", x, options = cast_options(to_type = int64()))
-      output <- build_expr("+", x, delta)
-      output <- build_expr("cast", output, options = cast_options(to_type = timestamp()))
-    } else {
-      output <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
+      x <- build_expr("+", x, delta)
     }
+    output <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
     build_expr("assume_timezone", output, options = list(timezone = tz))
   })
 
