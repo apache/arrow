@@ -93,7 +93,7 @@ class MainRThread {
 MainRThread& GetMainRThread();
 
 // Call into R and return a C++ object. Note that you can't return
-// a SEXP (use cpp11::as_sexp<T> to convert it to a C++ type inside
+// a SEXP (use cpp11::as_cpp<T> to convert it to a C++ type inside
 // `fun`).
 template <typename T>
 arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
