@@ -33,8 +33,6 @@ test_that("SafeCallIntoR works within RunWithCapturedR", {
     "string one!"
   )
 
-  # This runs with the expected error, but causes subsequent segfaults, probably related
-  # to the error_token_ (maybe having to do with the copy-constructor?)
   expect_error(
     TestSafeCallIntoR(function() stop("an error!"), opt = "async_with_executor"),
     "an error!"
