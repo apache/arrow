@@ -277,12 +277,12 @@ Result<FragmentGenerator> AsyncScanner::GetFragments() const {
 }
 
 Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
-  return SerialExecutor::RunGeneratorInSerialExecutor<TaggedRecordBatch>(
+  return SerialExecutor::IterateGenerator<TaggedRecordBatch>(
       [this](Executor* executor) { return ScanBatchesAsync(executor); });
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
-  return SerialExecutor::RunGeneratorInSerialExecutor<EnumeratedRecordBatch>(
+  return SerialExecutor::IterateGenerator<EnumeratedRecordBatch>(
       [this](Executor* executor) { return ScanBatchesUnorderedAsync(executor); });
 }
 

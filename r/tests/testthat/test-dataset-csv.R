@@ -295,6 +295,7 @@ test_that("Column names can be inferred from schema", {
     skip_rows = 1
   )
   expect_equal(collect(ds), tbl)
+
   # If first row isn't skipped, supply user-friendly error
   ds <- open_dataset(
     header_csv_dir,

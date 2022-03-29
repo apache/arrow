@@ -147,7 +147,6 @@ struct SourceNode : ExecNode {
           outputs_[0]->InputFinished(this, total_batches);
           return task_group_.End();
         });
-    finished_.AddCallback([](const Status& st) { return Status::OK(); });
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }

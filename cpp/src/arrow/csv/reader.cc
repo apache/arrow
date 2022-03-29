@@ -881,7 +881,6 @@ class StreamingReaderImpl : public ReaderMixin,
   }
 
   Future<std::shared_ptr<RecordBatch>> ReadNextAsync() override {
-    uint32_t index = index_++;
     return record_batch_gen_();
   }
 
@@ -969,7 +968,6 @@ class StreamingReaderImpl : public ReaderMixin,
   AsyncGenerator<std::shared_ptr<RecordBatch>> record_batch_gen_;
   // bytes which have been decoded and asked for by the caller
   std::shared_ptr<std::atomic<int64_t>> bytes_decoded_;
-  uint32_t index_ = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////
