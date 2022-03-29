@@ -813,6 +813,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[shared_ptr[CArray]]& arrays)
 
         @staticmethod
+        CResult[shared_ptr[CTable]] FromRecordBatchReader(
+            CRecordBatchReader *reader)
+
+        @staticmethod
         CResult[shared_ptr[CTable]] FromRecordBatches(
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CRecordBatch]]& batches)
@@ -1787,11 +1791,27 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
         CResult[shared_ptr[CTable]] Read()
 
 
+cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
+
+    cdef cppclass CExecutor "arrow::internal::Executor":
+        pass
+
+    cdef cppclass CThreadPool "arrow::internal::ThreadPool"(CExecutor):
+        @staticmethod
+        CResult[shared_ptr[CThreadPool]] Make(int threads)
+
+    CThreadPool* GetCpuThreadPool()
+
+
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CExecContext" arrow::compute::ExecContext":
         CExecContext()
         CExecContext(CMemoryPool* pool)
+        CExecContext(CMemoryPool* pool, CExecutor* exc)
+
+        CMemoryPool* memory_pool() const
+        CExecutor* executor()
 
     cdef cppclass CKernelSignature" arrow::compute::KernelSignature":
         c_string ToString() const
@@ -2393,6 +2413,9 @@ cdef extern from "arrow/compute/exec/expression.h" \
     cdef CExpression CMakeFieldExpression \
         "arrow::compute::field_ref"(c_string name)
 
+    cdef CExpression CMakeFieldExpressionByIndex \
+        "arrow::compute::field_ref"(int idx)
+
     cdef CExpression CMakeCallExpression \
         "arrow::compute::call"(c_string function,
                                vector[CExpression] arguments,
@@ -2421,6 +2444,97 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
         const CMonthDayNanoIntervalArray& array)
     CResult[PyObject*] MonthDayNanoIntervalScalarToPyObject(
         const CMonthDayNanoIntervalScalar& scalar)
+
+
+cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil:
+    cdef enum CJoinType "arrow::compute::JoinType":
+        CJoinType_LEFT_SEMI "arrow::compute::JoinType::LEFT_SEMI"
+        CJoinType_RIGHT_SEMI "arrow::compute::JoinType::RIGHT_SEMI"
+        CJoinType_LEFT_ANTI "arrow::compute::JoinType::LEFT_ANTI"
+        CJoinType_RIGHT_ANTI "arrow::compute::JoinType::RIGHT_ANTI"
+        CJoinType_INNER "arrow::compute::JoinType::INNER"
+        CJoinType_LEFT_OUTER "arrow::compute::JoinType::LEFT_OUTER"
+        CJoinType_RIGHT_OUTER "arrow::compute::JoinType::RIGHT_OUTER"
+        CJoinType_FULL_OUTER "arrow::compute::JoinType::FULL_OUTER"
+
+    cdef cppclass CAsyncExecBatchGenerator "arrow::compute::AsyncExecBatchGenerator":
+        pass
+
+    cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
+        pass
+
+    cdef cppclass CSourceNodeOptions "arrow::compute::SourceNodeOptions"(CExecNodeOptions):
+        @staticmethod
+        CResult[shared_ptr[CSourceNodeOptions]] FromTable(const CTable& table, CExecutor*)
+
+    cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
+        pass
+
+    cdef cppclass CProjectNodeOptions "arrow::compute::ProjectNodeOptions"(CExecNodeOptions):
+        CProjectNodeOptions(vector[CExpression] expressions)
+        CProjectNodeOptions(vector[CExpression] expressions,
+                            vector[c_string] names)
+
+    cdef cppclass CHashJoinNodeOptions "arrow::compute::HashJoinNodeOptions"(CExecNodeOptions):
+        CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
+                             vector[CFieldRef] in_right_keys)
+        CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
+                             vector[CFieldRef] in_right_keys,
+                             CExpression filter,
+                             c_string output_suffix_for_left,
+                             c_string output_suffix_for_right)
+        CHashJoinNodeOptions(CJoinType join_type,
+                             vector[CFieldRef] left_keys,
+                             vector[CFieldRef] right_keys,
+                             vector[CFieldRef] left_output,
+                             vector[CFieldRef] right_output,
+                             CExpression filter,
+                             c_string output_suffix_for_left,
+                             c_string output_suffix_for_right)
+
+
+cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
+    cdef cppclass CDeclaration "arrow::compute::Declaration":
+        cppclass Input:
+            Input(CExecNode*)
+            Input(CDeclaration)
+
+        c_string label
+        vector[Input] inputs
+
+        CDeclaration(c_string factory_name, CExecNodeOptions options)
+
+        @staticmethod
+        CDeclaration Sequence(vector[CDeclaration] decls)
+
+        CResult[CExecNode*] AddToPlan(CExecPlan* plan) const
+
+    cdef cppclass CExecPlan "arrow::compute::ExecPlan":
+        @staticmethod
+        CResult[shared_ptr[CExecPlan]] Make(CExecContext* exec_context)
+
+        CStatus StartProducing()
+        CStatus Validate()
+        CStatus StopProducing()
+
+        vector[CExecNode*] sinks() const
+        vector[CExecNode*] sources() const
+
+    cdef cppclass CExecNode "arrow::compute::ExecNode":
+        const vector[CExecNode*]& inputs() const
+        const shared_ptr[CSchema]& output_schema() const
+
+    cdef cppclass CExecBatch "arrow::compute::ExecBatch":
+        pass
+
+    shared_ptr[CRecordBatchReader] MakeGeneratorReader(
+        shared_ptr[CSchema] schema,
+        CAsyncExecBatchGenerator gen,
+        CMemoryPool* memory_pool
+    )
+    CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan,
+                                     vector[CExecNode*] inputs,
+                                     const CExecNodeOptions& options)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:

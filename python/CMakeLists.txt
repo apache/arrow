@@ -399,6 +399,7 @@ set(CYTHON_EXTENSIONS
     lib
     _compute
     _csv
+    _exec_plan
     _feather
     _fs
     _hdfsio
