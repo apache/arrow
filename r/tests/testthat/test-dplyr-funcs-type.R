@@ -828,13 +828,11 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     test_df
   )
 
-  # currently we do not support an origin different to "1970-01-01"
   compare_dplyr_binding(
     .input %>%
       mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
       collect(),
-    test_df,
-    warning = TRUE
+    test_df
   )
 
   # we do not support multiple tryFormats
@@ -904,13 +902,11 @@ test_that("as_date()", {
     test_df
   )
 
-  # currently we do not support an origin different to "1970-01-01"
   compare_dplyr_binding(
     .input %>%
       mutate(date_int = as_date(integer_var, origin = "1970-01-03")) %>%
       collect(),
-    test_df,
-    warning = TRUE
+    test_df
   )
 
   # strptime does not support a partial format -
