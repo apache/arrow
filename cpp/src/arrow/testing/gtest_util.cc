@@ -407,8 +407,7 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                      util::string_view json) {
-  std::shared_ptr<Array> out;
-  ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
+  EXPECT_OK_AND_ASSIGN(auto out, ipc::internal::json::ArrayFromJSON(type, json));
   return out;
 }
 
