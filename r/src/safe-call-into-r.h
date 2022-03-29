@@ -31,7 +31,7 @@
 // if it is not safe). The MainRThread singleton can be accessed from
 // any thread using GetMainRThread(); the preferred way to call
 // the R API where it may not be safe to do so is to use
-// SafeCallIntoR<cpp_type>([&]() { some_expression_returning_sexp; }).
+// SafeCallIntoR<cpp_type>([&]() { ... }).
 class MainRThread {
  public:
   MainRThread() : initialized_(false), executor_(nullptr) {}

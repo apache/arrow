@@ -46,7 +46,7 @@ arrow::Status MainRThread::RunTask(Task* task) {
     return arrow::Status::OK();
   } else {
     return arrow::Status::NotImplemented(
-        "Call to R from a non-R thread without an event loop");
+        "Call to R from a non-R thread without calling RunWithCapturedR");
   }
 }
 
