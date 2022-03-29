@@ -55,11 +55,11 @@ class MainRThread {
   class Task {
    public:
     virtual ~Task() {}
-    virtual arrow::Status run() = 0;
+    virtual arrow::Result<Task*> run() = 0;
   };
 
   // Run `task` if it is safe to do so or return an error otherwise.
-  arrow::Status RunTask(Task* task);
+  arrow::Result<Task*> RunTask(Task* task);
 
   // The Executor that is running on the main R thread, if it exists
   arrow::internal::Executor*& Executor() { return executor_; }
@@ -101,9 +101,9 @@ arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
    public:
     explicit TypedTask(std::function<T(void)> fun) : fun_(fun) {}
 
-    arrow::Status run() {
+    arrow::Result<Task*> run() {
       result = fun_();
-      return arrow::Status::OK();
+      return this;
     }
 
     T result;

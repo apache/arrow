@@ -27,7 +27,7 @@ MainRThread& GetMainRThread() {
   return main_r_thread;
 }
 
-arrow::Status MainRThread::RunTask(Task* task) {
+arrow::Result<MainRThread::Task*> MainRThread::RunTask(Task* task) {
   if (IsMainThread()) {
     // If we're on the main thread, run the task immediately
     try {
@@ -40,7 +40,7 @@ arrow::Status MainRThread::RunTask(Task* task) {
     // If we are not on the main thread and have an Executor
     // use it to run the task on the main R thread.
     auto fut = DeferNotOk(executor_->Submit([task]() { return task->run(); }));
-    return fut.status();
+    return fut.result();
   } else {
     return arrow::Status::NotImplemented(
         "Call to R from a non-R thread without calling RunWithCapturedR");
