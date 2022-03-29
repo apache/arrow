@@ -437,18 +437,15 @@ void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
   };
 
   status = task();
-  if (input_counter_.Increment()) {
-    this->Finish(status);
-  }
-
-  // If we get a cancelled status from AddTask it means this node was stopped
-  // or errored out already so we can just drop the task.
-  if (!status.ok() && !status.IsCancelled()) {
+  if (!status.ok()) {
     if (input_counter_.Cancel()) {
       this->Finish(status);
     }
     inputs_[0]->StopProducing(this);
     return;
+  }
+  if (input_counter_.Increment()) {
+    this->Finish();
   }
 }
 
