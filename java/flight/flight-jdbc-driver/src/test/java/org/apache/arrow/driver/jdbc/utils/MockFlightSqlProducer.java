@@ -51,6 +51,7 @@ import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.SqlInfoBuilder;
+import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
@@ -361,6 +362,19 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
                                final CallContext callContext,
                                final ServerStreamListener serverStreamListener) {
     sqlInfoBuilder.send(commandGetSqlInfo.getInfoList(), serverStreamListener);
+  }
+
+  @Override
+  public FlightInfo getFlightInfoTypeInfo(FlightSql.CommandGetXdbcTypeInfo request, CallContext context,
+                                          FlightDescriptor descriptor) {
+    // TODO Implement this
+    return null;
+  }
+
+  @Override
+  public void getStreamTypeInfo(FlightSql.CommandGetXdbcTypeInfo request, CallContext context,
+                                ServerStreamListener listener) {
+    // TODO Implement this
   }
 
   @Override
