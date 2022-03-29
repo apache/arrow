@@ -433,7 +433,13 @@ cdef class NativeFile(_Weakrefable):
     def read1(self, nbytes=None):
         """Read and return up to n bytes.
 
-        Alias for read, needed to match the IOBase interface."""
+        Alias for read, needed to match the BufferedIOBase interface.
+
+        Parameters
+        ----------
+        nbytes : int
+            The maximum number of bytes to read.
+        """
         return self.read(nbytes=None)
 
     def readall(self):
@@ -444,12 +450,13 @@ cdef class NativeFile(_Weakrefable):
         Read into the supplied buffer
 
         Parameters
-        -----------
-        b: any python object supporting buffer interface
+        ----------
+        b : buffer-like object
+            A writable buffer object (such as a bytearray).
 
         Returns
-        --------
-        int
+        -------
+        written : int
             number of bytes written
         """
 
@@ -476,19 +483,22 @@ cdef class NativeFile(_Weakrefable):
         If size is specified, read at most size bytes.
 
         Line terminator is always b"\\n".
-        """
 
+        Parameters
+        ----------
+        size : int
+            maximum number of bytes read
+        """
         raise UnsupportedOperation()
 
     def readlines(self, hint=None):
         """NOT IMPLEMENTED. Read lines of the file
 
         Parameters
-        -----------
-
-        hint: int maximum number of bytes read until we stop
+        ----------
+        hint : int
+            maximum number of bytes read until we stop
         """
-
         raise UnsupportedOperation()
 
     def __iter__(self):
@@ -536,8 +546,17 @@ cdef class NativeFile(_Weakrefable):
 
     def download(self, stream_or_path, buffer_size=None):
         """
-        Read file completely to local path (rather than reading completely into
-        memory). First seeks to the beginning of the file.
+        Read this file completely to a local path or destination stream.
+
+        This method first seeks to the beginning of the file.
+
+        Parameters
+        ----------
+        stream_or_path : str or file-like object
+            If a string, a local file path to write to; otherwise,
+            should be a writable stream.
+        buffer_size : int, optional
+            The buffer size to use for data transfers.
         """
         cdef:
             int64_t bytes_read = 0
@@ -624,7 +643,14 @@ cdef class NativeFile(_Weakrefable):
 
     def upload(self, stream, buffer_size=None):
         """
-        Pipe file-like object to file
+        Write from a source stream to this file.
+
+        Parameters
+        ----------
+        stream : file-like object
+            Source stream to pipe to this file.
+        buffer_size : int, optional
+            The buffer size to use for data transfers.
         """
         write_queue = Queue(50)
         self._assert_writable()
@@ -1256,6 +1282,10 @@ cdef class BufferReader(NativeFile):
     """
     cdef:
         Buffer buffer
+
+    # XXX Needed to make numpydoc happy
+    def __init__(self, obj):
+        pass
 
     def __cinit__(self, object obj):
         self.buffer = as_buffer(obj)

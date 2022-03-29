@@ -163,3 +163,26 @@ can control the source of each dependency and whether it is statically or
 dynamically linked. See :doc:`/developers/cpp/building` for instructions. Or
 alternatively, use Arrow from a package manager such as Conda or vcpkg which
 will manage consistent versions of Arrow and its dependencies.
+
+
+.. _download-timezone-database:
+
+Runtime Dependencies
+====================
+
+While Arrow uses the OS-provided timezone database on Linux and macOS, it
+requires a user-provided database on Windows. You must download and extract the
+text version of the IANA timezone database and add the Windows timezone mapping
+XML. To download, you can use the following batch script:
+
+.. literalinclude:: ../../../ci/appveyor-cpp-setup.bat
+   :language: cmd
+   :start-after: @rem (Doc section: Download timezone database)
+   :end-before: @rem (Doc section: Download timezone database)
+
+By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``,
+but you can set a custom path at runtime in :struct:`arrow::ArrowGlobalOptions`::
+
+   arrow::ArrowGlobalOptions options;
+   options.tz_db_path = "path/to/tzdata";
+   ARROW_RETURN_NOT_OK(arrow::Initialize(options));

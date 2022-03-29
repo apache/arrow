@@ -115,3 +115,17 @@ powershell.exe -Command "Start-Process clcache-server" || exit /B
 if "%ARROW_S3%" == "ON" (
     appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/minio.exe -FileName C:\Windows\Minio.exe || exit /B
 )
+
+
+@rem
+@rem Download IANA Timezone Database for unit tests
+@rem
+@rem (Doc section: Download timezone database)
+curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
+mkdir tzdata
+tar --extract --file tzdata.tar.gz --directory tzdata
+move tzdata %USERPROFILE%\Downloads\tzdata
+@rem Also need Windows timezone mapping
+curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
+  --output %USERPROFILE%\Downloads\tzdata\windowsZones.xml
+@rem (Doc section: Download timezone database)

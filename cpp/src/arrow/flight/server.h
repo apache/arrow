@@ -55,7 +55,10 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
 
   // When the stream is completed, the last payload written will have null
   // metadata
-  virtual Status Next(FlightPayload* payload) = 0;
+  virtual arrow::Result<FlightPayload> Next() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(FlightPayload* payload) { return Next().Value(payload); }
 };
 
 /// \brief A basic implementation of FlightDataStream that will provide
@@ -71,7 +74,11 @@ class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
 
   std::shared_ptr<Schema> schema() override;
   Status GetSchemaPayload(FlightPayload* payload) override;
-  Status Next(FlightPayload* payload) override;
+
+  arrow::Result<FlightPayload> Next() override;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(FlightPayload* payload);
 
  private:
   class RecordBatchStreamImpl;

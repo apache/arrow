@@ -109,31 +109,32 @@ class TransportMessageReader final : public FlightMessageReader {
     return batch_reader_->schema();
   }
 
-  Status Next(FlightStreamChunk* out) override {
+  arrow::Result<FlightStreamChunk> Next() override {
+    FlightStreamChunk out;
     internal::FlightData* data;
     peekable_reader_->Peek(&data);
     if (!data) {
-      out->app_metadata = nullptr;
-      out->data = nullptr;
-      return Status::OK();
+      out.app_metadata = nullptr;
+      out.data = nullptr;
+      return out;
     }
 
     if (!data->metadata) {
       // Metadata-only (data->metadata is the IPC header)
-      out->app_metadata = data->app_metadata;
-      out->data = nullptr;
+      out.app_metadata = data->app_metadata;
+      out.data = nullptr;
       peekable_reader_->Next(&data);
-      return Status::OK();
+      return out;
     }
 
     if (!batch_reader_) {
       RETURN_NOT_OK(EnsureDataStarted());
       // re-peek here since EnsureDataStarted() advances the stream
-      return Next(out);
+      return Next();
     }
-    RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
-    out->app_metadata = std::move(app_metadata_);
-    return Status::OK();
+    RETURN_NOT_OK(batch_reader_->ReadNext(&out.data));
+    out.app_metadata = std::move(app_metadata_);
+    return out;
   }
 
  private:
@@ -286,8 +287,7 @@ Status ServerTransport::DoGet(const ServerCallContext& context, const Ticket& ti
 
   // Consume data stream and write out payloads
   while (true) {
-    FlightPayload payload;
-    RETURN_NOT_OK(data_stream->Next(&payload));
+    ARROW_ASSIGN_OR_RAISE(FlightPayload payload, data_stream->Next());
     // End of stream
     if (payload.ipc_message.metadata == nullptr) break;
     ARROW_ASSIGN_OR_RAISE(auto success, stream->WriteData(payload));

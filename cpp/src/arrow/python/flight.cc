@@ -206,12 +206,15 @@ PyFlightResultStream::PyFlightResultStream(PyObject* generator,
   generator_.reset(generator);
 }
 
-Status PyFlightResultStream::Next(std::unique_ptr<arrow::flight::Result>* result) {
-  return SafeCallIntoPython([=] {
-    const Status status = callback_(generator_.obj(), result);
-    RETURN_NOT_OK(CheckPyError());
-    return status;
-  });
+arrow::Result<std::unique_ptr<arrow::flight::Result>> PyFlightResultStream::Next() {
+  return SafeCallIntoPython(
+      [=]() -> arrow::Result<std::unique_ptr<arrow::flight::Result>> {
+        std::unique_ptr<arrow::flight::Result> result;
+        const Status status = callback_(generator_.obj(), &result);
+        RETURN_NOT_OK(CheckPyError());
+        RETURN_NOT_OK(status);
+        return result;
+      });
 }
 
 PyFlightDataStream::PyFlightDataStream(
@@ -227,7 +230,7 @@ Status PyFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
   return stream_->GetSchemaPayload(payload);
 }
 
-Status PyFlightDataStream::Next(FlightPayload* payload) { return stream_->Next(payload); }
+arrow::Result<FlightPayload> PyFlightDataStream::Next() { return stream_->Next(); }
 
 PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
     PyObject* generator, std::shared_ptr<arrow::Schema> schema,
@@ -243,11 +246,13 @@ Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
   return ipc::GetSchemaPayload(*schema_, options_, mapper_, &payload->ipc_message);
 }
 
-Status PyGeneratorFlightDataStream::Next(FlightPayload* payload) {
-  return SafeCallIntoPython([=] {
-    const Status status = callback_(generator_.obj(), payload);
+arrow::Result<FlightPayload> PyGeneratorFlightDataStream::Next() {
+  return SafeCallIntoPython([=]() -> arrow::Result<FlightPayload> {
+    FlightPayload payload;
+    const Status status = callback_(generator_.obj(), &payload);
     RETURN_NOT_OK(CheckPyError());
-    return status;
+    RETURN_NOT_OK(status);
+    return payload;
   });
 }
 

@@ -1,4 +1,4 @@
-from subprocess import check_output, check_call
+import subprocess
 from typing import Set
 
 import json
@@ -20,8 +20,26 @@ PLATFORMS = [
 ]
 
 
+def run_command(cmdline, **kwargs):
+    kwargs.setdefault('capture_output', True)
+    p = subprocess.run(cmdline, **kwargs)
+    if p.returncode != 0:
+        print(f"Command {cmdline} returned non-zero exit status "
+              f"{p.returncode}", file=sys.stderr)
+        if p.stdout:
+            print("Stdout was:\n" + "-" * 70, file=sys.stderr)
+            print(p.stdout.decode().rstrip(), file=sys.stderr)
+            print("-" * 70, file=sys.stderr)
+        if p.stderr:
+            print("Stderr was:\n" + "-" * 70, file=sys.stderr)
+            print(p.stderr.decode().rstrip(), file=sys.stderr)
+            print("-" * 70, file=sys.stderr)
+        sys.exit(1)
+    return p.stdout
+
+
 def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
-    pkgs_json = check_output(
+    pkgs_json = run_command(
         [
             "conda",
             "search",
@@ -93,4 +111,4 @@ if __name__ == "__main__":
 
     if "FORCE" in sys.argv and len(to_delete) > 0:
         print("Deleting ...")
-        check_call(["anaconda", "remove", "-f"] + to_delete)
+        run_command(["anaconda", "remove", "-f"] + to_delete)

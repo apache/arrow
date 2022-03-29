@@ -26,12 +26,11 @@ library(dplyr, warn.conflicts = FALSE)
 # TODO: consider reevaluating this workaround after ARROW-12980
 withr::local_timezone("UTC")
 
-# TODO: We should test on windows once ARROW-13168 is resolved.
 if (tolower(Sys.info()[["sysname"]]) == "windows") {
-  test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "")
-} else {
-  test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
+  withr::local_locale(LC_TIME = "C")
 }
+
+test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 
 
 test_df <- tibble::tibble(
@@ -120,8 +119,6 @@ test_that("errors in strptime", {
 })
 
 test_that("strftime", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
     date = c(as.Date("2021-01-01"), NA)
@@ -184,13 +181,15 @@ test_that("strftime", {
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.
   # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
-  expect_error(
-    times %>%
-      Table$create() %>%
-      mutate(x = strftime(datetime, format = "%c")) %>%
-      collect(),
-    "%c flag is not supported in non-C locales."
-  )
+  if (Sys.getlocale("LC_TIME") != "C") {
+    expect_error(
+      times %>%
+        Table$create() %>%
+        mutate(x = strftime(datetime, format = "%c")) %>%
+        collect(),
+      "%c flag is not supported in non-C locales."
+    )
+  }
 
   # Output precision of %S depends on the input timestamp precision.
   # Timestamps with second precision are represented as integers while
@@ -209,8 +208,6 @@ test_that("strftime", {
 test_that("format_ISO8601", {
   # https://issues.apache.org/jira/projects/ARROW/issues/ARROW-15266
   skip_if_not_available("re2")
-  # https://issues.apache.org/jira/browse/ARROW-13168
-  skip_on_os("windows")
   times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
 
   compare_dplyr_binding(
@@ -356,8 +353,6 @@ test_that("extract month from timestamp", {
     test_df
   )
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   compare_dplyr_binding(
     .input %>%
       # R returns ordered factor whereas Arrow returns character
@@ -433,8 +428,6 @@ test_that("extract wday from timestamp", {
       collect(),
     test_df
   )
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   compare_dplyr_binding(
     .input %>%
@@ -538,15 +531,6 @@ test_that("extract quarter from date", {
   )
 })
 
-test_that("extract month from date", {
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = month(date)) %>%
-      collect(),
-    test_df
-  )
-})
-
 test_that("extract isoweek from date", {
   compare_dplyr_binding(
     .input %>%
@@ -582,8 +566,6 @@ test_that("extract month from date", {
     test_df
   )
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   compare_dplyr_binding(
     .input %>%
       # R returns ordered factor whereas Arrow returns character
@@ -601,7 +583,6 @@ test_that("extract month from date", {
     ignore_attr = TRUE
   )
 })
-
 
 test_that("extract day from date", {
   compare_dplyr_binding(
@@ -633,8 +614,6 @@ test_that("extract wday from date", {
       collect(),
     test_df
   )
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   compare_dplyr_binding(
     .input %>%
@@ -704,10 +683,6 @@ test_that("leap_year mirror lubridate", {
 })
 
 test_that("am/pm mirror lubridate", {
-
-  # https://issues.apache.org/jira/browse/ARROW-13168
-  skip_on_os("windows")
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -805,8 +780,6 @@ test_that("dst extracts daylight savings time correctly", {
   test_df <- tibble(
     dates = as.POSIXct(c("2021-02-20", "2021-07-31", "2021-10-31", "2021-01-31"), tz = "Europe/London")
   )
-  # https://issues.apache.org/jira/browse/ARROW-13168
-  skip_on_os("windows")
 
   compare_dplyr_binding(
     .input %>%

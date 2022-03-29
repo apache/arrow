@@ -304,3 +304,16 @@ ExecNode <- R6Class("ExecNode",
     schema = function() ExecNode_output_schema(self)
   )
 )
+
+do_exec_plan_substrait <- function(substrait_plan, output_names) {
+  if (is.string(substrait_plan)) {
+    substrait_plan <- engine__internal__SubstraitFromJSON(substrait_plan)
+  } else if (is.raw(substrait_plan)) {
+    substrait_plan <- buffer(substrait_plan)
+  } else {
+    abort("`substrait_plan` must be a JSON string or raw() vector")
+  }
+
+  plan <- ExecPlan$create()
+  ExecPlan_run_substrait(plan, substrait_plan, output_names)
+}
