@@ -802,80 +802,17 @@ test_that("nested structs can be created from scalars and existing data frames",
 
   })
 
-test_that("as.Date() converts successfully from date, timestamp, integer, char and double", {
-  test_df <- tibble::tibble(
-    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
-    date_var = as.Date("2022-02-25"),
-    character_ymd_var = "2022-02-25 00:00:01",
-    character_ydm_var = "2022/25/02 00:00:01",
-    integer_var = 32L,
-    integerish_var = 32,
-    double_var = 34.56
-  )
+test_that("`as.Date()` and `as_date()`", {
+  # test_df <- tibble::tibble(
+  #   posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
+  #   date_var = as.Date("2022-02-25"),
+  #   character_ymd_var = "2022-02-25 00:00:01",
+  #   character_ydm_var = "2022/25/02 00:00:01",
+  #   integer_var = 32L,
+  #   integerish_var = 32,
+  #   double_var = 34.56
+  # )
 
-  # casting from POSIXct treated separately so we can skip on Windows
-  # TODO move the test for casting from POSIXct below once ARROW-13168 is done
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_dv = as.Date(date_var),
-        date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
-        date_int = as.Date(integer_var, origin = "1970-01-01"),
-        date_integerish = as.Date(integerish_var, origin = "1970-01-01")
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
-      collect(),
-    test_df
-  )
-
-  # we do not support multiple tryFormats
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var,
-                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
-      collect(),
-    test_df,
-    warning = TRUE
-  )
-
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
-      collect(),
-    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
-    fixed = TRUE
-  )
-
-
-  # we do not support as.Date() with double/ float (error surfaced from C++)
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect()
-  )
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_pv = as.Date(posixct_var),
-        date_pv_tz = as.Date(posixct_var, tz = "Pacific/Marquesas")
-      ) %>%
-      collect(),
-    test_df
-  )
-})
-
-test_that("as_date()", {
   test_df <- tibble::tibble(
     posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Pacific/Marquesas"),
     date_var = as.Date("2022-02-25"),
@@ -892,21 +829,38 @@ test_that("as_date()", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        date_dv = as_date(date_var),
-        date_char_ymd = as_date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm = as_date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
-        date_int = as_date(integer_var, origin = "1970-01-01"),
-        date_integerish = as_date(integerish_var, origin = "1970-01-01")
+        date_dv1 = as.Date(date_var),
+        date_char_ymd1 = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm1 = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_int1 = as.Date(integer_var, origin = "1970-01-01"),
+        date_int_origin1 = as.Date(integer_var, origin = "1970-01-03"),
+        date_integerish1 = as.Date(integerish_var, origin = "1970-01-01"),
+        date_dv2 = as_date(date_var),
+        date_char_ymd2 = as_date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm2 = as_date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_int2 = as_date(integer_var, origin = "1970-01-01"),
+        date_int_origin2 = as_date(integer_var, origin = "1970-01-03"),
+        date_integerish2 = as_date(integerish_var, origin = "1970-01-01")
       ) %>%
       collect(),
     test_df
   )
 
+  # compare_dplyr_binding(
+  #   .input %>%
+  #     mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
+  #     collect(),
+  #   test_df
+  # )
+
+  # we do not support multiple tryFormats
   compare_dplyr_binding(
     .input %>%
-      mutate(date_int = as_date(integer_var, origin = "1970-01-03")) %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var,
+                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
       collect(),
-    test_df
+    test_df,
+    warning = TRUE
   )
 
   # strptime does not support a partial format -
@@ -918,7 +872,27 @@ test_that("as_date()", {
       collect()
   )
 
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
+      collect(),
+    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
+    fixed = TRUE
+  )
+
+
   # we do not support as.Date() with double/ float (error surfaced from C++)
+  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+      collect()
+  )
+
+  # we do not support as_date with double/ float (error surfaced from C++)
+  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
   expect_error(
     test_df %>%
       arrow_table() %>%
@@ -927,6 +901,16 @@ test_that("as_date()", {
   )
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_pv = as.Date(posixct_var),
+        date_pv_tz = as.Date(posixct_var, tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_df
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(
