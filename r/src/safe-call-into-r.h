@@ -112,7 +112,7 @@ arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
     std::function<T(void)> fun_;
   };
 
-  TypedTask task(fun);
+  TypedTask task(std::move(fun));
   ARROW_RETURN_NOT_OK(GetMainRThread().RunTask(&task));
   return task.result;
 }
