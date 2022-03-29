@@ -168,7 +168,7 @@ struct CastStruct {
       const auto out_field = out_type.field(out_field_index);
       if (in_field->name() == out_field->name()) {
         if (in_field->nullable() && !out_field->nullable()) {
-          return Status::TypeError("cannot cast nullable struct to non-nullable struct: ",
+          return Status::TypeError("cannot cast nullable field to non-nullable field: ",
                                    in_type.ToString(), " ", out_type.ToString());
         }
         fields_to_select[out_field_index++] = in_field_index;
@@ -177,7 +177,7 @@ struct CastStruct {
 
     if (out_field_index < out_field_count) {
       return Status::TypeError(
-          "struct (sub)fields don't match or are in the wrong order: Input fields: ",
+          "struct fields don't match or are in the wrong order: Input fields: ",
           in_type.ToString(), " output fields: ", out_type.ToString());
     }
 
