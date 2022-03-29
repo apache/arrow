@@ -803,16 +803,6 @@ test_that("nested structs can be created from scalars and existing data frames",
   })
 
 test_that("`as.Date()` and `as_date()`", {
-  # test_df <- tibble::tibble(
-  #   posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
-  #   date_var = as.Date("2022-02-25"),
-  #   character_ymd_var = "2022-02-25 00:00:01",
-  #   character_ydm_var = "2022/25/02 00:00:01",
-  #   integer_var = 32L,
-  #   integerish_var = 32,
-  #   double_var = 34.56
-  # )
-
   test_df <- tibble::tibble(
     posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Pacific/Marquesas"),
     date_var = as.Date("2022-02-25"),
@@ -845,13 +835,6 @@ test_that("`as.Date()` and `as_date()`", {
       collect(),
     test_df
   )
-
-  # compare_dplyr_binding(
-  #   .input %>%
-  #     mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
-  #     collect(),
-  #   test_df
-  # )
 
   # we do not support multiple tryFormats
   compare_dplyr_binding(
