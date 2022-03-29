@@ -314,8 +314,7 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 /// a table pointer.
 class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
  public:
-  TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
-                       std::shared_ptr<Schema> output_schema)
+  TableSinkNodeOptions(std::shared_ptr<Table>* output_table)
       : output_table(output_table) {}
 
   std::shared_ptr<Table>* output_table;
