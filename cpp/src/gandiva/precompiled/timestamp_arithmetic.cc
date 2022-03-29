@@ -67,7 +67,7 @@ extern "C" {
 #define TIMESTAMP_DIFF_FIXED_UNITS(TYPE, NAME, FROM_MILLIS)                          \
   FORCE_INLINE                                                                       \
   gdv_int32 NAME##_##TYPE##_##TYPE(gdv_##TYPE start_millis, gdv_##TYPE end_millis) { \
-    return static_cast<int32_t>(FROM_MILLIS(start_millis - end_millis));             \
+    return static_cast<int32_t>(FROM_MILLIS(end_millis - start_millis));             \
   }
 
 #define SIGN_ADJUST_DIFF(is_positive, diff) ((is_positive) ? (diff) : -(diff))

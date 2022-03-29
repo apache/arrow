@@ -991,6 +991,13 @@ CAST_NULLABLE_INTERVAL_DAY(int64)
     return value;                                                                      \
   }
 
+FORCE_INLINE
+gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
+                                       gdv_timestamp end_millis) {
+  return static_cast<int32_t>(
+      ((start_millis - end_millis) / (24 * (60 * (60 * (1000))))));
+}
+
 CAST_NULLABLE_INTERVAL_YEAR(int32)
 CAST_NULLABLE_INTERVAL_YEAR(int64)
 
