@@ -65,6 +65,7 @@ extensions = [
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
     'numpydoc',
+    'sphinx_design',
     'sphinx_tabs.tabs',
     'sphinx_copybutton',
     'sphinx.ext.autodoc',
