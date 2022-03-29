@@ -50,8 +50,9 @@ Result<std::vector<ExecBatch>> GenerateTable(
     double scale_factor = 1.0) {
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
-  ARROW_ASSIGN_OR_RAISE(TpchGen gen, TpchGen::Make(plan.get(), scale_factor));
-  ARROW_ASSIGN_OR_RAISE(ExecNode * table_node, ((gen.*table)({})));
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<TpchGen> gen,
+                        TpchGen::Make(plan.get(), scale_factor));
+  ARROW_ASSIGN_OR_RAISE(ExecNode * table_node, ((gen.get()->*table)({})));
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
   Declaration sink("sink", {Declaration::Input(table_node)}, SinkNodeOptions{&sink_gen});
   ARROW_RETURN_NOT_OK(sink.AddToPlan(plan.get()));
