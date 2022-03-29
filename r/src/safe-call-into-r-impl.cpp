@@ -53,9 +53,6 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
     thread_ptr->join();
     delete thread_ptr;
 
-    // Stop for any R execution errors that may have occurred
-    GetMainRThread().ClearError();
-
     return arrow::ValueOrStop(result);
   } else if (opt == "async_without_executor") {
     std::thread* thread_ptr;
@@ -75,10 +72,6 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
     thread_ptr->join();
     delete thread_ptr;
 
-    // We didn't evaluate any R code because it wasn't safe, but
-    // if we did and there was an error, we need to stop() here
-    GetMainRThread().ClearError();
-
     // We should be able to get this far, but fut will contain an error
     // because it tried to evaluate R code from another thread
     return arrow::ValueOrStop(fut.result());
@@ -86,7 +79,6 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
   } else if (opt == "on_main_thread") {
     auto result = SafeCallIntoR<std::string>(
         [&]() { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
-    GetMainRThread().ClearError();
     arrow::StopIfNotOk(result.status());
     return result.ValueUnsafe();
   } else {

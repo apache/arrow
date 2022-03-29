@@ -58,6 +58,8 @@ class MainRThread {
   // to finish).
   void SetError(cpp11::sexp token) { error_token_ = token; }
 
+  void ResetError() { error_token_ = R_NilValue; }
+
   // Check if there is a saved error
   bool HasError() { return error_token_ != R_NilValue; }
 
@@ -69,6 +71,17 @@ class MainRThread {
       throw e;
     }
   }
+
+  class UnwindStatusDetail : public arrow::StatusDetail {
+   public:
+    UnwindStatusDetail(SEXP token) : token_(token) {}
+    const char* type_id() const { return "MainRThread::UnwindStatusDetail"; };
+    std::string ToString() const { return type_id(); }
+    SEXP token() { return token_; }
+
+   private:
+    SEXP token_;
+  };
 
  private:
   bool initialized_;
@@ -87,18 +100,34 @@ template <typename T>
 arrow::Future<T> SafeCallIntoRAsync(std::function<T(void)> fun) {
   MainRThread& main_r_thread = GetMainRThread();
   if (main_r_thread.IsMainThread()) {
-    // If we're on the main thread, run the task immediately
-    try {
-      return arrow::Future<T>::MakeFinished(fun());
-    } catch (cpp11::unwind_exception& e) {
-      main_r_thread.SetError(e.token);
-      return arrow::Future<T>::MakeFinished(
-          arrow::Status::UnknownError("R code execution error"));
-    }
+    // If we're on the main thread, run the task immediately and let
+    // the cpp11::unwind_exception be thrown since it will be caught
+    // at the top level.
+    return arrow::Future<T>::MakeFinished(fun());
+    // try {
+
+    // } catch (cpp11::unwind_exception& e) {
+    //   auto error_status = arrow::Status::ExecutionError("R code execution error");
+    //   auto error_detail = std::make_shared<MainRThread::UnwindStatusDetail>(e.token);
+    //   return arrow::Future<T>::MakeFinished(error_status.WithDetail(error_detail));
+    // }
   } else if (main_r_thread.Executor() != nullptr) {
-    // If we are not on the main thread and have an Executor
-    // use it to run the task on the main R thread.
-    return DeferNotOk(main_r_thread.Executor()->Submit(fun));
+    // If we are not on the main thread and have an Executor,
+    // use it to run the task on the main R thread. We can't throw
+    // a cpp11::unwind_exception here, so we need to propagate it back
+    // to RunWithCapturedR through the MainRThread singleton.
+    return DeferNotOk(main_r_thread.Executor()->Submit([fun]() {
+      if (GetMainRThread().HasError()) {
+        return arrow::Result<T>(arrow::Status::UnknownError("R code execution error"));
+      }
+
+      try {
+        return arrow::Result<T>(fun());
+      } catch (cpp11::unwind_exception& e) {
+        GetMainRThread().SetError(e.token);
+        return arrow::Result<T>(arrow::Status::UnknownError("R code execution error"));
+      }
+    }));
   } else {
     return arrow::Future<T>::MakeFinished(arrow::Status::NotImplemented(
         "Call to R from a non-R thread without calling RunWithCapturedR"));
@@ -117,6 +146,8 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
 
+  GetMainRThread().ResetError();
+
   arrow::Result<T> result = arrow::internal::SerialExecutor::RunInSerialExecutor<T>(
       [make_arrow_call](arrow::internal::Executor* executor) {
         GetMainRThread().Executor() = executor;
@@ -125,6 +156,7 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
       });
 
   GetMainRThread().Executor() = nullptr;
+  GetMainRThread().ClearError();
 
   return result;
 }
