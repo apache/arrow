@@ -18,7 +18,6 @@
 #include <benchmark/benchmark.h>
 
 #include "arrow/compute/cast.h"
-#include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/tpch_node.h"
 #include "arrow/testing/future_util.h"
@@ -33,12 +32,11 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
   ExecContext* ctx = default_exec_context();
   *ctx = ExecContext(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(ctx);
-  std::unique_ptr<TpchGen> gen =
-      *TpchGen::Make(plan.get(), static_cast<double>(scale_factor));
+  TpchGen gen = *TpchGen::Make(plan.get(), static_cast<double>(scale_factor));
 
   ExecNode* lineitem =
-      *gen->Lineitem({"L_QUANTITY", "L_EXTENDEDPRICE", "L_TAX", "L_DISCOUNT",
-                      "L_SHIPDATE", "L_RETURNFLAG", "L_LINESTATUS"});
+      *gen.Lineitem({"L_QUANTITY", "L_EXTENDEDPRICE", "L_TAX", "L_DISCOUNT", "L_SHIPDATE",
+                     "L_RETURNFLAG", "L_LINESTATUS"});
 
   auto sept_2_1998 = std::make_shared<Date32Scalar>(
       10471);  // September 2, 1998 is 10471 days after January 1, 1970

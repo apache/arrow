@@ -117,7 +117,7 @@ class ARROW_EXPORT Expression {
 
     // post-bind properties
     ValueDescr descr;
-    ::arrow::internal::SmallVector<int, 2> indices;
+    internal::SmallVector<int, 2> indices;
   };
   const Parameter* parameter() const;
 

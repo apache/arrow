@@ -16,13 +16,10 @@
 // under the License.
 
 #include "arrow/compute/exec/tpch_node.h"
-#include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/pcg_random.h"
 #include "arrow/util/unreachable.h"
 
 #include <algorithm>
@@ -72,7 +69,6 @@ function PS_PARTKEY).
 */
 
 namespace {
-
 const char* NameParts[] = {
     "almond",    "antique",    "aquamarine", "azure",     "beige",    "bisque",
     "black",     "blanched",   "blue",       "blush",     "brown",    "burlywood",
@@ -229,6 +225,8 @@ constexpr uint32_t kEndDate =
 
 std::uniform_int_distribution<int64_t> kSeedDist(std::numeric_limits<int64_t>::min(),
                                                  std::numeric_limits<int64_t>::max());
+}  // namespace
+
 // The spec says to generate a 300 MB string according to a grammar. This is a
 // concurrent implementation of the generator. Each thread generates the text in
 // (up to) 8KB chunks of text. The generator maintains a cursor into the
@@ -3413,49 +3411,27 @@ class TpchNode : public ExecNode {
   ThreadIndexer thread_indexer_;
 };
 
-class TpchGenImpl : public TpchGen {
- public:
-  Result<ExecNode*> Supplier(std::vector<std::string> columns = {}) override;
-  Result<ExecNode*> Part(std::vector<std::string> columns = {}) override;
-  Result<ExecNode*> PartSupp(std::vector<std::string> columns = {}) override;
-  Result<ExecNode*> Customer(std::vector<std::string> columns = {}) override;
-  Result<ExecNode*> Orders(std::vector<std::string> columns = {}) override;
-  Result<ExecNode*> Lineitem(std::vector<std::string> columns = {}) override;
-  Result<ExecNode*> Nation(std::vector<std::string> columns = {}) override;
-  Result<ExecNode*> Region(std::vector<std::string> columns = {}) override;
-
-  TpchGenImpl(ExecPlan* plan, double scale_factor, int64_t batch_size, int64_t seed)
-      : plan_(plan),
-        scale_factor_(scale_factor),
-        batch_size_(batch_size),
-        seed_rng_(seed) {}
-
-  template <typename Generator>
-  Result<ExecNode*> CreateNode(const char* name, std::vector<std::string> columns);
-
-  ExecPlan* plan_;
-  double scale_factor_;
-  int64_t batch_size_;
-  random::pcg64_fast seed_rng_;
-
-  std::shared_ptr<PartAndPartSupplierGenerator> part_and_part_supp_generator_{};
-  std::shared_ptr<OrdersAndLineItemGenerator> orders_and_line_item_generator_{};
-};
+Result<TpchGen> TpchGen::Make(ExecPlan* plan, double scale_factor, int64_t batch_size,
+                              util::optional<int64_t> seed) {
+  if (!seed.has_value()) seed = GetRandomSeed();
+  TpchGen result(plan, scale_factor, batch_size, *seed);
+  return result;
+}
 
 template <typename Generator>
-Result<ExecNode*> TpchGenImpl::CreateNode(const char* name,
-                                          std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::CreateNode(const char* name,
+                                      std::vector<std::string> columns) {
   std::unique_ptr<Generator> generator = arrow::internal::make_unique<Generator>();
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, name, std::move(generator));
 }
 
-Result<ExecNode*> TpchGenImpl::Supplier(std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::Supplier(std::vector<std::string> columns) {
   return CreateNode<SupplierGenerator>("Supplier", std::move(columns));
 }
 
-Result<ExecNode*> TpchGenImpl::Part(std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::Part(std::vector<std::string> columns) {
   if (!part_and_part_supp_generator_) {
     part_and_part_supp_generator_ = std::make_shared<PartAndPartSupplierGenerator>();
   }
@@ -3466,7 +3442,7 @@ Result<ExecNode*> TpchGenImpl::Part(std::vector<std::string> columns) {
   return plan_->EmplaceNode<TpchNode>(plan_, "Part", std::move(generator));
 }
 
-Result<ExecNode*> TpchGenImpl::PartSupp(std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::PartSupp(std::vector<std::string> columns) {
   if (!part_and_part_supp_generator_) {
     part_and_part_supp_generator_ = std::make_shared<PartAndPartSupplierGenerator>();
   }
@@ -3477,11 +3453,11 @@ Result<ExecNode*> TpchGenImpl::PartSupp(std::vector<std::string> columns) {
   return plan_->EmplaceNode<TpchNode>(plan_, "PartSupp", std::move(generator));
 }
 
-Result<ExecNode*> TpchGenImpl::Customer(std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::Customer(std::vector<std::string> columns) {
   return CreateNode<CustomerGenerator>("Customer", std::move(columns));
 }
 
-Result<ExecNode*> TpchGenImpl::Orders(std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::Orders(std::vector<std::string> columns) {
   if (!orders_and_line_item_generator_) {
     orders_and_line_item_generator_ = std::make_shared<OrdersAndLineItemGenerator>();
   }
@@ -3492,7 +3468,7 @@ Result<ExecNode*> TpchGenImpl::Orders(std::vector<std::string> columns) {
   return plan_->EmplaceNode<TpchNode>(plan_, "Orders", std::move(generator));
 }
 
-Result<ExecNode*> TpchGenImpl::Lineitem(std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::Lineitem(std::vector<std::string> columns) {
   if (!orders_and_line_item_generator_) {
     orders_and_line_item_generator_ = std::make_shared<OrdersAndLineItemGenerator>();
   }
@@ -3503,23 +3479,13 @@ Result<ExecNode*> TpchGenImpl::Lineitem(std::vector<std::string> columns) {
   return plan_->EmplaceNode<TpchNode>(plan_, "Lineitem", std::move(generator));
 }
 
-Result<ExecNode*> TpchGenImpl::Nation(std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::Nation(std::vector<std::string> columns) {
   return CreateNode<NationGenerator>("Nation", std::move(columns));
 }
 
-Result<ExecNode*> TpchGenImpl::Region(std::vector<std::string> columns) {
+Result<ExecNode*> TpchGen::Region(std::vector<std::string> columns) {
   return CreateNode<RegionGenerator>("Region", std::move(columns));
 }
-
-}  // namespace
-
-Result<std::unique_ptr<TpchGen>> TpchGen::Make(ExecPlan* plan, double scale_factor,
-                                               int64_t batch_size,
-                                               util::optional<int64_t> seed) {
-  if (!seed.has_value()) seed = GetRandomSeed();
-  return std::unique_ptr<TpchGen>(new TpchGenImpl(plan, scale_factor, batch_size, *seed));
-}
-
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
