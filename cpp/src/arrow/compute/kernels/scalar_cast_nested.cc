@@ -164,8 +164,8 @@ struct CastStruct {
     for (int in_field_index = 0;
          in_field_index < in_field_count && out_field_index < out_field_count;
          ++in_field_index) {
-      const auto in_field = in_type.field(in_field_index);
-      const auto out_field = out_type.field(out_field_index);
+      const auto& in_field = in_type.field(in_field_index);
+      const auto& out_field = out_type.field(out_field_index);
       if (in_field->name() == out_field->name()) {
         if (in_field->nullable() && !out_field->nullable()) {
           return Status::TypeError("cannot cast nullable field to non-nullable field: ",
@@ -189,8 +189,8 @@ struct CastStruct {
       if (in_scalar.is_valid) {
         out_field_index = 0;
         for (int field_index : fields_to_select) {
-          auto values = in_scalar.value[field_index];
-          auto target_type = out->type()->field(out_field_index++)->type();
+          const auto& values = in_scalar.value[field_index];
+          const auto& target_type = out->type()->field(out_field_index++)->type();
           ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                                 Cast(values, target_type, options, ctx->exec_context()));
           DCHECK_EQ(Datum::SCALAR, cast_values.kind());
@@ -212,9 +212,9 @@ struct CastStruct {
 
     out_field_index = 0;
     for (int field_index : fields_to_select) {
-      auto values =
+      const auto& values =
           in_array.child_data[field_index]->Slice(in_array.offset, in_array.length);
-      auto target_type = out->type()->field(out_field_index++)->type();
+      const auto& target_type = out->type()->field(out_field_index++)->type();
 
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                             Cast(values, target_type, options, ctx->exec_context()));

@@ -2312,7 +2312,7 @@ static void CheckStructToStructSubset(
           ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
           Cast(src, options7));
 
-      // duplicate field names
+      // duplicate missing field names
       const auto dest8 = arrow::struct_(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
            std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
@@ -2321,6 +2321,25 @@ static void CheckStructToStructSubset(
           TypeError,
           ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
           Cast(src, options8));
+
+      // duplicate present field names
+      ASSERT_OK_AND_ASSIGN(
+          auto src_duplicate_field_names,
+          StructArray::Make({a1, b1, c1}, std::vector<std::string>{"a", "a", "a"}));
+
+      ASSERT_OK_AND_ASSIGN(auto dest1_duplicate_field_names,
+                           StructArray::Make({a2}, std::vector<std::string>{"a"}));
+      CheckCast(src_duplicate_field_names, dest1_duplicate_field_names);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest2_duplicate_field_names,
+          StructArray::Make({a2, b2}, std::vector<std::string>{"a", "a"}));
+      CheckCast(src_duplicate_field_names, dest2_duplicate_field_names);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest3_duplicate_field_names,
+          StructArray::Make({a2, b2, c2}, std::vector<std::string>{"a", "a", "a"}));
+      CheckCast(src_duplicate_field_names, dest3_duplicate_field_names);
     }
   }
 }
@@ -2402,7 +2421,7 @@ static void CheckStructToStructSubsetWithNulls(
           ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
           Cast(src_null, options7_null));
 
-      // duplicate field names
+      // duplicate missing field names
       const auto dest8_null = arrow::struct_(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
            std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
@@ -2411,6 +2430,28 @@ static void CheckStructToStructSubsetWithNulls(
           TypeError,
           ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
           Cast(src_null, options8_null));
+
+      // duplicate present field values
+      ASSERT_OK_AND_ASSIGN(
+          auto src_duplicate_field_names_null,
+          StructArray::Make({a1, b1, c1}, std::vector<std::string>{"a", "a", "a"},
+                            null_bitmap));
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest1_duplicate_field_names_null,
+          StructArray::Make({a2}, std::vector<std::string>{"a"}, null_bitmap));
+      CheckCast(src_duplicate_field_names_null, dest1_duplicate_field_names_null);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest2_duplicate_field_names_null,
+          StructArray::Make({a2, b2}, std::vector<std::string>{"a", "a"}, null_bitmap));
+      CheckCast(src_duplicate_field_names_null, dest2_duplicate_field_names_null);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto dest3_duplicate_field_names_null,
+          StructArray::Make({a2, b2, c2}, std::vector<std::string>{"a", "a", "a"},
+                            null_bitmap));
+      CheckCast(src_duplicate_field_names_null, dest3_duplicate_field_names_null);
     }
   }
 }
@@ -2461,7 +2502,6 @@ TEST(Cast, StructToBiggerStruct) {
 TEST(Cast, StructToDifferentNullabilityStruct) {
   {
     // OK to go from non-nullable to nullable...
-    ARROW_SCOPED_TRACE("From non-nullable to nullable");
     std::vector<std::shared_ptr<Field>> fields_src_non_nullable = {
         std::make_shared<Field>("a", int8(), false),
         std::make_shared<Field>("b", int8(), false),
@@ -2506,7 +2546,6 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
   }
   {
     // But NOT OK to go from nullable to non-nullable...
-    ARROW_SCOPED_TRACE("From nullable to non-nullable");
     std::vector<std::shared_ptr<Field>> fields_src_nullable = {
         std::make_shared<Field>("a", int8(), true),
         std::make_shared<Field>("b", int8(), true),
