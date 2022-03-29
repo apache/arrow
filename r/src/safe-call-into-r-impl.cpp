@@ -31,8 +31,7 @@ arrow::Status MainRThread::RunTask(Task* task) {
   if (IsMainThread()) {
     // If we're on the main thread, run the task immediately
     try {
-      ARROW_RETURN_NOT_OK(task->run());
-      return arrow::Status::OK();
+      return task->run();
     } catch (cpp11::unwind_exception& e) {
       SetError(e.token);
       return arrow::Status::UnknownError("R code execution error");
@@ -40,10 +39,8 @@ arrow::Status MainRThread::RunTask(Task* task) {
   } else if (executor_ != nullptr) {
     // If we are not on the main thread and have an Executor
     // use it to run the task on the main R thread.
-    auto fut = executor_->Submit([task]() { return task->run(); });
-    ARROW_RETURN_NOT_OK(fut);
-    ARROW_RETURN_NOT_OK(fut.ValueUnsafe().result());
-    return arrow::Status::OK();
+    auto fut = DeferNotOk(executor_->Submit([task]() { return task->run(); }));
+    return fut.status();
   } else {
     return arrow::Status::NotImplemented(
         "Call to R from a non-R thread without calling RunWithCapturedR");
@@ -67,11 +64,7 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
               return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
             });
 
-            if (result.ok()) {
-              fut.MarkFinished(result.ValueUnsafe());
-            } else {
-              fut.MarkFinished(result.status());
-            }
+            fut.MarkFinished(result);
           });
 
           return fut;
