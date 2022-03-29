@@ -504,7 +504,7 @@ if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
   set_urls(GTEST_SOURCE_URL
-           "https://github.com/google/googletest/archive/${ARROW_GTEST_BUILD_VERSION}.zip"
+           "https://github.com/google/googletest/archive/${ARROW_GTEST_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -1724,6 +1724,7 @@ if(ARROW_JEMALLOC)
     # 4k and 64k page arm64 systems.
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "--with-lg-page=${ARROW_JEMALLOC_LG_PAGE}")
   endif()
+
   list(APPEND
        JEMALLOC_CONFIGURE_COMMAND
        "--prefix=${JEMALLOC_PREFIX}"
@@ -1736,12 +1737,15 @@ if(ARROW_JEMALLOC)
        "--disable-cxx"
        "--disable-libdl"
        # See https://github.com/jemalloc/jemalloc/issues/1237
-       "--disable-initial-exec-tls"
-       ${EP_LOG_OPTIONS})
+       "--disable-initial-exec-tls")
+  # This has to come before the setting of EP_LOG_OPTIONS, otherwise
+  # log_output_on_failure will be set to "1;--enable-debug", which causes a failure
+  # at build-time.
   if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
     # Enable jemalloc debug checks when Arrow itself has debugging enabled
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "--enable-debug")
   endif()
+  list(APPEND JEMALLOC_CONFIGURE_COMMAND ${EP_LOG_OPTIONS})
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
@@ -1853,12 +1857,10 @@ macro(build_gtest)
 
   if(MSVC)
     set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
-    set(_GTEST_LIBRARY_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    set(_GTEST_LIBRARY_SUFFIX "${CMAKE_IMPORT_LIBRARY_SUFFIX}")
   else()
     set(_GTEST_IMPORTED_TYPE IMPORTED_LOCATION)
-    set(_GTEST_LIBRARY_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(_GTEST_LIBRARY_SUFFIX "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
   endif()
 
@@ -1905,8 +1907,7 @@ macro(build_gtest)
     # _GTEST_LIBRARY_DIR to PATH when we run our test programs. We
     # choose the former because the latter may be forgotten.
     set(_GTEST_RUNTIME_DIR "${GTEST_PREFIX}/bin")
-    set(_GTEST_RUNTIME_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(_GTEST_RUNTIME_SUFFIX "${CMAKE_SHARED_LIBRARY_SUFFIX}")
     set(_GTEST_RUNTIME_LIB
         "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_RUNTIME_SUFFIX}"
     )
