@@ -189,3 +189,36 @@ record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) x$names()
+
+#' @export
+rbind.RecordBatch <- function(...) {
+  stop("Use Table$create to combine record batches")
+}
+
+#' @export
+cbind.RecordBatch <- function(...) {
+  batches <- list(...)
+
+  # Assert they have the same length
+  unequal_length_idx <- which.min(lapply(batches, function(x) x$num_rows == batches[[1]]$num_rows))
+  if (unequal_length_idx != 1) {
+    stop(
+      sprintf(
+        "Cannot cbind batches with unequal number of rows. Batch 1 has %i, batch %i has %i",
+        batches[[1]]$num_rows,
+        unequal_length_idx,
+        batches[[unequal_length_idx]]$num_rows
+      )
+    )
+  }
+
+  fields <- unlist(lapply(batches, function(tab) tab$schema$fields))
+  schema <- Schema$create(fields)
+  columns <- unlist(lapply(batches, function(tab) tab$columns))
+
+  # return new table
+  args <- columns
+  names(args) <- names(schema)
+  args$schema <- schema
+  do.call(RecordBatch$create, args)
+}

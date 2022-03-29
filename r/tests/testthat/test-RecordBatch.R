@@ -513,6 +513,26 @@ test_that("record_batch() with different length arrays", {
   expect_error(record_batch(a = 1:5, b = 1:6), msg)
 })
 
+test_that("RecordBatch supports cbind", {
+  expect_error(
+    cbind(
+      RecordBatch$create(a = 1:10, ),
+      RecordBatch$create(a = c("a", "b"))
+    ),
+    regexp = "unequal number of rows"
+  )
+
+  batches <- list(
+    RecordBatch$create(a = c(1, 2), b = c("a", "b")),
+    RecordBatch$create(a = c("d", "c")),
+    RecordBatch$create(c = c(2, 3))
+  )
+
+  expected <- RecordBatch$create(
+    do.call(cbind, lapply(batches, function(batch) as.data.frame(batch))))
+  expect_identical(do.call(cbind, batches), expected)
+})
+
 test_that("Handling string data with embedded nuls", {
   raws <- Array$create(structure(list(
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
