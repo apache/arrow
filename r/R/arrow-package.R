@@ -144,6 +144,14 @@ arrow_with_dataset <- function() {
   })
 }
 
+#' @rdname arrow_available
+#' @export
+arrow_with_engine <- function() {
+  tryCatch(.Call(`_engine_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
 on_old_windows <- function() {
   is_32bit <- .Machine$sizeof.pointer < 8
   is_old_r <- getRversion() < "4.0.0"
@@ -211,6 +219,7 @@ arrow_info <- function() {
     out <- c(out, list(
       capabilities = c(
         dataset = arrow_with_dataset(),
+        engine = arrow_with_engine(),
         parquet = arrow_with_parquet(),
         json = arrow_with_json(),
         s3 = arrow_with_s3(),
