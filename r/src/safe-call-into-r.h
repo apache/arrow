@@ -118,15 +118,15 @@ arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
 }
 
 template <typename T>
-arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> task) {
+arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
   if (GetMainRThread().Executor() != nullptr) {
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
 
   arrow::Result<T> result = arrow::internal::SerialExecutor::RunInSerialExecutor<T>(
-      [task](arrow::internal::Executor* executor) {
+      [make_arrow_call](arrow::internal::Executor* executor) {
         GetMainRThread().Executor() = executor;
-        arrow::Future<T> result = task();
+        arrow::Future<T> result = make_arrow_call();
         return result;
       });
 
