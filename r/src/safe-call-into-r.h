@@ -67,21 +67,10 @@ class MainRThread {
   void ClearError() {
     if (HasError()) {
       cpp11::unwind_exception e(error_token_);
-      SetError(R_NilValue);
+      ResetError();
       throw e;
     }
   }
-
-  class UnwindStatusDetail : public arrow::StatusDetail {
-   public:
-    UnwindStatusDetail(SEXP token) : token_(token) {}
-    const char* type_id() const { return "MainRThread::UnwindStatusDetail"; };
-    std::string ToString() const { return type_id(); }
-    SEXP token() { return token_; }
-
-   private:
-    SEXP token_;
-  };
 
  private:
   bool initialized_;
