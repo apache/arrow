@@ -272,6 +272,8 @@ register_bindings_duration <- function() {
 
     # if time1 or time2 are timestamps they cannot be expressed in "s" /seconds
     # otherwise they cannot be added subtracted with durations
+    # TODO delete the casting to "us" once
+    # https://issues.apache.org/jira/browse/ARROW-16060 is solved
     if (inherits(time1, "Expression") &&
         time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
       time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp("us")))
