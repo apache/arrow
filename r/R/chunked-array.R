@@ -85,13 +85,7 @@ ChunkedArray <- R6Class("ChunkedArray",
     type_id = function() ChunkedArray__type(self)$id,
     nbytes = function() ChunkedArray__ReferencedBufferSize(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
-    as_vector = function() {
-      if (inherits(self$type, "ExtensionType")) {
-        self$type$as_vector(self)
-      } else {
-        ChunkedArray__as_vector(self, option_use_threads())
-      }
-    },
+    as_vector = function() ChunkedArray__as_vector(self, option_use_threads()),
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         ChunkedArray__Slice1(self, offset)
