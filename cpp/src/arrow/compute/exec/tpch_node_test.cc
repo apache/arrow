@@ -39,6 +39,7 @@
 namespace arrow {
 namespace compute {
 namespace internal {
+
 static constexpr uint32_t kStartDate =
     8035;  // January 1, 1992 is 8035 days after January 1, 1970
 static constexpr uint32_t kEndDate =
@@ -61,8 +62,11 @@ Result<std::vector<ExecBatch>> GenerateTable(
 // Verifies that the data is valid Arrow and ensures it's not null.
 void ValidateBatch(const ExecBatch& batch) {
   for (const Datum& d : batch.values) {
-    ASSERT_EQ(d.array()->buffers[0].get(), nullptr);
-    ASSERT_OK(d.make_array()->ValidateFull());
+    ASSERT_EQ(d.kind(), Datum::ARRAY);
+    const auto array = d.make_array();
+    ASSERT_OK(array->ValidateFull());
+    TestInitialized(*array);
+    ASSERT_EQ(array->data()->buffers[0].get(), nullptr);
   }
 }
 
@@ -79,28 +83,27 @@ void VerifyUniqueKey(std::unordered_set<int32_t>* seen, const Datum& d, int32_t 
   }
 }
 
-void VerifyStringAndNumber_Single(const util::string_view& row, const char* prefix,
-                                  const int64_t i, const int32_t* nums,
-                                  bool verify_padding) {
-  size_t num_offset = static_cast<int>(std::strlen(prefix));
+void VerifyStringAndNumber_Single(const util::string_view& row,
+                                  const util::string_view& prefix, const int64_t i,
+                                  const int32_t* nums, bool verify_padding) {
   ASSERT_TRUE(row.starts_with(prefix)) << row << ", prefix=" << prefix << ", i=" << i;
-  const char* num_str = row.data() + num_offset;
+  const char* num_str = row.data() + prefix.size();
+  const char* num_str_end = row.data() + row.size();
   int64_t num = 0;
-  size_t ibyte = num_offset;
-  // Parse the number out
-  for (; *num_str && ibyte < row.size(); ibyte++) {
+  // Parse the number out; note that it can be padded with NUL chars at the end
+  for (; *num_str && num_str < num_str_end; num_str++) {
     num *= 10;
-    ASSERT_TRUE(std::isdigit(*num_str));
-    num += *num_str++ - '0';
+    ASSERT_TRUE(std::isdigit(*num_str)) << row << ", prefix=" << prefix << ", i=" << i;
+    num += *num_str - '0';
   }
   // If nums is not null, ensure it matches the parsed number
   if (nums) {
-    ASSERT_EQ(static_cast<int32_t>(num), nums[i]);
+    ASSERT_EQ(num, nums[i]);
   }
   // TPC-H requires only ever requires padding up to 9 digits, so we ensure that
   // the total length of the string was at least 9 (could be more for bigger numbers).
   if (verify_padding) {
-    int64_t num_chars = static_cast<int64_t>(ibyte - num_offset);
+    const auto num_chars = num_str - (row.data() + prefix.size());
     ASSERT_GE(num_chars, 9);
   }
 }
@@ -110,7 +113,7 @@ void VerifyStringAndNumber_Single(const util::string_view& row, const char* pref
 // corresponding row in numbers. Some TPC-H data is padded to 9 zeros, which this function
 // can optionally verify as well. This string function verifies fixed width columns.
 void VerifyStringAndNumber_FixedWidth(const Datum& strings, const Datum& numbers,
-                                      int byte_width, const char* prefix,
+                                      int byte_width, const util::string_view& prefix,
                                       bool verify_padding = true) {
   int64_t length = strings.length();
   const char* str = reinterpret_cast<const char*>(strings.array()->buffers[1]->data());
@@ -130,7 +133,8 @@ void VerifyStringAndNumber_FixedWidth(const Datum& strings, const Datum& numbers
 
 // Same as above but for variable length columns
 void VerifyStringAndNumber_Varlen(const Datum& strings, const Datum& numbers,
-                                  const char* prefix, bool verify_padding = true) {
+                                  const util::string_view& prefix,
+                                  bool verify_padding = true) {
   int64_t length = strings.length();
   const int32_t* offsets =
       reinterpret_cast<const int32_t*>(strings.array()->buffers[1]->data());
@@ -564,6 +568,7 @@ TEST(TpchNode, Region) {
   }
   ASSERT_EQ(num_rows, 5);
 }
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
