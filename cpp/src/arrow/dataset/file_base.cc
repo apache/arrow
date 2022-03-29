@@ -271,20 +271,31 @@ namespace {
 
 class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
-  DatasetWritingSinkNodeConsumer(std::unique_ptr<internal::DatasetWriter> dataset_writer,
+  DatasetWritingSinkNodeConsumer(std::shared_ptr<const KeyValueMetadata> custom_metadata,
+                                 std::unique_ptr<internal::DatasetWriter> dataset_writer,
                                  FileSystemDatasetWriteOptions write_options,
                                  std::shared_ptr<util::AsyncToggle> backpressure_toggle)
-      : dataset_writer_(std::move(dataset_writer)),
+      : custom_metadata_(std::move(custom_metadata)),
+        dataset_writer_(std::move(dataset_writer)),
         write_options_(std::move(write_options)),
         backpressure_toggle_(std::move(backpressure_toggle)) {}
 
-  Status Consume(compute::ExecBatch batch, const std::shared_ptr<Schema>& schema) {
+  Status Init(const std::shared_ptr<Schema>& schema) override {
+    if (custom_metadata_) {
+      schema_ = schema->WithMetadata(custom_metadata_);
+    } else {
+      schema_ = schema;
+    }
+    return Status::OK();
+  }
+
+  Status Consume(compute::ExecBatch batch) override {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
-                          batch.ToRecordBatch(schema));
+                          batch.ToRecordBatch(schema_));
     return WriteNextBatch(std::move(record_batch), batch.guarantee);
   }
 
-  Future<> Finish() {
+  Future<> Finish() override {
     RETURN_NOT_OK(task_group_.AddTask([this] { return dataset_writer_->Finish(); }));
     return task_group_.End();
   }
@@ -325,11 +336,12 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     return Status::OK();
   }
 
-  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<const KeyValueMetadata> custom_metadata_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
   std::shared_ptr<util::AsyncToggle> backpressure_toggle_;
   util::SerializedAsyncTaskGroup task_group_;
+  std::shared_ptr<Schema> schema_ = nullptr;
 };
 
 }  // namespace
@@ -352,6 +364,10 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   std::shared_ptr<util::AsyncToggle> backpressure_toggle =
       std::make_shared<util::AsyncToggle>();
 
+  // The projected_schema is currently used by pyarrow to preserve the custom metadata
+  // when reading from a single input file.
+  const auto& custom_metadata = scanner->options()->projected_schema->metadata();
+
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
           {
@@ -359,7 +375,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
               {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
               {"project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"write", WriteNodeOptions{write_options, backpressure_toggle}},
+              {"write",
+               WriteNodeOptions{write_options, custom_metadata, backpressure_toggle}},
           })
           .AddToPlan(plan.get()));
 
@@ -377,6 +394,8 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
 
   const WriteNodeOptions write_node_options =
       checked_cast<const WriteNodeOptions&>(options);
+  const std::shared_ptr<const KeyValueMetadata>& custom_metadata =
+      write_node_options.custom_metadata;
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
   const std::shared_ptr<util::AsyncToggle>& backpressure_toggle =
       write_node_options.backpressure_toggle;
@@ -386,7 +405,7 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
 
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
       std::make_shared<DatasetWritingSinkNodeConsumer>(
-          std::move(dataset_writer), write_options, backpressure_toggle);
+          custom_metadata, std::move(dataset_writer), write_options, backpressure_toggle);
 
   ARROW_ASSIGN_OR_RAISE(
       auto node,

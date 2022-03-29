@@ -591,8 +591,11 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
     CustomSinkNodeConsumer(std::atomic<uint32_t>* batches_seen, arrow::Future<> finish)
         : batches_seen(batches_seen), finish(std::move(finish)) {}
 
-    arrow::Status Consume(cp::ExecBatch batch,
-                          const std::shared_ptr<arrow::Schema>& schema) override {
+    arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema) override {
+      return arrow::Status::OK();
+    }
+
+    arrow::Status Consume(cp::ExecBatch batch) override {
       (*batches_seen)++;
       return arrow::Status::OK();
     }

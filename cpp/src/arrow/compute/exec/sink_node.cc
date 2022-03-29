@@ -178,6 +178,8 @@ class ConsumingSinkNode : public ExecNode {
                {{"node.label", label()},
                 {"node.detail", ToString()},
                 {"node.kind", kind_name()}});
+    DCHECK_GT(inputs_.size(), 0);
+    RETURN_NOT_OK(consumer_->Init(inputs_[0]->output_schema()));
     finished_ = Future<>::Make();
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
@@ -213,8 +215,7 @@ class ConsumingSinkNode : public ExecNode {
       return;
     }
 
-    Status consumption_status =
-        consumer_->Consume(std::move(batch), input->output_schema());
+    Status consumption_status = consumer_->Consume(std::move(batch));
     if (!consumption_status.ok()) {
       if (input_counter_.Cancel()) {
         Finish(std::move(consumption_status));
@@ -272,9 +273,14 @@ struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
   TableSinkNodeConsumer(std::shared_ptr<Table>* out, MemoryPool* pool)
       : out_(out), pool_(pool) {}
 
-  Status Consume(ExecBatch batch, const std::shared_ptr<Schema>& schema) override {
+  Status Init(const std::shared_ptr<Schema>& schema) override {
+    schema_ = schema;
+    return Status::OK();
+  }
+
+  Status Consume(ExecBatch batch) override {
     std::lock_guard<std::mutex> guard(consume_mutex_);
-    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema, pool_));
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema_, pool_));
     batches_.push_back(rb);
     return Status::OK();
   }
@@ -287,6 +293,7 @@ struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
  private:
   std::shared_ptr<Table>* out_;
   MemoryPool* pool_;
+  std::shared_ptr<Schema> schema_;
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   std::mutex consume_mutex_;
 };
