@@ -1103,22 +1103,11 @@ test_that("difftime works correctly", {
     test_df_with_tz
   )
 
-  test_df_with_tz %>%
-    arrow_table() %>%
-    mutate(
-      secs2 = difftime(
-        as.POSIXct("2022-03-07", tz = "Europe/Bucharest"),
-        time1,
-        units = "secs"
-      )
-    ) %>%
-    collect()
-
   compare_dplyr_binding(
     .input %>%
       mutate(
         secs2 = difftime(
-          as.POSIXct("2022-03-07", tz = "Europe/Bucharest"),
+          as.POSIXct("2022-03-07", tz = "Pacific/Marquesas"),
           time1,
           units = "secs"
         )
@@ -1205,15 +1194,22 @@ test_that("`decimal_date()` and `date_decimal()`", {
     b = as.POSIXct(
       c("2007-05-23 08:18:30", "1970-10-11 17:19:45", "2020-12-17 14:04:06",
         "2009-06-08 15:37:01", "1975-09-18 01:37:42", NA)
+    ),
+    c = as.Date(
+      c("2007-05-23", "1970-10-11", "2020-12-17", "2009-06-08", "1975-09-18", NA)
     )
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(decimal_date_from_date = decimal_date(b),
-             decimal_date_from_r_obj = decimal_date(ymd("2022-03-25")),
-             date_from_decimal = date_decimal(a),
-             date_from_decimal_r_obj = date_decimal(2022.178)) %>%
+      mutate(
+        decimal_date_from_POSIXct = decimal_date(b),
+        decimal_date_from_r_POSIXct_obj = decimal_date(as.POSIXct("2022-03-25 15:37:01")),
+        decimal_date_from_r_date_obj = decimal_date(ymd("2022-03-25")),
+        decimal_date_from_date = decimal_date(c),
+        date_from_decimal = date_decimal(a),
+        date_from_decimal_r_obj = date_decimal(2022.178)
+      ) %>%
       collect(),
     test_df,
     ignore_attr = "tzone"
