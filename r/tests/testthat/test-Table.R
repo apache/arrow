@@ -518,6 +518,50 @@ test_that("Table$create() no recycling with tibbles", {
   )
 })
 
+test_that("Table supports rbind", {
+  expect_error(
+    rbind(
+      Table$create(a = 1:10, b = Scalar$create(5)),
+      Table$create(a = c("a", "b"), b = Scalar$create(5))
+    ),
+    regexp = "Schema at index 2 does not match the first schema"
+  )
+
+  tables <- list(
+    Table$create(a = 1:10, b = Scalar$create("x")),
+    Table$create(a = 2:42, b = Scalar$create("y")),
+    Table$create(a = 8:10, b = Scalar$create("z"))
+  )
+  expected <- Table$create(do.call(rbind, lapply(tables, function(table) as.data.frame(table))))
+
+  expect_identical(
+    do.call(rbind, tables),
+    expected
+  )
+})
+
+test_that("Table supports cbind", {
+  expect_error(
+    cbind(
+      Table$create(a = 1:10, ),
+      Table$create(a = c("a", "b"))
+    ),
+    regexp = "unequal number of rows"
+  )
+
+  tables <- list(
+    Table$create(a = 1:10, b = Scalar$create("x")),
+    Table$create(a = 11:20, b = Scalar$create("y")),
+    Table$create(c = rnorm(10))
+  )
+  expected <- Table$create(do.call(cbind, lapply(tables, function(table) as.data.frame(table))))
+
+  expect_identical(
+    do.call(cbind, tables),
+    expected
+  )
+})
+
 test_that("ARROW-11769 - grouping preserved in table creation", {
   skip_if_not_available("dataset")
 

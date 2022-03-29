@@ -149,6 +149,64 @@ Table$create <- function(..., schema = NULL) {
 #' @export
 names.Table <- function(x) x$ColumnNames()
 
+#' @export
+rbind.Table <- function(...) {
+  tables <- list(...)
+
+  # assert they have same schema
+  schema <- tables[[1]]$schema
+  unequal_schema_idx <- which.min(lapply(tables, function(x) x$schema == schema))
+  if (unequal_schema_idx != 1) {
+    stop(paste0(
+      sprintf("Schema at index %i does not match the first schema\n", unequal_schema_idx),
+      "Schema 1:\n",
+      tables[[1]]$schema$ToString(),
+      sprintf("\nSchema %i:\n", unequal_schema_idx),
+      tables[[unequal_schema_idx]]$schema$ToString()
+    ))
+  }
+
+  # create chunked array from each column
+  columns <- vector(mode = "list", length = tables[[1]]$num_columns)
+  for (i in seq_len(length(columns))) {
+    columns[[i]] <- do.call(ChunkedArray$create, unlist(lapply(tables, function(table) table[[i]]$chunks)))
+  }
+
+  # return new table
+  args <- columns
+  names(args) <- names(schema)
+  args$schema <- schema
+  do.call(Table$create, args)
+}
+
+#' @export
+cbind.Table <- function(...) {
+  tables <- list(...)
+
+  # Assert they have the same length
+  unequal_length_idx <- which.min(lapply(tables, function(x) x$num_rows == tables[[1]]$num_rows))
+  if (unequal_length_idx != 1) {
+    stop(
+      sprintf(
+        "Cannot cbind tables with unequal number of rows. Table 1 has %i, table %i has %i",
+        tables[[1]]$num_rows,
+        unequal_length_idx,
+        tables[[unequal_length_idx]]$num_rows
+      )
+    )
+  }
+
+  fields <- unlist(lapply(tables, function(tab) tab$schema$fields))
+  schema <- Schema$create(fields)
+  columns <- unlist(lapply(tables, function(tab) tab$columns))
+
+  # return new table
+  args <- columns
+  names(args) <- names(schema)
+  args$schema <- schema
+  do.call(Table$create, args)
+}
+
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
 #' mixture of data.frames and named vectors, the inputs will be autospliced together
 #' (see examples). Alternatively, you can provide a single Arrow IPC

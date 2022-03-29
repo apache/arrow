@@ -236,7 +236,6 @@ Array$import_from_c <- ImportArray
 #'
 #' @examplesIf arrow_available()
 #' concat_arrays(Array$create(1:3), Array$create(4:5))
-#'
 concat_arrays <- function(..., type = NULL) {
   dots <- lapply(list2(...), Array$create, type = type)
 
@@ -256,7 +255,7 @@ concat_arrays <- function(..., type = NULL) {
 #' @rdname concat_arrays
 #' @export
 c.Array <- function(...) {
-  concat_arrays(...)
+  stop("Use concat_arrays() to create a new array, ChunkedArray$create() to create a zero-copy concatenation")
 }
 
 #' @rdname array
