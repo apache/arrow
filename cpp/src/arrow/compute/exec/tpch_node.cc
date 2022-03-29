@@ -3162,7 +3162,7 @@ class NationGenerator : public TpchTableGenerator {
                         FinishedCallback finished_callback,
                         ScheduleCallback /*schedule_task_callback*/) override {
     std::shared_ptr<Buffer> N_NATIONKEY_buffer =
-        Buffer::Wrap(kNationKey, sizeof(kNationKey));
+        Buffer::Wrap(kNationKey, kRowCount);
     ArrayData N_NATIONKEY_arraydata(int32(), kRowCount,
                                     {nullptr, std::move(N_NATIONKEY_buffer)});
 
@@ -3175,7 +3175,7 @@ class NationGenerator : public TpchTableGenerator {
                                {nullptr, std::move(N_NAME_buffer)});
 
     std::shared_ptr<Buffer> N_REGIONKEY_buffer =
-        Buffer::Wrap(kRegionKey, sizeof(kRegionKey));
+        Buffer::Wrap(kRegionKey, kRowCount);
     ArrayData N_REGIONKEY_arraydata(int32(), kRowCount,
                                     {nullptr, std::move(N_REGIONKEY_buffer)});
 
@@ -3259,7 +3259,7 @@ class RegionGenerator : public TpchTableGenerator {
                         FinishedCallback finished_callback,
                         ScheduleCallback /*schedule_task_callback*/) override {
     std::shared_ptr<Buffer> R_REGIONKEY_buffer =
-        Buffer::Wrap(kRegionKey, sizeof(kRegionKey));
+        Buffer::Wrap(kRegionKey, kRowCount);
     ArrayData R_REGIONKEY_arraydata(int32(), kRowCount,
                                     {nullptr, std::move(R_REGIONKEY_buffer)});
 
