@@ -1504,9 +1504,8 @@ TEST_F(TestCancel, DoExchange) {
 
   ASSERT_OK_AND_ASSIGN(do_exchange_result,
                        client_->DoExchange(FlightDescriptor::Command("")));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Cancelled, ::testing::HasSubstr("StopSource"),
-      do_exchange_result.reader->ToTable(options.stop_token));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
+                                  do_exchange_result.reader->ToTable(options.stop_token));
   ARROW_UNUSED(do_exchange_result.writer->Close());
 }
 
