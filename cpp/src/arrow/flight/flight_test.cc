@@ -1499,14 +1499,14 @@ TEST_F(TestCancel, DoExchange) {
   ASSERT_OK_AND_ASSIGN(auto do_exchange_result,
                        client_->DoExchange(options, FlightDescriptor::Command("")));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ToTable());
-  ARROW_UNUSED(writer->Close());
+                                  do_exchange_result.reader->ToTable());
+  ARROW_UNUSED(do_exchange_result.writer->Close());
 
   ASSERT_OK_AND_ASSIGN(do_exchange_result,
                        client_->DoExchange(FlightDescriptor::Command("")));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Cancelled, ::testing::HasSubstr("StopSource"),
-      do_exchange_result.reader->ReadAll(&table, options.stop_token));
+      do_exchange_result.reader->ToTable(options.stop_token));
   ARROW_UNUSED(do_exchange_result.writer->Close());
 }
 
