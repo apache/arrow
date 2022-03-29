@@ -105,6 +105,10 @@ time_types = st.sampled_from([
 ])
 if tzst and zoneinfo:
     timezones = st.one_of(st.none(), tzst.timezones(), st.timezones())
+elif tzst:
+    timezones = st.one_of(st.none(), tzst.timezones())
+elif zoneinfo:
+    timezones = st.one_of(st.none(), st.timezones())
 else:
     timezones = st.none()
 timestamp_types = st.builds(
