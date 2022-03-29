@@ -40,6 +40,14 @@ flight_connect <- function(host = "localhost", port, scheme = "grpc+tcp") {
   pa$flight$FlightClient(location)
 }
 
+#' Explicitly close a Flight client
+#'
+#' @param client The client to disconnect
+#' @export
+flight_disconnect <- function(client) {
+  client$close()
+}
+
 #' Send data to a Flight server
 #'
 #' @param client `pyarrow.flight.FlightClient`, as returned by [flight_connect()]

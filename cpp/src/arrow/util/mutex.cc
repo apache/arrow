@@ -19,6 +19,11 @@
 
 #include <mutex>
 
+#ifndef _WIN32
+#include <pthread.h>
+#include <atomic>
+#endif
+
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -49,6 +54,32 @@ Mutex::Guard Mutex::Lock() {
 }
 
 Mutex::Mutex() : impl_(new Impl, [](Impl* impl) { delete impl; }) {}
+
+#ifndef _WIN32
+namespace {
+
+struct AfterForkState {
+  // A global instance that will also register the atfork handler when
+  // constructed.
+  static AfterForkState instance;
+
+  // The mutex may be used at shutdown, so make it eternal.
+  // The leak (only in child processes) is a small price to pay for robustness.
+  Mutex* mutex = nullptr;
+
+ private:
+  AfterForkState() {
+    pthread_atfork(/*prepare=*/nullptr, /*parent=*/nullptr, /*child=*/&AfterFork);
+  }
+
+  static void AfterFork() { instance.mutex = new Mutex; }
+};
+
+AfterForkState AfterForkState::instance;
+}  // namespace
+
+Mutex* GlobalForkSafeMutex() { return AfterForkState::instance.mutex; }
+#endif  // _WIN32
 
 }  // namespace util
 }  // namespace arrow

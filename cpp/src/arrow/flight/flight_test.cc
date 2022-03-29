@@ -127,7 +127,9 @@ TEST(TestFlight, ConnectUri) {
   ASSERT_OK(Location::Parse(uri, &location1));
   ASSERT_OK(Location::Parse(uri, &location2));
   ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK(client->Close());
   ASSERT_OK(FlightClient::Connect(location2, &client));
+  ASSERT_OK(client->Close());
 }
 
 #ifndef _WIN32
@@ -146,114 +148,11 @@ TEST(TestFlight, ConnectUriUnix) {
   ASSERT_OK(Location::Parse(uri, &location1));
   ASSERT_OK(Location::Parse(uri, &location2));
   ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK(client->Close());
   ASSERT_OK(FlightClient::Connect(location2, &client));
+  ASSERT_OK(client->Close());
 }
 #endif
-
-TEST(TestFlight, RoundTripTypes) {
-  Ticket ticket{"foo"};
-  std::string ticket_serialized;
-  Ticket ticket_deserialized;
-  ASSERT_OK(ticket.SerializeToString(&ticket_serialized));
-  ASSERT_OK(Ticket::Deserialize(ticket_serialized, &ticket_deserialized));
-  ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
-
-  FlightDescriptor desc = FlightDescriptor::Command("select * from foo;");
-  std::string desc_serialized;
-  FlightDescriptor desc_deserialized;
-  ASSERT_OK(desc.SerializeToString(&desc_serialized));
-  ASSERT_OK(FlightDescriptor::Deserialize(desc_serialized, &desc_deserialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
-
-  desc = FlightDescriptor::Path({"a", "b", "test.arrow"});
-  ASSERT_OK(desc.SerializeToString(&desc_serialized));
-  ASSERT_OK(FlightDescriptor::Deserialize(desc_serialized, &desc_deserialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
-
-  FlightInfo::Data data;
-  std::shared_ptr<Schema> schema =
-      arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
-                     field("d", int64())});
-  Location location1, location2, location3;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 10010, &location1));
-  ASSERT_OK(Location::ForGrpcTls("localhost", 10010, &location2));
-  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location3));
-  std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
-                                        FlightEndpoint{ticket, {location3}}};
-  ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
-  std::unique_ptr<FlightInfo> info = std::unique_ptr<FlightInfo>(new FlightInfo(data));
-  std::string info_serialized;
-  std::unique_ptr<FlightInfo> info_deserialized;
-  ASSERT_OK(info->SerializeToString(&info_serialized));
-  ASSERT_OK(FlightInfo::Deserialize(info_serialized, &info_deserialized));
-  ASSERT_TRUE(info->descriptor().Equals(info_deserialized->descriptor()));
-  ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
-  ASSERT_EQ(info->total_records(), info_deserialized->total_records());
-  ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
-}
-
-TEST(TestFlight, RoundtripStatus) {
-  // Make sure status codes round trip through our conversions
-
-  std::shared_ptr<FlightStatusDetail> detail;
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Internal, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Internal, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::TimedOut, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::TimedOut, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Cancelled, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Cancelled, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Unauthenticated, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Unauthenticated, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Unauthorized, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Unauthorized, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Unavailable, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
-
-  Status status = internal::FromGrpcStatus(
-      internal::ToGrpcStatus(Status::NotImplemented("Sentinel")));
-  ASSERT_TRUE(status.IsNotImplemented());
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
-
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::Invalid("Sentinel")));
-  ASSERT_TRUE(status.IsInvalid());
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
-
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::KeyError("Sentinel")));
-  ASSERT_TRUE(status.IsKeyError());
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
-
-  status =
-      internal::FromGrpcStatus(internal::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
-  ASSERT_TRUE(status.IsAlreadyExists());
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
-}
-
-TEST(TestFlight, GetPort) {
-  Location location;
-  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
-
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-  FlightServerOptions options(location);
-  ASSERT_OK(server->Init(options));
-  ASSERT_GT(server->port(), 0);
-}
 
 // CI environments don't have an IPv6 interface configured
 TEST(TestFlight, DISABLED_IpV6Port) {
@@ -268,41 +167,6 @@ TEST(TestFlight, DISABLED_IpV6Port) {
   std::unique_ptr<FlightClient> client;
   ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location2));
   ASSERT_OK(client->ListFlights());
-}
-
-TEST(TestFlight, BuilderHook) {
-  Location location;
-  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
-
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-  FlightServerOptions options(location);
-  bool builder_hook_run = false;
-  options.builder_hook = [&builder_hook_run](void* builder) {
-    ASSERT_NE(nullptr, builder);
-    builder_hook_run = true;
-  };
-  ASSERT_OK(server->Init(options));
-  ASSERT_TRUE(builder_hook_run);
-  ASSERT_GT(server->port(), 0);
-  ASSERT_OK(server->Shutdown());
-}
-
-TEST(TestFlight, ServeShutdown) {
-  // Regression test for ARROW-15181
-  constexpr int kIterations = 10;
-  for (int i = 0; i < kIterations; i++) {
-    Location location;
-    std::unique_ptr<FlightServerBase> server = ExampleTestServer();
-
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-    FlightServerOptions options(location);
-    ASSERT_OK(server->Init(options));
-    ASSERT_GT(server->port(), 0);
-    std::thread t([&]() { ASSERT_OK(server->Serve()); });
-    ASSERT_OK(server->Shutdown());
-    ASSERT_OK(server->Wait());
-    t.join();
-  }
 }
 
 // ----------------------------------------------------------------------
@@ -320,7 +184,10 @@ class TestFlightClient : public ::testing::Test {
     ASSERT_OK(ConnectClient());
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
   Status ConnectClient() {
     ARROW_ASSIGN_OR_RAISE(auto location,
@@ -419,36 +286,6 @@ class HeaderAuthTestServer : public FlightServerBase {
   }
 };
 
-class TestMetadata : public ::testing::Test {
- public:
-  void SetUp() {
-    ASSERT_OK(MakeServer<MetadataTestServer>(
-        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
-        [](FlightClientOptions* options) { return Status::OK(); }));
-  }
-
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
-
- protected:
-  std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<FlightServerBase> server_;
-};
-
-class TestOptions : public ::testing::Test {
- public:
-  void SetUp() {
-    ASSERT_OK(MakeServer<OptionsTestServer>(
-        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
-        [](FlightClientOptions* options) { return Status::OK(); }));
-  }
-
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
-
- protected:
-  std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<FlightServerBase> server_;
-};
-
 class TestAuthHandler : public ::testing::Test {
  public:
   void SetUp() {
@@ -462,7 +299,10 @@ class TestAuthHandler : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -482,51 +322,14 @@ class TestBasicAuthHandler : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
-
- protected:
-  std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<FlightServerBase> server_;
-};
-
-class TestDoPut : public ::testing::Test {
- public:
-  void SetUp() {
-    ASSERT_OK(MakeServer<DoPutTestServer>(
-        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
-        [](FlightClientOptions* options) { return Status::OK(); }));
-    do_put_server_ = (DoPutTestServer*)server_.get();
-  }
-
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
-
-  void CheckBatches(FlightDescriptor expected_descriptor,
-                    const BatchVector& expected_batches) {
-    ASSERT_TRUE(do_put_server_->descriptor_.Equals(expected_descriptor));
-    ASSERT_EQ(do_put_server_->batches_.size(), expected_batches.size());
-    for (size_t i = 0; i < expected_batches.size(); ++i) {
-      ASSERT_BATCHES_EQUAL(*do_put_server_->batches_[i], *expected_batches[i]);
-    }
-  }
-
-  void CheckDoPut(FlightDescriptor descr, const std::shared_ptr<Schema>& schema,
-                  const BatchVector& batches) {
-    std::unique_ptr<FlightStreamWriter> stream;
-    std::unique_ptr<FlightMetadataReader> reader;
-    ASSERT_OK(client_->DoPut(descr, schema, &stream, &reader));
-    for (const auto& batch : batches) {
-      ASSERT_OK(stream->WriteRecordBatch(*batch));
-    }
-    ASSERT_OK(stream->DoneWriting());
-    ASSERT_OK(stream->Close());
-
-    CheckBatches(descr, batches);
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
   }
 
  protected:
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
-  DoPutTestServer* do_put_server_;
 };
 
 class TestTls : public ::testing::Test {
@@ -553,6 +356,7 @@ class TestTls : public ::testing::Test {
   }
 
   void TearDown() {
+    ASSERT_OK(client_->Close());
     ASSERT_OK(server_->Shutdown());
     grpc_shutdown();
   }
@@ -865,7 +669,10 @@ class TestRejectServerMiddleware : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -885,7 +692,10 @@ class TestCountingServerMiddleware : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::shared_ptr<CountingServerMiddlewareFactory> request_counter_;
@@ -939,6 +749,7 @@ class TestPropagatingMiddleware : public ::testing::Test {
   }
 
   void TearDown() {
+    ASSERT_OK(client_->Close());
     ASSERT_OK(first_server_->Shutdown());
     ASSERT_OK(second_server_->Shutdown());
   }
@@ -969,7 +780,10 @@ class TestErrorMiddleware : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -1017,7 +831,10 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
                 ::testing::HasSubstr("Invalid credentials"));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -1186,115 +1003,15 @@ TEST_F(TestFlightClient, NoTimeout) {
   ASSERT_NE(nullptr, info);
 }
 
-TEST_F(TestDoPut, DoPutInts) {
-  auto descr = FlightDescriptor::Path({"ints"});
-  BatchVector batches;
-  auto a0 = ArrayFromJSON(int8(), "[0, 1, 127, -128, null]");
-  auto a1 = ArrayFromJSON(uint8(), "[0, 1, 127, 255, null]");
-  auto a2 = ArrayFromJSON(int16(), "[0, 258, 32767, -32768, null]");
-  auto a3 = ArrayFromJSON(uint16(), "[0, 258, 32767, 65535, null]");
-  auto a4 = ArrayFromJSON(int32(), "[0, 65538, 2147483647, -2147483648, null]");
-  auto a5 = ArrayFromJSON(uint32(), "[0, 65538, 2147483647, 4294967295, null]");
-  auto a6 = ArrayFromJSON(
-      int64(), "[0, 4294967298, 9223372036854775807, -9223372036854775808, null]");
-  auto a7 = ArrayFromJSON(
-      uint64(), "[0, 4294967298, 9223372036854775807, 18446744073709551615, null]");
-  auto schema = arrow::schema({field("f0", a0->type()), field("f1", a1->type()),
-                               field("f2", a2->type()), field("f3", a3->type()),
-                               field("f4", a4->type()), field("f5", a5->type()),
-                               field("f6", a6->type()), field("f7", a7->type())});
-  batches.push_back(
-      RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4, a5, a6, a7}));
+TEST_F(TestFlightClient, Close) {
+  // For gRPC, this is always effectively a no-op
+  ASSERT_OK(client_->Close());
+  // Idempotent
+  ASSERT_OK(client_->Close());
 
-  CheckDoPut(descr, schema, batches);
-}
-
-TEST_F(TestDoPut, DoPutFloats) {
-  auto descr = FlightDescriptor::Path({"floats"});
-  BatchVector batches;
-  auto a0 = ArrayFromJSON(float32(), "[0, 1.2, -3.4, 5.6, null]");
-  auto a1 = ArrayFromJSON(float64(), "[0, 1.2, -3.4, 5.6, null]");
-  auto schema = arrow::schema({field("f0", a0->type()), field("f1", a1->type())});
-  batches.push_back(RecordBatch::Make(schema, a0->length(), {a0, a1}));
-
-  CheckDoPut(descr, schema, batches);
-}
-
-TEST_F(TestDoPut, DoPutEmptyBatch) {
-  // Sending and receiving a 0-sized batch shouldn't fail
-  auto descr = FlightDescriptor::Path({"ints"});
-  BatchVector batches;
-  auto a1 = ArrayFromJSON(int32(), "[]");
-  auto schema = arrow::schema({field("f1", a1->type())});
-  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
-
-  CheckDoPut(descr, schema, batches);
-}
-
-TEST_F(TestDoPut, DoPutDicts) {
-  auto descr = FlightDescriptor::Path({"dicts"});
-  BatchVector batches;
-  auto dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]");
-  auto ty = dictionary(int8(), dict_values->type());
-  auto schema = arrow::schema({field("f1", ty)});
-  // Make several batches
-  for (const char* json : {"[1, 0, 1]", "[null]", "[null, 1]"}) {
-    auto indices = ArrayFromJSON(int8(), json);
-    auto dict_array = std::make_shared<DictionaryArray>(ty, indices, dict_values);
-    batches.push_back(RecordBatch::Make(schema, dict_array->length(), {dict_array}));
-  }
-
-  CheckDoPut(descr, schema, batches);
-}
-
-// Ensure the gRPC server is configured to allow large messages
-// Tests a 32 MiB batch
-TEST_F(TestDoPut, DoPutLargeBatch) {
-  auto descr = FlightDescriptor::Path({"large-batches"});
-  auto schema = ExampleLargeSchema();
-  BatchVector batches;
-  ASSERT_OK(ExampleLargeBatches(&batches));
-  CheckDoPut(descr, schema, batches);
-}
-
-TEST_F(TestDoPut, DoPutSizeLimit) {
-  const int64_t size_limit = 4096;
-  Location location;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
-  auto client_options = FlightClientOptions::Defaults();
-  client_options.write_size_limit_bytes = size_limit;
-  std::unique_ptr<FlightClient> client;
-  ASSERT_OK(FlightClient::Connect(location, client_options, &client));
-
-  auto descr = FlightDescriptor::Path({"ints"});
-  // Batch is too large to fit in one message
-  auto schema = arrow::schema({field("f1", arrow::int64())});
-  auto batch = arrow::ConstantArrayGenerator::Zeroes(768, schema);
-  BatchVector batches;
-  batches.push_back(batch->Slice(0, 384));
-  batches.push_back(batch->Slice(384));
-
-  std::unique_ptr<FlightStreamWriter> stream;
-  std::unique_ptr<FlightMetadataReader> reader;
-  ASSERT_OK(client->DoPut(descr, schema, &stream, &reader));
-
-  // Large batch will exceed the limit
-  const auto status = stream->WriteRecordBatch(*batch);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("exceeded soft limit"),
-                                  status);
-  auto detail = FlightWriteSizeStatusDetail::UnwrapStatus(status);
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(size_limit, detail->limit());
-  ASSERT_GT(detail->actual(), size_limit);
-
-  // But we can retry with a smaller batch
-  for (const auto& batch : batches) {
-    ASSERT_OK(stream->WriteRecordBatch(*batch));
-  }
-
-  ASSERT_OK(stream->DoneWriting());
-  ASSERT_OK(stream->Close());
-  CheckBatches(descr, batches);
+  std::unique_ptr<FlightListing> listing;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("FlightClient is closed"),
+                                  client_->ListFlights(&listing));
 }
 
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
@@ -1729,7 +1446,10 @@ class TestCancel : public ::testing::Test {
         &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;

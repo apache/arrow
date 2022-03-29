@@ -36,6 +36,7 @@ import (
 
 type flightServer struct {
 	mem memory.Allocator
+	flight.BaseFlightServer
 }
 
 func (f *flightServer) getmem() memory.Allocator {
@@ -69,7 +70,7 @@ func (f *flightServer) ListFlights(c *flight.Criteria, fs flight.FlightService_L
 		fs.Send(&flight.FlightInfo{
 			Schema: flight.SerializeSchema(recs[0].Schema(), f.getmem()),
 			FlightDescriptor: &flight.FlightDescriptor{
-				Type: flight.FlightDescriptor_PATH,
+				Type: flight.DescriptorPATH,
 				Path: []string{name, auth},
 			},
 			TotalRecords: totalRows,
@@ -148,12 +149,10 @@ func (a *clientAuth) GetToken(ctx context.Context) (string, error) {
 }
 
 func TestListFlights(t *testing.T) {
-	s := flight.NewFlightServer(nil)
+	s := flight.NewFlightServer()
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -204,12 +203,10 @@ func TestListFlights(t *testing.T) {
 }
 
 func TestGetSchema(t *testing.T) {
-	s := flight.NewFlightServer(nil)
+	s := flight.NewFlightServer()
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		GetSchema: f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -241,14 +238,11 @@ func TestGetSchema(t *testing.T) {
 
 func TestServer(t *testing.T) {
 	f := &flightServer{}
-	service := &flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-		DoGet:       f.DoGet,
-	}
+	f.SetAuthHandler(&servAuth{})
 
-	s := flight.NewFlightServer(&servAuth{})
+	s := flight.NewFlightServer()
 	s.Init("localhost:0")
-	s.RegisterFlightService(service)
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -314,7 +308,9 @@ func TestServer(t *testing.T) {
 	}
 }
 
-type flightMetadataWriterServer struct{}
+type flightMetadataWriterServer struct {
+	flight.BaseFlightServer
+}
 
 func (f *flightMetadataWriterServer) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
 	recs := arrdata.Records[string(tkt.GetTicket())]
@@ -329,8 +325,8 @@ func (f *flightMetadataWriterServer) DoGet(tkt *flight.Ticket, fs flight.FlightS
 
 func TestFlightWithAppMetadata(t *testing.T) {
 	f := &flightMetadataWriterServer{}
-	s := flight.NewFlightServer(nil)
-	s.RegisterFlightService(&flight.FlightServiceService{DoGet: f.DoGet})
+	s := flight.NewFlightServer()
+	s.RegisterFlightService(f)
 	s.Init("localhost:0")
 
 	go s.Serve()
@@ -376,7 +372,9 @@ func TestFlightWithAppMetadata(t *testing.T) {
 	}
 }
 
-type flightErrorReturn struct{}
+type flightErrorReturn struct {
+	flight.BaseFlightServer
+}
 
 func (f *flightErrorReturn) DoGet(_ *flight.Ticket, _ flight.FlightService_DoGetServer) error {
 	return status.Error(codes.NotFound, "nofound")
@@ -384,8 +382,8 @@ func (f *flightErrorReturn) DoGet(_ *flight.Ticket, _ flight.FlightService_DoGet
 
 func TestReaderError(t *testing.T) {
 	f := &flightErrorReturn{}
-	s := flight.NewFlightServer(nil)
-	s.RegisterFlightService(&flight.FlightServiceService{DoGet: f.DoGet})
+	s := flight.NewFlightServer()
+	s.RegisterFlightService(f)
 	s.Init("localhost:0")
 
 	go s.Serve()

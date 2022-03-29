@@ -566,7 +566,7 @@ Status HashJoinDictBuildMulti::PostDecode(
 }
 
 void HashJoinDictProbeMulti::Init(size_t num_threads) {
-  local_states_.resize(num_threads);
+  local_states_.resize(num_threads + 1);  // +1 for calling thread + worker threads
   for (size_t i = 0; i < local_states_.size(); ++i) {
     local_states_[i].is_initialized = false;
   }

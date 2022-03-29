@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.sql;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,15 +42,15 @@ import java.util.Map;
  */
 public class FlightSqlColumnMetadata {
 
-  private static final String CATALOG_NAME = "CATALOG_NAME";
-  private static final String SCHEMA_NAME = "SCHEMA_NAME";
-  private static final String TABLE_NAME = "TABLE_NAME";
-  private static final String PRECISION = "PRECISION";
-  private static final String SCALE = "SCALE";
-  private static final String IS_AUTO_INCREMENT = "IS_AUTO_INCREMENT";
-  private static final String IS_CASE_SENSITIVE = "IS_CASE_SENSITIVE";
-  private static final String IS_READ_ONLY = "IS_READ_ONLY";
-  private static final String IS_SEARCHABLE = "IS_SEARCHABLE";
+  private static final String CATALOG_NAME = "ARROW:FLIGHT:SQL:CATALOG_NAME";
+  private static final String SCHEMA_NAME = "ARROW:FLIGHT:SQL:SCHEMA_NAME";
+  private static final String TABLE_NAME = "ARROW:FLIGHT:SQL:TABLE_NAME";
+  private static final String PRECISION = "ARROW:FLIGHT:SQL:PRECISION";
+  private static final String SCALE = "ARROW:FLIGHT:SQL:SCALE";
+  private static final String IS_AUTO_INCREMENT = "ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT";
+  private static final String IS_CASE_SENSITIVE = "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE";
+  private static final String IS_READ_ONLY = "ARROW:FLIGHT:SQL:IS_READ_ONLY";
+  private static final String IS_SEARCHABLE = "ARROW:FLIGHT:SQL:IS_SEARCHABLE";
 
   private static final String BOOLEAN_TRUE_STR = "1";
   private static final String BOOLEAN_FALSE_STR = "0";
@@ -60,7 +61,7 @@ public class FlightSqlColumnMetadata {
    * Creates a new instance of FlightSqlColumnMetadata.
    */
   public FlightSqlColumnMetadata(Map<String, String> metadataMap) {
-    this.metadataMap = metadataMap;
+    this.metadataMap = new HashMap<>(metadataMap);
   }
 
   /**
@@ -68,7 +69,7 @@ public class FlightSqlColumnMetadata {
    * @return The metadata map.
    */
   public Map<String, String> getMetadataMap() {
-    return metadataMap;
+    return Collections.unmodifiableMap(metadataMap);
   }
 
   /**
@@ -285,8 +286,8 @@ public class FlightSqlColumnMetadata {
     }
   }
 
-  private static String booleanToString(boolean isSearchable) {
-    return isSearchable ? BOOLEAN_TRUE_STR : BOOLEAN_FALSE_STR;
+  private static String booleanToString(boolean boolValue) {
+    return boolValue ? BOOLEAN_TRUE_STR : BOOLEAN_FALSE_STR;
   }
 
   private static boolean stringToBoolean(String value) {

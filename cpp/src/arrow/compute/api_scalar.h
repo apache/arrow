@@ -1143,6 +1143,17 @@ Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
 ARROW_EXPORT
 Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
 
+/// \brief IsLeapYear returns if a year is a leap year for each element of `values`
+///
+/// \param[in] values input to extract leap year indicator from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsLeapYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
 /// \brief Month returns month for each element of `values`.
 /// Month is encoded as January=1, December=12
 ///
@@ -1218,6 +1229,20 @@ ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NUL
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief USYear returns US epidemiological year number for each element of `values`.
+/// First week of US epidemiological year has the majority (4 or more) of it's
+/// days in January. Last week of US epidemiological year has the year's last
+/// Wednesday in it. US epidemiological week starts on Sunday.
+///
+/// \param[in] values input to extract US epidemiological year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> USYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOWeek returns ISO week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.
@@ -1409,6 +1434,18 @@ ARROW_EXPORT Result<Datum> Strptime(const Datum& values, StrptimeOptions options
 ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
                                           AssumeTimezoneOptions options,
                                           ExecContext* ctx = NULLPTR);
+
+/// \brief IsDaylightSavings extracts if currently observing daylight savings for each
+/// element of `values`
+///
+/// \param[in] values input to extract daylight savings indicator from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
+                                             ExecContext* ctx = NULLPTR);
 
 /// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
 /// query key in a map.

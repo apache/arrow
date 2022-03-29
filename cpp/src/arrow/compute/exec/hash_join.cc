@@ -103,7 +103,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     filter_ = std::move(filter);
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
-    local_states_.resize(num_threads);
+    local_states_.resize(num_threads + 1);  // +1 for calling thread + worker threads
     for (size_t i = 0; i < local_states_.size(); ++i) {
       local_states_[i].is_initialized = false;
       local_states_[i].is_has_match_initialized = false;
@@ -151,6 +151,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   void InitLocalStateIfNeeded(size_t thread_index) {
+    DCHECK_LT(thread_index, local_states_.size());
     ThreadLocalState& local_state = local_states_[thread_index];
     if (!local_state.is_initialized) {
       InitEncoder(0, HashJoinProjection::KEY, &local_state.exec_batch_keys);

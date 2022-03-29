@@ -169,6 +169,7 @@ class TestFlightSqlServer : public ::testing::Test {
   }
 
   void TearDown() override {
+    ASSERT_OK(sql_client->Close());
     sql_client.reset();
 
     ASSERT_OK(server->Shutdown());

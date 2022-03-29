@@ -118,7 +118,6 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
 
   @Test
   public void getObjectForNull() throws Exception {
-
     vector.reset();
     vector.setValueCount(5);
     accessorIterator.assertAccessorGetter(vector,

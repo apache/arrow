@@ -412,10 +412,22 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return Status::OK();
   }
 
+  /// \brief Explicitly shut down and clean up the client.
+  ///
+  /// For backwards compatibility, this will be implicitly called by
+  /// the destructor if not already called, but this gives the
+  /// application no chance to handle errors, so it is recommended to
+  /// explicitly close the client.
+  ///
+  /// \since 8.0.0
+  Status Close();
+
  private:
   FlightClient();
-  class FlightClientImpl;
-  std::unique_ptr<FlightClientImpl> impl_;
+  Status CheckOpen() const;
+  std::unique_ptr<internal::ClientTransport> transport_;
+  bool closed_;
+  int64_t write_size_limit_bytes_;
 };
 
 }  // namespace flight

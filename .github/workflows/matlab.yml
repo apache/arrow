@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
 
-  matlab:
+  ubuntu:
     name: AMD64 Ubuntu 20.04 MATLAB
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -49,7 +49,7 @@ jobs:
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v0
+        uses: matlab-actions/setup-matlab@v1
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
@@ -68,3 +68,26 @@ jobs:
         uses: matlab-actions/run-tests@v1
         with:
           select-by-folder: matlab/test
+  macos:
+    name: AMD64 MacOS 10.15 MATLAB
+    runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    steps:
+      - name: Check out repository        
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Install ninja-build
+        run: brew install ninja
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v1
+      - name: Build MATLAB Interface
+        run: ci/scripts/matlab_build.sh $(pwd)
+      - name: Run MATLAB Tests
+        env:
+          # Add the installation directory to the MATLAB Search Path by
+          # setting the MATLABPATH environment variable.
+          MATLABPATH: matlab/install/arrow_matlab
+        uses: matlab-actions/run-tests@v1
+        with:
+          select-by-folder: matlab/test 

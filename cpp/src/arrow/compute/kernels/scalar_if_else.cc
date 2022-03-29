@@ -21,6 +21,7 @@
 #include "arrow/array/builder_union.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap.h"
@@ -1279,71 +1280,6 @@ void AddNestedIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_functi
   }
 }
 
-// Helper to copy or broadcast fixed-width values between buffers.
-template <typename Type, typename Enable = void>
-struct CopyFixedWidth {};
-template <>
-struct CopyFixedWidth<BooleanType> {
-  static void CopyScalar(const Scalar& scalar, const int64_t length,
-                         uint8_t* raw_out_values, const int64_t out_offset) {
-    const bool value = UnboxScalar<BooleanType>::Unbox(scalar);
-    bit_util::SetBitsTo(raw_out_values, out_offset, length, value);
-  }
-  static void CopyArray(const DataType&, const uint8_t* in_values,
-                        const int64_t in_offset, const int64_t length,
-                        uint8_t* raw_out_values, const int64_t out_offset) {
-    arrow::internal::CopyBitmap(in_values, in_offset, length, raw_out_values, out_offset);
-  }
-};
-
-template <typename Type>
-struct CopyFixedWidth<
-    Type, enable_if_t<is_number_type<Type>::value || is_interval_type<Type>::value>> {
-  using CType = typename TypeTraits<Type>::CType;
-  static void CopyScalar(const Scalar& scalar, const int64_t length,
-                         uint8_t* raw_out_values, const int64_t out_offset) {
-    CType* out_values = reinterpret_cast<CType*>(raw_out_values);
-    const CType value = UnboxScalar<Type>::Unbox(scalar);
-    std::fill(out_values + out_offset, out_values + out_offset + length, value);
-  }
-  static void CopyArray(const DataType&, const uint8_t* in_values,
-                        const int64_t in_offset, const int64_t length,
-                        uint8_t* raw_out_values, const int64_t out_offset) {
-    std::memcpy(raw_out_values + out_offset * sizeof(CType),
-                in_values + in_offset * sizeof(CType), length * sizeof(CType));
-  }
-};
-
-template <typename Type>
-struct CopyFixedWidth<Type, enable_if_fixed_size_binary<Type>> {
-  static void CopyScalar(const Scalar& values, const int64_t length,
-                         uint8_t* raw_out_values, const int64_t out_offset) {
-    const int32_t width =
-        checked_cast<const FixedSizeBinaryType&>(*values.type).byte_width();
-    uint8_t* next = raw_out_values + (width * out_offset);
-    const auto& scalar =
-        checked_cast<const arrow::internal::PrimitiveScalarBase&>(values);
-    // Scalar may have null value buffer
-    if (!scalar.is_valid) {
-      std::memset(next, 0x00, width * length);
-    } else {
-      util::string_view view = scalar.view();
-      DCHECK_EQ(view.size(), static_cast<size_t>(width));
-      for (int i = 0; i < length; i++) {
-        std::memcpy(next, view.data(), width);
-        next += width;
-      }
-    }
-  }
-  static void CopyArray(const DataType& type, const uint8_t* in_values,
-                        const int64_t in_offset, const int64_t length,
-                        uint8_t* raw_out_values, const int64_t out_offset) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(type).byte_width();
-    uint8_t* next = raw_out_values + (width * out_offset);
-    std::memcpy(next, in_values + in_offset * width, length * width);
-  }
-};
-
 // Copy fixed-width values from a scalar/array datum into an output values buffer
 template <typename Type>
 void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t length,
@@ -1353,7 +1289,8 @@ void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t l
     if (out_valid) {
       bit_util::SetBitsTo(out_valid, out_offset, length, scalar.is_valid);
     }
-    CopyFixedWidth<Type>::CopyScalar(scalar, length, out_values, out_offset);
+    CopyDataUtils<Type>::CopyData(*scalar.type, scalar, /*in_offset=*/0, out_values,
+                                  out_offset, length);
   } else {
     const ArrayData& array = *in_values.array();
     if (out_valid) {
@@ -1371,9 +1308,9 @@ void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t l
         bit_util::SetBitsTo(out_valid, out_offset, length, true);
       }
     }
-    CopyFixedWidth<Type>::CopyArray(*array.type, array.buffers[1]->data(),
-                                    array.offset + in_offset, length, out_values,
-                                    out_offset);
+    CopyDataUtils<Type>::CopyData(*array.type, array.buffers[1]->data(),
+                                  array.offset + in_offset, out_values, out_offset,
+                                  length);
   }
 }
 
@@ -1389,8 +1326,8 @@ void CopyOneArrayValue(const DataType& type, const uint8_t* in_valid,
     bit_util::SetBitTo(out_valid, out_offset,
                        !in_valid || bit_util::GetBit(in_valid, in_offset));
   }
-  CopyFixedWidth<Type>::CopyArray(type, in_values, in_offset, /*length=*/1, out_values,
-                                  out_offset);
+  CopyDataUtils<Type>::CopyData(type, in_values, in_offset, out_values, out_offset,
+                                /*length=*/1);
 }
 
 template <typename Type>
@@ -1399,7 +1336,8 @@ void CopyOneScalarValue(const Scalar& scalar, uint8_t* out_valid, uint8_t* out_v
   if (out_valid) {
     bit_util::SetBitTo(out_valid, out_offset, scalar.is_valid);
   }
-  CopyFixedWidth<Type>::CopyScalar(scalar, /*length=*/1, out_values, out_offset);
+  CopyDataUtils<Type>::CopyData(*scalar.type, scalar, /*in_offset=*/0, out_values,
+                                out_offset, /*length=*/1);
 }
 
 template <typename Type>
@@ -2080,8 +2018,8 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out)
           }
           if (!run.set) {
             // Copy from input
-            CopyFixedWidth<Type>::CopyArray(type, in_values, in_offset + offset,
-                                            run.length, out_values, out_offset + offset);
+            CopyDataUtils<Type>::CopyData(type, in_values, in_offset + offset, out_values,
+                                          out_offset + offset, run.length);
           }
           offset += run.length;
         }
@@ -2136,8 +2074,8 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
   if (left.null_count() < length * 0.2) {
     // There are less than 20% nulls in the left array, so first copy
     // the left values, then fill any nulls with the right value
-    CopyFixedWidth<Type>::CopyArray(*left_arr.type, left_values, left_arr.offset, length,
-                                    out_values, out_offset);
+    CopyDataUtils<Type>::CopyData(*left_arr.type, left_values, left_arr.offset,
+                                  out_values, out_offset, length);
 
     BitRunReader reader(left_valid, left_arr.offset, left_arr.length);
     int64_t offset = 0;
@@ -2146,8 +2084,9 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
       if (run.length == 0) break;
       if (!run.set) {
         // All from right
-        CopyFixedWidth<Type>::CopyScalar(right_scalar, run.length, out_values,
-                                         out_offset + offset);
+        CopyDataUtils<Type>::CopyData(*right_scalar.type, right_scalar,
+                                      /*in_offset=*/0, out_values, out_offset + offset,
+                                      run.length);
       }
       offset += run.length;
     }
@@ -2160,13 +2099,14 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
       if (run.length == 0) break;
       if (run.set) {
         // All from left
-        CopyFixedWidth<Type>::CopyArray(*left_arr.type, left_values,
-                                        left_arr.offset + offset, run.length, out_values,
-                                        out_offset + offset);
+        CopyDataUtils<Type>::CopyData(*left_arr.type, left_values,
+                                      left_arr.offset + offset, out_values,
+                                      out_offset + offset, run.length);
       } else {
         // All from right
-        CopyFixedWidth<Type>::CopyScalar(right_scalar, run.length, out_values,
-                                         out_offset + offset);
+        CopyDataUtils<Type>::CopyData(*right_scalar.type, right_scalar,
+                                      /*in_offset=*/0, out_values, out_offset + offset,
+                                      run.length);
       }
       offset += run.length;
     }
@@ -2233,14 +2173,13 @@ Status ExecBinaryCoalesce(KernelContext* ctx, Datum left, Datum right, int64_t l
     }
     if (run.set) {
       // All from left
-      CopyFixedWidth<Type>::CopyArray(*left_arr.type, left_values,
-                                      left_arr.offset + offset, run.length, out_values,
-                                      out_offset + offset);
+      CopyDataUtils<Type>::CopyData(*left_arr.type, left_values, left_arr.offset + offset,
+                                    out_values, out_offset + offset, run.length);
     } else {
       // All from right
-      CopyFixedWidth<Type>::CopyArray(*right_arr.type, right_values,
-                                      right_arr.offset + offset, run.length, out_values,
-                                      out_offset + offset);
+      CopyDataUtils<Type>::CopyData(*right_arr.type, right_values,
+                                    right_arr.offset + offset, out_values,
+                                    out_offset + offset, run.length);
     }
     offset += run.length;
   }
