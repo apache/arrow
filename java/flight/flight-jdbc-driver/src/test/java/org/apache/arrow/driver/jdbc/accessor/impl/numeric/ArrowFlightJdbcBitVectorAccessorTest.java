@@ -64,7 +64,7 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
     this.vectorWithNull.close();
   }
 
-  private <T> void iterate(final AccessorTestUtils.CheckedFunction<ArrowFlightJdbcBitVectorAccessor, T> function,
+  private <T> void iterate(final CheckedFunction<ArrowFlightJdbcBitVectorAccessor, T> function,
                            final T result,
                            final T resultIfFalse, final BitVector vector) throws Exception {
     accessorIterator.assertAccessorGetter(vector, function,

@@ -1115,15 +1115,15 @@ message CommandGetDbSchemas {
  *                                           it is serialized as an IPC message.)
  * >
  * Fields on table_schema may contain the following metadata:
- *  - CATALOG_NAME      - Table's catalog name
- *  - SCHEMA_NAME       - Table's schema name
- *  - TABLE_NAME        - Table name
- *  - PRECISION         - Column precision/size
- *  - SCALE             - Column scale/decimal digits
- *  - IS_AUTO_INCREMENT - "1" if column is auto incremented, "0" otherwise.
- *  - IS_CASE_SENSITIVE - "1" if column is case sensitive, "0" otherwise.
- *  - IS_READ_ONLY      - "1" if column is read only, "0" otherwise.
- *  - IS_SEARCHABLE     - "1" if column is searchable, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+ *  - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+ *  - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+ *  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+ *  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
  */
 message CommandGetTables {
@@ -1454,15 +1454,15 @@ message ActionClosePreparedStatementRequest {
  * for the following RPC calls:
  *  - GetSchema: return the Arrow schema of the query.
  *    Fields on this schema may contain the following metadata:
- *     - CATALOG_NAME      - Table's catalog name
- *     - SCHEMA_NAME       - Table's schema name
- *     - TABLE_NAME        - Table name
- *     - PRECISION         - Column precision/size
- *     - SCALE             - Column scale/decimal digits
- *     - IS_AUTO_INCREMENT - "1" if column is auto incremented, "0" otherwise.
- *     - IS_CASE_SENSITIVE - "1" if column is case sensitive, "0" otherwise.
- *     - IS_READ_ONLY      - "1" if column is read only, "0" otherwise.
- *     - IS_SEARCHABLE     - "1" if column is searchable, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+ *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+ *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+ *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+ *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  *  - GetFlightInfo: execute the query.
  */
 message CommandStatementQuery {
@@ -1488,15 +1488,15 @@ message TicketStatementQuery {
  * the following RPC calls:
  *  - GetSchema: return the Arrow schema of the query.
  *    Fields on this schema may contain the following metadata:
- *     - CATALOG_NAME      - Table's catalog name
- *     - SCHEMA_NAME       - Table's schema name
- *     - TABLE_NAME        - Table name
- *     - PRECISION         - Column precision/size
- *     - SCALE             - Column scale/decimal digits
- *     - IS_AUTO_INCREMENT - "1" if column is auto incremented, "0" otherwise.
- *     - IS_CASE_SENSITIVE - "1" if column is case sensitive, "0" otherwise.
- *     - IS_READ_ONLY      - "1" if column is read only, "0" otherwise.
- *     - IS_SEARCHABLE     - "1" if column is searchable, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+ *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+ *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+ *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+ *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  *  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
  *  - GetFlightInfo: execute the prepared statement instance.
  */

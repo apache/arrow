@@ -1,0 +1,64 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+jobs:
+  autobrew:
+    name: "Homebrew + R package"
+    runs-on: macOS-11
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+
+      {{ macros.configure_homebrew_arrow(formula)|indent }}
+
+      - name: Install apache-arrow
+        run: |
+          brew install -v --HEAD apache-arrow
+          # for testing
+          brew install minio
+      - uses: r-lib/actions/setup-r@v1
+      - name: Install dependencies
+        run: |
+          install.packages("remotes")
+          remotes::install_deps("arrow/r", dependencies = TRUE)
+          remotes::install_cran(c("rcmdcheck", "sys", "sessioninfo"))
+        shell: Rscript {0}
+      - name: Session info
+        run: |
+          options(width = 100)
+          pkgs <- installed.packages()[, "Package"]
+          sessioninfo::session_info(pkgs, include_base = TRUE)
+        shell: Rscript {0}
+      - name: Check
+        env:
+          _R_CHECK_CRAN_INCOMING_: false
+        run: arrow/ci/scripts/r_test.sh arrow
+      - name: Dump install logs
+        run: cat arrow/r/check/arrow.Rcheck/00install.out
+        if: always()
+      - name: Dump test logs
+        run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*

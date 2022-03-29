@@ -377,4 +377,43 @@ TEST_F(TestFilter, TestOffset) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
+TEST_F(TestFilter, TestLike) {
+  // schema for input fields
+  auto field0 = field("f0", utf8());
+  auto schema = arrow::schema({field0});
+
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+  auto literal_pattern = TreeExprBuilder::MakeStringLiteral("abc-xyz%");
+  auto like_func =
+      TreeExprBuilder::MakeFunction("like", {node_f0, literal_pattern}, boolean());
+
+  auto condition = TreeExprBuilder::MakeCondition(like_func);
+
+  std::shared_ptr<Filter> filter;
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array0 = MakeArrowArrayUtf8({"abc-xyz", "hello", "bye", "abc-x", "abc-xyzw"},
+                                   {true, true, true, true, true});
+
+  // expected output (indices for which condition matches)
+  auto exp = MakeArrowArrayUint16({0, 4});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  std::shared_ptr<SelectionVector> selection_vector;
+  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Evaluate expression
+  status = filter->Evaluate(*in_batch, selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+}
+
 }  // namespace gandiva

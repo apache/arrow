@@ -60,5 +60,26 @@ class ARROW_EXPORT Mutex {
   std::unique_ptr<Impl, void (*)(Impl*)> impl_;
 };
 
+#ifndef _WIN32
+/// Return a pointer to a process-wide, process-specific Mutex that can be used
+/// at any point in a child process.  NULL is returned when called in the parent.
+///
+/// The rule is to first check that getpid() corresponds to the parent process pid
+/// and, if not, call this function to lock any after-fork reinitialization code.
+/// Like this:
+///
+///   std::atomic<pid_t> pid{getpid()};
+///   ...
+///   if (pid.load() != getpid()) {
+///     // In child process
+///     auto lock = GlobalForkSafeMutex()->Lock();
+///     if (pid.load() != getpid()) {
+///       // Reinitialize internal structures after fork
+///       ...
+///       pid.store(getpid());
+ARROW_EXPORT
+Mutex* GlobalForkSafeMutex();
+#endif
+
 }  // namespace util
 }  // namespace arrow

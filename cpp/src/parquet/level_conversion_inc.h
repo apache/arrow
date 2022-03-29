@@ -333,7 +333,7 @@ void DefLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_levels,
   ::arrow::internal::FirstTimeBitmapWriter writer(
       output->valid_bits,
       /*start_offset=*/output->valid_bits_offset,
-      /*length=*/num_def_levels);
+      /*length=*/output->values_read_upper_bound);
   int64_t set_count = 0;
   output->values_read = 0;
   int64_t values_read_remaining = output->values_read_upper_bound;

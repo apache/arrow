@@ -70,7 +70,7 @@ to access and manipulate Arrow objects. You can use these to build connectors
 to other applications and services that use Arrow. One example is Spark: the
 [`sparklyr`](https://spark.rstudio.com/) package has support for using Arrow to
 move data to and from Spark, yielding [significant performance
-gains](http://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
+gains](https://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
 
 # Object hierarchy
 

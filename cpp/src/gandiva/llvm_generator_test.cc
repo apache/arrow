@@ -75,8 +75,8 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       generator->function_registry_.LookupSignature(signature);
 
   std::vector<ValueValidityPairPtr> pairs{pair0, pair1};
-  auto func_dex = std::make_shared<NonNullableFuncDex>(func_desc, native_func,
-                                                       FunctionHolderPtr(nullptr), pairs);
+  auto func_dex = std::make_shared<NonNullableFuncDex>(
+      func_desc, native_func, FunctionHolderPtr(nullptr), -1, pairs);
 
   auto field_sum = std::make_shared<arrow::Field>("out", arrow::int32());
   auto desc_sum = annotator.CheckAndAddInputFieldDescriptor(field_sum);
@@ -106,7 +106,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       reinterpret_cast<uint8_t*>(out.data()), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
   std::array<int64_t, 6> addr_offsets{0, 0, 0, 0, 0, 0};
-  eval_func(addrs.data(), addr_offsets.data(), nullptr, nullptr,
+  eval_func(addrs.data(), addr_offsets.data(), nullptr, nullptr, nullptr,
             0 /* dummy context ptr */, kNumRecords);
 
   EXPECT_THAT(out, testing::ElementsAre(6, 8, 10, 12));

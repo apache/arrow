@@ -38,6 +38,8 @@
 \alias{large_list_of}
 \alias{FixedSizeListType}
 \alias{fixed_size_list_of}
+\alias{MapType}
+\alias{map_of}
 \title{Apache Arrow data types}
 \usage{
 int8()
@@ -109,6 +111,8 @@ list_of(type)
 large_list_of(type)
 
 fixed_size_list_of(type, list_size)
+
+map_of(key_type, item_type, .keys_sorted = FALSE)
 }
 \arguments{
 \item{byte_width}{byte width for \code{FixedSizeBinary} type.}
@@ -133,6 +137,11 @@ of digits after the decimal point. It can be negative.}
 \item{type}{For \code{list_of()}, a data type to make a list-of-type}
 
 \item{list_size}{list size for \code{FixedSizeList} type.}
+
+\item{key_type, item_type}{For \code{MapType}, the key and item types.}
+
+\item{.keys_sorted}{Use \code{TRUE} to assert that keys of a \code{MapType} are
+sorted.}
 }
 \value{
 An Arrow type object inheriting from DataType.

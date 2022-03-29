@@ -25,8 +25,8 @@ using testing::Eq;
 namespace arrow {
 namespace compute {
 
-const char* kLeftPrefix = "left.";
-const char* kRightPrefix = "right.";
+const char* kLeftSuffix = ".left";
+const char* kRightSuffix = ".right";
 
 TEST(FieldMap, Trivial) {
   HashJoinSchema schema_mgr;
@@ -35,12 +35,12 @@ TEST(FieldMap, Trivial) {
   auto right = schema({field("i32", int32())});
 
   ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"},
-                            literal(true), kLeftPrefix, kRightPrefix));
+                            literal(true), kLeftSuffix, kRightSuffix));
 
-  auto output = schema_mgr.MakeOutputSchema(kLeftPrefix, kRightPrefix);
+  auto output = schema_mgr.MakeOutputSchema(kLeftSuffix, kRightSuffix);
   EXPECT_THAT(*output, Eq(Schema({
-                           field("left.i32", int32()),
-                           field("right.i32", int32()),
+                           field("i32.left", int32()),
+                           field("i32.right", int32()),
                        })));
 
   auto i =
@@ -75,7 +75,7 @@ TEST(FieldMap, SingleKeyField) {
   auto right = schema({field("f32", float32()), field("i32", int32())});
 
   ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"},
-                            literal(true), kLeftPrefix, kRightPrefix));
+                            literal(true), kLeftSuffix, kRightSuffix));
 
   EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::INPUT), 2);
   EXPECT_EQ(schema_mgr.proj_maps[1].num_cols(HashJoinProjection::INPUT), 2);
@@ -84,12 +84,12 @@ TEST(FieldMap, SingleKeyField) {
   EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::OUTPUT), 2);
   EXPECT_EQ(schema_mgr.proj_maps[1].num_cols(HashJoinProjection::OUTPUT), 2);
 
-  auto output = schema_mgr.MakeOutputSchema(kLeftPrefix, kRightPrefix);
+  auto output = schema_mgr.MakeOutputSchema(kLeftSuffix, kRightSuffix);
   EXPECT_THAT(*output, Eq(Schema({
-                           field("left.i32", int32()),
-                           field("left.str", utf8()),
-                           field("right.f32", float32()),
-                           field("right.i32", int32()),
+                           field("i32.left", int32()),
+                           field("str", utf8()),
+                           field("f32", float32()),
+                           field("i32.right", int32()),
                        })));
 
   auto i =
@@ -113,18 +113,18 @@ TEST(FieldMap, TwoKeyFields) {
   });
 
   ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32", "str"}, *right,
-                            {"i32", "str"}, literal(true), kLeftPrefix, kRightPrefix));
+                            {"i32", "str"}, literal(true), kLeftSuffix, kRightSuffix));
 
-  auto output = schema_mgr.MakeOutputSchema(kLeftPrefix, kRightPrefix);
+  auto output = schema_mgr.MakeOutputSchema(kLeftSuffix, kRightSuffix);
   EXPECT_THAT(*output, Eq(Schema({
-                           field("left.i32", int32()),
-                           field("left.str", utf8()),
-                           field("left.bool", boolean()),
+                           field("i32.left", int32()),
+                           field("str.left", utf8()),
+                           field("bool", boolean()),
 
-                           field("right.i32", int32()),
-                           field("right.str", utf8()),
-                           field("right.f32", float32()),
-                           field("right.f64", float64()),
+                           field("i32.right", int32()),
+                           field("str.right", utf8()),
+                           field("f32", float32()),
+                           field("f64", float64()),
                        })));
 }
 

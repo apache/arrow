@@ -50,6 +50,7 @@ mkdir -p "${build_dir}"
 pushd "${build_dir}"
 
 cmake \
+  -GNinja \
   -DARROW_BOOST_USE_SHARED=OFF \
   -DARROW_BROTLI_USE_SHARED=OFF \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \

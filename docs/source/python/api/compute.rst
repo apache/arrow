@@ -397,6 +397,7 @@ Temporal Component Extraction
    iso_week
    iso_year
    iso_calendar
+   is_leap_year
    microsecond
    millisecond
    minute
@@ -406,6 +407,7 @@ Temporal Component Extraction
    second
    subsecond
    us_week
+   us_year
    week
    year
    year_month_day

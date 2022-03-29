@@ -15,52 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   homebrew:
     name: "Homebrew"
     runs-on: macOS-latest
     steps:
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Configure Homebrew formula for testing
-        env:
-          ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
-        run: |
-          brew update
-          brew --version
-          brew unlink python@2 || true
-          brew config
-          brew doctor || true
+      {{ macros.github_checkout_arrow()|indent }}
 
-          ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
-          echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
-          for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
-            if [ ! -f ${formula} ]; then
-              continue
-            fi
-            # Pin the current commit in the formula to test so that
-            # we're not always pulling from master
-            sed -i '' -E \
-              -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
-              ${formula}
-            # Sometimes crossbow gives a remote URL with .git and sometimes not.
-            # Make sure there's only one
-            sed -i '' -E -e 's@.git.git@.git@' ${formula}
-            cp ${formula} $(brew --repository homebrew/core)/Formula/
-          done
+      {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
         run: |
           brew install -v --HEAD apache-arrow

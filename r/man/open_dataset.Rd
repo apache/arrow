@@ -81,7 +81,7 @@ it is assumed to be "text".}
 \item{...}{additional arguments passed to \code{dataset_factory()} when \code{sources}
 is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 These may include \code{format} to indicate the file format, or other
-format-specific options.}
+format-specific options (see \code{\link[=read_csv_arrow]{read_csv_arrow()}}, \code{\link[=read_parquet]{read_parquet()}} and \code{\link[=read_feather]{read_feather()}} on how to specify these).}
 }
 \value{
 A \link{Dataset} R6 object. Use \code{dplyr} methods on it to query the data,
