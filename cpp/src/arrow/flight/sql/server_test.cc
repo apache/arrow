@@ -398,8 +398,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
   auto batch = example::DoGetTypeInfoResult();
 
   ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   AssertTablesEqual(*expected_table, *table);
 }
@@ -414,8 +413,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
   auto batch = example::DoGetTypeInfoResult(data_type);
 
   ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   AssertTablesEqual(*expected_table, *table);
 }
