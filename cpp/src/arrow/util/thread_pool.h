@@ -277,8 +277,16 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     return FutureToSync(fut);
   }
 
+  /// \brief Transform an AsyncGenerator into an Iterator that will use the calling thread
+  ///
+  /// An event loop will be created and each call to Next will power the event loop with
+  /// the calling thread until the next item is ready to be delivered.
+  ///
+  /// Note: The iterator's destructor will run until the given generator is fully
+  /// exhausted. If you wish to abandon iteration before completion then the correct
+  /// approach is to use a stop token to cause the generator to exhaust early.
   template <typename T>
-  static Iterator<T> RunGeneratorInSerialExecutor(
+  static Iterator<T> IterateGenerator(
       internal::FnOnce<Result<std::function<Future<T>()>>(Executor*)> initial_task) {
     auto serial_executor = std::unique_ptr<SerialExecutor>(new SerialExecutor());
     auto maybe_generator = std::move(initial_task)(serial_executor.get());

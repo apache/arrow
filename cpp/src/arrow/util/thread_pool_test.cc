@@ -265,8 +265,8 @@ INSTANTIATE_TEST_SUITE_P(TestRunSynchronously, TestRunSynchronously,
 TEST(SerialExecutor, AsyncGenerator) {
   std::vector<TestInt> values{1, 2, 3, 4, 5};
   auto source = util::SlowdownABit(util::AsyncVectorIt(values));
-  Iterator<TestInt> iter = SerialExecutor::RunGeneratorInSerialExecutor<TestInt>(
-      [&source](Executor* executor) {
+  Iterator<TestInt> iter =
+      SerialExecutor::IterateGenerator<TestInt>([&source](Executor* executor) {
         return MakeMappedGenerator(source, [executor](const TestInt& ti) {
           return DeferNotOk(executor->Submit([ti] { return ti; }));
         });
@@ -281,7 +281,7 @@ TEST(SerialExecutor, AsyncGeneratorWithFollowUp) {
   bool follow_up_ran = false;
   bool first = true;
   Iterator<TestInt> iter =
-      SerialExecutor::RunGeneratorInSerialExecutor<TestInt>([&](Executor* executor) {
+      SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
         return [=, &first, &follow_up_ran]() -> Future<TestInt> {
           if (first) {
             first = false;
@@ -307,9 +307,9 @@ TEST(SerialExecutor, AsyncGeneratorWithAsyncFollowUp) {
   // async generator to hand the task off to (it should be queued up)
   bool follow_up_ran = false;
   bool first = true;
-  Executor* captured_executor;
+  Executor* captured_executor = nullptr;
   Iterator<TestInt> iter =
-      SerialExecutor::RunGeneratorInSerialExecutor<TestInt>([&](Executor* executor) {
+      SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
         return [=, &first, &captured_executor]() -> Future<TestInt> {
           if (first) {
             captured_executor = executor;
@@ -335,11 +335,12 @@ TEST(SerialExecutor, AsyncGeneratorWithAsyncFollowUp) {
 }
 
 TEST(SerialExecutor, AsyncGeneratorWithCleanup) {
-  // Sometimes a final task might generate follow-up tasks.  Unlike other follow-up
-  // tasks these must run before we finish the iterator.
+  // Test the case where tasks are added to the executor after the task that
+  // marks the final future complete (i.e. the terminal item).  These tasks
+  // must run before the terminal item is delivered from the iterator.
   bool follow_up_ran = false;
   Iterator<TestInt> iter =
-      SerialExecutor::RunGeneratorInSerialExecutor<TestInt>([&](Executor* executor) {
+      SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
         return [=, &follow_up_ran]() -> Future<TestInt> {
           Future<TestInt> end =
               DeferNotOk(executor->Submit([] { return IterationEnd<TestInt>(); }));
@@ -358,7 +359,7 @@ TEST(SerialExecutor, AbandonIteratorWithCleanup) {
   bool first = true;
   {
     Iterator<TestInt> iter =
-        SerialExecutor::RunGeneratorInSerialExecutor<TestInt>([&](Executor* executor) {
+        SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
           return [=, &first, &follow_up_ran]() -> Future<TestInt> {
             if (first) {
               first = false;
@@ -383,7 +384,7 @@ TEST(SerialExecutor, FailingIteratorWithCleanup) {
   // they might be cleanup tasks.
   bool follow_up_ran = false;
   Iterator<TestInt> iter =
-      SerialExecutor::RunGeneratorInSerialExecutor<TestInt>([&](Executor* executor) {
+      SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
         return [=, &follow_up_ran]() -> Future<TestInt> {
           Future<TestInt> end = DeferNotOk(executor->Submit(
               []() -> Result<TestInt> { return Status::Invalid("XYZ"); }));

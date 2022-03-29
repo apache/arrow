@@ -33,7 +33,7 @@ AsyncGenerator<T> AsyncVectorIt(std::vector<T> v) {
 }
 
 template <typename T>
-AsyncGenerator<T> FailsAt(AsyncGenerator<T> src, int failing_index) {
+AsyncGenerator<T> FailAt(AsyncGenerator<T> src, int failing_index) {
   auto index = std::make_shared<std::atomic<int>>(0);
   return [src, index, failing_index]() {
     auto idx = index->fetch_add(1);

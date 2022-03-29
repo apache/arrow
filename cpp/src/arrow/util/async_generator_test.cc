@@ -405,7 +405,7 @@ TEST(TestAsyncUtil, MapQueuingFailStress) {
       std::shared_ptr<std::atomic<bool>> done = std::make_shared<std::atomic<bool>>();
       auto inner = util::AsyncVectorIt(RangeVector(NITEMS));
       if (slow) inner = MakeJittery(inner);
-      auto gen = util::FailsAt(inner, NITEMS / 2);
+      auto gen = util::FailAt(inner, NITEMS / 2);
       std::function<TestStr(const TestInt&)> mapper = [done](const TestInt& in) {
         if (done->load()) {
           ADD_FAILURE() << "Callback called after generator sent end signal";
@@ -468,7 +468,7 @@ TEST(TestAsyncUtil, MapTaskDelayedFail) {
 
 TEST(TestAsyncUtil, MapSourceFail) {
   std::vector<TestInt> input = {1, 2, 3};
-  auto generator = util::FailsAt(util::AsyncVectorIt(input), 1);
+  auto generator = util::FailAt(util::AsyncVectorIt(input), 1);
   std::function<Result<TestStr>(const TestInt&)> mapper =
       [](const TestInt& in) -> Result<TestStr> {
     return TestStr(std::to_string(in.value));
@@ -540,7 +540,7 @@ TEST_P(MergedGeneratorTestFixture, OuterSubscriptionEmpty) {
 
 TEST_P(MergedGeneratorTestFixture, MergedInnerFail) {
   auto gen = util::AsyncVectorIt<AsyncGenerator<TestInt>>(
-      {MakeSource({1, 2, 3}), util::FailsAt(MakeSource({1, 2, 3}), 1),
+      {MakeSource({1, 2, 3}), util::FailAt(MakeSource({1, 2, 3}), 1),
        MakeSource({1, 2, 3})});
   auto merged_gen = MakeMergedGenerator(gen, 10);
   // Merged generator can be pulled async-reentrantly and we need to make
@@ -656,7 +656,7 @@ TEST_P(MergedGeneratorTestFixture, FinishesQuickly) {
 }
 
 TEST_P(MergedGeneratorTestFixture, MergedOuterFail) {
-  auto gen = util::FailsAt(
+  auto gen = util::FailAt(
       util::AsyncVectorIt<AsyncGenerator<TestInt>>(
           {MakeSource({1, 2, 3}), MakeSource({1, 2, 3}), MakeSource({1, 2, 3})}),
       1);
@@ -1577,7 +1577,7 @@ TEST_P(EnumeratorTestFixture, Empty) {
 }
 
 TEST_P(EnumeratorTestFixture, Error) {
-  auto source = util::FailsAt(MakeSource({1, 2, 3}), 1);
+  auto source = util::FailAt(MakeSource({1, 2, 3}), 1);
   auto enumerated = MakeEnumeratedGenerator(std::move(source));
 
   // Even though the first item finishes ok the enumerator buffers it.  The error then
@@ -1718,7 +1718,7 @@ TEST_P(SequencerTestFixture, SequenceLambda) {
 TEST_P(SequencerTestFixture, SequenceError) {
   {
     auto original = MakeSource({6, 4, 2});
-    original = util::FailsAt(original, 1);
+    original = util::FailAt(original, 1);
     auto sequenced = MakeSequencingGenerator(original, cmp_, is_next_, TestInt(0));
     auto collected = CollectAsyncGenerator(sequenced);
     ASSERT_FINISHES_AND_RAISES(Invalid, collected);
