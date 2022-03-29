@@ -133,7 +133,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     PORT("port", null, Type.NUMBER, true),
     USER("user", null, Type.STRING, false),
     PASSWORD("password", null, Type.STRING, false),
-    USE_TLS("useTls", false, Type.BOOLEAN, false),
+    USE_TLS("useTls", true, Type.BOOLEAN, false),
     CERTIFICATE_VERIFICATION("disableCertificateVerification", false, Type.BOOLEAN, false),
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
     TOKEN("token", null, Type.STRING, false);
