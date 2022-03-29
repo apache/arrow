@@ -409,7 +409,13 @@ Status RecordBatchStream::GetSchemaPayload(FlightPayload* payload) {
   return impl_->GetSchemaPayload(payload);
 }
 
-Status RecordBatchStream::Next(FlightPayload* payload) { return impl_->Next(payload); }
+arrow::Result<FlightPayload> RecordBatchStream::Next() {
+  FlightPayload payload;
+  RETURN_NOT_OK(impl_->Next(&payload));
+  return payload;
+}
+
+Status RecordBatchStream::Next(FlightPayload* payload) { return Next().Value(payload); }
 
 }  // namespace flight
 }  // namespace arrow

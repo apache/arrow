@@ -279,8 +279,7 @@ arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
 
   ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
 
-  std::unique_ptr<Result> result;
-  ARROW_RETURN_NOT_OK(results->Next(&result));
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Result> result, results->Next());
 
   google::protobuf::Any prepared_result;
 

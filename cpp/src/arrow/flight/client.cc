@@ -72,12 +72,21 @@ std::shared_ptr<FlightWriteSizeStatusDetail> FlightWriteSizeStatusDetail::Unwrap
 
 FlightClientOptions FlightClientOptions::Defaults() { return FlightClientOptions(); }
 
+arrow::Result<std::shared_ptr<Table>> FlightStreamReader::ToTable(
+    const StopToken& stop_token) {
+  ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches(stop_token));
+  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
+  return Table::FromRecordBatches(schema, std::move(batches));
+}
+
+Status FlightStreamReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                                   const StopToken& stop_token) {
+  return ToRecordBatches(stop_token).Value(batches);
+}
+
 Status FlightStreamReader::ReadAll(std::shared_ptr<Table>* table,
                                    const StopToken& stop_token) {
-  std::vector<std::shared_ptr<RecordBatch>> batches;
-  RETURN_NOT_OK(ReadAll(&batches, stop_token));
-  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
-  return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
+  return ToTable(stop_token).Value(table);
 }
 
 /// \brief An ipc::MessageReader adapting the Flight ClientDataStream interface.
@@ -169,40 +178,43 @@ class ClientStreamReader : public FlightStreamReader {
     RETURN_NOT_OK(EnsureDataStarted());
     return batch_reader_->schema();
   }
-  Status Next(FlightStreamChunk* out) override {
+  arrow::Result<FlightStreamChunk> Next() override {
+    FlightStreamChunk out;
     internal::FlightData* data;
     peekable_reader_->Peek(&data);
     if (!data) {
-      out->app_metadata = nullptr;
-      out->data = nullptr;
-      return stream_->Finish(Status::OK());
+      out.app_metadata = nullptr;
+      out.data = nullptr;
+      RETURN_NOT_OK(stream_->Finish(Status::OK()));
+      return out;
     }
 
     if (!data->metadata) {
       // Metadata-only (data->metadata is the IPC header)
-      out->app_metadata = data->app_metadata;
-      out->data = nullptr;
+      out.app_metadata = data->app_metadata;
+      out.data = nullptr;
       peekable_reader_->Next(&data);
-      return Status::OK();
+      return out;
     }
 
     if (!batch_reader_) {
       RETURN_NOT_OK(EnsureDataStarted());
       // Re-peek here since EnsureDataStarted() advances the stream
-      return Next(out);
+      return Next();
     }
-    auto status = batch_reader_->ReadNext(&out->data);
+    auto status = batch_reader_->ReadNext(&out.data);
     if (ARROW_PREDICT_FALSE(!status.ok())) {
       return stream_->Finish(std::move(status));
     }
-    out->app_metadata = std::move(app_metadata_);
-    return Status::OK();
+    out.app_metadata = std::move(app_metadata_);
+    return out;
   }
-  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches) override {
-    return ReadAll(batches, stop_token_);
+  arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches() override {
+    return ToRecordBatches(stop_token_);
   }
-  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
-                 const StopToken& stop_token) override {
+  arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
+      const StopToken& stop_token) override {
+    std::vector<std::shared_ptr<RecordBatch>> batches;
     FlightStreamChunk chunk;
 
     while (true) {
@@ -210,16 +222,16 @@ class ClientStreamReader : public FlightStreamReader {
         Cancel();
         return stop_token.Poll();
       }
-      RETURN_NOT_OK(Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, Next());
       if (!chunk.data) break;
-      batches->emplace_back(std::move(chunk.data));
+      batches.emplace_back(std::move(chunk.data));
     }
-    return Status::OK();
+    return batches;
   }
-  Status ReadAll(std::shared_ptr<Table>* table) override {
-    return ReadAll(table, stop_token_);
+  arrow::Result<std::shared_ptr<Table>> ToTable() override {
+    return ToTable(stop_token_);
   }
-  using FlightStreamReader::ReadAll;
+  using FlightStreamReader::ToTable;
   void Cancel() override { stream_->TryCancel(); }
 
  private:
@@ -526,11 +538,16 @@ Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
   return transport_->GetFlightInfo(options, descriptor, info);
 }
 
+arrow::Result<std::unique_ptr<SchemaResult>> FlightClient::GetSchema(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor) {
+  RETURN_NOT_OK(CheckOpen());
+  return transport_->GetSchema(options, descriptor);
+}
+
 Status FlightClient::GetSchema(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<SchemaResult>* schema_result) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->GetSchema(options, descriptor, schema_result);
+  return GetSchema(options, descriptor).Value(schema_result);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {

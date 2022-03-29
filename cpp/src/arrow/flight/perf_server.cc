@@ -89,10 +89,11 @@ class PerfDataStream : public FlightDataStream {
     return ipc::GetSchemaPayload(*schema_, ipc_options_, mapper_, &payload->ipc_message);
   }
 
-  Status Next(FlightPayload* payload) override {
+  arrow::Result<FlightPayload> Next() override {
+    FlightPayload payload;
     if (records_sent_ >= total_records_) {
       // Signal that iteration is over
-      payload->ipc_message.metadata = nullptr;
+      payload.ipc_message.metadata = nullptr;
       return Status::OK();
     }
 
@@ -114,7 +115,8 @@ class PerfDataStream : public FlightDataStream {
     } else {
       records_sent_ += batch_length_;
     }
-    return ipc::GetRecordBatchPayload(*batch, ipc_options_, &payload->ipc_message);
+    RETURN_NOT_OK(ipc::GetRecordBatchPayload(*batch, ipc_options_, &payload.ipc_message));
+    return payload;
   }
 
  private:
@@ -202,7 +204,7 @@ class FlightPerfServer : public FlightServerBase {
                std::unique_ptr<FlightMetadataWriter> writer) override {
     FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data) break;
       if (chunk.app_metadata) {
         RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));
@@ -248,25 +250,26 @@ int main(int argc, char** argv) {
     if (FLAGS_server_unix.empty()) {
       if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
         if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
+          ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port)
+                             .Value(&bind_location));
           ARROW_CHECK_OK(
-              arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port, &bind_location));
-          ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTls(
-              FLAGS_server_host, FLAGS_port, &connect_location));
+              arrow::flight::Location::ForGrpcTls(FLAGS_server_host, FLAGS_port)
+                  .Value(&connect_location));
         } else {
           std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
           return EXIT_FAILURE;
         }
       } else {
-        ARROW_CHECK_OK(
-            arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &bind_location));
-        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port,
-                                                           &connect_location));
+        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port)
+                           .Value(&bind_location));
+        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port)
+                           .Value(&connect_location));
       }
     } else {
       ARROW_CHECK_OK(
-          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &bind_location));
-      ARROW_CHECK_OK(
-          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &connect_location));
+          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&bind_location));
+      ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix)
+                         .Value(&connect_location));
     }
   } else {
     std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;

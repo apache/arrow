@@ -99,8 +99,7 @@ Status ConsumeFlightLocation(
   int counter = 0;
   const int expected = static_cast<int>(retrieved_data.size());
   for (const auto& original_batch : retrieved_data) {
-    FlightStreamChunk chunk;
-    RETURN_NOT_OK(stream->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, stream->Next());
     if (chunk.data == nullptr) {
       return Status::Invalid("Got fewer batches than expected, received so far: ",
                              counter, " expected ", expected);
@@ -122,8 +121,7 @@ Status ConsumeFlightLocation(
     counter++;
   }
 
-  FlightStreamChunk chunk;
-  RETURN_NOT_OK(stream->Next(&chunk));
+  ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, stream->Next());
   if (chunk.data != nullptr) {
     return Status::Invalid("Got more batches than the expected ", expected);
   }
@@ -174,7 +172,7 @@ class IntegrationTestScenario : public Scenario {
 
     std::shared_ptr<Schema> schema;
     ipc::DictionaryMemo dict_memo;
-    ABORT_NOT_OK(info->GetSchema(&dict_memo, &schema));
+    ABORT_NOT_OK(info->GetSchema(&dict_memo).Value(&schema));
 
     if (info->endpoints().size() == 0) {
       std::cerr << "No endpoints returned from Flight server." << std::endl;
@@ -212,8 +210,8 @@ arrow::Status RunScenario(arrow::flight::integration_tests::Scenario* scenario) 
   std::unique_ptr<arrow::flight::FlightClient> client;
 
   RETURN_NOT_OK(scenario->MakeClient(&options));
-  arrow::flight::Location location;
-  RETURN_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
+  ARROW_ASSIGN_OR_RAISE(auto location,
+                        arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
   RETURN_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
   return scenario->RunClient(std::move(client));
 }

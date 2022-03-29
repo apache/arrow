@@ -54,11 +54,10 @@ namespace flight {
 // Helpers to compare values for equality
 
 inline void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
-  std::shared_ptr<Schema> ex_schema, actual_schema;
   ipc::DictionaryMemo expected_memo;
   ipc::DictionaryMemo actual_memo;
-  ASSERT_OK(expected.GetSchema(&expected_memo, &ex_schema));
-  ASSERT_OK(actual.GetSchema(&actual_memo, &actual_schema));
+  ASSERT_OK_AND_ASSIGN(auto ex_schema, expected.GetSchema(&expected_memo));
+  ASSERT_OK_AND_ASSIGN(auto actual_schema, actual.GetSchema(&actual_memo));
 
   AssertSchemaEqual(*ex_schema, *actual_schema);
   ASSERT_EQ(expected.total_records(), actual.total_records());
@@ -113,10 +112,9 @@ Status MakeServer(const Location& location, std::unique_ptr<FlightServerBase>* s
   FlightServerOptions server_options(location);
   RETURN_NOT_OK(make_server_options(&server_options));
   RETURN_NOT_OK((*server)->Init(server_options));
-  Location real_location;
   std::string uri =
       location.scheme() + "://localhost:" + std::to_string((*server)->port());
-  RETURN_NOT_OK(Location::Parse(uri, &real_location));
+  ARROW_ASSIGN_OR_RAISE(auto real_location, Location::Parse(uri));
   FlightClientOptions client_options = FlightClientOptions::Defaults();
   RETURN_NOT_OK(make_client_options(&client_options));
   return FlightClient::Connect(real_location, client_options, client);
@@ -130,8 +128,7 @@ Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                   std::function<Status(FlightServerOptions*)> make_server_options,
                   std::function<Status(FlightClientOptions*)> make_client_options,
                   Args&&... server_args) {
-  Location location;
-  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+  ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 0));
   return MakeServer<T>(location, server, client, std::move(make_server_options),
                        std::move(make_client_options),
                        std::forward<Args>(server_args)...);
@@ -147,7 +144,7 @@ class ARROW_FLIGHT_EXPORT NumberingStream : public FlightDataStream {
 
   std::shared_ptr<Schema> schema() override;
   Status GetSchemaPayload(FlightPayload* payload) override;
-  Status Next(FlightPayload* payload) override;
+  arrow::Result<FlightPayload> Next() override;
 
  private:
   int counter_;

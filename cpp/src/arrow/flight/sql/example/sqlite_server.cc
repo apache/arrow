@@ -89,9 +89,8 @@ std::string PrepareQueryForGetTables(const GetTables& command) {
 }
 
 Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt, FlightMessageReader* reader) {
-  FlightStreamChunk chunk;
   while (true) {
-    RETURN_NOT_OK(reader->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
     std::shared_ptr<RecordBatch>& record_batch = chunk.data;
     if (record_batch == nullptr) break;
 

@@ -525,7 +525,7 @@ cdef class Location(_Weakrefable):
         CLocation location
 
     def __init__(self, uri):
-        check_flight_status(CLocation.Parse(tobytes(uri), &self.location))
+        check_flight_status(CLocation.Parse(tobytes(uri)).Value(&self.location))
 
     def __repr__(self):
         return '<Location {}>'.format(self.location.ToString())
@@ -550,7 +550,7 @@ cdef class Location(_Weakrefable):
             int c_port = port
             Location result = Location.__new__(Location)
         check_flight_status(
-            CLocation.ForGrpcTcp(c_host, c_port, &result.location))
+            CLocation.ForGrpcTcp(c_host, c_port).Value(&result.location))
         return result
 
     @staticmethod
@@ -561,7 +561,7 @@ cdef class Location(_Weakrefable):
             int c_port = port
             Location result = Location.__new__(Location)
         check_flight_status(
-            CLocation.ForGrpcTls(c_host, c_port, &result.location))
+            CLocation.ForGrpcTls(c_host, c_port).Value(&result.location))
         return result
 
     @staticmethod
@@ -570,7 +570,7 @@ cdef class Location(_Weakrefable):
         cdef:
             c_string c_path = tobytes(path)
             Location result = Location.__new__(Location)
-        check_flight_status(CLocation.ForGrpcUnix(c_path, &result.location))
+        check_flight_status(CLocation.ForGrpcUnix(c_path).Value(&result.location))
         return result
 
     @staticmethod
@@ -584,7 +584,7 @@ cdef class Location(_Weakrefable):
         cdef CLocation c_location
         if isinstance(location, str):
             check_flight_status(
-                CLocation.Parse(tobytes(location), &c_location))
+                CLocation.Parse(tobytes(location)).Value(&c_location))
             return c_location
         elif not isinstance(location, Location):
             raise TypeError("Must provide a Location, not '{}'".format(
@@ -626,7 +626,7 @@ cdef class FlightEndpoint(_Weakrefable):
             else:
                 c_location = CLocation()
                 check_flight_status(
-                    CLocation.Parse(tobytes(location), &c_location))
+                    CLocation.Parse(tobytes(location)).Value(&c_location))
             self.endpoint.locations.push_back(c_location)
 
     @property
@@ -671,7 +671,7 @@ cdef class SchemaResult(_Weakrefable):
             shared_ptr[CSchema] schema
             CDictionaryMemo dummy_memo
 
-        check_flight_status(self.result.get().GetSchema(&dummy_memo, &schema))
+        check_flight_status(self.result.get().GetSchema(&dummy_memo).Value(&schema))
         return pyarrow_wrap_schema(schema)
 
 
@@ -731,7 +731,7 @@ cdef class FlightInfo(_Weakrefable):
             shared_ptr[CSchema] schema
             CDictionaryMemo dummy_memo
 
-        check_flight_status(self.info.get().GetSchema(&dummy_memo, &schema))
+        check_flight_status(self.info.get().GetSchema(&dummy_memo).Value(&schema))
         return pyarrow_wrap_schema(schema)
 
     @property
@@ -831,7 +831,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         cdef:
             shared_ptr[CTable] c_table
         with nogil:
-            check_flight_status(self.reader.get().ReadAll(&c_table))
+            check_flight_status(self.reader.get().ToTable().Value(&c_table))
         return pyarrow_wrap_table(c_table)
 
     def read_chunk(self):
@@ -854,7 +854,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
             FlightStreamChunk chunk = FlightStreamChunk()
 
         with nogil:
-            check_flight_status(self.reader.get().Next(&chunk.chunk))
+            check_flight_status(self.reader.get().Next().Value(&chunk.chunk))
 
         if chunk.chunk.data == NULL and chunk.chunk.app_metadata == NULL:
             raise StopIteration
@@ -894,7 +894,7 @@ cdef class FlightStreamReader(MetadataRecordBatchReader):
             with nogil:
                 check_flight_status(
                     (<CFlightStreamReader*> self.reader.get())
-                    .ReadAllWithStopToken(&c_table, stop_token))
+                    .ToTableWithStopToken(stop_token).Value(&c_table))
         return pyarrow_wrap_table(c_table)
 
 
@@ -1294,7 +1294,7 @@ cdef class FlightClient(_Weakrefable):
             while True:
                 result = Result.__new__(Result)
                 with nogil:
-                    check_flight_status(results.get().Next(&result.result))
+                    check_flight_status(results.get().Next().Value(&result.result))
                     if result.result == NULL:
                         break
                 yield result
@@ -1323,7 +1323,7 @@ cdef class FlightClient(_Weakrefable):
             while True:
                 result = FlightInfo.__new__(FlightInfo)
                 with nogil:
-                    check_flight_status(listing.get().Next(&result.info))
+                    check_flight_status(listing.get().Next().Value(&result.info))
                     if result.info == NULL:
                         break
                 yield result
@@ -1354,7 +1354,7 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_status(
                 self.client.get()
-                    .GetSchema(deref(c_options), c_descriptor, &result.result)
+                    .GetSchema(deref(c_options), c_descriptor).Value(&result.result)
             )
 
         return result
@@ -1724,7 +1724,8 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     max_attempts = 128
     for _ in range(max_attempts):
         if stream.current_stream != nullptr:
-            check_flight_status(stream.current_stream.get().Next(payload))
+            check_flight_status(
+                stream.current_stream.get().Next().Value(payload))
             # If the stream ended, see if there's another stream from the
             # generator
             if payload.ipc_message.metadata != nullptr:
