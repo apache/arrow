@@ -34,7 +34,7 @@ if [ ${R_PRUNE_DEPS} = "true" ]; then
   # To prevent the build from timing out, let's prune some optional deps (and their possible version requirements)
   ${R_BIN} -e 'd <- read.dcf("DESCRIPTION")
   to_prune <- c("duckdb", "DBI", "dbplyr", "decor", "knitr", "rmarkdown", "pkgload", "reticulate")
-  pattern <- paste0("\\n?", to_prune, ".*?,?", collapse = "|")
+  pattern <- paste0("\\n?", to_prune, " (\\\\(.*\\\\))?,?", collapse = "|")
   d[,"Suggests"] <- gsub(pattern, "", d[,"Suggests"])
   write.dcf(d, "DESCRIPTION")'
 fi
