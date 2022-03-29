@@ -277,7 +277,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     return FutureToSync(fut);
   }
 
-  /// \brief Transform an AsyncGenerator into an Iterator that will use the calling thread
+  /// \brief Transform an AsyncGenerator into an Iterator
   ///
   /// An event loop will be created and each call to Next will power the event loop with
   /// the calling thread until the next item is ready to be delivered.
