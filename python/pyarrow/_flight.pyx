@@ -1176,6 +1176,7 @@ cdef class FlightClient(_Weakrefable):
         """Connect to a Flight server.
 
         .. deprecated:: 0.15.0
+            Use the ``FlightClient`` constructor or ``pyarrow.flight.connect`` function instead.
         """
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient constructor or pyarrow.flight.connect "
@@ -2764,6 +2765,7 @@ cdef class FlightServerBase(_Weakrefable):
         """Block until the server shuts down.
 
         .. deprecated:: 0.15.0
+            Use the ``FlightServer.serve`` method instead
         """
         warnings.warn("The 'FlightServer.run' method is deprecated, use "
                       "FlightServer.serve method instead")
