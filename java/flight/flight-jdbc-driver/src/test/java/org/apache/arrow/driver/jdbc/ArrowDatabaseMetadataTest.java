@@ -304,7 +304,7 @@ public class ArrowDatabaseMetadataTest {
 
   @BeforeClass
   public static void setUpBeforeClass() throws SQLException {
-    connection = FLIGHT_SERVER_TEST_RULE.getConnection();
+    connection = FLIGHT_SERVER_TEST_RULE.getConnection(false);
 
     final Message commandGetCatalogs = CommandGetCatalogs.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetCatalogsResultProducer = listener -> {

@@ -52,14 +52,14 @@ public class TokenAuthenticationTest {
 
   @Test(expected = SQLException.class)
   public void connectUsingTokenAuthenticationShouldFail() throws SQLException {
-    try (Connection ignored = FLIGHT_SERVER_TEST_RULE.getConnectionFromToken("invalid")) {
+    try (Connection ignored = FLIGHT_SERVER_TEST_RULE.getConnection(false, "invalid")) {
       Assert.fail();
     }
   }
 
   @Test
   public void connectUsingTokenAuthenticationShouldSuccess() throws SQLException {
-    try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnectionFromToken("1234")) {
+    try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnection(false, "1234")) {
       Assert.assertFalse(connection.isClosed());
     }
   }

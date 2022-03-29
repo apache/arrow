@@ -91,6 +91,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
+    properties.put("useTls", false);
 
     try (Connection connection = DriverManager.getConnection(
         "jdbc:arrow-flight://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
@@ -393,10 +394,11 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&threadPoolSize=1",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&threadPoolSize=1&useTls=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
-            passTest));
+            passTest,
+            false));
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
@@ -420,6 +422,7 @@ public class ConnectionTest {
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
     properties.setProperty(ArrowFlightConnectionProperty.THREAD_POOL_SIZE.camelName(), "1");
+    properties.put("useTls", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -449,6 +452,7 @@ public class ConnectionTest {
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
     properties.put(ArrowFlightConnectionProperty.THREAD_POOL_SIZE.camelName(), 1);
+    properties.put("useTls", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -473,10 +477,11 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
-            passTest));
+            passTest,
+            false));
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
@@ -499,6 +504,7 @@ public class ConnectionTest {
         userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
+    properties.put("useTls", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -527,6 +533,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
+    properties.put("useTls", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(

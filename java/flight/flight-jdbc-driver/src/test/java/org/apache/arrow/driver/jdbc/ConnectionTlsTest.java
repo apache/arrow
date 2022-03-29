@@ -241,7 +241,6 @@ public class ConnectionTlsTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
 

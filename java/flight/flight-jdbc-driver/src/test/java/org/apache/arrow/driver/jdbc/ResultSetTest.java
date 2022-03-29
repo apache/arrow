@@ -57,7 +57,7 @@ public class ResultSetTest {
 
   @BeforeClass
   public static void setup() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection();
+    connection = SERVER_TEST_RULE.getConnection(false);
   }
 
   @AfterClass
