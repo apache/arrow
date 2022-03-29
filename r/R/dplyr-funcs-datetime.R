@@ -330,3 +330,56 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
 
   build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
+
+binding_as_date <- function(x,
+                            format = NULL,
+                            tryFormats = "%Y-%m-%d",
+                            origin = "1970-01-01",
+                            tz = "UTC",
+                            base = TRUE) {
+  # the origin argument will be better supported once we implement temporal
+  # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
+  # TODO revisit once the above has been sorted
+  # if (call_binding("is.numeric", x) & origin != "1970-01-01") {
+  #   abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
+  # }
+# browser()
+  if (is.null(format) && length(tryFormats) > 1) {
+    abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+  }
+
+  if (call_binding("is.Date", x)) {
+    return(x)
+
+    # cast from POSIXct
+  } else if (call_binding("is.POSIXct", x)) {
+    # base::as.Date() first converts to the desired timezone and then extracts
+    # the date, which is why we need to go through timestamp() first
+    if (base || !missing(tz)) {
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+    }
+    # POSIXct is of type double -> we need this to prevent going down the
+    # "double" branch
+    x <- x
+
+    # cast from character
+  } else if (call_binding("is.character", x)) {
+    format <- format %||% tryFormats[[1]]
+    # unit = 0L is the identifier for seconds in valid_time32_units
+    x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
+
+    # cast from numeric
+  } else if (call_binding("is.numeric", x) &
+             (!call_binding("is.integer", x) | origin != "1970-01-01")) {
+    # Arrow does not support direct casting from double to date32(), but for
+    # integer-like values we can go via int32()
+    # https://issues.apache.org/jira/browse/ARROW-15798
+    # TODO revisit if arrow decides to support double -> date casting
+    x <- build_expr("cast", x, options = cast_options(to_type = int32()))
+    delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
+    delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int64()))
+    delta_in_days <- (delta_in_sec / 86400L)$cast(int32())
+    x <- build_expr("+", x, delta_in_days)
+  }
+  build_expr("cast", x, options = cast_options(to_type = date32()))
+}

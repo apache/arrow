@@ -82,88 +82,27 @@ register_bindings_type_cast <- function() {
                                        tryFormats = "%Y-%m-%d",
                                        origin = "1970-01-01",
                                        tz = "UTC") {
-    # the origin argument will be better supported once we implement temporal
-    # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
-    # TODO revisit once the above has been sorted
-    if (call_binding("is.numeric", x) & origin != "1970-01-01") {
-      abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
-    }
-
-    # this could be improved with tryFormats once strptime returns NA and we
-    # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
-    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
-    if (is.null(format) && length(tryFormats) > 1) {
-      abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
-    }
-
-    if (call_binding("is.Date", x)) {
-      return(x)
-
-    # cast from POSIXct
-    } else if (call_binding("is.POSIXct", x)) {
-      # base::as.Date() first converts to the desired timezone and then extracts
-      # the date, which is why we need to go through timestamp() first
-      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
-
-    # cast from character
-    } else if (call_binding("is.character", x)) {
-      format <- format %||% tryFormats[[1]]
-      # unit = 0L is the identifier for seconds in valid_time32_units
-      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-
-    # cast from numeric
-    } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
-      # Arrow does not support direct casting from double to date32(), but for
-      # integer-like values we can go via int32()
-      # https://issues.apache.org/jira/browse/ARROW-15798
-      # TODO revisit if arrow decides to support double -> date casting
-      x <- build_expr("cast", x, options = cast_options(to_type = int32()))
-    }
-    build_expr("cast", x, options = cast_options(to_type = date32()))
+    binding_as_date(
+      x = x,
+      format = format,
+      tryFormats = tryFormats,
+      origin = origin,
+      tz = tz,
+      base = TRUE
+    )
   })
 
   register_binding("as_date", function(x,
                                        format = NULL,
                                        origin = "1970-01-01",
                                        tz = "UTC") {
-    # the origin argument will be better supported once we implement temporal
-    # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
-    # TODO revisit once the above has been sorted
-    if (call_binding("is.numeric", x) & origin != "1970-01-01") {
-      abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
-    }
-
-    # assume format is ISO if unspecified (to align with lubridate::as_date)
-    if (is.null(format)) {
-      format <- "%Y-%m-%d"
-    }
-
-    if (call_binding("is.Date", x)) {
-      return(x)
-
-      # cast from POSIXct
-    } else if (call_binding("is.POSIXct", x)) {
-      if (!missing(tz)) {
-        x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
-      }
-      # POSIXct is of type double -> we need this to prevent going down the
-      # "double" branch
-      x <- x
-
-      # cast from character
-    } else if (call_binding("is.character", x)) {
-      # unit = 0L is the identifier for seconds in valid_time32_units
-      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-
-      # cast from numeric
-    } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
-      # Arrow does not support direct casting from double to date32(), but for
-      # integer-like values we can go via int32()
-      # https://issues.apache.org/jira/browse/ARROW-15798
-      # TODO revisit if arrow decides to support double -> date casting
-      x <- build_expr("cast", x, options = cast_options(to_type = int32()))
-    }
-    build_expr("cast", x, options = cast_options(to_type = date32()))
+    binding_as_date(
+      x = x,
+      format = format,
+      origin = origin,
+      tz = tz,
+      base = FALSE
+    )
   })
 
   register_binding("as_datetime", function(x,
