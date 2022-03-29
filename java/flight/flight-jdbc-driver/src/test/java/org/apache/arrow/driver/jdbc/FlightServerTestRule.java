@@ -120,16 +120,11 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return ArrowFlightJdbcConnectionPoolDataSource.createNewDataSource(properties);
   }
 
-  public Connection getConnection() throws SQLException {
-    return this.createDataSource().getConnection();
-  }
-
   public Connection getConnection(boolean useTls, String token) throws SQLException {
     properties.put("token", token);
 
     return getConnection(useTls);
   }
-
 
   public Connection getConnection(boolean useTls) throws SQLException {
     setUseTls(useTls);
@@ -137,9 +132,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   }
 
   private void setUseTls(boolean useTls) {
-    if (!useTls) {
-      properties.put("useTls", false);
-    }
+    properties.put("useTls", useTls);
   }
 
   public MiddlewareCookie.Factory getMiddlewareCookieFactory() {
