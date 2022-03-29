@@ -17,6 +17,7 @@
 
 #include "arrow/flight/transport.h"
 
+#include <sstream>
 #include <unordered_map>
 
 #include "arrow/flight/client_auth.h"
@@ -33,6 +34,107 @@ namespace internal {
 
 ::arrow::Result<std::unique_ptr<ipc::Message>> FlightData::OpenMessage() {
   return ipc::Message::Open(metadata, body);
+}
+
+TransportStatus TransportStatus::FromStatus(const Status& arrow_status) {
+  if (arrow_status.ok()) {
+    return TransportStatus{TransportStatusCode::kOk, ""};
+  }
+
+  TransportStatusCode code = TransportStatusCode::kUnknown;
+  std::string message = arrow_status.message();
+  if (arrow_status.detail()) {
+    message += ". Detail: ";
+    message += arrow_status.detail()->ToString();
+  }
+
+  std::shared_ptr<FlightStatusDetail> flight_status =
+      FlightStatusDetail::UnwrapStatus(arrow_status);
+  if (flight_status) {
+    switch (flight_status->code()) {
+      case FlightStatusCode::Internal:
+        code = TransportStatusCode::kInternal;
+        break;
+      case FlightStatusCode::TimedOut:
+        code = TransportStatusCode::kTimedOut;
+        break;
+      case FlightStatusCode::Cancelled:
+        code = TransportStatusCode::kCancelled;
+        break;
+      case FlightStatusCode::Unauthenticated:
+        code = TransportStatusCode::kUnauthenticated;
+        break;
+      case FlightStatusCode::Unauthorized:
+        code = TransportStatusCode::kUnauthorized;
+        break;
+      case FlightStatusCode::Unavailable:
+        code = TransportStatusCode::kUnavailable;
+        break;
+      default:
+        break;
+    }
+  } else if (arrow_status.IsKeyError()) {
+    code = TransportStatusCode::kNotFound;
+  } else if (arrow_status.IsInvalid()) {
+    code = TransportStatusCode::kInvalidArgument;
+  } else if (arrow_status.IsCancelled()) {
+    code = TransportStatusCode::kCancelled;
+  } else if (arrow_status.IsNotImplemented()) {
+    code = TransportStatusCode::kUnimplemented;
+  } else if (arrow_status.IsAlreadyExists()) {
+    code = TransportStatusCode::kAlreadyExists;
+  }
+  return TransportStatus{code, std::move(message)};
+}
+
+Status TransportStatus::ToStatus() const {
+  switch (code) {
+    case TransportStatusCode::kOk:
+      return Status::OK();
+    case TransportStatusCode::kUnknown: {
+      std::stringstream ss;
+      ss << "Flight RPC failed with message: " << message;
+      return Status::UnknownError(ss.str()).WithDetail(
+          std::make_shared<FlightStatusDetail>(FlightStatusCode::Failed));
+    }
+    case TransportStatusCode::kInternal:
+      return Status::IOError("Flight returned internal error, with message: ", message)
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal));
+    case TransportStatusCode::kInvalidArgument:
+      return Status::Invalid("Flight returned invalid argument error, with message: ",
+                             message);
+    case TransportStatusCode::kTimedOut:
+      return Status::IOError("Flight returned timeout error, with message: ", message)
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::TimedOut));
+    case TransportStatusCode::kNotFound:
+      return Status::KeyError("Flight returned not found error, with message: ", message);
+    case TransportStatusCode::kAlreadyExists:
+      return Status::AlreadyExists("Flight returned already exists error, with message: ",
+                                   message);
+    case TransportStatusCode::kCancelled:
+      return Status::Cancelled("Flight cancelled call, with message: ", message)
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Cancelled));
+    case TransportStatusCode::kUnauthenticated:
+      return Status::IOError("Flight returned unauthenticated error, with message: ",
+                             message)
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unauthenticated));
+    case TransportStatusCode::kUnauthorized:
+      return Status::IOError("Flight returned unauthorized error, with message: ",
+                             message)
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unauthorized));
+    case TransportStatusCode::kUnimplemented:
+      return Status::NotImplemented("Flight returned unimplemented error, with message: ",
+                                    message);
+    case TransportStatusCode::kUnavailable:
+      return Status::IOError("Flight returned unavailable error, with message: ", message)
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unavailable));
+    default:
+      return Status::UnknownError("Flight failed with error code ",
+                                  static_cast<int>(code), " and message: ", message);
+  }
 }
 
 bool TransportDataStream::ReadData(internal::FlightData*) { return false; }
