@@ -120,7 +120,7 @@ test_that("errors in strptime", {
 
 test_that("strptime returns NA when format doesn't match the data", {
   df <- tibble(
-    str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07")
+    str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07", NA)
   )
 
   expect_equal(
@@ -131,9 +131,9 @@ test_that("strptime returns NA when format doesn't match the data", {
         r_obj_parsed_na = strptime("03-27/2022", format = "Y%-%m-%d")) %>%
       collect(),
     tibble(
-      str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07"),
-      r_obj_parsed_date = as.POSIXct(rep("2022-03-27", 4)),
-      r_obj_parsed_na = as.POSIXct(rep(NA, 4))
+      str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07", NA),
+      r_obj_parsed_date = as.POSIXct(rep("2022-03-27", 5)),
+      r_obj_parsed_na = as.POSIXct(rep(NA, 5))
     ),
     ignore_attr = "tzone"
   )
@@ -144,8 +144,8 @@ test_that("strptime returns NA when format doesn't match the data", {
       mutate(parsed_date = strptime(str_date, format = "%Y-%m-%d")) %>%
       collect(),
     tibble(
-      str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07"),
-      parsed_date = as.POSIXct(c("2022-02-07", NA, NA, NA))
+      str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07", NA),
+      parsed_date = as.POSIXct(c("2022-02-07", NA, NA, NA, NA))
     ),
     ignore_attr = "tzone"
   )
@@ -156,8 +156,8 @@ test_that("strptime returns NA when format doesn't match the data", {
       mutate(parsed_date = strptime(str_date, format = "%Y/%m-%d")) %>%
       collect(),
     tibble(
-      str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07"),
-      parsed_date = as.POSIXct(c(NA, "2012-02-07", "1975-01-02", "1981-01-07"))
+      str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07", NA),
+      parsed_date = as.POSIXct(c(NA, "2012-02-07", "1975-01-02", "1981-01-07", NA))
     ),
     ignore_attr = "tzone"
   )
