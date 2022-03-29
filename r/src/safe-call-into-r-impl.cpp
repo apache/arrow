@@ -22,9 +22,10 @@
 #include <thread>
 #include "./safe-call-into-r.h"
 
-static MainRThread main_r_thread;
-
-MainRThread* GetMainRThread() { return &main_r_thread; }
+MainRThread& GetMainRThread() {
+  static MainRThread main_r_thread;
+  return main_r_thread;
+}
 
 arrow::Status MainRThread::RunTask(Task* task) {
   if (IsMainThread()) {
@@ -50,7 +51,7 @@ arrow::Status MainRThread::RunTask(Task* task) {
 }
 
 // [[arrow::export]]
-void InitializeMainRThread() { main_r_thread.Initialize(); }
+void InitializeMainRThread() { GetMainRThread().Initialize(); }
 
 // [[arrow::export]]
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
@@ -80,7 +81,7 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
     delete thread_ptr;
 
     // Stop for any R execution errors that may have occurred
-    GetMainRThread()->ClearError();
+    GetMainRThread().ClearError();
 
     return arrow::ValueOrStop(result);
   } else if (opt == "async_without_executor") {
@@ -103,7 +104,7 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
 
     // We didn't evaluate any R code because it wasn't safe, but
     // if we did and there was an error, we need to stop() here
-    GetMainRThread()->ClearError();
+    GetMainRThread().ClearError();
 
     // We should be able to get this far, but fut will contain an error
     // because it tried to evaluate R code from another thread
@@ -112,7 +113,7 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
   } else if (opt == "on_main_thread") {
     auto result = SafeCallIntoR<std::string>(
         [&]() { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
-    GetMainRThread()->ClearError();
+    GetMainRThread().ClearError();
     arrow::StopIfNotOk(result.status());
     return result.ValueUnsafe();
   } else {

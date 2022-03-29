@@ -90,7 +90,7 @@ class MainRThread {
 };
 
 // Retrieve the MainRThread singleton
-MainRThread* GetMainRThread();
+MainRThread& GetMainRThread();
 
 // Call into R and return a C++ object. Note that you can't return
 // a SEXP (use cpp11::as_sexp<T> to convert it to a C++ type inside
@@ -113,24 +113,24 @@ arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
   };
 
   TypedTask task(fun);
-  ARROW_RETURN_NOT_OK(GetMainRThread()->RunTask(&task));
+  ARROW_RETURN_NOT_OK(GetMainRThread().RunTask(&task));
   return task.result;
 }
 
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> task) {
-  if (GetMainRThread()->Executor() != nullptr) {
+  if (GetMainRThread().Executor() != nullptr) {
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
 
   arrow::Result<T> result = arrow::internal::SerialExecutor::RunInSerialExecutor<T>(
       [task](arrow::internal::Executor* executor) {
-        GetMainRThread()->Executor() = executor;
+        GetMainRThread().Executor() = executor;
         arrow::Future<T> result = task();
         return result;
       });
 
-  GetMainRThread()->Executor() = nullptr;
+  GetMainRThread().Executor() = nullptr;
 
   return result;
 }
