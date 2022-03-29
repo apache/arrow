@@ -2355,17 +2355,17 @@ static void CheckStructToStructSubsetWithNulls(
 
       std::shared_ptr<Array> a1, b1, c1, d1, e1;
       a1 = ArrayFromJSON(src_value_type, "[1, 2, 5]");
-      b1 = ArrayFromJSON(src_value_type, "[3, 4, 7]");
+      b1 = ArrayFromJSON(src_value_type, "[3, null, 7]");
       c1 = ArrayFromJSON(src_value_type, "[9, 11, 44]");
-      d1 = ArrayFromJSON(src_value_type, "[6, 51, 49]");
-      e1 = ArrayFromJSON(src_value_type, "[19, 17, 74]");
+      d1 = ArrayFromJSON(src_value_type, "[6, 51, null]");
+      e1 = ArrayFromJSON(src_value_type, "[null, 17, 74]");
 
       std::shared_ptr<Array> a2, b2, c2, d2, e2;
       a2 = ArrayFromJSON(dest_value_type, "[1, 2, 5]");
-      b2 = ArrayFromJSON(dest_value_type, "[3, 4, 7]");
+      b2 = ArrayFromJSON(dest_value_type, "[3, null, 7]");
       c2 = ArrayFromJSON(dest_value_type, "[9, 11, 44]");
-      d2 = ArrayFromJSON(dest_value_type, "[6, 51, 49]");
-      e2 = ArrayFromJSON(dest_value_type, "[19, 17, 74]");
+      d2 = ArrayFromJSON(dest_value_type, "[6, 51, null]");
+      e2 = ArrayFromJSON(dest_value_type, "[null, 17, 74]");
 
       std::shared_ptr<Buffer> null_bitmap;
       BitmapFromVector<int>({0, 1, 0}, &null_bitmap);
