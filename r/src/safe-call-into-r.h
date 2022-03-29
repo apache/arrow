@@ -59,7 +59,7 @@ class MainRThread {
   };
 
   // Run `task` if it is safe to do so or return an error otherwise.
-  arrow::Result<Task*> RunTask(Task* task);
+  arrow::Future<Task*> RunTask(Task* task);
 
   // The Executor that is running on the main R thread, if it exists
   arrow::internal::Executor*& Executor() { return executor_; }
@@ -113,7 +113,8 @@ arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
   };
 
   TypedTask task(std::move(fun));
-  ARROW_RETURN_NOT_OK(GetMainRThread().RunTask(&task));
+  arrow::Future<MainRThread::Task*> task_result = GetMainRThread().RunTask(&task);
+  ARROW_RETURN_NOT_OK(task_result.result());
   return task.result;
 }
 
