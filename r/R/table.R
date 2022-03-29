@@ -169,7 +169,7 @@ rbind.Table <- function(...) {
   # create chunked array from each column
   columns <- vector(mode = "list", length = tables[[1]]$num_columns)
   for (i in seq_len(length(columns))) {
-    columns[[i]] <- do.call(ChunkedArray$create, unlist(lapply(tables, function(table) table[[i]]$chunks)))
+    columns[[i]] <- do.call(c, lapply(tables, function(tab) tab[[i]]))
   }
 
   # return new table

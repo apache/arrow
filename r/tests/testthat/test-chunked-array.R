@@ -100,6 +100,13 @@ test_that("print ChunkedArray", {
   })
 })
 
+test_that("ChunkedArray can be concatenated with c()", {
+  a <- chunked_array(c(1, 2), 3)
+  b <- chunked_array(c(4, 5), 6)
+  expected <- chunked_array(c(1, 2), 3, c(4, 5), 6)
+  expect_equal(c(a, b), expected)
+})
+
 test_that("ChunkedArray handles !!! splicing", {
   data <- list(1, 2, 3)
   x <- chunked_array(!!!data)
