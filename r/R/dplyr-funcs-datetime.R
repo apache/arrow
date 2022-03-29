@@ -330,8 +330,8 @@ register_bindings_duration <- function() {
     total <- call_binding(
       "if_else",
       build_expr("is_leap_year", date),
-      call_binding("as.integer64", 31622400L),  # number of seconds in a leap year (366 days)
-      call_binding("as.integer64", 31536000L)   # number of seconds in a regular year (365 days)
+      Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
+      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
       )
     y + sofar$cast(int64()) / total
   })
@@ -342,8 +342,8 @@ register_bindings_duration <- function() {
     seconds <- call_binding(
       "if_else",
       build_expr("is_leap_year", start),
-      call_binding("as.integer64", 31622400L),  # number of seconds in a leap year (366 days)
-      call_binding("as.integer64", 31536000L)   # number of seconds in a regular year (365 days)
+      Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
+      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
     )
 
     fraction <- decimal - y
