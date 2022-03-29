@@ -49,18 +49,6 @@ class MainRThread {
   // Check if the current thread is the main R thread
   bool IsMainThread() { return initialized_ && std::this_thread::get_id() == thread_id_; }
 
-  // Class whose run() method will be called from the main R thread
-  // but whose results may be accessed (as class fields) from
-  // potentially another thread.
-  class Task {
-   public:
-    virtual ~Task() {}
-    virtual arrow::Result<Task*> run() = 0;
-  };
-
-  // Run `task` if it is safe to do so or return an error otherwise.
-  arrow::Future<Task*> RunTask(Task* task);
-
   // The Executor that is running on the main R thread, if it exists
   arrow::internal::Executor*& Executor() { return executor_; }
 
@@ -96,26 +84,31 @@ MainRThread& GetMainRThread();
 // a SEXP (use cpp11::as_cpp<T> to convert it to a C++ type inside
 // `fun`).
 template <typename T>
-arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
-  class TypedTask : public MainRThread::Task {
-   public:
-    explicit TypedTask(std::function<T(void)> fun) : fun_(fun) {}
-
-    arrow::Result<Task*> run() {
-      result = fun_();
-      return this;
+arrow::Future<T> SafeCallIntoRAsync(std::function<T(void)> fun) {
+  MainRThread& main_r_thread = GetMainRThread();
+  if (main_r_thread.IsMainThread()) {
+    // If we're on the main thread, run the task immediately
+    try {
+      return arrow::Future<T>::MakeFinished(fun());
+    } catch (cpp11::unwind_exception& e) {
+      main_r_thread.SetError(e.token);
+      return arrow::Future<T>::MakeFinished(
+          arrow::Status::UnknownError("R code execution error"));
     }
+  } else if (main_r_thread.Executor() != nullptr) {
+    // If we are not on the main thread and have an Executor
+    // use it to run the task on the main R thread.
+    return DeferNotOk(main_r_thread.Executor()->Submit(fun));
+  } else {
+    return arrow::Future<T>::MakeFinished(arrow::Status::NotImplemented(
+        "Call to R from a non-R thread without calling RunWithCapturedR"));
+  }
+}
 
-    T result;
-
-   private:
-    std::function<T(void)> fun_;
-  };
-
-  TypedTask task(std::move(fun));
-  arrow::Future<MainRThread::Task*> task_result = GetMainRThread().RunTask(&task);
-  ARROW_RETURN_NOT_OK(task_result.result());
-  return task.result;
+template <typename T>
+arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
+  arrow::Future<T> result = SafeCallIntoRAsync<T>(std::move(fun));
+  return result.result();
 }
 
 template <typename T>

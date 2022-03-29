@@ -27,25 +27,6 @@ MainRThread& GetMainRThread() {
   return main_r_thread;
 }
 
-arrow::Future<MainRThread::Task*> MainRThread::RunTask(Task* task) {
-  if (IsMainThread()) {
-    // If we're on the main thread, run the task immediately
-    try {
-      return arrow::Future<Task*>::MakeFinished(task->run());
-    } catch (cpp11::unwind_exception& e) {
-      SetError(e.token);
-      return arrow::Future<Task*>::MakeFinished(arrow::Status::UnknownError("R code execution error"));
-    }
-  } else if (executor_ != nullptr) {
-    // If we are not on the main thread and have an Executor
-    // use it to run the task on the main R thread.
-    return DeferNotOk(executor_->Submit([task]() { return task->run(); }));
-  } else {
-    return arrow::Future<Task*>::MakeFinished(arrow::Status::NotImplemented(
-        "Call to R from a non-R thread without calling RunWithCapturedR"));
-  }
-}
-
 // [[arrow::export]]
 void InitializeMainRThread() { GetMainRThread().Initialize(); }
 
