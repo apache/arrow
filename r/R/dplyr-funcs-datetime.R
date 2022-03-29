@@ -322,32 +322,32 @@ register_bindings_duration <- function() {
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
   register_binding("decimal_date", function(date) {
-    # browser()
     y <- build_expr("year", date)
-    # timezone <- call_binding("tz", date)
     start <- call_binding("make_datetime", year = y, tz = "UTC")
-    end <- call_binding("make_datetime", year = y + 1L, tz = "UTC")
-    # maybe use yday here
     sofar <- call_binding("difftime", date, start, units = "secs")
-    total <- call_binding("difftime", end, start, units = "secs")
-    y + sofar$cast(int64()) / total$cast(int64())
+    total <- call_binding(
+      "if_else",
+      build_expr("is_leap_year", date),
+      call_binding("as.integer64", 31622400L),  # number of seconds in a leap year (366 days)
+      call_binding("as.integer64", 31536000L)   # number of seconds in a regular year (365 days)
+      )
+    y + sofar$cast(int64()) / total
   })
   register_binding("date_decimal", function(decimal, tz = "UTC") {
-    y <- build_expr(
-      "cast",
-      decimal,
-      options = cast_options(to_type = int32(), safe = FALSE)
-    )
+    y <- build_expr("floor", decimal)
 
     start <- call_binding("make_datetime", year = y, tz = tz)
-    end <- call_binding("make_datetime", year = y + 1, tz = tz)
+    seconds <- call_binding(
+      "if_else",
+      build_expr("is_leap_year", start),
+      call_binding("as.integer64", 31622400L),  # number of seconds in a leap year (366 days)
+      call_binding("as.integer64", 31536000L)   # number of seconds in a regular year (365 days)
+    )
 
-    seconds <- call_binding("difftime", end, start, units = "secs")
     fraction <- decimal - y
-    delta <- seconds$cast(int64()) * fraction
-    delta <- delta$cast(int64(), safe = FALSE)
-    end <- start + delta$cast(duration("s"))
-    end
+    delta <- build_expr("floor", seconds * fraction)
+    delta <- delta$cast(int64())
+    start + delta$cast(duration("s"))
   })
 }
 
