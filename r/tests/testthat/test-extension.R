@@ -53,7 +53,7 @@ test_that("extension type subclasses work", {
         private$some_custom_field
       },
 
-      populate_instance = function() {
+      deserialize_instance = function() {
         private$some_custom_field <- head(self$extension_metadata(), 5)
       }
     ),
@@ -130,7 +130,7 @@ test_that("extension subclasses can override the ExtensionEquals method", {
     public = list(
       field_values = NULL,
 
-      populate_instance = function() {
+      deserialize_instance = function() {
         self$field_values <- unserialize(self$extension_metadata())
       },
 

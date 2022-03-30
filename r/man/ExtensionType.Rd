@@ -29,7 +29,7 @@ with this extension type.
 In addition, subclasses may override the following methos to customize
 the behaviour of extension classes.
 \itemize{
-\item \verb{$populate_instance()}: This method is called when a new \link{ExtensionType}
+\item \verb{$deserialize_instance()}: This method is called when a new \link{ExtensionType}
 is initialized and is responsible for parsing and validating
 the serialized extension_metadata (a \code{\link[=raw]{raw()}} vector)
 such that its contents can be inspected by fields and/or methods

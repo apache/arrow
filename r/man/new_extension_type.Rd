@@ -66,7 +66,7 @@ These functions create, register, and unregister \link{ExtensionType}
 and \link{ExtensionArray} objects. To use an extension type you will have to:
 \itemize{
 \item Define an \link[R6:R6Class]{R6::R6Class} that inherits from \link{ExtensionType} and reimplement
-one or more methods (e.g., \code{populate_instance()}).
+one or more methods (e.g., \code{deserialize_instance()}).
 \item Make a type constructor function (e.g., \code{my_extension_type()}) that calls
 \code{\link[=new_extension_type]{new_extension_type()}} to create an R6 instance that can be used as a
 \link[=data-type]{data type} elsewhere in the package.
@@ -112,7 +112,7 @@ QuantizedType <- R6::R6Class(
     },
 
     # populate the custom metadata fields from the serialized metadata
-    populate_instance = function() {
+    deserialize_instance = function() {
       vals <- as.numeric(strsplit(self$extension_metadata_utf8(), ";")[[1]])
       private$.center <- vals[1]
       private$.scale <- vals[2]
