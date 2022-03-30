@@ -321,9 +321,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
             vector[c_string] field_names, CPartitioningFactoryOptions)
-        
-        vector[shared_ptr[CArray]] dictionaries() const
 
+        vector[shared_ptr[CArray]] dictionaries() const
 
     cdef cppclass CHivePartitioning \
             "arrow::dataset::HivePartitioning"(CPartitioning):
@@ -334,9 +333,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
             CHivePartitioningFactoryOptions)
-        
-        vector[shared_ptr[CArray]] dictionaries() const
 
+        vector[shared_ptr[CArray]] dictionaries() const
 
     cdef cppclass CFilenamePartitioning \
             "arrow::dataset::FilenamePartitioning"(CPartitioning):
@@ -346,9 +344,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
             vector[c_string] field_names, CPartitioningFactoryOptions)
-        
-        vector[shared_ptr[CArray]] dictionaries() const
 
+        vector[shared_ptr[CArray]] dictionaries() const
 
     cdef cppclass CPartitioningOrFactory \
             "arrow::dataset::PartitioningOrFactory":

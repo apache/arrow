@@ -531,7 +531,7 @@ def test_partitioning():
             pa.field('key', pa.float64())
         ])
     )
-    assert partitioning.dictionaries is None
+    assert len(partitioning.dictionaries) == 0
     expr = partitioning.parse('/3/3.14')
     assert isinstance(expr, ds.Expression)
 
@@ -552,7 +552,7 @@ def test_partitioning():
         ]),
         null_fallback='xyz'
     )
-    assert partitioning.dictionaries is None
+    assert len(partitioning.dictionaries) == 0
     expr = partitioning.parse('/alpha=0/beta=3')
     expected = (
         (ds.field('alpha') == ds.scalar(0)) &
@@ -576,7 +576,7 @@ def test_partitioning():
             pa.field('key', pa.float64())
         ])
     )
-    assert partitioning.dictionaries is None
+    assert len(partitioning.dictionaries) == 0
     expr = partitioning.parse('3_3.14_')
     assert isinstance(expr, ds.Expression)
 
@@ -586,11 +586,27 @@ def test_partitioning():
     with pytest.raises(pa.ArrowInvalid):
         partitioning.parse('prefix_3_aaa_')
 
-# @pytest.mark.parquet
-# def test_partitioning_dictionaries(tempdir):
-#     directory = tempdir / "partitioned-dataset"
-#     directory.mkdir()
+    partitioning = ds.DirectoryPartitioning(
+        pa.schema([
+            pa.field('group', pa.int64()),
+            pa.field('key', pa.dictionary(pa.int8(), pa.string()))
+        ]),
+        dictionaries={
+            "key": pa.array(["first", "second", "third"]),
+        })
+    assert partitioning.dictionaries[0].to_pylist() == [
+        "first", "second", "third"]
 
+    partitioning = ds.FilenamePartitioning(
+        pa.schema([
+            pa.field('group', pa.int64()),
+            pa.field('key', pa.dictionary(pa.int8(), pa.string()))
+        ]),
+        dictionaries={
+            "key": pa.array(["first", "second", "third"]),
+        })
+    assert partitioning.dictionaries[0].to_pylist() == [
+        "first", "second", "third"]
 
 
 def test_expression_arithmetic_operators():
@@ -3288,13 +3304,13 @@ def test_dataset_preserved_partitioning(tempdir):
     # through discovery, with hive partitioning (from a partitioning object)
     part = ds.partitioning(pa.schema([("part", pa.int32())]), flavor="hive")
     assert isinstance(part, ds.HivePartitioning)  # not a factory
-    assert part.dictionaries is None
+    assert len(part.dictionaries) == 0
     dataset = ds.dataset(path, partitioning=part)
     part = dataset.partitioning
     assert isinstance(part, ds.HivePartitioning)
     assert part.schema == pa.schema([("part", pa.int32())])
     # TODO is this expected?
-    assert part.dictionaries is None
+    assert len(part.dictionaries) == 0
 
     # through manual creation -> not available
     dataset = ds.dataset(path, partitioning="hive")
