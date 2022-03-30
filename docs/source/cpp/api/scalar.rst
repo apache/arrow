@@ -36,3 +36,12 @@ Concrete scalar subclasses
    :content-only:
    :members:
    :undoc-members:
+
+
+Utilities
+=========
+
+.. doxygenclass:: arrow::ScalarVisitor
+   :project: arrow_cpp
+   :members:
+   :undoc-members:

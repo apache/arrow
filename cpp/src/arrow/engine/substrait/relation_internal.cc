@@ -19,6 +19,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
@@ -85,7 +86,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
             "substrait::ReadRel::LocalFiles::advanced_extension");
       }
 
-      auto format = std::make_shared<dataset::ParquetFileFormat>();
+      std::shared_ptr<dataset::FileFormat> format;
       auto filesystem = std::make_shared<fs::LocalFileSystem>();
       std::vector<std::shared_ptr<dataset::FileFragment>> fragments;
 
@@ -97,8 +98,14 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
               "path_type other than uri_file");
         }
 
-        if (item.format() !=
+        if (item.format() ==
             substrait::ReadRel::LocalFiles::FileOrFiles::FILE_FORMAT_PARQUET) {
+          format = std::make_shared<dataset::ParquetFileFormat>();
+        } else if (util::string_view{item.uri_file()}.ends_with(".arrow")) {
+          format = std::make_shared<dataset::IpcFileFormat>();
+        } else if (util::string_view{item.uri_file()}.ends_with(".feather")) {
+          format = std::make_shared<dataset::IpcFileFormat>();
+        } else {
           return Status::NotImplemented(
               "substrait::ReadRel::LocalFiles::FileOrFiles::format "
               "other than FILE_FORMAT_PARQUET");

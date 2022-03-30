@@ -319,49 +319,16 @@ Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {
 
 Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
     const FileSource& source) const {
-  ARROW_ASSIGN_OR_RAISE(auto reader, GetReader(source));
+  auto scan_options = std::make_shared<ScanOptions>();
+  ARROW_ASSIGN_OR_RAISE(auto reader, GetReader(source, scan_options));
   std::shared_ptr<Schema> schema;
   RETURN_NOT_OK(reader->GetSchema(&schema));
   return schema;
 }
 
-Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
-    const FileSource& source, ScanOptions* options) const {
-  ARROW_ASSIGN_OR_RAISE(auto parquet_scan_options,
-                        GetFragmentScanOptions<ParquetFragmentScanOptions>(
-                            kParquetTypeName, options, default_fragment_scan_options));
-  MemoryPool* pool = options ? options->pool : default_memory_pool();
-  auto properties = MakeReaderProperties(*this, parquet_scan_options.get(), pool);
-
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-
-  auto make_reader = [&]() -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
-    BEGIN_PARQUET_CATCH_EXCEPTIONS
-    return parquet::ParquetFileReader::Open(std::move(input), std::move(properties));
-    END_PARQUET_CATCH_EXCEPTIONS
-  };
-
-  auto maybe_reader = std::move(make_reader)();
-  if (!maybe_reader.ok()) {
-    return WrapSourceError(maybe_reader.status(), source.path());
-  }
-  std::unique_ptr<parquet::ParquetFileReader> reader = *std::move(maybe_reader);
-  std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-  auto arrow_properties = MakeArrowReaderProperties(*this, *metadata);
-
-  if (options) {
-    arrow_properties.set_batch_size(options->batch_size);
-  }
-
-  if (options && !options->use_threads) {
-    arrow_properties.set_use_threads(
-        parquet_scan_options->enable_parallel_column_conversion);
-  }
-
-  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-  RETURN_NOT_OK(parquet::arrow::FileReader::Make(
-      pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
-  return std::move(arrow_reader);
+Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
+    const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
+  return GetReaderAsync(source, options).result();
 }
 
 Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
@@ -557,7 +524,8 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
 
   if (reader == nullptr) {
     lock.Unlock();
-    ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
+    auto scan_options = std::make_shared<ScanOptions>();
+    ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_, scan_options));
     return EnsureCompleteMetadata(reader.get());
   }
 
@@ -817,7 +785,8 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
     options.partition_base_dir = base_path;
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto reader, format->GetReader(metadata_source));
+  auto scan_options = std::make_shared<ScanOptions>();
+  ARROW_ASSIGN_OR_RAISE(auto reader, format->GetReader(metadata_source, scan_options));
   std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
 
   if (metadata->num_columns() == 0) {

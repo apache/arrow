@@ -104,7 +104,7 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
-#' @seealso [read_feather()] for writing IPC files. [RecordBatchReader] for a
+#' @seealso [write_feather()] for writing IPC files. [RecordBatchReader] for a
 #' lower-level interface.
 #' @export
 read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {

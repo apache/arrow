@@ -24,6 +24,7 @@ API Reference
 
    api/support
    api/memory
+   api/thread
    api/datatype
    api/array
    api/scalar

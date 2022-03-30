@@ -36,7 +36,9 @@ import pyarrow._parquet as _parquet
 from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
-                              ParquetSchema, ColumnSchema)
+                              ParquetSchema, ColumnSchema,
+                              FileEncryptionProperties,
+                              FileDecryptionProperties)
 from pyarrow.fs import (LocalFileSystem, FileSystem,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
@@ -221,17 +223,21 @@ class ParquetFile:
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds.
+    decryption_properties : FileDecryptionProperties, default None
+        File decryption properties for Parquet Modular Encryption.
     """
 
     def __init__(self, source, metadata=None, common_metadata=None,
                  read_dictionary=None, memory_map=False, buffer_size=0,
-                 pre_buffer=False, coerce_int96_timestamp_unit=None):
+                 pre_buffer=False, coerce_int96_timestamp_unit=None,
+                 decryption_properties=None):
         self.reader = ParquetReader()
         self.reader.open(
             source, use_memory_map=memory_map,
             buffer_size=buffer_size, pre_buffer=pre_buffer,
             read_dictionary=read_dictionary, metadata=metadata,
-            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+            decryption_properties=decryption_properties
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -594,6 +600,16 @@ use_compliant_nested_type : bool, default False
                 <element-repetition> <element-type> item;
             }
         }
+encryption_properties : FileEncryptionProperties, default None
+    File encryption properties for Parquet Modular Encryption.
+    If None, no encryption will be done.
+    The encryption properties can be created using:
+    ``CryptoFactory.file_encryption_properties()``.
+write_batch_size : int, default None
+    Number of values to write to a page at a time. If None, use the default of
+    1024. ``write_batch_size`` is complementary to ``data_page_size``. If pages
+    are exceeding the ``data_page_size`` due to large column values, lowering
+    the batch size can help keep page sizes closer to the intended size.
 """
 
 
@@ -628,6 +644,8 @@ writer_engine_version : unused
                  writer_engine_version=None,
                  data_page_version='1.0',
                  use_compliant_nested_type=False,
+                 encryption_properties=None,
+                 write_batch_size=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -680,6 +698,8 @@ writer_engine_version : unused
             writer_engine_version=engine_version,
             data_page_version=data_page_version,
             use_compliant_nested_type=use_compliant_nested_type,
+            encryption_properties=encryption_properties,
+            write_batch_size=write_batch_size,
             **options)
         self.is_open = True
 
@@ -1686,7 +1706,8 @@ class _ParquetDatasetV2:
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, ignore_prefixes=None, pre_buffer=True,
-                 coerce_int96_timestamp_unit=None, **kwargs):
+                 coerce_int96_timestamp_unit=None,
+                 decryption_properties=None, **kwargs):
         import pyarrow.dataset as ds
 
         # Raise error for not supported keywords
@@ -1709,6 +1730,9 @@ class _ParquetDatasetV2:
                                 buffer_size=buffer_size)
         if read_dictionary is not None:
             read_options.update(dictionary_columns=read_dictionary)
+
+        if decryption_properties is not None:
+            read_options.update(decryption_properties=decryption_properties)
 
         # map filters to Expressions
         self._filters = filters
@@ -1755,11 +1779,9 @@ class _ParquetDatasetV2:
             else:
                 single_file = path_or_paths
 
-        if single_file is not None:
-            self._enable_parallel_column_conversion = True
-            read_options.update(enable_parallel_column_conversion=True)
+        parquet_format = ds.ParquetFileFormat(**read_options)
 
-            parquet_format = ds.ParquetFileFormat(**read_options)
+        if single_file is not None:
             fragment = parquet_format.make_fragment(single_file, filesystem)
 
             self._dataset = ds.FileSystemDataset(
@@ -1768,10 +1790,6 @@ class _ParquetDatasetV2:
                 filesystem=fragment.filesystem
             )
             return
-        else:
-            self._enable_parallel_column_conversion = False
-
-        parquet_format = ds.ParquetFileFormat(**read_options)
 
         # check partitioning to enable dictionary encoding
         if partitioning == "hive":
@@ -1821,12 +1839,6 @@ class _ParquetDatasetV2:
                 columns = (
                     list(columns) + list(set(index_columns) - set(columns))
                 )
-
-        if self._enable_parallel_column_conversion:
-            if use_threads:
-                # Allow per-column parallelism; would otherwise cause
-                # contention in the presence of per-file parallelism.
-                use_threads = False
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
@@ -1903,7 +1915,8 @@ use_legacy_dataset : bool, default False
     pyarrow 1.0.0. Among other things, this allows to pass `filters`
     for all columns and not only the partition keys, enables
     different partitioning schemes, etc.
-    Set to True to use the legacy behaviour.
+    Set to True to use the legacy behaviour (this option is deprecated,
+    and the legacy implementation will be removed in a future version).
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process if use_legacy_dataset=False.
@@ -1935,7 +1948,10 @@ coerce_int96_timestamp_unit : str, default None.
     resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
     and therefore INT96 timestamps will be inferred as timestamps
     in nanoseconds.
-
+decryption_properties : FileDecryptionProperties or None
+    File-level decryption properties.
+    The decryption properties can be created using
+    ``CryptoFactory.file_decryption_properties()``.
 Returns
 -------
 {2}
@@ -1947,7 +1963,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=False,
                ignore_prefixes=None, pre_buffer=True,
-               coerce_int96_timestamp_unit=None):
+               coerce_int96_timestamp_unit=None,
+               decryption_properties=None):
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(
@@ -1990,11 +2007,18 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 source, metadata=metadata, read_dictionary=read_dictionary,
                 memory_map=memory_map, buffer_size=buffer_size,
                 pre_buffer=pre_buffer,
-                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+                decryption_properties=decryption_properties
             )
 
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
+
+    warnings.warn(
+        "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
+        "deprecated as of pyarrow 8.0.0, and the legacy implementation will "
+        "be removed in a future version.",
+        DeprecationWarning, stacklevel=2)
 
     if ignore_prefixes is not None:
         raise ValueError(
@@ -2016,7 +2040,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             read_dictionary=read_dictionary,
             memory_map=memory_map,
             buffer_size=buffer_size,
-            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+            decryption_properties=decryption_properties
         )
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
@@ -2067,6 +2092,8 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 column_encoding=None,
                 data_page_version='1.0',
                 use_compliant_nested_type=False,
+                encryption_properties=None,
+                write_batch_size=None,
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -2088,6 +2115,8 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 column_encoding=column_encoding,
                 data_page_version=data_page_version,
                 use_compliant_nested_type=use_compliant_nested_type,
+                encryption_properties=encryption_properties,
+                write_batch_size=write_batch_size,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
@@ -2325,7 +2354,7 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
         metadata.write_metadata_file(where)
 
 
-def read_metadata(where, memory_map=False):
+def read_metadata(where, memory_map=False, decryption_properties=None):
     """
     Read FileMetadata from footer of a single Parquet file.
 
@@ -2334,15 +2363,18 @@ def read_metadata(where, memory_map=False):
     where : str (file path) or file-like object
     memory_map : bool, default False
         Create memory map when the source is a file path.
+    decryption_properties : FileDecryptionProperties, default None
+        Decryption properties for reading encrypted Parquet files.
 
     Returns
     -------
     metadata : FileMetadata
     """
-    return ParquetFile(where, memory_map=memory_map).metadata
+    return ParquetFile(where, memory_map=memory_map,
+                       decryption_properties=decryption_properties).metadata
 
 
-def read_schema(where, memory_map=False):
+def read_schema(where, memory_map=False, decryption_properties=None):
     """
     Read effective Arrow schema from Parquet file metadata.
 
@@ -2351,9 +2383,13 @@ def read_schema(where, memory_map=False):
     where : str (file path) or file-like object
     memory_map : bool, default False
         Create memory map when the source is a file path.
+    decryption_properties : FileDecryptionProperties, default None
+        Decryption properties for reading encrypted Parquet files.
 
     Returns
     -------
     schema : pyarrow.Schema
     """
-    return ParquetFile(where, memory_map=memory_map).schema.to_arrow_schema()
+    return ParquetFile(
+        where, memory_map=memory_map,
+        decryption_properties=decryption_properties).schema.to_arrow_schema()

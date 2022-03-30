@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// \brief Implementation of Flight RPC client using gRPC. API should be
-// considered experimental for now
+/// \brief Implementation of Flight RPC client. API should be
+/// considered experimental for now
 
 #pragma once
 
@@ -34,6 +34,7 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/variant.h"
 
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"  // IWYU pragma: keep
 #include "arrow/flight/visibility.h"
 
@@ -43,10 +44,6 @@ class RecordBatch;
 class Schema;
 
 namespace flight {
-
-class ClientAuthHandler;
-class ClientMiddleware;
-class ClientMiddlewareFactory;
 
 /// \brief A duration type for Flight call timeouts.
 typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDuration;
@@ -136,11 +133,22 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
  public:
   /// \brief Try to cancel the call.
   virtual void Cancel() = 0;
-  using MetadataRecordBatchReader::ReadAll;
+
+  using MetadataRecordBatchReader::ToRecordBatches;
   /// \brief Consume entire stream as a vector of record batches
-  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
-                         const StopToken& stop_token) = 0;
+  virtual arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
+      const StopToken& stop_token) = 0;
+
+  using MetadataRecordBatchReader::ReadAll;
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                 const StopToken& stop_token);
+
+  using MetadataRecordBatchReader::ToTable;
   /// \brief Consume entire stream as a Table
+  arrow::Result<std::shared_ptr<Table>> ToTable(const StopToken& stop_token);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
   Status ReadAll(std::shared_ptr<Table>* table, const StopToken& stop_token);
 };
 
@@ -176,7 +184,7 @@ class ARROW_FLIGHT_EXPORT FlightMetadataReader {
   virtual Status ReadMetadata(std::shared_ptr<Buffer>* out) = 0;
 };
 
-/// \brief Client class for Arrow Flight RPC services (gRPC-based).
+/// \brief Client class for Arrow Flight RPC services.
 /// API experimental for now
 class ARROW_FLIGHT_EXPORT FlightClient {
  public:
@@ -256,13 +264,22 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request, whether a named dataset or
   /// command
-  /// \param[out] schema_result the SchemaResult describing the dataset schema
-  /// \return Status
+  /// \return Arrow result with the SchemaResult describing the dataset schema
+  arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
                    std::unique_ptr<SchemaResult>* schema_result);
+
+  arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
+      const FlightDescriptor& descriptor) {
+    return GetSchema({}, descriptor);
+  }
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(const FlightDescriptor& descriptor,
                    std::unique_ptr<SchemaResult>* schema_result) {
-    return GetSchema({}, descriptor, schema_result);
+    return GetSchema({}, descriptor).Value(schema_result);
   }
 
   /// \brief List all available flights known to the server
@@ -336,8 +353,9 @@ class ARROW_FLIGHT_EXPORT FlightClient {
  private:
   FlightClient();
   Status CheckOpen() const;
-  class FlightClientImpl;
-  std::unique_ptr<FlightClientImpl> impl_;
+  std::unique_ptr<internal::ClientTransport> transport_;
+  bool closed_;
+  int64_t write_size_limit_bytes_;
 };
 
 }  // namespace flight

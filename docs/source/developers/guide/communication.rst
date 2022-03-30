@@ -78,7 +78,7 @@ might think is not a good idea.
 .. seealso::
 
    - :ref:`create_jira`
-   - :ref:`jira-tips`
+   - :ref:`jira-tips` and :ref:`bug-report-tips`
 
 - If you want to **solve an issue that is already in JIRA**, you should
   connect with other contributors in the issue comments.

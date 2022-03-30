@@ -596,7 +596,7 @@ Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
   key_value_field->level_info = current_levels;
 
   out->field = ::arrow::field(group.name(),
-                              ::arrow::map(key_field->field->type(), value_field->field),
+                              std::make_shared<::arrow::MapType>(key_value_field->field),
                               group.is_optional(), FieldIdMetadata(group.field_id()));
   out->level_info = current_levels;
   // At this point current levels contains the def level for this list,

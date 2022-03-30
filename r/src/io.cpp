@@ -25,6 +25,7 @@
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/io/transform.h>
+#include <arrow/util/key_value_metadata.h>
 
 // ------ arrow::io::Readable
 
@@ -89,6 +90,29 @@ std::shared_ptr<arrow::Buffer> io___RandomAccessFile__ReadAt(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position,
     int64_t nbytes) {
   return ValueOrStop(x->ReadAt(position, nbytes));
+}
+
+// [[arrow::export]]
+cpp11::strings io___RandomAccessFile__ReadMetadata(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
+  std::shared_ptr<const arrow::KeyValueMetadata> metadata =
+      ValueOrStop(x->ReadMetadata());
+  if (metadata.get() == nullptr) {
+    return cpp11::writable::strings();
+  }
+
+  cpp11::writable::strings metadata_r;
+  cpp11::writable::strings metadata_r_names;
+  metadata_r.reserve(metadata->size());
+  metadata_r_names.reserve(metadata->size());
+
+  for (int64_t i = 0; i < metadata->size(); i++) {
+    metadata_r.push_back(metadata->value(i));
+    metadata_r_names.push_back(metadata->key(i));
+  }
+
+  metadata_r.names() = metadata_r_names;
+  return metadata_r;
 }
 
 // ------ arrow::io::MemoryMappedFile

@@ -83,7 +83,31 @@ Customized parsing
 
 To alter the default parsing settings in case of reading CSV files with an
 unusual structure, you should create a :class:`ParseOptions` instance
-and pass it to :func:`read_csv`.
+and pass it to :func:`read_csv`::
+
+    import pyarrow as pa
+    import pyarrow.csv as csv
+
+    table = csv.read_csv('tips.csv.gz', parse_options=csv.ParseOptions(
+       delimiter=";",
+       invalid_row_handler=skip_handler
+    ))
+
+Available parsing options are:
+
+.. autosummary::
+
+  ~ParseOptions.delimiter
+  ~ParseOptions.quote_char
+  ~ParseOptions.double_quote
+  ~ParseOptions.escape_char
+  ~ParseOptions.newlines_in_values
+  ~ParseOptions.ignore_empty_lines
+  ~ParseOptions.invalid_row_handler
+
+.. seealso::
+
+   For more examples see :class:`ParseOptions`.
 
 Customized conversion
 ---------------------
@@ -94,13 +118,34 @@ a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
    import pyarrow as pa
    import pyarrow.csv as csv
 
-   table = csv.read_csv('tips.csv.gz', convert_options=pa.csv.ConvertOptions(
+   table = csv.read_csv('tips.csv.gz', convert_options=csv.ConvertOptions(
        column_types={
            'total_bill': pa.decimal128(precision=10, scale=2),
            'tip': pa.decimal128(precision=10, scale=2),
        }
    ))
 
+Available convert options are:
+
+.. autosummary::
+
+  ~ConvertOptions.check_utf8
+  ~ConvertOptions.column_types
+  ~ConvertOptions.null_values
+  ~ConvertOptions.true_values
+  ~ConvertOptions.false_values
+  ~ConvertOptions.decimal_point
+  ~ConvertOptions.timestamp_parsers
+  ~ConvertOptions.strings_can_be_null
+  ~ConvertOptions.quoted_strings_can_be_null
+  ~ConvertOptions.auto_dict_encode
+  ~ConvertOptions.auto_dict_max_cardinality
+  ~ConvertOptions.include_columns
+  ~ConvertOptions.include_missing_columns
+
+.. seealso::
+
+   For more examples see :class:`ConvertOptions`.
 
 Incremental reading
 -------------------
@@ -123,7 +168,31 @@ Character encoding
 
 By default, CSV files are expected to be encoded in UTF8.  Non-UTF8 data
 is accepted for ``binary`` columns.  The encoding can be changed using
-the :class:`ReadOptions` class.
+the :class:`ReadOptions` class::
+
+    import pyarrow as pa
+    import pyarrow.csv as csv
+
+    table = csv.read_csv('tips.csv.gz', read_options=csv.ReadOptions(
+       column_names=["animals", "n_legs", "entry"],
+       skip_rows=1
+    ))
+
+Available read options are:
+
+.. autosummary::
+
+  ~ReadOptions.use_threads
+  ~ReadOptions.block_size
+  ~ReadOptions.skip_rows
+  ~ReadOptions.skip_rows_after_names
+  ~ReadOptions.column_names
+  ~ReadOptions.autogenerate_column_names
+  ~ReadOptions.encoding
+
+.. seealso::
+
+   For more examples see :class:`ReadOptions`.
 
 Customized writing
 ------------------

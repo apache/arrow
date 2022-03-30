@@ -187,8 +187,8 @@ types analogously to the \code{readr} type mapping:
 \item "l": \code{bool()}
 \item "f": \code{dictionary()}
 \item "D": \code{date32()}
-\item "T": \code{timestamp()}
-\item "t": \code{time32()}
+\item "T": \code{timestamp(unit = "ns")}
+\item "t": \code{time32()} (The \code{unit} arg is set to the default value \code{"ms"})
 \item "_": \code{null()}
 \item "-": \code{null()}
 \item "?": infer the type from the data
@@ -214,5 +214,11 @@ df <- read_csv_arrow(tf)
 dim(df)
 # Can select columns
 df <- read_csv_arrow(tf, col_select = starts_with("d"))
+
+# Specifying column types and names
+write.csv(data.frame(x = c(1, 3), y = c(2, 4)), file = tf, row.names = FALSE)
+read_csv_arrow(tf, schema = schema(x = int32(), y = utf8()), skip = 1)
+read_csv_arrow(tf, col_types = schema(y = utf8()))
+read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
 \dontshow{\}) # examplesIf}
 }

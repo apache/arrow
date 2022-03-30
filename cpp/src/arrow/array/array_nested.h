@@ -142,6 +142,10 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
       MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list offsets as an Int32Array
+  ///
+  /// The returned array will not have a validity bitmap, so you cannot expect
+  /// to pass it to ListArray::FromArrays() and get back the same list array
+  /// if the original one has nulls.
   std::shared_ptr<Array> offsets() const;
 
  protected:

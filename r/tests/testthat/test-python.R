@@ -111,7 +111,8 @@ test_that("Field roundtrip", {
 })
 
 test_that("RecordBatchReader to python", {
-  library(dplyr)
+  skip_if_not_available("dataset")
+  library(dplyr, warn.conflicts = FALSE)
 
   tab <- Table$create(example_data)
   scan <- tab %>%
@@ -134,6 +135,8 @@ test_that("RecordBatchReader to python", {
 })
 
 test_that("RecordBatchReader from python", {
+  skip_if_not_available("dataset")
+
   tab <- Table$create(example_data)
   scan <- Scanner$create(tab)
   reader <- scan$ToRecordBatchReader()

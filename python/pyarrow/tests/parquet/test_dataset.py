@@ -46,8 +46,6 @@ try:
 except ImportError:
     pd = tm = None
 
-pytestmark = pytest.mark.parquet
-
 
 @pytest.mark.pandas
 def test_parquet_piece_read(tempdir):

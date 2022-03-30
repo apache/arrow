@@ -63,12 +63,14 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GTest
     LLVM
     Lz4
+    nlohmann_json
     opentelemetry-cpp
     ORC
     re2
     Protobuf
     RapidJSON
     Snappy
+    Substrait
     Thrift
     utf8proc
     xsimd
@@ -161,6 +163,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
+    build_nlohmann_json()
   elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
     build_opentelemetry()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
@@ -173,6 +177,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
     build_snappy()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Substrait")
+    build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
@@ -273,6 +279,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
+  set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -296,11 +303,13 @@ if(ARROW_FLIGHT)
 endif()
 
 if(ARROW_WITH_GRPC)
+  set(ARROW_WITH_RE2 ON)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(ARROW_GCS)
   set(ARROW_WITH_GOOGLE_CLOUD_CPP ON)
+  set(ARROW_WITH_NLOHMANN_JSON ON)
 endif()
 
 if(ARROW_JSON)
@@ -309,8 +318,15 @@ endif()
 
 if(ARROW_ORC
    OR ARROW_FLIGHT
-   OR ARROW_GANDIVA
-   OR ARROW_ENGINE)
+   OR ARROW_GANDIVA)
+  set(ARROW_WITH_PROTOBUF ON)
+endif()
+
+if(ARROW_ENGINE)
+  set(ARROW_WITH_SUBSTRAIT ON)
+endif()
+
+if(ARROW_WITH_SUBSTRAIT)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -608,6 +624,14 @@ else()
              "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
              "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
   endif()
+endif()
+
+if(DEFINED ENV{ARROW_SUBSTRAIT_URL})
+  set(SUBSTRAIT_SOURCE_URL "$ENV{ARROW_SUBSTRAIT_URL}")
+else()
+  set_urls(SUBSTRAIT_SOURCE_URL
+           "https://github.com/substrait-io/substrait/archive/${ARROW_SUBSTRAIT_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
@@ -1421,7 +1445,7 @@ if(ARROW_WITH_THRIFT)
 endif()
 
 # ----------------------------------------------------------------------
-# Protocol Buffers (required for ORC and Flight and Gandiva libraries)
+# Protocol Buffers (required for ORC, Flight, Gandiva and Substrait libraries)
 
 macro(build_protobuf)
   message("Building Protocol Buffers from source")
@@ -1606,6 +1630,88 @@ if(ARROW_WITH_PROTOBUF)
 endif()
 
 # ----------------------------------------------------------------------
+# Substrait (required by compute engine)
+
+macro(build_substrait)
+  message("Building Substrait from source")
+
+  set(SUBSTRAIT_PROTOS
+      capabilities
+      expression
+      extensions/extensions
+      function
+      parameterized_types
+      plan
+      relations
+      type
+      type_expressions)
+
+  externalproject_add(substrait_ep
+                      CONFIGURE_COMMAND ""
+                      BUILD_COMMAND ""
+                      INSTALL_COMMAND ""
+                      URL ${SUBSTRAIT_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_SUBSTRAIT_BUILD_SHA256_CHECKSUM}")
+
+  externalproject_get_property(substrait_ep SOURCE_DIR)
+  set(SUBSTRAIT_LOCAL_DIR ${SOURCE_DIR})
+
+  set(SUBSTRAIT_CPP_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait_ep-generated")
+  file(MAKE_DIRECTORY ${SUBSTRAIT_CPP_DIR})
+
+  set(SUBSTRAIT_SUPPRESSED_WARNINGS)
+  if(MSVC)
+    # Protobuf generated files trigger some spurious warnings on MSVC.
+
+    # Implicit conversion from uint64_t to uint32_t:
+    list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4244")
+
+    # Missing dll-interface:
+    list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4251")
+  endif()
+
+  set(SUBSTRAIT_SOURCES)
+  set(SUBSTRAIT_PROTO_GEN_ALL)
+  foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
+    set(SUBSTRAIT_PROTO_GEN "${SUBSTRAIT_CPP_DIR}/substrait/${SUBSTRAIT_PROTO}.pb")
+
+    foreach(EXT h cc)
+      set_source_files_properties("${SUBSTRAIT_PROTO_GEN}.${EXT}"
+                                  PROPERTIES COMPILE_OPTIONS
+                                             "${SUBSTRAIT_SUPPRESSED_WARNINGS}"
+                                             GENERATED TRUE
+                                             SKIP_UNITY_BUILD_INCLUSION TRUE)
+      list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
+    endforeach()
+    add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.cc" "${SUBSTRAIT_PROTO_GEN}.h"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
+                               "--cpp_out=${SUBSTRAIT_CPP_DIR}"
+                               "${SUBSTRAIT_LOCAL_DIR}/proto/substrait/${SUBSTRAIT_PROTO}.proto"
+                       DEPENDS ${PROTO_DEPENDS} substrait_ep)
+
+    list(APPEND SUBSTRAIT_SOURCES "${SUBSTRAIT_PROTO_GEN}.cc")
+  endforeach()
+
+  add_custom_target(substrait_gen ALL DEPENDS ${SUBSTRAIT_PROTO_GEN_ALL})
+
+  set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${PROTOBUF_INCLUDE_DIR})
+
+  add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
+  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
+  target_link_libraries(substrait INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
+  add_dependencies(substrait substrait_gen)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
+endmacro()
+
+if(ARROW_WITH_SUBSTRAIT)
+  # Currently, we can only build Substrait from source.
+  set(Substrait_SOURCE "BUNDLED")
+  resolve_dependency(Substrait)
+endif()
+
+# ----------------------------------------------------------------------
 # jemalloc - Unix-only high-performance allocator
 
 if(ARROW_JEMALLOC)
@@ -1725,6 +1831,11 @@ if(ARROW_MIMALLOC)
                                    IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${MIMALLOC_INCLUDE_DIR}")
+  if(WIN32)
+    set_property(TARGET mimalloc::mimalloc
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES "bcrypt.lib" "psapi.lib")
+  endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
 
@@ -2289,7 +2400,14 @@ if(ARROW_WITH_RE2)
   # source not uses C++ 11.
   resolve_dependency(re2 HAVE_ALT TRUE)
   if(${re2_SOURCE} STREQUAL "SYSTEM")
-    get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
+    get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+    if(NOT RE2_LIB)
+      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_RELEASE)
+    endif()
+    if(NOT RE2_LIB)
+      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
+    endif()
+
     string(APPEND ARROW_PC_LIBS_PRIVATE " ${RE2_LIB}")
   endif()
   add_definitions(-DARROW_WITH_RE2)
@@ -3300,6 +3418,14 @@ macro(build_absl_once)
                           absl::raw_logging_internal
                           absl::strings
                           absl::time_zone)
+    if(APPLE)
+      # This is due to upstream absl::cctz issue
+      # https://github.com/abseil/abseil-cpp/issues/283
+      find_library(CoreFoundation CoreFoundation)
+      set_property(TARGET absl::time
+                   APPEND
+                   PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
+    endif()
     set_property(TARGET absl::type_traits PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
     set_property(TARGET absl::utility
                  PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::config
@@ -3472,13 +3598,28 @@ macro(build_grpc)
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   set(GRPC_GPR_ABSL_LIBRARIES
+      absl::bad_optional_access
       absl::base
-      absl::statusor
-      absl::status
       absl::cord
+      absl::debugging_internal
+      absl::demangle_internal
+      absl::graphcycles_internal
+      absl::int128
+      absl::malloc_internal
+      absl::raw_logging_internal
+      absl::spinlock_wait
+      absl::stacktrace
+      absl::status
+      absl::statusor
       absl::strings
+      absl::strings_internal
+      absl::str_format_internal
+      absl::symbolize
       absl::synchronization
-      absl::time)
+      absl::throw_delegate
+      absl::time
+      absl::time_zone)
+
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
@@ -3637,36 +3778,41 @@ macro(build_crc32c_once)
   endif()
 endmacro()
 
-macro(build_nlohmann_json_once)
-  if(NOT TARGET nlohmann_json_ep)
-    message(STATUS "Building nlohmann-json from source")
-    # "Build" nlohmann-json
-    set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
-    set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
-    set(NLOHMANN_JSON_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DBUILD_TESTING=OFF -DJSON_BuildTests=OFF)
+macro(build_nlohmann_json)
+  message(STATUS "Building nlohmann-json from source")
+  # "Build" nlohmann-json
+  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
+  set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
+  set(NLOHMANN_JSON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF
+      -DJSON_BuildTests=OFF)
 
-    set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
+  set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
-    externalproject_add(nlohmann_json_ep
-                        ${EP_LOG_OPTIONS}
-                        INSTALL_DIR ${NLOHMANN_JSON_PREFIX}
-                        URL ${NLOHMANN_JSON_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+  externalproject_add(nlohmann_json_ep
+                      ${EP_LOG_OPTIONS}
+                      INSTALL_DIR ${NLOHMANN_JSON_PREFIX}
+                      URL ${NLOHMANN_JSON_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
 
-    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-    file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
 
-    add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-    set_target_properties(nlohmann_json::nlohmann_json
-                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                     "${NLOHMANN_JSON_INCLUDE_DIR}")
-    add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
-  endif()
+  add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+  set_target_properties(nlohmann_json::nlohmann_json
+                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                   "${NLOHMANN_JSON_INCLUDE_DIR}")
+  add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
 endmacro()
+if(ARROW_WITH_NLOHMANN_JSON)
+  resolve_dependency(nlohmann_json)
+  get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${nlohmann_json_INCLUDE_DIR})
+  message(STATUS "Found nlohmann_json headers: ${nlohmann_json_INCLUDE_DIR}")
+endif()
 
 macro(build_google_cloud_cpp_storage)
   message(STATUS "Building google-cloud-cpp from source")
@@ -3675,7 +3821,6 @@ macro(build_google_cloud_cpp_storage)
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/master/doc/packaging.md
   build_absl_once()
   build_crc32c_once()
-  build_nlohmann_json_once()
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
@@ -3690,8 +3835,9 @@ macro(build_google_cloud_cpp_storage)
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
 
   set(GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST_SEP_CHAR "|")
-  list(JOIN GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST
-       ${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST_SEP_CHAR} GOOGLE_CLOUD_CPP_PREFIX_PATH)
+  # JOIN is CMake >=3.12 only
+  string(REPLACE ";" ${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST_SEP_CHAR}
+                 GOOGLE_CLOUD_CPP_PREFIX_PATH "${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST}")
 
   set(GOOGLE_CLOUD_CPP_INSTALL_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/google_cloud_cpp_ep-install")
@@ -3715,7 +3861,7 @@ macro(build_google_cloud_cpp_storage)
 
   add_dependencies(google_cloud_cpp_dependencies absl_ep)
   add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
-  add_dependencies(google_cloud_cpp_dependencies nlohmann_json_ep)
+  add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3906,10 +4052,7 @@ endif()
 # OpenTelemetry C++
 
 macro(build_opentelemetry)
-  message("Building OpenTelemetry from source")
-
-  build_nlohmann_json_once()
-  find_curl()
+  message(STATUS "Building OpenTelemetry from source")
 
   set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
   set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")
@@ -4018,8 +4161,8 @@ macro(build_opentelemetry)
                       INSTALL_COMMAND ""
                       EXCLUDE_FROM_ALL OFF)
 
-  add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep
-                   ${ARROW_PROTOBUF_LIBPROTOBUF})
+  add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json
+                   opentelemetry_proto_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   set(OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR "|")
   # JOIN is CMake >=3.12 only
@@ -4110,6 +4253,9 @@ macro(build_opentelemetry)
 endmacro()
 
 if(ARROW_WITH_OPENTELEMETRY)
+  # cURL is required whether we build from source or use an existing installation
+  # (OTel's cmake files do not call find_curl for you)
+  find_curl()
   set(opentelemetry-cpp_SOURCE "AUTO")
   resolve_dependency(opentelemetry-cpp)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api

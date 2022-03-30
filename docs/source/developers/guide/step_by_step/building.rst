@@ -113,12 +113,14 @@ In general on Python side, the options are set with CMake flags and
 paths with environment variables. In R the environment variables are used
 for all things connected to the build, also for setting CMake flags.
 
+.. _build_libraries_guide:
+
 Building other Arrow libraries
 ==============================
 
 .. tabs::
 
-   .. tab:: Building Pyarrow
+   .. tab:: Building PyArrow
 
       After building the Arrow C++ library, you need to build PyArrow on top
       of it also. The reason is the same; so you can edit the code and run
@@ -143,6 +145,27 @@ Building other Arrow libraries
          Or
 
          - :ref:`build_pyarrow_win`
+
+      When you will make change to the code, you may need to recompile
+      PyArrow or Arrow C++:
+
+      **Recompiling Cython**
+
+      If you only make changes to ``.py`` files, you do not need to
+      recompile PyArrow. However, you should recompile it if you make
+      changes in ``.pyx`` or ``.pxd`` files.
+
+      To do that run this command again:
+
+      .. code:: console
+
+         $ python setup.py build_ext --inplace
+
+      **Recompiling C++**
+
+      Similarly, you will need to recompile the C++ code if you have
+      made changes to any C++ files. In this case,
+      re-run the build commands again.
 
    .. tab:: Building the R package
 

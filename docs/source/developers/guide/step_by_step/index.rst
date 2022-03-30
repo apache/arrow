@@ -29,4 +29,5 @@ Steps in making your first PR
    finding_issues
    arrow_codebase
    testing
+   styling
    pr_lifecycle

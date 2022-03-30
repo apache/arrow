@@ -73,6 +73,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
   option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
+  option(PYARROW_BUILD_PARQUET_ENCRYPTION
+         "Build the PyArrow Parquet encryption integration" OFF)
   option(PYARROW_BOOST_USE_SHARED
          "Rely on boost shared libraries on linking static parquet" ON)
   option(PYARROW_BUILD_PLASMA "Build the PyArrow Plasma integration" OFF)
@@ -397,6 +399,7 @@ set(CYTHON_EXTENSIONS
     lib
     _compute
     _csv
+    _exec_plan
     _feather
     _fs
     _hdfsio
@@ -476,6 +479,9 @@ if(PYARROW_BUILD_PARQUET)
     set(PARQUET_LINK_LIBS parquet_static thrift_static boost_regex_static)
   endif()
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet)
+  if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet_encryption)
+  endif()
   if(PYARROW_BUILD_DATASET)
     set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_parquet)
   endif()
@@ -635,6 +641,9 @@ endif()
 
 if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
+  if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+    target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS})
+  endif()
 endif()
 
 if(PYARROW_BUILD_PLASMA)

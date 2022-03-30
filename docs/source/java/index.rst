@@ -24,6 +24,8 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
 .. toctree::
    :maxdepth: 2
 
+   install
+   memory
    vector
    vector_schema_root
    ipc

@@ -202,12 +202,3 @@ r/inst/include/cpp11.hpp
 r/inst/include/cpp11/*.hpp
 .gitattributes
 ruby/red-arrow/.yardopts
-julia/Arrow/Project.toml
-julia/Arrow/README.md
-julia/Arrow/docs/Manifest.toml
-julia/Arrow/docs/Project.toml
-julia/Arrow/docs/make.jl
-julia/Arrow/docs/mkdocs.yml
-julia/Arrow/docs/src/index.md
-julia/Arrow/docs/src/manual.md
-julia/Arrow/docs/src/reference.md

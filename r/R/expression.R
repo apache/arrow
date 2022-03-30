@@ -62,10 +62,12 @@
 
   # date and time functions
   "day" = "day",
+  "dst" = "is_dst",
   "hour" = "hour",
   "isoweek" = "iso_week",
   "epiweek" = "us_week",
   "isoyear" = "iso_year",
+  "epiyear" = "us_year",
   "minute" = "minute",
   "quarter" = "quarter",
   # second is defined in dplyr-functions.R

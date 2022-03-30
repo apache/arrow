@@ -350,7 +350,7 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 @pytest.mark.zstd
 def test_compression_roundtrip():
     sink = io.BytesIO()
-    values = np.random.randint(0, 10, 10000)
+    values = np.random.randint(0, 3, 10000)
     table = pa.Table.from_arrays([values], names=["values"])
 
     options = pa.ipc.IpcWriteOptions(compression='zstd')

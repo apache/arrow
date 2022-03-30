@@ -78,6 +78,15 @@ TEST(ErrnoFromStatus, Basics) {
 
   st = CancelledFromSignal(SIGINT, "foo");
   ASSERT_EQ(ErrnoFromStatus(st), 0);
+
+#ifdef _WIN32
+  // If possible, a Windows error detail can be mapped to a corresponding
+  // errno value.
+  st = StatusFromWinError(ERROR_FILE_NOT_FOUND, StatusCode::KeyError, "foo");
+  ASSERT_EQ(ErrnoFromStatus(st), ENOENT);
+  st = StatusFromWinError(6789, StatusCode::KeyError, "foo");
+  ASSERT_EQ(ErrnoFromStatus(st), 0);
+#endif
 }
 
 TEST(SignalFromStatus, Basics) {

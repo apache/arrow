@@ -17,7 +17,6 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/v8/arrow/ipc"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -31,7 +30,7 @@ const (
 
 // RowGroupReader is the primary interface for reading a single row group
 type RowGroupReader struct {
-	r             ipc.ReadAtSeeker
+	r             parquet.ReaderAtSeeker
 	sourceSz      int64
 	fileMetadata  *metadata.FileMetaData
 	rgMetadata    *metadata.RowGroupMetaData

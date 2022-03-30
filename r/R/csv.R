@@ -61,8 +61,8 @@
 #' * "l": `bool()`
 #' * "f": `dictionary()`
 #' * "D": `date32()`
-#' * "T": `timestamp()`
-#' * "t": `time32()`
+#' * "T": `timestamp(unit = "ns")`
+#' * "t": `time32()` (The `unit` arg is set to the default value `"ms"`)
 #' * "_": `null()`
 #' * "-": `null()`
 #' * "?": infer the type from the data
@@ -137,6 +137,12 @@
 #' dim(df)
 #' # Can select columns
 #' df <- read_csv_arrow(tf, col_select = starts_with("d"))
+#'
+#' # Specifying column types and names
+#' write.csv(data.frame(x = c(1, 3), y = c(2, 4)), file = tf, row.names = FALSE)
+#' read_csv_arrow(tf, schema = schema(x = int32(), y = utf8()), skip = 1)
+#' read_csv_arrow(tf, col_types = schema(y = utf8()))
+#' read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
@@ -599,7 +605,7 @@ readr_to_csv_convert_options <- function(na,
         "l" = bool(),
         "f" = dictionary(),
         "D" = date32(),
-        "T" = timestamp(),
+        "T" = timestamp(unit = "ns"),
         "t" = time32(),
         "_" = null(),
         "-" = null(),
@@ -699,7 +705,8 @@ write_csv_arrow <- function(x,
   if (is.null(write_options)) {
     write_options <- readr_to_csv_write_options(
       include_header = include_header,
-      batch_size = batch_size)
+      batch_size = batch_size
+    )
   }
 
   x_out <- x
@@ -707,7 +714,9 @@ write_csv_arrow <- function(x,
     x <- Table$create(x)
   }
 
-  assert_that(is_writable_table(x))
+  if (inherits(x, c("Dataset", "arrow_dplyr_query"))) {
+    x <- Scanner$create(x)$ToRecordBatchReader()
+  }
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -718,6 +727,19 @@ write_csv_arrow <- function(x,
     csv___WriteCSV__RecordBatch(x, write_options, sink)
   } else if (inherits(x, "Table")) {
     csv___WriteCSV__Table(x, write_options, sink)
+  } else if (inherits(x, c("RecordBatchReader"))) {
+    csv___WriteCSV__RecordBatchReader(x, write_options, sink)
+  } else {
+    abort(
+      c(
+        paste0(
+          paste(
+            "x must be an object of class 'data.frame', 'RecordBatch',",
+            "'Dataset', 'Table', or 'RecordBatchReader' not '"
+          ), class(x)[[1]], "'."
+        )
+      )
+    )
   }
 
   invisible(x_out)

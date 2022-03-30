@@ -106,7 +106,7 @@ a simple binding for ``mday()`` function that will match that of the
 existing R function from ``lubridate``. The issue can be found on
 `this link <https://issues.apache.org/jira/browse/ARROW-14816>`_.
 
-.. figure:: R_tutorial_jira_issue.jpeg
+.. figure:: /developers/images/R_tutorial_jira_issue.jpeg
    :scale: 40 %
    :alt: JIRA page of the issue for the R binding.
 
@@ -425,7 +425,7 @@ bar with a note that we made recent pushes to the branch
 ARROW-14816. That’s great, now we can make the Pull Request
 by clicking on **Compare & pull request**. 
 
-.. figure:: R_tutorial_create_pr_notice.jpeg
+.. figure:: /developers/images/R_tutorial_create_pr_notice.jpeg
    :scale: 60 %
    :alt: GitHub page of the Apache Arrow repository showing a notice bar
          indicating change has been made in our branch and a Pull Request
@@ -439,7 +439,7 @@ JIRA issue. Note a punctuation mark was added!
 
 We will also add a description to make it clear to others what we are trying to do.
 
-.. figure:: R_tutorial_pr_descr.jpeg
+.. figure:: /developers/images/R_tutorial_pr_descr.jpeg
    :scale: 50 %
    :alt: GitHub page of the Pull Request showing the editor for the
          title and a description.
@@ -449,7 +449,7 @@ We will also add a description to make it clear to others what we are trying to 
 Once we click **Create pull request** our code can be reviewed as
 a Pull Request in the Apache Arrow repository.
 
-.. figure:: R_tutorial_pr.jpeg
+.. figure:: /developers/images/R_tutorial_pr.jpeg
    :scale: 50 %
    :alt: GitHub page of the Pull Request showing the title and a
          description.
@@ -462,6 +462,6 @@ comment, resolve conversations and so on.
 
 .. seealso::
 
-   For more information about Pull Request workflow see :ref:`pr_and_github`.
+   For more information about Pull Request workflow see :ref:`pr_lifecycle`.
 
 The Pull Request we made can be viewed `here <https://github.com/apache/arrow/pull/12218>`_.

@@ -19,9 +19,11 @@
 
 {{ macros.github_header() }}
 
+{% set use_conda = use_conda|default(False) %}
+
 jobs:
   verify:
-    name: "Verify release candidate macOS {{ artifact }}"
+    name: "Verify release candidate on macOS"
     runs-on: {{ github_runner|default("macos-latest") }}
     {% if env is defined %}
     env:
@@ -31,20 +33,33 @@ jobs:
     {% endif %}
 
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
+      {% if not use_conda %}
       - name: Install System Dependencies
         shell: bash
         run: |
           brew update
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile
+      {% endif %}
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
       - uses: actions/setup-node@v2-beta
         with:
           node-version: '16'
+
       - name: Run verification
         shell: bash
+        env:
+          TEST_DEFAULT: 0
+          TEST_{{ target|upper }}: 1
+        {% if use_conda %}
+          USE_CONDA: 1
+        {% endif %}
         run: |
-          arrow/dev/release/verify-release-candidate.sh \
-            {{ artifact }} \
-            {{ release|default("1.0.0") }} {{ rc|default("0") }}
+          arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}

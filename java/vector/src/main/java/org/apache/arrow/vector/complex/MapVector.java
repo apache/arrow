@@ -78,7 +78,7 @@ public class MapVector extends ListVector {
    */
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    checkArgument(children.size() == 1, "Maps have one List child. Found: %s", children);
+    checkArgument(children.size() == 1, "Maps have one List child. Found: %s", children.isEmpty() ? "none" : children);
 
     Field structField = children.get(0);
     MinorType minorType = Types.getMinorTypeForArrowType(structField.getType());

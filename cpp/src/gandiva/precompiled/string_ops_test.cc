@@ -1734,10 +1734,22 @@ TEST(TestStringOps, TestLeftString) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "TestStr");
 
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, -10, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, -11, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
   // the text length for this string is 10 (each utf8 char is represented by two bytes)
   out_str = left_utf8_int32(ctx_ptr, "абвгд", 10, 3, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "абв");
+
+  out_str = left_utf8_int32(ctx_ptr, "¥¥abdc", 8, -6, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestRightString) {
@@ -1766,10 +1778,22 @@ TEST(TestStringOps, TestRightString) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "tString");
 
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, -10, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, -11, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
   // the text length for this string is 10 (each utf8 char is represented by two bytes)
   out_str = right_utf8_int32(ctx_ptr, "абвгд", 10, 3, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "вгд");
+
+  out_str = right_utf8_int32(ctx_ptr, "¥¥abdc", 8, -6, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestBinaryString) {
@@ -2244,47 +2268,65 @@ TEST(TestStringOps, TestFromHex) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   gdv_int32 out_len = 0;
+  bool out_valid = false;
   const char* out_str;
 
-  out_str = from_hex_utf8(ctx_ptr, "414243", 6, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "414243", 6, true, &out_valid, &out_len);
   std::string output = std::string(out_str, out_len);
   EXPECT_EQ(output, "ABC");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "", 0, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "", 0, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "41", 2, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "41", 2, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "A");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "6d6D", 4, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "6d6D", 4, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "mm");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "6f6d", 4, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "6f6d", 4, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "om");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "4f4D", 4, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "4f4D", 4, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "OM");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "T", 1, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "4f4D", 4, false, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");
-  EXPECT_THAT(
-      ctx.get_error(),
-      ::testing::HasSubstr("Error parsing hex string, length was not a multiple of"));
-  ctx.Reset();
+  EXPECT_EQ(out_valid, false);
 
-  out_str = from_hex_utf8(ctx_ptr, "\\x41\\x42\\x43", 12, &out_len);
+  out_str =
+      from_hex_utf8(ctx_ptr, "egular courts above th", 22, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");
-  EXPECT_THAT(
-      ctx.get_error(),
-      ::testing::HasSubstr("Error parsing hex string, one or more bytes are not valid."));
-  ctx.Reset();
+  EXPECT_EQ(out_valid, false);
+
+  out_str =
+      from_hex_utf8(ctx_ptr, "lites. fluffily even de", 23, true, &out_valid, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_EQ(out_valid, false);
+
+  out_str = from_hex_utf8(ctx_ptr, "T", 1, true, &out_valid, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_EQ(out_valid, false);
+
+  out_str = from_hex_utf8(ctx_ptr, "\\x41\\x42\\x43", 12, true, &out_valid, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_EQ(out_valid, false);
 }
 TEST(TestStringOps, TestSoundex) {
   gandiva::ExecutionContext ctx;

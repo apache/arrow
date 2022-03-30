@@ -134,6 +134,7 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 		// the chunk offset will be 0 here except for possibly the first chunk
 		// because of the above advancing logic
 		arrToWrite := array.NewSlice(chunk, chunkOffset, chunkOffset+chunkWriteSize)
+		defer arrToWrite.Release()
 
 		if arrToWrite.Len() > 0 {
 			bldr, err := newMultipathLevelBuilder(arrToWrite, isNullable)
