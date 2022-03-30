@@ -1100,8 +1100,8 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   std::shared_ptr<Schema> schema(
       (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
   status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
-  ASSERT_OK(status);
-  status = writer->Close();
+  // ARROW-16053: gRPC may or may not fail the call immediately
+  if (status.ok()) status = writer->Close();
   ASSERT_RAISES(IOError, status);
   // ARROW-7583: don't check the error message here.
   // Because gRPC reports errors in some paths with booleans, instead
