@@ -335,6 +335,8 @@ jobs:
         run: |
             # To prevent the build from timing out, let's prune some optional deps (and their possible version requirements)
             setwd("r")
+            # create a backup to use later
+            file.copy("DESCRIPTION", "DESCRIPTION.bak")
             d <- read.dcf("DESCRIPTION")
             to_prune <- c("duckdb", "DBI", "dbplyr", "decor", "knitr", "rmarkdown", "pkgload", "reticulate")
             pattern <- paste0("\\n?", to_prune, "( \\([^,]*\\))?,?", collapse = "|")
@@ -361,6 +363,10 @@ jobs:
           setwd("r/windows")
           zip("libarrow.zip", ".")
           setwd("..")
+
+          # restore the old Description
+          file.remove("DESCRIPTION")
+          file.rename("DESCRIPTION.bak", "DESCRIPTION")
 
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
