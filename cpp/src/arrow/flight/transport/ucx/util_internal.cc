@@ -69,7 +69,7 @@ arrow::Result<size_t> UriToSockaddr(const arrow::internal::Uri& uri,
       continue;
     }
 
-    std::memcpy(addr, info->ai_addr, info->ai_addrlen);
+    std::memcpy(addr, cur_info->ai_addr, cur_info->ai_addrlen);
     if (cur_info->ai_family == AF_INET) {
       reinterpret_cast<sockaddr_in*>(addr)->sin_port = htons(uri.port());
     } else if (cur_info->ai_family == AF_INET6) {

@@ -29,7 +29,9 @@ namespace flight {
 namespace transport {
 namespace ucx {
 
+namespace {
 std::once_flag kInitializeOnce;
+}
 void InitializeFlightUcx() {
   std::call_once(kInitializeOnce, []() {
     auto* registry = flight::internal::GetDefaultTransportRegistry();

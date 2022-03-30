@@ -254,7 +254,7 @@ class SimpleTestServer : public FlightServerBase {
       return status_;
     }
     auto examples = ExampleFlightInfo();
-    *info = std::unique_ptr<FlightInfo>(new FlightInfo(examples[0]));
+    info->reset(new FlightInfo(examples[0]));
     return Status::OK();
   }
 
@@ -309,13 +309,12 @@ TEST_F(TestUcx, SequentialClients) {
   Ticket ticket{"a"};
 
   std::unique_ptr<FlightStreamReader> stream1, stream2;
-  std::shared_ptr<Table> table1, table2;
 
   ASSERT_OK(client_->DoGet(ticket, &stream1));
-  ASSERT_OK(stream1->ReadAll(&table1));
+  ASSERT_OK_AND_ASSIGN(auto table1, stream1->ToTable());
 
-  ASSERT_OK(client_->DoGet(ticket, &stream2));
-  ASSERT_OK(stream2->ReadAll(&table2));
+  ASSERT_OK(client2->DoGet(ticket, &stream2));
+  ASSERT_OK_AND_ASSIGN(auto table2, stream2->ToTable());
 
   AssertTablesEqual(*table1, *table2);
 }
@@ -328,13 +327,12 @@ TEST_F(TestUcx, ConcurrentClients) {
   Ticket ticket{"a"};
 
   std::unique_ptr<FlightStreamReader> stream1, stream2;
-  std::shared_ptr<Table> table1, table2;
 
   ASSERT_OK(client_->DoGet(ticket, &stream1));
   ASSERT_OK(client2->DoGet(ticket, &stream2));
 
-  ASSERT_OK(stream1->ReadAll(&table1));
-  ASSERT_OK(stream2->ReadAll(&table2));
+  ASSERT_OK_AND_ASSIGN(auto table1, stream1->ToTable());
+  ASSERT_OK_AND_ASSIGN(auto table2, stream2->ToTable());
 
   AssertTablesEqual(*table1, *table2);
 }

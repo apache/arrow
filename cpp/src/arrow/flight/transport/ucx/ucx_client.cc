@@ -54,9 +54,8 @@ namespace flight {
 namespace transport {
 namespace ucx {
 
-class UcxClientImpl;
-
 namespace {
+class UcxClientImpl;
 
 Status MergeStatuses(Status server_status, Status transport_status) {
   if (server_status.ok()) {
@@ -293,10 +292,8 @@ class WriteClientStream : public UcxClientStream {
     while (true) {
       {
         std::unique_lock<std::mutex> guard(driver_mutex_);
-        working_cv_.wait(guard, [this] {
-          return finished_ || incoming_.is_valid() || outgoing_.is_valid();
-        });
-        if (finished_) return;
+        working_cv_.wait(guard,
+                         [this] { return incoming_.is_valid() || outgoing_.is_valid(); });
       }
 
       while (true) {
@@ -318,8 +315,8 @@ class WriteClientStream : public UcxClientStream {
           break;
         }
         driver_->MakeProgress();
-        if (finished_) return;
       }
+      if (finished_) return;
     }
   }
 
@@ -502,10 +499,8 @@ class ExchangeClientStream : public WriteClientStream {
   internal::FlightData next_data_;
   ReadState read_state_;
 };
-}  // namespace
 
-class ARROW_FLIGHT_EXPORT UcxClientImpl
-    : public arrow::flight::internal::ClientTransport {
+class UcxClientImpl : public arrow::flight::internal::ClientTransport {
  public:
   UcxClientImpl() {}
 
@@ -719,6 +714,7 @@ Status UcxClientStream::DoFinish() {
   }
   return MergeStatuses(server_status_, io_status_);
 }
+}  // namespace
 
 std::unique_ptr<arrow::flight::internal::ClientTransport> MakeUcxClientImpl() {
   return arrow::internal::make_unique<UcxClientImpl>();

@@ -153,8 +153,7 @@ class PutServerStream : public UcxServerStream {
   Status WritePutMetadata(const Buffer& payload) override {
     if (finished_) return Status::OK();
     // Send synchronously (we don't control payload lifetime)
-    RETURN_NOT_OK(driver_->SendFrame(FrameType::kBuffer, payload.data(), payload.size()));
-    return Status::OK();
+    return driver_->SendFrame(FrameType::kBuffer, payload.data(), payload.size());
   }
 
  private:
@@ -202,10 +201,8 @@ class ExchangeServerStream : public PutServerStream {
     return Status::NotImplemented("Not supported on this stream");
   }
 };
-}  // namespace
 
-class ARROW_FLIGHT_EXPORT UcxServerImpl
-    : public arrow::flight::internal::ServerTransport {
+class UcxServerImpl : public arrow::flight::internal::ServerTransport {
  public:
   using arrow::flight::internal::ServerTransport::ServerTransport;
 
@@ -218,9 +215,10 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
     }
   }
 
-  Status Init(const FlightServerOptions& options, const arrow::internal::Uri& uri) {
-    // TODO: this pool should be resized to match CPU cores
-    ARROW_ASSIGN_OR_RAISE(rpc_pool_, arrow::internal::ThreadPool::Make(8));
+  Status Init(const FlightServerOptions& options,
+              const arrow::internal::Uri& uri) override {
+    const auto num_threads = std::max<uint32_t>(8, std::thread::hardware_concurrency());
+    ARROW_ASSIGN_OR_RAISE(rpc_pool_, arrow::internal::ThreadPool::Make(num_threads));
 
     struct sockaddr_storage listen_addr;
     ARROW_ASSIGN_OR_RAISE(auto addrlen, UriToSockaddr(uri, &listen_addr));
@@ -306,7 +304,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
       std::string listen_str;
       ARROW_UNUSED(SockaddrToString(attr.sockaddr).Value(&listen_str));
       FLIGHT_LOG(DEBUG) << "Listening on " << listen_str;
-      RETURN_NOT_OK(Location::Parse(raw_uri, &location_));
+      ARROW_ASSIGN_OR_RAISE(location_, Location::Parse(raw_uri));
     }
 
     {
@@ -354,7 +352,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
   }
 
   Status Wait() override {
-    std::unique_lock<std::mutex> guard(join_mutex_);
+    std::lock_guard<std::mutex> guard(join_mutex_);
     try {
       listener_thread_.join();
     } catch (const std::system_error& e) {
@@ -594,7 +592,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
     return worker;
   }
 
-  /// Callback handler. A new client has connected to the server.
+  // Callback handler. A new client has connected to the server.
   static void HandleIncomingConnection(ucp_conn_request_h connection_request,
                                        void* data) {
     UcxServerImpl* server = reinterpret_cast<UcxServerImpl*>(data);
@@ -631,6 +629,7 @@ class ARROW_FLIGHT_EXPORT UcxServerImpl
   std::mutex pending_connections_mutex_;
   std::queue<ucp_conn_request_h> pending_connections_;
 };
+}  // namespace
 
 std::unique_ptr<arrow::flight::internal::ServerTransport> MakeUcxServerImpl(
     FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager) {

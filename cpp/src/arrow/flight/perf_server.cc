@@ -105,7 +105,7 @@ class PerfDataStream : public FlightDataStream {
     if (records_sent_ >= total_records_) {
       // Signal that iteration is over
       payload.ipc_message.metadata = nullptr;
-      return Status::OK();
+      return payload;
     }
 
     if (verify_) {
@@ -290,12 +290,12 @@ int main(int argc, char** argv) {
         std::cerr << "Transport does not support TLS: " << FLAGS_transport << std::endl;
         return EXIT_FAILURE;
       }
-      ARROW_CHECK_OK(arrow::flight::Location::Parse(
-          "ucx://" + FLAGS_server_host + ":" + std::to_string(FLAGS_port),
-          &bind_location));
-      ARROW_CHECK_OK(arrow::flight::Location::Parse(
-          "ucx://" + FLAGS_server_host + ":" + std::to_string(FLAGS_port),
-          &connect_location));
+      ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
+                                                    std::to_string(FLAGS_port))
+                         .Value(&bind_location));
+      ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
+                                                    std::to_string(FLAGS_port))
+                         .Value(&connect_location));
     } else {
       std::cerr << "Transport does not support domain sockets: " << FLAGS_transport
                 << std::endl;

@@ -22,6 +22,8 @@
 #include <string>
 
 #include "arrow/flight/visibility.h"
+#include "arrow/util/endian.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -30,15 +32,11 @@ namespace transport {
 namespace ucx {
 
 static inline void UInt32ToBytesBe(const uint32_t in, uint8_t* out) {
-  out[0] = static_cast<uint8_t>((in >> 24) & 0xFF);
-  out[1] = static_cast<uint8_t>((in >> 16) & 0xFF);
-  out[2] = static_cast<uint8_t>((in >> 8) & 0xFF);
-  out[3] = static_cast<uint8_t>(in & 0xFF);
+  util::SafeStore(out, bit_util::ToBigEndian(in));
 }
 
 static inline uint32_t BytesToUInt32Be(const uint8_t* in) {
-  return static_cast<uint32_t>(in[3]) | (static_cast<uint32_t>(in[2]) << 8) |
-         (static_cast<uint32_t>(in[1]) << 16) | (static_cast<uint32_t>(in[0]) << 24);
+  return bit_util::FromBigEndian(util::SafeLoadAs<uint32_t>(in));
 }
 
 ARROW_FLIGHT_EXPORT

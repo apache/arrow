@@ -513,9 +513,9 @@ int main(int argc, char** argv) {
                 << std::endl;
       return EXIT_FAILURE;
     }
-    ARROW_CHECK_OK(arrow::flight::Location::Parse(
-        "ucx://" + FLAGS_server_host + ":" + std::to_string(FLAGS_server_port),
-        &location));
+    ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
+                                                  std::to_string(FLAGS_server_port))
+                       .Value(&location));
 #else
     std::cerr << "Not built with transport: " << FLAGS_transport << std::endl;
     return EXIT_FAILURE;
