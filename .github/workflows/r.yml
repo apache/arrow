@@ -358,6 +358,7 @@ jobs:
       - name: Restore DESCRIPTION for 3.6
         if: ${{ matrix.config.rtools == 35 }}
         run: 
+          rm r/DESCRIPTION
           mv r/DESCRIPTION.bak r/DESCRIPTION
       - name: Check
         shell: Rscript {0}
