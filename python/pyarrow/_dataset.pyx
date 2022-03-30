@@ -1345,7 +1345,7 @@ cdef class KeyValuePartitioning(Partitioning):
         Those values are only available if the Partitioning object was
         created through dataset discovery from a PartitioningFactory, or
         if the dictionaries were manually specified in the constructor.
-        If not available, this returns None.
+        If no dictionary field is available, this returns an empty list.
         """
         cdef vector[shared_ptr[CArray]] c_arrays
         c_arrays = self.keyvalue_partitioning.dictionaries()
