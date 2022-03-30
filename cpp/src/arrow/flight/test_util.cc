@@ -501,8 +501,8 @@ NumberingStream::NumberingStream(std::unique_ptr<FlightDataStream> stream)
 
 std::shared_ptr<Schema> NumberingStream::schema() { return stream_->schema(); }
 
-Status NumberingStream::GetSchemaPayload(FlightPayload* payload) {
-  return stream_->GetSchemaPayload(payload);
+arrow::Result<FlightPayload> NumberingStream::GetSchemaPayload() {
+  return stream_->GetSchemaPayload();
 }
 
 arrow::Result<FlightPayload> NumberingStream::Next() {
