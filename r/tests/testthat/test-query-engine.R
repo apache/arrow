@@ -55,7 +55,7 @@ test_that("do_exec_plan_substrait can evaluate a simple plan", {
   substrait_json_roundtrip <- engine__internal__SubstraitToJSON(substrait_buffer)
   expect_match(substrait_json_roundtrip, tf, fixed = TRUE)
 
-  result <- do_exec_plan_substrait(substrait_json, names(df))
+  result <- do_exec_plan_substrait(substrait_json)
   expect_identical(
     tibble::as_tibble(result),
     tibble::as_tibble(df)

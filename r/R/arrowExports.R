@@ -452,8 +452,8 @@ engine__internal__SubstraitFromJSON <- function(substrait_json) {
   .Call(`_arrow_engine__internal__SubstraitFromJSON`, substrait_json)
 }
 
-ExecPlan_run_substrait <- function(plan, serialized_plan, out_names) {
-  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan, out_names)
+ExecPlan_run_substrait <- function(plan, serialized_plan) {
+  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -1943,3 +1943,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

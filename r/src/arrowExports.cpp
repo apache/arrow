@@ -1781,17 +1781,16 @@ extern "C" SEXP _arrow_engine__internal__SubstraitFromJSON(SEXP substrait_json_s
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ENGINE)
-std::shared_ptr<arrow::Table> ExecPlan_run_substrait(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::Buffer>& serialized_plan, cpp11::strings out_names);
-extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp, SEXP out_names_sexp){
+std::shared_ptr<arrow::Table> ExecPlan_run_substrait(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::Buffer>& serialized_plan);
+extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type serialized_plan(serialized_plan_sexp);
-	arrow::r::Input<cpp11::strings>::type out_names(out_names_sexp);
-	return cpp11::as_sexp(ExecPlan_run_substrait(plan, serialized_plan, out_names));
+	return cpp11::as_sexp(ExecPlan_run_substrait(plan, serialized_plan));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp, SEXP out_names_sexp){
+extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp){
 	Rf_error("Cannot call ExecPlan_run_substrait(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -7708,12 +7707,12 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
-		{ "_engine_available", (DL_FUNC)& _engine_available, 0 },
-		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
-		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-		{ "_json_available", (DL_FUNC)& _json_available, 0 },
+{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+{ "_engine_available", (DL_FUNC)& _engine_available, 0 },
+{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
+{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
@@ -7827,7 +7826,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_TableSourceNode", (DL_FUNC) &_arrow_ExecNode_TableSourceNode, 2}, 
 		{ "_arrow_engine__internal__SubstraitToJSON", (DL_FUNC) &_arrow_engine__internal__SubstraitToJSON, 1}, 
 		{ "_arrow_engine__internal__SubstraitFromJSON", (DL_FUNC) &_arrow_engine__internal__SubstraitFromJSON, 1}, 
-		{ "_arrow_ExecPlan_run_substrait", (DL_FUNC) &_arrow_ExecPlan_run_substrait, 3}, 
+		{ "_arrow_ExecPlan_run_substrait", (DL_FUNC) &_arrow_ExecPlan_run_substrait, 2}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
