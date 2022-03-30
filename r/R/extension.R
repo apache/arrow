@@ -87,7 +87,7 @@ ExtensionArray$create <- function(x, type) {
 #' In addition, subclasses may override the following methos to customize
 #' the behaviour of extension classes.
 #'
-#' - `$Deserialize()`: This method is called when a new [ExtensionType]
+#' - `$populate_instance()`: This method is called when a new [ExtensionType]
 #'   is initialized and is responsible for parsing and validating
 #'   the serialized extension_metadata (a [raw()] vector)
 #'   such that its contents can be inspected by fields and/or methods
@@ -110,11 +110,11 @@ ExtensionType <- R6Class("ExtensionType",
   public = list(
 
     # In addition to the initialization that occurs for all
-    # ArrowObject instances, we call Deserialize(), which can
+    # ArrowObject instances, we call populate_instance(), which can
     # be overridden to populate custom fields
     initialize = function(xp) {
       super$initialize(xp)
-      self$Deserialize()
+      self$populate_instance()
     },
 
     # Because of how C++ shared_ptr<> objects are converted to R objects,
@@ -154,7 +154,7 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__MakeArray(self, array$data())
     },
 
-    Deserialize = function() {
+    populate_instance = function() {
       # Do nothing by default but allow other classes to override this method
       # to populate R6 class members.
     },
@@ -223,7 +223,7 @@ ExtensionType <- R6Class("ExtensionType",
 # that object has type_id() EXTENSION_TYPE. Rather than add complexity
 # to the wrapper code, we modify ExtensionType$new() to do what we need
 # it to do here (which is to return an instance of a custom R6
-# type whose .Deserialize method is called to populate custom fields).
+# type whose .populate_instance method is called to populate custom fields).
 ExtensionType$.default_new <- ExtensionType$new
 ExtensionType$new <- function(xp) {
   super <- ExtensionType$.default_new(xp)
@@ -269,7 +269,7 @@ ExtensionType$create <- function(storage_type,
 #' and [ExtensionArray] objects. To use an extension type you will have to:
 #'
 #' - Define an [R6::R6Class] that inherits from [ExtensionType] and reimplement
-#'   one or more methods (e.g., `Deserialize()`).
+#'   one or more methods (e.g., `populate_instance()`).
 #' - Make a type constructor function (e.g., `my_extension_type()`) that calls
 #'   [new_extension_type()] to create an R6 instance that can be used as a
 #'   [data type][data-type] elsewhere in the package.
@@ -335,7 +335,7 @@ ExtensionType$create <- function(storage_type,
 #'     },
 #'
 #'     # populate the custom metadata fields from the serialized metadata
-#'     Deserialize = function() {
+#'     populate_instance = function() {
 #'       vals <- as.numeric(strsplit(self$extension_metadata_utf8(), ";")[[1]])
 #'       private$.center <- vals[1]
 #'       private$.scale <- vals[2]
@@ -447,7 +447,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       paste0(readLines(tf), collapse = "\n")
     },
 
-    Deserialize = function() {
+    populate_instance = function() {
       private$.ptype <- unserialize(self$extension_metadata())
     },
 
