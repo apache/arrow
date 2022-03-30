@@ -219,8 +219,9 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
 #define TIE_SPAN_TO_GENERATOR(generator) \
   generator = ::arrow::internal::tracing::TieSpanToAsyncGenerator(std::move(generator))
 
-#define PROPAGATE_SPAN_TO_GENERATOR(generator) \
-  generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator(std::move(generator))
+#define PROPAGATE_SPAN_TO_GENERATOR(generator)                                \
+  generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator( \
+      std::move(generator))
 
 #define WRAP_ASYNC_GENERATOR(generator, name) \
   generator = ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator), name)
