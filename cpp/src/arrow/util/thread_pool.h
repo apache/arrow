@@ -39,9 +39,6 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#include <opentelemetry/trace/provider.h>
-#include <opentelemetry/trace/scope.h>
-
 #if defined(_MSC_VER)
 // Disable harmless warning for decorated name length limit
 #pragma warning(disable : 4503)
@@ -80,11 +77,6 @@ struct TaskHints {
   // An application-specific ID
   int64_t external_id = -1;
 };
-
-// Forward declare to prevent including tracing_internal.h
-namespace tracing {
-    opentelemetry::trace::Tracer* GetTracer();
-}
 
 class ARROW_EXPORT Executor {
  public:
@@ -159,31 +151,8 @@ class ARROW_EXPORT Executor {
                             Args&&... args) {
     using ValueType = typename FutureType::ValueType;
     auto future = FutureType::Make();
-
-#ifdef ARROW_WITH_OPENTELEMETRY
-    struct {
-      FuncResult operator()(Args&&... args) {
-        auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
-        return std::move(func)(args...);
-      }
-      Function func;
-      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
-    } wrapper{std::forward<Function>(func), ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
-    auto task = std::bind(::arrow::detail::ContinueFuture{}, future,
-                          std::function<FuncResult(Args...)>(wrapper), std::forward<Args>(args)...);
-#else
     auto task = std::bind(::arrow::detail::ContinueFuture{}, future,
                           std::forward<Function>(func), std::forward<Args>(args)...);
-#endif
-
-//    auto activeSpan = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
-//    auto wrapper_func = [=] (Args&&... args) mutable {
-//      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
-//      std::move(func)(std::forward<Args>(args)...);
-//    };
-//
-//    auto task = std::bind(::arrow::detail::ContinueFuture{}, future,
-//                          std::forward<Function>(wrapper_func), std::forward<Args>(args)...);
     struct {
       WeakFuture<ValueType> weak_fut;
 

@@ -1187,10 +1187,8 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
-  GET_CURRENT_SPAN(auto span);
   auto read_column = [=](size_t i, std::shared_ptr<ColumnReaderImpl> reader) mutable
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
-    SET_SPAN_SCOPE(auto scope, span);
     std::shared_ptr<::arrow::ChunkedArray> column;
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
     return column;
