@@ -355,6 +355,10 @@ jobs:
           # options(pkgType="win.binary") # processx doesn't have a binary for UCRT yet
           install.packages(c("remotes", "rcmdcheck"))
           remotes::install_deps("r", dependencies = TRUE)
+      - name: Restore DESCRIPTION for 3.6
+        if: ${{ matrix.config.rtools == 35 }}
+        run: 
+          mv r/DESCRIPTION.bak r/DESCRIPTION
       - name: Check
         shell: Rscript {0}
         run: |
@@ -363,10 +367,6 @@ jobs:
           setwd("r/windows")
           zip("libarrow.zip", ".")
           setwd("..")
-
-          # restore the old Description
-          file.remove("DESCRIPTION")
-          file.rename("DESCRIPTION.bak", "DESCRIPTION")
 
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
