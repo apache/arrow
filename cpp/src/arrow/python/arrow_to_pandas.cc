@@ -348,8 +348,7 @@ class PandasWriter {
   };
 
   PandasWriter(const PandasOptions& options, int64_t num_rows, int num_columns)
-      : options_(options), num_rows_(num_rows), num_columns_(num_columns) {
-  }
+      : options_(options), num_rows_(num_rows), num_columns_(num_columns) {}
   virtual ~PandasWriter() {}
 
   void SetBlockData(PyObject* arr) {
