@@ -64,8 +64,8 @@ class TestTable : public ::testing::Test {
     std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
 
-    arrays_ = {gen_.ArrayOf(int32(), length, true), gen_.ArrayOf(uint8(), length),
-               gen_.ArrayOf(int16(), length)};
+    arrays_ = {gen_.ArrayOf(int32(), length, /*null_probability=*/1.0),
+               gen_.ArrayOf(uint8(), length), gen_.ArrayOf(int16(), length)};
 
     columns_ = {std::make_shared<ChunkedArray>(arrays_[0]),
                 std::make_shared<ChunkedArray>(arrays_[1]),
@@ -85,7 +85,9 @@ TEST_F(TestTable, ValidateNullable) {
   const int length = 10;
   MakeExample3(length);
   table_ = Table::Make(schema_, columns_);
-  ASSERT_RAISES(Invalid, table_->ValidateFull());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("In column 0: Null found but field is not nullable"),
+      table_->ValidateFull());
 }
 
 TEST_F(TestTable, EmptySchema) {

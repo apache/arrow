@@ -104,6 +104,7 @@ struct BoundsChecker {
 struct ValidateArrayImpl {
   const ArrayData& data;
   const bool full_validation;
+  const bool nullable;
 
   Status Validate() {
     if (data.type == nullptr) {
@@ -285,7 +286,7 @@ struct ValidateArrayImpl {
       const auto& field_data = *data.child_data[i];
 
       // Validate child first, to catch nonsensical length / offset etc.
-      const Status field_valid = RecurseInto(field_data);
+      const Status field_valid = RecurseInto(field_data, type.field(i)->nullable());
       if (!field_valid.ok()) {
         return Status::Invalid("Struct child array #", i,
                                " invalid: ", field_valid.ToString());
@@ -312,7 +313,7 @@ struct ValidateArrayImpl {
       const auto& field_data = *data.child_data[i];
 
       // Validate children first, to catch nonsensical length / offset etc.
-      const Status field_valid = RecurseInto(field_data);
+      const Status field_valid = RecurseInto(field_data, type.field(i)->nullable());
       if (!field_valid.ok()) {
         return Status::Invalid("Union child array #", i,
                                " invalid: ", field_valid.ToString());
@@ -425,8 +426,8 @@ struct ValidateArrayImpl {
     return data.buffers[index] != nullptr && data.buffers[index]->address() != 0;
   }
 
-  Status RecurseInto(const ArrayData& related_data) {
-    ValidateArrayImpl impl{related_data, full_validation};
+  Status RecurseInto(const ArrayData& related_data, bool nullable = true) {
+    ValidateArrayImpl impl{related_data, full_validation, nullable};
     return impl.Validate();
   }
 
@@ -509,22 +510,23 @@ struct ValidateArrayImpl {
     }
 
     if (full_validation) {
-      if (data.null_count != kUnknownNullCount) {
-        int64_t actual_null_count;
-        if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
-          // Do not call GetNullCount() as it would also set the `null_count` member
-          actual_null_count = data.length - CountSetBits(data.buffers[0]->data(),
-                                                         data.offset, data.length);
-        } else if (data.type->storage_id() == Type::NA) {
-          actual_null_count = data.length;
-        } else {
-          actual_null_count = 0;
-        }
-        if (actual_null_count != data.null_count) {
-          return Status::Invalid("null_count value (", data.null_count,
-                                 ") doesn't match actual number of nulls in array (",
-                                 actual_null_count, ")");
-        }
+      int64_t actual_null_count;
+      if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
+        // Do not call GetNullCount() as it would also set the `null_count` member
+        actual_null_count =
+            data.length - CountSetBits(data.buffers[0]->data(), data.offset, data.length);
+      } else if (data.type->storage_id() == Type::NA) {
+        actual_null_count = data.length;
+      } else {
+        actual_null_count = 0;
+      }
+      if (data.null_count != kUnknownNullCount && actual_null_count != data.null_count) {
+        return Status::Invalid("null_count value (", data.null_count,
+                               ") doesn't match actual number of nulls in array (",
+                               actual_null_count, ")");
+      }
+      if (!nullable && actual_null_count > 0) {
+        return Status::Invalid("Null found but field is not nullable");
       }
     }
     return Status::OK();
@@ -699,7 +701,7 @@ struct ValidateArrayImpl {
 
 ARROW_EXPORT
 Status ValidateArray(const ArrayData& data) {
-  ValidateArrayImpl validator{data, /*full_validation=*/false};
+  ValidateArrayImpl validator{data, /*full_validation=*/false, /*nullable=*/true};
   return validator.Validate();
 }
 
@@ -708,7 +710,7 @@ Status ValidateArray(const Array& array) { return ValidateArray(*array.data()); 
 
 ARROW_EXPORT
 Status ValidateArrayFull(const ArrayData& data) {
-  return ValidateArrayImpl{data, /*full_validation=*/true}.Validate();
+  return ValidateArrayImpl{data, /*full_validation=*/true, /*nullable=*/true}.Validate();
 }
 
 ARROW_EXPORT

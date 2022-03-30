@@ -89,7 +89,7 @@ TEST_F(TestRecordBatch, Validate) {
   auto a1 = gen.ArrayOf(uint8(), length);
   auto a2 = gen.ArrayOf(int16(), length);
   auto a3 = gen.ArrayOf(int16(), 5);
-  auto a4 = gen.ArrayOf(int32(), length, true);
+  auto a4 = gen.ArrayOf(int32(), length, /*null_probability=*/1.0);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
 
@@ -105,7 +105,9 @@ TEST_F(TestRecordBatch, Validate) {
 
   // Nullable mismatch
   auto b4 = RecordBatch::Make(schema, length, {a4, a1, a2});
-  ASSERT_RAISES(Invalid, b4->ValidateFull());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Null found but field is not nullable"),
+      b4->ValidateFull());
 }
 
 TEST_F(TestRecordBatch, Slice) {

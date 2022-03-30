@@ -196,6 +196,22 @@ TEST(StructArray, Validate) {
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 }
 
+TEST(StructArray, ValidateFullNullable) {
+  auto type = struct_({field("a", int32(), /*nullable =*/false),
+                       field("b", utf8(), /*nullable =*/false),
+                       field("c", list(boolean()), /*nullable =*/false)});
+
+  auto struct_arr = std::static_pointer_cast<StructArray>(ArrayFromJSON(
+      type, R"([[1, "a", [null, false]], [null, "bc", []], [2, null, null]])"));
+
+  auto struct_arr_nonull = std::static_pointer_cast<StructArray>(ArrayFromJSON(
+      type, R"([[1, "a", [true, false]], [6, "bc", []], [2, "bcj", [true, true]]])"));
+
+  // Type not Nullable but actual struct array has null
+  ASSERT_RAISES(Invalid, struct_arr->ValidateFull());
+  ASSERT_OK(struct_arr_nonull->ValidateFull());
+}
+
 TEST(StructArray, Flatten) {
   auto type =
       struct_({field("a", int32()), field("b", utf8()), field("c", list(boolean()))});

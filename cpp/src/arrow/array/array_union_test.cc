@@ -70,6 +70,22 @@ TEST(TestUnionArray, TestSliceEquals) {
   CheckUnion(batch->column(1));
 }
 
+TEST(TestSparseUnionArray, ValidateFullNullable) {
+  auto ty = sparse_union(
+      {field("ints", int64()), field("strs", utf8(), /*nullable*/ false)}, {2, 7});
+  auto ints = ArrayFromJSON(int64(), "[0, 1, 2, 3]");
+  auto strs = ArrayFromJSON(utf8(), R"(["a", null, "c", "d"])");
+  auto strs_no_null = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])");
+  auto ids = ArrayFromJSON(int8(), "[2, 7, 2, 7]")->data()->buffers[1];
+  const int length = 4;
+
+  {
+    SparseUnionArray arr_no_null(ty, length, {ints, strs_no_null}, ids);
+    SparseUnionArray arr(ty, length, {ints, strs}, ids);
+    ASSERT_OK(arr_no_null.ValidateFull());
+    ASSERT_RAISES(Invalid, arr.ValidateFull());
+  }
+}
 TEST(TestSparseUnionArray, GetFlattenedField) {
   auto ty = sparse_union({field("ints", int64()), field("strs", utf8())}, {2, 7});
   auto ints = ArrayFromJSON(int64(), "[0, 1, 2, 3]");
