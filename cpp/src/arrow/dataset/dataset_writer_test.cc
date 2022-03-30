@@ -206,6 +206,22 @@ TEST_F(DatasetWriterTestFixture, Basic) {
   AssertCreatedData({{"testdir/chunk-0.arrow", 0, 100}});
 }
 
+TEST_F(DatasetWriterTestFixture, BasicFilePrefix) {
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "", "1_");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertFilesCreated({"testdir/1_chunk-0.arrow"});
+}
+
+TEST_F(DatasetWriterTestFixture, BasicFileDirectoryPrefix) {
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "a", "1_");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertFilesCreated({"testdir/a/1_chunk-0.arrow"});
+}
+
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_.max_rows_per_file = 10;
   write_options_.max_rows_per_group = 10;

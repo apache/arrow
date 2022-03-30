@@ -150,7 +150,11 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
 
     manifest = pq.ParquetManifest(base_path, filesystem=fs,
                                   metadata_nthreads=1)
-    dataset = pq.ParquetDataset(base_path, filesystem=fs, metadata_nthreads=16)
+    with pytest.warns(
+        DeprecationWarning, match="Specifying the 'metadata_nthreads'"
+    ):
+        dataset = pq.ParquetDataset(
+            base_path, filesystem=fs, metadata_nthreads=16)
     assert len(dataset.pieces) > 0
     partitions = dataset.partitions
     assert len(partitions.partition_names) > 0
@@ -783,12 +787,14 @@ def _test_read_common_metadata_files(fs, base_path):
 
 
 @pytest.mark.pandas
+@pytest.mark.filterwarnings("ignore:'ParquetDataset.schema:DeprecationWarning")
 def test_read_common_metadata_files(tempdir):
     fs = LocalFileSystem._get_instance()
     _test_read_common_metadata_files(fs, tempdir)
 
 
 @pytest.mark.pandas
+@pytest.mark.filterwarnings("ignore:'ParquetDataset.schema:DeprecationWarning")
 def test_read_metadata_files(tempdir):
     fs = LocalFileSystem._get_instance()
 
@@ -902,7 +908,8 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
         result2 = read_multiple_files(paths, metadata=metadata)
         assert result2.equals(expected)
 
-        result3 = pq.ParquetDataset(dirpath, schema=metadata.schema).read()
+        with pytest.warns(DeprecationWarning, match="Specifying the 'schema'"):
+            result3 = pq.ParquetDataset(dirpath, schema=metadata.schema).read()
         assert result3.equals(expected)
     else:
         with pytest.raises(ValueError, match="no longer supported"):
@@ -947,7 +954,8 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
     mixed_paths = [bad_apple_path, paths[0]]
 
     with pytest.raises(ValueError):
-        read_multiple_files(mixed_paths, schema=bad_meta.schema)
+        with pytest.warns(DeprecationWarning, match="Specifying the 'schema'"):
+            read_multiple_files(mixed_paths, schema=bad_meta.schema)
 
     with pytest.raises(ValueError):
         read_multiple_files(mixed_paths)
@@ -1195,6 +1203,7 @@ def test_empty_directory(tempdir, use_legacy_dataset):
     assert result.num_columns == 0
 
 
+@pytest.mark.filterwarnings("ignore:'ParquetDataset.schema:DeprecationWarning")
 def _test_write_to_dataset_with_partitions(base_path,
                                            use_legacy_dataset=True,
                                            filesystem=None,
@@ -1236,7 +1245,8 @@ def _test_write_to_dataset_with_partitions(base_path,
                                 use_legacy_dataset=use_legacy_dataset)
     # ARROW-2209: Ensure the dataset schema also includes the partition columns
     if use_legacy_dataset:
-        dataset_cols = set(dataset.schema.to_arrow_schema().names)
+        with pytest.warns(DeprecationWarning, match="'ParquetDataset.schema'"):
+            dataset_cols = set(dataset.schema.to_arrow_schema().names)
     else:
         # NB schema property is an arrow and not parquet schema
         dataset_cols = set(dataset.schema.names)
@@ -1541,11 +1551,42 @@ def test_dataset_read_dictionary(tempdir, use_legacy_dataset):
         assert c1.equals(ex_chunks[0])
 
 
+@pytest.mark.pandas
+def test_read_table_schema(tempdir):
+    # test that schema keyword is passed through in read_table
+    table = pa.table({'a': pa.array([1, 2, 3], pa.int32())})
+    pq.write_table(table, tempdir / "data1.parquet")
+    pq.write_table(table, tempdir / "data2.parquet")
+
+    schema = pa.schema([('a', 'int64')])
+
+    # reading single file (which is special cased in the code)
+    result = pq.read_table(tempdir / "data1.parquet", schema=schema)
+    expected = pa.table({'a': [1, 2, 3]}, schema=schema)
+    assert result.equals(expected)
+
+    # reading multiple fiels
+    result = pq.read_table(tempdir, schema=schema)
+    expected = pa.table({'a': [1, 2, 3, 1, 2, 3]}, schema=schema)
+    assert result.equals(expected)
+
+    # don't allow it with the legacy reader
+    with pytest.raises(
+        ValueError, match="The 'schema' argument is only supported"
+    ):
+        pq.read_table(tempdir / "data.parquet", schema=schema,
+                      use_legacy_dataset=True)
+
+    # using ParquetDataset directory with non-legacy implementation
+    result = pq.ParquetDataset(
+        tempdir, schema=schema, use_legacy_dataset=False
+    )
+    expected = pa.table({'a': [1, 2, 3, 1, 2, 3]}, schema=schema)
+    assert result.read().equals(expected)
+
+
 @pytest.mark.dataset
 def test_dataset_unsupported_keywords():
-
-    with pytest.raises(ValueError, match="not yet supported with the new"):
-        pq.ParquetDataset("", use_legacy_dataset=False, schema=pa.schema([]))
 
     with pytest.raises(ValueError, match="not yet supported with the new"):
         pq.ParquetDataset("", use_legacy_dataset=False, metadata=pa.schema([]))
@@ -1652,6 +1693,9 @@ def test_parquet_dataset_deprecated_properties(tempdir):
 
     with pytest.warns(DeprecationWarning, match="'ParquetDataset.fs"):
         dataset.fs
+
+    with pytest.warns(DeprecationWarning, match="'ParquetDataset.schema'"):
+        dataset.schema
 
     dataset2 = pq.ParquetDataset(path, use_legacy_dataset=False)
 

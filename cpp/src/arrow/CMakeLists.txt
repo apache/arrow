@@ -400,6 +400,7 @@ if(ARROW_COMPUTE)
        compute/exec/sink_node.cc
        compute/exec/source_node.cc
        compute/exec/task_util.cc
+       compute/exec/tpch_node.cc
        compute/exec/union_node.cc
        compute/exec/util.cc
        compute/function.cc

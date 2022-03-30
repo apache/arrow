@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "arch.h"
+#include <arch.h>
 #include <stdint.h>
 
 uint64_t FULL_NAME(extract_bits)(uint64_t bitmap, uint64_t select_bitmap) {

@@ -1068,8 +1068,10 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema(
       (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
-  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
-  status = do_put_result.stream->Close();
+  FlightClient::DoPutResult do_put_result;
+  status = client_->DoPut(FlightDescriptor{}, schema).Value(&do_put_result);
+  // ARROW-16053: gRPC may or may not fail the call immediately
+  if (status.ok()) status = do_put_result.stream->Close();
   ASSERT_RAISES(IOError, status);
   // ARROW-7583: don't check the error message here.
   // Because gRPC reports errors in some paths with booleans, instead
@@ -1388,9 +1390,11 @@ class ForeverDataStream : public FlightDataStream {
   ForeverDataStream() : schema_(arrow::schema({})), mapper_(*schema_) {}
   std::shared_ptr<Schema> schema() override { return schema_; }
 
-  Status GetSchemaPayload(FlightPayload* payload) override {
-    return ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(), mapper_,
-                                 &payload->ipc_message);
+  arrow::Result<FlightPayload> GetSchemaPayload() override {
+    FlightPayload payload;
+    RETURN_NOT_OK(ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(),
+                                        mapper_, &payload.ipc_message));
+    return payload;
   }
 
   arrow::Result<FlightPayload> Next() override {
