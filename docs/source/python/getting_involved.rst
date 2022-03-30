@@ -26,13 +26,13 @@ systems.
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
 
- * Join the mailing list: send an email to
-   `dev-subscribe@arrow.apache.org <mailto:dev-subscribe@arrow.apache.org>`_.
-   Share your ideas and use cases for the project or read through the
-   `Archive <http://mail-archives.apache.org/mod_mbox/arrow-dev/>`_.
- * Follow our activity on `JIRA <https://issues.apache.org/jira/browse/ARROW>`_
- * Learn the `Format / Specification
-   <https://github.com/apache/arrow/tree/master/format>`_
+* Join the mailing list: send an email to
+  `dev-subscribe@arrow.apache.org <mailto:dev-subscribe@arrow.apache.org>`_.
+  Share your ideas and use cases for the project or read through the
+  `Archive <http://mail-archives.apache.org/mod_mbox/arrow-dev/>`_.
+* Follow our activity on `JIRA <https://issues.apache.org/jira/browse/ARROW>`_
+* Learn the `Format / Specification
+  <https://github.com/apache/arrow/tree/master/format>`_
 
 
 .. _py_arch_overview:
