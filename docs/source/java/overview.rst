@@ -54,10 +54,10 @@ Arrow Java are divided in these modules to offer in-memory columnar data structu
      - Core off-heap memory management libraries for Arrow ValueVectors.
      - Native implementation
    * - arrow-memory-unsafe
-     - Allocator and utils for allocating memory in Arrow based on sun.misc.Unsafe.
+     - Memory management implementation based on sun.misc.Unsafe.
      - Native implementation
    * - arrow-memory-netty
-     - Netty allocator and utils for allocating memory in Arrow.
+     - Memory management implementation based on Netty.
      - Native implementation
    * - arrow-vector
      - An off-heap reference implementation for Arrow columnar data format.
@@ -84,7 +84,7 @@ Arrow Java are divided in these modules to offer in-memory columnar data structu
      - Integration tests for Flight RPC.
      - Native implementation
    * - arrow-performance
-     - JMH Performance benchmarks for other Arrow libraries.
+     - JMH benchmarks for the Arrow libraries.
      - Native implementation
    * - arrow-algorithm
      - (Experimental) A collection of algorithms for working with ValueVectors.
@@ -93,7 +93,7 @@ Arrow Java are divided in these modules to offer in-memory columnar data structu
      - (Experimental) A library for converting Avro data to Arrow data.
      - Native implementation
    * - arrow-compression
-     - (Experimental) A library for working with the compression/decompression of Arrow data.
+     - (Experimental) A library for working with compression/decompression of Arrow data.
      - Native implementation
    * - arrow-c-data
      - Java implementation of C Data Interface
@@ -105,10 +105,10 @@ Arrow Java are divided in these modules to offer in-memory columnar data structu
      - Java wrappers around the native Gandiva SQL expression compiler.
      - Bindings
    * - arrow-dataset
-     - Java implementation of Arrow Dataset API/Framework
+     - Java bindings to the Arrow Datasets library.
      - Bindings
 
-Arrow Java modules offer support to work data (1) in-memory, (2) at rest and (3) on-the-wire.
+Arrow Java modules support working with data (1) in-memory, (2) at rest, and (3) on-the-wire.
 
 For more detail about how to install this modules please review
 :doc:`Installing Java Modules <install>`.

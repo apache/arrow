@@ -24,19 +24,19 @@ Quick Start Guide
 
 .. contents::
 
-Arrow Java provides several building blocks; ``data types`` describe the types of values;
+Arrow Java provides several building blocks. Data types describe the types of values;
 ``ValueVectors`` are sequences of typed values; ``fields`` describe the types of columns in
-tabular data; ``schemas`` describe a sequence of columns in tabular data and
+tabular data; ``schemas`` describe a sequence of columns in tabular data, and
 ``VectorSchemaRoot`` represents tabular data. Arrow also provides ``readers`` and
 ``writers`` for loading data from and persisting data to storage.
 
-Create A Value Vector
+Create a ValueVector
 *********************
 
-Also known as "arrays" in the columnar format. Represent a one-dimensional
-sequence of homogeneous values.
+ValueVectors represent a sequence of values of the same type.
+They are also known as "arrays" in the columnar format.
 
-**Int Vector**: Create an value vector of int32s like this [1, null, 2]
+Example: create a vector of 32-bit integers representing ``[1, null, 2]``:
 
 .. code-block:: Java
 
@@ -44,7 +44,7 @@ sequence of homogeneous values.
     import org.apache.arrow.memory.RootAllocator;
     import org.apache.arrow.vector.IntVector;
 
-    try(BufferAllocator rootAllocator = new RootAllocator();
+    try(BufferAllocator allocator = new RootAllocator();
         IntVector intVector = new IntVector("fixed-size-primitive-layout", rootAllocator)){
         intVector.allocateNew(3);
         intVector.set(0,1);
@@ -54,7 +54,7 @@ sequence of homogeneous values.
         System.out.println("Vector created in memory: " + intVector);
     }
 
-**Varchar Vector**: Create an value vector of string like this [one, two, three]
+Example: create a vector of UTF-8 encoded strings representing ``["one", "two", "three"]``:
 
 .. code-block:: Java
 
@@ -72,12 +72,13 @@ sequence of homogeneous values.
         System.out.println("Vector created in memory: " + varCharVector);
     }
 
-Create A Field
+Create a Field
 **************
 
 Fields are used to denote the particular columns of tabular data.
+They consist of a name, a data type, a flag indicating whether the column can have null values, and optional key-value metadata.
 
-**Field**: Create a column "document" of string type with metadata.
+Example: create a field named "document" of string type:
 
 .. code-block:: Java
 
@@ -91,7 +92,7 @@ Fields are used to denote the particular columns of tabular data.
     metadata.put("C", "Visa");
     Field document = new Field("document", new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, metadata), /*children*/ null);
 
-Create A Schema
+Create a Schema
 ***************
 
 Schema holds a sequence of fields together with some optional metadata.
@@ -114,8 +115,8 @@ a int32 column "A" and a utf8-encoded string column "B"
     Field b = new Field("B", FieldType.nullable(new ArrowType.Utf8()), null);
     Schema schema = new Schema(asList(a, b), metadata);
 
-Create A VectorSchemaRoot
-***************************
+Create a VectorSchemaRoot
+*************************
 
 VectorSchemaRoot is somewhat analogous to tables and record batches in the other
 Arrow implementations.
@@ -230,7 +231,7 @@ that contains integer age and string names of data.
             varCharVectorB.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
             varCharVectorB.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
             // Arrow Java At Rest
-            File file = new File("randon_access_to_file.arrow");
+            File file = new File("random_access_file.arrow");
             try (FileOutputStream fileOutputStream = new FileOutputStream(file);
                  ArrowFileWriter writer = new ArrowFileWriter(vectorSchemaRoot, null, fileOutputStream.getChannel())
             ) {
@@ -260,15 +261,15 @@ that contains integer age and string names of data.
     import java.io.FileOutputStream;
     import java.io.IOException;
 
-    try(RootAllocator rootAllocator = new RootAllocator(Long.MAX_VALUE)){
-        File file = new File("randon_access_to_file.arrow");
+    try(BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)){
+        File file = new File("random_access_file.arrow");
         try (FileInputStream fileInputStream = new FileInputStream(file);
              ArrowFileReader reader = new ArrowFileReader(fileInputStream.getChannel(), rootAllocator)
         ){
             System.out.println("Record batches in file: " + reader.getRecordBlocks().size());
             for (ArrowBlock arrowBlock : reader.getRecordBlocks()) {
                 reader.loadRecordBatch(arrowBlock);
-                VectorSchemaRoot vectorSchemaRootRecover = reader.getVectorSchemaRoot();
+                VectorSchemaRoot root = reader.getVectorSchemaRoot();
                 System.out.print(vectorSchemaRootRecover.contentToTSVString());
             }
         } catch (IOException e) {
