@@ -654,7 +654,6 @@ test_that("extract yday from date", {
 })
 
 test_that("leap_year mirror lubridate", {
-
   compare_dplyr_binding(
     .input %>%
       mutate(x = leap_year(date)) %>%
@@ -685,7 +684,6 @@ test_that("leap_year mirror lubridate", {
 })
 
 test_that("am/pm mirror lubridate", {
-
   # https://issues.apache.org/jira/browse/ARROW-13168
   skip_on_os("windows")
 
@@ -705,8 +703,6 @@ test_that("am/pm mirror lubridate", {
         ),
         format = "%Y-%m-%d %H:%M:%S"
       )
-
     )
   )
-
 })
