@@ -357,7 +357,7 @@ jobs:
           remotes::install_deps("r", dependencies = TRUE)
       - name: Restore DESCRIPTION for 3.6
         if: ${{ matrix.config.rtools == 35 }}
-        run: 
+        run: |
           rm r/DESCRIPTION
           mv r/DESCRIPTION.bak r/DESCRIPTION
       - name: Check
