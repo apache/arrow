@@ -543,7 +543,7 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
 
       auto basic_data = MakeBasicBatches();
 
-      TableSinkNodeOptions options{&out, basic_data.schema};
+      TableSinkNodeOptions options{&out};
 
       ASSERT_OK_AND_ASSIGN(
           auto source, MakeExecNode("source", plan.get(), {},
