@@ -1354,7 +1354,7 @@ cdef class KeyValuePartitioning(Partitioning):
             if arr.get() == nullptr:
                 # Partitioning object has not been created through
                 # inspected Factory
-                return None
+                continue
             res.append(pyarrow_wrap_array(arr))
         return res
 

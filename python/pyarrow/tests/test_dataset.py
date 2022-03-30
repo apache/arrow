@@ -586,6 +586,12 @@ def test_partitioning():
     with pytest.raises(pa.ArrowInvalid):
         partitioning.parse('prefix_3_aaa_')
 
+# @pytest.mark.parquet
+# def test_partitioning_dictionaries(tempdir):
+#     directory = tempdir / "partitioned-dataset"
+#     directory.mkdir()
+
+
 
 def test_expression_arithmetic_operators():
     dataset = ds.dataset(pa.table({'a': [1, 2, 3], 'b': [2, 2, 2]}))
