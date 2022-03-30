@@ -62,6 +62,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
                                 final BufferAllocator allocator,
                                 final ArrowFlightSqlClientHandler clientHandler) {
     super(driver, factory, url, properties);
+    System.out.println("Connected to " + url + "\t" + properties);
     this.config = Preconditions.checkNotNull(config, "Config cannot be null.");
     this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null.");
     this.clientHandler = Preconditions.checkNotNull(clientHandler, "Handler cannot be null.");
@@ -83,8 +84,10 @@ public final class ArrowFlightConnection extends AvaticaConnection {
                                                    String url, final Properties properties,
                                                    final BufferAllocator allocator)
       throws SQLException {
+    System.out.println("Clearing url: " + url + "\t" + properties);
     url = replaceSemiColons(url);
     final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
+    System.out.println("Connecting to " + url + "\t" + properties);
     final ArrowFlightSqlClientHandler clientHandler = createNewClientHandler(config, allocator);
     return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
   }
