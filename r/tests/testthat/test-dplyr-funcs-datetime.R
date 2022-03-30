@@ -118,6 +118,48 @@ test_that("errors in strptime", {
   )
 })
 
+test_that("strptime returns NA when format doesn't match the data", {
+  df <- tibble(
+    str_date = c("2022-02-07", "2012/02-07", "1975/01-02", "1981/01-07", NA)
+  )
+
+  # base::strptime() returns a POSIXlt object (a list), while the Arrow binding
+  # returns a POSIXct (double) vector => we cannot use compare_dplyr_binding()
+  expect_equal(
+    df %>%
+      arrow_table() %>%
+      mutate(
+        r_obj_parsed_date = strptime("03-27/2022", format = "%m-%d/%Y"),
+        r_obj_parsed_na = strptime("03-27/2022", format = "Y%-%m-%d")) %>%
+      collect(),
+    df %>%
+      mutate(
+        r_obj_parsed_date = as.POSIXct(strptime("03-27/2022", format = "%m-%d/%Y")),
+        r_obj_parsed_na = as.POSIXct(strptime("03-27/2022", format = "Y%-%m-%d"))),
+    ignore_attr = "tzone"
+  )
+
+  expect_equal(
+    df %>%
+      record_batch() %>%
+      mutate(parsed_date = strptime(str_date, format = "%Y-%m-%d")) %>%
+      collect(),
+   df %>%
+     mutate(parsed_date = as.POSIXct(strptime(str_date, format = "%Y-%m-%d"))),
+    ignore_attr = "tzone"
+  )
+
+  expect_equal(
+    df %>%
+      arrow_table() %>%
+      mutate(parsed_date = strptime(str_date, format = "%Y/%m-%d")) %>%
+      collect(),
+    df %>%
+      mutate(parsed_date = as.POSIXct(strptime(str_date, format = "%Y/%m-%d"))),
+    ignore_attr = "tzone"
+  )
+})
+
 test_that("strftime", {
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
