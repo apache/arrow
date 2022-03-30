@@ -1452,8 +1452,8 @@ class ForeverDataStream : public FlightDataStream {
 
   arrow::Result<FlightPayload> GetSchemaPayload() override {
     FlightPayload payload;
-    return ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(), mapper_,
-                                 &payload.ipc_message);
+    RETURN_NOT_OK(ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(),
+                                        mapper_, &payload.ipc_message));
     return payload;
   }
 
