@@ -18,27 +18,27 @@
 .. default-domain:: java
 .. highlight:: java
 
-.. _java_modules:
-
 ===================
 High-Level Overview
 ===================
 
 .. contents::
 
-This is the variety of Arrow Java documentation:
-
-* Specification and protocols: This contains agnostic specification that is implemented in this case by Arrow Java modules.
-* Supported environment (like this): This contains answers for what-is-that Arrow Java module.
-* Cookbook: This contains answers about how-to-use Arrow Java modules with practices examples.
-* Development: This contains detailed information about what you need to consider to start with Arrow Java development.
-
 Arrow Java modules is created using specification such as Columnar Format, Off-Heap
 Memory, Serialization and Inter Process Communication (IPC). Some of the Java modules
 was created with their own native implementations and others through bindings.
 
-Arrow Java Implementations and Bindings is divided in these modules to offer in-memory
-columnar data structures:
+Arrow Java provides several building blocks; ``data types`` describe the types of values;
+``ValueVectors`` are sequences of typed values; ``fields`` describe the types of columns in
+tabular data; ``schemas`` describe a sequence of columns in tabular data and
+``VectorSchemaRoot`` represents tabular data. Arrow also provides ``readers`` and
+``writers`` for loading data from and persisting data to storage.
+
+
+Arrow Java Modules
+------------------
+
+Arrow Java are divided in these modules to offer in-memory columnar data structures:
 
 .. list-table:: Arrow Java Modules
    :widths: 25 50 25
@@ -149,7 +149,7 @@ implementation status of different data types `supported`_ by Java vector module
 Each logical data type has a well-defined physical layout. Here are
 the `different physical layouts defined by Arrow`_.
 
-``Value Vector``: It's called `array` in the columnar format specification.
+``Value Vector``: Also known as "arrays" in the  columnar format specification.
 Value vector represent a one-dimensional sequence of homogeneous values.
 
 For more detail on Arrow Java vector please review :doc:`Value Vector <vector>`.
@@ -170,10 +170,7 @@ several abstractions to handle such data conveniently and efficiently.
 ``VectorSchemaRoot``: It is somewhat analogous to tables and record batches in the
 other Arrow implementations in that they all are 2D datasets, but the usage is different.
 
-Let's continue with examples of 2-D: How could I create a dataset with metadata that
-contains age and name data?
-
-For more detail on Arrow Java vector please review :doc:`Vector Schema Root <vector_schema_root>`.
+For more detail on Arrow Java vector please review :doc:`VectorSchemaRoot <vector_schema_root>`.
 
 More examples available at `java cookbook working with schema`_.
 
@@ -188,11 +185,6 @@ be processed from start to end, and does not support random access
 
 ``File or Random Access format``: For serializing a fixed number of record batches. It
 supports random access.
-
-This Arrow Java at rest specification is implemented by Arrow Java vector module.
-
-Let's continue with examples of Arrow Java at rest: How do I could write the las dataset
-created to a file?
 
 For more detail on Arrow Java io please review :doc:`Reading/Writing IPC formats <ipc>`.
 
@@ -209,6 +201,13 @@ For more detail on Arrow Java on the wire please review :doc:`Arrow Flight RPC <
 and :doc:`Arrow Flight SQL <../format/FlightSql>`.
 
 More examples available at `java cookbook arrow flight`_.
+
+To complete this initial overview about Arrow Java, consider this as the variety of Arrow Java documentation:
+
+* Specification and protocols: This contains agnostic specification that is implemented in this case by Arrow Java modules.
+* Supported environment (like this): This contains answers for what-is-that Arrow Java module.
+* Cookbook: This contains answers about how-to-use Arrow Java modules with practices examples.
+* Development: This contains detailed information about what you need to consider to start with Arrow Java development.
 
 .. _`template`: https://github.com/apache/arrow/tree/master/java/vector/src/main/codegen/templates
 .. _`supported`: https://arrow.apache.org/docs/status.html#data-types
