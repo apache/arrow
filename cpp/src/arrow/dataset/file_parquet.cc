@@ -369,7 +369,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
         return std::move(arrow_reader);
       },
       [path](
-              const Status& status) -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+          const Status& status) -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
         return WrapSourceError(status, path);
       });
 }
@@ -418,7 +418,8 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
   };
   auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
                                       .Then(std::move(make_generator)));
-  WRAP_ASYNC_GENERATOR(generator, "arrow::dataset::ParquetFileFormat::ScanBatchesAsync::Next");
+  WRAP_ASYNC_GENERATOR(generator,
+                       "arrow::dataset::ParquetFileFormat::ScanBatchesAsync::Next");
   return generator;
 }
 
