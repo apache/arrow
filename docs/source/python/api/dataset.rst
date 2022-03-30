@@ -58,6 +58,7 @@ Classes
    PartitioningFactory
    DirectoryPartitioning
    HivePartitioning
+   FilenamePartitioning
    Dataset
    FileSystemDataset
    FileSystemFactoryOptions
