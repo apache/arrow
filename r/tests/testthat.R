@@ -27,4 +27,5 @@ if (verbose_test_output) {
 } else {
   arrow_reporter <- check_reporter()
 }
+
 test_check("arrow", reporter = arrow_reporter)
