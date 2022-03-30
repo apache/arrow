@@ -1940,6 +1940,15 @@ SetIOThreadPoolCapacity <- function(threads) {
   invisible(.Call(`_arrow_SetIOThreadPoolCapacity`, threads))
 }
 
+Tpch_Dbgen <- function(plan, scale_factor, table_name) {
+  .Call(`_arrow_Tpch_Dbgen`, plan, scale_factor, table_name)
+}
+
+Tpch_Dbgen_Write <- function(plan, scale_factor, filesystem, base_dir) {
+  invisible(.Call(`_arrow_Tpch_Dbgen_Write`, plan, scale_factor, filesystem, base_dir))
+}
+
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

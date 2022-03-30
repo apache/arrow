@@ -7638,6 +7638,42 @@ extern "C" SEXP _arrow_SetIOThreadPoolCapacity(SEXP threads_sexp){
 }
 #endif
 
+// tpch-gen.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor, std::string table_name);
+extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<int>::type scale_factor(scale_factor_sexp);
+	arrow::r::Input<std::string>::type table_name(table_name_sexp);
+	return cpp11::as_sexp(Tpch_Dbgen(plan, scale_factor, table_name));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp){
+	Rf_error("Cannot call Tpch_Dbgen(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// tpch-gen.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir);
+extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<int>::type scale_factor(scale_factor_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
+	arrow::r::Input<std::string>::type base_dir(base_dir_sexp);
+	Tpch_Dbgen_Write(plan, scale_factor, filesystem, base_dir);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp){
+	Rf_error("Cannot call Tpch_Dbgen_Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // type_infer.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
@@ -8199,6 +8235,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
 		{ "_arrow_GetIOThreadPoolCapacity", (DL_FUNC) &_arrow_GetIOThreadPoolCapacity, 0}, 
 		{ "_arrow_SetIOThreadPoolCapacity", (DL_FUNC) &_arrow_SetIOThreadPoolCapacity, 1}, 
+		{ "_arrow_Tpch_Dbgen", (DL_FUNC) &_arrow_Tpch_Dbgen, 3}, 
+		{ "_arrow_Tpch_Dbgen_Write", (DL_FUNC) &_arrow_Tpch_Dbgen_Write, 4}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{NULL, NULL, 0}
 };

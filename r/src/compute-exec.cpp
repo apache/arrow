@@ -45,14 +45,14 @@ std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
   return plan;
 }
 
-std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
+static std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
     const std::string& factory_name, compute::ExecPlan* plan,
     std::vector<compute::ExecNode*> inputs, const compute::ExecNodeOptions& options) {
-  return std::shared_ptr<compute::ExecNode>(
-      ValueOrStop(compute::MakeExecNode(factory_name, plan, std::move(inputs), options)),
-      [](...) {
+return std::shared_ptr<compute::ExecNode>(
+    ValueOrStop(compute::MakeExecNode(factory_name, plan, std::move(inputs), options)),
+    [](...) {
         // empty destructor: ExecNode lifetime is managed by an ExecPlan
-      });
+    });
 }
 
 // [[arrow::export]]
