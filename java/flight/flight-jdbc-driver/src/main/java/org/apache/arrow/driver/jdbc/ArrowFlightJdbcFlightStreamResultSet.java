@@ -120,6 +120,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
   @Override
   protected AvaticaResultSet execute() throws SQLException {
+    System.out.println("Executing using connection properties: " + connection.properties);
     final FlightInfo flightInfo = ((ArrowFlightInfoStatement) statement).executeFlightInfoQuery();
 
     if (flightInfo != null) {
