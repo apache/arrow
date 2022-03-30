@@ -28,13 +28,13 @@ cdef class ChunkedArray(_PandasConvertible):
 
     Examples
     --------
-    To construct a ChunkedArray object use `pyarrow.chunked_array()`:
+    To construct a ChunkedArray object use :func:`pyarrow.chunked_array`:
 
     >>> import pyarrow as pa
     >>> pa.chunked_array([], type=pa.int8())
     <pyarrow.lib.ChunkedArray object at 0x10644f450>
     [
-
+    \
     ]
 
     >>> pa.chunked_array([[2, 2, 4], [4, 5, 100]])
@@ -83,7 +83,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def length(self):
         """
-        Length of a ChunkedArray.
+        Return length of a ChunkedArray.
 
         Examples
         --------
@@ -362,7 +362,9 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def fill_null(self, fill_value):
         """
-        See :func:`pyarrow.compute.fill_null` for usage.
+        Replace each null element in values with fill_value.
+
+        See :func:`pyarrow.compute.fill_null` for full usage.
 
         Parameters
         ----------
@@ -556,7 +558,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> animals.dictionary_encode()
         <pyarrow.lib.ChunkedArray object at 0x11caca310>
         [
-
+        \
           -- dictionary:
             [
               "Flamingo",
@@ -572,7 +574,7 @@ cdef class ChunkedArray(_PandasConvertible):
               1,
               2
             ],
-
+        \
           -- dictionary:
             [
               "Flamingo",
@@ -611,7 +613,7 @@ cdef class ChunkedArray(_PandasConvertible):
         --------
         >>> import pyarrow as pa
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
-        >>> pa.chunked_array(n_legs.value_counts())
+        >>> c_arr = pa.chunked_array(n_legs.value_counts())
         <pyarrow.lib.ChunkedArray object at 0x11caca310>
         [
           -- is_valid: all not null
@@ -630,9 +632,7 @@ cdef class ChunkedArray(_PandasConvertible):
               1
             ]
         ]
-        >>> pa.chunked_array(n_legs.value_counts()).flatten
-        <built-in method flatten of pyarrow.lib.ChunkedArray object at 0x11caca270>
-        >>> pa.chunked_array(n_legs.value_counts()).flatten()
+        >>> c_arr.flatten()
         [<pyarrow.lib.ChunkedArray object at 0x11caca3b0>
         [
           [
@@ -650,7 +650,7 @@ cdef class ChunkedArray(_PandasConvertible):
             1
           ]
         ]]
-        >>> pa.chunked_array(n_legs.value_counts()).type
+        >>> c_arr.type
         StructType(struct<values: int64, counts: int64>)
         >>> n_legs.type
         DataType(int64)
@@ -825,12 +825,14 @@ cdef class ChunkedArray(_PandasConvertible):
             100
           ]
         ]
-        >>> n_legs.slice(3,2)
-        <pyarrow.lib.ChunkedArray object at 0x11caca2c0>
+        >>> n_legs.slice(2,2)
+        <pyarrow.lib.ChunkedArray object at 0x11bc16d60>
         [
           [
-            4,
-            5
+            4
+          ],
+          [
+            4
           ]
         ]
         """
@@ -1067,13 +1069,13 @@ cdef class ChunkedArray(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> n_legs = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
-        >>> animals = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
-        >>> c_arr = pa.chunked_array([n_legs, animals])
+        >>> arr_1 = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
+        >>> arr_2 = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
+        >>> c_arr = pa.chunked_array([arr_1, arr_2])
         >>> c_arr
         <pyarrow.lib.ChunkedArray object at 0x11caca2c0>
         [
-
+        \
           -- dictionary:
             [
               "Flamingo",
@@ -1086,7 +1088,7 @@ cdef class ChunkedArray(_PandasConvertible):
               1,
               2
             ],
-
+        \
           -- dictionary:
             [
               "Horse",
@@ -1103,7 +1105,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> c_arr.unify_dictionaries()
         <pyarrow.lib.ChunkedArray object at 0x11caca270>
         [
-
+        \
           -- dictionary:
             [
               "Flamingo",
@@ -1119,7 +1121,7 @@ cdef class ChunkedArray(_PandasConvertible):
               1,
               2
             ],
-
+        \
           -- dictionary:
             [
               "Flamingo",
@@ -1197,7 +1199,7 @@ cdef class ChunkedArray(_PandasConvertible):
     @property
     def chunks(self):
         """
-        Convert to a list of chunks as Arrays.
+        Convert to a list of single-chunked arrays.
 
         Examples
         --------
@@ -1286,7 +1288,7 @@ def chunked_array(arrays, type=None):
     >>> pa.chunked_array([], type=pa.int8())
     <pyarrow.lib.ChunkedArray object at 0x10644f450>
     [
-
+    \
     ]
 
     >>> pa.chunked_array([[2, 2, 4], [4, 5, 100]])

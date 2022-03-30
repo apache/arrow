@@ -750,6 +750,24 @@ cdef class _PandasConvertible(_Weakrefable):
         Returns
         -------
         pandas.Series or pandas.DataFrame depending on type of object
+
+        Examples
+        --------
+        Convert a Chunked Array to pandas Series:
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.to_pandas()
+        0      2
+        1      2
+        2      4
+        3      4
+        4      5
+        5    100
+        dtype: int64
+        >>> import pandas as pd
+        >>> isinstance(n_legs.to_pandas(), pd.Series)
+        True
         """
         options = dict(
             pool=memory_pool,
