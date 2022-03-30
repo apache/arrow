@@ -100,16 +100,20 @@ QuantizedType <- R6::R6Class(
 
     # called when an Array of this type is converted to an R vector
     as_vector = function(extension_array) {
-      unquantized_arrow <-
-        (extension_array$storage()$cast(float64()) / private$.scale) +
-        private$.center
+      if (inherits(extension_array, "ExtensionArray")) {
+        unquantized_arrow <-
+          (extension_array$storage()$cast(float64()) / private$.scale) +
+          private$.center
 
-      as.vector(unquantized_arrow)
+        as.vector(unquantized_arrow)
+      } else {
+        super$as_vector(extension_array)
+      }
     },
 
     # populate the custom metadata fields from the serialized metadata
     Deserialize = function() {
-      vals <- as.numeric(strsplit(self$SerializeUTF8(), ";")[[1]])
+      vals <- as.numeric(strsplit(self$extension_metadata_utf8(), ";")[[1]])
       private$.center <- vals[1]
       private$.scale <- vals[2]
     }
