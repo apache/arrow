@@ -379,7 +379,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> import pyarrow as pa
         >>> fill_value = pa.scalar(5, type=pa.int8())
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
-        >>> n_legs.fill_null(5)
+        >>> n_legs.fill_null(fill_value)
         <pyarrow.lib.ChunkedArray object at ...>
         [
           [
