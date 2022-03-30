@@ -82,6 +82,16 @@ cdef class ChunkedArray(_PandasConvertible):
         return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
 
     def length(self):
+        """
+        Length of a ChunkedArray.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.length()
+        6
+        """
         return self.chunked_array.length()
 
     def __len__(self):
@@ -1140,7 +1150,7 @@ cdef class ChunkedArray(_PandasConvertible):
     @property
     def num_chunks(self):
         """
-        Number of underlying chunks
+        Number of underlying chunks.
 
         Returns
         -------
@@ -1157,7 +1167,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def chunk(self, i):
         """
-        Select a chunk by its index
+        Select a chunk by its index.
 
         Parameters
         ----------
@@ -1186,15 +1196,69 @@ cdef class ChunkedArray(_PandasConvertible):
 
     @property
     def chunks(self):
+        """
+        Convert to a list of chunks as Arrays.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at 0x11dcd7e00>
+        [
+          [
+            2,
+            2,
+            null
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.chunks
+        [<pyarrow.lib.Int64Array object at 0x11dcb1dc0>
+        [
+          2,
+          2,
+          null
+        ], <pyarrow.lib.Int64Array object at 0x11dcb1be0>
+        [
+          4,
+          5,
+          100
+        ]]
+        """
         return list(self.iterchunks())
 
     def iterchunks(self):
+        """
+        Convert to an iterator of ChunkArrays.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> for i in n_legs.iterchunks():
+        ...     print(i.null_count)
+        ...
+        0
+        1
+        """
         for i in range(self.num_chunks):
             yield self.chunk(i)
 
     def to_pylist(self):
         """
         Convert to a list of native Python objects.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.to_pylist()
+        [2, 2, 4, 4, None, 100]
         """
         result = []
         for i in range(self.num_chunks):
