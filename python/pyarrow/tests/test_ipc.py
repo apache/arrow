@@ -241,6 +241,11 @@ def test_empty_stream():
 
 
 def test_read_year_month_nano_interval(tmpdir):
+    """ARROW-15783: Verify to_pandas works for interval types.
+
+    Interval types require static structures to be enabled. This test verifies
+    that they are when no other library functions are invoked.
+    """
     mdn_interval_type = pa.month_day_nano_interval()
     schema = pa.schema([pa.field('nums', mdn_interval_type)])
 
