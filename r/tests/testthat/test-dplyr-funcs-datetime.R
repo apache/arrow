@@ -28,7 +28,7 @@ withr::local_timezone("UTC")
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
 if (tolower(Sys.info()[["sysname"]]) == "windows") {
-  test_date <- as.POSIXct("2017-01-01 00:00:11.3456789")#, tz = "")
+  test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "")
 } else {
   test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 }
@@ -406,6 +406,13 @@ test_that("extract day from timestamp", {
 test_that("extract wday from timestamp", {
   compare_dplyr_binding(
     .input %>%
+      mutate(x = wday(datetime)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = wday(date, week_start = 3)) %>%
       collect(),
     test_df
@@ -418,12 +425,7 @@ test_that("extract wday from timestamp", {
     test_df
   )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = wday(datetime)) %>%
-      collect(),
-    test_df
-  )
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   compare_dplyr_binding(
     .input %>%
@@ -655,20 +657,6 @@ test_that("leap_year mirror lubridate", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = leap_year(test_year)) %>%
-      collect(),
-    data.frame(
-      test_year = as.Date(c(
-        "1998-01-01", # not leap year
-        "1996-01-01", # leap year (divide by 4 rule)
-        "1900-01-01", # not leap year (divide by 100 rule)
-        "2000-01-01"  # leap year (divide by 400 rule)
-      ))
-    )
-  )
-
-  compare_dplyr_binding(
-    .input %>%
       mutate(x = leap_year(date)) %>%
       collect(),
     test_df
@@ -679,6 +667,20 @@ test_that("leap_year mirror lubridate", {
       mutate(x = leap_year(datetime)) %>%
       collect(),
     test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = leap_year(test_year)) %>%
+      collect(),
+    data.frame(
+      test_year = as.Date(c(
+        "1998-01-01", # not leap year
+        "1996-01-01", # leap year (divide by 4 rule)
+        "1900-01-01", # not leap year (divide by 100 rule)
+        "2000-01-01"  # leap year (divide by 400 rule)
+      ))
+    )
   )
 })
 
