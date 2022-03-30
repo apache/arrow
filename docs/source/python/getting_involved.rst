@@ -48,6 +48,7 @@ in C++ to what's in Python, in many cases the C++ classes and methods are
 used as foundations to build easier to use entities.
 
 .. image:: py_arch_overview.svg
+   :alt: Four layers of PyArrow architecture: .py, .pyx, .pxd and low level C++ code.
 
 * The ``*.py`` files in the pyarrow package are usually where the entities
   exposed to the user are declared. In some cases, those files might directly
