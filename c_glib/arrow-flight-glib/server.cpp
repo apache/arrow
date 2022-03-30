@@ -450,10 +450,9 @@ namespace gaflight {
       return stream->schema();
     }
 
-    arrow::Status GetSchemaPayload(
-      arrow::flight::FlightPayload *payload) override {
+    arrow::Result<arrow::flight::FlightPayload> GetSchemaPayload() override {
       auto stream = gaflight_data_stream_get_raw(gastream_);
-      return stream->GetSchemaPayload(payload);
+      return stream->GetSchemaPayload();
     }
 
     arrow::Result<arrow::flight::FlightPayload> Next() override {

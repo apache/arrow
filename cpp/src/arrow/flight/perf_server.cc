@@ -85,8 +85,11 @@ class PerfDataStream : public FlightDataStream {
 
   std::shared_ptr<Schema> schema() override { return schema_; }
 
-  Status GetSchemaPayload(FlightPayload* payload) override {
-    return ipc::GetSchemaPayload(*schema_, ipc_options_, mapper_, &payload->ipc_message);
+  arrow::Result<FlightPayload> GetSchemaPayload() override {
+    FlightPayload payload;
+    RETURN_NOT_OK(
+        ipc::GetSchemaPayload(*schema_, ipc_options_, mapper_, &payload.ipc_message));
+    return payload;
   }
 
   arrow::Result<FlightPayload> Next() override {

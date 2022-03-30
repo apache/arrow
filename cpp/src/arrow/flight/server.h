@@ -51,7 +51,12 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
   virtual std::shared_ptr<Schema> schema() = 0;
 
   /// \brief Compute FlightPayload containing serialized RecordBatch schema
-  virtual Status GetSchemaPayload(FlightPayload* payload) = 0;
+  virtual arrow::Result<FlightPayload> GetSchemaPayload() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status GetSchemaPayload(FlightPayload* payload) {
+    return GetSchemaPayload().Value(payload);
+  }
 
   // When the stream is completed, the last payload written will have null
   // metadata
@@ -72,13 +77,14 @@ class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
       const ipc::IpcWriteOptions& options = ipc::IpcWriteOptions::Defaults());
   ~RecordBatchStream() override;
 
+  // inherit deprecated API
+  using FlightDataStream::GetSchemaPayload;
+  using FlightDataStream::Next;
+
   std::shared_ptr<Schema> schema() override;
-  Status GetSchemaPayload(FlightPayload* payload) override;
+  arrow::Result<FlightPayload> GetSchemaPayload() override;
 
   arrow::Result<FlightPayload> Next() override;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(FlightPayload* payload);
 
  private:
   class RecordBatchStreamImpl;

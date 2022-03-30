@@ -1450,9 +1450,11 @@ class ForeverDataStream : public FlightDataStream {
   ForeverDataStream() : schema_(arrow::schema({})), mapper_(*schema_) {}
   std::shared_ptr<Schema> schema() override { return schema_; }
 
-  Status GetSchemaPayload(FlightPayload* payload) override {
-    return ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(), mapper_,
-                                 &payload->ipc_message);
+  arrow::Result<FlightPayload> GetSchemaPayload() override {
+    FlightPayload payload;
+    RETURN_NOT_OK(ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(),
+                                        mapper_, &payload.ipc_message));
+    return payload;
   }
 
   arrow::Result<FlightPayload> Next() override {

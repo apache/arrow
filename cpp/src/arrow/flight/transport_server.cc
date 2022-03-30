@@ -279,8 +279,7 @@ Status ServerTransport::DoGet(const ServerCallContext& context, const Ticket& ti
   if (!data_stream) return Status::KeyError("No data in this flight");
 
   // Write the schema as the first message in the stream
-  FlightPayload schema_payload;
-  RETURN_NOT_OK(data_stream->GetSchemaPayload(&schema_payload));
+  ARROW_ASSIGN_OR_RAISE(auto schema_payload, data_stream->GetSchemaPayload());
   ARROW_ASSIGN_OR_RAISE(auto success, stream->WriteData(schema_payload));
   // Connection terminated
   if (!success) return Status::OK();

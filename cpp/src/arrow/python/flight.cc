@@ -226,8 +226,8 @@ PyFlightDataStream::PyFlightDataStream(
 
 std::shared_ptr<Schema> PyFlightDataStream::schema() { return stream_->schema(); }
 
-Status PyFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
-  return stream_->GetSchemaPayload(payload);
+arrow::Result<FlightPayload> PyFlightDataStream::GetSchemaPayload() {
+  return stream_->GetSchemaPayload();
 }
 
 arrow::Result<FlightPayload> PyFlightDataStream::Next() { return stream_->Next(); }
@@ -242,8 +242,10 @@ PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
 
 std::shared_ptr<Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
 
-Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
-  return ipc::GetSchemaPayload(*schema_, options_, mapper_, &payload->ipc_message);
+arrow::Result<FlightPayload> PyGeneratorFlightDataStream::GetSchemaPayload() {
+  FlightPayload payload;
+  RETURN_NOT_OK(ipc::GetSchemaPayload(*schema_, options_, mapper_, &payload.ipc_message));
+  return payload;
 }
 
 arrow::Result<FlightPayload> PyGeneratorFlightDataStream::Next() {
