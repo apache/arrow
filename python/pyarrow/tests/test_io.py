@@ -344,6 +344,18 @@ def test_buffer_bytes():
     result = result_buf.to_pybytes()
     assert result == val
 
+    # Check that buffers survive a pickle roundtrip
+    # under highest protocol
+    highest = pickle.HIGHEST_PROTOCOL
+    result_buf = pickle.loads(pickle.dumps(buf, protocol=highest))
+    result = result_buf.to_pybytes()
+    assert result == val
+
+    null_buff = pa.foreign_buffer(address=0, size=0)
+    pickle.loads(pickle.dumps(null_buff, protocol=highest))
+
+
+
 
 def test_buffer_memoryview():
     val = b'some data'

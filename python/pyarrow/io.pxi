@@ -1116,7 +1116,9 @@ cdef class Buffer(_Weakrefable):
             return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
-        if protocol >= 5:
+        # null buffers with zero size have ambiguous meaning
+	# to pickle5 with asserts on.
+        if protocol >= 5 and self.size > 0:
             return py_buffer, (builtin_pickle.PickleBuffer(self),)
         else:
             return py_buffer, (self.to_pybytes(),)
