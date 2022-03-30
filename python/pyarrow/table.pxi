@@ -53,7 +53,6 @@ cdef class ChunkedArray(_PandasConvertible):
     ]
     >>> isinstance(pa.chunked_array([[2, 2, 4], [4, 5, 100]]), pa.ChunkedArray)
     True
-
     """
 
     def __cinit__(self):
@@ -92,7 +91,6 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
         >>> n_legs.length()
         6
-
         """
         return self.chunked_array.length()
 
@@ -132,7 +130,6 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
         >>> n_legs.to_string(skip_new_lines=True)
         '[[2,2,4],[4,5,100]]'
-
         """
         cdef:
             c_string result
@@ -202,7 +199,6 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
         >>> n_legs.null_count
         1
-
         """
         return self.chunked_array.null_count()
 
@@ -228,7 +224,6 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
         >>> n_legs.nbytes
         49
-
         """
         cdef:
             CResult[int64_t] c_res_buffer
@@ -254,7 +249,6 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
         >>> n_legs.get_total_buffer_size()
         49
-
         """
         cdef:
             int64_t total_buffer_size
@@ -329,7 +323,6 @@ cdef class ChunkedArray(_PandasConvertible):
             false
           ]
         ]
-
         """
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
@@ -356,7 +349,6 @@ cdef class ChunkedArray(_PandasConvertible):
             true
           ]
         ]
-
         """
         return _pc().is_valid(self)
 
@@ -399,7 +391,6 @@ cdef class ChunkedArray(_PandasConvertible):
             100
           ]
         ]
-
         """
         return _pc().fill_null(self, fill_value)
 
@@ -428,7 +419,6 @@ cdef class ChunkedArray(_PandasConvertible):
         True
         >>> n_legs.equals(animals)
         False
-
         """
         if other is None:
             return False
@@ -460,7 +450,6 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
         >>> n_legs.to_numpy()
         array([  2,   2,   4,   4,   5, 100])
-
         """
         cdef:
             PyObject* out
@@ -538,7 +527,6 @@ cdef class ChunkedArray(_PandasConvertible):
             100
           ]
         ]
-
         """
         return _pc().cast(self, target_type, safe=safe)
 
@@ -601,7 +589,6 @@ cdef class ChunkedArray(_PandasConvertible):
               5
             ]
         ]
-
         """
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
@@ -666,7 +653,6 @@ cdef class ChunkedArray(_PandasConvertible):
         StructType(struct<values: int64, counts: int64>)
         >>> n_legs.type
         DataType(int64)
-
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] flattened
@@ -718,7 +704,6 @@ cdef class ChunkedArray(_PandasConvertible):
           5,
           100
         ]
-
         """
         return concat_arrays(self.chunks)
 
@@ -756,7 +741,6 @@ cdef class ChunkedArray(_PandasConvertible):
           5,
           100
         ]
-
         """
         return _pc().call_function('unique', [self])
 
@@ -803,7 +787,6 @@ cdef class ChunkedArray(_PandasConvertible):
             1,
             1
           ]
-
         """
         return _pc().call_function('value_counts', [self])
 
@@ -851,7 +834,6 @@ cdef class ChunkedArray(_PandasConvertible):
             4
           ]
         ]
-
         """
         cdef shared_ptr[CChunkedArray] result
 
@@ -927,7 +909,6 @@ cdef class ChunkedArray(_PandasConvertible):
             100
           ]
         ]
-
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -975,7 +956,6 @@ cdef class ChunkedArray(_PandasConvertible):
         <pyarrow.Int64Scalar: 2>
         >>> n_legs.index(4, start=3)
         <pyarrow.Int64Scalar: 3>
-
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
@@ -1022,7 +1002,6 @@ cdef class ChunkedArray(_PandasConvertible):
             100
           ]
         ]
-
         """
         return _pc().take(self, indices)
 
@@ -1062,7 +1041,6 @@ cdef class ChunkedArray(_PandasConvertible):
             100
           ]
         ]
-
         """
         return _pc().drop_null(self)
 
@@ -1158,7 +1136,6 @@ cdef class ChunkedArray(_PandasConvertible):
               5
             ]
         ]
-
         """
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -1185,7 +1162,6 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
         >>> n_legs.num_chunks
         2
-
         """
         return self.chunked_array.num_chunks()
 
@@ -1212,7 +1188,6 @@ cdef class ChunkedArray(_PandasConvertible):
           5,
           100
         ]
-
         """
         if i >= self.num_chunks or i < 0:
             raise IndexError('Chunk index out of range.')
@@ -1254,7 +1229,6 @@ cdef class ChunkedArray(_PandasConvertible):
           5,
           100
         ]]
-
         """
         return list(self.iterchunks())
 
@@ -1286,7 +1260,6 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
         >>> n_legs.to_pylist()
         [2, 2, 4, 4, None, 100]
-
         """
         result = []
         for i in range(self.num_chunks):
@@ -1331,7 +1304,6 @@ def chunked_array(arrays, type=None):
         100
       ]
     ]
-
     """
     cdef:
         Array arr
