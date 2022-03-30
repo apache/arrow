@@ -28,8 +28,7 @@
 #include "./extension.h"
 
 bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
-  // Avoid materializing the R6 instance if at all possible, since this is slow
-  // and in some cases not possible due to threading
+  // Avoid materializing the R6 instance if at all possible
   if (other.extension_name() != extension_name()) {
     return false;
   }
@@ -40,6 +39,7 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
 
   // With any ambiguity, we need to materialize the R6 instance and call its
   // ExtensionEquals method. We can't do this on the non-R thread.
+  // After ARROW-15841, we can use SafeCallIntoR.
   arrow::Status is_r_thread = assert_r_thread();
   if (!assert_r_thread().ok()) {
     throw std::runtime_error(is_r_thread.message());
@@ -77,8 +77,7 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   // confusing, since it will only occur when the result surfaces to R
   // (which might be much later). Unfortunately, the Deserialize() method gets
   // called from other threads frequently (e.g., when reading a multi-file Dataset),
-  // and we get crashes if we try this. As a compromise, we call this method when we can
-  // to maximize the likelihood an error is surfaced.
+  // and we get crashes if we try this. After ARROW-15841, we can use SafeCallIntoR.
   if (assert_r_thread().ok()) {
     cloned->r6_instance();
   }
@@ -88,6 +87,7 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
 
 std::string RExtensionType::ToString() const {
   // In case this gets called from another thread
+  // After ARROW-15841, we can use SafeCallIntoR.
   if (!assert_r_thread().ok()) {
     return ExtensionType::ToString();
   }
