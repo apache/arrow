@@ -45,7 +45,7 @@ public class ArrowFlightPreparedStatementTest {
 
   @BeforeClass
   public static void setup() throws SQLException {
-    connection = FLIGHT_SERVER_TEST_RULE.getConnection();
+    connection = FLIGHT_SERVER_TEST_RULE.getConnection(false);
   }
 
   @AfterClass

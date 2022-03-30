@@ -39,7 +39,7 @@ public class ArrowFlightJdbcConnectionCookieTest {
 
   @Test
   public void testCookies() throws SQLException {
-    try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnection();
+    try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnection(false);
          Statement statement = connection.createStatement()) {
 
       // Expect client didn't receive cookies before any operation

@@ -55,7 +55,7 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
   @Before
   public void setUp() {
-    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource();
+    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource(false);
   }
 
   @After

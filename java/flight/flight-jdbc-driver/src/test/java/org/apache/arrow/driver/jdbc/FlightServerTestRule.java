@@ -115,12 +115,24 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return ArrowFlightJdbcConnectionPoolDataSource.createNewDataSource(properties);
   }
 
-  public Connection getConnectionFromToken(String token) throws SQLException {
-    return this.createDataSource(token).getConnection();
+  public ArrowFlightJdbcConnectionPoolDataSource createConnectionPoolDataSource(boolean useTls) {
+    setUseTls(useTls);
+    return ArrowFlightJdbcConnectionPoolDataSource.createNewDataSource(properties);
   }
 
-  public Connection getConnection() throws SQLException {
+  public Connection getConnection(boolean useTls, String token) throws SQLException {
+    properties.put("token", token);
+
+    return getConnection(useTls);
+  }
+
+  public Connection getConnection(boolean useTls) throws SQLException {
+    setUseTls(useTls);
     return this.createDataSource().getConnection();
+  }
+
+  private void setUseTls(boolean useTls) {
+    properties.put("useTls", useTls);
   }
 
   public MiddlewareCookie.Factory getMiddlewareCookieFactory() {

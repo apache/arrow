@@ -346,6 +346,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private String keyStorePassword;
     private String token;
     private boolean useTls;
+    private boolean disableCertificateVerification;
     private BufferAllocator allocator;
 
     /**
@@ -422,6 +423,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      */
     public Builder withTlsEncryption(final boolean useTls) {
       this.useTls = useTls;
+      return this;
+    }
+
+    public Builder withDisableCertificateVerification(final boolean disableCertificateVerification) {
+      this.disableCertificateVerification = disableCertificateVerification;
       return this;
     }
 
@@ -516,6 +522,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           location = Location.forGrpcInsecure(host, port);
         }
         clientBuilder.location(location);
+
+        if (disableCertificateVerification) {
+          clientBuilder.verifyServer(false);
+        }
+
         if (keyStorePath != null) {
           clientBuilder.trustedCertificates(
               ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));

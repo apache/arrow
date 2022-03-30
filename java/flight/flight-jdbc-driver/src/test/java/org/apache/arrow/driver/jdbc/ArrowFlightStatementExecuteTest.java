@@ -103,7 +103,7 @@ public class ArrowFlightStatementExecuteTest {
 
   @Before
   public void setUp() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection();
+    connection = SERVER_TEST_RULE.getConnection(false);
     statement = connection.createStatement();
   }
 
