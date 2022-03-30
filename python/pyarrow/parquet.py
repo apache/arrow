@@ -1368,7 +1368,7 @@ coerce_int96_timestamp_unit : str, default None.
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
-                filters=None, metadata_nthreads=1, read_dictionary=None,
+                filters=None, metadata_nthreads=None, read_dictionary=None,
                 memory_map=False, buffer_size=0, partitioning="hive",
                 use_legacy_dataset=None, pre_buffer=True,
                 coerce_int96_timestamp_unit=None):
@@ -1401,7 +1401,7 @@ coerce_int96_timestamp_unit : str, default None.
 
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
-                 filters=None, metadata_nthreads=1, read_dictionary=None,
+                 filters=None, metadata_nthreads=None, read_dictionary=None,
                  memory_map=False, buffer_size=0, partitioning="hive",
                  use_legacy_dataset=True, pre_buffer=True,
                  coerce_int96_timestamp_unit=None):
@@ -1409,6 +1409,16 @@ coerce_int96_timestamp_unit : str, default None.
             raise ValueError(
                 'Only "hive" for hive-like partitioning is supported when '
                 'using use_legacy_dataset=True')
+        if metadata_nthreads is not None:
+            warnings.warn(
+                "Specifying the 'metadata_nthreads' argument is deprecated as "
+                "of pyarrow 8.0.0, and the argument will be removed in a "
+                "future version",
+                DeprecationWarning, stacklevel=2,
+            )
+        else:
+            metadata_nthreads = 1
+
         self._metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
@@ -1447,7 +1457,15 @@ coerce_int96_timestamp_unit : str, default None.
         else:
             self.metadata = metadata
 
-        self.schema = schema
+        if schema is not None:
+            warnings.warn(
+                "Specifying the 'schema' argument with 'use_legacy_dataset="
+                "True' is deprecated as of pyarrow 8.0.0. You can still "
+                "specify it in combination with 'use_legacy_dataet=False', "
+                "but in that case you need to specify a pyarrow.Schema "
+                "instead of a ParquetSchema.",
+                DeprecationWarning, stacklevel=2)
+        self._schema = schema
 
         self.split_row_groups = split_row_groups
 
@@ -1469,7 +1487,7 @@ coerce_int96_timestamp_unit : str, default None.
             return False
         for prop in ('paths', '_pieces', '_partitions',
                      'common_metadata_path', 'metadata_path',
-                     'common_metadata', 'metadata', 'schema',
+                     'common_metadata', 'metadata', '_schema',
                      'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
                 return False
@@ -1486,16 +1504,16 @@ coerce_int96_timestamp_unit : str, default None.
             return NotImplemented
 
     def validate_schemas(self):
-        if self.metadata is None and self.schema is None:
+        if self.metadata is None and self._schema is None:
             if self.common_metadata is not None:
-                self.schema = self.common_metadata.schema
+                self._schema = self.common_metadata.schema
             else:
-                self.schema = self._pieces[0].get_metadata().schema
-        elif self.schema is None:
-            self.schema = self.metadata.schema
+                self._schema = self._pieces[0].get_metadata().schema
+        elif self._schema is None:
+            self._schema = self.metadata.schema
 
         # Verify schemas are all compatible
-        dataset_schema = self.schema.to_arrow_schema()
+        dataset_schema = self._schema.to_arrow_schema()
         # Exclude the partition columns from the schema, they are provided
         # by the path, not the DatasetPiece
         if self._partitions is not None:
@@ -1613,6 +1631,18 @@ coerce_int96_timestamp_unit : str, default None.
         return self._partitions
 
     @property
+    def schema(self):
+        warnings.warn(
+            _DEPR_MSG.format(
+                "ParquetDataset.schema",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.schema' attribute "
+                "instead (which will return an Arrow schema instead of a "
+                "Parquet schema)."),
+            DeprecationWarning, stacklevel=2)
+        return self._schema
+
+    @property
     def memory_map(self):
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.memory_map", ""),
@@ -1706,15 +1736,14 @@ class _ParquetDatasetV2:
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, ignore_prefixes=None, pre_buffer=True,
-                 coerce_int96_timestamp_unit=None,
+                 coerce_int96_timestamp_unit=None, schema=None,
                  decryption_properties=None, **kwargs):
         import pyarrow.dataset as ds
 
         # Raise error for not supported keywords
         for keyword, default in [
-                ("schema", None), ("metadata", None),
-                ("split_row_groups", False), ("validate_schema", True),
-                ("metadata_nthreads", 1)]:
+                ("metadata", None), ("split_row_groups", False),
+                ("validate_schema", True), ("metadata_nthreads", None)]:
             if keyword in kwargs and kwargs[keyword] is not default:
                 raise ValueError(
                     "Keyword '{0}' is not yet supported with the new "
@@ -1785,7 +1814,7 @@ class _ParquetDatasetV2:
             fragment = parquet_format.make_fragment(single_file, filesystem)
 
             self._dataset = ds.FileSystemDataset(
-                [fragment], schema=fragment.physical_schema,
+                [fragment], schema=schema or fragment.physical_schema,
                 format=parquet_format,
                 filesystem=fragment.filesystem
             )
@@ -1797,7 +1826,7 @@ class _ParquetDatasetV2:
                 infer_dictionary=True)
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
-                                   format=parquet_format,
+                                   schema=schema, format=parquet_format,
                                    partitioning=partitioning,
                                    ignore_prefixes=ignore_prefixes)
 
@@ -1909,6 +1938,9 @@ use_threads : bool, default True
     Perform multi-threaded column reads.
 metadata : FileMetaData
     If separately computed
+schema : Schema, optional
+    Optionally provide the Schema for the parquet dataset, in which case it
+    will not be inferred from the source.
 {1}
 use_legacy_dataset : bool, default False
     By default, `read_table` uses the new Arrow Datasets API since
@@ -1959,7 +1991,7 @@ Returns
 
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
-               use_pandas_metadata=False, memory_map=False,
+               schema=None, use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=False,
                ignore_prefixes=None, pre_buffer=True,
@@ -1976,6 +2008,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         try:
             dataset = _ParquetDatasetV2(
                 source,
+                schema=schema,
                 filesystem=filesystem,
                 partitioning=partitioning,
                 memory_map=memory_map,
@@ -1997,6 +2030,11 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             if partitioning != "hive":
                 raise ValueError(
                     "the 'partitioning' keyword is not supported when the "
+                    "pyarrow.dataset module is not available"
+                )
+            if schema is not None:
+                raise ValueError(
+                    "the 'schema' argument is not supported when the "
                     "pyarrow.dataset module is not available"
                 )
             filesystem, path = _resolve_filesystem_and_path(source, filesystem)
@@ -2023,6 +2061,11 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
     if ignore_prefixes is not None:
         raise ValueError(
             "The 'ignore_prefixes' keyword is only supported when "
+            "use_legacy_dataset=False")
+
+    if schema is not None:
+        raise ValueError(
+            "The 'schema' argument is only supported when "
             "use_legacy_dataset=False")
 
     if _is_path_like(source):
