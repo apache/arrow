@@ -79,6 +79,14 @@ cdef class ChunkedArray(_PandasConvertible):
 
     @property
     def type(self):
+        """
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.type
+        DataType(int64)
+        """
         return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
 
     def length(self):
