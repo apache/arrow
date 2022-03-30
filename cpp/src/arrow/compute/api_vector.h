@@ -191,9 +191,6 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 /// \brief Options for cumulative sum function
 class ARROW_EXPORT CumulativeGenericOptions : public FunctionOptions {
  public:
-  // explicit CumulativeGenericOptions(uint64_t start, bool skip_nulls = false);
-  // explicit CumulativeGenericOptions(int64_t start, bool skip_nulls = false);
-  // explicit CumulativeGenericOptions(double start, bool skip_nulls = false);
   explicit CumulativeGenericOptions(
       std::shared_ptr<Scalar> start = std::make_shared<NumericScalar<Int8Type>>(0),
       bool skip_nulls = false);
