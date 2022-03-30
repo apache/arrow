@@ -1072,8 +1072,7 @@ class RowGroupGenerator {
     }
     auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
     if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
-
-    return ready.Then([=]() mutable -> ::arrow::Future<RecordBatchGenerator> {
+    return ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
       return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
     });
   }
@@ -1187,7 +1186,8 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
-  auto read_column = [=](size_t i, std::shared_ptr<ColumnReaderImpl> reader) mutable
+  auto read_column = [row_groups, self, this](size_t i,
+                                              std::shared_ptr<ColumnReaderImpl> reader)
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
     std::shared_ptr<::arrow::ChunkedArray> column;
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));

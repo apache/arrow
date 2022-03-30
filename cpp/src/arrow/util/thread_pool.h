@@ -144,12 +144,12 @@ class ARROW_EXPORT Executor {
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.
   template <typename Function, typename... Args,
-            typename FuncResult = ::arrow::detail::result_of_t<Function && (Args && ...)>,
             typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
                 Function && (Args && ...)>>
   Result<FutureType> Submit(TaskHints hints, StopToken stop_token, Function&& func,
                             Args&&... args) {
     using ValueType = typename FutureType::ValueType;
+
     auto future = FutureType::Make();
     auto task = std::bind(::arrow::detail::ContinueFuture{}, future,
                           std::forward<Function>(func), std::forward<Args>(args)...);
