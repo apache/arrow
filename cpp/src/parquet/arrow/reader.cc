@@ -1193,7 +1193,8 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
     return column;
   };
-  auto make_table = [=](const ::arrow::ChunkedArrayVector& columns)
+  auto make_table = [result_schema, row_groups, self,
+          this](const ::arrow::ChunkedArrayVector& columns)
       -> ::arrow::Result<std::shared_ptr<Table>> {
     int64_t num_rows = 0;
     if (!columns.empty()) {

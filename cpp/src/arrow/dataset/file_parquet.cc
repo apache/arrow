@@ -368,7 +368,8 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                                                        &arrow_reader));
         return std::move(arrow_reader);
       },
-      [=](const Status& status) -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+      [path](
+              const Status& status) -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
         return WrapSourceError(status, path);
       });
 }
