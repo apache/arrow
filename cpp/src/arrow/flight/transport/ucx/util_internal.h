@@ -22,6 +22,7 @@
 #include <string>
 
 #include "arrow/flight/visibility.h"
+#include "arrow/status.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/uri.h"
@@ -38,6 +39,19 @@ static inline void UInt32ToBytesBe(const uint32_t in, uint8_t* out) {
 static inline uint32_t BytesToUInt32Be(const uint8_t* in) {
   return bit_util::FromBigEndian(util::SafeLoadAs<uint32_t>(in));
 }
+
+class ARROW_FLIGHT_EXPORT FlightUcxStatusDetail : public StatusDetail {
+ public:
+  explicit FlightUcxStatusDetail(ucs_status_t status) : status_(status) {}
+  static constexpr char const kTypeId[] = "flight::transport::ucx::FlightUcxStatusDetail";
+
+  const char* type_id() const override { return kTypeId; }
+  std::string ToString() const override;
+  static ucs_status_t Unwrap(const Status& status);
+
+ private:
+  ucs_status_t status_;
+};
 
 ARROW_FLIGHT_EXPORT
 Status FromUcsStatus(const std::string& context, ucs_status_t ucs_status);
