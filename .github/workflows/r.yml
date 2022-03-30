@@ -342,7 +342,7 @@ jobs:
             pattern <- paste0("\\n?", to_prune, "( \\([^,]*\\))?,?", collapse = "|")
             d[,"Suggests"] <- gsub(pattern, "", d[,"Suggests"])
             write.dcf(d, "DESCRIPTION")
-      - name: Restore R package cache
+      - name: R package cache
         uses: actions/cache@v2
         with:
           path: |
