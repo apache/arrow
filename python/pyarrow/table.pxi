@@ -785,6 +785,7 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         int: int64
         str: string
+
         """
 
         return _from_pydict(cls=RecordBatch,
@@ -820,11 +821,12 @@ cdef class RecordBatch(_PandasConvertible):
         int: int64
         str: string
         >>> pa.RecordBatch.from_pylist(pylist)[0]
-        <pyarrow.lib.Int64Array object at 0x1256b08e0>
+        <pyarrow.lib.Int64Array object at ...>
         [
           1,
           2
         ]
+
         """
 
         return _from_pylist(cls=RecordBatch,
@@ -1904,11 +1906,12 @@ cdef class Table(_PandasConvertible):
         >>> import pandas as pd
         >>> import pyarrow as pa
         >>> df = pd.DataFrame({
-            ...     'int': [1, 2],
-            ...     'str': ['a', 'b']
-            ... })
+        ...     'int': [1, 2],
+        ...     'str': ['a', 'b']
+        ... })
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
+
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
@@ -2002,6 +2005,7 @@ cdef class Table(_PandasConvertible):
         ----
         int: [[1,2]]
         str: [["a","b"]]
+
         """
 
         return _from_pydict(cls=Table,
@@ -2039,6 +2043,7 @@ cdef class Table(_PandasConvertible):
         ----
         int: [[1,2]]
         str: [["a","b"]]
+
         """
 
         return _from_pylist(cls=Table,
@@ -2183,6 +2188,7 @@ cdef class Table(_PandasConvertible):
         ... ], names=["int", "str"])
         >>> table.to_pydict()
         {'int': [1, 2], 'str': ['a', 'b']}
+
         """
         cdef:
             size_t i
@@ -2213,6 +2219,7 @@ cdef class Table(_PandasConvertible):
         ... ], names=["int", "str"])
         >>> table.to_pylist()
         [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+
         """
         pydict = self.to_pydict()
         names = self.schema.names
@@ -2727,6 +2734,86 @@ def record_batch(data, names=None, schema=None, metadata=None):
     See Also
     --------
     RecordBatch.from_arrays, RecordBatch.from_pandas, table
+
+    Example
+    -------
+    Creating a RecordBatch from a list of arrays with names:
+
+    >>> import pyarrow as pa
+    >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+    >>> animals = pa.array(["Flamingo", "Parot", "Dog", "Horse", "Brittle stars", "Centipede"])
+    >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"])
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"]).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2          Parot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
+    Creating a RecordBatch from a list of arrays with names and metadata:
+
+    >>> my_metadata={"n_legs": "How many legs does an animal have?"}
+    >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"], metadata = my_metadata)
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"], metadata = my_metadata).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2          Parot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
+    Creating a RecordBatch from a pandas DataFrame:
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+    ...                    'month': [3, 5, 7, 9, 11, 12],
+    ...                    'day': [1, 5, 9, 13, 17, 23],
+    ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Parot", "Dog", "Horse", "Brittle stars", "Centipede"]})
+    >>> pa.record_batch(df)
+    pyarrow.RecordBatch
+    year: int64
+    month: int64
+    day: int64
+    n_legs: int64
+    animals: string
+    >>> pa.record_batch(df).to_pandas()
+       year  month  day  n_legs        animals
+    0  2020      3    1       2       Flamingo
+    1  2022      5    5       2          Parot
+    2  2021      7    9       4            Dog
+    3  2022      9   13       4          Horse
+    4  2019     11   17       5  Brittle stars
+    5  2021     12   23     100      Centipede
+
+    Creating a RecordBatch from a pandas DataFrame with schema:
+
+    >>> my_schema = pa.schema([
+    ...     pa.field('n_legs', pa.int64()),
+    ...     pa.field('animals', pa.string())],
+    ...     metadata={"n_legs": "Number of legs per animal"})
+    >>> pa.record_batch(df, my_schema)
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    >>> pa.record_batch(df, my_schema).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2          Parot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
     """
     # accept schema as first argument for backwards compatibility / usability
     if isinstance(names, Schema) and schema is None:
@@ -2981,6 +3068,7 @@ list[tuple(str, str, FunctionOptions)]
         ----
         values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+
         """
         columns = [a[0] for a in aggregations]
         aggrfuncs = [
