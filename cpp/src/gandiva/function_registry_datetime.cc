@@ -138,19 +138,19 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                          NativeFunction::kCanReturnErrors),
 
       NativeFunction(
-          "castintervalday", {}, DataTypeVector{utf8(), int32()}, day_time_interval(),
+          "castINTERVALDAY", {}, DataTypeVector{utf8(), int32()}, day_time_interval(),
           kResultNullInternal, "gdv_fn_cast_intervalday_utf8_int32",
           NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
               NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castintervalyear", {}, DataTypeVector{utf8()}, month_interval(),
+      NativeFunction("castINTERVALYEAR", {}, DataTypeVector{utf8()}, month_interval(),
                      kResultNullInternal, "gdv_fn_cast_intervalyear_utf8",
                      NativeFunction::kNeedsContext |
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
 
       NativeFunction(
-          "castintervalyear", {}, DataTypeVector{utf8(), int32()}, month_interval(),
+          "castINTERVALYEAR", {}, DataTypeVector{utf8(), int32()}, month_interval(),
           kResultNullInternal, "gdv_fn_cast_intervalyear_utf8_int32",
           NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
               NativeFunction::kCanReturnErrors),
