@@ -222,6 +222,9 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
 #define PROPAGATE_SPAN_TO_GENERATOR(generator) \
   generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator(generator)
 
+#define WRAP_ASYNC_GENERATOR(generator, name) \
+  generator = ::arrow::internal::tracing::WrapAsyncGenerator(generator, name)
+
 #else
 
 class SpanImpl {};
@@ -236,6 +239,7 @@ class SpanImpl {};
 #define SET_SPAN_SCOPE(lhs, span)
 #define TIE_SPAN_TO_GENERATOR(generator)
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
+#define WRAP_ASYNC_GENERATOR(generator, name)
 
 #endif
 

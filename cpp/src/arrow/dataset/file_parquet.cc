@@ -418,10 +418,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
   };
   auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
                                       .Then(std::move(make_generator)));
-#ifdef ARROW_WITH_OPENTELEMETRY
-  generator = arrow::internal::tracing::WrapAsyncGenerator(
-      std::move(generator), "arrow::dataset::ParquetFileFormat::ScanBatchesAsync::Next");
-#endif
+  WRAP_ASYNC_GENERATOR(generator, "arrow::dataset::ParquetFileFormat::ScanBatchesAsync::Next");
   return generator;
 }
 
