@@ -1186,3 +1186,48 @@ test_that("as.difftime()", {
       collect()
   )
 })
+
+test_that("make_difftime()", {
+  test_df <- tibble(
+    seconds = c(3, 4, 5, 6),
+    minutes = c(1.5, 2.3, 4.5, 6.7),
+    hours = c(2, 3, 4, 5),
+    days = c(6, 7, 8, 9),
+    weeks = c(1, 3, 5, NA),
+    number = 10:13
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        duration_from_parts = make_difftime(
+          second = seconds,
+          minute = minutes,
+          hour = hours,
+          day = days,
+          week = weeks,
+          units = "secs"),
+        duration_from_num = make_difftime(
+          num = number,
+          units =  "secs"
+        ),
+        duration_from_r_obj = make_difftime(
+          num = 154,
+          units = "secs"
+        ),
+        duration_from_r_chunks = make_difftime(
+          minute = 45,
+          day = 2,
+          week = 4,
+          units = "secs"
+        )
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  test_df %>%
+    arrow_table() %>%
+    mutate(error_difftime = make_difftime(month = number, units = "secs")) %>%
+    collect()
+})

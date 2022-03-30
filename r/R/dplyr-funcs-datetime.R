@@ -309,6 +309,25 @@ register_bindings_duration <- function() {
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
+  register_binding("make_difftime", function(num = NULL,
+                                             units = "secs",
+                                             ...) {
+    if (units != "secs") {
+      abort("`make_difftime()` with units other than 'secs' not supported in Arrow")
+    }
+
+    chunks <- list(...)
+
+    if (is.null(num)) {
+      duration <- duration_from_chunks(chunks)
+    } else if (length(chunks) == 0){
+      duration <- num
+    } else {
+      duration <- num + duration_from_chunks(chunks)
+    }
+    duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
+    duration$cast(duration("s"))
+  })
 }
 
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
@@ -330,3 +349,33 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
 
   build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
+
+duration_from_chunks <- function(chunks) {
+  accepted_chunks <- c("second", "minute", "hour", "day", "week")
+  matched_chunks <- accepted_chunks[pmatch(names(chunks), accepted_chunks, duplicates.ok = TRUE)]
+
+  if (any(is.na(matched_chunks))) {
+    abort(
+      paste0(
+        "Invalid `difftime` parts: ",
+        oxford_paste(names(chunks[is.na(matched_chunks)]), quote_symbol = "`")
+      )
+    )
+  }
+
+  matched_chunks <- matched_chunks[!is.na(matched_chunks)]
+
+  chunks <- chunks[matched_chunks]
+  chunk_duration <- c(
+    "second" = 1L,
+    "minute" = 60L,
+    "hour" = 3600L,
+    "day" = 86400L,
+    "week" = 604800L
+  )
+  duration <- 0L
+  for (chunk in names(chunks)) {
+    duration <- duration + chunks[[chunk]] * chunk_duration[[chunk]]
+  }
+  duration
+  }
