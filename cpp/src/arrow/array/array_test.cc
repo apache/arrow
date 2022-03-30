@@ -78,6 +78,14 @@ class TestArray : public ::testing::Test {
   MemoryPool* pool_;
 };
 
+
+TEST_F(TestArray, ValidateFullNullable) {
+  auto f1 = field("f1", int32(), /*nullable=*/false);
+  auto type1 = std::make_shared<ListType>(f1);
+  auto array = ArrayFromJSON(type1, "[[0, 1, 2, null], null, [4, 5]]");
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+}
+
 TEST_F(TestArray, TestNullCount) {
   // These are placeholders
   auto data = std::make_shared<Buffer>(nullptr, 0);
