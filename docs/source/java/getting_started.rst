@@ -18,14 +18,16 @@
 .. default-domain:: java
 .. highlight:: java
 
-.. _getstarted:
-
-===============
-Getting Started
-===============
+User Guide
+==========
 
 .. toctree::
-   :maxdepth: 2
 
-   quickstartguide
-   modules
+   overview
+   install
+   memory
+   vector
+   vector_schema_root
+   ipc
+   algorithm
+   dataset

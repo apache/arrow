@@ -15,12 +15,10 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Java Implementation
-===================
+Examples
+========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   getting_started
-   Examples <examples/index>
-   Reference (javadoc) <reference/index>
+   quickstartguide
