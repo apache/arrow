@@ -24,21 +24,9 @@ High-Level Overview
 
 .. contents::
 
-Arrow Java modules is created using specification such as Columnar Format, Off-Heap
-Memory, Serialization and Inter Process Communication (IPC). Some of the Java modules
-was created with their own native implementations and others through bindings.
-
-Arrow Java provides several building blocks; ``data types`` describe the types of values;
-``ValueVectors`` are sequences of typed values; ``fields`` describe the types of columns in
-tabular data; ``schemas`` describe a sequence of columns in tabular data and
-``VectorSchemaRoot`` represents tabular data. Arrow also provides ``readers`` and
-``writers`` for loading data from and persisting data to storage.
-
-
-Arrow Java Modules
-------------------
-
-Arrow Java are divided in these modules to offer in-memory columnar data structures:
+The Apache Arrow Java modules implement various specifications including the
+columnar format and IPC. Most modules are native Java implementations,
+but some modules are JNI bindings to the C++ library.
 
 .. list-table:: Arrow Java Modules
    :widths: 25 50 25
@@ -46,72 +34,71 @@ Arrow Java are divided in these modules to offer in-memory columnar data structu
 
    * - Module
      - Description
-     - Root Decision
+     - Implementation
    * - arrow-format
      - Generated Java files from the IPC Flatbuffer definitions.
-     - Native implementation
+     - Native
    * - arrow-memory-core
      - Core off-heap memory management libraries for Arrow ValueVectors.
-     - Native implementation
+     - Native
    * - arrow-memory-unsafe
      - Memory management implementation based on sun.misc.Unsafe.
-     - Native implementation
+     - Native
    * - arrow-memory-netty
      - Memory management implementation based on Netty.
-     - Native implementation
+     - Native
    * - arrow-vector
      - An off-heap reference implementation for Arrow columnar data format.
-     - Native implementation
+     - Native
    * - arrow-tools
      - Java applications for working with Arrow ValueVectors.
-     - Native implementation
+     - Native
    * - arrow-jdbc
      - (Experimental) A library for converting JDBC data to Arrow data.
-     - Native implementation
+     - Native
    * - arrow-plasma
      - (Experimental) Java client for the Plasma object store.
-     - Native implementation
+     - Native
    * - flight-core
      - (Experimental) An RPC mechanism for transferring ValueVectors.
-     - Native implementation
+     - Native
    * - flight-grpc
      - (Experimental) Contains utility class to expose Flight gRPC service and client.
-     - Native implementation
+     - Native
    * - flight-sql
      - (Experimental) Contains utility classes to expose Flight SQL semantics for clients and servers over Arrow Flight.
-     - Native implementation
+     - Native
    * - flight-integration-tests
      - Integration tests for Flight RPC.
-     - Native implementation
+     - Native
    * - arrow-performance
      - JMH benchmarks for the Arrow libraries.
-     - Native implementation
+     - Native
    * - arrow-algorithm
      - (Experimental) A collection of algorithms for working with ValueVectors.
-     - Native implementation
+     - Native
    * - arrow-avro
      - (Experimental) A library for converting Avro data to Arrow data.
-     - Native implementation
+     - Native
    * - arrow-compression
      - (Experimental) A library for working with compression/decompression of Arrow data.
-     - Native implementation
+     - Native
    * - arrow-c-data
-     - Java implementation of C Data Interface
-     - Bindings
+     - Java implementation of `C Data Interface`_
+     - JNI
    * - arrow-orc
      - (Experimental) A JNI wrapper for the C++ ORC reader implementation.
-     - Bindings
+     - JNI
    * - arrow-gandiva
      - Java wrappers around the native Gandiva SQL expression compiler.
-     - Bindings
+     - JNI
    * - arrow-dataset
      - Java bindings to the Arrow Datasets library.
-     - Bindings
+     - JNI
 
 Arrow Java modules support working with data (1) in-memory, (2) at rest, and (3) on-the-wire.
 
-For more detail about how to install this modules please review
-:doc:`Installing Java Modules <install>`.
+For more detail about how to install this modules please review `Installing Java Modules`.
 
 Arrow Java In-Memory (The Physical Layer)
 -----------------------------------------
@@ -167,8 +154,8 @@ several abstractions to handle such data conveniently and efficiently.
 
 ``Schema``: It holds a sequence of fields together with some optional metadata.
 
-``VectorSchemaRoot``: It is somewhat analogous to tables and record batches in the
-other Arrow implementations in that they all are 2D datasets, but the usage is different.
+``VectorSchemaRoot``: It combines ValueVectors with a Schema to represent tabular data.
+It is somewhat analogous to tables and record batches in the other Arrow implementations.
 
 For more detail on Arrow Java vector please review :doc:`VectorSchemaRoot <vector_schema_root>`.
 
@@ -209,6 +196,7 @@ To complete this initial overview about Arrow Java, consider this as the variety
 * Cookbook: This contains answers about how-to-use Arrow Java modules with practices examples.
 * Development: This contains detailed information about what you need to consider to start with Arrow Java development.
 
+.. _`C Data Interface`: https://arrow.apache.org/docs/format/CDataInterface.html
 .. _`template`: https://github.com/apache/arrow/tree/master/java/vector/src/main/codegen/templates
 .. _`supported`: https://arrow.apache.org/docs/status.html#data-types
 .. _`different physical layouts defined by Arrow`: https://arrow.apache.org/docs/format/Columnar.html#physical-memory-layout

@@ -33,7 +33,7 @@ tabular data; ``schemas`` describe a sequence of columns in tabular data, and
 Create a ValueVector
 *********************
 
-ValueVectors represent a sequence of values of the same type.
+**ValueVectors** represent a sequence of values of the same type.
 They are also known as "arrays" in the columnar format.
 
 Example: create a vector of 32-bit integers representing ``[1, null, 2]``:
@@ -44,8 +44,10 @@ Example: create a vector of 32-bit integers representing ``[1, null, 2]``:
     import org.apache.arrow.memory.RootAllocator;
     import org.apache.arrow.vector.IntVector;
 
-    try(BufferAllocator allocator = new RootAllocator();
-        IntVector intVector = new IntVector("fixed-size-primitive-layout", rootAllocator)){
+    try(
+        BufferAllocator allocator = new RootAllocator();
+        IntVector intVector = new IntVector("fixed-size-primitive-layout", allocator);
+    ){
         intVector.allocateNew(3);
         intVector.set(0,1);
         intVector.setNull(1);
@@ -53,6 +55,11 @@ Example: create a vector of 32-bit integers representing ``[1, null, 2]``:
         intVector.setValueCount(3);
         System.out.println("Vector created in memory: " + intVector);
     }
+
+.. code-block:: shell
+
+    Vector created in memory: [1, null, 2]
+
 
 Example: create a vector of UTF-8 encoded strings representing ``["one", "two", "three"]``:
 
@@ -62,8 +69,10 @@ Example: create a vector of UTF-8 encoded strings representing ``["one", "two", 
     import org.apache.arrow.memory.RootAllocator;
     import org.apache.arrow.vector.VarCharVector;
 
-    try(BufferAllocator rootAllocator = new RootAllocator();
-        VarCharVector varCharVector = new VarCharVector("variable-size-primitive-layout", rootAllocator)){
+    try(
+        BufferAllocator allocator = new RootAllocator();
+        VarCharVector varCharVector = new VarCharVector("variable-size-primitive-layout", allocator);
+    ){
         varCharVector.allocateNew(3);
         varCharVector.set(0, "one".getBytes());
         varCharVector.set(1, "two".getBytes());
@@ -72,11 +81,16 @@ Example: create a vector of UTF-8 encoded strings representing ``["one", "two", 
         System.out.println("Vector created in memory: " + varCharVector);
     }
 
+.. code-block:: shell
+
+    Vector created in memory: [one, two, three]
+
 Create a Field
 **************
 
-Fields are used to denote the particular columns of tabular data.
-They consist of a name, a data type, a flag indicating whether the column can have null values, and optional key-value metadata.
+**Fields** are used to denote the particular columns of tabular data.
+They consist of a name, a data type, a flag indicating whether the column can have null values,
+and optional key-value metadata.
 
 Example: create a field named "document" of string type:
 
@@ -85,19 +99,28 @@ Example: create a field named "document" of string type:
     import org.apache.arrow.vector.types.pojo.ArrowType;
     import org.apache.arrow.vector.types.pojo.Field;
     import org.apache.arrow.vector.types.pojo.FieldType;
+    import java.util.HashMap;
+    import java.util.Map;
 
     Map<String, String> metadata = new HashMap<>();
     metadata.put("A", "Id card");
     metadata.put("B", "Passport");
     metadata.put("C", "Visa");
-    Field document = new Field("document", new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, metadata), /*children*/ null);
+    Field document = new Field("document",
+            new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, metadata),
+            /*children*/ null);
+    System.out.println("Field created: " + document + ", Metadata: " + document.getMetadata());
+
+.. code-block:: shell
+
+    Field created: document: Utf8, Metadata: {A=Id card, B=Passport, C=Visa}
 
 Create a Schema
 ***************
 
-Schema holds a sequence of fields together with some optional metadata.
+**Schema** holds a sequence of fields together with some optional metadata.
 
-**Schema**: Create a schema describing datasets with two columns:
+Example: Create a schema describing datasets with two columns:
 a int32 column "A" and a utf8-encoded string column "B"
 
 .. code-block:: Java
@@ -106,22 +129,28 @@ a int32 column "A" and a utf8-encoded string column "B"
     import org.apache.arrow.vector.types.pojo.Field;
     import org.apache.arrow.vector.types.pojo.FieldType;
     import org.apache.arrow.vector.types.pojo.Schema;
+    import java.util.HashMap;
+    import java.util.Map;
     import static java.util.Arrays.asList;
 
     Map<String, String> metadata = new HashMap<>();
     metadata.put("K1", "V1");
     metadata.put("K2", "V2");
-    Field a = new Field("A", FieldType.nullable(new ArrowType.Int(32, true)), null);
-    Field b = new Field("B", FieldType.nullable(new ArrowType.Utf8()), null);
+    Field a = new Field("A", FieldType.nullable(new ArrowType.Int(32, true)), /*children*/ null);
+    Field b = new Field("B", FieldType.nullable(new ArrowType.Utf8()), /*children*/ null);
     Schema schema = new Schema(asList(a, b), metadata);
+    System.out.println("Schema created: " + schema);
+
+.. code-block:: shell
+
+    Schema created: Schema<A: Int(32, true), B: Utf8>(metadata: {K1=V1, K2=V2})
 
 Create a VectorSchemaRoot
 *************************
 
-VectorSchemaRoot is somewhat analogous to tables and record batches in the other
-Arrow implementations.
+**VectorSchemaRoot** combines ValueVectors with a Schema to represent tabular data.
 
-**VectorSchemaRoot**: Create a dataset with metadata that contains integer age and
+Example: Create a dataset with metadata that contains integer age and
 string names of data.
 
 .. code-block:: Java
@@ -135,42 +164,46 @@ string names of data.
     import org.apache.arrow.vector.types.pojo.Field;
     import org.apache.arrow.vector.types.pojo.FieldType;
     import org.apache.arrow.vector.types.pojo.Schema;
-
     import java.nio.charset.StandardCharsets;
     import java.util.HashMap;
     import java.util.Map;
     import static java.util.Arrays.asList;
 
-    Map<String, String> metadataField = new HashMap<>();
-    metadataField.put("K1-Field", "K1F1");
-    metadataField.put("K2-Field", "K2F2");
-    Field a = new Field("Column-A-Age", FieldType.nullable(new ArrowType.Int(32, true)), null);
-    Field b = new Field("Column-B-Name", new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, metadataField), null);
-    Map<String, String> metadataSchema = new HashMap<>();
-    metadataSchema.put("K1-Schema", "K1S1");
-    metadataSchema.put("K2-Schema", "K2S2");
-    Schema schema = new Schema(asList(a, b), metadataSchema);
-    System.out.println("Field A: " + a);
-    System.out.println("Field B: " + b + ", Metadata: " + b.getMetadata());
-    System.out.println("Schema: " + schema);
-    try(BufferAllocator rootAllocator = new RootAllocator();
-        VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)){
-        vectorSchemaRoot.setRowCount(3);
-        try(IntVector intVectorA = (IntVector) vectorSchemaRoot.getVector("Column-A-Age");
-            VarCharVector varCharVectorB = (VarCharVector) vectorSchemaRoot.getVector("Column-B-Name")) {
-            intVectorA.allocateNew(3);
-            intVectorA.set(0, 10);
-            intVectorA.set(1, 20);
-            intVectorA.set(2, 30);
-
-            varCharVectorB.allocateNew(3);
-            varCharVectorB.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
-            varCharVectorB.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
-            varCharVectorB.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
-
-            System.out.println("VectorSchemaRoot: \n" + vectorSchemaRoot.contentToTSVString());
-        }
+    Field a = new Field("age",
+            FieldType.nullable(new ArrowType.Int(32, true)),
+            /*children*/null
+    );
+    Field b = new Field("name",
+            new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, /*metadata*/ null),
+            /*children*/null
+    );
+    Schema schema = new Schema(asList(a, b), /*metadata*/ null);
+    try(
+        BufferAllocator allocator = new RootAllocator();
+        VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+        IntVector intVectorA = (IntVector) root.getVector("age");
+        VarCharVector varCharVectorB = (VarCharVector) root.getVector("name");
+    ){
+        root.setRowCount(3);
+        intVectorA.allocateNew(3);
+        intVectorA.set(0, 10);
+        intVectorA.set(1, 20);
+        intVectorA.set(2, 30);
+        varCharVectorB.allocateNew(3);
+        varCharVectorB.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
+        varCharVectorB.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
+        varCharVectorB.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
+        System.out.println("VectorSchemaRoot created: \n" + root.contentToTSVString());
     }
+
+.. code-block:: shell
+
+    VectorSchemaRoot created:
+    age	    name
+    10	    Dave
+    20	    Peter
+    30	    Mary
+
 
 Interprocess Communication (IPC)
 ********************************
@@ -178,12 +211,12 @@ Interprocess Communication (IPC)
 Arrow data can be written to and read from disk, and both of these can be done in
 a streaming and/or random-access fashion depending on application requirements.
 
-**Create a IPC File or Random Access Format**
+**Write data to an arrow file**
 
-Write File or Random Access Format: Write to a file a dataset with metadata
-that contains integer age and string names of data.
+Example: Write the dataset from the previous example to an Arrow random-access file.
 
 .. code-block:: Java
+
 
     import org.apache.arrow.memory.BufferAllocator;
     import org.apache.arrow.memory.RootAllocator;
@@ -195,21 +228,23 @@ that contains integer age and string names of data.
     import org.apache.arrow.vector.types.pojo.Field;
     import org.apache.arrow.vector.types.pojo.FieldType;
     import org.apache.arrow.vector.types.pojo.Schema;
-
     import java.io.File;
     import java.io.FileOutputStream;
     import java.io.IOException;
     import java.nio.charset.StandardCharsets;
     import java.util.HashMap;
     import java.util.Map;
-
     import static java.util.Arrays.asList;
 
     Map<String, String> metadataField = new HashMap<>();
     metadataField.put("K1-Field", "K1F1");
     metadataField.put("K2-Field", "K2F2");
-    Field a = new Field("Column-A-Age", FieldType.nullable(new ArrowType.Int(32, true)), null);
-    Field b = new Field("Column-B-Name", new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, metadataField), null);
+    Field a = new Field("Column-A-Age",
+            FieldType.nullable(new ArrowType.Int(32, true)),
+            /*children*/ null);
+    Field b = new Field("Column-B-Name",
+            new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, metadataField),
+            /*children*/ null);
     Map<String, String> metadataSchema = new HashMap<>();
     metadataSchema.put("K1-Schema", "K1S1");
     metadataSchema.put("K2-Schema", "K2S2");
@@ -217,38 +252,43 @@ that contains integer age and string names of data.
     System.out.println("Field A: " + a);
     System.out.println("Field B: " + b + ", Metadata: " + b.getMetadata());
     System.out.println("Schema: " + schema);
-    try(BufferAllocator rootAllocator = new RootAllocator();
-        VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)){
-        vectorSchemaRoot.setRowCount(3);
-        try(IntVector intVectorA = (IntVector) vectorSchemaRoot.getVector("Column-A-Age");
-            VarCharVector varCharVectorB = (VarCharVector) vectorSchemaRoot.getVector("Column-B-Name")) {
-            intVectorA.allocateNew(3);
-            intVectorA.set(0, 10);
-            intVectorA.set(1, 20);
-            intVectorA.set(2, 30);
-            varCharVectorB.allocateNew(3);
-            varCharVectorB.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
-            varCharVectorB.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
-            varCharVectorB.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
-            // Arrow Java At Rest
-            File file = new File("random_access_file.arrow");
-            try (FileOutputStream fileOutputStream = new FileOutputStream(file);
-                 ArrowFileWriter writer = new ArrowFileWriter(vectorSchemaRoot, null, fileOutputStream.getChannel())
-            ) {
-                writer.start();
-                writer.writeBatch();
-                writer.end();
-                System.out.println("Record batches written: " + writer.getRecordBlocks().size() + ". Number of rows written: " + vectorSchemaRoot.getRowCount());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    try(
+        BufferAllocator allocator = new RootAllocator();
+        VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+        IntVector intVectorA = (IntVector) root.getVector("Column-A-Age");
+        VarCharVector varCharVectorB = (VarCharVector) root.getVector("Column-B-Name");
+    ){
+        intVectorA.allocateNew(3);
+        intVectorA.set(0, 10);
+        intVectorA.set(1, 20);
+        intVectorA.set(2, 30);
+        varCharVectorB.allocateNew(3);
+        varCharVectorB.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
+        varCharVectorB.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
+        varCharVectorB.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
+        root.setRowCount(3);
+        File file = new File("random_access_file.arrow");
+        try (
+            FileOutputStream fileOutputStream = new FileOutputStream(file);
+            ArrowFileWriter writer = new ArrowFileWriter(root, /*provider*/ null, fileOutputStream.getChannel());
+        ) {
+            writer.start();
+            writer.writeBatch();
+            writer.end();
+            System.out.println("Record batches written: " + writer.getRecordBlocks().size()
+                    + ". Number of rows written: " + root.getRowCount());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-**Read a IPC File or Random Access Format**
+.. code-block:: shell
 
-Read File or Random Access Format: Mapping directly to memory a dataset file with metadata
-that contains integer age and string names of data.
+    Record batches written: 1. Number of rows written: 3
+
+**Read data from an arrow file**
+
+Example: Read the dataset from the previous example to an Arrow random-access file.
 
 .. code-block:: Java
 
@@ -261,18 +301,25 @@ that contains integer age and string names of data.
     import java.io.FileOutputStream;
     import java.io.IOException;
 
-    try(BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)){
-        File file = new File("random_access_file.arrow");
-        try (FileInputStream fileInputStream = new FileInputStream(file);
-             ArrowFileReader reader = new ArrowFileReader(fileInputStream.getChannel(), rootAllocator)
-        ){
-            System.out.println("Record batches in file: " + reader.getRecordBlocks().size());
-            for (ArrowBlock arrowBlock : reader.getRecordBlocks()) {
-                reader.loadRecordBatch(arrowBlock);
-                VectorSchemaRoot root = reader.getVectorSchemaRoot();
-                System.out.print(vectorSchemaRootRecover.contentToTSVString());
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+    try(
+        BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+        FileInputStream fileInputStream = new FileInputStream(new File("random_access_file.arrow"));
+        ArrowFileReader reader = new ArrowFileReader(fileInputStream.getChannel(), allocator);
+    ){
+        System.out.println("Record batches in file: " + reader.getRecordBlocks().size());
+        for (ArrowBlock arrowBlock : reader.getRecordBlocks()) {
+            reader.loadRecordBatch(arrowBlock);
+            VectorSchemaRoot root = reader.getVectorSchemaRoot();
+            System.out.println("VectorSchemaRoot read: \n" + root.contentToTSVString());
         }
+    } catch (IOException e) {
+        e.printStackTrace();
     }
+
+.. code-block:: shell
+
+    VectorSchemaRoot read:
+    age	    name
+    10	    Dave
+    20	    Peter
+    30	    Mary

@@ -23,6 +23,7 @@ User Guide
 
 .. toctree::
 
+   quickstartguide
    overview
    install
    memory

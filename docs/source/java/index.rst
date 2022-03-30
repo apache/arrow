@@ -22,5 +22,4 @@ Java Implementation
    :maxdepth: 2
 
    getting_started
-   Examples <examples/index>
    Reference (javadoc) <reference/index>
