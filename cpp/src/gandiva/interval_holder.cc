@@ -260,7 +260,7 @@ int64_t IntervalDaysHolder::operator()(ExecutionContext* ctx, const char* data,
 
 Status IntervalDaysHolder::Make(const FunctionNode& node,
                                 std::shared_ptr<IntervalDaysHolder>* holder) {
-  const std::string function_name("castINTERVALDAY");
+  const std::string function_name("castintervalday");
   return IntervalHolder<IntervalDaysHolder>::Make(node, holder, function_name);
 }
 
@@ -271,7 +271,7 @@ Status IntervalDaysHolder::Make(int32_t suppress_errors,
 
 Status IntervalYearsHolder::Make(const FunctionNode& node,
                                  std::shared_ptr<IntervalYearsHolder>* holder) {
-  const std::string function_name("castINTERVALYEAR");
+  const std::string function_name("castintervalyear");
   return IntervalHolder<IntervalYearsHolder>::Make(node, holder, function_name);
 }
 

@@ -67,8 +67,8 @@ class FunctionHolderRegistry {
                                  {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
-                                 {"castINTERVALDAY", LAMBDA_MAKER(IntervalDaysHolder)},
-                                 {"castINTERVALYEAR", LAMBDA_MAKER(IntervalYearsHolder)}};
+                                 {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
+                                 {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
     return maker_map;
   }
 };
