@@ -348,7 +348,8 @@ class PandasWriter {
   };
 
   PandasWriter(const PandasOptions& options, int64_t num_rows, int num_columns)
-      : options_(options), num_rows_(num_rows), num_columns_(num_columns) {}
+      : options_(options), num_rows_(num_rows), num_columns_(num_columns) {
+  }
   virtual ~PandasWriter() {}
 
   void SetBlockData(PyObject* arr) {
@@ -371,7 +372,7 @@ class PandasWriter {
       return Status::OK();
     }
     PyAcquireGIL lock;
-
+    internal::InitPandasStaticData();
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
     RETURN_IF_PYERROR();
