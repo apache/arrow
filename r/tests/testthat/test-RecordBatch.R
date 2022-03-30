@@ -530,7 +530,7 @@ test_that("RecordBatch supports cbind", {
 
   expected <- RecordBatch$create(
     do.call(cbind, lapply(batches, function(batch) as.data.frame(batch))))
-  expect_identical(do.call(cbind, batches), expected)
+  expect_equal(do.call(cbind, batches), expected, ignore_attr = TRUE)
 })
 
 test_that("Handling string data with embedded nuls", {
@@ -675,7 +675,7 @@ test_that("RecordBatch to C-interface", {
 
   # then import it and check that the roundtripped value is the same
   circle <- RecordBatch$import_from_c(array_ptr, schema_ptr)
-  expect_equal
+  expect_equal(batch, circle)
 
   # must clean up the pointers or we leak
   delete_arrow_schema(schema_ptr)

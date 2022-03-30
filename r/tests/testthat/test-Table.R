@@ -533,11 +533,8 @@ test_that("Table supports rbind", {
     Table$create(a = 8:10, b = Scalar$create("z"))
   )
   expected <- Table$create(do.call(rbind, lapply(tables, function(table) as.data.frame(table))))
-
-  expect_identical(
-    do.call(rbind, tables),
-    expected
-  )
+  actual <- do.call(rbind, tables)
+  expect_equal(actual, expected, ignore_attr = TRUE)
 })
 
 test_that("Table supports cbind", {
@@ -555,11 +552,8 @@ test_that("Table supports cbind", {
     Table$create(c = rnorm(10))
   )
   expected <- Table$create(do.call(cbind, lapply(tables, function(table) as.data.frame(table))))
-
-  expect_identical(
-    do.call(cbind, tables),
-    expected
-  )
+  actual <- do.call(cbind, tables)
+  expect_equal(actual, expected, ignore_attr = TRUE)
 })
 
 test_that("ARROW-11769 - grouping preserved in table creation", {
