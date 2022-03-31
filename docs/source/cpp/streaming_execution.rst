@@ -654,10 +654,10 @@ SelectK example:
 
 .. _stream_execution_table_sink_docs:
 
-Considering the variety of sink nodes provided in the streaming execution engine, the ``table_sink`` node 
-provides the ability to take the output as a table. It is much easier to use 
-:class:`arrow::compute::TableSinkNodeOptions`.
-The output data can be obtained as a ``std::shared_ptr<arrow::Table>`` along with the output ``schema``. 
+The ``table_sink`` node provides the ability to take the output as an in-memory table. 
+This is much simpler to use than the other sink nodes provided by the streaming execution engine
+but it only makes sense when the output fits comfortably in memory.
+The node is created using :class:`arrow::compute::TableSinkNodeOptions`.
 
 Example of using ``table_sink``
 

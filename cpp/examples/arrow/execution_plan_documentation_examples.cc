@@ -887,15 +887,11 @@ arrow::Status TableSinkExample(cp::ExecContext& exec_context) {
   // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
 
-  auto finish = source->finished();
-
-  RETURN_NOT_OK(finish.status());
-
+  // Wait for the plan to finish
+  auto finished = plan->finished();
+  RETURN_NOT_OK(finished.status());
   std::cout << "Results : " << output_table->ToString() << std::endl;
-
-  // plan mark finished
-  auto future = plan->finished();
-  return future.status();
+  return arrow::Status::OK();
 }
 // (Doc section: Table Sink Example)
 
