@@ -66,10 +66,12 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         shared_ptr[CTable] c_out_table
         shared_ptr[CSourceNodeOptions] c_sourceopts
         shared_ptr[CScanNodeOptions] c_scanopts
+        shared_ptr[CExecNodeOptions] c_input_node_opts
         shared_ptr[CSinkNodeOptions] c_sinkopts
         shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
+        vector[CDeclaration.Input] no_c_inputs
 
     global _dataset_support_initialised
     if not _dataset_support_initialised:
@@ -91,35 +93,32 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     # Create source nodes for each input
     for ipt in inputs:
         if isinstance(ipt, Table):
+            node_factory = "source"
             c_in_table = pyarrow_unwrap_table(ipt).get()
             c_sourceopts = GetResultValue(
                 CSourceNodeOptions.FromTable(deref(c_in_table), deref(c_exec_context).executor()))
-            if plan_iter != plan.end():
-                # Flag the source as the input of the first plan node.
-                deref(plan_iter).inputs.push_back(CDeclaration.Input(
-                    CDeclaration(tobytes("source"), deref(c_sourceopts))
-                ))
-            else:
-                # Empty plan, make the source the first plan node.
-                c_decls.push_back(
-                    CDeclaration(tobytes("source"), deref(c_sourceopts))
-                )
+            c_input_node_opts.swap(deref(<shared_ptr[CExecNodeOptions]*>&c_sourceopts))
         elif isinstance(ipt, Dataset):
+            node_factory = "scan"
             c_in_dataset = (<Dataset>ipt).unwrap()
             c_scanopts = make_shared[CScanNodeOptions](
                 c_in_dataset, make_shared[CScanOptions]())
-            if plan_iter != plan.end():
-                # Flag the source as the input of the first plan node.
-                deref(plan_iter).inputs.push_back(CDeclaration.Input(
-                    CDeclaration(tobytes("scan"), deref(c_scanopts))
-                ))
-            else:
-                # Empty plan, make the source the first plan node.
-                c_decls.push_back(
-                    CDeclaration(tobytes("scan"), deref(c_scanopts))
-                )
+            c_input_node_opts.swap(deref(<shared_ptr[CExecNodeOptions]*>&c_scanopts))
         else:
             raise TypeError("Unsupported type")
+
+        if plan_iter != plan.end():
+            # Flag the source as the input of the first plan node.
+            deref(plan_iter).inputs.push_back(CDeclaration.Input(
+                CDeclaration(tobytes(node_factory),
+                             no_c_inputs, c_input_node_opts)
+            ))
+        else:
+            # Empty plan, make the source the first plan node.
+            c_decls.push_back(
+                CDeclaration(tobytes(node_factory),
+                             no_c_inputs, c_input_node_opts)
+            )
 
     # Add Here additional nodes
     while plan_iter != plan.end():
