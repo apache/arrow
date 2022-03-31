@@ -149,6 +149,16 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
+  public void testShouldGetNegativeIntervalYear( ) {
+    formatIntervalYear(org.joda.time.Period.parse("P-1Y-1M"));
+  }
+
+  @Test
+  public void testShouldGetNegativeIntervalDay( ) {
+    formatIntervalDay(org.joda.time.Period.parse("PT-1H"));
+  }
+
+  @Test
   public void testShouldGetStringReturnCorrectString() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getString,
         (accessor, currentRow) -> is(getStringOnVector(vector, currentRow)));
