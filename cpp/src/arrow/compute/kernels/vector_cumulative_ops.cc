@@ -65,42 +65,31 @@ struct CumulativeGeneric {
     ArrayData* out_arr = out->mutable_array();
     auto out_data = out_arr->GetMutableValues<OutValue>(1);
 
-    if (skip_nulls) {
-      VisitArrayValuesInline<ArgType>(
-          arg0,
-          [&](ArgValue v) {
+    bool encounted_null = false;
+    auto start_null_idx = arg0.offset;
+
+    VisitArrayValuesInline<ArgType>(
+        arg0,
+        [&](ArgValue v) {
+          if (!skip_nulls && encounted_null) {
+            *out_data++ = OutValue{};
+          } else {
             partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(
                 ctx, v, partial_scan, &st);
             *out_data++ = partial_scan;
-          },
-          [&]() {
-            // null
-            *out_data++ = OutValue{};
-          });
-    } else {
-      bool encounted_null = false;
-      auto start_null_idx = arg0.offset;
+            ++start_null_idx;
+          }
+        },
+        [&]() {
+          // null
+          *out_data++ = OutValue{};
+          encounted_null = true;
+        });
 
-      VisitArrayValuesInline<ArgType>(
-          arg0,
-          [&](ArgValue v) {
-            if (encounted_null) {
-              *out_data++ = OutValue{};
-            } else {
-              partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(
-                  ctx, v, partial_scan, &st);
-              *out_data++ = partial_scan;
-              ++start_null_idx;
-            }
-          },
-          [&]() {
-            // null
-            *out_data++ = OutValue{};
-            encounted_null = true;
-          });
-
+    if (!skip_nulls) {
       auto out_bitmap = out_arr->GetMutableValues<uint8_t>(0);
       auto null_length = arg0.length - (start_null_idx - arg0.offset);
+      out_arr->SetNullCount(null_length);
       arrow::bit_util::SetBitsTo(out_bitmap, start_null_idx, null_length, false);
     }
 
@@ -122,6 +111,7 @@ void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
 
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
 
   for (const auto& ty : NumericTypes()) {
     VectorKernel kernel;
