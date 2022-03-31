@@ -2698,8 +2698,10 @@ class PartGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -2758,8 +2760,7 @@ class PartSuppGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
-        else
-          return Status::OK();
+        return Status::OK();
       }
       return schedule_callback_(
           [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
@@ -3077,8 +3078,10 @@ class OrdersGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -3137,12 +3140,9 @@ class LineitemGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
-        else
-          return Status::OK();
+        return Status::OK();
       }
-      // We may have reserved all of the batches but not generated them yet in the
-      // lineitem output queue, so we have to try again to try to grab something off
-      // the queue.
+      // We may have generated but not outputted all of the batches.
       return schedule_callback_(
           [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
