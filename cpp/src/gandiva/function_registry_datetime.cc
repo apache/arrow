@@ -110,47 +110,47 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      DataTypeVector{month_interval()}, int64(), kResultNullIfNull,
                      "castBIGINT_year_interval", NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castNULLABLEINTERVALYEAR", {"castintervalyear"},
+      NativeFunction("castNULLABLEINTERVALYEAR", {"castINTERVALYEAR"},
                      DataTypeVector{int32()}, month_interval(), kResultNullIfNull,
                      "castNULLABLEINTERVALYEAR_int32",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castNULLABLEINTERVALYEAR", {"castintervalyear"},
+      NativeFunction("castNULLABLEINTERVALYEAR", {"castINTERVALYEAR"},
                      DataTypeVector{int64()}, month_interval(), kResultNullIfNull,
                      "castNULLABLEINTERVALYEAR_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castNULLABLEINTERVALDAY", {"castintervalday"},
+      NativeFunction("castNULLABLEINTERVALDAY", {"castINTERVALDAY"},
                      DataTypeVector{int32()}, day_time_interval(), kResultNullIfNull,
                      "castNULLABLEINTERVALDAY_int32"),
 
-      NativeFunction("castNULLABLEINTERVALDAY", {"castintervalday"},
+      NativeFunction("castNULLABLEINTERVALDAY", {"castINTERVALDAY"},
                      DataTypeVector{int64()}, day_time_interval(), kResultNullIfNull,
                      "castNULLABLEINTERVALDAY_int64"),
 
       NativeFunction("extractDay", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "extractDay_daytimeinterval"),
 
-      NativeFunction("castintervalday", {}, DataTypeVector{utf8()}, day_time_interval(),
+      NativeFunction("castINTERVALDAY", {}, DataTypeVector{utf8()}, day_time_interval(),
                      kResultNullInternal, "gdv_fn_cast_intervalday_utf8",
                      NativeFunction::kNeedsContext |
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
 
       NativeFunction(
-          "castintervalday", {}, DataTypeVector{utf8(), int32()}, day_time_interval(),
+          "castINTERVALDAY", {}, DataTypeVector{utf8(), int32()}, day_time_interval(),
           kResultNullInternal, "gdv_fn_cast_intervalday_utf8_int32",
           NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
               NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castintervalyear", {}, DataTypeVector{utf8()}, month_interval(),
+      NativeFunction("castINTERVALYEAR", {}, DataTypeVector{utf8()}, month_interval(),
                      kResultNullInternal, "gdv_fn_cast_intervalyear_utf8",
                      NativeFunction::kNeedsContext |
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
 
       NativeFunction(
-          "castintervalyear", {}, DataTypeVector{utf8(), int32()}, month_interval(),
+          "castINTERVALYEAR", {}, DataTypeVector{utf8(), int32()}, month_interval(),
           kResultNullInternal, "gdv_fn_cast_intervalyear_utf8_int32",
           NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
               NativeFunction::kCanReturnErrors),
