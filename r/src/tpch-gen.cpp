@@ -45,7 +45,7 @@ static std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
-    const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor,
+    const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor,
     std::string table_name) {
   auto gen =
       ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor));
@@ -122,7 +122,7 @@ void Queue_Write_One_Table(const std::shared_ptr<compute::ExecPlan>& plan,
 }
 
 // [[arrow::export]]
-void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor,
+void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor,
                       const std::shared_ptr<fs::FileSystem>& filesystem,
                       std::string base_dir) {
   arrow::dataset::internal::Initialize();

@@ -7640,11 +7640,11 @@ extern "C" SEXP _arrow_SetIOThreadPoolCapacity(SEXP threads_sexp){
 
 // tpch-gen.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor, std::string table_name);
+std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor, std::string table_name);
 extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
-	arrow::r::Input<int>::type scale_factor(scale_factor_sexp);
+	arrow::r::Input<double>::type scale_factor(scale_factor_sexp);
 	arrow::r::Input<std::string>::type table_name(table_name_sexp);
 	return cpp11::as_sexp(Tpch_Dbgen(plan, scale_factor, table_name));
 END_CPP11
@@ -7657,11 +7657,11 @@ extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP t
 
 // tpch-gen.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir);
+void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir);
 extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
-	arrow::r::Input<int>::type scale_factor(scale_factor_sexp);
+	arrow::r::Input<double>::type scale_factor(scale_factor_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
 	arrow::r::Input<std::string>::type base_dir(base_dir_sexp);
 	Tpch_Dbgen_Write(plan, scale_factor, filesystem, base_dir);

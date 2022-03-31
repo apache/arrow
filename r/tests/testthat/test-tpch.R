@@ -46,7 +46,7 @@ tpch_tables_up <- setdiff(tpch_tables, c("lineitem", "region", "part"))
 
 for (table_name in tpch_tables_up) {
   test_that(paste0("Generating table: ", table_name), {
-    rbr <- tpch_dbgen(table_name, 1)
+    rbr <- tpch_dbgen(table_name, 0.1)
     tab <- rbr$read_table()
     expect_r6_class(tab, "Table")
   })
