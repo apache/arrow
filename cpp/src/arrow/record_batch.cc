@@ -313,7 +313,8 @@ Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
     if (!st.ok()) {
       return Status::Invalid("In column ", i, ": ", st.ToString());
     }
-    if (full_validation && !batch.schema()->field(i)->nullable() && array.null_count() > 0) {
+    if (full_validation && !batch.schema()->field(i)->nullable() &&
+        array.null_count() > 0) {
       return Status::Invalid("In column ", i, ": Null found but field is not nullable");
     }
   }
