@@ -100,7 +100,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
     return Status::TypeError("Expected a callable python object.");
   }
   auto doc = this->doc();
-  scalar_func_ = 
+  scalar_func_ =
       std::make_shared<compute::ScalarFunction>(this->name(), this->arity(), &doc);
   auto arity = this->arity();
   // lambda function

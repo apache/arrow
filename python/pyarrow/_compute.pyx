@@ -2459,28 +2459,6 @@ cdef CFunctionDoc _make_function_doc(func_doc):
         raise ValueError(f"func_doc must be a dictionary")
 
 
-cdef class UDFError(Exception):
-    cdef dict __dict__
-
-    def __init__(self, message='', extra_info=b''):
-        super().__init__(message)
-        self.extra_info = tobytes(extra_info)
-
-    cdef CStatus to_status(self):
-        message = tobytes("UDF error: {}".format(str(self)))
-        return CStatus_UnknownError(message)
-
-
-cdef class UDFRegistrationError(UDFError):
-
-    def __init__(self, message='', extra_info=b''):
-        super().__init__(message, extra_info)
-
-    cdef CStatus to_status(self):
-        message = tobytes("UDF Registration error: {}".format(str(self)))
-        return CStatus_UnknownError(message)
-
-
 def register_function(func_name, num_args, function_doc, in_types,
                       out_type, callback, mem_allocation="no_preallocate",
                       null_handling="computed_no_preallocate"):
@@ -2668,4 +2646,4 @@ def register_function(func_name, num_args, function_doc, in_types,
     st = c_sc_builder.MakeFunction(c_callback, &c_options)
     if not st.ok():
         error_msg = st.message().decode()
-        raise UDFRegistrationError(message=error_msg)
+        raise RuntimeError(message=error_msg)

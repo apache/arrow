@@ -81,8 +81,6 @@ from pyarrow._compute import (  # noqa
     register_function,
     # Expressions
     Expression,
-    # Exceptions
-    UDFRegistrationError,
 )
 
 from collections import namedtuple
