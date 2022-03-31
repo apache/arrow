@@ -75,7 +75,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     if not _dataset_support_initialised:
         Initialize()  # Initialise support for Datasets in ExecPlan
         _dataset_support_initialised = True
-    
+
     if use_threads:
         c_executor = GetCpuThreadPool()
     else:
@@ -106,7 +106,8 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
                 )
         elif isinstance(ipt, Dataset):
             c_in_dataset = (<Dataset>ipt).unwrap()
-            c_scanopts = make_shared[CScanNodeOptions](c_in_dataset, make_shared[CScanOptions]())
+            c_scanopts = make_shared[CScanNodeOptions](
+                c_in_dataset, make_shared[CScanOptions]())
             if plan_iter != plan.end():
                 # Flag the source as the input of the first plan node.
                 deref(plan_iter).inputs.push_back(CDeclaration.Input(
@@ -119,7 +120,6 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
                 )
         else:
             raise TypeError("Unsupported type")
-
 
     # Add Here additional nodes
     while plan_iter != plan.end():
@@ -205,9 +205,9 @@ def tables_join(join_type, left_table not None, left_keys,
 
 
 def datasets_join(join_type, left_dataset not None, left_keys,
-                right_dataset not None, right_keys,
-                left_suffix=None, right_suffix=None,
-                use_threads=True, coalesce_keys=False):
+                  right_dataset not None, right_keys,
+                  left_suffix=None, right_suffix=None,
+                  use_threads=True, coalesce_keys=False):
     """
     Perform join of two datasets.
 
@@ -244,7 +244,6 @@ def datasets_join(join_type, left_dataset not None, left_keys,
     return _perform_join(join_type, left_dataset, left_keys,
                          right_dataset, right_keys, left_suffix,
                          right_suffix, use_threads, coalesce_keys)
-
 
 
 def _perform_join(join_type, left_table not None, left_keys,
