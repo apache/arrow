@@ -272,12 +272,14 @@ test_that("array uses local timezone for POSIXct without timezone", {
     attributes(times_int) <- attributes(times)
     expect_array_roundtrip(times_int, timestamp("us", ""))
   })
-  withr::with_envvar(c(TZ = "Pacific/Marquesas"), {
+  withr::with_timezone("Pacific/Marquesas", {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
     expect_equal(attr(times, "tzone"), "Pacific/Marquesas")
     expect_array_roundtrip(times, timestamp("us", "Pacific/Marquesas"))
   })
-  withr::with_envvar(c(TZ = NA), {
+
+  # and although the TZ is NULL in R, we set it to the Sys.timezone()
+  withr::with_timezone(NA, {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
     expect_equal(attr(times, "tzone"), NULL)
     expect_array_roundtrip(times, timestamp("us", Sys.timezone()))
