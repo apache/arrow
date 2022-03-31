@@ -422,6 +422,24 @@ def test_scanner(dataset, dataset_reader):
 
     assert table.num_rows == scanner.count_rows()
 
+    scanner = dataset_reader.scanner(dataset, columns=['__filename',
+                                                       '__fragment_index',
+                                                       '__batch_index',
+                                                       '__last_in_fragment'],
+                                     memory_pool=pa.default_memory_pool())
+    table = scanner.to_table()
+    expected_names = ['__filename', '__fragment_index',
+                      '__batch_index', '__last_in_fragment']
+    assert table.column_names == expected_names
+
+    sorted_table = table.sort_by('__fragment_index')
+    assert sorted_table['__filename'].to_pylist() == (
+        ['subdir/1/xxx/file0.parquet'] * 5 +
+        ['subdir/2/yyy/file1.parquet'] * 5)
+    assert sorted_table['__fragment_index'].to_pylist() == ([0] * 5 + [1] * 5)
+    assert sorted_table['__batch_index'].to_pylist() == [0] * 10
+    assert sorted_table['__last_in_fragment'].to_pylist() == [True] * 10
+
 
 @pytest.mark.parquet
 def test_scanner_async_deprecated(dataset):

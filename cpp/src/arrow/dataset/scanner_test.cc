@@ -128,6 +128,15 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
     AssertScanBatchesEquals(expected.get(), scanner.get());
   }
 
+  void AssertNoAugmentedFields(std::shared_ptr<Scanner> scanner) {
+    ASSERT_OK_AND_ASSIGN(auto table, scanner.get()->ToTable());
+    auto columns = table.get()->ColumnNames();
+    EXPECT_TRUE(std::none_of(columns.begin(), columns.end(), [](std::string& x) {
+      return x == "__fragment_index" || x == "__batch_index" ||
+             x == "__last_in_fragment" || x == "__filename";
+    }));
+  }
+
   void AssertScanBatchesUnorderedEqualRepetitionsOf(
       std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
       const int64_t total_batches = GetParam().num_child_datasets *
@@ -257,6 +266,7 @@ TEST_P(TestScanner, ProjectionDefaults) {
     options_->projection = literal(true);
     options_->projected_schema = nullptr;
     AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch_in), batch_in);
+    AssertNoAugmentedFields(MakeScanner(batch_in));
   }
   // If we only specify a projection expression then infer the projected schema
   // from the projection expression
@@ -1386,6 +1396,7 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
       // ... and with the last-in-fragment flag
       batches.back().values.emplace_back(batch_index ==
                                          fragment_batch_strs[fragment_index].size() - 1);
+      batches.back().values.emplace_back(fragments[fragment_index]->ToString());
 
       // each batch carries a guarantee inherited from its Fragment's partition expression
       batches.back().guarantee = fragments[fragment_index]->partition_expression();
@@ -1472,7 +1483,8 @@ DatasetAndBatches MakeNestedDataset() {
 compute::Expression Materialize(std::vector<std::string> names,
                                 bool include_aug_fields = false) {
   if (include_aug_fields) {
-    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
+    for (auto aug_name :
+         {"__fragment_index", "__batch_index", "__last_in_fragment", "__filename"}) {
       names.emplace_back(aug_name);
     }
   }
@@ -1502,6 +1514,7 @@ TEST(ScanNode, Schema) {
   fields.push_back(field("__fragment_index", int32()));
   fields.push_back(field("__batch_index", int32()));
   fields.push_back(field("__last_in_fragment", boolean()));
+  fields.push_back(field("__filename", utf8()));
   // output_schema is *always* the full augmented dataset schema, regardless of
   // projection (but some columns *may* be placeholder null Scalars if not projected)
   AssertSchemaEqual(Schema(fields), *scan->output_schema());

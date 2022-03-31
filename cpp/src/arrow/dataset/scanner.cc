@@ -91,6 +91,7 @@ const FieldVector kAugmentedFields{
     field("__fragment_index", int32()),
     field("__batch_index", int32()),
     field("__last_in_fragment", boolean()),
+    field("__filename", utf8()),
 };
 
 // Scan options has a number of options that we can infer from the dataset
@@ -708,8 +709,12 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
   for (size_t i = 0; i < exprs.size(); ++i) {
     exprs[i] = compute::field_ref(names[i]);
   }
+  auto fields = dataset_schema.fields();
+  for (const auto& aug_field : kAugmentedFields) {
+    fields.push_back(aug_field);
+  }
   return ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
-                                          dataset_schema);
+                                          Schema(fields, dataset_schema.metadata()));
 }
 
 Result<ProjectionDescr> ProjectionDescr::Default(const Schema& dataset_schema) {
@@ -877,6 +882,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         batch->values.emplace_back(partial.fragment.index);
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
+        batch->values.emplace_back(partial.fragment.value->ToString());
         return batch;
       });
 
