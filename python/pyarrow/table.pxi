@@ -1476,6 +1476,109 @@ cdef class Table(_PandasConvertible):
     --------
     Do not call this class's constructor directly, use one of the ``from_*``
     methods instead.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> n_legs = pa.array([2, 4, 5, 100])
+    >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    >>> names = ["n_legs", "animals"]
+
+    Construct a Table from arrays:
+
+    >>> pa.Table.from_arrays([n_legs, animals], names=names)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from a RecordBatch:
+
+    >>> batch = pa.record_batch([n_legs, animals], names=names)
+    >>> pa.Table.from_batches([batch, batch])
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100],[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from pandas DataFrame:
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+    ...                    'n_legs': [2, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+    >>> pa.Table.from_pandas(df)
+    pyarrow.Table
+    year: int64
+    n_legs: int64
+    animals: string
+    ----
+    year: [[2020,2022,2019,2021]]
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from a dictionary of arrays:
+
+    >>> pydict = {'n_legs': n_legs, 'animals': animals}
+    >>> pa.Table.from_pydict(pydict)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    >>> pa.Table.from_pydict(pydict).schema
+    n_legs: int64
+    animals: string
+
+    Construct a Table from a dictionary of arrays with metadata:
+
+    >>> my_metadata={"n_legs": "Number of legs per animal"}
+    >>> pa.Table.from_pydict(pydict, metadata=my_metadata).schema
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+
+    Construct a Table from a list of rows:
+
+    >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'}, {'year': 2021, 'animals': 'Centipede'}]
+    >>> pa.Table.from_pylist(pylist)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,null]]
+    animals: [["Flamingo","Centipede"]]
+
+    Construct a Table from a list of rows with pyarrow schema:
+
+    >>> my_schema = pa.schema([
+    ...     pa.field('year', pa.int64()),
+    ...     pa.field('n_legs', pa.int64()),
+    ...     pa.field('animals', pa.string())],
+    ...     metadata={"year": "Year of entry"})
+    >>> pa.Table.from_pylist(pylist, schema=my_schema).schema
+    year: int64
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    year: 'Year of entry'
+
+    Construct a Table with :func:`pyarrow.table`:
+
+    >>> pa.table([n_legs, animals], names=names)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
     """
 
     def __cinit__(self):
@@ -1904,9 +2007,9 @@ cdef class Table(_PandasConvertible):
         >>> import pandas as pd
         >>> import pyarrow as pa
         >>> df = pd.DataFrame({
-            ...     'int': [1, 2],
-            ...     'str': ['a', 'b']
-            ... })
+        ...     'int': [1, 2],
+        ...     'str': ['a', 'b']
+        ... })
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
@@ -2775,6 +2878,76 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     See Also
     --------
     Table.from_arrays, Table.from_pandas, Table.from_pydict
+
+    Example
+    -------
+    >>> import pyarrow as pa
+    >>> n_legs = pa.array([2, 4, 5, 100])
+    >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    >>> names = ["n_legs", "animals"]
+
+    Construct a Table from arrays:
+
+    >>> pa.table([n_legs, animals], names=names)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from arrays with metadata:
+
+    >>> my_metadata={"n_legs": "Number of legs per animal"}
+    >>> pa.table([n_legs, animals], names=names, metadata = my_metadata).schema
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+
+    Construct a Table from pandas DataFrame:
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+    ...                    'n_legs': [2, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+    >>> pa.table(df)
+    pyarrow.Table
+    year: int64
+    n_legs: int64
+    animals: string
+    ----
+    year: [[2020,2022,2019,2021]]
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from pandas DataFrame with pyarrow schema:
+
+    >>> my_schema = pa.schema([
+    ...     pa.field('n_legs', pa.int64()),
+    ...     pa.field('animals', pa.string())],
+    ...     metadata={"n_legs": "Number of legs per animal"})
+    >>> pa.table(df, my_schema).schema
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+    pandas: '{"index_columns": [], "column_indexes": [{"name": null, ...
+
+    Construct a Table from chunked arrays:
+
+    >>> n_legs = [[2, 2, 4], [4, 5, 100]]
+    >>> animals = [["Flamingo", "Parrot", "Dog"], ["Horse", "Brittle stars", "Centipede"]]
+    >>> pa.table([n_legs, animals], names=names)
+    pyarrow.Table
+    n_legs: list<item: int64>
+      child 0, item: int64
+    animals: list<item: string>
+      child 0, item: string
+    ----
+    n_legs: [[[2,2,4],[4,5,100]]]
+    animals: [[["Flamingo","Parrot","Dog"],["Horse","Brittle stars","Centipede"]]]
+
     """
     # accept schema as first argument for backwards compatibility / usability
     if isinstance(names, Schema) and schema is None:
