@@ -246,8 +246,8 @@ def datasets_join(join_type, left_dataset not None, left_keys,
                          right_suffix, use_threads, coalesce_keys)
 
 
-def _perform_join(join_type, left_table not None, left_keys,
-                  right_table not None, right_keys,
+def _perform_join(join_type, left_operand not None, left_keys,
+                  right_operand not None, right_keys,
                   left_suffix=None, right_suffix=None,
                   use_threads=True, coalesce_keys=False):
     cdef:
@@ -276,19 +276,19 @@ def _perform_join(join_type, left_table not None, left_keys,
         c_right_keys.push_back(CFieldRef(<c_string>tobytes(key)))
 
     # By default expose all columns on both left and right table
-    if isinstance(left_table, Table):
-        left_columns = left_table.column_names
-    elif isinstance(left_table, Dataset):
-        left_columns = left_table.schema.names
+    if isinstance(left_operand, Table):
+        left_columns = left_operand.column_names
+    elif isinstance(left_operand, Dataset):
+        left_columns = left_operand.schema.names
     else:
         raise TypeError("Unsupported left join member type")
 
-    if isinstance(right_table, Table):
-        right_columns = right_table.column_names
-    elif isinstance(right_table, Dataset):
-        right_columns = right_table.schema.names
+    if isinstance(right_operand, Table):
+        right_columns = right_operand.column_names
+    elif isinstance(right_operand, Dataset):
+        right_columns = right_operand.schema.names
     else:
-        raise TypeError("Unsupported left join member type")
+        raise TypeError("Unsupported right join member type")
 
     # Pick the join type
     if join_type == "left semi":
@@ -347,7 +347,7 @@ def _perform_join(join_type, left_table not None, left_keys,
             left_columns_set = set(left_columns)
             right_columns_set = set(right_columns)
             # Where the right table columns start.
-            right_table_index = len(left_columns)
+            right_operand_index = len(left_columns)
             for idx, col in enumerate(left_columns + right_columns):
                 if idx < len(left_columns) and col in left_column_keys_indices:
                     # Include keys only once and coalesce left+right table keys.
@@ -360,19 +360,19 @@ def _perform_join(join_type, left_table not None, left_keys,
                     c_projections.push_back(Expression.unwrap(
                         Expression._call("coalesce", [
                             Expression._field(idx), Expression._field(
-                                right_table_index+right_key_index)
+                                right_operand_index+right_key_index)
                         ])
                     ))
-                elif idx >= right_table_index and col in right_column_keys_indices:
+                elif idx >= right_operand_index and col in right_column_keys_indices:
                     # Do not include right table keys. As they would lead to duplicated keys.
                     continue
                 else:
                     # For all the other columns incude them as they are.
                     # Just recompute the suffixes that the join produced as the projection
                     # would lose them otherwise.
-                    if left_suffix and idx < right_table_index and col in right_columns_set:
+                    if left_suffix and idx < right_operand_index and col in right_columns_set:
                         col += left_suffix
-                    if right_suffix and idx >= right_table_index and col in left_columns_set:
+                    if right_suffix and idx >= right_operand_index and col in left_columns_set:
                         col += right_suffix
                     c_projected_col_names.push_back(tobytes(col))
                     c_projections.push_back(
@@ -391,7 +391,7 @@ def _perform_join(join_type, left_table not None, left_keys,
             ))
         )
 
-    result_table = execplan([left_table, right_table],
+    result_table = execplan([left_operand, right_operand],
                             output_type=Table,
                             plan=c_decl_plan)
 
