@@ -15,9 +15,6 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. default-domain:: java
-.. highlight:: java
-
 ============
 Tabular Data
 ============

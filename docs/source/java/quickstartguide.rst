@@ -25,10 +25,10 @@ Quick Start Guide
 .. contents::
 
 Arrow Java provides several building blocks. Data types describe the types of values;
-``ValueVectors`` are sequences of typed values; ``fields`` describe the types of columns in
-tabular data; ``schemas`` describe a sequence of columns in tabular data, and
-``VectorSchemaRoot`` represents tabular data. Arrow also provides ``readers`` and
-``writers`` for loading data from and persisting data to storage.
+ValueVectors are sequences of typed values; fields describe the types of columns in
+tabular data; schemas describe a sequence of columns in tabular data, and
+VectorSchemaRoot represents tabular data. Arrow also provides readers and
+writers for loading data from and persisting data to storage.
 
 Create a ValueVector
 ********************
@@ -173,10 +173,10 @@ Example: Create a dataset of names (strings) and ages (32-bit signed integers).
             /*children*/null
     );
     Field name = new Field("name",
-            new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, /*metadata*/ null),
+            FieldType.nullable(new ArrowType.Utf8()),
             /*children*/null
     );
-    Schema schema = new Schema(asList(a, b), /*metadata*/ null);
+    Schema schema = new Schema(asList(age, name), /*metadata*/ null);
     try(
         BufferAllocator allocator = new RootAllocator();
         VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
@@ -184,14 +184,14 @@ Example: Create a dataset of names (strings) and ages (32-bit signed integers).
         VarCharVector nameVector = (VarCharVector) root.getVector("name");
     ){
         root.setRowCount(3);
-        intVectorA.allocateNew(3);
-        intVectorA.set(0, 10);
-        intVectorA.set(1, 20);
-        intVectorA.set(2, 30);
-        varCharVectorB.allocateNew(3);
-        varCharVectorB.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
-        varCharVectorB.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
-        varCharVectorB.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
+        ageVector.allocateNew(3);
+        ageVector.set(0, 10);
+        ageVector.set(1, 20);
+        ageVector.set(2, 30);
+        nameVector.allocateNew(3);
+        nameVector.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
+        nameVector.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
+        nameVector.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
         System.out.println("VectorSchemaRoot created: \n" + root.contentToTSVString());
     }
 
@@ -234,36 +234,27 @@ Example: Write the dataset from the previous example to an Arrow random-access f
     import java.util.Map;
     import static java.util.Arrays.asList;
 
-    Map<String, String> metadataField = new HashMap<>();
-    metadataField.put("K1-Field", "K1F1");
-    metadataField.put("K2-Field", "K2F2");
     Field age = new Field("age",
             FieldType.nullable(new ArrowType.Int(32, true)),
             /*children*/ null);
-    Field b = new Field("Column-B-Name",
-            new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, metadataField),
+    Field name = new Field("name",
+            FieldType.nullable(new ArrowType.Utf8()),
             /*children*/ null);
-    Map<String, String> metadataSchema = new HashMap<>();
-    metadataSchema.put("K1-Schema", "K1S1");
-    metadataSchema.put("K2-Schema", "K2S2");
-    Schema schema = new Schema(asList(a, b), metadataSchema);
-    System.out.println("Field A: " + a);
-    System.out.println("Field B: " + b + ", Metadata: " + b.getMetadata());
-    System.out.println("Schema: " + schema);
+    Schema schema = new Schema(asList(age, name));
     try(
         BufferAllocator allocator = new RootAllocator();
         VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-        IntVector intVectorA = (IntVector) root.getVector("Column-A-Age");
-        VarCharVector varCharVectorB = (VarCharVector) root.getVector("Column-B-Name");
+        IntVector ageVector = (IntVector) root.getVector("age");
+        VarCharVector nameVector = (VarCharVector) root.getVector("name");
     ){
-        intVectorA.allocateNew(3);
-        intVectorA.set(0, 10);
-        intVectorA.set(1, 20);
-        intVectorA.set(2, 30);
-        varCharVectorB.allocateNew(3);
-        varCharVectorB.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
-        varCharVectorB.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
-        varCharVectorB.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
+        ageVector.allocateNew(3);
+        ageVector.set(0, 10);
+        ageVector.set(1, 20);
+        ageVector.set(2, 30);
+        nameVector.allocateNew(3);
+        nameVector.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
+        nameVector.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
+        nameVector.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
         root.setRowCount(3);
         File file = new File("random_access_file.arrow");
         try (

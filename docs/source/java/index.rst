@@ -21,5 +21,13 @@ Java Implementation
 .. toctree::
    :maxdepth: 2
 
-   getting_started
+   quickstartguide
+   overview
+   install
+   memory
+   vector
+   vector_schema_root
+   ipc
+   algorithm
+   dataset
    Reference (javadoc) <reference/index>
