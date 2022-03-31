@@ -29,6 +29,7 @@ from pyarrow.includes.libarrow cimport (CArray, CDataType, CField,
 cdef api bint pyarrow_is_buffer(object buffer):
     return isinstance(buffer, Buffer)
 
+
 cdef api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
     cdef Buffer buf
     if pyarrow_is_buffer(buffer):
