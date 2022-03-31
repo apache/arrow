@@ -126,7 +126,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
   kernel.null_handling = this->null_handling();
   RETURN_NOT_OK(scalar_func_->AddKernel(std::move(kernel)));
   auto registry = compute::GetFunctionRegistry();
-  RETURN_NOT_OK(registry->AddFunction(std::move(func)));
+  RETURN_NOT_OK(registry->AddFunction(std::move(scalar_func_)));
   return Status::OK();
 }
 
