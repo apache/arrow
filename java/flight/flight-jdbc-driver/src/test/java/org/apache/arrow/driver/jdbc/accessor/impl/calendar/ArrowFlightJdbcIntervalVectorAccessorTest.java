@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
+import static org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor.formatIntervalDay;
+import static org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor.formatIntervalYear;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -134,10 +136,13 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   private String getStringOnVector(ValueVector vector, int index) {
-    if (vector instanceof IntervalDayVector) {
-      return ((IntervalDayVector) vector).getAsStringBuilder(index).toString();
+    String object = getExpectedObject(vector, index).toString();
+    if (object == null) {
+      return null;
+    } else if (vector instanceof IntervalDayVector) {
+      return formatIntervalDay(org.joda.time.Period.parse(object));
     } else if (vector instanceof IntervalYearVector) {
-      return ((IntervalYearVector) vector).getAsStringBuilder(index).toString();
+      return formatIntervalYear(org.joda.time.Period.parse(object));
     }
     return null;
   }
