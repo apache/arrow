@@ -120,6 +120,8 @@ UnionMode_DENSE = _UnionMode_DENSE
 
 def _pc():
     import pyarrow.compute as pc
+    from pyarrow import _exec_plan
+    pc._exec_plan = _exec_plan
     return pc
 
 
