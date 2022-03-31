@@ -272,7 +272,7 @@ struct ValidateArrayImpl {
                              ") multiplied by the value size (", list_size, ")");
     }
 
-    const Status child_valid = RecurseInto(values);
+    const Status child_valid = RecurseInto(values, type.value_field()->nullable());
     if (!child_valid.ok()) {
       return Status::Invalid("Fixed size list child array invalid: ",
                              child_valid.ToString());
@@ -582,7 +582,7 @@ struct ValidateArrayImpl {
   template <typename ListType>
   Status ValidateListLike(const ListType& type) {
     const ArrayData& values = *data.child_data[0];
-    const Status child_valid = RecurseInto(values, /**/type.value_field()->nullable());
+    const Status child_valid = RecurseInto(values, type.value_field()->nullable());
     if (!child_valid.ok()) {
       return Status::Invalid("List child array invalid: ", child_valid.ToString());
     }

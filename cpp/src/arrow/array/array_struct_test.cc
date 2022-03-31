@@ -201,11 +201,11 @@ TEST(StructArray, ValidateFullNullable) {
                        field("b", utf8(), /*nullable =*/false),
                        field("c", list(boolean()), /*nullable =*/false)});
 
-  auto struct_arr = std::static_pointer_cast<StructArray>(ArrayFromJSON(
-      type, R"([[1, "a", [null, false]], [null, "bc", []], [2, null, null]])"));
+  auto struct_arr = ArrayFromJSON(
+      type, R"([[1, "a", [null, false]], [null, "bc", []], [2, null, null]])");
 
-  auto struct_arr_nonull = std::static_pointer_cast<StructArray>(ArrayFromJSON(
-      type, R"([[1, "a", [true, false]], [6, "bc", []], [2, "bcj", [true, true]]])"));
+  auto struct_arr_nonull = ArrayFromJSON(
+      type, R"([[1, "a", [true, false]], [6, "bc", []], [2, "bcj", [true, true]]])");
 
   // Type not Nullable but actual struct array has null
   ASSERT_RAISES(Invalid, struct_arr->ValidateFull());

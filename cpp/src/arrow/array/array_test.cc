@@ -78,12 +78,23 @@ class TestArray : public ::testing::Test {
   MemoryPool* pool_;
 };
 
-
-TEST_F(TestArray, ValidateFullNullable) {
+TEST_F(TestArray, ValidateFullNullableList) {
   auto f1 = field("f1", int32(), /*nullable=*/false);
   auto type1 = std::make_shared<ListType>(f1);
-  auto array = ArrayFromJSON(type1, "[[0, 1, 2, null], null, [4, 5]]");
+  auto ty = list(f1);
+  auto array = ArrayFromJSON(ty, "[[0, 1, 2, null], null, [4, 5]]");
   ASSERT_RAISES(Invalid, array->ValidateFull());
+}
+
+TEST_F(TestArray, ValidateFullNullableFixedSizeList) {
+  auto f0 = field("f0", int32(), /*nullable=*/false);
+  auto type = std::make_shared<FixedSizeListType>(f0, 2);
+  auto array_nonull = ArrayFromJSON(type, "[[0, 1], [3,4], [2, 3]]");
+  auto array = ArrayFromJSON(type, "[[0, 1], null, [2, 5]]");
+  auto array_nested_null = ArrayFromJSON(type, "[[0, 1], [3, 4], [2, null]]");
+  ASSERT_OK(array_nonull->ValidateFull());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+  ASSERT_RAISES(Invalid, array_nested_null->ValidateFull());
 }
 
 TEST_F(TestArray, TestNullCount) {
