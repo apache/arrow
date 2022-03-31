@@ -513,6 +513,33 @@ class FileFormatFixtureMixin : public ::testing::Test {
     EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
     return written;
   }
+  std::shared_ptr<Buffer> WriteToBufferFromTable(
+      std::shared_ptr<Schema> schema,
+      std::shared_ptr<Table> table,
+      std::shared_ptr<FileWriteOptions> options = nullptr) {
+    auto format = format_;
+    SetSchema(schema->fields());
+    EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+    if (!options) options = format->DefaultWriteOptions();
+
+    EXPECT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+    EXPECT_OK_AND_ASSIGN(auto writer,
+                         format->MakeWriter(sink, schema, options, {fs, "<buffer>"}));
+    TableBatchReader batch_iter(*table);
+    while (true) {
+      std::shared_ptr<RecordBatch> batch;
+      ARROW_EXPECT_OK(batch_iter.ReadNext(&batch));
+      if (batch == nullptr) {
+        break;
+      }
+      ARROW_EXPECT_OK(writer->Write(batch));
+    }
+    auto fut = writer->Finish();
+    EXPECT_FINISHES(fut);
+    ARROW_EXPECT_OK(fut.status());
+    EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+    return written;
+  }
   void TestWrite() {
     auto reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
     auto source = this->GetFileSource(reader.get());

@@ -42,11 +42,11 @@ namespace cp = arrow::compute;
 // \brief Run Example
 // ./dataset-parquet-scan-example file:///sell_data.parquet
 // sample data set
-//           pickup_at dropoff_at  total_amount
-//         0         A          B            10
-//         1         B          A          1200
-//         2         C          A          2400
-//         3         A          C           500
+//   pickup_at dropoff_at  total_amount
+// 0         A          B            10
+// 1         B          A          1200
+// 2         C          A          2400
+// 3         A          C           500
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \

@@ -393,6 +393,35 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithFieldPathFilter) {
   TestScanWithFieldPathFilter();
 }
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithFieldPathMultiFileFilter) {
+  compute::Expression filter = greater(field_ref(0), literal(20));
+  auto fields = {field("x", int32()), field("y", int32()), field("z", int32())};
+  auto dataset_schema = schema(fields);
+  SetSchema(fields);
+  SetFilter(filter);
+  auto table = TableFromJSON(dataset_schema,
+                             {
+                                 R"([[10, 20, 30]])",
+                             });
+
+  auto options =
+      checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
+  options->writer_properties = parquet::WriterProperties::Builder()
+                                   .build();
+  options->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
+                                         .build();
+
+  auto written = WriteToBufferFromTable(dataset_schema, table, options);
+
+  EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
+
+  for (auto maybe_batch : PhysicalBatches(fragment)) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    std::cout << "Batch ::" << std::endl;
+    std::cout << batch->ToString() << std::endl;
+  }
+
+}
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
