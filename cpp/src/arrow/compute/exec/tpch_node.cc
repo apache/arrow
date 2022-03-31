@@ -1232,7 +1232,8 @@ class PartAndPartSupplierGenerator {
 
   Status PS_COMMENT(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
-    if (tld.part[PARTSUPP::PS_COMMENT].kind() == Datum::NONE) {
+    if (!tld.generated_partsupp[PARTSUPP::PS_COMMENT]) {
+      tld.generated_partsupp[PARTSUPP::PS_COMMENT] = true;
       int64_t irow = 0;
       int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
       for (size_t ibatch = 0; ibatch < tld.partsupp.size(); ibatch++) {
@@ -1332,8 +1333,8 @@ class OrdersAndLineItemGenerator {
     }
     tld.orders.resize(ORDERS::kNumCols);
     std::fill(tld.orders.begin(), tld.orders.end(), Datum());
-    RETURN_NOT_OK(GenerateRowCounts(thread_index));
     tld.first_batch_offset = 0;
+    RETURN_NOT_OK(GenerateRowCounts(thread_index));
     tld.generated_lineitem.reset();
 
     for (int col : orders_cols_) RETURN_NOT_OK(kOrdersGenerators[col](thread_index));
@@ -1355,12 +1356,14 @@ class OrdersAndLineItemGenerator {
         ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(lineitem_result)));
         lineitem_results.emplace_back(std::move(eb));
       }
+      size_t batches_generated = lineitem_results.size();
       {
         std::lock_guard<std::mutex> guard(lineitem_output_queue_mutex_);
         for (ExecBatch& eb : lineitem_results) {
           lineitem_output_queue_.emplace(std::move(eb));
         }
       }
+      lineitem_batches_generated_.fetch_add(static_cast<int64_t>(batches_generated));
     }
     return ExecBatch::Make(std::move(orders_result));
   }
@@ -1403,7 +1406,6 @@ class OrdersAndLineItemGenerator {
     RETURN_NOT_OK(GenerateRowCounts(thread_index));
     tld.generated_lineitem.reset();
     if (from_queue) {
-      lineitem_batches_generated_.fetch_sub(1);
       for (size_t i = 0; i < lineitem_cols_.size(); i++)
         if (tld.lineitem[0][lineitem_cols_[i]].kind() == Datum::NONE)
           tld.lineitem[0][lineitem_cols_[i]] = std::move(queued[i]);
@@ -1435,13 +1437,15 @@ class OrdersAndLineItemGenerator {
       ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(lineitem_result)));
       lineitem_results.emplace_back(std::move(eb));
     }
-    lineitem_batches_generated_.fetch_add(static_cast<int64_t>(lineitem_results.size()));
+    size_t batches_generated = lineitem_results.size();
     // Return the first batch, enqueue the rest.
     {
       std::lock_guard<std::mutex> lock(lineitem_output_queue_mutex_);
       for (size_t i = 1; i < lineitem_results.size(); i++)
         lineitem_output_queue_.emplace(std::move(lineitem_results[i]));
     }
+    lineitem_batches_generated_.fetch_add(
+        static_cast<int64_t>(batches_generated - from_queue));
     return std::move(lineitem_results[0]);
   }
 
@@ -1774,6 +1778,7 @@ class OrdersAndLineItemGenerator {
                                         size_t& out_batch_offset) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.lineitem[ibatch][column].kind() == Datum::NONE) {
+      ARROW_DCHECK(ibatch != 0 || tld.first_batch_offset == 0);
       int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[column]);
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                             AllocateBuffer(batch_size_ * byte_width));
@@ -2323,16 +2328,17 @@ class OrdersAndLineItemGenerator {
     if (!tld.generated_lineitem[LINEITEM::L_COMMENT]) {
       tld.generated_lineitem[LINEITEM::L_COMMENT] = true;
 
-      size_t batch_offset = tld.first_batch_offset;
       size_t ibatch = 0;
       for (int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++) {
         // Comments are kind of sneaky: we always generate the full batch and then just
         // bump the length
+        size_t batch_offset = 0;
         if (tld.lineitem[ibatch][LINEITEM::L_COMMENT].kind() == Datum::NONE) {
           ARROW_ASSIGN_OR_RAISE(tld.lineitem[ibatch][LINEITEM::L_COMMENT],
                                 g_text.GenerateComments(batch_size_, 10, 43, tld.rng));
           batch_offset = 0;
         }
+        if (irow == 0) batch_offset = tld.first_batch_offset;
 
         int64_t remaining_in_batch = static_cast<int64_t>(batch_size_ - batch_offset);
         int64_t next_run = std::min(tld.lineitem_to_generate - irow, remaining_in_batch);

@@ -45,17 +45,25 @@ static constexpr uint32_t kStartDate =
 static constexpr uint32_t kEndDate =
     10591;  // December 12, 1998 is 10591 days after January 1, 1970
 
-Result<std::vector<ExecBatch>> GenerateTable(
-    Result<ExecNode*> (TpchGen::*table)(std::vector<std::string>),
-    double scale_factor = 1.0) {
+using TableNodeFn = Result<ExecNode*> (TpchGen::*)(std::vector<std::string>);
+
+Status AddTableAndSinkToPlan(ExecPlan& plan, TpchGen& gen,
+                             AsyncGenerator<util::optional<ExecBatch>>& sink_gen,
+                             TableNodeFn table) {
+  ARROW_ASSIGN_OR_RAISE(ExecNode * table_node, ((gen.*table)({})));
+  Declaration sink("sink", {Declaration::Input(table_node)}, SinkNodeOptions{&sink_gen});
+  ARROW_RETURN_NOT_OK(sink.AddToPlan(&plan));
+  return Status::OK();
+}
+
+Result<std::vector<ExecBatch>> GenerateTable(TableNodeFn table,
+                                             double scale_factor = 1.0) {
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<TpchGen> gen,
                         TpchGen::Make(plan.get(), scale_factor));
-  ARROW_ASSIGN_OR_RAISE(ExecNode * table_node, ((gen.get()->*table)({})));
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table_node)}, SinkNodeOptions{&sink_gen});
-  ARROW_RETURN_NOT_OK(sink.AddToPlan(plan.get()));
+  ARROW_RETURN_NOT_OK(AddTableAndSinkToPlan(*plan, *gen, sink_gen, table));
   auto fut = StartAndCollect(plan.get(), sink_gen);
   return fut.MoveResult();
 }
@@ -342,15 +350,14 @@ TEST(TpchNode, ScaleFactor) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Supplier) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier));
+void VerifySupplier(const std::vector<ExecBatch>& batches) {
   int64_t kExpectedRows = 10000;
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_suppkey;
   int good_count = 0;
   int bad_count = 0;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_suppkey, batch[0],
                     /*min=*/1,
@@ -369,14 +376,17 @@ TEST(TpchNode, Supplier) {
   ASSERT_EQ(bad_count, 5);
 }
 
-TEST(TpchNode, Part) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Part));
+TEST(TpchNode, Supplier) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier));
+  VerifySupplier(res);
+}
 
+void VerifyPart(const std::vector<ExecBatch>& batches) {
   int64_t kExpectedRows = 200000;
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_partkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_partkey, batch[0],
                     /*min=*/1,
@@ -401,14 +411,17 @@ TEST(TpchNode, Part) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, PartSupp) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::PartSupp));
+TEST(TpchNode, Part) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Part));
+  VerifyPart(res);
+}
 
+void VerifyPartSupp(const std::vector<ExecBatch>& batches) {
   constexpr int64_t kExpectedRows = 800000;
   int64_t num_rows = 0;
 
   std::unordered_map<int32_t, int32_t> counts;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     CountInstances(&counts, batch[0]);
     VerifyAllBetween(batch[2], 1, 9999);
@@ -423,14 +436,17 @@ TEST(TpchNode, PartSupp) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Customer) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Customer));
+TEST(TpchNode, PartSupp) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::PartSupp));
+  VerifyPartSupp(res);
+}
 
+void VerifyCustomer(const std::vector<ExecBatch>& batches) {
   const int64_t kExpectedRows = 150000;
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_custkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_custkey, batch[0],
                     /*min=*/1,
@@ -449,14 +465,17 @@ TEST(TpchNode, Customer) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Orders) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Orders));
+TEST(TpchNode, Customer) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Customer));
+  VerifyCustomer(res);
+}
 
+void VerifyOrders(const std::vector<ExecBatch>& batches) {
   constexpr int64_t kExpectedRows = 1500000;
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_orderkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_orderkey, batch[0],
                     /*min=*/1,
@@ -484,11 +503,14 @@ TEST(TpchNode, Orders) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Lineitem) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Lineitem));
+TEST(TpchNode, Orders) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Orders));
+  VerifyOrders(res);
+}
 
+void VerifyLineitem(const std::vector<ExecBatch>& batches) {
   std::unordered_map<int32_t, int32_t> counts;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     CountInstances(&counts, batch[0]);
     VerifyAllBetween(batch[1], /*min=*/1, /*max=*/200000);
@@ -527,14 +549,17 @@ TEST(TpchNode, Lineitem) {
   }
 }
 
-TEST(TpchNode, Nation) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Nation));
+TEST(TpchNode, Lineitem) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Lineitem));
+  VerifyLineitem(res);
+}
 
+void VerifyNation(const std::vector<ExecBatch>& batches) {
   constexpr int64_t kExpectedRows = 25;
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_nationkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_nationkey, batch[0], 0, kExpectedRows - 1);
     VerifyOneOf(
@@ -551,14 +576,17 @@ TEST(TpchNode, Nation) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Region) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Region));
+TEST(TpchNode, Nation) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Nation));
+  VerifyNation(res);
+}
 
+void VerifyRegion(const std::vector<ExecBatch>& batches) {
   constexpr int64_t kExpectedRows = 5;
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_regionkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_regionkey, batch[0], 0, kExpectedRows - 1);
     VerifyOneOf(batch[1],
@@ -568,6 +596,44 @@ TEST(TpchNode, Region) {
     num_rows += batch.length;
   }
   ASSERT_EQ(num_rows, 5);
+}
+
+TEST(TpchNode, Region) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Region));
+  VerifyRegion(res);
+}
+
+TEST(TpchNode, AllTables) {
+  constexpr int kNumTables = 8;
+  std::array<TableNodeFn, kNumTables> tables = {
+      &TpchGen::Supplier, &TpchGen::Part,     &TpchGen::PartSupp, &TpchGen::Customer,
+      &TpchGen::Orders,   &TpchGen::Lineitem, &TpchGen::Nation,   &TpchGen::Region,
+  };
+  using VerifyFn = void(const std::vector<ExecBatch>&);
+  std::array<VerifyFn*, kNumTables> verify_fns = {
+      &VerifySupplier, &VerifyPart,     &VerifyPartSupp, &VerifyCustomer,
+      &VerifyOrders,   &VerifyLineitem, &VerifyNation,   &VerifyRegion,
+  };
+
+  std::array<AsyncGenerator<util::optional<ExecBatch>>, kNumTables> gens;
+  std::array<std::vector<ExecBatch>, kNumTables> batches;
+  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<TpchGen> gen, TpchGen::Make(plan.get(), 1.0));
+  for (int i = 0; i < kNumTables; i++) {
+    ASSERT_OK(AddTableAndSinkToPlan(*plan, *gen, gens[i], tables[i]));
+  }
+
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
+  plan->finished().Wait();
+  for (int i = 0; i < kNumTables; i++) {
+    auto fut = CollectAsyncGenerator(gens[i]);
+    ASSERT_OK_AND_ASSIGN(auto maybe_batches, fut.MoveResult());
+    for (auto& maybe_batch : maybe_batches)
+      batches[i].emplace_back(std::move(*maybe_batch));
+    verify_fns[i](batches[i]);
+  }
 }
 
 }  // namespace internal
