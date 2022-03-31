@@ -1491,6 +1491,8 @@ cdef class RecordBatch(_PandasConvertible):
         False
         >>> batch.equals(batch_1)
         True
+        >>> batch.equals(batch_1, check_metadata=True)
+        False
         """
         cdef:
             CRecordBatch* this_batch = self.batch
