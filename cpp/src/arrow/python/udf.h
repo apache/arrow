@@ -35,14 +35,12 @@
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 
-namespace cp = arrow::compute;
-
 namespace arrow {
 
 namespace py {
 
-#define DECLARE_CALL_UDF(TYPE_NAME, FUNCTION_SUFFIX, CONVERT_SUFFIX)               \
-  ARROW_PYTHON_EXPORT Status exec_function_##FUNCTION_SUFFIX(const cp::ExecBatch&, \
+#define DECLARE_CALL_UDF(TYPE_NAME, FUNCTION_SUFFIX, CONVERT_SUFFIX)                    \
+  ARROW_PYTHON_EXPORT Status exec_function_##FUNCTION_SUFFIX(const compute::ExecBatch&, \
                                                              PyObject*, int, Datum*);
 
 DECLARE_CALL_UDF(Scalar, scalar, scalar)
@@ -55,11 +53,12 @@ struct UDFOptions {};
 
 class ARROW_PYTHON_EXPORT UdfBuilder {
  public:
-  UdfBuilder(const std::string func_name, const cp::Function::Kind kind,
-             const cp::Arity arity, const cp::FunctionDoc func_doc,
-             const std::vector<cp::InputType> in_types, const cp::OutputType out_type,
-             const cp::MemAllocation::type mem_allocation,
-             const cp::NullHandling::type null_handling)
+  UdfBuilder(const std::string func_name, const compute::Function::Kind kind,
+             const compute::Arity arity, const compute::FunctionDoc func_doc,
+             const std::vector<compute::InputType> in_types,
+             const compute::OutputType out_type,
+             const compute::MemAllocation::type mem_allocation,
+             const compute::NullHandling::type null_handling)
       : func_name_(func_name),
         kind_(kind),
         arity_(arity),
@@ -71,41 +70,41 @@ class ARROW_PYTHON_EXPORT UdfBuilder {
 
   const std::string& name() const { return func_name_; }
 
-  cp::Function::Kind kind() { return kind_; }
+  compute::Function::Kind kind() { return kind_; }
 
-  const cp::Arity& arity() const { return arity_; }
+  const compute::Arity& arity() const { return arity_; }
 
-  const cp::FunctionDoc doc() const { return func_doc_; }
+  const compute::FunctionDoc doc() const { return func_doc_; }
 
-  const std::vector<cp::InputType>& input_types() const { return in_types_; }
+  const std::vector<compute::InputType>& input_types() const { return in_types_; }
 
-  const cp::OutputType& output_type() const { return out_type_; }
+  const compute::OutputType& output_type() const { return out_type_; }
 
-  cp::MemAllocation::type mem_allocation() { return mem_allocation_; }
+  compute::MemAllocation::type mem_allocation() { return mem_allocation_; }
 
-  cp::NullHandling::type null_handling() { return null_handling_; }
+  compute::NullHandling::type null_handling() { return null_handling_; }
 
  private:
   std::string func_name_;
-  cp::Function::Kind kind_;
-  cp::Arity arity_;
-  const cp::FunctionDoc func_doc_;
-  std::vector<cp::InputType> in_types_;
-  cp::OutputType out_type_;
-  cp::MemAllocation::type mem_allocation_;
-  cp::NullHandling::type null_handling_;
+  compute::Function::Kind kind_;
+  compute::Arity arity_;
+  const compute::FunctionDoc func_doc_;
+  std::vector<compute::InputType> in_types_;
+  compute::OutputType out_type_;
+  compute::MemAllocation::type mem_allocation_;
+  compute::NullHandling::type null_handling_;
 };
 
 class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
  public:
-  ScalarUdfBuilder(const std::string func_name, const cp::Arity arity,
-                   const cp::FunctionDoc func_doc,
-                   const std::vector<cp::InputType> in_types,
-                   const cp::OutputType out_type,
-                   const cp::MemAllocation::type mem_allocation,
-                   const cp::NullHandling::type null_handling)
-      : UdfBuilder(func_name, cp::Function::SCALAR, arity, func_doc, in_types, out_type,
-                   mem_allocation, null_handling) {}
+  ScalarUdfBuilder(const std::string func_name, const compute::Arity arity,
+                   const compute::FunctionDoc func_doc,
+                   const std::vector<compute::InputType> in_types,
+                   const compute::OutputType out_type,
+                   const compute::MemAllocation::type mem_allocation,
+                   const compute::NullHandling::type null_handling)
+      : UdfBuilder(func_name, compute::Function::SCALAR, arity, func_doc, in_types,
+                   out_type, mem_allocation, null_handling) {}
 
   Status MakeFunction(PyObject* function, UDFOptions* options = NULLPTR);
 };

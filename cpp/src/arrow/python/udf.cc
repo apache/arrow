@@ -63,7 +63,7 @@ DEFINE_CALL_UDF(Array, array, make_array)
 #undef DEFINE_CALL_UDF
 
 Status VerifyArityAndInput(cp::Arity arity, const cp::ExecBatch& batch) {
-  bool match = (uint64_t)arity.num_args == batch.values.size();
+  bool match = static_cast<uint64_t>(arity.num_args) == batch.values.size();
   if (!match) {
     return Status::Invalid(
         "Function Arity and Input data shape doesn't match, expected {}");
@@ -79,9 +79,9 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
   auto py_function = function;
   auto arity = this->arity();
   // lambda function
-  auto call_back_lambda = [py_function, arity](cp::KernelContext* ctx,
-                                               const cp::ExecBatch& batch,
-                                               Datum* out) -> Status {
+  auto call_back = [py_function, arity](cp::KernelContext* ctx,
+                                        const cp::ExecBatch& batch,
+                                        Datum* out) -> Status {
     PyAcquireGIL lock;
     if (py_function == NULL) {
       return Status::ExecutionError("python function cannot be null");
@@ -96,7 +96,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
         return Status::Invalid("Unexpected input type, scalar or array type expected.");
       }
     } else {
-      return Status::ExecutionError("Expected a callable python object.");
+      return Status::TypeError("Expected a callable python object.");
     }
     return Status::OK();
   };  // lambda function
@@ -104,7 +104,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
   cp::ScalarKernel kernel(
       cp::KernelSignature::Make(this->input_types(), this->output_type(),
                                 this->arity().is_varargs),
-      call_back_lambda);
+      call_back);
   kernel.mem_allocation = this->mem_allocation();
   kernel.null_handling = this->null_handling();
   st = func->AddKernel(std::move(kernel));

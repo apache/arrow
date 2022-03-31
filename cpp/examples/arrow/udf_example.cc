@@ -66,12 +66,9 @@ const cp::FunctionDoc func_doc{
 
 arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecBatch& batch,
                              arrow::Datum* out) {
-  auto in_res = cp::CallFunction("add", {batch[0].array(), batch[1].array()});
-  auto in_arr = in_res.ValueOrDie().make_array();
-  auto final_res = cp::CallFunction("add", {in_arr, batch[2].array()});
-  auto final_arr = final_res.ValueOrDie().array();
-  auto datum = new arrow::Datum(final_arr);
-  *out = *datum;
+  // temp = x + y; return temp + z
+  ARROW_ASSIGN_OR_RAISE(auto temp, cp::CallFunction("add", {batch[0], batch[1]}));
+  ARROW_ASSIGN_OR_RAISE(*out, cp::CallFunction("add", {temp, batch[2]}));
   return arrow::Status::OK();
 }
 
@@ -86,10 +83,10 @@ arrow::Status Execute() {
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = cp::NullHandling::COMPUTED_NO_PREALLOCATE;
 
-  ABORT_ON_FAILURE(func->AddKernel(std::move(kernel)));
+  ARROW_RETURN_NOT_OK(func->AddKernel(std::move(kernel)));
 
   auto registry = cp::GetFunctionRegistry();
-  ABORT_ON_FAILURE(registry->AddFunction(std::move(func)));
+  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
 
   ARROW_ASSIGN_OR_RAISE(auto x, GetArrayDataSample<arrow::Int64Type>({1, 2, 3}));
   ARROW_ASSIGN_OR_RAISE(auto y, GetArrayDataSample<arrow::Int64Type>({4, 5, 6}));
