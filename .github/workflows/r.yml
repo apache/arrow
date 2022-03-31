@@ -62,6 +62,7 @@ jobs:
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
