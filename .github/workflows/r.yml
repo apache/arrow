@@ -337,9 +337,10 @@ jobs:
           install.packages(c("remotes", "rcmdcheck"))
           remotes::install_deps("r", dependencies = TRUE)
       - name: Run lintr
+        shell: Rscript {0}
         run: |
-          R -e "remotes::install_github('jonkeane/lintr@arrow-branch')"
-          r/lint.sh
+          remotes::install_github('jonkeane/lintr@arrow-branch')
+          lintr::lint_package(path_prefix = 'r')
       - name: Check
         shell: Rscript {0}
         run: |
