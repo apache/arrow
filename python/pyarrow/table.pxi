@@ -817,7 +817,6 @@ cdef class RecordBatch(_PandasConvertible):
     day: int64
     n_legs: int64
     animals: string
-
     """
 
     def __cinit__(self):
@@ -883,7 +882,6 @@ cdef class RecordBatch(_PandasConvertible):
         animals: string
         -- schema metadata --
         n_legs: 'Number of legs per animal'
-
         """
 
         return _from_pydict(cls=RecordBatch,
@@ -932,7 +930,6 @@ cdef class RecordBatch(_PandasConvertible):
         animals: string
         -- schema metadata --
         n_legs: 'Number of legs per animal'
-
         """
 
         return _from_pylist(cls=RecordBatch,
@@ -1020,7 +1017,6 @@ cdef class RecordBatch(_PandasConvertible):
 
         >>> batch.replace_schema_metadata().schema
         n_legs: int64
-
         """
         cdef:
             shared_ptr[const CKeyValueMetadata] c_meta
@@ -1051,7 +1047,6 @@ cdef class RecordBatch(_PandasConvertible):
         ...                                     names=["n_legs", "animals"])
         >>> batch.num_columns
         2
-
         """
         return self.batch.num_columns()
 
@@ -1076,7 +1071,6 @@ cdef class RecordBatch(_PandasConvertible):
         ...                                     names=["n_legs", "animals"])
         >>> batch.num_rows
         6
-
         """
         return len(self)
 
@@ -1099,7 +1093,6 @@ cdef class RecordBatch(_PandasConvertible):
         >>> batch.schema
         n_legs: int64
         animals: string
-
         """
         if self._schema is None:
             self._schema = pyarrow_wrap_schema(self.batch.schema())
@@ -1130,7 +1123,6 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.Field<n_legs: int64>
         >>> batch.field(1)
         pyarrow.Field<animals: string>
-
         """
         return self.schema.field(i)
 
@@ -1168,7 +1160,6 @@ cdef class RecordBatch(_PandasConvertible):
           "Brittle stars",
           "Centipede"
         ]]
-
         """
         return [self.column(i) for i in range(self.num_columns)]
 
@@ -1224,7 +1215,6 @@ cdef class RecordBatch(_PandasConvertible):
           "Brittle stars",
           "Centipede"
         ]
-
         """
         return self._column(self._ensure_integer_index(i))
 
@@ -1271,7 +1261,6 @@ cdef class RecordBatch(_PandasConvertible):
         ...                                     names=["n_legs", "animals"])
         >>> batch.nbytes
         116
-
         """
         cdef:
             CResult[int64_t] c_res_buffer
@@ -1300,7 +1289,6 @@ cdef class RecordBatch(_PandasConvertible):
         ...                                     names=["n_legs", "animals"])
         >>> batch.get_total_buffer_size()
         120
-
         """
         cdef:
             int64_t total_buffer_size
@@ -1352,7 +1340,6 @@ cdef class RecordBatch(_PandasConvertible):
         ...                                     names=["n_legs", "animals"])
         >>> batch.serialize()
         <pyarrow.lib.Buffer object at ...>
-
         """
         cdef shared_ptr[CBuffer] buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
@@ -1406,7 +1393,6 @@ cdef class RecordBatch(_PandasConvertible):
         >>> batch.slice(offset=3, length=1).to_pandas()
            n_legs animals
         0       4   Horse
-
         """
         cdef shared_ptr[CRecordBatch] result
 
@@ -1470,7 +1456,6 @@ cdef class RecordBatch(_PandasConvertible):
         1     2.0    Parrot
         2     4.0     Horse
         3     NaN      None
-
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -1506,7 +1491,6 @@ cdef class RecordBatch(_PandasConvertible):
         False
         >>> batch.equals(batch_1)
         True
-
         """
         cdef:
             CRecordBatch* this_batch = self.batch
@@ -1549,7 +1533,6 @@ cdef class RecordBatch(_PandasConvertible):
         0       2         Parrot
         1       4          Horse
         2       5  Brittle stars
-
         """
         return _pc().take(self, indices)
 
@@ -1580,7 +1563,6 @@ cdef class RecordBatch(_PandasConvertible):
         2       4        Dog
         3       4      Horse
         4     100  Centipede
-
         """
         return _pc().drop_null(self)
 
@@ -1601,7 +1583,6 @@ cdef class RecordBatch(_PandasConvertible):
         ...                                     names=["n_legs", "animals"])
         >>> batch.to_pydict()
         {'n_legs': [2, 2, 4, 4, 5, 100], 'animals': ['Flamingo', 'Parrot', ..., 'Centipede']}
-
         """
         entries = []
         for i in range(self.batch.num_columns()):
@@ -1627,7 +1608,6 @@ cdef class RecordBatch(_PandasConvertible):
         ...                                     names=["n_legs", "animals"])
         >>> batch.to_pylist()
         [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 2, ...}, {'n_legs': 100, 'animals': 'Centipede'}]
-
         """
 
         pydict = self.to_pydict()
@@ -1709,7 +1689,6 @@ cdef class RecordBatch(_PandasConvertible):
         >>> pa.RecordBatch.from_pandas(df, columns=["n_legs"])
         pyarrow.RecordBatch
         n_legs: int64
-
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
@@ -1785,7 +1764,6 @@ cdef class RecordBatch(_PandasConvertible):
         animals: string
         -- schema metadata --
         n_legs: 'Number of legs per animal'
-
         """
         cdef:
             Array arr
@@ -1847,7 +1825,6 @@ cdef class RecordBatch(_PandasConvertible):
           animals  n_legs    year
         0  Parrot       2     NaN
         1    None       4  2022.0
-
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
@@ -2398,7 +2375,6 @@ cdef class Table(_PandasConvertible):
         ... })
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
-
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
@@ -2492,7 +2468,6 @@ cdef class Table(_PandasConvertible):
         ----
         int: [[1,2]]
         str: [["a","b"]]
-
         """
 
         return _from_pydict(cls=Table,
@@ -2530,7 +2505,6 @@ cdef class Table(_PandasConvertible):
         ----
         int: [[1,2]]
         str: [["a","b"]]
-
         """
 
         return _from_pylist(cls=Table,
@@ -2675,7 +2649,6 @@ cdef class Table(_PandasConvertible):
         ... ], names=["int", "str"])
         >>> table.to_pydict()
         {'int': [1, 2], 'str': ['a', 'b']}
-
         """
         cdef:
             size_t i
@@ -2706,7 +2679,6 @@ cdef class Table(_PandasConvertible):
         ... ], names=["int", "str"])
         >>> table.to_pylist()
         [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
-
         """
         pydict = self.to_pydict()
         names = self.schema.names
@@ -3301,7 +3273,6 @@ def record_batch(data, names=None, schema=None, metadata=None):
     1       4          Horse
     2       5  Brittle stars
     3     100      Centipede
-
     """
     # accept schema as first argument for backwards compatibility / usability
     if isinstance(names, Schema) and schema is None:
@@ -3556,7 +3527,6 @@ list[tuple(str, str, FunctionOptions)]
         ----
         values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
-
         """
         columns = [a[0] for a in aggregations]
         aggrfuncs = [
