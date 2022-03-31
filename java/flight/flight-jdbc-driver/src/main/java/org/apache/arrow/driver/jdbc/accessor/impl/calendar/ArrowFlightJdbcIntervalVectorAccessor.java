@@ -17,6 +17,10 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
+import static org.apache.arrow.driver.jdbc.utils.IntervalDayYearUtils.formatIntervalDay;
+import static org.apache.arrow.driver.jdbc.utils.IntervalDayYearUtils.formatIntervalYear;
+import static org.joda.time.Period.parse;
+
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Period;
@@ -101,9 +105,9 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
       return null;
     }
     if (vector instanceof IntervalDayVector) {
-      return formatIntervalDay(org.joda.time.Period.parse(object.toString()));
+      return formatIntervalDay(parse(object.toString()));
     } else if (vector instanceof IntervalYearVector) {
-      return formatIntervalYear(org.joda.time.Period.parse(object.toString()));
+      return formatIntervalYear(parse(object.toString()));
     } else {
       throw new SQLException("Invalid Interval vector instance");
     }

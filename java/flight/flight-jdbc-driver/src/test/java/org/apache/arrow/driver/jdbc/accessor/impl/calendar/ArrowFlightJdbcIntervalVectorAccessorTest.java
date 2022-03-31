@@ -17,10 +17,11 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
-import static org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor.formatIntervalDay;
-import static org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor.formatIntervalYear;
+import static org.apache.arrow.driver.jdbc.utils.IntervalDayYearUtils.formatIntervalDay;
+import static org.apache.arrow.driver.jdbc.utils.IntervalDayYearUtils.formatIntervalYear;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.joda.time.Period.parse;
 
 import java.time.Duration;
 import java.time.Period;
@@ -140,9 +141,9 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     if (object == null) {
       return null;
     } else if (vector instanceof IntervalDayVector) {
-      return formatIntervalDay(org.joda.time.Period.parse(object));
+      return formatIntervalDay(parse(object));
     } else if (vector instanceof IntervalYearVector) {
-      return formatIntervalYear(org.joda.time.Period.parse(object));
+      return formatIntervalYear(parse(object));
     }
     return null;
   }
