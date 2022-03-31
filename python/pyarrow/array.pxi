@@ -750,6 +750,29 @@ cdef class _PandasConvertible(_Weakrefable):
         Returns
         -------
         pandas.Series or pandas.DataFrame depending on type of object
+
+        Examples
+        --------
+        Convert a RecordBatch to pandas DataFrame:
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        >>> batch.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       4          Horse
+        2       5  Brittle stars
+        3     100      Centipede
+        >>> isinstance(batch.to_pandas(), pd.DataFrame)
+        True
+
         """
         options = dict(
             pool=memory_pool,

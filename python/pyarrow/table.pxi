@@ -1497,10 +1497,15 @@ cdef class RecordBatch(_PandasConvertible):
         >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
         ...                                     names=["n_legs", "animals"])
         >>> batch_0 = pa.record_batch([])
+        >>> batch_1 = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                       names=["n_legs", "animals"],
+        ...                                       metadata={"n_legs": "Number of legs per animal"})
         >>> batch.equals(batch)
         True
         >>> batch.equals(batch_0)
         False
+        >>> batch.equals(batch_1)
+        True
 
         """
         cdef:
