@@ -79,7 +79,7 @@ jobs:
       - uses: r-lib/actions/setup-r@v1
       - name: Run lintr
         run: |
-          R -e "source("ci/etc/rprofile"); install.packages('remotes'); 
+          R -e "source('ci/etc/rprofile'S); install.packages('remotes'); 
           R -e "remotes::install_github('jonkeane/lintr@arrow-branch')"
           r/lint.sh
       - name: Setup Python
