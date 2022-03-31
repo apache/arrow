@@ -36,18 +36,19 @@ namespace fs = ::arrow::fs;
 static std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
     const std::string& factory_name, compute::ExecPlan* plan,
     std::vector<compute::ExecNode*> inputs, const compute::ExecNodeOptions& options) {
-return std::shared_ptr<compute::ExecNode>(
-    ValueOrStop(compute::MakeExecNode(factory_name, plan, std::move(inputs), options)),
-    [](...) {
+  return std::shared_ptr<compute::ExecNode>(
+      ValueOrStop(compute::MakeExecNode(factory_name, plan, std::move(inputs), options)),
+      [](...) {
         // empty destructor: ExecNode lifetime is managed by an ExecPlan
-    });
+      });
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
     const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor,
     std::string table_name) {
-  auto gen = ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor));
+  auto gen =
+      ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor));
 
   compute::ExecNode* table;
   if (table_name == "part") {
@@ -94,12 +95,11 @@ std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
       gc_memory_pool());
 }
 
-void Write_One_Table(const std::shared_ptr<compute::ExecPlan>& plan,
-                     std::string table_name,
-                     compute::ExecNode* table,
-                     std::string base_path,
-                     const std::shared_ptr<fs::FileSystem>& filesystem) {
-                     auto format = std::make_shared<ds::ParquetFileFormat>();
+void Queue_Write_One_Table(const std::shared_ptr<compute::ExecPlan>& plan,
+                           std::string table_name, compute::ExecNode* table,
+                           std::string base_path,
+                           const std::shared_ptr<fs::FileSystem>& filesystem) {
+  auto format = std::make_shared<ds::ParquetFileFormat>();
 
   auto partitioning_factory = arrow::dataset::HivePartitioning::MakeFactory();
   std::vector<std::shared_ptr<arrow::Field>> fields;
@@ -119,13 +119,7 @@ void Write_One_Table(const std::shared_ptr<compute::ExecPlan>& plan,
       ds::WriteNodeOptions{write_options, table->output_schema()};
 
   MakeExecNodeOrStop("write", plan.get(), {table}, options);
-
-  StopIfNotOk(plan->Validate());
-
-  StopIfNotOk(plan->StartProducing());
-
-  StopIfNotOk(plan->finished().status());
- }
+}
 
 // [[arrow::export]]
 void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor,
@@ -133,37 +127,41 @@ void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, int scale_
                       std::string base_dir) {
   arrow::dataset::internal::Initialize();
 
-  auto gen = ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor));
+  auto gen =
+      ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor));
 
   // TODO: unhardcode this once it's working
   auto base_path = base_dir + "/tpch";
   filesystem->CreateDir(base_path);
 
-  static std::string tables [] = {"part", "supplier", "partsupp", "customer", "nation", "lineitem", "region", "orders"};
+  static std::string tables[] = {"part",   "supplier", "partsupp", "customer",
+                                 "nation", "lineitem", "region",   "orders"};
   for (auto& table_name : tables) {
-      compute::ExecNode* table;
-      if (table_name == "part") {
-        table = ValueOrStop(gen->Part());
-      } else if (table_name == "supplier") {
-        table = ValueOrStop(gen->Supplier());
-      } else if (table_name == "partsupp") {
-        table = ValueOrStop(gen->PartSupp());
-      } else if (table_name == "customer") {
-        table = ValueOrStop(gen->Customer());
-      } else if (table_name == "nation") {
-        table = ValueOrStop(gen->Nation());
-      } else if (table_name == "lineitem") {
-        table = ValueOrStop(gen->Lineitem());
-      } else if (table_name == "region") {
-        table = ValueOrStop(gen->Region());
-      } else if (table_name == "orders") {
-        table = ValueOrStop(gen->Orders());
-      } else {
-        cpp11::stop("That's not a valid table name");
-      }
-      cpp11::message("Writing " + table_name);
-      Write_One_Table(plan, table_name, table, base_path, filesystem);
+    compute::ExecNode* table;
+    if (table_name == "part") {
+      table = ValueOrStop(gen->Part());
+    } else if (table_name == "supplier") {
+      table = ValueOrStop(gen->Supplier());
+    } else if (table_name == "partsupp") {
+      table = ValueOrStop(gen->PartSupp());
+    } else if (table_name == "customer") {
+      table = ValueOrStop(gen->Customer());
+    } else if (table_name == "nation") {
+      table = ValueOrStop(gen->Nation());
+    } else if (table_name == "lineitem") {
+      table = ValueOrStop(gen->Lineitem());
+    } else if (table_name == "region") {
+      table = ValueOrStop(gen->Region());
+    } else if (table_name == "orders") {
+      table = ValueOrStop(gen->Orders());
+    } else {
+      cpp11::stop("That's not a valid table name");
+    }
+    Queue_Write_One_Table(plan, table_name, table, base_path, filesystem);
   }
+  StopIfNotOk(plan->Validate());
+  StopIfNotOk(plan->StartProducing());
+  StopIfNotOk(plan->finished().status());
 }
 
 #endif

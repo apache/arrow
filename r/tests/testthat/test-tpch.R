@@ -51,3 +51,9 @@ for (table_name in tpch_tables_up) {
     expect_r6_class(tab, "Table")
   })
 }
+
+test_that("tpch_dbgen_write()", {
+    td <- make_temp_dir()
+
+    tpch_dbgen_write(1, td)
+})
