@@ -529,7 +529,7 @@ test_that("RecordBatch supports cbind", {
       RecordBatch$create(a = 1:10, ),
       RecordBatch$create(a = c("a", "b"))
     ),
-    regexp = "unequal number of rows"
+    regexp = "Non-scalar inputs must have an equal number of rows"
   )
 
   batches <- list(
@@ -539,8 +539,25 @@ test_that("RecordBatch supports cbind", {
   )
 
   expected <- RecordBatch$create(
-    do.call(cbind, lapply(batches, function(batch) as.data.frame(batch))))
+    do.call(cbind, lapply(batches, function(batch) as.data.frame(batch)))
+  )
   expect_equal(do.call(cbind, batches), expected, ignore_attr = TRUE)
+
+  # Handles a variety of input types
+  inputs <- list(
+    RecordBatch$create(a = 1:2),
+    b = Array$create(4:5),
+    c = c("a", "b"),
+    d = 1L
+  )
+  r_inputs <- inputs
+  r_inputs[[1]] <- as.data.frame(r_inputs[[1]])
+  r_inputs[["b"]] <- as.vector(r_inputs[["b"]])
+
+  expected <- RecordBatch$create(do.call(cbind, r_inputs))
+  actual <- do.call(cbind, inputs)
+  expect_equal(expected, actual, ignore_attr = TRUE)
+  expect_equal(names(actual), c("a", "b", "c", "d"))
 })
 
 test_that("Handling string data with embedded nuls", {

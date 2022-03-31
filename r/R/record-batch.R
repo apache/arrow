@@ -195,29 +195,41 @@ rbind.RecordBatch <- function(...) {
   abort("Use Table$create to combine record batches")
 }
 
-#' @export
-cbind.RecordBatch <- function(...) {
-  batches <- list(...)
-
-  # Assert they have the same length
-  unequal_length_idx <- which.min(lapply(batches, function(x) x$num_rows == batches[[1]]$num_rows))
-  if (unequal_length_idx != 1) {
+cbind_check_length <- function(target_length, length, idx) {
+  if (length != target_length) {
     abort(
       sprintf(
-        "Cannot cbind batches with unequal number of rows. Batch 1 has %i, batch %i has %i",
-        batches[[1]]$num_rows,
-        unequal_length_idx,
-        batches[[unequal_length_idx]]$num_rows
+        "Non-scalar inputs must have an equal number of rows. ..1 has %i, ..%i has %i",
+        target_length,
+        idx,
+        length
       )
     )
   }
+}
 
-  fields <- unlist(lapply(batches, function(tab) tab$schema$fields))
+#' @export
+cbind.RecordBatch <- function(...) {
+  inputs <- list(...)
+  num_rows <- inputs[[1]]$num_rows
+
+  batches <- imap(inputs, function(input, idx) {
+    if (inherits(input, "RecordBatch")) {
+      cbind_check_length(num_rows, input$num_rows, idx)
+      input
+    } else if (is.vector(input) && length(input) == 1) {
+      RecordBatch$create("{idx}" := rep(input, num_rows))
+    } else if (inherits(input, "Array") || is.vector(input)) {
+      cbind_check_length(num_rows, length(input), idx)
+      RecordBatch$create("{idx}" := input)
+    } else {
+      abort(sprintf("Input ..%i is of unsupported type", idx))
+    }
+  })
+
+  fields <- flatten(map(batches, ~ .$schema$fields))
   schema <- Schema$create(fields)
-  columns <- unlist(lapply(batches, function(tab) tab$columns))
+  columns <- flatten(map(batches, ~ .$columns))
 
-  # return new table
-  args <- columns
-  names(args) <- names(schema)
-  RecordBatch$create(!!!args, schema = schema)
+  RecordBatch$create(!!!set_names(columns, names(schema)), schema = schema)
 }

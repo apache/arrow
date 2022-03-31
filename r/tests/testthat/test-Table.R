@@ -543,7 +543,7 @@ test_that("Table supports cbind", {
       Table$create(a = 1:10, ),
       Table$create(a = c("a", "b"))
     ),
-    regexp = "unequal number of rows"
+    regexp = "Non-scalar inputs must have an equal number of rows"
   )
 
   tables <- list(
@@ -554,6 +554,25 @@ test_that("Table supports cbind", {
   expected <- Table$create(do.call(cbind, lapply(tables, function(table) as.data.frame(table))))
   actual <- do.call(cbind, tables)
   expect_equal(actual, expected, ignore_attr = TRUE)
+
+  # Handles a variety of input types
+  inputs <- list(
+    Table$create(z = 1L:2L),
+    RecordBatch$create(a = 1:2),
+    b = Array$create(4:5),
+    c = c("a", "b"),
+    d = 1L
+  )
+
+  r_inputs <- inputs
+  r_inputs[[1]] <- as.data.frame(r_inputs[[1]])
+  r_inputs[[2]] <- as.data.frame(r_inputs[[2]])
+  r_inputs[["b"]] <- as.vector(r_inputs[["b"]])
+
+  expected <- Table$create(do.call(cbind, r_inputs))
+  actual <- do.call(cbind, inputs)
+  expect_equal(expected, actual, ignore_attr = TRUE)
+  expect_equal(names(actual), c("z", "a", "b", "c", "d"))
 })
 
 test_that("ARROW-11769 - grouping preserved in table creation", {

@@ -180,29 +180,31 @@ rbind.Table <- function(...) {
 
 #' @export
 cbind.Table <- function(...) {
-  tables <- list(...)
+  inputs <- list(...)
+  num_rows <- inputs[[1]]$num_rows
 
-  # Assert they have the same length
-  unequal_length_idx <- which.min(lapply(tables, function(x) x$num_rows == tables[[1]]$num_rows))
-  if (unequal_length_idx != 1) {
-    stop(
-      sprintf(
-        "Cannot cbind tables with unequal number of rows. Table 1 has %i, table %i has %i",
-        tables[[1]]$num_rows,
-        unequal_length_idx,
-        tables[[unequal_length_idx]]$num_rows
-      )
-    )
-  }
+  tables <- imap(inputs, function(input, idx) {
+    if (inherits(input, "Table")) {
+      cbind_check_length(num_rows, input$num_rows, idx)
+      input
+    } else if (inherits(input, "RecordBatch")) {
+      cbind_check_length(num_rows, input$num_rows, idx)
+      Table$create(input)
+    } else if (is.vector(input) && length(input) == 1) {
+      Table$create("{idx}" := rep(input, num_rows))
+    } else if (inherits(input, "Array") || is.vector(input)) {
+      cbind_check_length(num_rows, length(input), idx)
+      Table$create("{idx}" := input)
+    } else {
+      abort(sprintf("Input ..%i is of unsupported type", idx))
+    }
+  })
 
-  fields <- unlist(lapply(tables, function(tab) tab$schema$fields))
+  fields <- flatten(map(tables, ~ .$schema$fields))
   schema <- Schema$create(fields)
-  columns <- unlist(lapply(tables, function(tab) tab$columns))
+  columns <- flatten(map(tables, ~ .$columns))
 
-  # return new table
-  args <- columns
-  names(args) <- names(schema)
-  Table$create(!!!args, schema = schema)
+  Table$create(!!!set_names(columns, names(schema)), schema = schema)
 }
 
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
