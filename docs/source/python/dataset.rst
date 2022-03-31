@@ -658,23 +658,25 @@ Configuring rows per group during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The volume of data written to the disk per each group can be configured.
-This configuration includes a lower and an upper bound. 
-Set the minimum number of rows required to form a row group. 
-Defined with the ``min_rows_per_group`` parameter of :meth:`write_dataset`.
+This configuration includes a lower and an upper bound.
+The minimum number of rows required to form a row group is 
+defined with the ``min_rows_per_group`` parameter of :meth:`write_dataset`.
 
-Note: if ``min_rows_per_group`` is set greater than 0 then this will cause the 
-dataset writer to batch incoming data and only write the row groups to the 
-disk when sufficient rows have accumulated. The final row group size may be 
-less than this value if other options such as ``max_open_files`` or 
-``max_rows_per_file`` force smaller row group sizes.
+.. note::
+    If ``min_rows_per_group`` is set greater than 0 then this will cause the 
+    dataset writer to batch incoming data and only write the row groups to the 
+    disk when sufficient rows have accumulated. The final row group size may be 
+    less than this value if other options such as ``max_open_files`` or 
+    ``max_rows_per_file`` force smaller row group sizes.
 
-Set the maximum number of rows allowed per group. Defined as ``max_rows_per_group`` parameter of
-:meth:`write_dataset`.
+The maximum number of rows allowed per group is defined with the
+``max_rows_per_group`` parameter of :meth:`write_dataset`.
 
-Note: if ``max_rows_per_group`` is set greater than 0 then the dataset writer may split 
+If ``max_rows_per_group`` is set greater than 0 then the dataset writer may split 
 up large incoming batches into multiple row groups.  If this value is set then 
 ``min_rows_per_group`` should also be set or else you may end up with very small 
 row groups (e.g. if the incoming row group size is just barely larger than this value).
+
 Row groups are built into the Parquet and IPC/Feather formats but don't affect JSON or CSV.
 When reading back Parquet and IPC formats in Arrow, the row group boundaries become the
 record batch boundaries, determining the default batch size of downstream readers.
