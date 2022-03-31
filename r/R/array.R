@@ -255,7 +255,7 @@ concat_arrays <- function(..., type = NULL) {
 #' @rdname concat_arrays
 #' @export
 c.Array <- function(...) {
-  stop("Use concat_arrays() to create a new array, ChunkedArray$create() to create a zero-copy concatenation")
+  abort("Use concat_arrays() to create a new array, ChunkedArray$create() to create a zero-copy concatenation")
 }
 
 #' @rdname array
