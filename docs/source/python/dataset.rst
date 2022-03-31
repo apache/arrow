@@ -651,8 +651,7 @@ file will be created in each output directory unless files need to be closed to 
 For workloads writing a lot of data, files can get very large without a
 row count cap, leading to out-of-memory errors in downstream readers. The
 relationship between row count and file size depends on the dataset schema
-and how well compressed (if at all) the data is. For most applications,
-it's best to keep file sizes below 1GB.
+and how well compressed (if at all) the data is.
 
 Configuring rows per group during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
