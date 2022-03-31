@@ -30,13 +30,13 @@ namespace internal {
 
 namespace {
 template <typename T>
-constexpr int64_t GetLength(const T& array) {
+int64_t GetLength(const T& array) {
   // General case assumes argument is an Array pointer
   return array->length();
 }
 
 template <>
-constexpr int64_t GetLength<std::shared_ptr<RecordBatch>>(
+int64_t GetLength<std::shared_ptr<RecordBatch>>(
     const std::shared_ptr<RecordBatch>& batch) {
   return batch->num_rows();
 }
