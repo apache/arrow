@@ -160,22 +160,18 @@ rbind.Table <- function(...) {
     stop(paste0(
       sprintf("Schema at index %i does not match the first schema\n", unequal_schema_idx),
       "Schema 1:\n",
-      tables[[1]]$schema$ToString(),
+      schema$ToString(),
       sprintf("\nSchema %i:\n", unequal_schema_idx),
       tables[[unequal_schema_idx]]$schema$ToString()
     ))
   }
 
-  # create chunked array from each column
-  columns <- vector(mode = "list", length = tables[[1]]$num_columns)
-  for (i in seq_len(length(columns))) {
-    columns[[i]] <- do.call(c, lapply(tables, function(tab) tab[[i]]))
-  }
+  # create chunked array for each column
+  columns <- map(1:tables[[1]]$num_columns, function(i) {
+    do.call(c, map(tables, ~ .[[i]]))
+  })
 
-  # return new table
-  args <- columns
-  names(args) <- names(schema)
-  Table$create(!!!args, schema = schema)
+  Table$create(!!!set_names(columns, names(schema)), schema = schema)
 }
 
 #' @export
