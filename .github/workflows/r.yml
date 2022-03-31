@@ -340,7 +340,7 @@ jobs:
         shell: Rscript {0}
         run: |
           remotes::install_github('jonkeane/lintr@arrow-branch')
-          lintr::lint_package(path_prefix = 'r')
+          lintr::lint_package('./r')
       - name: Check
         shell: Rscript {0}
         run: |
