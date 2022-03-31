@@ -103,6 +103,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
             c_in_dataset = (<Dataset>ipt).unwrap()
             c_scanopts = make_shared[CScanNodeOptions](
                 c_in_dataset, make_shared[CScanOptions]())
+            deref(deref(c_scanopts).scan_options).use_threads = use_threads
             c_input_node_opts.swap(deref(<shared_ptr[CExecNodeOptions]*>&c_scanopts))
         else:
             raise TypeError("Unsupported type")

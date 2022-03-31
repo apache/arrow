@@ -52,9 +52,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
         shared_ptr[CSchema] dataset_schema
         shared_ptr[CSchema] projected_schema
+        c_bool use_threads
 
     cdef cppclass CScanNodeOptions "arrow::dataset::ScanNodeOptions"(CExecNodeOptions):
         CScanNodeOptions(shared_ptr[CDataset] dataset, shared_ptr[CScanOptions] scan_options)
+
+        shared_ptr[CScanOptions] scan_options
 
     cdef cppclass CFragmentScanOptions "arrow::dataset::FragmentScanOptions":
         c_string type_name() const
