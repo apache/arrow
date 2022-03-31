@@ -1092,8 +1092,7 @@ class RowGroupGenerator {
                   -> ::arrow::Result<RecordBatchGenerator> {
           ::arrow::TableBatchReader table_reader(*table);
           table_reader.set_chunksize(batch_size);
-          ::arrow::RecordBatchVector batches;
-          RETURN_NOT_OK(table_reader.ReadAll(&batches));
+          ARROW_ASSIGN_OR_RAISE(auto batches, table_reader.ToRecordBatches());
           return ::arrow::MakeVectorGenerator(std::move(batches));
         });
   }

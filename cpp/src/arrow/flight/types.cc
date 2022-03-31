@@ -142,10 +142,15 @@ Status FlightPayload::Validate() const {
   return Status::OK();
 }
 
+arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
+    ipc::DictionaryMemo* dictionary_memo) const {
+  io::BufferReader schema_reader(raw_schema_);
+  return ipc::ReadSchema(&schema_reader, dictionary_memo);
+}
+
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
                                std::shared_ptr<Schema>* out) const {
-  io::BufferReader schema_reader(raw_schema_);
-  return ipc::ReadSchema(&schema_reader, dictionary_memo).Value(out);
+  return GetSchema(dictionary_memo).Value(out);
 }
 
 arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
@@ -233,17 +238,20 @@ arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
   return FlightInfo(data);
 }
 
-Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
-                             std::shared_ptr<Schema>* out) const {
+arrow::Result<std::shared_ptr<Schema>> FlightInfo::GetSchema(
+    ipc::DictionaryMemo* dictionary_memo) const {
   if (reconstructed_schema_) {
-    *out = schema_;
-    return Status::OK();
+    return schema_;
   }
   io::BufferReader schema_reader(data_.schema);
   RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo).Value(&schema_));
   reconstructed_schema_ = true;
-  *out = schema_;
-  return Status::OK();
+  return schema_;
+}
+
+Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
+                             std::shared_ptr<Schema>* out) const {
+  return GetSchema(dictionary_memo).Value(out);
 }
 
 arrow::Result<std::string> FlightInfo::SerializeToString() const {
@@ -284,35 +292,55 @@ Status FlightInfo::Deserialize(const std::string& serialized,
 
 Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
 
+Status FlightListing::Next(std::unique_ptr<FlightInfo>* info) {
+  return Next().Value(info);
+}
+
+arrow::Result<Location> Location::Parse(const std::string& uri_string) {
+  Location location;
+  RETURN_NOT_OK(location.uri_->Parse(uri_string));
+  return location;
+}
+
 Status Location::Parse(const std::string& uri_string, Location* location) {
-  return location->uri_->Parse(uri_string);
+  return Parse(uri_string).Value(location);
+}
+
+arrow::Result<Location> Location::ForGrpcTcp(const std::string& host, const int port) {
+  std::stringstream uri_string;
+  uri_string << "grpc+tcp://" << host << ':' << port;
+  return Location::Parse(uri_string.str());
 }
 
 Status Location::ForGrpcTcp(const std::string& host, const int port, Location* location) {
+  return ForGrpcTcp(host, port).Value(location);
+}
+
+arrow::Result<Location> Location::ForGrpcTls(const std::string& host, const int port) {
   std::stringstream uri_string;
-  uri_string << "grpc+tcp://" << host << ':' << port;
-  return Location::Parse(uri_string.str(), location);
+  uri_string << "grpc+tls://" << host << ':' << port;
+  return Location::Parse(uri_string.str());
 }
 
 Status Location::ForGrpcTls(const std::string& host, const int port, Location* location) {
+  return ForGrpcTls(host, port).Value(location);
+}
+
+arrow::Result<Location> Location::ForGrpcUnix(const std::string& path) {
   std::stringstream uri_string;
-  uri_string << "grpc+tls://" << host << ':' << port;
-  return Location::Parse(uri_string.str(), location);
+  uri_string << "grpc+unix://" << path;
+  return Location::Parse(uri_string.str());
 }
 
 Status Location::ForGrpcUnix(const std::string& path, Location* location) {
-  std::stringstream uri_string;
-  uri_string << "grpc+unix://" << path;
-  return Location::Parse(uri_string.str(), location);
+  return ForGrpcUnix(path).Value(location);
 }
 
 arrow::Result<Location> Location::ForScheme(const std::string& scheme,
                                             const std::string& host, const int port) {
-  Location location;
   std::stringstream uri_string;
   uri_string << scheme << "://" << host << ':' << port;
-  RETURN_NOT_OK(Location::Parse(uri_string.str(), &location));
-  return location;
+  return Location::Parse(uri_string.str());
 }
 
 std::string Location::ToString() const { return uri_->ToString(); }
@@ -337,23 +365,36 @@ bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;
 }
 
+Status ResultStream::Next(std::unique_ptr<Result>* info) { return Next().Value(info); }
+
+Status MetadataRecordBatchReader::Next(FlightStreamChunk* next) {
+  return Next().Value(next);
+}
+
+arrow::Result<std::vector<std::shared_ptr<RecordBatch>>>
+MetadataRecordBatchReader::ToRecordBatches() {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, Next());
+    if (!chunk.data) break;
+    batches.emplace_back(std::move(chunk.data));
+  }
+  return batches;
+}
+
 Status MetadataRecordBatchReader::ReadAll(
     std::vector<std::shared_ptr<RecordBatch>>* batches) {
-  FlightStreamChunk chunk;
+  return ToRecordBatches().Value(batches);
+}
 
-  while (true) {
-    RETURN_NOT_OK(Next(&chunk));
-    if (!chunk.data) break;
-    batches->emplace_back(std::move(chunk.data));
-  }
-  return Status::OK();
+arrow::Result<std::shared_ptr<Table>> MetadataRecordBatchReader::ToTable() {
+  ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
+  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
+  return Table::FromRecordBatches(schema, std::move(batches));
 }
 
 Status MetadataRecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
-  std::vector<std::shared_ptr<RecordBatch>> batches;
-  RETURN_NOT_OK(ReadAll(&batches));
-  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
-  return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
+  return ToTable().Value(table);
 }
 
 Status MetadataRecordBatchWriter::Begin(const std::shared_ptr<Schema>& schema) {
@@ -368,9 +409,8 @@ class MetadataRecordBatchReaderAdapter : public RecordBatchReader {
       : schema_(std::move(schema)), delegate_(std::move(delegate)) {}
   std::shared_ptr<Schema> schema() const override { return schema_; }
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    FlightStreamChunk next;
     while (true) {
-      RETURN_NOT_OK(delegate_->Next(&next));
+      ARROW_ASSIGN_OR_RAISE(FlightStreamChunk next, delegate_->Next());
       if (!next.data && !next.app_metadata) {
         // EOS
         *batch = nullptr;
@@ -402,25 +442,21 @@ SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)
 SimpleFlightListing::SimpleFlightListing(std::vector<FlightInfo>&& flights)
     : position_(0), flights_(std::move(flights)) {}
 
-Status SimpleFlightListing::Next(std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> SimpleFlightListing::Next() {
   if (position_ >= static_cast<int>(flights_.size())) {
-    *info = nullptr;
-    return Status::OK();
+    return nullptr;
   }
-  *info = std::unique_ptr<FlightInfo>(new FlightInfo(std::move(flights_[position_++])));
-  return Status::OK();
+  return std::unique_ptr<FlightInfo>(new FlightInfo(std::move(flights_[position_++])));
 }
 
 SimpleResultStream::SimpleResultStream(std::vector<Result>&& results)
     : results_(std::move(results)), position_(0) {}
 
-Status SimpleResultStream::Next(std::unique_ptr<Result>* result) {
+arrow::Result<std::unique_ptr<Result>> SimpleResultStream::Next() {
   if (position_ >= results_.size()) {
-    *result = nullptr;
-    return Status::OK();
+    return nullptr;
   }
-  *result = std::unique_ptr<Result>(new Result(std::move(results_[position_++])));
-  return Status::OK();
+  return std::unique_ptr<Result>(new Result(std::move(results_[position_++])));
 }
 
 arrow::Result<BasicAuth> BasicAuth::Deserialize(arrow::util::string_view serialized) {

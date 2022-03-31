@@ -106,17 +106,3 @@ For example::
 .. seealso::
    :doc:`API reference for error reporting <api/support>`
 
-Visitor Pattern
----------------
-
-Several types, including :class:`arrow::DataType`, :class:`arrow::Scalar`, and
-:class:`arrow::Array`, have sub-types specialized to their corresponding Arrow
-types. For example, for the Arrow boolean type there is :class:`arrow::BooleanType`,
-:class:`arrow::BooleanScalar`, and :class:`arrow::BooleanArray`. In order to 
-process these entities, you may need to write write logic that specializes based 
-on the particular Arrow type. In these cases, use the
-`visitor pattern <https://en.wikipedia.org/wiki/Visitor_pattern>`_.
-
-Arrow provides abstract visitor classes (:class:`arrow::TypeVisitor`,
-:class:`arrow::ScalarVisitor`, :class:`arrow::ArrayVisitor`) and an ``Accept()``
-method on each of the corresponding base types (e.g. :func:`arrow::Array::Accept`).

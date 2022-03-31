@@ -339,17 +339,22 @@ cdef class PlasmaClient(_Weakrefable):
         """
         Create a new buffer in the PlasmaStore for a particular object ID.
 
-        The returned buffer is mutable until seal is called.
+        The returned buffer is mutable until ``seal()`` is called.
 
         Parameters
         ----------
         object_id : ObjectID
             The object ID used to identify an object.
-        size : int
+        data_size : int
             The size in bytes of the created buffer.
         metadata : bytes
             An optional string of bytes encoding whatever metadata the user
             wishes to encode.
+
+        Returns
+        -------
+        buffer : Buffer
+            A mutable buffer where to write the object data.
 
         Raises
         ------

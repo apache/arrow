@@ -56,8 +56,14 @@ type (
 // it slightly easier to manage a flight service, slightly modeled after
 // the C++ implementation
 type Server interface {
-	// Init takes in the address to bind to and creates the listener
+	// Init takes in the address to bind to and creates the listener. If both this
+	// and InitListener are called, then whichever was called last will be used.
 	Init(addr string) error
+	// InitListener initializes with an already created listener rather than
+	// creating a new one like Init does. If both this and Init are called,
+	// whichever was called last is what will be used as they both set a listener
+	// into the server.
+	InitListener(lis net.Listener)
 	// Addr will return the address that was bound to for the service to listen on
 	Addr() net.Addr
 	// SetShutdownOnSignals sets notifications on the given signals to call GracefulStop
@@ -207,6 +213,10 @@ func NewServerWithMiddleware(middleware []ServerMiddleware, opts ...grpc.ServerO
 func (s *server) Init(addr string) (err error) {
 	s.lis, err = net.Listen("tcp", addr)
 	return
+}
+
+func (s *server) InitListener(lis net.Listener) {
+	s.lis = lis
 }
 
 func (s *server) Addr() net.Addr {

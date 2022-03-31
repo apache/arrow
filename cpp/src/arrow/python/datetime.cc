@@ -391,51 +391,113 @@ Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo) {
 Result<PyObject*> StringToTzinfo(const std::string& tz) {
   util::string_view sign_str, hour_str, minute_str;
   OwnedRef pytz;
-  RETURN_NOT_OK(internal::ImportModule("pytz", &pytz));
+  OwnedRef zoneinfo;
+  OwnedRef datetime;
 
+  if (internal::ImportModule("pytz", &pytz).ok()) {
+    if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
+      int sign = -1;
+      if (sign_str == "+") {
+        sign = 1;
+      }
+      OwnedRef fixed_offset;
+      RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "FixedOffset", &fixed_offset));
+      uint32_t minutes, hours;
+      if (!::arrow::internal::ParseUnsigned(hour_str.data(), hour_str.size(), &hours) ||
+          !::arrow::internal::ParseUnsigned(minute_str.data(), minute_str.size(),
+                                            &minutes)) {
+        return Status::Invalid("Invalid timezone: ", tz);
+      }
+      OwnedRef total_minutes(PyLong_FromLong(
+          sign * ((static_cast<int>(hours) * 60) + static_cast<int>(minutes))));
+      RETURN_IF_PYERROR();
+      auto tzinfo =
+          PyObject_CallFunctionObjArgs(fixed_offset.obj(), total_minutes.obj(), NULL);
+      RETURN_IF_PYERROR();
+      return tzinfo;
+    }
+
+    OwnedRef timezone;
+    RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "timezone", &timezone));
+    OwnedRef py_tz_string(
+        PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
+    auto tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
+    RETURN_IF_PYERROR();
+    return tzinfo;
+  }
+
+  // catch fixed offset if pytz is not present
   if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
+    RETURN_NOT_OK(internal::ImportModule("datetime", &datetime));
     int sign = -1;
     if (sign_str == "+") {
       sign = 1;
     }
-    OwnedRef fixed_offset;
-    RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "FixedOffset", &fixed_offset));
+
+    // import timezone and timedelta module to create a tzinfo object
+    OwnedRef class_timezone;
+    OwnedRef class_timedelta;
+    RETURN_NOT_OK(
+        internal::ImportFromModule(datetime.obj(), "timezone", &class_timezone));
+    RETURN_NOT_OK(
+        internal::ImportFromModule(datetime.obj(), "timedelta", &class_timedelta));
+
+    // check input
     uint32_t minutes, hours;
     if (!::arrow::internal::ParseUnsigned(hour_str.data(), hour_str.size(), &hours) ||
         !::arrow::internal::ParseUnsigned(minute_str.data(), minute_str.size(),
                                           &minutes)) {
       return Status::Invalid("Invalid timezone: ", tz);
     }
+
+    // save offset as a signed integer
     OwnedRef total_minutes(PyLong_FromLong(
         sign * ((static_cast<int>(hours) * 60) + static_cast<int>(minutes))));
+    // create zero integers for empty arguments in datetime.timedelta
+    OwnedRef zero(PyLong_FromLong(static_cast<int>(0)));
+
+    // call datetime.timedelta to get correct offset object for datetime.timezone
+    auto offset =
+        PyObject_CallFunctionObjArgs(class_timedelta.obj(), zero.obj(), zero.obj(),
+                                     zero.obj(), zero.obj(), total_minutes.obj(), NULL);
     RETURN_IF_PYERROR();
-    auto tzinfo =
-        PyObject_CallFunctionObjArgs(fixed_offset.obj(), total_minutes.obj(), NULL);
+    // call datetime.timezone
+    auto tzinfo = PyObject_CallFunctionObjArgs(class_timezone.obj(), offset, NULL);
     RETURN_IF_PYERROR();
     return tzinfo;
   }
 
-  OwnedRef timezone;
-  RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "timezone", &timezone));
-  OwnedRef py_tz_string(
-      PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
-  auto tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
-  RETURN_IF_PYERROR();
-  return tzinfo;
+  // fallback on zoneinfo if tz is string and pytz is not present
+  if (internal::ImportModule("zoneinfo", &zoneinfo).ok()) {
+    OwnedRef class_zoneinfo;
+    RETURN_NOT_OK(
+        internal::ImportFromModule(zoneinfo.obj(), "ZoneInfo", &class_zoneinfo));
+    OwnedRef py_tz_string(
+        PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
+    auto tzinfo =
+        PyObject_CallFunctionObjArgs(class_zoneinfo.obj(), py_tz_string.obj(), NULL);
+    RETURN_IF_PYERROR();
+    return tzinfo;
+  }
+
+  return Status::Invalid(
+      "Pytz package or Python>=3.8 for zoneinfo module must be installed.");
 }
 
 Result<std::string> TzinfoToString(PyObject* tzinfo) {
   OwnedRef module_pytz;        // import pytz
   OwnedRef module_datetime;    // import datetime
+  OwnedRef module_zoneinfo;    // import zoneinfo
+  OwnedRef module_dateutil;    // import dateutil
   OwnedRef class_timezone;     // from datetime import timezone
   OwnedRef class_fixedoffset;  // from pytz import _FixedOffset
+  OwnedRef class_basetzinfo;   // from pytz import BaseTzInfo
+  OwnedRef class_zoneinfo;     // from zoneinfo import ZoneInfo
+  OwnedRef class_tzfile;       // from zoneinfo import tzfile
 
   // import necessary modules
-  RETURN_NOT_OK(internal::ImportModule("pytz", &module_pytz));
   RETURN_NOT_OK(internal::ImportModule("datetime", &module_datetime));
   // import necessary classes
-  RETURN_NOT_OK(
-      internal::ImportFromModule(module_pytz.obj(), "_FixedOffset", &class_fixedoffset));
   RETURN_NOT_OK(
       internal::ImportFromModule(module_datetime.obj(), "timezone", &class_timezone));
 
@@ -444,10 +506,9 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return Status::TypeError("Not an instance of datetime.tzinfo");
   }
 
-  // if tzinfo is an instance of pytz._FixedOffset or datetime.timezone return the
+  // if tzinfo is an instance of datetime.timezone return the
   // HH:MM offset string representation
-  if (PyObject_IsInstance(tzinfo, class_timezone.obj()) ||
-      PyObject_IsInstance(tzinfo, class_fixedoffset.obj())) {
+  if (PyObject_IsInstance(tzinfo, class_timezone.obj())) {
     // still recognize datetime.timezone.utc as UTC (instead of +00:00)
     OwnedRef tzname_object(PyObject_CallMethod(tzinfo, "tzname", "O", Py_None));
     RETURN_IF_PYERROR();
@@ -461,8 +522,26 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return PyTZInfo_utcoffset_hhmm(tzinfo);
   }
 
-  // try to look up zone attribute
-  if (PyObject_HasAttrString(tzinfo, "zone")) {
+  // Try to import pytz if it is available
+  if (internal::ImportModule("pytz", &module_pytz).ok()) {
+    RETURN_NOT_OK(internal::ImportFromModule(module_pytz.obj(), "_FixedOffset",
+                                             &class_fixedoffset));
+    RETURN_NOT_OK(
+        internal::ImportFromModule(module_pytz.obj(), "BaseTzInfo", &class_basetzinfo));
+  }
+
+  // if tzinfo is an instance of pytz._FixedOffset return the
+  // HH:MM offset string representation
+  if (module_pytz.obj() != nullptr &&
+      PyObject_IsInstance(tzinfo, class_fixedoffset.obj())) {
+    OwnedRef tzname_object(PyObject_CallMethod(tzinfo, "tzname", "O", Py_None));
+    RETURN_IF_PYERROR();
+    return PyTZInfo_utcoffset_hhmm(tzinfo);
+  }
+
+  // if pytz is installed and tzinfo is and instance of pytz.BaseTzInfo
+  if (module_pytz.obj() != nullptr &&
+      PyObject_IsInstance(tzinfo, class_basetzinfo.obj())) {
     OwnedRef zone(PyObject_GetAttrString(tzinfo, "zone"));
     RETURN_IF_PYERROR();
     std::string result;
@@ -470,9 +549,15 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return result;
   }
 
-  // try to look up key attribute
-  // in case of zoneinfo object
-  if (PyObject_HasAttrString(tzinfo, "key")) {
+  // Try to import zoneinfo if it is available
+  if (internal::ImportModule("zoneinfo", &module_zoneinfo).ok()) {
+    RETURN_NOT_OK(
+        internal::ImportFromModule(module_zoneinfo.obj(), "ZoneInfo", &class_zoneinfo));
+  }
+
+  // if zoneinfo is installed and tzinfo is an instance of zoneinfo.ZoneInfo
+  if (module_zoneinfo.obj() != nullptr &&
+      PyObject_IsInstance(tzinfo, class_zoneinfo.obj())) {
     OwnedRef key(PyObject_GetAttrString(tzinfo, "key"));
     RETURN_IF_PYERROR();
     std::string result;
@@ -480,9 +565,15 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return result;
   }
 
-  // try to look up _filename attribute
-  // in case of dateutil.tz object
-  if (PyObject_HasAttrString(tzinfo, "_filename")) {
+  // Try to import dateutil if it is available
+  if (internal::ImportModule("dateutil.tz", &module_dateutil).ok()) {
+    RETURN_NOT_OK(
+        internal::ImportFromModule(module_dateutil.obj(), "tzfile", &class_tzfile));
+  }
+
+  // if dateutil is installed and tzinfo is an instance of dateutil.tz.tzfile
+  if (module_dateutil.obj() != nullptr &&
+      PyObject_IsInstance(tzinfo, class_tzfile.obj())) {
     OwnedRef _filename(PyObject_GetAttrString(tzinfo, "_filename"));
     RETURN_IF_PYERROR();
     std::string result;

@@ -41,8 +41,7 @@ class OrcFormatHelper {
   static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
     ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
     ARROW_ASSIGN_OR_RAISE(auto writer, adapters::orc::ORCFileWriter::Open(sink.get()));
-    std::shared_ptr<Table> table;
-    RETURN_NOT_OK(reader->ReadAll(&table));
+    ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
     RETURN_NOT_OK(writer->Write(*table));
     RETURN_NOT_OK(writer->Close());
     return sink->Finish();

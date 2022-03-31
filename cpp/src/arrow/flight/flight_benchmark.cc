@@ -154,7 +154,7 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
   StopWatch timer;
   while (true) {
     timer.Start();
-    RETURN_NOT_OK(reader->Next(&batch));
+    ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
     stats->AddLatency(timer.Stop());
     if (!batch.data) {
       break;
@@ -287,23 +287,28 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
   RETURN_NOT_OK(client->GetFlightInfo(call_options, descriptor, &plan));
 
   // Read the streams in parallel
-  std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
-  RETURN_NOT_OK(plan->GetSchema(&dict_memo, &schema));
+  ARROW_ASSIGN_OR_RAISE(auto schema, plan->GetSchema(&dict_memo));
 
   int64_t start_total_records = stats->total_records;
 
   auto test_loop = test_put ? &RunDoPutTest : &RunDoGetTest;
-  auto ConsumeStream = [&stats, &test_loop, &client_options,
+  auto ConsumeStream = [&client, &stats, &test_loop, &client_options,
                         &call_options](const FlightEndpoint& endpoint) {
-    std::unique_ptr<FlightClient> client;
-    RETURN_NOT_OK(
-        FlightClient::Connect(endpoint.locations.front(), client_options, &client));
+    std::unique_ptr<FlightClient> local_client;
+    FlightClient* data_client;
+    if (endpoint.locations.empty()) {
+      data_client = client;
+    } else {
+      RETURN_NOT_OK(FlightClient::Connect(endpoint.locations.front(), client_options,
+                                          &local_client));
+      data_client = local_client.get();
+    }
 
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
 
-    const auto& result = test_loop(client.get(), call_options, token, endpoint, stats);
+    const auto& result = test_loop(data_client, call_options, token, endpoint, stats);
     if (result.ok()) {
       const PerformanceResult& perf = result.ValueOrDie();
       stats->Update(perf.num_batches, perf.num_records, perf.num_bytes);
@@ -451,7 +456,8 @@ int main(int argc, char** argv) {
         std::cout << "Using standalone Unix server" << std::endl;
       }
       std::cout << "Server unix socket: " << FLAGS_server_unix << std::endl;
-      ABORT_NOT_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &location));
+      ABORT_NOT_OK(
+          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&location));
     } else {
       if (FLAGS_server_host == "") {
         FLAGS_server_host = "localhost";
@@ -482,11 +488,13 @@ int main(int argc, char** argv) {
       std::cout << "Server host: " << FLAGS_server_host << std::endl
                 << "Server port: " << FLAGS_server_port << std::endl;
       if (FLAGS_cert_file.empty()) {
-        ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host,
-                                                         FLAGS_server_port, &location));
+        ABORT_NOT_OK(
+            arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_server_port)
+                .Value(&location));
       } else {
-        ABORT_NOT_OK(arrow::flight::Location::ForGrpcTls(FLAGS_server_host,
-                                                         FLAGS_server_port, &location));
+        ABORT_NOT_OK(
+            arrow::flight::Location::ForGrpcTls(FLAGS_server_host, FLAGS_server_port)
+                .Value(&location));
         options.disable_server_verification = true;
       }
     }

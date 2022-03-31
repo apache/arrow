@@ -240,6 +240,22 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTableTypes(
   return GetFlightInfoForCommand(*this, options, command);
 }
 
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetXdbcTypeInfo(
+    const FlightCallOptions& options) {
+  flight_sql_pb::CommandGetXdbcTypeInfo command;
+
+  return GetFlightInfoForCommand(*this, options, command);
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetXdbcTypeInfo(
+    const FlightCallOptions& options, int data_type) {
+  flight_sql_pb::CommandGetXdbcTypeInfo command;
+
+  command.set_data_type(data_type);
+
+  return GetFlightInfoForCommand(*this, options, command);
+}
+
 arrow::Result<std::unique_ptr<FlightStreamReader>> FlightSqlClient::DoGet(
     const FlightCallOptions& options, const Ticket& ticket) {
   std::unique_ptr<FlightStreamReader> stream;
@@ -263,8 +279,7 @@ arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
 
   ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
 
-  std::unique_ptr<Result> result;
-  ARROW_RETURN_NOT_OK(results->Next(&result));
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Result> result, results->Next());
 
   google::protobuf::Any prepared_result;
 

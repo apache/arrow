@@ -32,7 +32,6 @@ try:
     import pickle5
 except ImportError:
     pickle5 = None
-import pytz
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -324,6 +323,8 @@ def test_nulls(ty):
 
 
 def test_array_from_scalar():
+    pytz = pytest.importorskip("pytz")
+
     today = datetime.date.today()
     now = datetime.datetime.now()
     now_utc = now.replace(tzinfo=pytz.utc)

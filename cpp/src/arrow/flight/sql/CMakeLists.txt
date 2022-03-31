@@ -36,8 +36,12 @@ set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENER
 
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
-set(ARROW_FLIGHT_SQL_SRCS server.cc sql_info_internal.cc client.cc
-                          "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
+set(ARROW_FLIGHT_SQL_SRCS
+    server.cc
+    sql_info_internal.cc
+    column_metadata.cc
+    client.cc
+    "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -71,6 +75,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
 
   set(ARROW_FLIGHT_SQL_TEST_SERVER_SRCS
       example/sqlite_sql_info.cc
+      example/sqlite_type_info.cc
       example/sqlite_statement.cc
       example/sqlite_statement_batch_reader.cc
       example/sqlite_server.cc

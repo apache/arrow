@@ -16,6 +16,7 @@
 .. under the License.
 
 .. highlight:: console
+.. _development-cpp:
 
 ======================
 Development Guidelines

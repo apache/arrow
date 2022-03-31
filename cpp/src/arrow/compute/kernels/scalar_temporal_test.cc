@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
@@ -407,6 +408,14 @@ class ScalarTemporalTest : public ::testing::Test {
   RoundTemporalOptions round_to_15_quarters =
       RoundTemporalOptions(15, CalendarUnit::QUARTER);
   RoundTemporalOptions round_to_15_years = RoundTemporalOptions(15, CalendarUnit::YEAR);
+
+ protected:
+  void SetUp() override {
+#ifdef _WIN32
+    // Initialize timezone database on Windows
+    ASSERT_OK(InitTestTimezoneDatabase());
+#endif
+  }
 };
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
@@ -564,8 +573,6 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   CheckScalarUnary("subsecond", unit, times, float64(), subsecond);
 }
 
-#ifndef _WIN32
-// TODO: We should test on windows once ARROW-13168 is resolved.
 TEST_F(ScalarTemporalTest, TestIsLeapYear) {
   auto is_leap_year_marquesas =
       "[false, true, false, false, false, false, false, false, false, false, false, "
@@ -792,7 +799,6 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     ASSERT_RAISES(Invalid, Subsecond(timestamp_array));
   }
 }
-#endif
 
 TEST_F(ScalarTemporalTest, Week) {
   auto unit = timestamp(TimeUnit::NANO);
@@ -1611,8 +1617,6 @@ TEST_F(ScalarTemporalTest, TestTemporalDifferenceErrors) {
       CallFunction("weeks_between", {arr1, arr1}, &options));
 }
 
-// TODO: We should test on windows once ARROW-13168 is resolved.
-#ifndef _WIN32
 TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   std::string timezone_utc = "UTC";
   std::string timezone_kolkata = "Asia/Kolkata";
@@ -1879,6 +1883,9 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
+#ifdef _WIN32
+  GTEST_SKIP() << "There is a known bug in strftime for locales on Windows (ARROW-15922)";
+#else
   if (!LocaleExists("fr_FR.UTF-8")) {
     GTEST_SKIP() << "locale 'fr_FR.UTF-8' doesn't exist on this system";
   }
@@ -1890,6 +1897,7 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
       ["01 janvier 1970 00:00:59,123", "18 août 2021 15:11:50,456", null])";
   CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "UTC"), milliseconds, utf8(),
                    expected, &options);
+#endif
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
@@ -2583,7 +2591,6 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalKolkata) {
   CheckScalarUnary("round_temporal", unit, times, unit, round_1_hours, &round_to_1_hours);
   CheckScalarUnary("round_temporal", unit, times, unit, round_2_hours, &round_to_2_hours);
 }
-#endif  // !_WIN32
 
 }  // namespace compute
 }  // namespace arrow

@@ -23,7 +23,7 @@
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
-#' @importFrom rlang is_list call2 is_empty
+#' @importFrom rlang is_list call2 is_empty as_function
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -38,7 +38,7 @@
       "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
       "arrange", "rename", "pull", "relocate", "compute", "collapse",
       "distinct", "left_join", "right_join", "inner_join", "full_join",
-      "semi_join", "anti_join", "count", "tally"
+      "semi_join", "anti_join", "count", "tally", "rename_with"
     )
   )
   for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {
@@ -65,6 +65,14 @@
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
+
+    # Try to set timezone database
+    if (requireNamespace("tzdb", quietly = TRUE)) {
+      tzdb::tzdb_initialize()
+      set_timezone_database(tzdb::tzdb_path("text"))
+    } else {
+      warning("The tzdb package is not installed. Timezones will not be available.")
+    }
   }
 
   invisible()
@@ -136,6 +144,14 @@ arrow_with_dataset <- function() {
   })
 }
 
+#' @rdname arrow_available
+#' @export
+arrow_with_engine <- function() {
+  tryCatch(.Call(`_engine_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
 on_old_windows <- function() {
   is_32bit <- .Machine$sizeof.pointer < 8
   is_old_r <- getRversion() < "4.0.0"
@@ -203,6 +219,7 @@ arrow_info <- function() {
     out <- c(out, list(
       capabilities = c(
         dataset = arrow_with_dataset(),
+        engine = arrow_with_engine(),
         parquet = arrow_with_parquet(),
         json = arrow_with_json(),
         s3 = arrow_with_s3(),

@@ -311,10 +311,12 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     for (std::size_t index = 0; index < groups.batches.size(); index++) {
       auto partition_expression = and_(groups.expressions[index], guarantee);
       auto next_batch = groups.batches[index];
-      ARROW_ASSIGN_OR_RAISE(std::string destination,
+      Partitioning::PartitionPathFormat destination;
+      ARROW_ASSIGN_OR_RAISE(destination,
                             write_options_.partitioning->Format(partition_expression));
       RETURN_NOT_OK(task_group_.AddTask([this, next_batch, destination] {
-        Future<> has_room = dataset_writer_->WriteRecordBatch(next_batch, destination);
+        Future<> has_room = dataset_writer_->WriteRecordBatch(
+            next_batch, destination.directory, destination.prefix);
         if (!has_room.is_finished() && backpressure_toggle_) {
           backpressure_toggle_->Close();
           return has_room.Then([this] { backpressure_toggle_->Open(); });

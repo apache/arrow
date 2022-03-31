@@ -429,7 +429,23 @@ cdef class StructType(DataType):
 
     cdef Field field_by_name(self, name):
         """
-        Return a child field by its name rather than its index.
+        Return a child field by its name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        field : Field
+            The child field with the given name.
+
+        Raises
+        ------
+        KeyError
+            If the name isn't found, or if several fields have the given
+            name.
         """
         cdef vector[shared_ptr[CField]] fields
 
@@ -445,14 +461,34 @@ cdef class StructType(DataType):
 
     def get_field_index(self, name):
         """
-        Return index of field with given unique name. Returns -1 if not found
-        or if duplicated
+        Return index of the unique field with the given name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        index : int
+            The index of the field with the given name; -1 if the
+            name isn't found or there are several fields with the given
+            name.
         """
         return self.struct_type.GetFieldIndex(tobytes(name))
 
     def get_all_field_indices(self, name):
         """
-        Return sorted list of indices for fields with the given name
+        Return sorted list of indices for the fields with the given name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        indices : List[int]
         """
         return self.struct_type.GetAllFieldIndices(tobytes(name))
 
@@ -1522,7 +1558,17 @@ cdef class Schema(_Weakrefable):
             raise TypeError("Index must either be string or integer")
 
     def _field(self, int i):
-        """Select a field by its numeric index."""
+        """
+        Select a field by its numeric index.
+
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        pyarrow.Field
+        """
         cdef int index = <int> _normalize_index(i, self.schema.num_fields())
         return pyarrow_wrap_field(self.schema.field(index))
 
@@ -1532,7 +1578,7 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        name: str
+        name : str
 
         Returns
         -------
@@ -1557,14 +1603,34 @@ cdef class Schema(_Weakrefable):
 
     def get_field_index(self, name):
         """
-        Return index of field with given unique name. Returns -1 if not found
-        or if duplicated
+        Return index of the unique field with the given name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        index : int
+            The index of the field with the given name; -1 if the
+            name isn't found or there are several fields with the given
+            name.
         """
         return self.schema.GetFieldIndex(tobytes(name))
 
     def get_all_field_indices(self, name):
         """
-        Return sorted list of indices for fields with the given name
+        Return sorted list of indices for the fields with the given name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        indices : List[int]
         """
         return self.schema.GetAllFieldIndices(tobytes(name))
 
@@ -1577,7 +1643,7 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        field: Field
+        field : Field
 
         Returns
         -------
@@ -1592,8 +1658,8 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        i: int
-        field: Field
+        i : int
+        field : Field
 
         Returns
         -------
@@ -1616,7 +1682,7 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        i: int
+        i : int
 
         Returns
         -------
@@ -1635,8 +1701,8 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        i: int
-        field: Field
+        i : int
+        field : Field
 
         Returns
         -------
