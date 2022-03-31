@@ -110,9 +110,9 @@ void Queue_Write_One_Table(const std::shared_ptr<compute::ExecPlan>& plan,
   write_options.existing_data_behavior =
       ds::ExistingDataBehavior::kDeleteMatchingPartitions;
   write_options.filesystem = filesystem;
-  write_options.base_dir = base_path;
+  write_options.base_dir = base_path + "/" + table_name;
   write_options.partitioning = partitioning;
-  write_options.basename_template = table_name + "{i}.parquet";
+  write_options.basename_template = "data-{i}.parquet";
   write_options.max_partitions = 1024;
 
   const ds::WriteNodeOptions options =
