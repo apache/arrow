@@ -15,21 +15,18 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Java Implementation
-===================
+================
+C Data Interface
+================
 
-This is the documentation of the Java API of Apache Arrow. For more details
-on the Arrow format and other language bindings see the :doc:`parent documentation <../index>`.
+Arrow supports exchanging data within the same process through the :ref:`c-data-interface`.
 
-.. toctree::
-   :maxdepth: 2
+Java to Python
+--------------
 
-   install
-   memory
-   vector
-   vector_schema_root
-   ipc
-   algorithm
-   dataset
-   cdata
-   Reference (javadoc) <reference/index>
+Use this guide to implement Java to Python communication using the C Data Interface.
+
+Java to C++
+-----------
+
+We are going to exponse steps needed for Java to C++ communication using the C Data Interface.
