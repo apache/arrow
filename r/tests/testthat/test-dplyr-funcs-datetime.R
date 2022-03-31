@@ -1211,11 +1211,11 @@ test_that("make_difftime()", {
           num = number,
           units =  "secs"
         ),
-        duration_from_r_obj = make_difftime(
+        duration_from_r_num = make_difftime(
           num = 154,
           units = "secs"
         ),
-        duration_from_r_chunks = make_difftime(
+        duration_from_r_parts = make_difftime(
           minute = 45,
           day = 2,
           week = 4,
@@ -1226,8 +1226,20 @@ test_that("make_difftime()", {
     test_df
   )
 
-  test_df %>%
-    arrow_table() %>%
-    mutate(error_difftime = make_difftime(month = number, units = "secs")) %>%
-    collect()
+  # month as component not supported due to variable length
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(error_difftime = make_difftime(month = number, units = "secs")) %>%
+      collect()
+  )
+
+  # units other than "secs" not supported since they are the only ones in common
+  # between R and Arrow
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(error_difftime = make_difftime(num = number, units = "mins")) %>%
+      collect()
+  )
 })

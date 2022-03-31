@@ -320,7 +320,7 @@ register_bindings_duration <- function() {
 
     if (is.null(num)) {
       duration <- duration_from_chunks(chunks)
-    } else if (length(chunks) == 0){
+    } else if (length(chunks) == 0) {
       duration <- num
     } else {
       duration <- num + duration_from_chunks(chunks)
