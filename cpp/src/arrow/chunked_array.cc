@@ -152,8 +152,8 @@ Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
   }
   const auto loc = chunk_resolver_->Resolve(index);
   if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
-    return Status::IndexError("tried to refer to chunk ", loc.chunk_index,
-                              " but ChunkedArray is only ", chunks_.size(), " long");
+    return Status::IndexError("index with value of ", index, " is out-of-bounds "
+                              "for chunked array of length ", length_);
   }
   return chunks_[loc.chunk_index]->GetScalar(loc.index_in_chunk);
 }

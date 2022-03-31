@@ -286,7 +286,7 @@ cdef class ChunkedArray(_PandasConvertible):
         value : Scalar (index) or ChunkedArray (slice)
         """
 
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.chunked_array.length()))
@@ -1984,7 +1984,7 @@ cdef class RecordBatch(_PandasConvertible):
         -------
         value : Array (index/column) or RecordBatch (slice)
         """
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.column(key)
@@ -2812,7 +2812,7 @@ cdef class Table(_PandasConvertible):
         -------
         ChunkedArray (index/column) or Table (slice)
         """
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.column(key)
