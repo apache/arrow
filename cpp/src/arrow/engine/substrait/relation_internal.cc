@@ -75,9 +75,11 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
-Result<compute::Declaration> FromProtoInternal(const substrait::Rel& rel,
-                                               const ExtensionSet& ext_set,
-                                               std::vector<std::string>& names) {
+Result<compute::Declaration> FromProtoInternal(
+    const substrait::Rel& rel,
+    const ExtensionSet& ext_set,
+    std::vector<std::string>::const_iterator& names_begin,
+    std::vector<std::string>::const_iterator& names_end) {
   static bool dataset_init = false;
   if (!dataset_init) {
     dataset_init = true;
@@ -183,7 +185,8 @@ Result<compute::Declaration> FromProtoInternal(const substrait::Rel& rel,
       if (!write.has_input()) {
         return Status::Invalid("substrait::WriteRel with no input relation");
       }
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProto(write.input(), ext_set, names));
+      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(write.input(), ext_set,
+                                                          names_begin, names_end));
 
       if (!write.has_local_files()) {
         return Status::NotImplemented(
@@ -254,14 +257,14 @@ Result<compute::Declaration> FromProtoInternal(const substrait::Rel& rel,
               "non-default substrait::ReadRel::LocalFiles::FileOrFiles::number_of_rows");
         }
 
-	auto path_pair = fs::internal::GetAbstractPathParent(path);
+        auto path_pair = fs::internal::GetAbstractPathParent(path);
         write_options.basename_template = path_pair.second;
-	write_options.base_dir = path_pair.first;
+        write_options.base_dir = path_pair.first;
       }
 
       return compute::Declaration::Sequence({
           std::move(input),
-	  {"tee", dataset::WriteNodeOptions{std::move(write_options), nullptr}},
+          {"tee", dataset::WriteNodeOptions{std::move(write_options), nullptr}},
       });
     }
 
@@ -272,7 +275,8 @@ Result<compute::Declaration> FromProtoInternal(const substrait::Rel& rel,
       if (!filter.has_input()) {
         return Status::Invalid("substrait::FilterRel with no input relation");
       }
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProto(filter.input(), ext_set, names));
+      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(filter.input(), ext_set,
+                                                          names_begin, names_end));
 
       if (!filter.has_condition()) {
         return Status::Invalid("substrait::FilterRel with no condition expression");
@@ -292,28 +296,62 @@ Result<compute::Declaration> FromProtoInternal(const substrait::Rel& rel,
       if (!project.has_input()) {
         return Status::Invalid("substrait::ProjectRel with no input relation");
       }
-      ARROW_ASSIGN_OR_RAISE(auto input,
-                            FromProtoInternal(project.input(), ext_set, names));
+      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(project.input(), ext_set,
+                                                          names_begin, names_end));
 
-      size_t expr_size = static_cast<size_t>(project.expressions_size());
-      auto names_begin = names.end() - std::min(expr_size, names.size());
-      auto names_iter = names_begin;
+      auto expr_size =
+          static_cast<decltype(names_end - names_begin)>(project.expressions_size());
+      auto names_mid = names_end - std::min(expr_size, names_end - names_begin);
+      auto names_iter = names_mid;
       std::vector<std::string> project_names;
       std::vector<compute::Expression> expressions;
       for (const auto& expr : project.expressions()) {
         expressions.emplace_back();
         ARROW_ASSIGN_OR_RAISE(expressions.back(), FromProto(expr, ext_set));
         project_names.push_back(
-            names_iter != names.end() ? *names_iter++ : expressions.back().ToString());
+            names_iter != names_end ? *names_iter++ : expressions.back().ToString());
       }
-      names.erase(names_begin, names.end());
+      names_end = names_mid;
 
       return compute::Declaration::Sequence({
           std::move(input),
           {"project",
            compute::ProjectNodeOptions{std::move(expressions), std::move(project_names)}
-	  },
+          },
       });
+    }
+
+    case substrait::Rel::RelTypeCase::kAsOfMerge: {
+      const auto& as_of_merge = rel.as_of_merge();
+      RETURN_NOT_OK(CheckRelCommon(as_of_merge));
+
+      auto inputs_size = as_of_merge.inputs_size();
+      if (inputs_size < 2) {
+        return Status::Invalid("substrait::AsOfMergeRel with fewer than 2 inputs");
+      }
+      if (inputs_size > 6) {
+        return Status::Invalid("substrait::AsOfMergeRel with more than 6 inputs");
+      }
+      if (as_of_merge.version_case() != substrait::AsOfMergeRel::VersionCase::kV1) {
+        return Status::Invalid("substrait::AsOfMergeRel with unsupported version");
+      }
+      std::vector<compute::Declaration::Input> inputs;
+      inputs.reserve(inputs_size);
+      for (auto input_rel : as_of_merge.inputs()) {
+        ARROW_ASSIGN_OR_RAISE(auto decl, FromProtoInternal(input_rel, ext_set,
+                                                           names_begin, names_end));
+	auto input = compute::Declaration::Input(decl);
+	inputs.push_back(input);
+      }
+      return compute::Declaration{
+          "as_of_merge",
+	  inputs,
+	  compute::AsOfMergeV1NodeOptions{
+              as_of_merge.v1().key_column(),
+              as_of_merge.v1().time_column(),
+              as_of_merge.v1().tolerance(),
+          }
+      };
     }
 
     default:
@@ -327,9 +365,10 @@ Result<compute::Declaration> FromProtoInternal(const substrait::Rel& rel,
 
 Result<compute::Declaration> FromProto(const substrait::Rel& rel,
                                        const ExtensionSet& ext_set,
-                                       std::vector<std::string> names) {
-  std::vector<std::string> copy_names(names.begin(), names.end());
-  return FromProtoInternal(rel, ext_set, copy_names);
+                                       const std::vector<std::string>& names) {
+  std::vector<std::string>::const_iterator names_begin = names.begin();
+  std::vector<std::string>::const_iterator names_end = names.end();
+  return FromProtoInternal(rel, ext_set, names_begin, names_end);
 }
 
 }  // namespace engine

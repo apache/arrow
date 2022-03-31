@@ -127,7 +127,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
       return FromProtoImpl<TimestampType>(type.timestamp(), TimeUnit::MICRO);
     case substrait::Type::kTimestampTz:
       return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
-                                          TimestampTzTimezoneString());
+                                          type.timestamp_tz().tz());
     case substrait::Type::kDate:
       return FromProtoImpl<Date32Type>(type.date());
 

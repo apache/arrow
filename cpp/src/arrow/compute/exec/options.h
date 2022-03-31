@@ -310,5 +310,22 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
   std::shared_ptr<Schema> output_schema;
 };
 
+/// \addtogroup execnode-options
+/// @{
+
+/// \brief Make a node which implements as-of-merge (v1) operation.
+class ARROW_EXPORT AsOfMergeV1NodeOptions : public ExecNodeOptions {
+ public:
+  AsOfMergeV1NodeOptions(std::string key_column, std::string time_column,
+                         int64_t tolerance)
+      : key_column(key_column), time_column(time_column), tolerance(tolerance) {}
+
+  std::string key_column;
+  std::string time_column;
+  int64_t tolerance;
+};
+
+/// @}
+
 }  // namespace compute
 }  // namespace arrow

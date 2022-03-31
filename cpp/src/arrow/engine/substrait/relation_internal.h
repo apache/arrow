@@ -32,7 +32,7 @@ namespace engine {
 
 ARROW_ENGINE_EXPORT
 Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&,
-	                               std::vector<std::string> = {});
+                                       const std::vector<std::string>& = {});
 
 }  // namespace engine
 }  // namespace arrow

@@ -169,17 +169,10 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       if (func_name != "cast") {
         return compute::call(func_name, std::move(arguments));
       } else {
-        switch (scalar_fn.output_type().kind_case()) {
-          case substrait::Type::kTimestamp: // fall through
-          case substrait::Type::kTimestampTz: {
-            auto cast_options =
-                compute::CastOptions::Safe(arrow::timestamp(TimeUnit::NANO, "utc"));
-            return compute::call(func_name, std::move(arguments), cast_options);
-          }
-
-          default:
-            break;
-	}
+        ARROW_ASSIGN_OR_RAISE(auto output_type_desc,
+                              FromProto(scalar_fn.output_type(), ext_set));
+        auto cast_options = compute::CastOptions::Safe(output_type_desc.first);
+        return compute::call(func_name, std::move(arguments), cast_options);
       }
     }
 
