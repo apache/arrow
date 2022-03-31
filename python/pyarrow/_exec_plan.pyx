@@ -26,9 +26,13 @@ from cython.operator cimport dereference as deref, preincrement as inc
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
 from pyarrow.lib import tobytes, _pc
 from pyarrow._compute cimport Expression, _true
+from pyarrow._dataset cimport Dataset
+
+_dataset_support_initialised = False
 
 
 cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
@@ -61,11 +65,17 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         CTable* c_table
         shared_ptr[CTable] c_out_table
         shared_ptr[CSourceNodeOptions] c_sourceopts
+        shared_ptr[CScanNodeOptions] c_scanopts
         shared_ptr[CSinkNodeOptions] c_sinkopts
         shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
 
+    global _dataset_support_initialised
+    if not _dataset_support_initialised:
+        Initialize()  # Initialise support for Datasets in ExecPlan
+        _dataset_support_initialised = True
+    
     if use_threads:
         c_executor = GetCpuThreadPool()
     else:
@@ -84,19 +94,32 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
             c_in_table = pyarrow_unwrap_table(ipt).get()
             c_sourceopts = GetResultValue(
                 CSourceNodeOptions.FromTable(deref(c_in_table), deref(c_exec_context).executor()))
+            if plan_iter != plan.end():
+                # Flag the source as the input of the first plan node.
+                deref(plan_iter).inputs.push_back(CDeclaration.Input(
+                    CDeclaration(tobytes("source"), deref(c_sourceopts))
+                ))
+            else:
+                # Empty plan, make the source the first plan node.
+                c_decls.push_back(
+                    CDeclaration(tobytes("source"), deref(c_sourceopts))
+                )
+        elif isinstance(ipt, Dataset):
+            c_in_dataset = (<Dataset>ipt).unwrap()
+            c_scanopts = make_shared[CScanNodeOptions](c_in_dataset, make_shared[CScanOptions]())
+            if plan_iter != plan.end():
+                # Flag the source as the input of the first plan node.
+                deref(plan_iter).inputs.push_back(CDeclaration.Input(
+                    CDeclaration(tobytes("scan"), deref(c_scanopts))
+                ))
+            else:
+                # Empty plan, make the source the first plan node.
+                c_decls.push_back(
+                    CDeclaration(tobytes("scan"), deref(c_scanopts))
+                )
         else:
             raise TypeError("Unsupported type")
 
-        if plan_iter != plan.end():
-            # Flag the source as the input of the first plan node.
-            deref(plan_iter).inputs.push_back(CDeclaration.Input(
-                CDeclaration(tobytes("source"), deref(c_sourceopts))
-            ))
-        else:
-            # Empty plan, make the source the first plan node.
-            c_decls.push_back(
-                CDeclaration(tobytes("source"), deref(c_sourceopts))
-            )
 
     # Add Here additional nodes
     while plan_iter != plan.end():
@@ -176,6 +199,58 @@ def tables_join(join_type, left_table not None, left_keys,
     -------
     result_table : Table
     """
+    return _perform_join(join_type, left_table, left_keys,
+                         right_table, right_keys, left_suffix,
+                         right_suffix, use_threads, coalesce_keys)
+
+
+def datasets_join(join_type, left_dataset not None, left_keys,
+                right_dataset not None, right_keys,
+                left_suffix=None, right_suffix=None,
+                use_threads=True, coalesce_keys=False):
+    """
+    Perform join of two datasets.
+
+    The result will be an output table with the result of the join operation
+
+    Parameters
+    ----------
+    join_type : str
+        One of supported join types.
+    left_datasets : Dataset
+        The left dataset for the join operation.
+    left_keys : str or list[str]
+        The left dataset key (or keys) on which the join operation should be performed.
+    right_dataset : Dataset
+        The right dataset for the join operation.
+    right_keys : str or list[str]
+        The right dataset key (or keys) on which the join operation should be performed.
+    left_suffix : str, default None
+        Which suffix to add to right column names. This prevents confusion
+        when the columns in left and right datasets have colliding names.
+    right_suffix : str, default None
+        Which suffic to add to the left column names. This prevents confusion
+        when the columns in left and right datasets have colliding names.
+    use_threads : bool, default True
+        Whenever to use multithreading or not.
+    coalesce_keys : bool, default False
+        If the duplicated keys should be omitted from one of the sides
+        in the join result.
+
+    Returns
+    -------
+    result_table : Table
+    """
+    return _perform_join(join_type, left_dataset, left_keys,
+                         right_dataset, right_keys, left_suffix,
+                         right_suffix, use_threads, coalesce_keys)
+
+
+
+def _perform_join(join_type, left_table not None, left_keys,
+                  right_table not None, right_keys,
+                  left_suffix=None, right_suffix=None,
+                  use_threads=True, coalesce_keys=False):
     cdef:
         vector[CFieldRef] c_left_keys
         vector[CFieldRef] c_right_keys
@@ -202,8 +277,19 @@ def tables_join(join_type, left_table not None, left_keys,
         c_right_keys.push_back(CFieldRef(<c_string>tobytes(key)))
 
     # By default expose all columns on both left and right table
-    left_columns = left_table.column_names
-    right_columns = right_table.column_names
+    if isinstance(left_table, Table):
+        left_columns = left_table.column_names
+    elif isinstance(left_table, Dataset):
+        left_columns = left_table.schema.names
+    else:
+        raise TypeError("Unsupported left join member type")
+
+    if isinstance(right_table, Table):
+        right_columns = right_table.column_names
+    elif isinstance(right_table, Dataset):
+        right_columns = right_table.schema.names
+    else:
+        raise TypeError("Unsupported left join member type")
 
     # Pick the join type
     if join_type == "left semi":

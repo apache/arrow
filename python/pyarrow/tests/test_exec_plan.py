@@ -18,6 +18,7 @@
 import pytest
 
 import pyarrow as pa
+import pyarrow.dataset as ds
 import pyarrow._exec_plan as ep
 
 
@@ -81,7 +82,8 @@ def test_joins_corner_cases():
     })
 ])
 @pytest.mark.parametrize("use_threads", [True, False])
-def test_joins(jointype, expected, use_threads):
+@pytest.mark.parametrize("use_datasets", [False, True])
+def test_joins(jointype, expected, use_threads, use_datasets):
     # Allocate table here instead of using parametrize
     # this prevents having arrow allocated memory forever around.
     expected = pa.table(expected)
@@ -96,8 +98,14 @@ def test_joins(jointype, expected, use_threads):
         "col3": ["Z", "B", "A"]
     })
 
-    r = ep.tables_join(jointype, t1, "colA", t2, "colB",
-                       use_threads=use_threads, coalesce_keys=True)
+    do_join = ep.tables_join
+    if use_datasets:
+        t1 = ds.dataset([t1])
+        t2 = ds.dataset([t2])
+        do_join = ep.datasets_join
+
+    r = do_join(jointype, t1, "colA", t2, "colB",
+                use_threads=use_threads, coalesce_keys=True)
     r = r.combine_chunks()
     if "right" in jointype:
         r = r.sort_by("colB")

@@ -148,10 +148,6 @@ cdef class Dataset(_Weakrefable):
     can accelerate queries that only touch some partitions (files).
     """
 
-    cdef:
-        shared_ptr[CDataset] wrapped
-        CDataset* dataset
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
