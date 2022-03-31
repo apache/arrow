@@ -31,7 +31,7 @@ tabular data; ``schemas`` describe a sequence of columns in tabular data, and
 ``writers`` for loading data from and persisting data to storage.
 
 Create a ValueVector
-*********************
+********************
 
 **ValueVectors** represent a sequence of values of the same type.
 They are also known as "arrays" in the columnar format.
@@ -118,10 +118,10 @@ Example: create a field named "document" of string type:
 Create a Schema
 ***************
 
-**Schema** holds a sequence of fields together with some optional metadata.
+**Schemas** hold a sequence of fields together with some optional metadata.
 
 Example: Create a schema describing datasets with two columns:
-a int32 column "A" and a utf8-encoded string column "B"
+an int32 column "A" and a UTF8-encoded string column "B"
 
 .. code-block:: Java
 
@@ -148,10 +148,9 @@ a int32 column "A" and a utf8-encoded string column "B"
 Create a VectorSchemaRoot
 *************************
 
-**VectorSchemaRoot** combines ValueVectors with a Schema to represent tabular data.
+A **VectorSchemaRoot** combines ValueVectors with a Schema to represent tabular data.
 
-Example: Create a dataset with metadata that contains integer age and
-string names of data.
+Example: Create a dataset of names (strings) and ages (32-bit signed integers).
 
 .. code-block:: Java
 
@@ -169,11 +168,11 @@ string names of data.
     import java.util.Map;
     import static java.util.Arrays.asList;
 
-    Field a = new Field("age",
+    Field age = new Field("age",
             FieldType.nullable(new ArrowType.Int(32, true)),
             /*children*/null
     );
-    Field b = new Field("name",
+    Field name = new Field("name",
             new FieldType(true, new ArrowType.Utf8(), /*dictionary*/ null, /*metadata*/ null),
             /*children*/null
     );
@@ -181,8 +180,8 @@ string names of data.
     try(
         BufferAllocator allocator = new RootAllocator();
         VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-        IntVector intVectorA = (IntVector) root.getVector("age");
-        VarCharVector varCharVectorB = (VarCharVector) root.getVector("name");
+        IntVector ageVector = (IntVector) root.getVector("age");
+        VarCharVector nameVector = (VarCharVector) root.getVector("name");
     ){
         root.setRowCount(3);
         intVectorA.allocateNew(3);
@@ -217,7 +216,6 @@ Example: Write the dataset from the previous example to an Arrow random-access f
 
 .. code-block:: Java
 
-
     import org.apache.arrow.memory.BufferAllocator;
     import org.apache.arrow.memory.RootAllocator;
     import org.apache.arrow.vector.IntVector;
@@ -239,7 +237,7 @@ Example: Write the dataset from the previous example to an Arrow random-access f
     Map<String, String> metadataField = new HashMap<>();
     metadataField.put("K1-Field", "K1F1");
     metadataField.put("K2-Field", "K2F2");
-    Field a = new Field("Column-A-Age",
+    Field age = new Field("age",
             FieldType.nullable(new ArrowType.Int(32, true)),
             /*children*/ null);
     Field b = new Field("Column-B-Name",
