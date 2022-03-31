@@ -513,6 +513,16 @@ test_that("record_batch() with different length arrays", {
   expect_error(record_batch(a = 1:5, b = 1:6), msg)
 })
 
+test_that("RecordBatch doesn't support rbind", {
+  expect_error(
+    rbind(
+      RecordBatch$create(a = 1:10),
+      RecordBatch$create(a = 2:4)
+    ),
+    regexp = "Use Table\\$create"
+  )
+})
+
 test_that("RecordBatch supports cbind", {
   expect_error(
     cbind(

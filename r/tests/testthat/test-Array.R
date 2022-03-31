@@ -1056,6 +1056,13 @@ test_that("concat_arrays() coerces its input to Array", {
   )
 })
 
+test_that("Array doesn't support c()", {
+  expect_error(
+    c(Array$create(1:2), Array$create(3:5)),
+    regexp = "Use concat_arrays.+ChunkedArray\\$create"
+  )
+})
+
 test_that("Array to C-interface", {
   # create a struct array since that's one of the more complicated array types
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
