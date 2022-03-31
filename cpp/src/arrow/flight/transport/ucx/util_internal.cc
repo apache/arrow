@@ -82,7 +82,7 @@ arrow::Result<size_t> UriToSockaddr(const arrow::internal::Uri& uri,
     } else if (cur_info->ai_family == AF_INET6) {
       reinterpret_cast<sockaddr_in6*>(addr)->sin6_port = htons(uri.port());
     }
-    size_t addrlen = info->ai_addrlen;
+    size_t addrlen = cur_info->ai_addrlen;
     freeaddrinfo(info);
     return addrlen;
   }

@@ -217,8 +217,8 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
 
   Status Init(const FlightServerOptions& options,
               const arrow::internal::Uri& uri) override {
-    const auto num_threads = std::max<uint32_t>(8, std::thread::hardware_concurrency());
-    ARROW_ASSIGN_OR_RAISE(rpc_pool_, arrow::internal::ThreadPool::Make(num_threads));
+    const auto max_threads = std::max<uint32_t>(8, std::thread::hardware_concurrency());
+    ARROW_ASSIGN_OR_RAISE(rpc_pool_, arrow::internal::ThreadPool::Make(max_threads));
 
     struct sockaddr_storage listen_addr;
     ARROW_ASSIGN_OR_RAISE(auto addrlen, UriToSockaddr(uri, &listen_addr));
