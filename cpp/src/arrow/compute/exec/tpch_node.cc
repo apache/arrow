@@ -1328,13 +1328,14 @@ class OrdersAndLineItemGenerator {
             std::min(batch_size_, orders_rows_to_generate_ - orders_rows_generated_);
         orders_rows_generated_ += tld.orders_to_generate;
         orders_batches_generated_.fetch_add(1);
+        tld.first_batch_offset = 0;
+        RETURN_NOT_OK(GenerateRowCounts(thread_index));
+        lineitem_batches_generated_.fetch_add(static_cast<int64_t>(tld.lineitem.size()));
         ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
       }
     }
     tld.orders.resize(ORDERS::kNumCols);
     std::fill(tld.orders.begin(), tld.orders.end(), Datum());
-    tld.first_batch_offset = 0;
-    RETURN_NOT_OK(GenerateRowCounts(thread_index));
     tld.generated_lineitem.reset();
 
     for (int col : orders_cols_) RETURN_NOT_OK(kOrdersGenerators[col](thread_index));
@@ -1356,14 +1357,12 @@ class OrdersAndLineItemGenerator {
         ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(lineitem_result)));
         lineitem_results.emplace_back(std::move(eb));
       }
-      size_t batches_generated = lineitem_results.size();
       {
         std::lock_guard<std::mutex> guard(lineitem_output_queue_mutex_);
         for (ExecBatch& eb : lineitem_results) {
           lineitem_output_queue_.emplace(std::move(eb));
         }
       }
-      lineitem_batches_generated_.fetch_add(static_cast<int64_t>(batches_generated));
     }
     return ExecBatch::Make(std::move(orders_result));
   }
@@ -1398,12 +1397,14 @@ class OrdersAndLineItemGenerator {
       tld.orders_to_generate =
           std::min(batch_size_, orders_rows_to_generate_ - orders_rows_generated_);
       orders_rows_generated_ += tld.orders_to_generate;
-      orders_batches_generated_.fetch_add(1ll);
+      orders_batches_generated_.fetch_add(1);
+      RETURN_NOT_OK(GenerateRowCounts(thread_index));
+      lineitem_batches_generated_.fetch_add(
+          static_cast<int64_t>(tld.lineitem.size() - from_queue));
       ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
     }
     tld.orders.resize(ORDERS::kNumCols);
     std::fill(tld.orders.begin(), tld.orders.end(), Datum());
-    RETURN_NOT_OK(GenerateRowCounts(thread_index));
     tld.generated_lineitem.reset();
     if (from_queue) {
       for (size_t i = 0; i < lineitem_cols_.size(); i++)
@@ -1437,15 +1438,12 @@ class OrdersAndLineItemGenerator {
       ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(lineitem_result)));
       lineitem_results.emplace_back(std::move(eb));
     }
-    size_t batches_generated = lineitem_results.size();
     // Return the first batch, enqueue the rest.
     {
       std::lock_guard<std::mutex> lock(lineitem_output_queue_mutex_);
       for (size_t i = 1; i < lineitem_results.size(); i++)
         lineitem_output_queue_.emplace(std::move(lineitem_results[i]));
     }
-    lineitem_batches_generated_.fetch_add(
-        static_cast<int64_t>(batches_generated - from_queue));
     return std::move(lineitem_results[0]);
   }
 
@@ -2760,8 +2758,11 @@ class PartSuppGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        else
+          return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -3136,8 +3137,14 @@ class LineitemGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        else
+          return Status::OK();
       }
-      return Status::OK();
+      // We may have reserved all of the batches but not generated them yet in the
+      // lineitem output queue, so we have to try again to try to grab something off
+      // the queue.
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
