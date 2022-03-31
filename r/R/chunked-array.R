@@ -150,13 +150,19 @@ ChunkedArray$create <- function(..., type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
-  ChunkedArray__from_list(list2(...), type)
+  chunks <- flatten(map(list2(...), function(arr) {
+    if (inherits(arr, "ChunkedArray")) {
+      arr$chunks
+    } else {
+      list(arr)
+    }
+  }))
+  ChunkedArray__from_list(chunks, type)
 }
 
 #' @export
 c.ChunkedArray <- function(...) {
-  arrays <- list(...)
-  do.call(ChunkedArray$create, unlist(lapply(arrays, function(arr) arr$chunks)))
+  ChunkedArray$create(...)
 }
 
 #' @param \dots Vectors to coerce
