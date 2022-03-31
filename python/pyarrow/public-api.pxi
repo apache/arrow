@@ -37,6 +37,7 @@ cdef api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
 
     return shared_ptr[CBuffer]()
 
+
 cdef api object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf):
     cdef Buffer result = Buffer.__new__(Buffer)
     result.init(buf)
