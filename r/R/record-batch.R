@@ -219,6 +219,5 @@ cbind.RecordBatch <- function(...) {
   # return new table
   args <- columns
   names(args) <- names(schema)
-  args$schema <- schema
-  do.call(RecordBatch$create, args)
+  RecordBatch$create(!!!args, schema = schema)
 }

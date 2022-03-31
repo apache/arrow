@@ -175,8 +175,7 @@ rbind.Table <- function(...) {
   # return new table
   args <- columns
   names(args) <- names(schema)
-  args$schema <- schema
-  do.call(Table$create, args)
+  Table$create(!!!args, schema = schema)
 }
 
 #' @export
@@ -203,8 +202,7 @@ cbind.Table <- function(...) {
   # return new table
   args <- columns
   names(args) <- names(schema)
-  args$schema <- schema
-  do.call(Table$create, args)
+  Table$create(!!!args, schema = schema)
 }
 
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
