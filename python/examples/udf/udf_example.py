@@ -41,6 +41,8 @@ def array_unary_example():
                       in_types, out_type, add_one)
 
     func = pc.get_function(func_name)
+    
+    print(func)
 
     assert func.name == func_name
 
@@ -159,6 +161,8 @@ def array_varargs_example():
                       in_types, out_type, varargs_array_function)
 
     func = pc.get_function(func_name)
+    
+    print(func)
 
     assert func.name == func_name
 

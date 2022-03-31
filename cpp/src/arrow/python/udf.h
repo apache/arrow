@@ -39,15 +39,6 @@ namespace arrow {
 
 namespace py {
 
-#define DECLARE_CALL_UDF(TYPE_NAME, FUNCTION_SUFFIX, CONVERT_SUFFIX)                    \
-  ARROW_PYTHON_EXPORT Status exec_function_##FUNCTION_SUFFIX(const compute::ExecBatch&, \
-                                                             PyObject*, int, Datum*);
-
-DECLARE_CALL_UDF(Scalar, scalar, scalar)
-DECLARE_CALL_UDF(Array, array, make_array)
-
-#undef DECLARE_CALL_UDF
-
 // Exposing the UDFOptions: https://issues.apache.org/jira/browse/ARROW-16041
 struct UDFOptions {};
 
@@ -107,6 +98,10 @@ class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
                    out_type, mem_allocation, null_handling) {}
 
   Status MakeFunction(PyObject* function, UDFOptions* options = NULLPTR);
+
+ private:
+  OwnedRefNoGIL function_;
+  std::shared_ptr<compute::ScalarFunction> scalar_func_;
 };
 
 }  // namespace py
