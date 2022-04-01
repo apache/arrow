@@ -48,7 +48,7 @@ std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
     const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor,
     std::string table_name) {
   auto gen =
-      ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor));
+      ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor, 1000000));
 
   compute::ExecNode* table;
   if (table_name == "part") {
@@ -128,7 +128,7 @@ void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, double sca
   arrow::dataset::internal::Initialize();
 
   auto gen =
-      ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor));
+      ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor, 1000000));
 
   auto base_path = base_dir + folder_name;
   (void)filesystem->CreateDir(base_path);
