@@ -17,8 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
-import static org.apache.arrow.driver.jdbc.utils.IntervalDayYearUtils.formatIntervalDay;
-import static org.apache.arrow.driver.jdbc.utils.IntervalDayYearUtils.formatIntervalYear;
+import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatIntervalDay;
+import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatIntervalYear;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.joda.time.Period.parse;

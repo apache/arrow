@@ -18,23 +18,24 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import org.apache.arrow.vector.util.DateUtility;
+import org.joda.time.Period;
 
 /**
  * Utility class to format periods similar to Oracle's representation
  * of "INTERVAL * to *" data type.
  */
-public class IntervalDayYearUtils {
+public class IntervalStringUtils {
 
   /**
    * Constructor Method of class.
    */
-  private IntervalDayYearUtils( ) {}
+  private IntervalStringUtils( ) {}
 
   /**
    * Formats a period similar to Oracle INTERVAL YEAR TO MONTH data type<br>.
    * For example, the string "+21-02" defines an interval of 21 years and 2 months.
    */
-  public static String formatIntervalYear(final org.joda.time.Period p) {
+  public static String formatIntervalYear(final Period p) {
     long months = p.getYears() * (long) DateUtility.yearsToMonths + p.getMonths();
     boolean neg = false;
     if (months < 0) {
@@ -52,7 +53,7 @@ public class IntervalDayYearUtils {
    * For example, the string "-001 18:25:16.766" defines an interval of
    * - 1 day 18 hours 25 minutes 16 seconds and 766 milliseconds.
    */
-  public static String formatIntervalDay(final org.joda.time.Period p) {
+  public static String formatIntervalDay(final Period p) {
     long millis = p.getDays() * (long) DateUtility.daysToStandardMillis + millisFromPeriod(p);
 
     boolean neg = false;
