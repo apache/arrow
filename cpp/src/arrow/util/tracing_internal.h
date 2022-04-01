@@ -62,46 +62,6 @@ inline Result<T> MarkSpan(Result<T> result, opentelemetry::trace::Span* span) {
   return result;
 }
 
-template <typename T>
-Iterator<T> WrapIterator(
-    Iterator<T> wrapped,
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span,
-    const std::string& span_name) {
-  struct {
-    Result<T> operator()() {
-      opentelemetry::trace::StartSpanOptions options;
-      options.parent = parent_span->GetContext();
-      auto span = GetTracer()->StartSpan(span_name, options);
-      auto scope = GetTracer()->WithActiveSpan(span);
-      return wrapped.Next();
-    }
-
-    Iterator<T> wrapped;
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span;
-    std::string span_name;
-  } Wrapper;
-  Wrapper.wrapped = std::move(wrapped);
-  Wrapper.parent_span = std::move(parent_span);
-  Wrapper.span_name = span_name;
-  return MakeFunctionIterator(std::move(Wrapper));
-}
-
-template <typename T>
-AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
-                                     opentelemetry::trace::StartSpanOptions options,
-                                     const std::string& span_name) {
-  return [=]() mutable -> Future<T> {
-    auto span = GetTracer()->StartSpan(span_name, {}, options);
-    auto scope = GetTracer()->WithActiveSpan(span);
-    auto fut = wrapped();
-    fut.AddCallback([span](const Result<T>& result) {
-      MarkSpan(result.status(), span.get());
-      span->End();
-    });
-    return fut;
-  };
-}
-
 /// \brief Start a new span for each invocation of a generator.
 ///
 /// The parent span of the new span will be the currently active span
@@ -109,9 +69,17 @@ AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
 template <typename T>
 AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
                                      const std::string& span_name) {
-  opentelemetry::trace::StartSpanOptions options;
-  options.parent = GetTracer()->GetCurrentSpan()->GetContext();
-  return WrapAsyncGenerator(std::move(wrapped), std::move(options), span_name);
+  auto active_span = GetTracer()->GetCurrentSpan();
+  return [=]() mutable -> Future<T> {
+    auto scope = GetTracer()->WithActiveSpan(active_span);
+    auto span = GetTracer()->StartSpan(span_name);
+    auto fut = wrapped();
+    fut.AddCallback([span](const Result<T>& result) {
+      MarkSpan(result.status(), span.get());
+      span->End();
+    });
+    return fut;
+  };
 }
 
 /// \brief End the given span when the given async generator ends.
@@ -137,16 +105,17 @@ AsyncGenerator<T> TieSpanToAsyncGenerator(
   };
 }
 
-/// \brief End the given span when the given async generator ends.
+/// \brief End the current span when the given async generator ends.
 ///
 /// The span will be made the active span each time the generator is called.
 template <typename T>
 AsyncGenerator<T> TieSpanToAsyncGenerator(AsyncGenerator<T> wrapped) {
   auto span = GetTracer()->GetCurrentSpan();
+  if (!span->GetContext().IsValid()) return wrapped;
   return TieSpanToAsyncGenerator(wrapped, span);
 }
 
-/// \brief Activate the given span on each invocation of an async generator.
+/// \brief Propagate the given span to each invocation of an async generator.
 template <typename T>
 AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(
     AsyncGenerator<T> wrapped,
@@ -157,7 +126,7 @@ AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(
   };
 }
 
-/// \brief Activate the given span on each invocation of an async generator.
+/// \brief Propagate the currently active span to each invocation of an async generator.
 template <typename T>
 AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(AsyncGenerator<T> wrapped) {
   auto span = GetTracer()->GetCurrentSpan();
