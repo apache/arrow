@@ -82,21 +82,6 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetBytesMethodFromFloat4Vector() throws Exception {
-    try (Float4Vector float4Vector = new Float4Vector("ID",
-        rootAllocatorTestRule.getRootAllocator())) {
-      float4Vector.setSafe(0, (float) 0x1.6f4f97c2d4d15p-3);
-      float4Vector.setValueCount(1);
-
-      byte[] value = new byte[] {0x3e, 0x37, (byte) 0xa7, (byte) 0xcc};
-
-      accessorIterator.assertAccessorGetter(float4Vector,
-          ArrowFlightJdbcFloat4VectorAccessor::getBytes,
-          CoreMatchers.is(value));
-    }
-  }
-
-  @Test
   public void testShouldGetStringMethodFromFloat4Vector() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getString,
         accessor -> is(Float.toString(accessor.getFloat())));
@@ -112,19 +97,6 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
       accessorIterator.assertAccessorGetter(float4Vector,
           ArrowFlightJdbcFloat4VectorAccessor::getString,
           CoreMatchers.nullValue());
-    }
-  }
-
-  @Test
-  public void testShouldGetBytesMethodFromFloat4VectorWithNull() throws Exception {
-    try (final Float4Vector float4Vector = new Float4Vector("ID",
-        rootAllocatorTestRule.getRootAllocator())) {
-      float4Vector.setNull(0);
-      float4Vector.setValueCount(1);
-
-      accessorIterator
-          .assertAccessorGetter(float4Vector, ArrowFlightJdbcFloat4VectorAccessor::getBytes,
-              CoreMatchers.nullValue());
     }
   }
 

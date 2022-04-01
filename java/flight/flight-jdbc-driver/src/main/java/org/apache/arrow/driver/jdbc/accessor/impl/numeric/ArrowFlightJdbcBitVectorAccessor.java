@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
@@ -108,12 +107,6 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
     final long value = this.getLong();
 
     return this.wasNull ? null : BigDecimal.valueOf(value);
-  }
-
-  @Override
-  public byte[] getBytes() {
-    final byte value = (byte) getLong();
-    return this.wasNull ? null : ByteBuffer.allocate(BYTES_T0_ALLOCATE).put(value).array();
   }
 
   @Override

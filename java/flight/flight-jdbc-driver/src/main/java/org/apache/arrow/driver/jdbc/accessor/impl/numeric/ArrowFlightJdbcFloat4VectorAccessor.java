@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.function.IntSupplier;
 
@@ -115,13 +114,6 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
     }
 
     return this.wasNull ? null : BigDecimal.valueOf(value);
-  }
-
-  @Override
-  public byte[] getBytes() {
-    final float value = this.getFloat();
-    return this.wasNull ? null :
-        ByteBuffer.allocate(Float4Vector.TYPE_WIDTH).putFloat(value).array();
   }
 
   @Override

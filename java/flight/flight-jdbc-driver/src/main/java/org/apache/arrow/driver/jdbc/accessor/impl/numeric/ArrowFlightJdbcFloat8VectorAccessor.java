@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.function.IntSupplier;
 
@@ -128,12 +127,5 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
       throw new SQLException("BigDecimal doesn't support Infinite/NaN.");
     }
     return this.wasNull ? null : BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP);
-  }
-
-  @Override
-  public byte[] getBytes() {
-    final double value = this.getDouble();
-    return this.wasNull ? null : ByteBuffer.allocate(Float8Vector.TYPE_WIDTH)
-        .putDouble(value).array();
   }
 }

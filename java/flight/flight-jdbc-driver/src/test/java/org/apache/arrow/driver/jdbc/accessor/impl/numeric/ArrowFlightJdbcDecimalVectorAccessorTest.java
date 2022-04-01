@@ -185,13 +185,6 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetBytesMethodFromDecimalVectorWithNull() throws Exception {
-    accessorIterator.assertAccessorGetter(vectorWithNull,
-        ArrowFlightJdbcDecimalVectorAccessor::getBytes,
-        (accessor, currentRow) -> CoreMatchers.nullValue());
-  }
-
-  @Test
   public void testShouldGetStringMethodFromDecimalVectorWithNull() throws Exception {
     accessorIterator.assertAccessorGetter(vectorWithNull,
         ArrowFlightJdbcDecimalVectorAccessor::getString,

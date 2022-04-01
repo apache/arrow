@@ -112,18 +112,6 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetBytesMethodFromBitVector() throws Exception {
-    byte[][] bytes = new byte[][] {{0x0}, {0x1}};
-
-    iterate(ArrowFlightJdbcBitVectorAccessor::getBytes, bytes[1], bytes[0], vector);
-  }
-
-  @Test
-  public void testShouldGetBytesMethodFromBitVectorFromNll() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getBytes, null, null, vectorWithNull);
-  }
-
-  @Test
   public void testShouldGetBigDecimalMethodFromBitVector() throws Exception {
     iterate(ArrowFlightJdbcBitVectorAccessor::getBigDecimal, BigDecimal.ONE, BigDecimal.ZERO,
         vector);

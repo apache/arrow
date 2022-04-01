@@ -130,12 +130,6 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
-  public byte[] getBytes() {
-    final BigDecimal value = this.getBigDecimal();
-    return this.wasNull ? null : value.unscaledValue().toByteArray();
-  }
-
-  @Override
   public Object getObject() {
     return this.getBigDecimal();
   }
