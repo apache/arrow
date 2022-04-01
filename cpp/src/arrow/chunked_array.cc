@@ -32,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -56,6 +57,8 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
+
+  chunk_resolver_ = internal::make_unique<internal::ChunkResolver>(chunks_);
 }
 
 Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
@@ -147,13 +150,10 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
 }
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
-  if (!chunk_resolver_) {
-    chunk_resolver_ = std::make_shared<internal::ChunkResolver>(chunks_);
-  }
   const auto loc = chunk_resolver_->Resolve(index);
   if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
-    return Status::IndexError("index with value of ", index, " is out-of-bounds "
-                              "for chunked array of length ", length_);
+    return Status::IndexError("index with value of ", index,
+                              " is out-of-bounds for chunked array of length ", length_);
   }
   return chunks_[loc.chunk_index]->GetScalar(loc.index_in_chunk);
 }
