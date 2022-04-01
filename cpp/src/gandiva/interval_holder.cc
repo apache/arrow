@@ -86,10 +86,10 @@ int64_t IntervalDaysHolder::GetIntervalDayFromMillis(ExecutionContext* context,
   int64_t qty_days = period_in_millis / kMillisInDay;
   int64_t qty_millis = period_in_millis % kMillisInDay;
 
-  // The response is a 64-bit integer where the high half of the bytes represents the
+  // The response is a 64-bit integer where the lower half of the bytes represents the
   // number of the days and the other half represents the number of milliseconds.
-  int64_t out = (qty_days & 0x00000000FFFFFFFF) << 32;
-  out |= (qty_millis & 0x00000000FFFFFFFF);
+  int64_t out = (qty_days & 0x00000000FFFFFFFF);
+  out |= ((qty_millis << 32) & 0xFFFFFFFF00000000);
 
   *out_valid = true;
   return out;
@@ -118,8 +118,8 @@ int64_t IntervalDaysHolder::GetIntervalDayFromWeeks(ExecutionContext* context,
 
   // The response is a 64-bit integer where the lower half of the bytes represents the
   // number of the days and the other half represents the number of milliseconds.
-  int64_t out = (qty_days & 0x00000000FFFFFFFF) << 32;
-  out |= (qty_millis & 0x00000000FFFFFFFF);
+  int64_t out = (qty_days & 0x00000000FFFFFFFF);
+  out |= ((qty_millis << 32) & 0xFFFFFFFF00000000);
 
   *out_valid = true;
   return out;
@@ -191,10 +191,10 @@ int64_t IntervalDaysHolder::GetIntervalDayFromCompletePeriod(
   auto total_days = static_cast<int64_t>(qty_days + total_days_in_millis);
   int64_t remainder_millis = millis_in_the_period % kMillisInDay;
 
-  // The response is a 64-bit integer where the high half of the bytes represents the
+  // The response is a 64-bit integer where the lower half of the bytes represents the
   // number of the days and the other half represents the number of milliseconds.
-  int64_t out = (total_days & 0x00000000FFFFFFFF) << 32;
-  out |= (remainder_millis & 0x00000000FFFFFFFF);
+  int64_t out = (total_days & 0x00000000FFFFFFFF);
+  out |= ((remainder_millis << 32) & 0xFFFFFFFF00000000);
 
   *out_valid = true;
   return out;
