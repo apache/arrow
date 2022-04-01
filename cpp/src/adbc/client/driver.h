@@ -15,38 +15,42 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Basic C++ bindings for the ADBC API.
+
+#pragma once
+
 #include <memory>
+#include <string>
 
 #include "adbc/adbc.h"
-#include "arrow/c/bridge.h"
-#include "arrow/record_batch.h"
 #include "arrow/result.h"
-#include "arrow/testing/gtest_util.h"
 
 namespace adbc {
 
-#define ADBC_ASSERT_OK(expr)          \
-  do {                                \
-    auto code_ = (expr);              \
-    ASSERT_EQ(code_, ADBC_STATUS_OK); \
-  } while (false)
+/// \brief Low-level C++ wrapper over the C API.
+class AdbcDriver {
+ public:
+  ~AdbcDriver();
 
-static inline void ReadStatement(AdbcStatement* statement,
-                                 std::shared_ptr<arrow::Schema>* schema,
-                                 arrow::RecordBatchVector* batches) {
-  AdbcError error = {};
-  ArrowArrayStream stream;
-  ADBC_ASSERT_OK(statement->get_results(statement, &stream, &error));
-  ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
+  /// \brief Load the given driver.
+  ///
+  /// \param[in] driver The driver (a library name,
+  ///   e.g. libadbc_driver_sqlite.so).
+  static arrow::Result<std::unique_ptr<AdbcDriver>> Load(const std::string& driver);
 
-  *schema = reader->schema();
+  /// \brief Connect to a database.
+  ///
+  /// \param[in] options Connection options.
+  arrow::Result<struct AdbcConnection> ConnectRaw(
+      const struct AdbcConnectionOptions& options) const;
 
-  while (true) {
-    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
-    if (!batch) break;
-    batches->push_back(std::move(batch));
-  }
-  ADBC_ASSERT_OK(statement->release(statement, &error));
-}
+  /// \brief Release the given error struct.
+  void ReleaseError(struct AdbcError* error) const;
+
+ private:
+  class Impl;
+  explicit AdbcDriver(std::unique_ptr<Impl> impl);
+  std::unique_ptr<Impl> impl_;
+};
 
 }  // namespace adbc

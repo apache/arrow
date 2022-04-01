@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "adbc/adbc.h"
-#include "adbc/c/types.h"
+#include "adbc/client/driver.h"
 #include "adbc/test_util.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/record_batch.h"
@@ -45,12 +45,13 @@ class AdbcFlightSqlTest : public ::testing::Test {
     }
     ARROW_LOG(WARNING) << "Server running on port " << server->port();
 
+    ASSERT_OK_AND_ASSIGN(driver, adbc::AdbcDriver::Load("libadbc_driver_flight_sql.so"));
+
     AdbcConnectionOptions options;
     std::string target = "Location=grpc://localhost:" + std::to_string(server->port());
     options.target = target.c_str();
     options.target_length = target.size();
-    ASSERT_OK_AND_ASSIGN(connection,
-                         adbc::ConnectRaw("libadbc_driver_flight_sql.so", options));
+    ASSERT_OK_AND_ASSIGN(connection, driver->ConnectRaw(options));
   }
 
   void TearDown() override {
@@ -60,6 +61,7 @@ class AdbcFlightSqlTest : public ::testing::Test {
 
  protected:
   std::shared_ptr<arrow::flight::sql::FlightSqlServerBase> server;
+  std::unique_ptr<adbc::AdbcDriver> driver;
   AdbcConnection connection;
   AdbcError error = {};
 };
@@ -148,7 +150,7 @@ TEST_F(AdbcFlightSqlTest, SqlExecute) {
 
     ARROW_LOG(WARNING) << "Got error message: " << error.message;
     EXPECT_THAT(error.message, ::testing::HasSubstr("syntax error"));
-    error.release(&error);
+    driver->ReleaseError(&error);
   }
 }
 

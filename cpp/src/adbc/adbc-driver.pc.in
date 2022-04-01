@@ -19,8 +19,8 @@ prefix=@CMAKE_INSTALL_PREFIX@
 libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
 includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 
-Name: ADBC
-Description: TODO
+Name: ADBC C++ Driver Utilities
+Description: C++ utilities for implementing ADBC drivers.
 Version: @ADBC_VERSION@
 Requires: arrow
-Libs: -L${libdir} -ladbc
+Libs: -L${libdir} -ladbc_driver

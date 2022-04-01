@@ -21,7 +21,7 @@
 #include <memory>
 #include <string>
 
-#include "adbc/c/types.h"
+#include "adbc/adbc.h"
 #include "arrow/builder.h"
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
@@ -32,12 +32,6 @@
 namespace {
 
 using arrow::Status;
-
-void DeleteError(struct AdbcError* error) {
-  delete[] error->message;
-  error->message = nullptr;
-  error->release = nullptr;
-}
 
 void SetError(sqlite3* db, const std::string& source, struct AdbcError* error) {
   if (!error) return;
@@ -52,7 +46,6 @@ void SetError(sqlite3* db, const std::string& source, struct AdbcError* error) {
   error->message = new char[message.size() + 1];
   message.copy(error->message, message.size());
   error->message[message.size()] = '\0';
-  error->release = DeleteError;
 }
 
 class SqliteStatementImpl : public arrow::RecordBatchReader {
@@ -289,6 +282,11 @@ class AdbcSqliteImpl {
 };
 
 }  // namespace
+
+void AdbcErrorRelease(struct AdbcError* error) {
+  delete[] error->message;
+  error->message = nullptr;
+}
 
 enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
                                        struct AdbcConnection* out,

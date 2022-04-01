@@ -20,24 +20,39 @@ add_custom_target(adbc)
 set(ADBC_LINK_SHARED arrow_shared)
 set(ADBC_LINK_STATIC arrow_static)
 
-# TODO: should util.cc live in a separate 'driver utils' lib?
-set(ADBC_SOURCES adbc.cc util.cc)
+set(ADBC_CLIENT_SOURCES client/driver.cc)
+set(ADBC_DRIVER_SOURCES driver/util.cc)
 
-add_arrow_lib(adbc
+# C++ client bindings
+add_arrow_lib(adbc_client
               PKG_CONFIG_NAME
-              adbc
+              adbc-client
               SOURCES
-              ${ADBC_SOURCES}
+              ${ADBC_CLIENT_SOURCES}
+              SHARED_LINK_FLAGS
+              ${ARROW_VERSION_SCRIPT_FLAGS}
               SHARED_LINK_LIBS
               ${ADBC_LINK_SHARED}
               STATIC_LINK_LIBS
               ${ADBC_LINK_STATIC})
 
-# define the test builds
+# C++ library to implement drivers
+add_arrow_lib(adbc_driver
+              PKG_CONFIG_NAME
+              adbc-driver
+              SOURCES
+              ${ADBC_DRIVER_SOURCES}
+              SHARED_LINK_FLAGS
+              ${ARROW_VERSION_SCRIPT_FLAGS}
+              SHARED_LINK_LIBS
+              ${ADBC_LINK_SHARED}
+              STATIC_LINK_LIBS
+              ${ADBC_LINK_STATIC})
+
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ADBC_TEST_LINK_LIBS adbc_static)
+  set(ADBC_TEST_LINK_LIBS adbc_client_static)
 else()
-  set(ADBC_TEST_LINK_LIBS adbc_shared)
+  set(ADBC_TEST_LINK_LIBS adbc_client_shared)
 endif()
 
 add_arrow_test(adbc_test
@@ -51,10 +66,11 @@ add_arrow_test(adbc_test
 if(ARROW_BUILD_TESTS)
   find_package(SQLite3Alt REQUIRED)
 
-  # TODO: disable static library builds
   add_arrow_lib(adbc_driver_sqlite
                 SOURCES
-                example/sqlite.cc
+                driver/example/sqlite.cc
+                BUILD_STATIC
+                OFF
                 SHARED_LINK_LIBS
                 ${ADBC_LINK_SHARED}
                 ${SQLite3_LIBRARIES})
@@ -63,11 +79,14 @@ if(ARROW_BUILD_TESTS)
   if(ARROW_FLIGHT_SQL)
     add_arrow_lib(adbc_driver_flight_sql
                   SOURCES
-                  example/flight_sql.cc
+                  driver/example/flight_sql.cc
+                  BUILD_STATIC
+                  OFF
                   SHARED_LINK_LIBS
                   ${ADBC_LINK_SHARED}
                   arrow_flight_shared
-                  arrow_flight_sql_shared)
+                  arrow_flight_sql_shared
+                  adbc_driver_shared)
 
     if(ARROW_TEST_LINKAGE STREQUAL "static")
       set(ADBC_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_static arrow_flight_sql_static
@@ -79,7 +98,7 @@ if(ARROW_BUILD_TESTS)
 
     add_arrow_test(adbc_flight_sql_test
                    SOURCES
-                   example/flight_sql_test.cc
+                   driver/example/flight_sql_test.cc
                    EXTRA_LINK_LIBS
                    ${ADBC_TEST_LINK_LIBS}
                    ${ADBC_FLIGHT_SQL_TEST_LINK_LIBS}

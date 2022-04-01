@@ -74,13 +74,28 @@ list(APPEND ARROW_FLIGHT_SQL_TEST_LINK_LIBS ${ARROW_FLIGHT_TEST_LINK_LIBS})
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   find_package(SQLite3Alt REQUIRED)
 
-  set(ARROW_FLIGHT_SQL_TEST_SERVER_SRCS
-      example/sqlite_sql_info.cc
-      example/sqlite_type_info.cc
-      example/sqlite_statement.cc
-      example/sqlite_statement_batch_reader.cc
-      example/sqlite_server.cc
-      example/sqlite_tables_schema_batch_reader.cc)
+  add_arrow_lib(arrow_flight_sql_sqlite
+                SOURCES
+                example/sqlite_sql_info.cc
+                example/sqlite_type_info.cc
+                example/sqlite_statement.cc
+                example/sqlite_statement_batch_reader.cc
+                example/sqlite_server.cc
+                example/sqlite_tables_schema_batch_reader.cc
+                SHARED_LINK_FLAGS
+                ${ARROW_VERSION_SCRIPT_FLAGS}
+                SHARED_LINK_LIBS
+                arrow_flight_sql_shared
+                ${SQLite3_LIBRARIES}
+                STATIC_LINK_LIBS
+                arrow_flight_sql_static
+                ${SQLite3_LIBRARIES})
+
+  if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+    list(APPEND ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_sqlite_static)
+  else()
+    list(APPEND ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_sqlite_shared)
+  endif()
 
   add_arrow_test(flight_sql_test
                  SOURCES
@@ -91,8 +106,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  LABELS
                  "arrow_flight_sql")
 
-  add_executable(flight-sql-test-server test_server_cli.cc
-                                        ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS})
+  add_executable(flight-sql-test-server test_server_cli.cc)
   target_link_libraries(flight-sql-test-server
                         PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
                                 ${SQLite3_LIBRARIES})

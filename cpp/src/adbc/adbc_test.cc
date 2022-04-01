@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "adbc/adbc.h"
-#include "adbc/c/types.h"
+#include "adbc/client/driver.h"
 #include "adbc/test_util.h"
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
@@ -35,8 +35,10 @@ TEST(Adbc, Basics) {
   AdbcConnection connection;
   AdbcError error = {};
 
+  ASSERT_OK_AND_ASSIGN(auto driver, adbc::AdbcDriver::Load("libadbc_driver_sqlite.so"));
+
   AdbcConnectionOptions options;
-  ASSERT_OK_AND_ASSIGN(connection, adbc::ConnectRaw("libadbc_driver_sqlite.so", options));
+  ASSERT_OK_AND_ASSIGN(connection, driver->ConnectRaw(options));
   ASSERT_NE(connection.private_data, nullptr);
 
   ASSERT_NE(connection.release, nullptr);
@@ -45,8 +47,7 @@ TEST(Adbc, Basics) {
 }
 
 TEST(Adbc, Errors) {
-  AdbcConnectionOptions options;
-  ASSERT_RAISES(Invalid, adbc::ConnectRaw("libadbc_driver_fake.so", options));
+  ASSERT_RAISES(Invalid, adbc::AdbcDriver::Load("libadbc_driver_fake.so"));
 }
 
 TEST(AdbcSqlite, SqlExecute) {
@@ -54,8 +55,10 @@ TEST(AdbcSqlite, SqlExecute) {
   AdbcConnection connection;
   AdbcError error = {};
 
+  ASSERT_OK_AND_ASSIGN(auto driver, adbc::AdbcDriver::Load("libadbc_driver_sqlite.so"));
+
   AdbcConnectionOptions options;
-  ASSERT_OK_AND_ASSIGN(connection, adbc::ConnectRaw("libadbc_driver_sqlite.so", options));
+  ASSERT_OK_AND_ASSIGN(connection, driver->ConnectRaw(options));
 
   {
     std::string query = "SELECT 1";
@@ -86,7 +89,7 @@ TEST(AdbcSqlite, SqlExecute) {
     ARROW_LOG(WARNING) << "Got error message: " << error.message;
     EXPECT_THAT(error.message, ::testing::HasSubstr("[SQLite3] sqlite3_prepare_v2:"));
     EXPECT_THAT(error.message, ::testing::HasSubstr("syntax error"));
-    error.release(&error);
+    driver->ReleaseError(&error);
   }
 
   ADBC_ASSERT_OK(connection.release(&connection, &error));

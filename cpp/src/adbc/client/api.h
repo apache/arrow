@@ -15,28 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//
-//
-// EXPERIMENTAL. Interface subject to change.
+// Basic C++ bindings for the ADBC API.
 
 #pragma once
 
-#include <arrow/c/abi.h>
-#include <stdint.h>
-
-#include "adbc/c/types.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/// \brief Initialize a connection.
-///
-/// This is the low-level function implemented by the driver. Users
-/// should call AdbcConnectionInit.
-enum AdbcStatusCode AdbcDriverConnectionInit(const struct AdbcConnectionOptions* options,
-                                             struct AdbcConnection* out);
-
-#ifdef __cplusplus
-}
-#endif
+#include "adbc/client/driver.h"

@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "adbc/c/driver.h"
-#include "adbc/c/types.h"
-#include "adbc/util.h"
+#include "adbc/adbc.h"
+#include "adbc/driver/util.h"
 #include "arrow/c/bridge.h"
 #include "arrow/flight/client.h"
 #include "arrow/flight/sql/client.h"
@@ -32,12 +31,6 @@ namespace flightsql = arrow::flight::sql;
 
 namespace {
 
-void DeleteError(struct AdbcError* error) {
-  delete[] error->message;
-  error->message = nullptr;
-  error->release = nullptr;
-}
-
 void SetError(const arrow::Status& status, struct AdbcError* error) {
   if (!error) return;
   std::string message = arrow::util::StringBuilder("[Flight SQL]: ", status.ToString());
@@ -50,7 +43,6 @@ void SetError(const arrow::Status& status, struct AdbcError* error) {
   error->message = new char[message.size() + 1];
   message.copy(error->message, message.size());
   error->message[message.size()] = '\0';
-  error->release = DeleteError;
 }
 
 using arrow::Status;
@@ -350,6 +342,11 @@ class AdbcFlightSqlImpl {
 };
 
 }  // namespace
+
+void AdbcErrorRelease(struct AdbcError* error) {
+  delete[] error->message;
+  error->message = nullptr;
+}
 
 enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
                                        struct AdbcConnection* out,
