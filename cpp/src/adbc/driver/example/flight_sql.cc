@@ -57,11 +57,6 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
                    std::unique_ptr<flight::FlightInfo> info, struct AdbcStatement* out) {
     std::memset(out, 0, sizeof(*out));
     auto impl = std::make_shared<FlightSqlStatementImpl>(client, std::move(info));
-    out->release = &FlightSqlStatementImpl::ReleaseMethod;
-    out->get_results = &FlightSqlStatementImpl::GetResultsMethod;
-    out->num_partitions = &FlightSqlStatementImpl::NumPartitionsMethod;
-    out->get_partition_desc_size = &FlightSqlStatementImpl::GetPartitionDescSizeMethod;
-    out->get_partition_desc = &FlightSqlStatementImpl::GetPartitionDescMethod;
     out->private_data = new std::shared_ptr<FlightSqlStatementImpl>(impl);
   }
 
@@ -93,23 +88,12 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
   // TODO: a lot of these could be implemented in a common mixin
   enum AdbcStatusCode Close(struct AdbcError* error) { return ADBC_STATUS_OK; }
 
-  static enum AdbcStatusCode ReleaseMethod(struct AdbcStatement* statement,
-                                           struct AdbcError* error) {
-    if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr = reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(
-        statement->private_data);
-    auto status = (*ptr)->Close(error);
-    delete ptr;
-    statement->private_data = nullptr;
-    return status;
-  }
-
   //----------------------------------------------------------
   // Statement Functions
   //----------------------------------------------------------
 
-  enum AdbcStatusCode GetResults(const std::shared_ptr<FlightSqlStatementImpl>& self,
-                                 struct ArrowArrayStream* out, struct AdbcError* error) {
+  enum AdbcStatusCode GetStream(const std::shared_ptr<FlightSqlStatementImpl>& self,
+                                struct ArrowArrayStream* out, struct AdbcError* error) {
     auto status = NextStream();
     if (!status.ok()) {
       SetError(status, error);
@@ -127,63 +111,25 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
     return ADBC_STATUS_OK;
   }
 
-  static enum AdbcStatusCode GetResultsMethod(struct AdbcStatement* statement,
-                                              struct ArrowArrayStream* out,
-                                              struct AdbcError* error) {
-    if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr = reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(
-        statement->private_data);
-    return (*ptr)->GetResults(*ptr, out, error);
-  }
-
-  size_t num_partitions() const { return info_->endpoints().size(); }
-
-  static enum AdbcStatusCode NumPartitionsMethod(struct AdbcStatement* statement,
-                                                 size_t* partitions,
-                                                 struct AdbcError* error) {
-    if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr = reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(
-        statement->private_data);
-    *partitions = (*ptr)->num_partitions();
-    return ADBC_STATUS_OK;
-  }
-
-  enum AdbcStatusCode GetPartitionDescSize(size_t index, size_t* length,
+  enum AdbcStatusCode GetPartitionDescSize(size_t* length,
                                            struct AdbcError* error) const {
     // TODO: we're only encoding the ticket, not the actual locations
-    if (index >= info_->endpoints().size()) {
-      return ADBC_STATUS_INVALID_ARGUMENT;
+    if (next_endpoint_ >= info_->endpoints().size()) {
+      *length = 0;
+      return ADBC_STATUS_OK;
     }
-    *length = info_->endpoints()[index].ticket.ticket.size();
+    *length = info_->endpoints()[next_endpoint_].ticket.ticket.size();
     return ADBC_STATUS_OK;
   }
 
-  static enum AdbcStatusCode GetPartitionDescSizeMethod(struct AdbcStatement* statement,
-                                                        size_t index, size_t* length,
-                                                        struct AdbcError* error) {
-    if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr = reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(
-        statement->private_data);
-    return (*ptr)->GetPartitionDescSize(index, length, error);
-  }
-
-  enum AdbcStatusCode GetPartitionDesc(size_t index, uint8_t* out,
-                                       struct AdbcError* error) const {
-    if (index >= info_->endpoints().size()) {
+  enum AdbcStatusCode GetPartitionDesc(uint8_t* partition_desc, struct AdbcError* error) {
+    if (next_endpoint_ >= info_->endpoints().size()) {
       return ADBC_STATUS_INVALID_ARGUMENT;
     }
-    const std::string& ticket = info_->endpoints()[index].ticket.ticket;
-    std::memcpy(out, ticket.data(), ticket.size());
+    const std::string& ticket = info_->endpoints()[next_endpoint_].ticket.ticket;
+    std::memcpy(partition_desc, ticket.data(), ticket.size());
+    next_endpoint_++;
     return ADBC_STATUS_OK;
-  }
-
-  static enum AdbcStatusCode GetPartitionDescMethod(struct AdbcStatement* statement,
-                                                    size_t index, uint8_t* partition,
-                                                    struct AdbcError* error) {
-    if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr = reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(
-        statement->private_data);
-    return (*ptr)->GetPartitionDesc(index, partition, error);
   }
 
  private:
@@ -229,17 +175,6 @@ class AdbcFlightSqlImpl {
     return ADBC_STATUS_OK;
   }
 
-  static enum AdbcStatusCode ReleaseMethod(struct AdbcConnection* connection,
-                                           struct AdbcError* error) {
-    if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr =
-        reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
-    auto status = (*ptr)->Close(error);
-    delete ptr;
-    connection->private_data = nullptr;
-    return status;
-  }
-
   //----------------------------------------------------------
   // Metadata
   //----------------------------------------------------------
@@ -254,15 +189,6 @@ class AdbcFlightSqlImpl {
     }
     FlightSqlStatementImpl::Make(client_.get(), std::move(flight_info), out);
     return ADBC_STATUS_OK;
-  }
-
-  static enum AdbcStatusCode GetTableTypesMethod(struct AdbcConnection* connection,
-                                                 struct AdbcStatement* out,
-                                                 struct AdbcError* error) {
-    if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr =
-        reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
-    return (*ptr)->GetTableTypes(out, error);
   }
 
   //----------------------------------------------------------
@@ -317,24 +243,8 @@ class AdbcFlightSqlImpl {
     std::memset(out, 0, sizeof(*out));
     auto impl =
         std::make_shared<FlightSqlStatementImpl>(client_.get(), std::move(flight_info));
-    out->release = &FlightSqlStatementImpl::ReleaseMethod;
-    out->get_results = &FlightSqlStatementImpl::GetResultsMethod;
-    out->num_partitions = &FlightSqlStatementImpl::NumPartitionsMethod;
-    out->get_partition_desc_size = &FlightSqlStatementImpl::GetPartitionDescSizeMethod;
-    out->get_partition_desc = &FlightSqlStatementImpl::GetPartitionDescMethod;
     out->private_data = new std::shared_ptr<FlightSqlStatementImpl>(impl);
     return ADBC_STATUS_OK;
-  }
-
-  static enum AdbcStatusCode DeserializePartitionDescMethod(
-      struct AdbcConnection* connection, const uint8_t* serialized_partition,
-      size_t serialized_length, struct AdbcStatement* statement,
-      struct AdbcError* error) {
-    if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr =
-        reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
-    return (*ptr)->DeserializePartitionDesc(serialized_partition, serialized_length,
-                                            statement, error);
   }
 
  private:
@@ -346,6 +256,25 @@ class AdbcFlightSqlImpl {
 void AdbcErrorRelease(struct AdbcError* error) {
   delete[] error->message;
   error->message = nullptr;
+}
+
+enum AdbcStatusCode AdbcConnectionDeserializePartitionDesc(
+    struct AdbcConnection* connection, const uint8_t* serialized_partition,
+    size_t serialized_length, struct AdbcStatement* statement, struct AdbcError* error) {
+  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
+  return (*ptr)->DeserializePartitionDesc(serialized_partition, serialized_length,
+                                          statement, error);
+}
+
+enum AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
+                                                struct AdbcStatement* statement,
+                                                struct AdbcError* error) {
+  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
+  return (*ptr)->GetTableTypes(statement, error);
 }
 
 enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
@@ -383,10 +312,56 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
 
   auto impl = std::make_shared<AdbcFlightSqlImpl>(std::move(client));
 
-  out->release = &AdbcFlightSqlImpl::ReleaseMethod;
-  out->get_table_types = &AdbcFlightSqlImpl::GetTableTypesMethod;
   out->sql_execute = &AdbcFlightSqlImpl::SqlExecuteMethod;
-  out->deserialize_partition_desc = &AdbcFlightSqlImpl::DeserializePartitionDescMethod;
   out->private_data = new std::shared_ptr<AdbcFlightSqlImpl>(impl);
   return ADBC_STATUS_OK;
+}
+
+enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
+                                          struct AdbcError* error) {
+  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
+  auto status = (*ptr)->Close(error);
+  delete ptr;
+  connection->private_data = nullptr;
+  return status;
+}
+
+enum AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
+                                                  uint8_t* partition_desc,
+                                                  struct AdbcError* error) {
+  if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);
+  return (*ptr)->GetPartitionDesc(partition_desc, error);
+}
+
+enum AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
+                                                      size_t* length,
+                                                      struct AdbcError* error) {
+  if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);
+  return (*ptr)->GetPartitionDescSize(length, error);
+}
+
+enum AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
+                                           struct ArrowArrayStream* out,
+                                           struct AdbcError* error) {
+  if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);
+  return (*ptr)->GetStream(*ptr, out, error);
+}
+
+enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
+                                         struct AdbcError* error) {
+  if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);
+  auto status = (*ptr)->Close(error);
+  delete ptr;
+  statement->private_data = nullptr;
+  return status;
 }

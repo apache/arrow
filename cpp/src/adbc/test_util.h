@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "adbc/adbc.h"
+#include "adbc/client/driver.h"
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -31,12 +32,12 @@ namespace adbc {
     ASSERT_EQ(code_, ADBC_STATUS_OK); \
   } while (false)
 
-static inline void ReadStatement(AdbcStatement* statement,
+static inline void ReadStatement(adbc::AdbcDriver* driver, AdbcStatement* statement,
                                  std::shared_ptr<arrow::Schema>* schema,
                                  arrow::RecordBatchVector* batches) {
   AdbcError error = {};
   ArrowArrayStream stream;
-  ADBC_ASSERT_OK(statement->get_results(statement, &stream, &error));
+  ADBC_ASSERT_OK(driver->StatementGetStream(statement, &stream, &error));
   ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
 
   *schema = reader->schema();
@@ -46,7 +47,7 @@ static inline void ReadStatement(AdbcStatement* statement,
     if (!batch) break;
     batches->push_back(std::move(batch));
   }
-  ADBC_ASSERT_OK(statement->release(statement, &error));
+  ADBC_ASSERT_OK(driver->StatementRelease(statement, &error));
 }
 
 }  // namespace adbc

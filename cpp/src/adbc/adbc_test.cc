@@ -41,8 +41,7 @@ TEST(Adbc, Basics) {
   ASSERT_OK_AND_ASSIGN(connection, driver->ConnectRaw(options));
   ASSERT_NE(connection.private_data, nullptr);
 
-  ASSERT_NE(connection.release, nullptr);
-  ADBC_ASSERT_OK(connection.release(&connection, &error));
+  ADBC_ASSERT_OK(driver->ConnectionRelease(&connection, &error));
   ASSERT_EQ(connection.private_data, nullptr);
 }
 
@@ -68,7 +67,7 @@ TEST(AdbcSqlite, SqlExecute) {
 
     std::shared_ptr<arrow::Schema> schema;
     arrow::RecordBatchVector batches;
-    ReadStatement(&statement, &schema, &batches);
+    ReadStatement(driver.get(), &statement, &schema, &batches);
     arrow::AssertSchemaEqual(*schema,
                              *arrow::schema({arrow::field("1", arrow::int64())}));
     EXPECT_THAT(batches,
@@ -89,10 +88,10 @@ TEST(AdbcSqlite, SqlExecute) {
     ARROW_LOG(WARNING) << "Got error message: " << error.message;
     EXPECT_THAT(error.message, ::testing::HasSubstr("[SQLite3] sqlite3_prepare_v2:"));
     EXPECT_THAT(error.message, ::testing::HasSubstr("syntax error"));
-    driver->ReleaseError(&error);
+    driver->ErrorRelease(&error);
   }
 
-  ADBC_ASSERT_OK(connection.release(&connection, &error));
+  ADBC_ASSERT_OK(driver->ConnectionRelease(&connection, &error));
 }
 
 }  // namespace adbc
