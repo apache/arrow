@@ -228,7 +228,7 @@ class ARROW_EXPORT AsyncToggle {
   ///
   /// All current waiters will be released to enter, even if another close call
   /// quickly follows
-  void Open();
+  Future<> Open();
 
   /// \brief Return true if the toggle is currently open
   bool IsOpen();
@@ -262,8 +262,8 @@ struct ARROW_EXPORT BackpressureOptions {
   static BackpressureOptions NoBackpressure();
 
   std::shared_ptr<util::AsyncToggle> toggle;
-  uint32_t resume_if_below;
-  uint32_t pause_if_above;
+  uint64_t resume_if_below;
+  uint64_t pause_if_above;
 };
 
 }  // namespace util

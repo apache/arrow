@@ -825,34 +825,33 @@ class ReadaheadGenerator {
   std::shared_ptr<State> state_;
 };
 
+/// \brief An interface for adding backpressure support to the push generator
+///
+/// This is "best effort" because the generator should not block.  Instead some
+/// other mechanism should be responsible for identifying when backpressure limits
+/// are reached and pausing any producers
+template <typename T>
+class BestEffortBackpressureHandler {
+ public:
+  virtual void RecordProduced(const T& item) = 0;
+  virtual void RecordConsumed(const T& item) = 0;
+};
+
 /// \brief A generator where the producer pushes items on a queue.
 ///
-/// No back-pressure is applied, so this generator is mostly useful when
-/// producing the values is neither CPU- nor memory-expensive (e.g. fetching
-/// filesystem metadata).
+/// Backpressure options optionally can be provided.  The generator itself
+/// cannot block and does not enforce backpressure.  Instead it will mark the given
+/// toggle closed when backpressure limits are encountered.  The producer should
+/// monitor the toggle and pause producing when it is closed.
 ///
 /// This generator is not async-reentrant.
 template <typename T>
 class PushGenerator {
   struct State {
-    explicit State(util::BackpressureOptions backpressure)
+    explicit State(std::shared_ptr<BestEffortBackpressureHandler<T>> backpressure)
         : backpressure(std::move(backpressure)) {}
 
-    void OpenBackpressureIfFreeUnlocked(util::Mutex::Guard&& guard) {
-      if (backpressure.toggle && result_q.size() < backpressure.resume_if_below) {
-        // Open might trigger callbacks so release the lock first
-        guard.Unlock();
-        backpressure.toggle->Open();
-      }
-    }
-
-    void CloseBackpressureIfFullUnlocked() {
-      if (backpressure.toggle && result_q.size() > backpressure.pause_if_above) {
-        backpressure.toggle->Close();
-      }
-    }
-
-    util::BackpressureOptions backpressure;
+    std::shared_ptr<BestEffortBackpressureHandler<T>> backpressure;
     util::Mutex mutex;
     std::deque<Result<T>> result_q;
     util::optional<Future<T>> consumer_fut;
@@ -887,8 +886,10 @@ class PushGenerator {
         lock.Unlock();  // unlock before potentially invoking a callback
         fut.MarkFinished(std::move(result));
       } else {
+        if (result.ok()) {
+          state->backpressure->RecordProduced(*result);
+        }
         state->result_q.push_back(std::move(result));
-        state->CloseBackpressureIfFullUnlocked();
       }
       return true;
     }
@@ -937,7 +938,8 @@ class PushGenerator {
     const std::weak_ptr<State> weak_state_;
   };
 
-  explicit PushGenerator(util::BackpressureOptions backpressure = {})
+  explicit PushGenerator(
+      std::shared_ptr<BestEffortBackpressureHandler<T>> backpressure = NULLPTR)
       : state_(std::make_shared<State>(std::move(backpressure))) {}
 
   /// Read an item from the queue
@@ -945,10 +947,12 @@ class PushGenerator {
     auto lock = state_->mutex.Lock();
     assert(!state_->consumer_fut.has_value());  // Non-reentrant
     if (!state_->result_q.empty()) {
-      auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
+      Result<T> result = std::move(state_->result_q.front());
       state_->result_q.pop_front();
-      state_->OpenBackpressureIfFreeUnlocked(std::move(lock));
-      return fut;
+      if (result.ok()) {
+        state_->backpressure->RecordConsumed(*result);
+      }
+      return Future<T>::MakeFinished(std::move(result));
     }
     if (state_->finished) {
       return AsyncGeneratorEnd<T>();

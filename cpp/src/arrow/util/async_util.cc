@@ -204,15 +204,14 @@ Future<> AsyncToggle::WhenOpen() {
   return when_open_;
 }
 
-void AsyncToggle::Open() {
+Future<> AsyncToggle::Open() {
   util::Mutex::Guard guard = mutex_.Lock();
   if (!closed_) {
-    return;
+    return Future<>::MakeFinished();
   }
   closed_ = false;
   Future<> to_finish = when_open_;
-  guard.Unlock();
-  to_finish.MarkFinished();
+  return to_finish;
 }
 
 void AsyncToggle::Close() {

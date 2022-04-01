@@ -50,7 +50,12 @@ namespace dataset {
 ///
 /// @{
 
-constexpr int64_t kDefaultBatchSize = 1 << 16;
+// Backpressure defaults to 1 << 6 so this means
+// the exec plan will keep about 1 << 23 rows in memory
+constexpr int64_t kDefaultBatchSize = 1 << 17;
+// We generally recommend row groups sized at 1 << 20 so with
+// 4 fragments (and 2 row groups per fragment) we get 1 << 23
+// rows in memory in the scanner
 constexpr int32_t kDefaultBatchReadahead = 4;
 constexpr int32_t kDefaultFragmentReadahead = 4;
 constexpr int32_t kDefaultBackpressureHigh = 64;

@@ -46,6 +46,40 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
+class BackpressureQueue
+    : public BestEffortBackpressureHandler<util::optional<ExecBatch>> {
+ public:
+  BackpressureQueue(util::BackpressureOptions options) : options_(options) {}
+  virtual ~BackpressureQueue() = default;
+  void RecordProduced(const util::optional<ExecBatch>& item) {
+    if (item && options_.toggle) {
+      uint64_t item_size = static_cast<uint64_t>(item->TotalBufferSize());
+      std::lock_guard<std::mutex> lg(mutex_);
+      bytes_used_ += item_size;
+      if (bytes_used_ > options_.pause_if_above) {
+        options_.toggle->Close();
+      }
+    }
+  }
+  void RecordConsumed(const util::optional<ExecBatch>& item) {
+    if (item && options_.toggle) {
+      uint64_t item_size = static_cast<uint64_t>(item->TotalBufferSize());
+      std::unique_lock<std::mutex> lk(mutex_);
+      bytes_used_ -= item_size;
+      if (bytes_used_ < options_.resume_if_below) {
+        Future<> opener = options_.toggle->Open();
+        lk.unlock();
+        opener.MarkFinished();
+      }
+    }
+  }
+
+ private:
+  util::BackpressureOptions options_;
+  std::mutex mutex_;
+  uint64_t bytes_used_;
+};
+
 class SinkNode : public ExecNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -53,7 +87,8 @@ class SinkNode : public ExecNode {
            util::BackpressureOptions backpressure)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
                  /*num_outputs=*/0),
-        producer_(MakeProducer(generator, std::move(backpressure))) {}
+        backpressure_queue_(std::make_shared<BackpressureQueue>(std::move(backpressure))),
+        producer_(MakeProducer(generator, backpressure_queue_)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -66,7 +101,7 @@ class SinkNode : public ExecNode {
 
   static PushGenerator<util::optional<ExecBatch>>::Producer MakeProducer(
       AsyncGenerator<util::optional<ExecBatch>>* out_gen,
-      util::BackpressureOptions backpressure) {
+      std::shared_ptr<BackpressureQueue> backpressure) {
     PushGenerator<util::optional<ExecBatch>> push_gen(std::move(backpressure));
     auto out = push_gen.producer();
     *out_gen = std::move(push_gen);
@@ -147,6 +182,8 @@ class SinkNode : public ExecNode {
 
   AtomicCounter input_counter_;
 
+  // Needs to be a shared_ptr as the push generator can technically outlive the node
+  std::shared_ptr<BackpressureQueue> backpressure_queue_;
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
 

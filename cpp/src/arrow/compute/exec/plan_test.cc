@@ -278,13 +278,18 @@ TEST(ExecPlanExecution, TableSourceSinkError) {
 }
 
 TEST(ExecPlanExecution, SinkNodeBackpressure) {
+  util::optional<ExecBatch> batch =
+      ExecBatchFromJSON({int32(), boolean()},
+                        "[[4, false], [5, null], [6, false], [7, false], [null, true]]");
   constexpr uint32_t kPauseIfAbove = 4;
   constexpr uint32_t kResumeIfBelow = 2;
+  uint64_t pause_if_above_bytes = kPauseIfAbove * batch->TotalBufferSize();
+  uint64_t resume_if_below_bytes = kResumeIfBelow * batch->TotalBufferSize();
   EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
   PushGenerator<util::optional<ExecBatch>> batch_producer;
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
   util::BackpressureOptions backpressure_options =
-      util::BackpressureOptions::Make(kResumeIfBelow, kPauseIfAbove);
+      util::BackpressureOptions::Make(resume_if_below_bytes, pause_if_above_bytes);
   std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
   ARROW_EXPECT_OK(compute::Declaration::Sequence(
                       {
@@ -294,7 +299,6 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
                       .AddToPlan(plan.get()));
   ARROW_EXPECT_OK(plan->StartProducing());
 
-  EXPECT_OK_AND_ASSIGN(util::optional<ExecBatch> batch, ExecBatch::Make({MakeScalar(0)}));
   ASSERT_TRUE(backpressure_options.toggle->IsOpen());
 
   // Should be able to push kPauseIfAbove batches without triggering back pressure
