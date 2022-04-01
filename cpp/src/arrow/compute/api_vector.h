@@ -193,7 +193,7 @@ class ARROW_EXPORT CumulativeGenericOptions : public FunctionOptions {
  public:
   explicit CumulativeGenericOptions(
       std::shared_ptr<Scalar> start = std::make_shared<NumericScalar<Int8Type>>(0),
-      bool skip_nulls = false);
+      bool skip_nulls = false, bool checked_overflow = false);
   static constexpr char const kTypeName[] = "CumulativeGenericOptions";
   static CumulativeGenericOptions Defaults() { return CumulativeGenericOptions(); }
 
@@ -202,6 +202,9 @@ class ARROW_EXPORT CumulativeGenericOptions : public FunctionOptions {
 
   /// When false, propagates the first null/NaN encountered
   bool skip_nulls = false;
+
+  /// When true, returns an Invalid Status when overflow is detected
+  bool check_overflow = false;
 };
 
 /// @}

@@ -180,20 +180,12 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
-// CumulativeGenericOptions::CumulativeGenericOptions(uint64_t start, bool skip_nulls)
-//     : CumulativeGenericOptions(std::make_shared<UInt64Scalar>(start), skip_nulls) {}
-//
-// CumulativeGenericOptions::CumulativeGenericOptions(int64_t start, bool skip_nulls)
-//     : CumulativeGenericOptions(std::make_shared<Int64Scalar>(start), skip_nulls) {}
-//
-// CumulativeGenericOptions::CumulativeGenericOptions(double start, bool skip_nulls)
-//     : CumulativeGenericOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
-
 CumulativeGenericOptions::CumulativeGenericOptions(std::shared_ptr<Scalar> start,
-                                                   bool skip_nulls)
+                                                   bool skip_nulls, bool check_overflow)
     : FunctionOptions(internal::kCumulativeGenericOptionsType),
       start(std::move(start)),
-      skip_nulls(skip_nulls) {}
+      skip_nulls(skip_nulls),
+      check_overflow(check_overflow) {}
 constexpr char CumulativeGenericOptions::kTypeName[];
 
 namespace internal {
@@ -348,9 +340,8 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
 
 Result<Datum> CumulativeSum(const Datum& values, const CumulativeGenericOptions& options,
                             ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum out,
-                        CallFunction("cumulative_sum", {Datum(values)}, &options, ctx));
-  return out.make_array();
+  auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
+  return CallFunction(func_name, {Datum(values)}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------

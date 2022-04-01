@@ -48,9 +48,6 @@ using CumulativeTypes =
     testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                    Int32Type, Int64Type, FloatType, DoubleType>;
 
-//  Date32Type, Date64Type, Time32Type, Time64Type,
-//  TimestampType, DurationType, MonthIntervalType>;
-
 template <typename T>
 class TestCumulativeOp : public ::testing::Test {
  public:
@@ -65,13 +62,26 @@ class TestCumulativeOp : public ::testing::Test {
     return ArrayFromJSON(type_singleton(), value);
   }
 
-  void Assert(const std::string func, const std::shared_ptr<Array>& input,
-              const std::shared_ptr<Array>& expected,
-              const CumulativeGenericOptions& options) {
+  template <typename V = T>
+  enable_if_t<!is_floating_type<V>::value, void> Assert(
+      const std::string func, const std::shared_ptr<Array>& input,
+      const std::shared_ptr<Array>& expected, const CumulativeGenericOptions& options) {
     ASSERT_OK_AND_ASSIGN(auto result,
                          CallFunction(func, {Datum(input)}, &options, nullptr));
 
     AssertArraysEqual(*expected, *result.make_array(), false, EqualOptions::Defaults());
+  }
+
+  template <typename V = T>
+  enable_if_floating_point<V> Assert(const std::string func,
+                                     const std::shared_ptr<Array>& input,
+                                     const std::shared_ptr<Array>& expected,
+                                     const CumulativeGenericOptions& options) {
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         CallFunction(func, {Datum(input)}, &options, nullptr));
+
+    AssertArraysApproxEqual(*expected, *result.make_array(), false,
+                            EqualOptions::Defaults());
   }
 };
 
@@ -119,149 +129,81 @@ TYPED_TEST_SUITE(TestCumulativeSum, CumulativeTypes);
 TYPED_TEST(TestCumulativeSum, NoStartNoSkipNoNulls) {
   CumulativeGenericOptions options = this->generate_options();
   auto empty = "[]";
+  auto values = "[1, 2, 3, 4, 5, 6]";
+  auto expected = "[1, 3, 6, 10, 15, 21]";
   this->Assert(empty, empty, options);
-
-  if (this->type_singleton()->id() == Type::DATE64) {
-    auto values = "[0, 86400000, 172800000, 259200000, 345600000, 432000000]";
-    auto expected = "[0, 86400000, 259200000, 518400000, 864000000, 1296000000]";
-    this->Assert(values, expected, options);
-  } else {
-    auto values = "[1, 2, 3, 4, 5, 6]";
-    auto expected = "[1, 3, 6, 10, 15, 21]";
-    this->Assert(values, expected, options);
-  }
+  this->Assert(values, expected, options);
 }
 
 TYPED_TEST(TestCumulativeSum, NoStartNoSkipHasNulls) {
   CumulativeGenericOptions options = this->generate_options();
   auto one_null = "[null]";
   auto three_null = "[null, null, null]";
+  auto values = "[1, 2, null, 4, null, 6]";
+  auto expected = "[1, 3, null, null, null, null]";
   this->Assert(one_null, one_null, options);
   this->Assert(three_null, three_null, options);
-
-  if (this->type_singleton()->id() == Type::DATE64) {
-    auto values = "[0, 86400000, null, 259200000, null, 432000000]";
-    auto expected = "[0, 86400000, null, null, null, null]";
-    this->Assert(values, expected, options);
-  } else {
-    auto values = "[1, 2, null, 4, null, 6]";
-    auto expected = "[1, 3, null, null, null, null]";
-    this->Assert(values, expected, options);
-  }
+  this->Assert(values, expected, options);
 }
 
 TYPED_TEST(TestCumulativeSum, NoStartDoSkipNoNulls) {
   CumulativeGenericOptions options = this->generate_options(0, true);
   auto empty = "[]";
+  auto values = "[1, 2, 3, 4, 5, 6]";
+  auto expected = "[1, 3, 6, 10, 15, 21]";
   this->Assert(empty, empty, options);
-
-  if (this->type_singleton()->id() == Type::DATE64) {
-    auto values = "[0, 86400000, 172800000, 259200000, 345600000, 432000000]";
-    auto expected = "[0, 86400000, 259200000, 518400000, 864000000, 1296000000]";
-    this->Assert(values, expected, options);
-  } else {
-    auto values = "[1, 2, 3, 4, 5, 6]";
-    auto expected = "[1, 3, 6, 10, 15, 21]";
-    this->Assert(values, expected, options);
-  }
+  this->Assert(values, expected, options);
 }
 
 TYPED_TEST(TestCumulativeSum, NoStartDoSkipHasNulls) {
   CumulativeGenericOptions options = this->generate_options(0, true);
   auto one_null = "[null]";
   auto three_null = "[null, null, null]";
+  auto values = "[1, 2, null, 4, null, 6]";
+  auto expected = "[1, 3, null, 7, null, 13]";
   this->Assert(one_null, one_null, options);
   this->Assert(three_null, three_null, options);
-
-  if (this->type_singleton()->id() == Type::DATE64) {
-    auto values = "[0, 86400000, null, 259200000, null, 432000000]";
-    auto expected = "[0, 86400000, null, 345600000, null, 777600000]";
-    this->Assert(values, expected, options);
-  } else {
-    auto values = "[1, 2, null, 4, null, 6]";
-    auto expected = "[1, 3, null, 7, null, 13]";
-    this->Assert(values, expected, options);
-  }
+  this->Assert(values, expected, options);
 }
 
 TYPED_TEST(TestCumulativeSum, HasStartNoSkipNoNulls) {
+  CumulativeGenericOptions options = this->generate_options(10);
   auto empty = "[]";
-
-  if (this->type_singleton()->id() == Type::DATE64) {
-    // CumulativeGenericOptions options = this->generate_options(86400000);
-    // auto values = "[0, 86400000, 172800000, 259200000, 345600000, 432000000]";
-    // auto expected = "[86400000, 172800000, 345600000, 604800000, 950400000,
-    // 1382400000]";
-    // this->Assert(empty, empty, options);
-    // this->Assert(values, expected, options);
-  } else {
-    CumulativeGenericOptions options = this->generate_options(10);
-    auto values = "[1, 2, 3, 4, 5, 6]";
-    auto expected = "[11, 13, 16, 20, 25, 31]";
-    this->Assert(empty, empty, options);
-    this->Assert(values, expected, options);
-  }
+  auto values = "[1, 2, 3, 4, 5, 6]";
+  auto expected = "[11, 13, 16, 20, 25, 31]";
+  this->Assert(empty, empty, options);
+  this->Assert(values, expected, options);
 }
 
 TYPED_TEST(TestCumulativeSum, HasStartNoSkipHasNulls) {
+  CumulativeGenericOptions options = this->generate_options(10);
   auto one_null = "[null]";
   auto three_null = "[null, null, null]";
-
-  if (this->type_singleton()->id() == Type::DATE64) {
-    // CumulativeGenericOptions options = this->generate_options(86400000);
-    // auto values = "[0, 86400000, null, 259200000, null, 432000000]";
-    // auto expected = "[86400000, 172800000, null, null, null, null]";
-    // this->Assert(one_null, one_null, options);
-    // this->Assert(three_null, three_null, options);
-    // this->Assert(values, expected, options);
-  } else {
-    CumulativeGenericOptions options = this->generate_options(10);
-    auto values = "[1, 2, null, 4, null, 6]";
-    auto expected = "[11, 13, null, null, null, null]";
-    this->Assert(one_null, one_null, options);
-    this->Assert(three_null, three_null, options);
-    this->Assert(values, expected, options);
-  }
+  auto values = "[1, 2, null, 4, null, 6]";
+  auto expected = "[11, 13, null, null, null, null]";
+  this->Assert(one_null, one_null, options);
+  this->Assert(three_null, three_null, options);
+  this->Assert(values, expected, options);
 }
 
 TYPED_TEST(TestCumulativeSum, HasStartDoSkipNoNulls) {
+  CumulativeGenericOptions options = this->generate_options(10, true);
   auto empty = "[]";
-
-  if (this->type_singleton()->id() == Type::DATE64) {
-    // CumulativeGenericOptions options = this->generate_options(86400000, true);
-    // auto values = "[0, 86400000, 172800000, 259200000, 345600000, 432000000]";
-    // auto expected = "[86400000, 172800000, 345600000, 604800000, 950400000,
-    // 1382400000]";
-    // this->Assert(empty, empty, options);
-    // this->Assert(values, expected, options);
-  } else {
-    CumulativeGenericOptions options = this->generate_options(10, true);
-    auto values = "[1, 2, 3, 4, 5, 6]";
-    auto expected = "[11, 13, 16, 20, 25, 31]";
-    this->Assert(empty, empty, options);
-    this->Assert(values, expected, options);
-  }
+  auto values = "[1, 2, 3, 4, 5, 6]";
+  auto expected = "[11, 13, 16, 20, 25, 31]";
+  this->Assert(empty, empty, options);
+  this->Assert(values, expected, options);
 }
 
 TYPED_TEST(TestCumulativeSum, HasStartDoSkipHasNulls) {
+  CumulativeGenericOptions options = this->generate_options(10, true);
   auto one_null = "[null]";
   auto three_null = "[null, null, null]";
-
-  if (this->type_singleton()->id() == Type::DATE64) {
-    // CumulativeGenericOptions options = this->generate_options(86400000, true);
-    // auto values = "[0, 86400000, null, 259200000, null, 432000000]";
-    // auto expected = "[86400000, 172800000, null, 432000000, null, 864000000]";
-    // this->Assert(one_null, one_null, options);
-    // this->Assert(three_null, three_null, options);
-    // this->Assert(values, expected, options);
-  } else {
-    CumulativeGenericOptions options = this->generate_options(10, true);
-    auto values = "[1, 2, null, 4, null, 6]";
-    auto expected = "[11, 13, null, 17, null, 23]";
-    this->Assert(one_null, one_null, options);
-    this->Assert(three_null, three_null, options);
-    this->Assert(values, expected, options);
-  }
+  auto values = "[1, 2, null, 4, null, 6]";
+  auto expected = "[11, 13, null, 17, null, 23]";
+  this->Assert(one_null, one_null, options);
+  this->Assert(three_null, three_null, options);
+  this->Assert(values, expected, options);
 }
 
 }  // namespace compute
