@@ -36,6 +36,7 @@ import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.ValueVector;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -150,12 +151,14 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
   @Test
   public void testShouldGetNegativeIntervalYear( ) {
-    formatIntervalYear(org.joda.time.Period.parse("P-1Y-1M"));
+    String period = "-001-01";
+    Assert.assertEquals(period, formatIntervalYear(parse("P-1Y-1M")));
   }
 
   @Test
   public void testShouldGetNegativeIntervalDay( ) {
-    formatIntervalDay(org.joda.time.Period.parse("PT-1H"));
+    String period = "-000 01:00:00.000";
+    Assert.assertEquals(period, formatIntervalDay(parse("PT-1H")));
   }
 
   @Test
