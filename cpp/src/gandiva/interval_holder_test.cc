@@ -53,13 +53,22 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   int64_t qty_millis_in_response = 73834992;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   int32_t response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 8, true, &out_valid);
   EXPECT_EQ(response_interval_yrs, 73834992);
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
+
+  // Pass negative days
+  data = "P-1D";
+  response = cast_interval_day(&execution_context_, data.data(), 4, true, &out_valid);
+  qty_days_in_response = -1;
+  qty_millis_in_response = 0;
+  EXPECT_TRUE(out_valid);
+  EXPECT_FALSE(execution_context_.has_error());
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   // Pass only years and days to cast
   data = "P12Y15D";
@@ -68,7 +77,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 0;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 7, true, &out_valid);
@@ -83,7 +92,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 0;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 9, true, &out_valid);
@@ -98,7 +107,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 0;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 6, true, &out_valid);
@@ -113,7 +122,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 38541000;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 18, true, &out_valid);
@@ -128,7 +137,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 38541000;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 11, true, &out_valid);
@@ -143,7 +152,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 2541000;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 8, true, &out_valid);
@@ -158,7 +167,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 0;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 4, true, &out_valid);
@@ -175,7 +184,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 40371500;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 30, true, &out_valid);
@@ -190,7 +199,7 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   qty_millis_in_response = 40371500;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   response_interval_yrs =
       cast_interval_year(&execution_context_, data.data(), 30, true, &out_valid);
@@ -362,15 +371,19 @@ TEST_F(TestIntervalHolder, TestUsingWeekFormatterForCastIntervalDay) {
   std::string data("P1W");
   int64_t response =
       cast_interval_day(&execution_context_, data.data(), 3, true, &out_valid);
+  int64_t qty_days_in_response = 7;
+  int64_t qty_millis_in_response = 0;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, 7);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   data = "P10W";
   response = cast_interval_day(&execution_context_, data.data(), 4, true, &out_valid);
+  qty_days_in_response = 70;
+  qty_millis_in_response = 0;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, 70);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   execution_context_.Reset();
 }
@@ -391,7 +404,7 @@ TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalDay) {
   int64_t qty_millis_in_response = 14461111;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   data = "P1Y1M1DT1H1M1S";
   response = cast_interval_day(&execution_context_, data.data(), 14, true, &out_valid);
@@ -399,7 +412,7 @@ TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalDay) {
   qty_millis_in_response = 3661000;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   data = "PT48H1M1S";
   response = cast_interval_day(&execution_context_, data.data(), 9, true, &out_valid);
@@ -407,7 +420,7 @@ TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalDay) {
   qty_millis_in_response = 61000;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   data = "PT1S";
   response = cast_interval_day(&execution_context_, data.data(), 4, true, &out_valid);
@@ -415,7 +428,7 @@ TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalDay) {
   qty_millis_in_response = 1000;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   data = "P10DT1S";
   response = cast_interval_day(&execution_context_, data.data(), 7, true, &out_valid);
@@ -423,7 +436,7 @@ TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalDay) {
   qty_millis_in_response = 1000;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   execution_context_.Reset();
 
@@ -433,7 +446,7 @@ TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalDay) {
   qty_millis_in_response = 0;
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
-  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+  EXPECT_EQ(response, (qty_days_in_response << 32) | qty_millis_in_response);
 
   execution_context_.Reset();
 }
