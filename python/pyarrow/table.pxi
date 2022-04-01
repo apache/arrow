@@ -3875,6 +3875,26 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
         If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> t1 = pa.table([
+    ...     pa.array([2, 4, 5, 100]),
+    ...     pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    ...     ], names=['n_legs', 'animals'])
+    >>> t2 = pa.table([
+    ...     pa.array([2, 4]),
+    ...     pa.array(["Parrot", "Dog"])
+    ...     ], names=['n_legs', 'animals'])
+    >>> pa.concat_tables([t1,t2])
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100],[2,4]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Parrot","Dog"]]
+
     """
     cdef:
         vector[shared_ptr[CTable]] c_tables
@@ -4004,12 +4024,12 @@ class TableGroupBy:
 
     Grouping of columns:
 
-    >>> pa.TableGroupBy(t,'keys')
+    >>> pa.TableGroupBy(t,"keys")
     <pyarrow.lib.TableGroupBy object at ...>
 
     Perform aggregations:
 
-    >>> pa.TableGroupBy(t,'keys').aggregate([("values", "sum")])
+    >>> pa.TableGroupBy(t,"keys").aggregate([("values", "sum")])
     pyarrow.Table
     values_sum: int64
     keys: string
