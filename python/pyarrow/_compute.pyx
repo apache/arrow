@@ -2512,7 +2512,7 @@ def register_function(func_name, num_args, function_doc, in_types,
         MemAllocation c_mem_allocation
         NullHandling c_null_handling
         CStatus st
-        CUDFOptions c_options
+        CScalarUdfOptions* c_options
         object obj
 
     _mem_allocation_map = {
@@ -2528,7 +2528,7 @@ def register_function(func_name, num_args, function_doc, in_types,
     }
 
     if func_name and isinstance(func_name, str):
-        c_func_name = func_name.encode()
+        c_func_name = tobytes(func_name)
     else:
         raise ValueError("func_name should be str")
 
@@ -2572,11 +2572,11 @@ def register_function(func_name, num_args, function_doc, in_types,
     # Note: The VectorUDF, TableUDF and AggregatorUDFs will be defined
     # when they are implemented. Only ScalarUDFBuilder is supported at the
     # moment.
-    c_sc_builder = new CScalarUdfBuilder(c_func_name, c_arity, c_func_doc,
-                                         c_in_types, deref(c_out_type),
-                                         c_mem_allocation, c_null_handling)
-
-    st = c_sc_builder.MakeFunction(c_callback, &c_options)
+    c_options = new CScalarUdfOptions(c_func_name, c_arity, c_func_doc,
+                                      c_in_types, deref(c_out_type),
+                                      c_mem_allocation, c_null_handling)
+    c_sc_builder = new CScalarUdfBuilder()
+    st = c_sc_builder.MakeFunction(c_callback, c_options)
     if not st.ok():
         error_msg = st.message().decode()
         raise RuntimeError(message=error_msg)

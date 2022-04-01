@@ -40,26 +40,21 @@ namespace arrow {
 namespace py {
 
 // Exposing the UDFOptions: https://issues.apache.org/jira/browse/ARROW-16041
-struct UDFOptions {};
-
-class ARROW_PYTHON_EXPORT UdfBuilder {
+class ARROW_PYTHON_EXPORT UdfOptions {
  public:
-  UdfBuilder(const std::string func_name, const compute::Function::Kind kind,
-             const compute::Arity arity, const compute::FunctionDoc func_doc,
+  UdfOptions(const compute::Function::Kind kind, const compute::Arity arity,
+             const compute::FunctionDoc func_doc,
              const std::vector<compute::InputType> in_types,
              const compute::OutputType out_type,
              const compute::MemAllocation::type mem_allocation,
              const compute::NullHandling::type null_handling)
-      : func_name_(func_name),
-        kind_(kind),
+      : kind_(kind),
         arity_(arity),
         func_doc_(func_doc),
         in_types_(in_types),
         out_type_(out_type),
         mem_allocation_(mem_allocation),
         null_handling_(null_handling) {}
-
-  const std::string& name() const { return func_name_; }
 
   compute::Function::Kind kind() { return kind_; }
 
@@ -76,7 +71,6 @@ class ARROW_PYTHON_EXPORT UdfBuilder {
   compute::NullHandling::type null_handling() { return null_handling_; }
 
  private:
-  std::string func_name_;
   compute::Function::Kind kind_;
   compute::Arity arity_;
   const compute::FunctionDoc func_doc_;
@@ -86,18 +80,34 @@ class ARROW_PYTHON_EXPORT UdfBuilder {
   compute::NullHandling::type null_handling_;
 };
 
-class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
+class ARROW_PYTHON_EXPORT ScalarUdfOptions : public UdfOptions {
  public:
-  ScalarUdfBuilder(const std::string func_name, const compute::Arity arity,
+  ScalarUdfOptions(const std::string func_name, const compute::Arity arity,
                    const compute::FunctionDoc func_doc,
                    const std::vector<compute::InputType> in_types,
                    const compute::OutputType out_type,
                    const compute::MemAllocation::type mem_allocation,
                    const compute::NullHandling::type null_handling)
-      : UdfBuilder(func_name, compute::Function::SCALAR, arity, func_doc, in_types,
-                   out_type, mem_allocation, null_handling) {}
+      : UdfOptions(compute::Function::SCALAR, arity, func_doc, in_types, out_type,
+                   mem_allocation, null_handling),
+        func_name_(func_name) {}
 
-  Status MakeFunction(PyObject* function, UDFOptions* options = NULLPTR);
+  const std::string& name() const { return func_name_; }
+
+ private:
+  std::string func_name_;
+};
+
+class ARROW_PYTHON_EXPORT UdfBuilder {
+ public:
+  UdfBuilder() {}
+};
+
+class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
+ public:
+  ScalarUdfBuilder() : UdfBuilder() {}
+
+  Status MakeFunction(PyObject* function, ScalarUdfOptions* options = NULLPTR);
 
  private:
   OwnedRefNoGIL function_;

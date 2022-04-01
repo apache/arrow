@@ -89,7 +89,7 @@ Status VerifyArityAndInput(compute::Arity arity, const compute::ExecBatch& batch
   return Status::OK();
 }
 
-Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
+Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* options) {
   // creating a copy of objects for the lambda function
   Py_INCREF(function);
   function_.reset(function);
@@ -99,10 +99,10 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
   if (!PyCallable_Check(function_.obj())) {
     return Status::TypeError("Expected a callable python object.");
   }
-  auto doc = this->doc();
-  scalar_func_ =
-      std::make_shared<compute::ScalarFunction>(this->name(), this->arity(), &doc);
-  auto arity = this->arity();
+  auto doc = options->doc();
+  auto arity = options->arity();
+  scalar_func_ = std::make_shared<compute::ScalarFunction>(options->name(), arity, &doc);
+
   // lambda function
   auto call_back = [&, arity](compute::KernelContext* ctx,
                               const compute::ExecBatch& batch, Datum* out) -> Status {
@@ -119,11 +119,11 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, UDFOptions* options) {
   };  // lambda function
 
   compute::ScalarKernel kernel(
-      compute::KernelSignature::Make(this->input_types(), this->output_type(),
-                                     this->arity().is_varargs),
+      compute::KernelSignature::Make(options->input_types(), options->output_type(),
+                                     arity.is_varargs),
       call_back);
-  kernel.mem_allocation = this->mem_allocation();
-  kernel.null_handling = this->null_handling();
+  kernel.mem_allocation = options->mem_allocation();
+  kernel.null_handling = options->null_handling();
   RETURN_NOT_OK(scalar_func_->AddKernel(std::move(kernel)));
   auto registry = compute::GetFunctionRegistry();
   RETURN_NOT_OK(registry->AddFunction(std::move(scalar_func_)));

@@ -2722,14 +2722,20 @@ cdef extern from "arrow/compute/kernel.h" namespace "arrow::compute" nogil:
         NullHandling_OUTPUT_NOT_NULL" arrow::compute::NullHandling::OUTPUT_NOT_NULL"
 
 cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
-    cdef cppclass CUDFOptions" arrow::py::UDFOptions":
-        pass
-    cdef cppclass CUdfBuilder" arrow::py::UdfBuilder":
-        CUdfBuilder(c_string func_name, FunctionKind kind, CArity arity, CFunctionDoc func_doc,
+    cdef cppclass CUdfOptions" arrow::py::UdfOptions":
+        CUdfOptions(FunctionKind kind, CArity arity, CFunctionDoc func_doc,
                     vector[CInputType] in_types, COutputType out_type,
                     MemAllocation mem_allocation, NullHandling null_handling)
-    cdef cppclass CScalarUdfBuilder" arrow::py::ScalarUdfBuilder"(CUdfBuilder):
-        CScalarUdfBuilder(c_string func_name, CArity arity, CFunctionDoc func_doc,
+
+    cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions"(CUdfOptions):
+
+        CScalarUdfOptions(c_string func_name, CArity arity, CFunctionDoc func_doc,
                           vector[CInputType] in_types, COutputType out_type,
                           MemAllocation mem_allocation, NullHandling null_handling)
-        CStatus MakeFunction(PyObject* function, CUDFOptions* options)
+
+    cdef cppclass CUdfBuilder" arrow::py::UdfBuilder":
+        CUdfBuilder()
+
+    cdef cppclass CScalarUdfBuilder" arrow::py::ScalarUdfBuilder"(CUdfBuilder):
+        CScalarUdfBuilder()
+        CStatus MakeFunction(PyObject* function, CScalarUdfOptions* options)
