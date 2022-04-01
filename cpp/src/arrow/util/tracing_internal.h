@@ -179,11 +179,9 @@ class SpanImpl {};
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
-#define GET_CURRENT_SPAN(lhs)
-#define SET_SPAN_SCOPE(lhs, span)
-#define TIE_SPAN_TO_GENERATOR(generator)
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
-#define WRAP_ASYNC_GENERATOR(generator, name)
+#define WRAP_ASYNC_GENERATOR(generator)
+#define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name)
 
 #endif
 
