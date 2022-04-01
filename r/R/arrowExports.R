@@ -1944,8 +1944,8 @@ Tpch_Dbgen <- function(plan, scale_factor, table_name) {
   .Call(`_arrow_Tpch_Dbgen`, plan, scale_factor, table_name)
 }
 
-Tpch_Dbgen_Write <- function(plan, scale_factor, filesystem, base_dir) {
-  invisible(.Call(`_arrow_Tpch_Dbgen_Write`, plan, scale_factor, filesystem, base_dir))
+Tpch_Dbgen_Write <- function(plan, scale_factor, filesystem, base_dir, folder_name) {
+  invisible(.Call(`_arrow_Tpch_Dbgen_Write`, plan, scale_factor, filesystem, base_dir, folder_name))
 }
 
 Array__infer_type <- function(x) {

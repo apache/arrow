@@ -33,13 +33,29 @@ tpch_dbgen <- function(table = tpch_tables, scale_factor) {
   Tpch_Dbgen(ExecPlan$create(), scale_factor, table)
 }
 
+#' Generate TPC-H data as datasets
+#'
+#' This will generate all of the TPC-H data as a set of datasets for a given
+#' `scale_factor`
+#'
+#' @param scale_factor numeric, scale factor of data to generate
+#' @param path
+#' @param ...
+#'
+#' @return the path to the directory containing the datasets
+#' @export
+#' @keywords internal
 tpch_dbgen_write <- function(scale_factor, path, ...) {
   path_and_fs <- get_path_and_filesystem(path)
+  folder_name <- paste0("/tpch_", format(scale_factor, scientific = FALSE))
 
   Tpch_Dbgen_Write(
     ExecPlan$create(),
     scale_factor,
     path_and_fs$fs,
-    path_and_fs$path
+    path_and_fs$path,
+    folder_name
   )
+
+  invisible(file.path(path_and_fs$path, folder_name))
 }

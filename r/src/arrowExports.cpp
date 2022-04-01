@@ -7657,19 +7657,20 @@ extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP t
 
 // tpch-gen.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir);
-extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp){
+void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, std::string folder_name);
+extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP folder_name_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<double>::type scale_factor(scale_factor_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
 	arrow::r::Input<std::string>::type base_dir(base_dir_sexp);
-	Tpch_Dbgen_Write(plan, scale_factor, filesystem, base_dir);
+	arrow::r::Input<std::string>::type folder_name(folder_name_sexp);
+	Tpch_Dbgen_Write(plan, scale_factor, filesystem, base_dir, folder_name);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp){
+extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP folder_name_sexp){
 	Rf_error("Cannot call Tpch_Dbgen_Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -8236,7 +8237,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_GetIOThreadPoolCapacity", (DL_FUNC) &_arrow_GetIOThreadPoolCapacity, 0}, 
 		{ "_arrow_SetIOThreadPoolCapacity", (DL_FUNC) &_arrow_SetIOThreadPoolCapacity, 1}, 
 		{ "_arrow_Tpch_Dbgen", (DL_FUNC) &_arrow_Tpch_Dbgen, 3}, 
-		{ "_arrow_Tpch_Dbgen_Write", (DL_FUNC) &_arrow_Tpch_Dbgen_Write, 4}, 
+		{ "_arrow_Tpch_Dbgen_Write", (DL_FUNC) &_arrow_Tpch_Dbgen_Write, 5}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{NULL, NULL, 0}
 };

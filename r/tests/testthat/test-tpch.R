@@ -55,5 +55,5 @@ for (table_name in tpch_tables_up) {
 test_that("tpch_dbgen_write()", {
     td <- make_temp_dir()
 
-    tpch_dbgen_write(1, td)
+    tpch_dbgen_write(0.01, td)
 })

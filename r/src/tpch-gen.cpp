@@ -124,15 +124,14 @@ void Queue_Write_One_Table(const std::shared_ptr<compute::ExecPlan>& plan,
 // [[arrow::export]]
 void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor,
                       const std::shared_ptr<fs::FileSystem>& filesystem,
-                      std::string base_dir) {
+                      std::string base_dir, std::string folder_name) {
   arrow::dataset::internal::Initialize();
 
   auto gen =
       ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor));
 
-  // TODO: unhardcode this once it's working
-  auto base_path = base_dir + "/tpch";
-  filesystem->CreateDir(base_path);
+  auto base_path = base_dir + folder_name;
+  (void)filesystem->CreateDir(base_path);
 
   static std::string tables[] = {"part",   "supplier", "partsupp", "customer",
                                  "nation", "lineitem", "region",   "orders"};
