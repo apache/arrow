@@ -68,7 +68,8 @@ inline Result<T> MarkSpan(Result<T> result, opentelemetry::trace::Span* span) {
 /// (if any) as of when WrapAsyncGenerator was itself called.
 template <typename T>
 AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
-                                     const std::string& span_name = "", bool create_childspan = false) {
+                                     const std::string& span_name = "",
+                                     bool create_childspan = false) {
   auto active_span = GetTracer()->GetCurrentSpan();
   return [=]() mutable -> Future<T> {
     auto span = active_span;
@@ -77,10 +78,10 @@ AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
     if (create_childspan) {
       span = GetTracer()->StartSpan(span_name);
     }
-      fut.AddCallback([span](const Result<T> &result) {
-          MarkSpan(result.status(), span.get());
-          span->End();
-      });
+    fut.AddCallback([span](const Result<T>& result) {
+      MarkSpan(result.status(), span.get());
+      span->End();
+    });
     return fut;
   };
 }
@@ -165,7 +166,8 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
   generator = ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator))
 
 #define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name) \
-  generator = ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator), name, true)
+  generator =                                                 \
+      ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator), name, true)
 
 #else
 
