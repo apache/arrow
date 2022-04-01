@@ -1226,20 +1226,13 @@ test_that("make_difftime()", {
     test_df
   )
 
-  # month as component not supported due to variable length
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(error_difftime = make_difftime(month = number, units = "secs")) %>%
-      collect()
-  )
-
   # units other than "secs" not supported since they are the only ones in common
   # between R and Arrow
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(error_difftime = make_difftime(num = number, units = "mins")) %>%
-      collect()
+      collect(),
+    test_df,
+    warning = TRUE
   )
 })
