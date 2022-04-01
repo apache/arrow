@@ -768,7 +768,6 @@ cdef class _PandasConvertible(_Weakrefable):
         3     100      Centipede
         >>> isinstance(table.to_pandas(), pd.DataFrame)
         True
-
         """
         options = dict(
             pool=memory_pool,

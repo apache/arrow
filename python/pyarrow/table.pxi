@@ -1578,7 +1578,6 @@ cdef class Table(_PandasConvertible):
     ----
     n_legs: [[2,4,5,100]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-
     """
 
     def __cinit__(self):
@@ -1613,7 +1612,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.to_string()
         'pyarrow.Table\nyear: int64\nn_legs: int64\nanimals: string'
-
         """
         # Use less verbose schema output.
         schema_as_string = self.schema.to_string(
@@ -1742,7 +1740,6 @@ cdef class Table(_PandasConvertible):
         year: [[2019]]
         n_legs: [[5]]
         animals: [["Brittle stars"]]
-
         """
         cdef shared_ptr[CTable] result
 
@@ -1806,7 +1803,6 @@ cdef class Table(_PandasConvertible):
         year: [[2020,2022,null]]
         n_legs: [[2,4,null]]
         animals: [["Flamingo","Horse",null]]
-
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -1843,7 +1839,6 @@ cdef class Table(_PandasConvertible):
         year: [[2022,2021]]
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
-
         """
         return _pc().take(self, indices)
 
@@ -1869,7 +1864,6 @@ cdef class Table(_PandasConvertible):
         year: [[2022,2021]]
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
-
         """
         return _pc().drop_null(self)
 
@@ -1909,7 +1903,6 @@ cdef class Table(_PandasConvertible):
         year: int64
         ----
         year: [[2020,2022,2019,2021]]
-
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1976,7 +1969,6 @@ cdef class Table(_PandasConvertible):
         animals: string
         -- schema metadata --
         animals: 'Which animal'
-
         """
         cdef:
             shared_ptr[const CKeyValueMetadata] c_meta
@@ -2044,7 +2036,6 @@ cdef class Table(_PandasConvertible):
         a.n_legs: [[2,4]]
         a.year: [[null,2022]]
         month: [[4,6]]
-
         """
         cdef:
             shared_ptr[CTable] flattened
@@ -2092,7 +2083,6 @@ cdef class Table(_PandasConvertible):
         ----
         n_legs: [[2,2,4,4,5,100]]
         animals: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
-
         """
         cdef:
             shared_ptr[CTable] combined
@@ -2140,7 +2130,7 @@ cdef class Table(_PandasConvertible):
         [0,1,2]]
 
         Unify dictionaries across both chunks:
-        
+
         >>> table.unify_dictionaries()
         pyarrow.Table
         animals: dictionary<values=string, indices=int32, ordered=0>
@@ -2150,7 +2140,6 @@ cdef class Table(_PandasConvertible):
         [0,1,2],  -- dictionary:
         ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
         [3,4,5]]
-
         """
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -2202,7 +2191,6 @@ cdef class Table(_PandasConvertible):
         True
         >>> table.equals(table_1, check_metadata=True)
         False
-
         """
         if other is None:
             return False
@@ -2258,7 +2246,6 @@ cdef class Table(_PandasConvertible):
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-
         """
         cdef:
             ChunkedArray column, casted
@@ -2337,7 +2324,6 @@ cdef class Table(_PandasConvertible):
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
@@ -2434,7 +2420,6 @@ cdef class Table(_PandasConvertible):
         animals: string
         -- schema metadata --
         animals: 'Name of the animal species'
-
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] columns
@@ -2507,7 +2492,6 @@ cdef class Table(_PandasConvertible):
         animals: string
         -- schema metadata --
         n_legs: 'Number of legs per animal'
-
         """
 
         return _from_pydict(cls=Table,
@@ -2565,7 +2549,6 @@ cdef class Table(_PandasConvertible):
         animals: string
         -- schema metadata --
         year: 'Year of entry'
-
         """
 
         return _from_pylist(cls=Table,
@@ -2621,8 +2604,6 @@ cdef class Table(_PandasConvertible):
         ----
         n_legs: [[2,4,5,100],[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Flamingo","Horse","Brittle stars","Centipede"]]
-
-
         """
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
@@ -2691,7 +2672,6 @@ cdef class Table(_PandasConvertible):
            n_legs        animals
         0       5  Brittle stars
         1     100      Centipede
-
         """
         cdef:
             unique_ptr[TableBatchReader] reader
@@ -2759,7 +2739,6 @@ cdef class Table(_PandasConvertible):
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-
         """
         cdef:
             shared_ptr[CRecordBatchReader] c_reader
@@ -2802,7 +2781,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.to_pydict()
         {'n_legs': [2, 4, 5, 100], 'animals': ['Flamingo', 'Horse', 'Brittle stars', 'Centipede']}
-
         """
         cdef:
             size_t i
@@ -2833,7 +2811,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.to_pylist()
         [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 4, 'animals': 'Horse'}, ...
-
         """
         pydict = self.to_pydict()
         names = self.schema.names
@@ -2862,7 +2839,6 @@ cdef class Table(_PandasConvertible):
         animals: string
         -- schema metadata --
         pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' ...
-
         """
         return pyarrow_wrap_schema(self.table.schema())
 
@@ -2890,7 +2866,6 @@ cdef class Table(_PandasConvertible):
         pyarrow.Field<n_legs: int64>
         >>> table.field(1)
         pyarrow.Field<animals: string>
-
         """
         return self.schema.field(i)
 
@@ -2960,7 +2935,6 @@ cdef class Table(_PandasConvertible):
             "Centipede"
           ]
         ]
-
         """
         return self._column(self._ensure_integer_index(i))
 
@@ -3004,7 +2978,6 @@ cdef class Table(_PandasConvertible):
         ... 
         2
         1
-
         """
         for i in range(self.num_columns):
             yield self._column(i)
@@ -3043,7 +3016,6 @@ cdef class Table(_PandasConvertible):
             "Centipede"
           ]
         ]]
-
         """
         return [self._column(i) for i in range(self.num_columns)]
 
@@ -3065,7 +3037,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.num_columns
         2
-
         """
         return self.table.num_columns()
 
@@ -3090,7 +3061,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.num_rows
         4
-
         """
         return self.table.num_rows()
 
@@ -3116,7 +3086,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.shape
         (4, 2)
-
         """
         return (self.num_rows, self.num_columns)
 
@@ -3145,7 +3114,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.nbytes
         72
-
         """
         cdef:
             CResult[int64_t] c_res_buffer
@@ -3174,7 +3142,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.get_total_buffer_size()
         76
-
         """
         cdef:
             int64_t total_buffer_size
@@ -3237,7 +3204,6 @@ cdef class Table(_PandasConvertible):
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -3297,7 +3263,6 @@ cdef class Table(_PandasConvertible):
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         year: [[2021,2022,2019,2021]]
-
         """
         return self.add_column(self.num_columns, field_, column)
 
@@ -3327,7 +3292,6 @@ cdef class Table(_PandasConvertible):
         n_legs: int64
         ----
         n_legs: [[2,4,5,100]]
-
         """
         cdef shared_ptr[CTable] c_table
 
@@ -3373,7 +3337,6 @@ cdef class Table(_PandasConvertible):
         ----
         n_legs: [[2,4,5,100]]
         year: [[2021,2022,2019,2021]]
-
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -3414,7 +3377,6 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.column_names
         ['n_legs', 'animals']
-
         """
         names = self.table.ColumnNames()
         return [frombytes(name) for name in names]
@@ -3447,7 +3409,6 @@ cdef class Table(_PandasConvertible):
         ----
         n: [[2,4,5,100]]
         name: [["Flamingo","Horse","Brittle stars","Centipede"]]
-
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -3502,7 +3463,6 @@ cdef class Table(_PandasConvertible):
         pyarrow.Table
         ...
         ----
-
         """
         indices = []
         for col in columns:
@@ -3626,7 +3586,6 @@ cdef class Table(_PandasConvertible):
         id: [[4]]
         n_legs: [[100]]
         animal: [["Centipede"]]
-
         """
         if right_keys is None:
             right_keys = keys
@@ -3669,7 +3628,6 @@ cdef class Table(_PandasConvertible):
         ----
         n_legs_sum: [[2,6,104,5]]
         year: [[2020,2022,2021,2019]]
-
         """
         return TableGroupBy(self, keys)
 
@@ -3708,7 +3666,6 @@ cdef class Table(_PandasConvertible):
         year: [[2019,2021,2021,2020,2022,2022]]
         n_legs: [[5,100,4,2,4,2]]
         animal: [["Brittle stars","Centipede","Dog","Flamingo","Horse","Parrot"]]
-
         """
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
@@ -3868,7 +3825,6 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     ----
     n_legs: [[2,2,4],[4,5,100]]
     animals: [["Flamingo","Parrot","Dog"],["Horse","Brittle stars","Centipede"]]
-
     """
     # accept schema as first argument for backwards compatibility / usability
     if isinstance(names, Schema) and schema is None:
