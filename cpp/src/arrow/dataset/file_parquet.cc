@@ -418,7 +418,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
   };
   auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
                                       .Then(std::move(make_generator)));
-  WRAP_ASYNC_GENERATOR(generator,
+  WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator,
                        "arrow::dataset::ParquetFileFormat::ScanBatchesAsync::Next");
   return generator;
 }

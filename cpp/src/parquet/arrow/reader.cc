@@ -1137,7 +1137,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
     row_group_generator = ::arrow::MakeReadaheadGenerator(std::move(row_group_generator),
                                                           row_group_readahead);
   }
-  TIE_SPAN_TO_GENERATOR(std::move(row_group_generator));
+  WRAP_ASYNC_GENERATOR(std::move(row_group_generator));
   return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
 }
 

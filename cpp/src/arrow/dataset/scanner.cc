@@ -228,7 +228,7 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
                           MakeArrayOfNull(field->type(), /*length=*/0, options->pool));
     columns.push_back(std::move(array));
   }
-  TIE_SPAN_TO_GENERATOR(batch_gen);
+  WRAP_ASYNC_GENERATOR(batch_gen);
   batch_gen = MakeDefaultIfEmptyGenerator(
       std::move(batch_gen),
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));

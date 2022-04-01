@@ -171,7 +171,7 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
     }
-    WRAP_ASYNC_GENERATOR(generator,
+    WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator,
                          "arrow::dataset::IpcFileFormat::ScanBatchesAsync::Next");
     auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
     return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);

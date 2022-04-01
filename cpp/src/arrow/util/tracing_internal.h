@@ -68,51 +68,21 @@ inline Result<T> MarkSpan(Result<T> result, opentelemetry::trace::Span* span) {
 /// (if any) as of when WrapAsyncGenerator was itself called.
 template <typename T>
 AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
-                                     const std::string& span_name) {
+                                     const std::string& span_name = "", bool create_childspan = false) {
   auto active_span = GetTracer()->GetCurrentSpan();
   return [=]() mutable -> Future<T> {
+    auto span = active_span;
     auto scope = GetTracer()->WithActiveSpan(active_span);
-    auto span = GetTracer()->StartSpan(span_name);
     auto fut = wrapped();
-    fut.AddCallback([span](const Result<T>& result) {
-      MarkSpan(result.status(), span.get());
-      span->End();
-    });
+    if (create_childspan) {
+      span = GetTracer()->StartSpan(span_name);
+    }
+      fut.AddCallback([span](const Result<T> &result) {
+          MarkSpan(result.status(), span.get());
+          span->End();
+      });
     return fut;
   };
-}
-
-/// \brief End the given span when the given async generator ends.
-///
-/// The span will be made the active span each time the generator is called.
-template <typename T>
-AsyncGenerator<T> TieSpanToAsyncGenerator(
-    AsyncGenerator<T> wrapped,
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span) {
-  return [=]() mutable -> Future<T> {
-    auto scope = GetTracer()->WithActiveSpan(span);
-    return wrapped().Then(
-        [span](const T& result) -> Result<T> {
-          span->SetStatus(opentelemetry::trace::StatusCode::kOk);
-          span->End();
-          return result;
-        },
-        [span](const Status& status) -> Result<T> {
-          MarkSpan(status, span.get());
-          span->End();
-          return status;
-        });
-  };
-}
-
-/// \brief End the current span when the given async generator ends.
-///
-/// The span will be made the active span each time the generator is called.
-template <typename T>
-AsyncGenerator<T> TieSpanToAsyncGenerator(AsyncGenerator<T> wrapped) {
-  auto span = GetTracer()->GetCurrentSpan();
-  if (!span->GetContext().IsValid()) return wrapped;
-  return TieSpanToAsyncGenerator(wrapped, span);
 }
 
 /// \brief Propagate the given span to each invocation of an async generator.
@@ -133,6 +103,14 @@ AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(AsyncGenerator<T> wrapped) 
   if (!span->GetContext().IsValid()) return wrapped;
   return PropagateSpanThroughAsyncGenerator(std::move(wrapped), std::move(span));
 }
+
+/*
+ * PropagateSpanThroughAsyncGenerator - only makes sure the trace context is propagated,
+ * so that spans created when running generator instances asynchronously do not
+ * end up in a separate, disconnected trace.
+ * WrapAsyncGenerator - Connect the current span to the generator. When the generator
+ * finishes, it will stop the span. Optionally, create child spans at each invocation.
+ */
 
 class SpanImpl {
  public:
@@ -179,21 +157,15 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
         return st;                                                                \
       })
 
-#define GET_CURRENT_SPAN(lhs) \
-  lhs = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()
-
-#define SET_SPAN_SCOPE(lhs, span) \
-  lhs = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span)
-
-#define TIE_SPAN_TO_GENERATOR(generator) \
-  generator = ::arrow::internal::tracing::TieSpanToAsyncGenerator(std::move(generator))
-
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)                                \
   generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator( \
       std::move(generator))
 
-#define WRAP_ASYNC_GENERATOR(generator, name) \
-  generator = ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator), name)
+#define WRAP_ASYNC_GENERATOR(generator) \
+  generator = ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator))
+
+#define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name) \
+  generator = ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator), name, true)
 
 #else
 
