@@ -815,9 +815,7 @@ class UcpCallDriver::Impl {
     }
 
     endpoint_ = nullptr;
-    if (status != UCS_OK && status != UCS_ERR_ENDPOINT_TIMEOUT &&
-        status != UCS_ERR_NOT_CONNECTED) {
-      // Ignore timeout, not connected
+    if (status != UCS_OK && !IsIgnorableDisconnectError(status)) {
       return FromUcsStatus(origin, status);
     }
     return Status::OK();

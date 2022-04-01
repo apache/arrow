@@ -150,8 +150,7 @@ class ClientConnection {
 
     auto status = driver_->SendFrame(FrameType::kDisconnect, nullptr, 0);
     const auto ucs_status = FlightUcxStatusDetail::Unwrap(status);
-    if (ucs_status == UCS_ERR_ENDPOINT_TIMEOUT || ucs_status == UCS_ERR_NOT_CONNECTED) {
-      // Ignore timeout, not connected
+    if (IsIgnorableDisconnectError(ucs_status)) {
       status = Status::OK();
     }
     status = MergeStatuses(std::move(status), driver_->Close());
