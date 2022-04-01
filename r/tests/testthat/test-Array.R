@@ -261,7 +261,7 @@ test_that("array supports POSIXct (ARROW-3340)", {
 })
 
 test_that("array uses local timezone for POSIXct without timezone", {
-  withr::with_envvar(c(TZ = ""), {
+  withr::with_timezone("", {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
     expect_equal(attr(times, "tzone"), NULL)
     expect_array_roundtrip(times, timestamp("us", Sys.timezone()))
@@ -272,6 +272,8 @@ test_that("array uses local timezone for POSIXct without timezone", {
     attributes(times_int) <- attributes(times)
     expect_array_roundtrip(times_int, timestamp("us", ""))
   })
+
+  # If there is a timezone set, we record that
   withr::with_timezone("Pacific/Marquesas", {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
     expect_equal(attr(times, "tzone"), "Pacific/Marquesas")
