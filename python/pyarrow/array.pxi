@@ -756,10 +756,10 @@ cdef class _PandasConvertible(_Weakrefable):
         Convert a Table to pandas DataFrame:
 
         >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
-        >>> names = ["n_legs", "animals"]
-        >>> table = pa.Table.from_arrays([n_legs, animals], names=names)
+        >>> table = pa.table([
+        ...    pa.array([2, 4, 5, 100]),
+        ...    pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        ...    ], names=['n_legs', 'animals'])
         >>> table.to_pandas()
            n_legs        animals
         0       2       Flamingo
