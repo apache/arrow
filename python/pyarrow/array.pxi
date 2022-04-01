@@ -750,6 +750,25 @@ cdef class _PandasConvertible(_Weakrefable):
         Returns
         -------
         pandas.Series or pandas.DataFrame depending on type of object
+
+        Examples
+        --------
+        Convert a Table to pandas DataFrame:
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> names = ["n_legs", "animals"]
+        >>> table = pa.Table.from_arrays([n_legs, animals], names=names)
+        >>> table.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       4          Horse
+        2       5  Brittle stars
+        3     100      Centipede
+        >>> isinstance(table.to_pandas(), pd.DataFrame)
+        True
+
         """
         options = dict(
             pool=memory_pool,
