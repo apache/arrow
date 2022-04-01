@@ -60,10 +60,10 @@ but some modules are JNI bindings to the C++ library.
      - (Experimental) An RPC mechanism for transferring ValueVectors.
      - Native
    * - flight-grpc
-     - (Experimental) Contains utility class to expose Flight gRPC service and client.
+     - (Experimental) Contains utility classes to expose Flight gRPC service and client.
      - Native
    * - flight-sql
-     - (Experimental) Contains utility classes to expose Flight SQL semantics for clients and servers over Arrow Flight.
+     - (Experimental) Implements SQL semantics for clients and servers over Arrow Flight.
      - Native
    * - flight-integration-tests
      - Integration tests for Flight RPC.
