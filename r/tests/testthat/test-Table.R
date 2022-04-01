@@ -557,22 +557,36 @@ test_that("Table supports cbind", {
 
   # Handles a variety of input types
   inputs <- list(
-    Table$create(z = 1L:2L),
-    RecordBatch$create(a = 1:2),
+    Table$create(a = 1L:2L),
     b = Array$create(4:5),
-    c = c("a", "b"),
+    c = factor(c("a", "b")),
     d = 1L
   )
 
   r_inputs <- inputs
   r_inputs[[1]] <- as.data.frame(r_inputs[[1]])
-  r_inputs[[2]] <- as.data.frame(r_inputs[[2]])
   r_inputs[["b"]] <- as.vector(r_inputs[["b"]])
 
   expected <- Table$create(do.call(cbind, r_inputs))
   actual <- do.call(cbind, inputs)
   expect_equal(expected, actual, ignore_attr = TRUE)
-  expect_equal(names(actual), c("z", "a", "b", "c", "d"))
+  expect_equal(names(actual), c("a", "b", "c", "d"))
+})
+
+test_that("cbind.Table handles record batches and tables", {
+  # R 3.6 cbind dispatch rules cause cbind to fall back to default impl if
+  # there are multiple arguments with distinct cbind implementations
+  skip_if(getRversion() < "4.0.0", "R 3.6 cbind dispatch rules prevent this behavior")
+
+  inputs <- list(
+    Table$create(a = 1L:2L),
+    RecordBatch$create(b = 4:5)
+  )
+
+  expected <- Table$create(do.call(cbind, map(inputs, as.data.frame)))
+  actual <- do.call(cbind, inputs)
+  expect_equal(expected, actual, ignore_attr = TRUE)
+  expect_equal(names(actual), c("a", "b"))
 })
 
 test_that("ARROW-11769 - grouping preserved in table creation", {

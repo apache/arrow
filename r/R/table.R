@@ -186,13 +186,18 @@ cbind.Table <- function(...) {
     } else if (inherits(input, "RecordBatch")) {
       cbind_check_length(num_rows, input$num_rows, idx)
       Table$create(input)
-    } else if (is.vector(input) && length(input) == 1) {
+    } else if (is.atomic(input) && length(input) == 1) {
       Table$create("{idx}" := rep(input, num_rows))
-    } else if (inherits(input, "Array") || is.vector(input)) {
-      cbind_check_length(num_rows, length(input), idx)
-      Table$create("{idx}" := input)
     } else {
-      abort(sprintf("Input ..%i is of unsupported type", idx))
+      tryCatch(
+        {
+          cbind_check_length(num_rows, length(input), idx)
+          RecordBatch$create("{idx}" := input)
+        },
+        error = function(err) {
+          abort(sprintf("Input ..%i cannot be converted to an Arrow Array: %s", idx, err))
+        }
+      )
     }
   })
 

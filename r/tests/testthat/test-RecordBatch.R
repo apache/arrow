@@ -547,7 +547,7 @@ test_that("RecordBatch supports cbind", {
   inputs <- list(
     RecordBatch$create(a = 1:2),
     b = Array$create(4:5),
-    c = c("a", "b"),
+    c = factor(c("a", "b")),
     d = 1L
   )
   r_inputs <- inputs
