@@ -202,15 +202,6 @@ FunctionDoc = namedtuple(
      "options_required"))
 
 
-cdef wrap_arity(const CArity c_arity):
-    """
-    Wrap a C++ Arity in an Arity object
-    """
-    cdef Arity arity = Arity.__new__(Arity)
-    arity.init(c_arity)
-    return arity
-
-
 cdef wrap_input_type(const CInputType c_input_type):
     """
     Wrap a C++ InputType in an InputType object
@@ -279,64 +270,6 @@ cdef class InputType(_Weakrefable):
         c_data_type = pyarrow_unwrap_data_type(data_type)
         c_input_type = CInputType.Array(c_data_type)
         return wrap_input_type(c_input_type)
-
-
-cdef class Arity(_Weakrefable):
-    """
-    An Arity object. 
-    """
-
-    def __init__(self):
-        raise TypeError("Cannot use constructor to initialize Arity")
-
-    cdef void init(self, const CArity &arity):
-        self.arity = arity
-
-    @staticmethod
-    def nullary():
-        """
-        create a nullary arity object
-        """
-        cdef CArity c_arity = CArity.Nullary()
-        return wrap_arity(c_arity)
-
-    @staticmethod
-    def unary():
-        """
-        create a unary arity object
-        """
-        cdef CArity c_arity = CArity.Unary()
-        return wrap_arity(c_arity)
-
-    @staticmethod
-    def binary():
-        """
-        create a binary arity object
-        """
-        cdef CArity c_arity = CArity.Binary()
-        return wrap_arity(c_arity)
-
-    @staticmethod
-    def ternary():
-        """
-        create a ternary arity object
-        """
-        cdef CArity c_arity = CArity.Ternary()
-        return wrap_arity(c_arity)
-
-    @staticmethod
-    def varargs(num_args):
-        """
-        create a varargs arity object with defined number of arguments
-
-        Parameter
-        ---------
-
-        num_args: int 
-            number of arguments 
-        """
-        cdef CArity c_arity = CArity.VarArgs(num_args)
-        return wrap_arity(c_arity)
 
 
 cdef class Function(_Weakrefable):
@@ -2538,7 +2471,7 @@ def register_function(func_name, num_args, function_doc, in_types,
 
     >>> from pyarrow import compute as pc
     >>> from pyarrow.compute import register_function
-    >>> from pyarrow.compute import Arity, InputType
+    >>> from pyarrow.compute import InputType
     >>> 
     >>> func_doc = {}
     >>> func_doc["summary"] = "simple udf"
@@ -2550,7 +2483,7 @@ def register_function(func_name, num_args, function_doc, in_types,
     ... 
     >>> 
     >>> func_name = "py_add_func"
-    >>> arity = Arity.unary()
+    >>> arity = 1
     >>> in_types = [InputType.array(pa.int64())]
     >>> out_type = pa.int64()
     >>> register_function(func_name, arity, func_doc,
@@ -2602,15 +2535,15 @@ def register_function(func_name, num_args, function_doc, in_types,
     if num_args and isinstance(num_args, int):
         assert num_args > 0
         if num_args == 0:
-            c_arity = (<Arity> Arity.nullary()).arity
+            c_arity = CArity.Nullary()
         elif num_args == 1:
-            c_arity = (<Arity> Arity.unary()).arity
+            c_arity = CArity.Unary()
         elif num_args == 2:
-            c_arity = (<Arity> Arity.binary()).arity
+            c_arity = CArity.Binary()
         elif num_args == 3:
-            c_arity = (<Arity> Arity.ternary()).arity
+            c_arity = CArity.Ternary()
         elif num_args > 3:
-            c_arity = (<Arity> Arity.varargs(num_args)).arity
+            c_arity = CArity.VarArgs(num_args)
     else:
         raise ValueError("arity must be an instance of Arity")
 

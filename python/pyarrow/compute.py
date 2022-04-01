@@ -16,7 +16,6 @@
 # under the License.
 
 from pyarrow._compute import (  # noqa
-    Arity,
     Function,
     FunctionOptions,
     FunctionRegistry,

@@ -21,12 +21,6 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-cdef class Arity(_Weakrefable):
-    cdef:
-        CArity arity
-
-    cdef void init(self, const CArity &arity)
-
 
 cdef class InputType(_Weakrefable):
     cdef:
