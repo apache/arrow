@@ -100,32 +100,51 @@ struct CumulativeGeneric {
 const FunctionDoc cumulative_sum_doc{
     "Compute the cumulative sum over an array of numbers",
     ("`values` must be an array of numeric type values.\n"
-     "Return an array which is the cumulative sum computed over `values.`"),
+     "Return an array which is the cumulative sum computed over `values`.\n"
+     "Results will wrap around on integer overflow.\n"
+     "Use function \"cumulative_sum_checked\" if you want overflow\n"
+     "to return an error."),
     {"values"},
     "CumulativeGenericOptions"};
 
-void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
-  auto options = CumulativeGenericOptions::Defaults();
-  auto cumulative_sum = std::make_shared<VectorFunction>("cumulative_sum", Arity::Unary(),
-                                                         &cumulative_sum_doc, &options);
+const FunctionDoc cumulative_sum_checked_doc{
+    "Compute the cumulative sum over an array of numbers",
+    ("`values` must be an array of numeric type values.\n"
+     "Return an array which is the cumulative sum computed over `values`.\n"
+     "This function returns an error on overflow. For a variant that\n"
+     "doesn't fail on overflow, use function \"cumulative_sum\"."),
+    {"values"},
+    "CumulativeGenericOptions"};
+
+template <typename Op, typename OptionsType>
+void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string func_name,
+                                  const FunctionDoc* doc) {
+  auto options = OptionsType::Defaults();
+  auto cumulative_func =
+      std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &options);
 
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
-  types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
 
-  for (const auto& ty : NumericTypes()) {
+  for (const auto& ty : types) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::INTERSECTION;
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
-    kernel.exec =
-        ArithmeticExecFromOp<CumulativeGeneric, Add, CumulativeGenericOptions>(ty);
-    kernel.init = OptionsWrapper<CumulativeGenericOptions>::Init;
-    DCHECK_OK(cumulative_sum->AddKernel(std::move(kernel)));
+    kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
+    kernel.init = OptionsWrapper<OptionsType>::Init;
+    DCHECK_OK(cumulative_func->AddKernel(std::move(kernel)));
   }
 
-  DCHECK_OK(registry->AddFunction(std::move(cumulative_sum)));
+  DCHECK_OK(registry->AddFunction(std::move(cumulative_func)));
+}
+
+void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
+  MakeVectorCumulativeFunction<Add, CumulativeGenericOptions>(registry, "cumulative_sum",
+                                                              &cumulative_sum_doc);
+  MakeVectorCumulativeFunction<AddChecked, CumulativeGenericOptions>(
+      registry, "cumulative_sum_checked", &cumulative_sum_checked_doc);
 }
 
 }  // namespace internal
