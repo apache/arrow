@@ -137,6 +137,8 @@ TEST(TestDispatchBest, CommonTemporal) {
   args = {timestamp(TimeUnit::SECOND, "UTC"), timestamp(TimeUnit::NANO, "UTC")};
   AssertTypeEqual(timestamp(TimeUnit::NANO, "UTC"),
                   CommonTemporal(args.data(), args.size()));
+  args = {timestamp(TimeUnit::SECOND), date32()};
+  AssertTypeEqual(timestamp(TimeUnit::SECOND), CommonTemporal(args.data(), args.size()));
   args = {date32(), timestamp(TimeUnit::NANO)};
   AssertTypeEqual(timestamp(TimeUnit::NANO), CommonTemporal(args.data(), args.size()));
   args = {date64(), timestamp(TimeUnit::SECOND)};
@@ -166,6 +168,8 @@ TEST(TestDispatchBest, CommonTemporalResolution) {
   ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
   args = {date32(), date64()};
   ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  args = {date32(), timestamp(TimeUnit::SECOND)};
+  ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
   args = {time32(TimeUnit::MILLI), date32()};
   ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
   args = {time32(TimeUnit::MILLI), time32(TimeUnit::SECOND)};
