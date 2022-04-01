@@ -351,6 +351,33 @@ register_bindings_duration <- function() {
     delta <- delta$cast(int64())
     start + delta$cast(duration("s"))
   })
+  register_binding("parse_date_time", function(x,
+                                               orders,
+                                               tz = "UTC") {
+
+    # make all separators (non-letters and non-numbers) into "-"
+    x <- call_binding("gsub", "[^A-Za-z0-9]", "-", x)
+    # collapse multiple separators into a single one
+    x <- call_binding("gsub", "-{2,}", "-", x)
+
+    # TODO figure out how to parse strings that have no separators)
+    # we could insert separators at the "likely" positions, but it might be
+    # tricky given the possible combinations between dmy formats + locale
+
+    # each order is translated into 6 possible formats
+    formats <- build_formats(orders)
+    coalesce_output <- build_expr(
+      "coalesce",
+      build_expr("strptime", x, options = list(format = formats[1], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[2], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[3], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[4], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[5], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[6], unit = 0L, error_is_null = TRUE))
+    )
+
+    build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
+  })
 }
 
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
@@ -371,4 +398,28 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
 
   build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+}
+
+build_formats <- function(orders) {
+  year_chars <- sprintf("%%%s", c("y", "Y"))
+  month_chars <- sprintf("%%%s",c("m", "B", "b"))
+  day_chars <- sprintf("%%%s",c("d"))
+
+  outcome <- switch(
+    orders,
+    "ymd" = expand.grid(year_chars, month_chars, day_chars),
+    "ydm" = expand.grid(year_chars, day_chars, month_chars),
+    "mdy" = expand.grid(month_chars, day_chars, year_chars),
+    "myd" = expand.grid(month_chars, year_chars, day_chars),
+    "dmy" = expand.grid(day_chars, month_chars, year_chars),
+    "dym" = expand.grid(day_chars, year_chars, month_chars)
+  )
+  outcome$format <- paste(outcome$Var1, outcome$Var2, outcome$Var3, sep = "-")
+  outcome$format
+}
+
+instert_at_position <- function(string, positions, replacement) {
+  if (positions < 0) {
+    pattern <- paste0("^(.{", nchar(string) - positions, "})(.*)$")
+  }
 }
