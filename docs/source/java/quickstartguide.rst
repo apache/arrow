@@ -304,8 +304,13 @@ Example: Read the dataset from the previous example to an Arrow random-access fi
 
 .. code-block:: shell
 
+    Record batches in file: 1
     VectorSchemaRoot read:
     age	    name
     10	    Dave
     20	    Peter
     30	    Mary
+
+More examples available at `Arrow Java Cookbook`_.
+
+.. _`Arrow Java Cookbook`: https://arrow.apache.org/cookbook/java
