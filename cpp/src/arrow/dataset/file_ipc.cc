@@ -171,13 +171,8 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
     }
-#ifdef ARROW_WITH_OPENTELEMETRY
-    opentelemetry::trace::StartSpanOptions span_options;
-    span_options.parent = parent_span->GetContext();
-    generator = arrow::internal::tracing::WrapAsyncGenerator(
-        std::move(generator), std::move(span_options),
-        "arrow::dataset::IpcFileFormat::ScanBatchesAsync::Next");
-#endif
+    WRAP_ASYNC_GENERATOR(generator,
+                         "arrow::dataset::IpcFileFormat::ScanBatchesAsync::Next");
     auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
     return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);
   };
