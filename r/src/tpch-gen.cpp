@@ -19,7 +19,6 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-// TODO: prune these
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/tpch_node.h>
