@@ -46,8 +46,8 @@ static std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
     const std::shared_ptr<compute::ExecPlan>& plan, double scale_factor,
     std::string table_name) {
-  auto gen =
-      ValueOrStop(arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor, 1000000));
+  auto gen = ValueOrStop(
+      arrow::compute::internal::TpchGen::Make(plan.get(), scale_factor, 1000000));
 
   compute::ExecNode* table;
   if (table_name == "part") {
