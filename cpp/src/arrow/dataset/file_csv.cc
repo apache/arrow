@@ -175,7 +175,7 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
 
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
-  auto path = source.path();
+  const auto& path = source.path();
   ARROW_ASSIGN_OR_RAISE(
       input, io::BufferedInputStream::Create(reader_options.block_size,
                                              default_memory_pool(), std::move(input)));
