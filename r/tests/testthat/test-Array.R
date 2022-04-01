@@ -278,6 +278,13 @@ test_that("array uses local timezone for POSIXct without timezone", {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
     expect_equal(attr(times, "tzone"), "Pacific/Marquesas")
     expect_array_roundtrip(times, timestamp("us", "Pacific/Marquesas"))
+
+    times_with_tz <- strptime(
+      "2019-02-03 12:34:56",
+      format = "%Y-%m-%d %H:%M:%S",
+      tz = "Asia/Katmandu") + 1:10
+    expect_equal(attr(times, "tzone"), "Asia/Katmandu")
+    expect_array_roundtrip(times, timestamp("us", "Asia/Katmandu"))
   })
 
   # and although the TZ is NULL in R, we set it to the Sys.timezone()
