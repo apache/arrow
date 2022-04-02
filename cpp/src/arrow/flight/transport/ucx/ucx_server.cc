@@ -322,6 +322,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
 
     // Wait for current RPCs to finish
     listening_.store(false);
+    // Unstick the listener thread from ucp_worker_wait
     RETURN_NOT_OK(
         FromUcsStatus("ucp_worker_signal", ucp_worker_signal(worker_conn_->get())));
     status &= Wait();
@@ -550,6 +551,10 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
         }
       }
 
+      // Check listening_ in case we're shutting down. It is possible
+      // that Shutdown() was called while we were in
+      // ucp_worker_progress above, in which case if we don't check
+      // listening_ here, we'll enter ucp_worker_wait and get stuck.
       if (!listening_.load()) break;
       auto status = ucp_worker_wait(worker_conn_->get());
       if (status != UCS_OK) {

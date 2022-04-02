@@ -260,7 +260,7 @@ class WriteClientStream : public UcxClientStream {
     if (finished_ || writes_done_) return Status::Invalid("Already done writing");
     outgoing_ = driver_->SendFlightPayload(payload);
     working_cv_.notify_all();
-    received_cv_.wait(guard, [this] { return outgoing_.is_finished(); });
+    completed_cv_.wait(guard, [this] { return outgoing_.is_finished(); });
 
     auto status = outgoing_.status();
     outgoing_ = Future<>();
@@ -274,7 +274,7 @@ class WriteClientStream : public UcxClientStream {
       outgoing_ =
           driver_->SendFrameAsync(FrameType::kHeaders, std::move(headers).GetBuffer());
       working_cv_.notify_all();
-      received_cv_.wait(guard, [this] { return outgoing_.is_finished(); });
+      completed_cv_.wait(guard, [this] { return outgoing_.is_finished(); });
 
       writes_done_ = true;
       auto status = outgoing_.status();
@@ -292,6 +292,9 @@ class WriteClientStream : public UcxClientStream {
       // Ignore
     }
   }
+  // Flight's API allows concurrent reads/writes, but the UCX driver
+  // here is single-threaded, so push all UCX work onto a single
+  // worker thread
   void DriveWorker() {
     while (true) {
       {
@@ -311,11 +314,11 @@ class WriteClientStream : public UcxClientStream {
             HandleIncomingMessage(*incoming_.result());
           }
           incoming_ = Future<std::shared_ptr<Frame>>();
-          received_cv_.notify_all();
+          completed_cv_.notify_all();
           break;
         }
         if (outgoing_.is_valid() && outgoing_.is_finished()) {
-          received_cv_.notify_all();
+          completed_cv_.notify_all();
           break;
         }
         driver_->MakeProgress();
@@ -328,7 +331,7 @@ class WriteClientStream : public UcxClientStream {
 
   std::mutex driver_mutex_;
   std::thread driver_thread_;
-  std::condition_variable received_cv_;
+  std::condition_variable completed_cv_;
   std::condition_variable working_cv_;
   Future<std::shared_ptr<Frame>> incoming_;
   Future<> outgoing_;
@@ -348,7 +351,7 @@ class PutClientStream : public WriteClientStream {
     next_metadata_ = nullptr;
     incoming_ = driver_->ReadFrameAsync();
     working_cv_.notify_all();
-    received_cv_.wait(guard, [this] { return next_metadata_ != nullptr || finished_; });
+    completed_cv_.wait(guard, [this] { return next_metadata_ != nullptr || finished_; });
 
     if (finished_) {
       *out = nullptr;
@@ -408,11 +411,11 @@ class ExchangeClientStream : public WriteClientStream {
     read_state_ = ReadState::kExpectHeader;
     incoming_ = driver_->ReadFrameAsync();
     working_cv_.notify_all();
-    received_cv_.wait(guard, [this] { return read_state_ != ReadState::kExpectHeader; });
+    completed_cv_.wait(guard, [this] { return read_state_ != ReadState::kExpectHeader; });
     if (read_state_ != ReadState::kFinished) {
       incoming_ = driver_->ReadFrameAsync();
       working_cv_.notify_all();
-      received_cv_.wait(guard, [this] { return read_state_ == ReadState::kFinished; });
+      completed_cv_.wait(guard, [this] { return read_state_ == ReadState::kFinished; });
     }
 
     if (finished_) {

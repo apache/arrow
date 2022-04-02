@@ -100,8 +100,7 @@ void TryUnmapBuffer(ucp_context_h context, ucp_mem_h memh_p) {
 class UcxDataBuffer : public Buffer {
  public:
   explicit UcxDataBuffer(std::shared_ptr<UcpWorker> worker, void* data, size_t size)
-      : Buffer(const_cast<const uint8_t*>(reinterpret_cast<uint8_t*>(data)),
-               static_cast<int64_t>(size)),
+      : Buffer(reinterpret_cast<uint8_t*>(data), static_cast<int64_t>(size)),
         worker_(std::move(worker)) {}
 
   ~UcxDataBuffer() {
@@ -525,13 +524,16 @@ class UcpCallDriver::Impl {
     std::unique_lock<std::mutex> guard(frame_mutex_);
     if (ARROW_PREDICT_FALSE(!status_.ok())) return status_;
 
+    // Expected value of "counter" field in the frame header
     const uint32_t counter_value = next_counter_++;
     auto it = frames_.find(counter_value);
     if (it != frames_.end()) {
+      // Message already delivered, return it
       Future<std::shared_ptr<Frame>> fut = it->second;
       frames_.erase(it);
       return fut;
     }
+    // Message not yet delivered, insert a future and wait
     auto pair = frames_.insert({counter_value, Future<std::shared_ptr<Frame>>::Make()});
     DCHECK(pair.second);
     return pair.first->second;
@@ -828,9 +830,14 @@ class UcpCallDriver::Impl {
     if (ARROW_PREDICT_FALSE(!status_.ok())) return;
     auto pair = frames_.insert({frame->counter, frame});
     if (!pair.second) {
+      // Not inserted, because ReadFrameAsync was called for this
+      // frame counter value and the client is already waiting on
+      // it. Complete the existing future.
       pair.first->second.MarkFinished(std::move(frame));
       frames_.erase(pair.first);
     }
+    // Otherwise, we inserted the frame, meaning the client was not
+    // currently waiting for that frame counter value
   }
 
   void Push(Status status) {
@@ -948,9 +955,9 @@ class UcpCallDriver::Impl {
                                                     const ucp_am_recv_param_t* param) {
     DCHECK(param->recv_attr & UCP_AM_RECV_ATTR_FIELD_REPLY_EP);
 
-    if (data_length > static_cast<size_t>(std::numeric_limits<int64_t>::max())) {
-      return Status::Invalid(
-          "Cannot allocate buffer greater than int64_t max, requested: ", data_length);
+    if (data_length > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+      return Status::Invalid("Cannot allocate buffer greater than 2 GiB, requested: ",
+                             data_length);
     }
 
     ARROW_ASSIGN_OR_RAISE(auto frame, Frame::ParseHeader(header, header_length));
@@ -1021,7 +1028,7 @@ class UcpCallDriver::Impl {
       return UCS_OK;
     } else {
       // Data will be freed after callback returns - copy to buffer
-      if (frame->type != FrameType::kPayloadBody || memory_manager_->is_cpu()) {
+      if (memory_manager_->is_cpu() || frame->type != FrameType::kPayloadBody) {
         ARROW_ASSIGN_OR_RAISE(frame->buffer,
                               AllocateBuffer(data_length, read_memory_pool_));
         std::memcpy(frame->buffer->mutable_data(), data, data_length);
