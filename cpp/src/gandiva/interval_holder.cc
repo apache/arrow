@@ -29,19 +29,19 @@ static const RE2 period_only_contains_numbers(R"(\d+)");
 
 // pre-compiled pattern for matching periods in 8601 formats that not contains weeks.
 static const RE2 iso8601_complete_period(
-    R"(P([[:digit:]]+Y|[[:digit:]]+[,.][[:digit:]]+Y)?)"
-    R"(([[:digit:]]+M|[[:digit:]]+[,.][[:digit:]]+M)?)"
-    R"(([[:digit:]]+D|[[:digit:]]+[,.][[:digit:]]+D)?)"
-    R"(T([[:digit:]]+H|[[:digit:]]+[,.][[:digit:]]+H)?)"
-    R"(([[:digit:]]+M|[[:digit:]]+[,.][[:digit:]]+M)?)"
-    R"(([[:digit:]]+S|[[:digit:]]+[,.][[:digit:]]+S)?)");
+    R"(P(-?[[:digit:]]+Y|-?[[:digit:]]+[,.][[:digit:]]+Y)?)"
+    R"((-?[[:digit:]]+M|-?[[:digit:]]+[,.][[:digit:]]+M)?)"
+    R"((-?[[:digit:]]+D|-?[[:digit:]]+[,.][[:digit:]]+D)?)"
+    R"(T(-?[[:digit:]]+H|-?[[:digit:]]+[,.][[:digit:]]+H)?)"
+    R"((-?[[:digit:]]+M|-?[[:digit:]]+[,.][[:digit:]]+M)?)"
+    R"((-?[[:digit:]]+S|-?[[:digit:]]+[,.][[:digit:]]+S)?)");
 
 // pre-compiled pattern for matching periods in 8601 formats that not contain time
 // (hours, minutes and seconds) information.
 static const RE2 iso8601_period_without_time(
-    R"(P([[:digit:]]+Y|[[:digit:]]+[,.][[:digit:]]+Y)?)"
-    R"(([[:digit:]]+M|[[:digit:]]+[,.][[:digit:]]+M)?)"
-    R"(([[:digit:]]+D|[[:digit:]]+[,.][[:digit:]]+D)?)");
+    R"(P(-?[[:digit:]]+Y|-?[[:digit:]]+[,.][[:digit:]]+Y)?)"
+    R"((-?[[:digit:]]+M|-?[[:digit:]]+[,.][[:digit:]]+M)?)"
+    R"((-?[[:digit:]]+D|-?[[:digit:]]+[,.][[:digit:]]+D)?)");
 
 // pre-compiled pattern for matching periods in 8601 formats that not contain time
 // (hours, minutes and seconds) information.
@@ -51,7 +51,7 @@ static const std::regex period_not_contains_time(R"(^((?!T).)*$)");
 // them. The ISO8601 specification defines that if the string contains a week, it can not
 // have other time granularities information, like day, years and months.
 static const RE2 iso8601_period_with_weeks(
-    R"(P([[:digit:]]+W|[[:digit:]]+[,.][[:digit:]]+W){1})");
+    R"(P(-?[[:digit:]]+W|-?[[:digit:]]+[,.][[:digit:]]+W){1})");
 
 // It considers that a day has exactly 24 hours of duration
 static const int64_t kMillisInDay = 86400000;
