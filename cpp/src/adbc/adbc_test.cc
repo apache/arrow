@@ -38,7 +38,7 @@ TEST(Adbc, Basics) {
   ASSERT_OK_AND_ASSIGN(auto driver, adbc::AdbcDriver::Load("libadbc_driver_sqlite.so"));
 
   AdbcConnectionOptions options;
-  ASSERT_OK_AND_ASSIGN(connection, driver->ConnectRaw(options));
+  ADBC_ASSERT_OK(driver->ConnectionInit(&options, &connection, &error));
   ASSERT_NE(connection.private_data, nullptr);
 
   ADBC_ASSERT_OK(driver->ConnectionRelease(&connection, &error));
@@ -57,7 +57,7 @@ TEST(AdbcSqlite, SqlExecute) {
   ASSERT_OK_AND_ASSIGN(auto driver, adbc::AdbcDriver::Load("libadbc_driver_sqlite.so"));
 
   AdbcConnectionOptions options;
-  ASSERT_OK_AND_ASSIGN(connection, driver->ConnectRaw(options));
+  ADBC_ASSERT_OK(driver->ConnectionInit(&options, &connection, &error));
 
   {
     std::string query = "SELECT 1";

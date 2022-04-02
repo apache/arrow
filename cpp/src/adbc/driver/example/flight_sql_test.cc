@@ -50,7 +50,7 @@ class AdbcFlightSqlTest : public ::testing::Test {
     std::string target = "Location=grpc://localhost:" + std::to_string(server->port());
     options.target = target.c_str();
     options.target_length = target.size();
-    ASSERT_OK_AND_ASSIGN(connection, driver->ConnectRaw(options));
+    ADBC_ASSERT_OK(driver->ConnectionInit(&options, &connection, &error));
   }
 
   void TearDown() override {
