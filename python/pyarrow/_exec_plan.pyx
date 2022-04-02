@@ -35,7 +35,7 @@ from pyarrow._dataset import InMemoryDataset
 
 Initialize()  # Initialise support for Datasets in ExecPlan
 
-cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True, metadata = None):
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True, metadata=None):
     """
     Internal Function to create an ExecPlan and run it.
 
@@ -87,7 +87,8 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 
     if metadata is not None:
         c_meta = pyarrow_unwrap_metadata(metadata)
-        c_exec_plan = GetResultValue(CExecPlan.MakeWithMetadata(c_exec_context.get(), c_meta))
+        c_exec_plan = GetResultValue(
+            CExecPlan.MakeWithMetadata(c_exec_context.get(), c_meta))
     else:
         c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
 
