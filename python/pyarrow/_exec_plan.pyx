@@ -27,16 +27,15 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table)
-from pyarrow.lib import tobytes
+from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table, pyarrow_unwrap_metadata)
+from pyarrow.lib import KeyValueMetadata, tobytes, _pc
 from pyarrow._compute cimport Expression, _true
 from pyarrow._dataset cimport Dataset
 from pyarrow._dataset import InMemoryDataset
 
 Initialize()  # Initialise support for Datasets in ExecPlan
 
-
-cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True, metadata = None):
     """
     Internal Function to create an ExecPlan and run it.
 
@@ -53,6 +52,8 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         to produce the output.
     use_threads : bool, default True
         Whenever to use multithreading or not.
+    metadata : dict or Mapping, default None
+            Optional metadata for the ExecPlan.
     """
     cdef:
         CExecutor *c_executor
@@ -72,6 +73,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
+        shared_ptr[const CKeyValueMetadata] c_meta
         vector[CDeclaration.Input] no_c_inputs
         CStatus c_plan_status
 
@@ -82,7 +84,12 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 
     c_exec_context = make_shared[CExecContext](
         c_default_memory_pool(), c_executor)
-    c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
+
+    if metadata is not None:
+        c_meta = pyarrow_unwrap_metadata(metadata)
+        c_exec_plan = GetResultValue(CExecPlan.MakeWithMetadata(c_exec_context.get(), c_meta))
+    else:
+        c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
 
     plan_iter = plan.begin()
 

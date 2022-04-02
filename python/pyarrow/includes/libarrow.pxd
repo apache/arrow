@@ -2504,12 +2504,17 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
     cdef cppclass CExecPlan "arrow::compute::ExecPlan":
         @staticmethod
         CResult[shared_ptr[CExecPlan]] Make(CExecContext* exec_context)
+        @staticmethod
+        CResult[shared_ptr[CExecPlan]] MakeWithMetadata" Make"(CExecContext* exec_context, shared_ptr[const CKeyValueMetadata] metadata)
 
         CStatus StartProducing()
         CStatus Validate()
         CStatus StopProducing()
 
         CFuture_Void finished()
+
+        c_bool HasMetadata()
+        shared_ptr[const CKeyValueMetadata] metadata()
 
         vector[CExecNode*] sinks() const
         vector[CExecNode*] sources() const
