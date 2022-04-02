@@ -185,7 +185,7 @@ struct IsNanOperator {
   }
 };
 
-void MakeFunction(std::string name, const FunctionDoc* doc,
+void MakeFunction(std::string name, const FunctionDoc doc,
                   std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
                   MemAllocation::type mem_allocation, NullHandling::type null_handling,
@@ -223,7 +223,7 @@ Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 }
 
 std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
-                                                     const FunctionDoc* doc) {
+                                                     const FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
@@ -242,7 +242,7 @@ std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
 }
 
 std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
-                                                  const FunctionDoc* doc) {
+                                                  const FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
@@ -261,7 +261,7 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
 }
 
 std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name,
-                                                  const FunctionDoc* doc) {
+                                                  const FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());
@@ -339,22 +339,16 @@ const FunctionDoc is_nan_doc("Return true if NaN",
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
   static auto kNullOptions = NullOptions::Defaults();
-  MakeFunction("is_valid", &is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
-               registry, MemAllocation::NO_PREALLOCATE, NullHandling::OUTPUT_NOT_NULL,
-               /*can_write_into_slices=*/false);
+  MakeFunction("is_valid", is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
+               registry, MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
-  MakeFunction("is_null", &is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
-               registry, MemAllocation::PREALLOCATE, NullHandling::OUTPUT_NOT_NULL,
+  MakeFunction("is_null", is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
+               registry, MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true, &kNullOptions, NanOptionsState::Init);
 
-  MakeFunction("true_unless_null", &true_unless_null_doc, {ValueDescr::ANY}, boolean(),
-               TrueUnlessNullExec, registry, MemAllocation::NO_PREALLOCATE,
-               NullHandling::INTERSECTION,
-               /*can_write_into_slices=*/false);
-
-  DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
-  DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
-  DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
+  DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", is_finite_doc)));
+  DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", is_inf_doc)));
+  DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", is_nan_doc)));
 }
 
 }  // namespace internal

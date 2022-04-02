@@ -758,7 +758,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = UniqueFinalize;
   base.output_chunked = false;
-  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary(), &unique_doc);
+  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary(), unique_doc);
   AddHashKernels<UniqueAction>(unique.get(), base, OutputType(FirstType));
 
   // Dictionary unique
@@ -775,7 +775,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = ValueCountsFinalize;
   auto value_counts =
-      std::make_shared<VectorFunction>("value_counts", Arity::Unary(), &value_counts_doc);
+      std::make_shared<VectorFunction>("value_counts", Arity::Unary(), value_counts_doc);
   AddHashKernels<ValueCountsAction>(value_counts.get(), base,
                                     OutputType(ValueCountsOutput));
 
@@ -796,7 +796,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   base.output_chunked = true;
 
   auto dict_encode = std::make_shared<VectorFunction>(
-      "dictionary_encode", Arity::Unary(), &dictionary_encode_doc,
+      "dictionary_encode", Arity::Unary(), dictionary_encode_doc,
       GetDefaultDictionaryEncodeOptions());
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, OutputType(DictEncodeOutput));
 

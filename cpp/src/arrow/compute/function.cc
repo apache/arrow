@@ -290,9 +290,9 @@ Status ValidateFunctionDescription(const std::string& s) {
 }  // namespace
 
 Status Function::Validate() const {
-  if (!doc_->summary.empty()) {
+  if (!doc_.summary.empty()) {
     // Documentation given, check its contents
-    int arg_count = static_cast<int>(doc_->arg_names.size());
+    int arg_count = static_cast<int>(doc_.arg_names.size());
     // Some varargs functions allow 0 vararg, others expect at least 1,
     // hence the two possible values below.
     bool arg_count_match = (arg_count == arity_.num_args) ||
@@ -302,9 +302,9 @@ Status Function::Validate() const {
           "In function '", name_,
           "': ", "number of argument names for function documentation != function arity");
     }
-    Status st = ValidateFunctionSummary(doc_->summary);
+    Status st = ValidateFunctionSummary(doc_.summary);
     if (st.ok()) {
-      st &= ValidateFunctionDescription(doc_->description);
+      st &= ValidateFunctionDescription(doc_.description);
     }
     if (!st.ok()) {
       return st.WithMessage("In function '", name_, "': ", st.message());

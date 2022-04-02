@@ -101,7 +101,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
   }
   auto doc = options->doc();
   auto arity = options->arity();
-  scalar_func_ = std::make_shared<compute::ScalarFunction>(options->name(), arity, &doc);
+  scalar_func_ = std::make_shared<compute::ScalarFunction>(options->name(), arity, doc);
 
   // lambda function
   auto call_back = [&, arity](compute::KernelContext* ctx,

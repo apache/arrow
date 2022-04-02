@@ -74,7 +74,7 @@ arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecBatch& batch,
 
 arrow::Status Execute() {
   const std::string name = "add_three";
-  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Ternary(), &func_doc);
+  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Ternary(), func_doc);
   cp::ScalarKernel kernel(
       {cp::InputType::Array(arrow::int64()), cp::InputType::Array(arrow::int64()),
        cp::InputType::Array(arrow::int64())},

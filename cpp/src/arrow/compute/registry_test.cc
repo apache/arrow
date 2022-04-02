@@ -50,11 +50,11 @@ TEST_F(TestRegistry, Basics) {
   ASSERT_EQ(0, registry_->num_functions());
 
   std::shared_ptr<Function> func =
-      std::make_shared<ScalarFunction>("f1", Arity::Unary(), /*doc=*/nullptr);
+      std::make_shared<ScalarFunction>("f1", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
   ASSERT_OK(registry_->AddFunction(func));
   ASSERT_EQ(1, registry_->num_functions());
 
-  func = std::make_shared<VectorFunction>("f0", Arity::Binary(), /*doc=*/nullptr);
+  func = std::make_shared<VectorFunction>("f0", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
   ASSERT_OK(registry_->AddFunction(func));
   ASSERT_EQ(2, registry_->num_functions());
 
@@ -65,7 +65,7 @@ TEST_F(TestRegistry, Basics) {
   ASSERT_RAISES(KeyError, registry_->GetFunction("f2"));
 
   // Try adding a function with name collision
-  func = std::make_shared<ScalarAggregateFunction>("f1", Arity::Unary(), /*doc=*/nullptr);
+  func = std::make_shared<ScalarAggregateFunction>("f1", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
   ASSERT_RAISES(KeyError, registry_->AddFunction(func));
 
   // Allow overwriting by flag

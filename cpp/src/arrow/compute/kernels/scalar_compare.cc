@@ -241,7 +241,7 @@ struct VarArgsCompareFunction : ScalarFunction {
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
-                                                    const FunctionDoc* doc) {
+                                                    const FunctionDoc doc) {
   auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
 
   DCHECK_OK(func->AddKernel(
@@ -313,7 +313,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
 
 std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
                                                     const ScalarFunction& func,
-                                                    const FunctionDoc* doc) {
+                                                    const FunctionDoc doc) {
   auto flipped_func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
@@ -692,7 +692,7 @@ Result<ValueDescr> ResolveMinOrMaxOutputType(KernelContext*,
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
-                                                 const FunctionDoc* doc) {
+                                                 const FunctionDoc doc) {
   static auto default_element_wise_aggregate_options =
       ElementWiseAggregateOptions::Defaults();
 
@@ -789,16 +789,16 @@ const FunctionDoc max_element_wise_doc{
 }  // namespace
 
 void RegisterScalarComparison(FunctionRegistry* registry) {
-  DCHECK_OK(registry->AddFunction(MakeCompareFunction<Equal>("equal", &equal_doc)));
+  DCHECK_OK(registry->AddFunction(MakeCompareFunction<Equal>("equal", equal_doc)));
   DCHECK_OK(
-      registry->AddFunction(MakeCompareFunction<NotEqual>("not_equal", &not_equal_doc)));
+      registry->AddFunction(MakeCompareFunction<NotEqual>("not_equal", not_equal_doc)));
 
-  auto greater = MakeCompareFunction<Greater>("greater", &greater_doc);
+  auto greater = MakeCompareFunction<Greater>("greater", greater_doc);
   auto greater_equal =
-      MakeCompareFunction<GreaterEqual>("greater_equal", &greater_equal_doc);
+      MakeCompareFunction<GreaterEqual>("greater_equal", greater_equal_doc);
 
-  auto less = MakeFlippedFunction("less", *greater, &less_doc);
-  auto less_equal = MakeFlippedFunction("less_equal", *greater_equal, &less_equal_doc);
+  auto less = MakeFlippedFunction("less", *greater, less_doc);
+  auto less_equal = MakeFlippedFunction("less_equal", *greater_equal, less_equal_doc);
   DCHECK_OK(registry->AddFunction(std::move(less)));
   DCHECK_OK(registry->AddFunction(std::move(less_equal)));
   DCHECK_OK(registry->AddFunction(std::move(greater)));
@@ -808,11 +808,11 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   // Variadic element-wise functions
 
   auto min_element_wise =
-      MakeScalarMinMax<Minimum>("min_element_wise", &min_element_wise_doc);
+      MakeScalarMinMax<Minimum>("min_element_wise", min_element_wise_doc);
   DCHECK_OK(registry->AddFunction(std::move(min_element_wise)));
 
   auto max_element_wise =
-      MakeScalarMinMax<Maximum>("max_element_wise", &max_element_wise_doc);
+      MakeScalarMinMax<Maximum>("max_element_wise", max_element_wise_doc);
   DCHECK_OK(registry->AddFunction(std::move(max_element_wise)));
 }
 

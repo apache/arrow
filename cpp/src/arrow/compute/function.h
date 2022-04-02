@@ -205,7 +205,7 @@ class ARROW_EXPORT Function {
   const Arity& arity() const { return arity_; }
 
   /// \brief Return the function documentation
-  const FunctionDoc& doc() const { return *doc_; }
+  const FunctionDoc doc() const { return doc_; }
 
   /// \brief Returns the number of registered kernels for this function.
   virtual int num_kernels() const = 0;
@@ -245,11 +245,11 @@ class ARROW_EXPORT Function {
 
  protected:
   Function(std::string name, Function::Kind kind, const Arity& arity,
-           const FunctionDoc* doc, const FunctionOptions* default_options)
+           const FunctionDoc doc, const FunctionOptions* default_options)
       : name_(std::move(name)),
         kind_(kind),
         arity_(arity),
-        doc_(doc ? doc : &FunctionDoc::Empty()),
+        doc_(doc),
         default_options_(default_options) {}
 
   Status CheckArity(const std::vector<InputType>&) const;
@@ -258,7 +258,7 @@ class ARROW_EXPORT Function {
   std::string name_;
   Function::Kind kind_;
   Arity arity_;
-  const FunctionDoc* doc_;
+  const FunctionDoc doc_;
   const FunctionOptions* default_options_ = NULLPTR;
 };
 
@@ -280,7 +280,7 @@ class FunctionImpl : public Function {
 
  protected:
   FunctionImpl(std::string name, Function::Kind kind, const Arity& arity,
-               const FunctionDoc* doc, const FunctionOptions* default_options)
+               const FunctionDoc doc, const FunctionOptions* default_options)
       : Function(std::move(name), kind, arity, doc, default_options) {}
 
   std::vector<KernelType> kernels_;
@@ -305,7 +305,7 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
  public:
   using KernelType = ScalarKernel;
 
-  ScalarFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  ScalarFunction(std::string name, const Arity& arity, const FunctionDoc doc,
                  const FunctionOptions* default_options = NULLPTR)
       : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity, doc,
                                            default_options) {}
@@ -329,7 +329,7 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
  public:
   using KernelType = VectorKernel;
 
-  VectorFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  VectorFunction(std::string name, const Arity& arity, const FunctionDoc doc,
                  const FunctionOptions* default_options = NULLPTR)
       : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity, doc,
                                            default_options) {}
@@ -350,7 +350,7 @@ class ARROW_EXPORT ScalarAggregateFunction
  public:
   using KernelType = ScalarAggregateKernel;
 
-  ScalarAggregateFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  ScalarAggregateFunction(std::string name, const Arity& arity, const FunctionDoc doc,
                           const FunctionOptions* default_options = NULLPTR)
       : detail::FunctionImpl<ScalarAggregateKernel>(
             std::move(name), Function::SCALAR_AGGREGATE, arity, doc, default_options) {}
@@ -365,7 +365,7 @@ class ARROW_EXPORT HashAggregateFunction
  public:
   using KernelType = HashAggregateKernel;
 
-  HashAggregateFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  HashAggregateFunction(std::string name, const Arity& arity, const FunctionDoc doc,
                         const FunctionOptions* default_options = NULLPTR)
       : detail::FunctionImpl<HashAggregateKernel>(
             std::move(name), Function::HASH_AGGREGATE, arity, doc, default_options) {}
@@ -392,7 +392,7 @@ class ARROW_EXPORT MetaFunction : public Function {
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const = 0;
 
-  MetaFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  MetaFunction(std::string name, const Arity& arity, const FunctionDoc doc,
                const FunctionOptions* default_options = NULLPTR)
       : Function(std::move(name), Function::META, arity, doc, default_options) {}
 };
