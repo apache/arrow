@@ -209,16 +209,6 @@ class AdbcFlightSqlImpl {
     return ADBC_STATUS_OK;
   }
 
-  static enum AdbcStatusCode SqlExecuteMethod(struct AdbcConnection* connection,
-                                              const char* query, size_t query_length,
-                                              struct AdbcStatement* out,
-                                              struct AdbcError* error) {
-    if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr =
-        reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
-    return (*ptr)->SqlExecute(query, query_length, out, error);
-  }
-
   //----------------------------------------------------------
   // Partitioned Results
   //----------------------------------------------------------
@@ -311,8 +301,6 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
       new flightsql::FlightSqlClient(std::move(flight_client)));
 
   auto impl = std::make_shared<AdbcFlightSqlImpl>(std::move(client));
-
-  out->sql_execute = &AdbcFlightSqlImpl::SqlExecuteMethod;
   out->private_data = new std::shared_ptr<AdbcFlightSqlImpl>(impl);
   return ADBC_STATUS_OK;
 }
@@ -326,6 +314,16 @@ enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
   delete ptr;
   connection->private_data = nullptr;
   return status;
+}
+
+enum AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
+                                             const char* query, size_t query_length,
+                                             struct AdbcStatement* out,
+                                             struct AdbcError* error) {
+  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
+  return (*ptr)->SqlExecute(query, query_length, out, error);
 }
 
 enum AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,

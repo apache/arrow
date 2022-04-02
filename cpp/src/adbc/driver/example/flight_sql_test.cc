@@ -87,8 +87,8 @@ TEST_F(AdbcFlightSqlTest, Metadata) {
 TEST_F(AdbcFlightSqlTest, SqlExecute) {
   std::string query = "SELECT 1";
   AdbcStatement statement;
-  ADBC_ASSERT_OK(connection.sql_execute(&connection, query.c_str(), query.size(),
-                                        &statement, &error));
+  ADBC_ASSERT_OK(driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(),
+                                              &statement, &error));
 
   std::shared_ptr<arrow::Schema> schema;
   arrow::RecordBatchVector batches;
@@ -108,8 +108,8 @@ TEST_F(AdbcFlightSqlTest, Partitions) {
   // parallel.)
   std::string query = "SELECT 42";
   AdbcStatement statement;
-  ADBC_ASSERT_OK(connection.sql_execute(&connection, query.c_str(), query.size(),
-                                        &statement, &error));
+  ADBC_ASSERT_OK(driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(),
+                                              &statement, &error));
 
   std::vector<std::vector<uint8_t>> descs;
 
@@ -143,8 +143,8 @@ TEST_F(AdbcFlightSqlTest, Partitions) {
 TEST_F(AdbcFlightSqlTest, InvalidSql) {
   std::string query = "INVALID";
   AdbcStatement statement;
-  ASSERT_NE(connection.sql_execute(&connection, query.c_str(), query.size(), &statement,
-                                   &error),
+  ASSERT_NE(driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(),
+                                         &statement, &error),
             ADBC_STATUS_OK);
 
   ARROW_LOG(WARNING) << "Got error message: " << error.message;

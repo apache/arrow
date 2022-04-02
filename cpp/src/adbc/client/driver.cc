@@ -40,6 +40,12 @@ enum AdbcStatusCode DefaultConnectionGetTableTypes(struct AdbcConnection* connec
                                                    struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
+enum AdbcStatusCode DefaultConnectionSqlPrepare(struct AdbcConnection* connection,
+                                                const char* query, size_t query_length,
+                                                struct AdbcStatement* statement,
+                                                struct AdbcError* error) {
+  return ADBC_STATUS_NOT_IMPLEMENTED;
+}
 }  // namespace
 
 #define GET_FUNC(DRIVER, HANDLE, NAME)                                               \
@@ -67,11 +73,15 @@ arrow::Result<std::unique_ptr<AdbcDriver>> AdbcDriver::Load(const std::string& d
     return arrow::Status::Invalid("Could not load ", driver, ": ", message);
   }
 
+  GET_FUNC(driver, handle, ErrorRelease);
+
   GET_FUNC(driver, handle, ConnectionInit);
   GET_OPTIONAL(driver, handle, ConnectionDeserializePartitionDesc);
   GET_OPTIONAL(driver, handle, ConnectionGetTableTypes);
   GET_FUNC(driver, handle, ConnectionRelease);
-  GET_FUNC(driver, handle, ErrorRelease);
+  GET_FUNC(driver, handle, ConnectionSqlExecute);
+  GET_OPTIONAL(driver, handle, ConnectionSqlPrepare);
+
   GET_FUNC(driver, handle, StatementGetPartitionDesc);
   GET_FUNC(driver, handle, StatementGetPartitionDescSize);
   GET_FUNC(driver, handle, StatementGetStream);

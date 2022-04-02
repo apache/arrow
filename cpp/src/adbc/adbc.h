@@ -100,36 +100,6 @@ struct AdbcConnectionOptions {
 /// Connections are not thread-safe and clients should take care to
 /// serialize accesses to a connection.
 struct AdbcConnection {
-  /// \name SQL Semantics
-  /// Functions for executing SQL queries, or querying SQL-related
-  /// metadata. Drivers are not required to support both SQL and
-  /// Substrait semantics. If they do, it may be via converting
-  /// between representations internally.
-  ///@{
-
-  /// \brief Execute a one-shot query.
-  ///
-  /// For queries expected to be executed repeatedly, create a
-  /// prepared statement.
-  ///
-  /// \param[in] connection The database connection.
-  /// \param[in] query The query to execute.
-  /// \param[in] query_length The length of the query string.
-  /// \param[out] statement The result set.
-  /// \param[out] error Error details, if an error occurs.
-  enum AdbcStatusCode (*sql_execute)(struct AdbcConnection* connection, const char* query,
-                                     size_t query_length, struct AdbcStatement* statement,
-                                     struct AdbcError* error);
-
-  /// \brief Prepare a query to be executed multiple times.
-  ///
-  /// TODO: this should return AdbcPreparedStatement to disaggregate
-  /// preparation and execution
-  enum AdbcStatusCode (*sql_prepare)(struct AdbcConnection* connection, const char* query,
-                                     size_t query_length, struct AdbcStatement* statement,
-                                     struct AdbcError* error);
-
-  ///@}
   /// \brief Opaque implementation-defined state.
   /// This field is NULLPTR iff the connection is unintialized/freed.
   void* private_data;
@@ -146,6 +116,39 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
 ///   message if necessary.
 enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
                                           struct AdbcError* error);
+
+/// \defgroup adbc-connection-sql SQL Semantics
+/// Functions for executing SQL queries, or querying SQL-related
+/// metadata. Drivers are not required to support both SQL and
+/// Substrait semantics. If they do, it may be via converting
+/// between representations internally.
+/// @{
+
+/// \brief Execute a one-shot query.
+///
+/// For queries expected to be executed repeatedly, create a
+/// prepared statement.
+///
+/// \param[in] connection The database connection.
+/// \param[in] query The query to execute.
+/// \param[in] query_length The length of the query string.
+/// \param[out] statement The result set.
+/// \param[out] error Error details, if an error occurs.
+enum AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
+                                             const char* query, size_t query_length,
+                                             struct AdbcStatement* statement,
+                                             struct AdbcError* error);
+
+/// \brief Prepare a query to be executed multiple times.
+///
+/// TODO: this should return AdbcPreparedStatement to disaggregate
+/// preparation and execution
+enum AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection* connection,
+                                             const char* query, size_t query_length,
+                                             struct AdbcStatement* statement,
+                                             struct AdbcError* error);
+
+/// }@
 
 /// \defgroup adbc-connection-substrait Substrait Semantics
 /// Functions for executing Substrait plans, or querying

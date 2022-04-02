@@ -42,6 +42,8 @@ class AdbcDriver {
   decltype(&AdbcConnectionDeserializePartitionDesc) ConnectionDeserializePartitionDesc;
   decltype(&AdbcConnectionGetTableTypes) ConnectionGetTableTypes;
   decltype(&AdbcConnectionRelease) ConnectionRelease;
+  decltype(&AdbcConnectionSqlExecute) ConnectionSqlExecute;
+  decltype(&AdbcConnectionSqlPrepare) ConnectionSqlPrepare;
 
   decltype(&AdbcStatementGetPartitionDesc) StatementGetPartitionDesc;
   decltype(&AdbcStatementGetPartitionDescSize) StatementGetPartitionDescSize;

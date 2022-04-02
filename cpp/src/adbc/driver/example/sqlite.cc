@@ -234,16 +234,6 @@ class AdbcSqliteImpl {
     return ADBC_STATUS_OK;
   }
 
-  static enum AdbcStatusCode SqlExecuteMethod(struct AdbcConnection* connection,
-                                              const char* query, size_t query_length,
-                                              struct AdbcStatement* out,
-                                              struct AdbcError* error) {
-    if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
-    auto* ptr =
-        reinterpret_cast<std::shared_ptr<AdbcSqliteImpl>*>(connection->private_data);
-    return (*ptr)->SqlExecute(query, query_length, out, error);
-  }
-
  private:
   sqlite3* db_;
 };
@@ -269,8 +259,6 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
   }
 
   auto impl = std::make_shared<AdbcSqliteImpl>(db);
-
-  out->sql_execute = &AdbcSqliteImpl::SqlExecuteMethod;
   out->private_data = new std::shared_ptr<AdbcSqliteImpl>(impl);
   return ADBC_STATUS_OK;
 }
@@ -283,6 +271,16 @@ enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
   delete ptr;
   connection->private_data = nullptr;
   return status;
+}
+
+enum AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
+                                             const char* query, size_t query_length,
+                                             struct AdbcStatement* out,
+                                             struct AdbcError* error) {
+  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<AdbcSqliteImpl>*>(connection->private_data);
+  return (*ptr)->SqlExecute(query, query_length, out, error);
 }
 
 enum AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
