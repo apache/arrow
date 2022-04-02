@@ -360,8 +360,13 @@ jobs:
         shell: Rscript {0}
         run: |
           remotes::install_github('jonkeane/lintr@arrow-branch')
-          options(warn = 2)
-          lintr::lint_package('./r')
+          tryCatch(
+            lintr::lint_package("./r"),
+            warning = function(w){
+              w
+              stop("lintr error")
+            }
+          )
       - name: Restore DESCRIPTION for 3.6
         if: ${{ matrix.config.rtools == 35 }}
         run: |
