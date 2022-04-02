@@ -15,31 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
 #include <cstdint>
-#include <cstdio>
-#include <functional>
-#include <locale>
 #include <memory>
-#include <stdexcept>
 #include <string>
-#include <utility>
-#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/api.h"
+#include "arrow/compute/kernels/test_util.h"
+#include "arrow/ipc/json_simple.h"
 #include "arrow/testing/gtest_util.h"  // IntegralArrowTypes
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
-
-#include "arrow/compute/api.h"
-#include "arrow/compute/kernels/test_util.h"
-
-#include "arrow/ipc/json_simple.h"
 
 namespace arrow {
 namespace compute {
