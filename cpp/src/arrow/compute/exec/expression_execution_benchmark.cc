@@ -47,7 +47,7 @@ static void Execution(benchmark::State& state) {
     for (int it = 0; it < array_batches; ++it)
       ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
   }
-  state.SetBytesProcessed(state.iterations() * 8 * array_size * array_batches);
+  state.SetItemsProcessed(state.iterations() * array_size * array_batches);
 }
 
 BENCHMARK(Execution)->RangeMultiplier(10)->Range(1, 10000000);
