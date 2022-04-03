@@ -22,6 +22,7 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/generator.h"
 #include "arrow/type.h"
 
 namespace arrow {
@@ -69,6 +70,25 @@ static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filt
   }
 }
 
+static void BatchedExecution(benchmark::State& state, Expression expr) {
+  const auto array_batches = static_cast<int32_t>(state.range(0));
+  const auto array_size = 10000000 / array_batches;
+
+  ExecContext ctx;
+  auto dataset_schema = schema({
+      field("x", int64()),
+  });
+  ExecBatch input({Datum(ConstantArrayGenerator::Int64(array_size, 5))},
+                  /*length=*/1);
+
+  ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
+  for (auto _ : state) {
+    for (int it = 0; it < array_batches; ++it)
+      ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
+  }
+  state.SetItemsProcessed(state.iterations() * array_size * array_batches);
+}
+
 auto to_int64 = compute::CastOptions::Safe(int64());
 // A fully simplified filter.
 auto filter_simple_negative = and_(equal(field_ref("a"), literal(int64_t(99))),
@@ -91,6 +111,11 @@ auto guarantee = and_(equal(field_ref("a"), literal(int64_t(99))),
 // A partition expression for "a=99/b=99" that uses dictionaries (inferred by default).
 auto guarantee_dictionary = and_(equal(field_ref("a"), literal(ninety_nine_dict)),
                                  equal(field_ref("b"), literal(ninety_nine_dict)));
+
+auto expression_with_copy =
+    and_(less(field_ref("x"), literal(20)), greater(field_ref("x"), literal(0)));
+
+auto expression_without_copy = field_ref("x");
 
 // Negative queries (partition expressions that fail the filter)
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, negative_filter_simple_guarantee_simple,
@@ -119,6 +144,7 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
                   field_ref(FieldRef("struct_arr", "float")));
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
-
+BENCHMARK_CAPTURE(BatchedExecution, execution_with_copy, expression_with_copy)->RangeMultiplier(10)->Range(1, 10000000);
+BENCHMARK_CAPTURE(BatchedExecution, execution_without_copy, expression_without_copy)->RangeMultiplier(10)->Range(1, 10000000);
 }  // namespace compute
 }  // namespace arrow
