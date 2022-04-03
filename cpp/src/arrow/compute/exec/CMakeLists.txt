@@ -36,7 +36,6 @@ add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(util_test PREFIX "arrow-compute")
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(expression_execution_benchmark PREFIX "arrow-compute")
 
 if(ARROW_BUILD_OPENMP_BENCHMARKS)
   find_package(OpenMP REQUIRED)

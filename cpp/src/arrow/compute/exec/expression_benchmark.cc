@@ -21,8 +21,8 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/partition.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/generator.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 namespace arrow {
@@ -144,7 +144,11 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
                   field_ref(FieldRef("struct_arr", "float")));
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
-BENCHMARK_CAPTURE(BatchedExecution, execution_with_copy, expression_with_copy)->RangeMultiplier(10)->Range(1, 10000000);
-BENCHMARK_CAPTURE(BatchedExecution, execution_without_copy, expression_without_copy)->RangeMultiplier(10)->Range(1, 10000000);
+BENCHMARK_CAPTURE(BatchedExecution, execution_with_copy, expression_with_copy)
+    ->RangeMultiplier(10)
+    ->Range(1, 10000000);
+BENCHMARK_CAPTURE(BatchedExecution, execution_without_copy, expression_without_copy)
+    ->RangeMultiplier(10)
+    ->Range(1, 10000000);
 }  // namespace compute
 }  // namespace arrow
