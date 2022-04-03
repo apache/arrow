@@ -3265,8 +3265,8 @@ void AddBinaryJoinForListType(ScalarFunction* func) {
 
 void AddAsciiStringJoin(FunctionRegistry* registry) {
   {
-    auto func = std::make_shared<ScalarFunction>("binary_join", Arity::Binary(),
-                                                 binary_join_doc);
+    auto func =
+        std::make_shared<ScalarFunction>("binary_join", Arity::Binary(), binary_join_doc);
     AddBinaryJoinForListType<ListType>(func.get());
     AddBinaryJoinForListType<LargeListType>(func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));

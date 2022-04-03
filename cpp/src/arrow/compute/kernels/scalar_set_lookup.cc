@@ -481,8 +481,7 @@ const FunctionDoc index_in_meta_doc{
 // Enables calling is_in with CallFunction as though it were binary.
 class IsInMetaBinary : public MetaFunction {
  public:
-  IsInMetaBinary()
-      : MetaFunction("is_in_meta_binary", Arity::Binary(), is_in_meta_doc) {}
+  IsInMetaBinary() : MetaFunction("is_in_meta_binary", Arity::Binary(), is_in_meta_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,

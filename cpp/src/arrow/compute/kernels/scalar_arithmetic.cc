@@ -2773,8 +2773,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
   // ----------------------------------------------------------------------
-  auto multiply_checked = MakeArithmeticFunctionNotNull<MultiplyChecked>(
-      "multiply_checked", mul_checked_doc);
+  auto multiply_checked =
+      MakeArithmeticFunctionNotNull<MultiplyChecked>("multiply_checked", mul_checked_doc);
   AddDecimalBinaryKernels<MultiplyChecked>("multiply_checked", multiply_checked.get());
 
   // Add multiply_checked(duration, int64) -> duration
@@ -2884,8 +2884,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
       "shift_left_checked", shift_left_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_left_checked)));
 
-  auto shift_right =
-      MakeShiftFunctionNotNull<ShiftRight>("shift_right", shift_right_doc);
+  auto shift_right = MakeShiftFunctionNotNull<ShiftRight>("shift_right", shift_right_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_right)));
 
   auto shift_right_checked = MakeShiftFunctionNotNull<ShiftRightChecked>(

@@ -698,8 +698,8 @@ void RegisterScalarNested(FunctionRegistry* registry) {
                                          ListValueLength<LargeListType>));
   DCHECK_OK(registry->AddFunction(std::move(list_value_length)));
 
-  auto list_element = std::make_shared<ScalarFunction>("list_element", Arity::Binary(),
-                                                       list_element_doc);
+  auto list_element =
+      std::make_shared<ScalarFunction>("list_element", Arity::Binary(), list_element_doc);
   AddListElementArrayKernels(list_element.get());
   AddListElementScalarKernels(list_element.get());
   DCHECK_OK(registry->AddFunction(std::move(list_element)));

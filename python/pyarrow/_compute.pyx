@@ -2393,8 +2393,7 @@ cdef CFunctionDoc _make_function_doc(func_doc):
 
 
 def register_function(func_name, num_args, function_doc, in_types,
-                      out_type, callback, mem_allocation="no_preallocate",
-                      null_handling="computed_no_preallocate"):
+                      out_type, callback):
     """
     Register a user-defined-function
 
@@ -2423,48 +2422,6 @@ def register_function(func_name, num_args, function_doc, in_types,
         function is of the type defined as output_type. 
         The output is a datum object which can be
         an Array or a ChunkedArray or a Table or a RecordBatch.
-    mem_allocation: str
-        For data types that support pre-allocation (i.e. fixed-width), the
-        kernel expects to be provided a pre-allocated data buffer to write
-        into. Non-fixed-width types must always allocate their own data
-        buffers. The allocation made for the same length as the execution batch,
-        so vector kernels yielding differently sized output should not use this.
-        It is valid for the data to not be preallocated but the validity bitmap
-        is (or is computed using the intersection/bitwise-and method). 
-
-        memory allocation mode
-
-        "preallocate"
-            For variable-size output types like BinaryType or StringType, or for
-            nested types, this option has no effect.
-        "no_preallocate"
-            The kernel is responsible for allocating its own data buffer for
-            fixed-width type outputs.
-
-    null_handling: str
-
-        null handling mode
-
-        "intersect"
-            Compute the output validity bitmap by intersecting the validity bitmaps
-            of the arguments using bitwise-and operations. This means that values
-            in the output are valid/non-null only if the corresponding values in
-            all input arguments were valid/non-null. Kernel generally need not
-            touch the bitmap thereafter, but a kernel's exec function is permitted
-            to alter the bitmap after the null intersection is computed if it needs
-            to.
-
-        "computed_preallocate"
-            Kernel expects a pre-allocated buffer to write the result bitmap
-            into. The preallocated memory is not zeroed (except for the last byte),
-            so the kernel should ensure to completely populate the bitmap.
-
-        "computed_no_preallocate"
-            Kernel allocates and sets the validity bitmap of the output.
-
-        "output_not_null"
-            Kernel output is never null and a validity bitmap does not need to be 
-            allocated.
 
     Example
     -------
@@ -2509,23 +2466,9 @@ def register_function(func_name, num_args, function_doc, in_types,
         shared_ptr[CDataType] c_type
         COutputType* c_out_type
         CScalarUdfBuilder* c_sc_builder
-        MemAllocation c_mem_allocation
-        NullHandling c_null_handling
         CStatus st
         CScalarUdfOptions* c_options
         object obj
-
-    _mem_allocation_map = {
-        "preallocate": MemAllocation_PREALLOCATE,
-        "no_preallocate": MemAllocation_NO_PREALLOCATE
-    }
-
-    _null_handling_map = {
-        "intersect": NullHandling_INTERSECTION,
-        "computed_preallocate": NullHandling_COMPUTED_PREALLOCATE,
-        "computed_no_preallocate": NullHandling_COMPUTED_NO_PREALLOCATE,
-        "output_not_null": NullHandling_OUTPUT_NOT_NULL
-    }
 
     if func_name and isinstance(func_name, str):
         c_func_name = tobytes(func_name)
@@ -2567,16 +2510,13 @@ def register_function(func_name, num_args, function_doc, in_types,
         raise ValueError("callback must be a callable")
 
     c_out_type = new COutputType(c_type)
-    c_mem_allocation = <MemAllocation>_mem_allocation_map[mem_allocation]
-    c_null_handling = <NullHandling>_null_handling_map[null_handling]
     # Note: The VectorUDF, TableUDF and AggregatorUDFs will be defined
     # when they are implemented. Only ScalarUDFBuilder is supported at the
     # moment.
     c_options = new CScalarUdfOptions(c_func_name, c_arity, c_func_doc,
-                                      c_in_types, deref(c_out_type),
-                                      c_mem_allocation, c_null_handling)
+                                      c_in_types, deref(c_out_type))
     c_sc_builder = new CScalarUdfBuilder()
     st = c_sc_builder.MakeFunction(c_callback, c_options)
     if not st.ok():
-        error_msg = st.message().decode()
-        raise RuntimeError(message=error_msg)
+        error_msg = frombytes(st.message())
+        raise RuntimeError(error_msg)

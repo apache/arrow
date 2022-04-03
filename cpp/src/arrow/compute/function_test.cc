@@ -180,7 +180,8 @@ TEST(Arity, Basics) {
 
 TEST(ScalarFunction, Basics) {
   ScalarFunction func("scalar_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
-  ScalarFunction varargs_func("varargs_test", Arity::VarArgs(1), /*doc=*/FunctionDoc::Empty());
+  ScalarFunction varargs_func("varargs_test", Arity::VarArgs(1),
+                              /*doc=*/FunctionDoc::Empty());
 
   ASSERT_EQ("scalar_test", func.name());
   ASSERT_EQ(2, func.arity().num_args);
@@ -195,7 +196,8 @@ TEST(ScalarFunction, Basics) {
 
 TEST(VectorFunction, Basics) {
   VectorFunction func("vector_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
-  VectorFunction varargs_func("varargs_test", Arity::VarArgs(1), /*doc=*/FunctionDoc::Empty());
+  VectorFunction varargs_func("varargs_test", Arity::VarArgs(1),
+                              /*doc=*/FunctionDoc::Empty());
 
   ASSERT_EQ("vector_test", func.name());
   ASSERT_EQ(2, func.arity().num_args);

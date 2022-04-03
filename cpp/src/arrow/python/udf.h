@@ -45,16 +45,12 @@ class ARROW_PYTHON_EXPORT UdfOptions {
   UdfOptions(const compute::Function::Kind kind, const compute::Arity arity,
              const compute::FunctionDoc func_doc,
              const std::vector<compute::InputType> in_types,
-             const compute::OutputType out_type,
-             const compute::MemAllocation::type mem_allocation,
-             const compute::NullHandling::type null_handling)
+             const compute::OutputType out_type)
       : kind_(kind),
         arity_(arity),
         func_doc_(func_doc),
         in_types_(in_types),
-        out_type_(out_type),
-        mem_allocation_(mem_allocation),
-        null_handling_(null_handling) {}
+        out_type_(out_type) {}
 
   compute::Function::Kind kind() { return kind_; }
 
@@ -66,18 +62,12 @@ class ARROW_PYTHON_EXPORT UdfOptions {
 
   const compute::OutputType& output_type() const { return out_type_; }
 
-  compute::MemAllocation::type mem_allocation() { return mem_allocation_; }
-
-  compute::NullHandling::type null_handling() { return null_handling_; }
-
  private:
   compute::Function::Kind kind_;
   compute::Arity arity_;
   const compute::FunctionDoc func_doc_;
   std::vector<compute::InputType> in_types_;
   compute::OutputType out_type_;
-  compute::MemAllocation::type mem_allocation_;
-  compute::NullHandling::type null_handling_;
 };
 
 class ARROW_PYTHON_EXPORT ScalarUdfOptions : public UdfOptions {
@@ -85,11 +75,8 @@ class ARROW_PYTHON_EXPORT ScalarUdfOptions : public UdfOptions {
   ScalarUdfOptions(const std::string func_name, const compute::Arity arity,
                    const compute::FunctionDoc func_doc,
                    const std::vector<compute::InputType> in_types,
-                   const compute::OutputType out_type,
-                   const compute::MemAllocation::type mem_allocation,
-                   const compute::NullHandling::type null_handling)
-      : UdfOptions(compute::Function::SCALAR, arity, func_doc, in_types, out_type,
-                   mem_allocation, null_handling),
+                   const compute::OutputType out_type)
+      : UdfOptions(compute::Function::SCALAR, arity, func_doc, in_types, out_type),
         func_name_(func_name) {}
 
   const std::string& name() const { return func_name_; }

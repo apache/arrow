@@ -342,8 +342,8 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
   MakeFunction("is_valid", is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
                registry, MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
-  MakeFunction("is_null", is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
-               registry, MemAllocation::PREALLOCATE,
+  MakeFunction("is_null", is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec, registry,
+               MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true, &kNullOptions, NanOptionsState::Init);
 
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", is_finite_doc)));

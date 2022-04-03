@@ -289,8 +289,8 @@ const FunctionDoc variance_doc{
 
 std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
   static auto default_std_options = VarianceOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>(
-      "stddev", Arity::Unary(), stddev_doc, &default_std_options);
+  auto func = std::make_shared<ScalarAggregateFunction>("stddev", Arity::Unary(),
+                                                        stddev_doc, &default_std_options);
   AddVarStdKernels(StddevInit, NumericTypes(), func.get());
   AddVarStdKernels(StddevInit, {decimal128(1, 1), decimal256(1, 1)}, func.get());
   return func;

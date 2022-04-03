@@ -681,8 +681,8 @@ class TestCallScalarFunction : public TestComputeInternals {
 
     // This function simply copies memory from the input argument into the
     // (preallocated) output
-    auto func =
-        std::make_shared<ScalarFunction>("test_copy", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
+    auto func = std::make_shared<ScalarFunction>("test_copy", Arity::Unary(),
+                                                 /*doc=*/FunctionDoc::Empty());
 
     // Add a few kernels. Our implementation only accepts arrays
     ASSERT_OK(func->AddKernel({InputType::Array(uint8())}, uint8(), ExecCopy));
@@ -691,8 +691,8 @@ class TestCallScalarFunction : public TestComputeInternals {
     ASSERT_OK(registry->AddFunction(func));
 
     // A version which doesn't want the executor to call PropagateNulls
-    auto func2 = std::make_shared<ScalarFunction>("test_copy_computed_bitmap",
-                                                  Arity::Unary(), /*doc=*/FunctionDoc::Empty());
+    auto func2 = std::make_shared<ScalarFunction>(
+        "test_copy_computed_bitmap", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
     ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecComputedBitmap);
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     ASSERT_OK(func2->AddKernel(kernel));
@@ -706,8 +706,8 @@ class TestCallScalarFunction : public TestComputeInternals {
     // non-preallocated data and non-preallocated validity bitmap
     auto f1 = std::make_shared<ScalarFunction>("test_nopre_data", Arity::Unary(),
                                                /*doc=*/FunctionDoc::Empty());
-    auto f2 = std::make_shared<ScalarFunction>("test_nopre_validity_or_data",
-                                               Arity::Unary(), /*doc=*/FunctionDoc::Empty());
+    auto f2 = std::make_shared<ScalarFunction>(
+        "test_nopre_validity_or_data", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
 
     ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecNoPreallocatedData);
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;

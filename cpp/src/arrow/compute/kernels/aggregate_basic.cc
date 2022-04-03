@@ -985,8 +985,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>(
-      "min_max", Arity::Unary(), min_max_doc, &default_scalar_aggregate_options);
+  func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(), min_max_doc,
+                                                   &default_scalar_aggregate_options);
   AddMinMaxKernels(MinMaxInit, {null(), boolean()}, func.get());
   AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
   AddMinMaxKernels(MinMaxInit, TemporalTypes(), func.get());
@@ -1021,8 +1021,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddMinOrMaxAggKernel<MinOrMax::Max>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>(
-      "product", Arity::Unary(), product_doc, &default_scalar_aggregate_options);
+  func = std::make_shared<ScalarAggregateFunction>("product", Arity::Unary(), product_doc,
+                                                   &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(ProductInit::Init, {boolean()}, uint64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, UnsignedIntTypes(), uint64(), func.get());
