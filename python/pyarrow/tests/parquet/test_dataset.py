@@ -1551,6 +1551,7 @@ def test_dataset_read_dictionary(tempdir, use_legacy_dataset):
         assert c1.equals(ex_chunks[0])
 
 
+@pytest.mark.dataset
 @pytest.mark.pandas
 def test_read_table_schema(tempdir):
     # test that schema keyword is passed through in read_table
