@@ -338,6 +338,12 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
   return out.make_array();
 }
 
+Result<Datum> CumulativeSum(const Datum& values, const CumulativeGenericOptions& options,
+                            ExecContext* ctx) {
+  auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
+  return CallFunction(func_name, {Datum(values)}, &options, ctx);
+}
+
 // ----------------------------------------------------------------------
 // Cumulative functions
 

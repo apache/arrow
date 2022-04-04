@@ -15,22 +15,39 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdio>
+#include <functional>
+#include <locale>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
-#include "arrow/ipc/json_simple.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/buffer.h"
+#include "arrow/testing/gtest_util.h"  // IntegralArrowTypes
 #include "arrow/testing/util.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
+
+#include "arrow/compute/api.h"
+#include "arrow/compute/kernels/test_util.h"
+
+#include "arrow/ipc/json_simple.h"
 
 namespace arrow {
 namespace compute {
+
+using CumulativeTypes =
+    testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                   Int32Type, Int64Type, FloatType, DoubleType>;
 
 template <typename T, typename OptionsType>
 class TestCumulativeOp : public ::testing::Test {
@@ -76,9 +93,27 @@ class TestCumulativeSum : public TestCumulativeOp<T, CumulativeSumOptions> {
   using CType = typename TestCumulativeOp<T, OptionsType>::CType;
 
  protected:
-  OptionsType generate_options(CType start = 0, bool skip_nulls = false,
-                               bool check_overflow = false) {
+  template <typename U = T>
+  enable_if_parameter_free<U, OptionsType> generate_options(
+      CType start = 0, bool skip_nulls = false, check_overflow = false) {
     return OptionsType(std::make_shared<ArrowScalar>(start), skip_nulls, check_overflow);
+  }
+
+  template <typename U = T>
+  enable_if_t<is_time_type<U>::value || is_timestamp_type<U>::value,
+              OptionsType>
+  generate_options(CType start = 0, bool skip_nulls = false, check_overflow = false) {
+    TimeUnit::type unit;
+    switch (ArrowType::type_id) {
+      case Type::TIME64:
+        unit = TimeUnit::NANO;
+        break;
+      default:
+        unit = TimeUnit::SECOND;
+        break;
+    }
+    return OptionsType(std::make_shared<ArrowScalar>(start, unit),
+                                    skip_nulls, check_overflow);
   }
 
   void Assert(const std::string& values, const std::string& expected,
