@@ -45,6 +45,21 @@ Aggregations
    tdigest
    variance
 
+Cumulative Functions
+--------------------
+
+Cumulative functions are vector functions that perform a running total on its
+input and outputs an array containing the corresponding intermediate running values.
+By default these functions do not detect overflow. Most functions are also
+available in an overflow-checking variant, suffixed ``_checked``, which
+throws an ``ArrowInvalid`` exception when overflow is detected.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   cumulative_sum
+   cumulative_sum_checked
+
 Arithmetic Functions
 --------------------
 
@@ -502,7 +517,7 @@ Compute Options
    CastOptions
    CountOptions
    CountOptions
-   CumulativeGenericOptions
+   CumulativeSumOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
    ElementWiseAggregateOptions

@@ -33,7 +33,7 @@ from pyarrow._compute import (  # noqa
     AssumeTimezoneOptions,
     CastOptions,
     CountOptions,
-    CumulativeGenericOptions,
+    CumulativeSumOptions,
     DayOfWeekOptions,
     DictionaryEncodeOptions,
     ElementWiseAggregateOptions,

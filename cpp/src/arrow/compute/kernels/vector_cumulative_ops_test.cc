@@ -30,6 +30,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_decimal.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"  // IntegralArrowTypes
 #include "arrow/testing/util.h"
@@ -48,7 +49,7 @@ using CumulativeTypes =
     testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                    Int32Type, Int64Type, FloatType, DoubleType>;
 
-template <typename T>
+template <typename T, typename OptionsType>
 class TestCumulativeOp : public ::testing::Test {
  public:
   using ArrowType = T;
@@ -69,9 +70,8 @@ class TestCumulativeOp : public ::testing::Test {
   template <typename V = T>
   enable_if_t<!is_floating_type<V>::value, void> Assert(
       const std::string func, const std::shared_ptr<Array>& input,
-      const std::shared_ptr<Array>& expected, const CumulativeGenericOptions& options) {
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         CallFunction(func, {Datum(input)}, &options, nullptr));
+      const std::shared_ptr<Array>& expected, const OptionsType& options) {
+    ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func, {Datum(input)}, &options));
 
     AssertArraysEqual(*expected, *result.make_array(), false, EqualOptions::Defaults());
   }
@@ -90,9 +90,8 @@ class TestCumulativeOp : public ::testing::Test {
   enable_if_floating_point<V> Assert(const std::string func,
                                      const std::shared_ptr<Array>& input,
                                      const std::shared_ptr<Array>& expected,
-                                     const CumulativeGenericOptions& options) {
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         CallFunction(func, {Datum(input)}, &options, nullptr));
+                                     const OptionsType& options) {
+    ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func, {Datum(input)}, &options));
 
     AssertArraysApproxEqual(*expected, *result.make_array(), false,
                             EqualOptions::Defaults());
@@ -111,23 +110,24 @@ class TestCumulativeOp : public ::testing::Test {
 };
 
 template <typename T>
-class TestCumulativeSum : public TestCumulativeOp<T> {
+class TestCumulativeSum : public TestCumulativeOp<T, CumulativeSumOptions> {
  public:
-  using ArrowType = typename TestCumulativeOp<T>::ArrowType;
-  using ArrowScalar = typename TestCumulativeOp<T>::ArrowScalar;
-  using CType = typename TestCumulativeOp<T>::CType;
+  using OptionsType = CumulativeSumOptions;
+  using ArrowType = typename TestCumulativeOp<T, OptionsType>::ArrowType;
+  using ArrowScalar = typename TestCumulativeOp<T, OptionsType>::ArrowScalar;
+  using CType = typename TestCumulativeOp<T, OptionsType>::CType;
 
  protected:
   template <typename U = T>
-  enable_if_parameter_free<U, CumulativeGenericOptions> generate_options(
-      CType start = 0, bool skip_nulls = false) {
-    return CumulativeGenericOptions(std::make_shared<ArrowScalar>(start), skip_nulls);
+  enable_if_parameter_free<U, OptionsType> generate_options(
+      CType start = 0, bool skip_nulls = false, check_overflow = false) {
+    return OptionsType(std::make_shared<ArrowScalar>(start), skip_nulls, check_overflow);
   }
 
   template <typename U = T>
   enable_if_t<is_time_type<U>::value || is_timestamp_type<U>::value,
-              CumulativeGenericOptions>
-  generate_options(CType start = 0, bool skip_nulls = false) {
+              OptionsType>
+  generate_options(CType start = 0, bool skip_nulls = false, check_overflow = false) {
     TimeUnit::type unit;
     switch (ArrowType::type_id) {
       case Type::TIME64:
@@ -137,15 +137,17 @@ class TestCumulativeSum : public TestCumulativeOp<T> {
         unit = TimeUnit::SECOND;
         break;
     }
-    return CumulativeGenericOptions(std::make_shared<ArrowScalar>(start, unit),
-                                    skip_nulls);
+    return OptionsType(std::make_shared<ArrowScalar>(start, unit),
+                                    skip_nulls, check_overflow);
   }
 
   void Assert(const std::string& values, const std::string& expected,
-              const CumulativeGenericOptions& options) {
-    auto values_arr = TestCumulativeOp<T>::array(values);
-    auto expected_arr = TestCumulativeOp<T>::array(expected);
-    TestCumulativeOp<T>::Assert("cumulative_sum", values_arr, expected_arr, options);
+              const OptionsType& options) {
+    auto values_arr = TestCumulativeOp<T, OptionsType>::array(values);
+    auto expected_arr = TestCumulativeOp<T, OptionsType>::array(expected);
+    auto func_name = options.check_overflow ? "cumulative_sum_checked" : "cumulative_sum";
+    TestCumulativeOp<T, OptionsType>::Assert(func_name, values_arr, expected_arr,
+                                             options);
   }
 
   void Assert(const std::vector<std::string>& values,
@@ -157,10 +159,10 @@ class TestCumulativeSum : public TestCumulativeOp<T> {
   }
 };
 
-TYPED_TEST_SUITE(TestCumulativeSum, CumulativeTypes);
+TYPED_TEST_SUITE(TestCumulativeSum, NumericArrowTypes);
 
 TYPED_TEST(TestCumulativeSum, NoStartNoSkipNoNulls) {
-  CumulativeGenericOptions options = this->generate_options();
+  CumulativeSumOptions options = this->generate_options();
   auto empty = "[]";
   auto values = "[1, 2, 3, 4, 5, 6]";
   auto expected = "[1, 3, 6, 10, 15, 21]";
@@ -171,7 +173,7 @@ TYPED_TEST(TestCumulativeSum, NoStartNoSkipNoNulls) {
 }
 
 TYPED_TEST(TestCumulativeSum, NoStartNoSkipHasNulls) {
-  CumulativeGenericOptions options = this->generate_options();
+  CumulativeSumOptions options = this->generate_options();
   auto one_null = "[null]";
   auto three_null = "[null, null, null]";
   auto values = "[1, 2, null, 4, null, 6]";
@@ -182,7 +184,7 @@ TYPED_TEST(TestCumulativeSum, NoStartNoSkipHasNulls) {
 }
 
 TYPED_TEST(TestCumulativeSum, NoStartDoSkipNoNulls) {
-  CumulativeGenericOptions options = this->generate_options(0, true);
+  CumulativeSumOptions options = this->generate_options(0, true);
   auto empty = "[]";
   auto values = "[1, 2, 3, 4, 5, 6]";
   auto expected = "[1, 3, 6, 10, 15, 21]";
@@ -191,7 +193,7 @@ TYPED_TEST(TestCumulativeSum, NoStartDoSkipNoNulls) {
 }
 
 TYPED_TEST(TestCumulativeSum, NoStartDoSkipHasNulls) {
-  CumulativeGenericOptions options = this->generate_options(0, true);
+  CumulativeSumOptions options = this->generate_options(0, true);
   auto one_null = "[null]";
   auto three_null = "[null, null, null]";
   auto values = "[1, 2, null, 4, null, 6]";
@@ -202,7 +204,7 @@ TYPED_TEST(TestCumulativeSum, NoStartDoSkipHasNulls) {
 }
 
 TYPED_TEST(TestCumulativeSum, HasStartNoSkipNoNulls) {
-  CumulativeGenericOptions options = this->generate_options(10);
+  CumulativeSumOptions options = this->generate_options(10);
   auto empty = "[]";
   auto values = "[1, 2, 3, 4, 5, 6]";
   auto expected = "[11, 13, 16, 20, 25, 31]";
@@ -211,7 +213,7 @@ TYPED_TEST(TestCumulativeSum, HasStartNoSkipNoNulls) {
 }
 
 TYPED_TEST(TestCumulativeSum, HasStartNoSkipHasNulls) {
-  CumulativeGenericOptions options = this->generate_options(10);
+  CumulativeSumOptions options = this->generate_options(10);
   auto one_null = "[null]";
   auto three_null = "[null, null, null]";
   auto values = "[1, 2, null, 4, null, 6]";
@@ -222,7 +224,7 @@ TYPED_TEST(TestCumulativeSum, HasStartNoSkipHasNulls) {
 }
 
 TYPED_TEST(TestCumulativeSum, HasStartDoSkipNoNulls) {
-  CumulativeGenericOptions options = this->generate_options(10, true);
+  CumulativeSumOptions options = this->generate_options(10, true);
   auto empty = "[]";
   auto values = "[1, 2, 3, 4, 5, 6]";
   auto expected = "[11, 13, 16, 20, 25, 31]";
@@ -231,7 +233,7 @@ TYPED_TEST(TestCumulativeSum, HasStartDoSkipNoNulls) {
 }
 
 TYPED_TEST(TestCumulativeSum, HasStartDoSkipHasNulls) {
-  CumulativeGenericOptions options = this->generate_options(10, true);
+  CumulativeSumOptions options = this->generate_options(10, true);
   auto one_null = "[null]";
   auto three_null = "[null, null, null]";
   auto values = "[1, 2, null, 4, null, 6]";

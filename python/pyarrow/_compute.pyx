@@ -1736,21 +1736,27 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
-cdef class _CumulativeGenericOptions(FunctionOptions):
+cdef class _CumulativeSumOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
-        self.wrapped.reset(new CCumulativeGenericOptions(
-            pyarrow_unwrap_scalar(start), skip_nulls))
+        if not isinstance(start, Scalar):
+            # Is it a Python scalar?
+            try:
+                start = lib.scalar(start)
+            except Exception:
+                _raise_invalid_function_option(start, "`start` type for CumulativeSumOptions", TypeError)
+
+        self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
 
 
-class CumulativeGenericOptions(_CumulativeGenericOptions):
+class CumulativeSumOptions(_CumulativeSumOptions):
     """
     Options for `cumulative_sum` function.
 
     Parameters
     ----------
-    start : Scalar
-        Optional starting value for sum computation
-    skip_nulls : bool
+    start : Scalar (optional, default 0)
+        Starting value for sum computation
+    skip_nulls : bool (optional, default False)
         When false, propagates the first null/NaN encountered
     """
 
