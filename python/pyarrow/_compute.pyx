@@ -1743,8 +1743,7 @@ cdef class _CumulativeSumOptions(FunctionOptions):
             try:
                 start = lib.scalar(start)
             except Exception:
-                raise TypeError(f"Got unexpected argument type {type(start)} "
-                                "for cumulative function")
+                _raise_invalid_function_option(start, "`start` type for CumulativeSumOptions", TypeError)
 
         self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
 
