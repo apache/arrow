@@ -1400,7 +1400,7 @@ cdef class FlightClient(_Weakrefable):
                 c_descriptor,
                 c_schema).Value(&c_do_put_result))
         py_writer = FlightStreamWriter()
-        py_writer.writer.reset(c_do_put_result.stream.release())
+        py_writer.writer.reset(c_do_put_result.writer.release())
         py_reader = FlightMetadataReader()
         py_reader.reader.reset(c_do_put_result.reader.release())
         return py_writer, py_reader

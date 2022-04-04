@@ -348,7 +348,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \brief DoPut return value
   struct DoPutResult {
     /// \brief a writer to write record batches to
-    std::unique_ptr<FlightStreamWriter> stream;
+    std::unique_ptr<FlightStreamWriter> writer;
     /// \brief a reader for application metadata from the server
     std::unique_ptr<FlightMetadataReader> reader;
   };
@@ -376,14 +376,14 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,
                const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<FlightStreamWriter>* stream,
+               std::unique_ptr<FlightStreamWriter>* writer,
                std::unique_ptr<FlightMetadataReader>* reader);
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<FlightStreamWriter>* stream,
+               std::unique_ptr<FlightStreamWriter>* writer,
                std::unique_ptr<FlightMetadataReader>* reader) {
     ARROW_ASSIGN_OR_RAISE(auto output, DoPut({}, descriptor, schema));
-    *stream = std::move(output.stream);
+    *writer = std::move(output.writer);
     *reader = std::move(output.reader);
     return Status::OK();
   }

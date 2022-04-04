@@ -270,8 +270,8 @@ void DataTest::TestOverflowClientBatch() {
     ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(descr, batch->schema()));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
-        do_put_result.stream->WriteRecordBatch(*batch));
-    ASSERT_OK(do_put_result.stream->Close());
+        do_put_result.writer->WriteRecordBatch(*batch));
+    ASSERT_OK(do_put_result.writer->Close());
   }
   {
     // DoExchange: check for overflow on large batch from client
@@ -663,7 +663,7 @@ void DoPutTest::CheckDoPut(const FlightDescriptor& descr,
                            const std::shared_ptr<Schema>& schema,
                            const RecordBatchVector& batches) {
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(descr, schema));
-  std::unique_ptr<FlightStreamWriter> stream = std::move(do_put_result.stream);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
   std::unique_ptr<FlightMetadataReader> reader = std::move(do_put_result.reader);
 
   // Ensure that the reader can be used independently of the writer
@@ -677,18 +677,18 @@ void DoPutTest::CheckDoPut(const FlightDescriptor& descr,
   int64_t counter = 0;
   for (const auto& batch : batches) {
     if (counter % 2 == 0) {
-      ASSERT_OK(stream->WriteRecordBatch(*batch));
+      ASSERT_OK(writer->WriteRecordBatch(*batch));
     } else {
       auto buffer = Buffer::FromString(std::to_string(counter));
-      ASSERT_OK(stream->WriteWithMetadata(*batch, std::move(buffer)));
+      ASSERT_OK(writer->WriteWithMetadata(*batch, std::move(buffer)));
     }
     counter++;
   }
   // Write a metadata-only message
-  ASSERT_OK(stream->WriteMetadata(Buffer::FromString(kExpectedMetadata)));
-  ASSERT_OK(stream->DoneWriting());
+  ASSERT_OK(writer->WriteMetadata(Buffer::FromString(kExpectedMetadata)));
+  ASSERT_OK(writer->DoneWriting());
   reader_thread.join();
-  ASSERT_OK(stream->Close());
+  ASSERT_OK(writer->Close());
 
   CheckBatches(descr, batches);
 }
@@ -780,11 +780,11 @@ void DoPutTest::TestSizeLimit() {
   auto batch2 = batch->Slice(384);
 
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client->DoPut(descr, schema));
-  std::unique_ptr<FlightStreamWriter> stream = std::move(do_put_result.stream);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
   std::unique_ptr<FlightMetadataReader> reader = std::move(do_put_result.reader);
 
   // Large batch will exceed the limit
-  const auto status = stream->WriteRecordBatch(*batch);
+  const auto status = writer->WriteRecordBatch(*batch);
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("exceeded soft limit"),
                                   status);
   auto detail = FlightWriteSizeStatusDetail::UnwrapStatus(status);
@@ -793,14 +793,14 @@ void DoPutTest::TestSizeLimit() {
   ASSERT_GT(detail->actual(), size_limit);
 
   // But we can retry with smaller batches
-  ASSERT_OK(stream->WriteRecordBatch(*batch1));
-  ASSERT_OK(stream->WriteWithMetadata(*batch2, Buffer::FromString("1")));
+  ASSERT_OK(writer->WriteRecordBatch(*batch1));
+  ASSERT_OK(writer->WriteWithMetadata(*batch2, Buffer::FromString("1")));
 
   // Write a metadata-only message
-  ASSERT_OK(stream->WriteMetadata(Buffer::FromString(kExpectedMetadata)));
+  ASSERT_OK(writer->WriteMetadata(Buffer::FromString(kExpectedMetadata)));
 
-  ASSERT_OK(stream->DoneWriting());
-  ASSERT_OK(stream->Close());
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_OK(writer->Close());
   CheckBatches(descr, {batch1, batch2});
 }
 void DoPutTest::TestUndrained() {
@@ -810,16 +810,16 @@ void DoPutTest::TestUndrained() {
   auto descr = FlightDescriptor::Command("TestUndrained");
   auto schema = arrow::schema({arrow::field("ints", int64())});
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(descr, schema));
-  std::unique_ptr<FlightStreamWriter> stream = std::move(do_put_result.stream);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
   std::unique_ptr<FlightMetadataReader> reader = std::move(do_put_result.reader);
   auto batch = RecordBatchFromJSON(schema, "[[1], [2], [3], [4]]");
   // These calls may or may not fail depending on how quickly the
   // transport reacts, whether it batches, writes, etc.
-  ARROW_UNUSED(stream->WriteRecordBatch(*batch));
-  ARROW_UNUSED(stream->WriteRecordBatch(*batch));
-  ARROW_UNUSED(stream->WriteRecordBatch(*batch));
-  ARROW_UNUSED(stream->WriteRecordBatch(*batch));
-  ASSERT_OK(stream->Close());
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ASSERT_OK(writer->Close());
 
   // We should be able to make another call
   CheckDoPut(FlightDescriptor::Command("foo"), schema, {batch, batch});
@@ -922,7 +922,7 @@ void AppMetadataTest::TestDoGetDictionaries() {
 void AppMetadataTest::TestDoPut() {
   std::shared_ptr<Schema> schema = ExampleIntSchema();
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
-  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.stream);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
 
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
@@ -953,7 +953,7 @@ void AppMetadataTest::TestDoPutDictionaries() {
   // confuses the reader.
   ASSERT_OK_AND_ASSIGN(auto do_put_result,
                        client_->DoPut(FlightDescriptor{}, expected_batches[0]->schema()));
-  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.stream);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
 
   std::shared_ptr<RecordBatch> chunk;
   std::shared_ptr<Buffer> metadata;
@@ -967,7 +967,7 @@ void AppMetadataTest::TestDoPutDictionaries() {
 void AppMetadataTest::TestDoPutReadMetadata() {
   std::shared_ptr<Schema> schema = ExampleIntSchema();
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
-  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.stream);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
   std::unique_ptr<FlightMetadataReader> reader = std::move(do_put_result.reader);
 
   RecordBatchVector expected_batches;
@@ -1077,7 +1077,7 @@ void IpcOptionsTest::TestDoPutWriteOptions() {
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(options, FlightDescriptor{},
                                                           expected_batches[0]->schema()));
   for (const auto& batch : expected_batches) {
-    ASSERT_RAISES(Invalid, do_put_result.stream->WriteRecordBatch(*batch));
+    ASSERT_RAISES(Invalid, do_put_result.writer->WriteRecordBatch(*batch));
   }
 }
 void IpcOptionsTest::TestDoExchangeClientWriteOptions() {

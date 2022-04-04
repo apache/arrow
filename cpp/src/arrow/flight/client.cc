@@ -632,20 +632,20 @@ arrow::Result<FlightClient::DoPutResult> FlightClient::DoPut(
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   DoPutResult result;
   result.reader = arrow::internal::make_unique<ClientMetadataReader>(shared_stream);
-  result.stream = arrow::internal::make_unique<ClientStreamWriter>(
+  result.writer = arrow::internal::make_unique<ClientStreamWriter>(
       std::move(shared_stream), options.write_options, write_size_limit_bytes_,
       descriptor);
-  RETURN_NOT_OK(result.stream->Begin(schema, options.write_options));
+  RETURN_NOT_OK(result.writer->Begin(schema, options.write_options));
   return result;
 }
 
 Status FlightClient::DoPut(const FlightCallOptions& options,
                            const FlightDescriptor& descriptor,
                            const std::shared_ptr<Schema>& schema,
-                           std::unique_ptr<FlightStreamWriter>* stream,
+                           std::unique_ptr<FlightStreamWriter>* writer,
                            std::unique_ptr<FlightMetadataReader>* reader) {
   ARROW_ASSIGN_OR_RAISE(auto result, DoPut(options, descriptor, schema));
-  *stream = std::move(result.stream);
+  *writer = std::move(result.writer);
   *reader = std::move(result.reader);
   return Status::OK();
 }

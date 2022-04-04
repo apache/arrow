@@ -162,7 +162,7 @@ class IntegrationTestScenario : public Scenario {
     ABORT_NOT_OK(ReadBatches(reader, &original_data));
 
     auto do_put_result = client->DoPut(descr, original_schema).ValueOrDie();
-    std::unique_ptr<FlightStreamWriter> write_stream = std::move(do_put_result.stream);
+    std::unique_ptr<FlightStreamWriter> write_stream = std::move(do_put_result.writer);
     std::unique_ptr<FlightMetadataReader> metadata_reader =
         std::move(do_put_result.reader);
     ABORT_NOT_OK(UploadBatchesToFlight(original_data, *write_stream, *metadata_reader));

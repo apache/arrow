@@ -1035,7 +1035,7 @@ TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
 
   std::shared_ptr<Schema> schema = arrow::schema({});
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
-  status = do_put_result.stream->Close();
+  status = do_put_result.writer->Close();
   ASSERT_RAISES(NotImplemented, status);
 }
 
@@ -1071,7 +1071,7 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   FlightClient::DoPutResult do_put_result;
   status = client_->DoPut(FlightDescriptor{}, schema).Value(&do_put_result);
   // ARROW-16053: gRPC may or may not fail the call immediately
-  if (status.ok()) status = do_put_result.stream->Close();
+  if (status.ok()) status = do_put_result.writer->Close();
   ASSERT_RAISES(IOError, status);
   // ARROW-7583: don't check the error message here.
   // Because gRPC reports errors in some paths with booleans, instead
@@ -1134,7 +1134,7 @@ TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {
 
   std::shared_ptr<Schema> schema = arrow::schema({});
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
-  status = do_put_result.stream->Close();
+  status = do_put_result.writer->Close();
   ASSERT_RAISES(NotImplemented, status);
 }
 
@@ -1169,7 +1169,7 @@ TEST_F(TestBasicAuthHandler, FailUnauthenticatedCalls) {
   status = client_->DoPut(FlightDescriptor{}, schema).Value(&do_put_result);
   // May or may not succeed depending on if the transport buffers the write
   ARROW_UNUSED(status);
-  status = do_put_result.stream->Close();
+  status = do_put_result.writer->Close();
   // But this should definitely fail
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
@@ -1360,7 +1360,7 @@ TEST_F(TestPropagatingMiddleware, DoPut) {
   auto schema = arrow::schema({field("f1", a1->type())});
 
   ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(descr, schema));
-  const Status status = do_put_result.stream->Close();
+  const Status status = do_put_result.writer->Close();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::DoPut);
 }

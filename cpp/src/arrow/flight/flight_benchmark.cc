@@ -249,7 +249,7 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
   ARROW_ASSIGN_OR_RAISE(
       auto do_put_result,
       client->DoPut(call_options, FlightDescriptor{}, batches[0].batch->schema()));
-  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.stream);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
   for (size_t i = 0; i < batches.size(); i++) {
     auto batch = batches[i];
     auto is_last = i == (batches.size() - 1);

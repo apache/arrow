@@ -180,10 +180,10 @@ class ARROW_EXPORT FlightSqlClient {
   virtual Status DoPut(const FlightCallOptions& options,
                        const FlightDescriptor& descriptor,
                        const std::shared_ptr<Schema>& schema,
-                       std::unique_ptr<FlightStreamWriter>* stream,
+                       std::unique_ptr<FlightStreamWriter>* writer,
                        std::unique_ptr<FlightMetadataReader>* reader) {
     ARROW_ASSIGN_OR_RAISE(auto result, impl_->DoPut(options, descriptor, schema));
-    *stream = std::move(result.stream);
+    *writer = std::move(result.writer);
     *reader = std::move(result.reader);
     return Status::OK();
   }

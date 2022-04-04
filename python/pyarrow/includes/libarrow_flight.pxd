@@ -314,7 +314,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightClientOptions Defaults()
 
     cdef cppclass CDoPutResult" arrow::flight::FlightClient::DoPutResult":
-        unique_ptr[CFlightStreamWriter] stream
+        unique_ptr[CFlightStreamWriter] writer
         unique_ptr[CFlightMetadataReader] reader
 
     cdef cppclass CDoExchangeResult" arrow::flight::FlightClient::DoExchangeResult":
