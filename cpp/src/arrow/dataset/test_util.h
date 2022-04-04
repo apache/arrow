@@ -513,11 +513,11 @@ class FileFormatFixtureMixin : public ::testing::Test {
     EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
     return written;
   }
-  std::shared_ptr<Buffer> WriteToBufferFromTable(
-      std::shared_ptr<Schema> schema,
+  std::shared_ptr<Buffer> WriteTableToBuffer(
       std::shared_ptr<Table> table,
       std::shared_ptr<FileWriteOptions> options = nullptr) {
     auto format = format_;
+    auto schema = table->schema();
     SetSchema(schema->fields());
     EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
     if (!options) options = format->DefaultWriteOptions();
@@ -874,7 +874,6 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       ASSERT_EQ(row_count, expected_rows());
       row_counts.push_back(row_count);
     }
-
     ASSERT_EQ(row_counts.at(0), row_counts.at(1));
   }
 

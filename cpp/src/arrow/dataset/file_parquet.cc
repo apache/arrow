@@ -156,7 +156,7 @@ void AddColumnIndices(const SchemaField& schema_field,
 }
 
 Status ResolveOneFieldRef(
-    const SchemaManifest& manifest, const std::shared_ptr<Schema> dataset_schema,
+    const SchemaManifest& manifest, const std::shared_ptr<Schema>& dataset_schema,
     const FieldRef& field_ref,
     const std::unordered_map<std::string, const SchemaField*>& field_lookup,
     const std::unordered_set<std::string>& duplicate_fields,
@@ -255,8 +255,6 @@ Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader&
   // Checks if the field is needed in either the projection or the filter.
   auto field_refs = options.MaterializedFields();
 
-  auto dataset_schema = options.dataset_schema;
-
   // Build a lookup table from top level field name to field metadata.
   // This is to avoid quadratic-time mapping of projected fields to
   // column indices, in the common case of selecting top level
@@ -275,7 +273,7 @@ Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader&
 
   std::vector<int> columns_selection;
   for (const auto& ref : field_refs) {
-    RETURN_NOT_OK(ResolveOneFieldRef(manifest, dataset_schema, ref, field_lookup,
+    RETURN_NOT_OK(ResolveOneFieldRef(manifest, options.dataset_schema, ref, field_lookup,
                                      duplicate_fields, &columns_selection));
   }
   return columns_selection;

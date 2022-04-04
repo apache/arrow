@@ -394,7 +394,7 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithFieldPathFilter) {
   TestScanWithFieldPathFilter();
 }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithFieldPathMultiFileFilter) {
-  compute::Expression filter = greater(field_ref(0), literal(20));
+  compute::Expression filter = greater(field_ref("x"), literal(20));
   auto fields = {field("x", int32()), field("y", int32()), field("z", int32())};
   auto dataset_schema = schema(fields);
   SetSchema(fields);
@@ -402,8 +402,8 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithFieldPathMultiFileFil
   auto table = TableFromJSON(dataset_schema,
                              {
                                  R"([[10, 20, 30]])",
+                                 R"([[30, 40, 50]])",
                              });
-
   auto options =
       checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
   options->writer_properties = parquet::WriterProperties::Builder()
@@ -411,10 +411,10 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithFieldPathMultiFileFil
   options->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
                                          .build();
 
-  auto written = WriteToBufferFromTable(dataset_schema, table, options);
+  auto written = WriteTableToBuffer(table, options);
 
   EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
-
+  
   for (auto maybe_batch : PhysicalBatches(fragment)) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     std::cout << "Batch ::" << std::endl;
