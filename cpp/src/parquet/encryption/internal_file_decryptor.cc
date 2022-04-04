@@ -202,9 +202,9 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   // using the key_retriever.
   int key_len = static_cast<int>(column_key.size());
   auto aes_metadata_decryptor =
-       encryption::AesDecryptor::Make(algorithm_, key_len, true, &all_decryptors_);
+      encryption::AesDecryptor::Make(algorithm_, key_len, true, &all_decryptors_);
   auto aes_data_decryptor =
-       encryption::AesDecryptor::Make(algorithm_, key_len, false, &all_decryptors_);
+      encryption::AesDecryptor::Make(algorithm_, key_len, false, &all_decryptors_);
 
   column_metadata_map_[column_path] = std::make_shared<Decryptor>(
       aes_metadata_decryptor, column_key, file_aad_, aad, pool_);

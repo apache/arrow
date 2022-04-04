@@ -88,9 +88,9 @@ class AesDecryptor {
   explicit AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
                         bool contains_length = true);
 
-  static std::shared_ptr<AesDecryptor> Make(ParquetCipher::type alg_id, int key_len,
-                            bool metadata,
-                            std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors);
+  static std::shared_ptr<AesDecryptor> Make(
+      ParquetCipher::type alg_id, int key_len, bool metadata,
+      std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors);
 
   ~AesDecryptor();
   void WipeOut();
