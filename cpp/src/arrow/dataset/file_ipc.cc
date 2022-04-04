@@ -137,10 +137,6 @@ Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source)
 Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& file) const {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  auto tracer = arrow::internal::tracing::GetTracer();
-  auto parent_span = tracer->GetCurrentSpan();
-#endif
   auto self = shared_from_this();
   auto source = file->source();
   auto open_reader = OpenReaderAsync(source);
