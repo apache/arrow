@@ -332,7 +332,7 @@ register_bindings_duration <- function() {
       build_expr("is_leap_year", date),
       Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
       Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
-      )
+    )
     y + sofar$cast(int64()) / total
   })
   register_binding("date_decimal", function(decimal, tz = "UTC") {
