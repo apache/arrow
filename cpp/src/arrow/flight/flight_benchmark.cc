@@ -123,8 +123,7 @@ struct PerformanceStats {
 Status WaitForReady(FlightClient* client, const FlightCallOptions& call_options) {
   Action action{"ping", nullptr};
   for (int attempt = 0; attempt < 10; attempt++) {
-    std::unique_ptr<ResultStream> stream;
-    if (client->DoAction(call_options, action).Value(&stream).ok()) {
+    if (client->DoAction(call_options, action).ok()) {
       return Status::OK();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));

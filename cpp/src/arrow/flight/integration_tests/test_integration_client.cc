@@ -93,8 +93,7 @@ Status UploadBatchesToFlight(const std::vector<std::shared_ptr<RecordBatch>>& ch
 Status ConsumeFlightLocation(
     FlightClient* read_client, const Ticket& ticket,
     const std::vector<std::shared_ptr<RecordBatch>>& retrieved_data) {
-  std::unique_ptr<FlightStreamReader> stream;
-  RETURN_NOT_OK(read_client->DoGet(ticket).Value(&stream));
+  ARROW_ASSIGN_OR_RAISE(auto stream, read_client->DoGet(ticket));
 
   int counter = 0;
   const int expected = static_cast<int>(retrieved_data.size());

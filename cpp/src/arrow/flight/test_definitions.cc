@@ -130,7 +130,8 @@ void DataTest::TearDown() {
 Status DataTest::ConnectClient() {
   ARROW_ASSIGN_OR_RAISE(auto location,
                         Location::ForScheme(transport(), "localhost", server_->port()));
-  return FlightClient::Connect(location).Value(&client_);
+  ARROW_ASSIGN_OR_RAISE(client_, FlightClient::Connect(location));
+  return Status::OK();
 }
 void DataTest::CheckDoGet(
     const FlightDescriptor& descr, const RecordBatchVector& expected_batches,
@@ -153,11 +154,9 @@ void DataTest::CheckDoGet(const Ticket& ticket,
   auto num_batches = static_cast<int>(expected_batches.size());
   ASSERT_GE(num_batches, 2);
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK_AND_ASSIGN(stream, client_->DoGet(ticket));
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
 
-  std::unique_ptr<FlightStreamReader> stream2;
-  ASSERT_OK_AND_ASSIGN(stream2, client_->DoGet(ticket));
+  ASSERT_OK_AND_ASSIGN(auto stream2, client_->DoGet(ticket));
   ASSERT_OK_AND_ASSIGN(auto reader, MakeRecordBatchReader(std::move(stream2)));
 
   std::shared_ptr<RecordBatch> batch;
