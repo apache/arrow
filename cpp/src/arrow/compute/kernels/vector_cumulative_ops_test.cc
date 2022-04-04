@@ -58,8 +58,12 @@ class TestCumulativeOp : public ::testing::Test {
  protected:
   std::shared_ptr<DataType> type_singleton() { return default_type_instance<T>(); }
 
-  std::shared_ptr<Array> array(const std::string& value) {
-    return ArrayFromJSON(type_singleton(), value);
+  std::shared_ptr<Array> array(const std::string& values) {
+    return ArrayFromJSON(type_singleton(), values);
+  }
+
+  std::shared_ptr<ChunkedArray> chunked_array(const std::vector<std::string>& values) {
+    return ChunkedArrayFromJSON(type_singleton(), values);
   }
 
   template <typename V = T>
@@ -73,6 +77,16 @@ class TestCumulativeOp : public ::testing::Test {
   }
 
   template <typename V = T>
+  enable_if_t<!is_floating_type<V>::value, void> Assert(
+      const std::string func, const std::shared_ptr<ChunkedArray>& input,
+      const std::shared_ptr<ChunkedArray>& expected, const CumulativeGenericOptions& options) {
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         CallFunction(func, {Datum(input)}, &options, nullptr));
+
+    AssertChunkedEqual(*expected, result);
+  }
+
+  template <typename V = T>
   enable_if_floating_point<V> Assert(const std::string func,
                                      const std::shared_ptr<Array>& input,
                                      const std::shared_ptr<Array>& expected,
@@ -82,6 +96,17 @@ class TestCumulativeOp : public ::testing::Test {
 
     AssertArraysApproxEqual(*expected, *result.make_array(), false,
                             EqualOptions::Defaults());
+  }
+
+  template <typename V = T>
+  enable_if_floating_point<V> Assert(const std::string func,
+                                     const std::shared_ptr<ChunkedArray>& input,
+                                     const std::shared_ptr<ChunkedArray>& expected,
+                                     const CumulativeGenericOptions& options) {
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         CallFunction(func, {Datum(input)}, &options, nullptr));
+
+    AssertChunkedApproxEquivalent(*expected, *result.chunks(), EqualOptions::Defaults());
   }
 };
 
@@ -122,6 +147,14 @@ class TestCumulativeSum : public TestCumulativeOp<T> {
     auto expected_arr = TestCumulativeOp<T>::array(expected);
     TestCumulativeOp<T>::Assert("cumulative_sum", values_arr, expected_arr, options);
   }
+
+  void Assert(const std::vector<std::string>& values,
+              const std::vector<std::string>& expected,
+              const CumulativeGenericOptions& options) {
+    auto values_arr = TestCumulativeOp<T>::chunked_array(values);
+    auto expected_arr = TestCumulativeOp<T>::chunked_array(expected);
+    TestCumulativeOp<T>::Assert("cumulative_sum", values_arr, expected_arr, options);
+  }
 };
 
 TYPED_TEST_SUITE(TestCumulativeSum, CumulativeTypes);
@@ -131,6 +164,8 @@ TYPED_TEST(TestCumulativeSum, NoStartNoSkipNoNulls) {
   auto empty = "[]";
   auto values = "[1, 2, 3, 4, 5, 6]";
   auto expected = "[1, 3, 6, 10, 15, 21]";
+  auto chunked_values = {"[1, 2, 3]", "[4, 5, 6]"};
+  auto chunked_expected = {"[1, 3, 6]", "[10, 15, 21]"};
   this->Assert(empty, empty, options);
   this->Assert(values, expected, options);
 }
