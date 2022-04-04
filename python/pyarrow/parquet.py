@@ -231,15 +231,10 @@ class ParquetFile:
 
     Generate an example PyArrow Table and write it to Parquet file:
 
-    >>> import pandas as pd
     >>> import pyarrow as pa
-    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-    ...                    'month': [3, 5, 7, 9, 11, 12],
-    ...                    'day': [1, 5, 9, 13, 17, 23],
-    ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-    ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-    ...                    "Brittle stars", "Centipede"]})
-    >>> table = pa.Table.from_pandas(df)
+    >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+    ...                              "Brittle stars", "Centipede"]})
 
     >>> import pyarrow.parquet as pq
     >>> pq.write_table(table, 'example.parquet')
@@ -252,33 +247,21 @@ class ParquetFile:
 
     >>> parquet_file.read()
     pyarrow.Table
-    year: int64
-    month: int64
-    day: int64
     n_legs: int64
     animal: string
     ----
-    year: [[2020,2022,2021,2022,2019,2021]]
-    month: [[3,5,7,9,11,12]]
-    day: [[1,5,9,13,17,23]]
     n_legs: [[2,2,4,4,5,100]]
     animal: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
 
-    create a ParquetFile object with "animals" column as DictionaryArray:
+    create a ParquetFile object with "animal" column as DictionaryArray:
 
     >>> parquet_file = pq.ParquetFile('example.parquet',
     ...                               read_dictionary=["animal"])
     >>> parquet_file.read()
     pyarrow.Table
-    year: int64
-    month: int64
-    day: int64
     n_legs: int64
     animal: dictionary<values=string, indices=int32, ordered=0>
     ----
-    year: [[2020,2022,2021,2022,2019,2021]]
-    month: [[3,5,7,9,11,12]]
-    day: [[1,5,9,13,17,23]]
     n_legs: [[2,2,4,4,5,100]]
     animal: [  -- dictionary:
     ["Flamingo","Parrot",...,"Brittle stars","Centipede"]  -- indices:
@@ -343,15 +326,10 @@ class ParquetFile:
         --------
         Generate an example Parquet file:
 
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'example.parquet')
         >>> parquet_file = pq.ParquetFile('example.parquet')
@@ -359,13 +337,8 @@ class ParquetFile:
         Read the Arrow schema:
 
         >>> parquet_file.schema_arrow
-        year: int64
-        month: int64
-        day: int64
         n_legs: int64
         animal: string
-        -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null,...
         """
         return self.reader.schema_arrow
 
@@ -376,15 +349,10 @@ class ParquetFile:
 
         Examples
         --------
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'example.parquet')
         >>> parquet_file = pq.ParquetFile('example.parquet')
@@ -420,30 +388,19 @@ class ParquetFile:
 
         Examples
         --------
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'example.parquet')
         >>> parquet_file = pq.ParquetFile('example.parquet')
 
         >>> parquet_file.read_row_group(0)
         pyarrow.Table
-        year: int64
-        month: int64
-        day: int64
         n_legs: int64
         animal: string
         ----
-        year: [[2020,2022,2021,2022,2019,2021]]
-        month: [[3,5,7,9,11,12]]
-        day: [[1,5,9,13,17,23]]
         n_legs: [[2,2,4,4,5,100]]
         animal: [["Flamingo","Parrot",...,"Brittle stars","Centipede"]]
         """
@@ -478,30 +435,19 @@ class ParquetFile:
 
         Examples
         --------
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'example.parquet')
         >>> parquet_file = pq.ParquetFile('example.parquet')
 
         >>> parquet_file.read_row_groups([0,0])
         pyarrow.Table
-        year: int64
-        month: int64
-        day: int64
         n_legs: int64
         animal: string
         ----
-        year: [[2020,2022,2021,2022,2019,...,2022,2021,2022,2019,2021]]
-        month: [[3,5,7,9,11,...,5,7,9,11,12]]
-        day: [[1,5,9,13,17,...,5,9,13,17,23]]
         n_legs: [[2,2,4,4,5,...,2,4,4,5,100]]
         animal: [["Flamingo","Parrot","Dog",...,"Brittle stars","Centipede"]]
         """
@@ -542,15 +488,10 @@ class ParquetFile:
         --------
         Generate an example Parquet file:
 
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'example.parquet')
         >>> parquet_file = pq.ParquetFile('example.parquet')
@@ -562,15 +503,15 @@ class ParquetFile:
         ...     print(i.to_pandas())
         ...
         RecordBatch
-           year  month  day  n_legs    animal
-        0  2020      3    1       2  Flamingo
-        1  2022      5    5       2    Parrot
-        2  2021      7    9       4       Dog
+           n_legs    animal
+        0       2  Flamingo
+        1       2    Parrot
+        2       4       Dog
         RecordBatch
-           year  month  day  n_legs         animal
-        0  2022      9   13       4          Horse
-        1  2019     11   17       5  Brittle stars
-        2  2021     12   23     100      Centipede
+           n_legs         animal
+        0       4          Horse
+        1       5  Brittle stars
+        2     100      Centipede
         """
         if row_groups is None:
             row_groups = range(0, self.metadata.num_row_groups)
@@ -608,15 +549,10 @@ class ParquetFile:
         --------
         Generate an example Parquet file:
 
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'example.parquet')
         >>> parquet_file = pq.ParquetFile('example.parquet')
@@ -656,15 +592,10 @@ class ParquetFile:
 
         Examples
         --------
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'example.parquet')
         >>> parquet_file = pq.ParquetFile('example.parquet')
@@ -860,16 +791,14 @@ write_batch_size : int, default None
 _parquet_writer_example_doc = """\
 Generate an example PyArrow Table and RecordBatch:
 
->>> import pandas as pd
 >>> import pyarrow as pa
->>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-...                    'month': [3, 5, 7, 9, 11, 12],
-...                    'day': [1, 5, 9, 13, 17, 23],
-...                    'n_legs': [2, 2, 4, 4, 5, 100],
-...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
-...                    "Brittle stars", "Centipede"]})
->>> table = pa.Table.from_pandas(df)
->>> batch = pa.RecordBatch.from_pandas(df)
+>>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+...                              "Brittle stars", "Centipede"]})
+>>> batch = pa.record_batch([[2, 2, 4, 4, 5, 100],
+...                         ["Flamingo", "Parrot", "Dog", "Horse",
+...                          "Brittle stars", "Centipede"]],
+...                         names=['n_legs', 'animal'])
 
 create a ParquetWriter object:
 
@@ -882,13 +811,13 @@ and write the Table into the Parquet file:
 >>> writer.close()
 
 >>> pq.read_table('example.parquet').to_pandas()
-   year  month  day  n_legs        animals
-0  2020      3    1       2       Flamingo
-1  2022      5    5       2         Parrot
-2  2021      7    9       4            Dog
-3  2022      9   13       4          Horse
-4  2019     11   17       5  Brittle stars
-5  2021     12   23     100      Centipede
+   n_legs         animal
+0       2       Flamingo
+1       2         Parrot
+2       4            Dog
+3       4          Horse
+4       5  Brittle stars
+5     100      Centipede
 
 create a ParquetWriter object for the RecordBatch:
 
@@ -900,13 +829,13 @@ and write the RecordBatch into the Parquet file:
 >>> writer2.close()
 
 >>> pq.read_table('example2.parquet').to_pandas()
-   year  month  day  n_legs        animals
-0  2020      3    1       2       Flamingo
-1  2022      5    5       2         Parrot
-2  2021      7    9       4            Dog
-3  2022      9   13       4          Horse
-4  2019     11   17       5  Brittle stars
-5  2021     12   23     100      Centipede
+   n_legs         animal
+0       2       Flamingo
+1       2         Parrot
+2       4            Dog
+3       4          Horse
+4       5  Brittle stars
+5     100      Centipede
 """
 
 
@@ -1619,18 +1548,14 @@ _parquet_dataset_example = """\
 Generate an example PyArrow Table and write it to a partitioned dataset:
 
 >>> import pyarrow as pa
->>> import pandas as pd
->>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-...                    'month': [3, 5, 7, 9, 11, 12],
-...                    'day': [1, 5, 9, 13, 17, 23],
-...                    'n_legs': [2, 2, 4, 4, 5, 100],
-...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-...                    "Brittle stars", "Centipede"]})
->>> table = pa.Table.from_pandas(df)
+>>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+...                   'n_legs': [2, 2, 4, 4, 5, 100],
+...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+...                              "Brittle stars", "Centipede"]})
 
 >>> import pyarrow.parquet as pq
 >>> pq.write_to_dataset(table, root_path='dataset_name',
-...                     partition_cols=['year', 'month', 'day'],
+...                     partition_cols=['year'],
 ...                     use_legacy_dataset=False)
 
 create a ParquetDataset object from the dataset source:
@@ -1640,22 +1565,22 @@ create a ParquetDataset object from the dataset source:
 and read the data:
 
 >>> dataset.read().to_pandas()
-   n_legs         animal  year month day
-0       5  Brittle stars  2019    11  17
-1       2       Flamingo  2020     3   1
-2     100      Centipede  2021    12  23
-3       4            Dog  2021     7   9
-4       2         Parrot  2022     5   5
-5       4          Horse  2022     9  13
+   n_legs         animal  year
+0       5  Brittle stars  2019
+1       2       Flamingo  2020
+2       4            Dog  2021
+3     100      Centipede  2021
+4       2         Parrot  2022
+5       4          Horse  2022
 
 create a ParquetDataset object with filter:
 
 >>> dataset = pq.ParquetDataset('dataset_name/', use_legacy_dataset=False,
 ...                             filters=[('n_legs','=',4)])
 >>> dataset.read().to_pandas()
-   n_legs animal  year month day
-0       4    Dog  2021     7   9
-1       4  Horse  2022     9  13
+   n_legs animal  year
+0       4    Dog  2021
+1       4  Horse  2022
 """
 
 
@@ -1906,17 +1831,13 @@ Examples
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],         
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_name_read',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq.ParquetDataset('dataset_name_read/',
         ...                             use_legacy_dataset=False)
@@ -1974,15 +1895,13 @@ Examples
         >>> import pyarrow as pa
         >>> import pandas as pd
         >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
         ...                    'n_legs': [2, 2, 4, 4, 5, 100],
         ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
         ...                    "Brittle stars", "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_name_read_pandas',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq.ParquetDataset('dataset_name_read_pandas/',
         ...                             use_legacy_dataset=False)
@@ -2136,17 +2055,13 @@ Examples
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_name_fragments',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_name_fragments/')
 
@@ -2171,24 +2086,20 @@ Examples
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_name_files',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_name_files/')
 
         List the files:
 
         >>> dataset.files
-        ['dataset_name_files/year=2019/month=11/day=17/part-0.parquet', ...
+        ['dataset_name_files/year=2019/part-0.parquet', ...
         """
         raise NotImplementedError(
             "To use this property set 'use_legacy_dataset=False' while "
@@ -2271,18 +2182,13 @@ class _ParquetDatasetV2:
     Generate an example PyArrow Table and write it to a partitioned dataset:
 
     >>> import pyarrow as pa
-    >>> import pandas as pd
-    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-    ...                    'month': [3, 5, 7, 9, 11, 12],
-    ...                    'day': [1, 5, 9, 13, 17, 23],
-    ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-    ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-    ...                    "Brittle stars", "Centipede"]})
-    >>> table = pa.Table.from_pandas(df)
-
+    >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+    ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+    ...                              "Brittle stars", "Centipede"]})
     >>> import pyarrow.parquet as pq
     >>> pq.write_to_dataset(table, root_path='dataset_v2',
-    ...                     partition_cols=['year', 'month', 'day'],
+    ...                     partition_cols=['year'],
     ...                     use_legacy_dataset=False)
 
     create a _ParquetDatasetV2 object from the dataset source:
@@ -2292,22 +2198,22 @@ class _ParquetDatasetV2:
     and read the data:
 
     >>> dataset.read().to_pandas()
-       n_legs         animal  year month day
-    0       5  Brittle stars  2019    11  17
-    1       2       Flamingo  2020     3   1
-    2     100      Centipede  2021    12  23
-    3       4            Dog  2021     7   9
-    4       2         Parrot  2022     5   5
-    5       4          Horse  2022     9  13
+       n_legs         animal  year
+    0       5  Brittle stars  2019
+    1       2       Flamingo  2020
+    2       4            Dog  2021
+    3     100      Centipede  2021
+    4       2         Parrot  2022
+    5       4          Horse  2022
 
     create a _ParquetDatasetV2 object with filter:
 
     >>> dataset = pq._ParquetDatasetV2('dataset_v2/',
     ...                                filters=[('n_legs','=',4)])
     >>> dataset.read().to_pandas()
-       n_legs animal  year month day
-    0       4    Dog  2021     7   9
-    1       4  Horse  2022     9  13
+       n_legs animal  year
+    0       4    Dog  2021
+    1       4  Horse  2022
     """
 
     def __init__(self, path_or_paths, filesystem=None, filters=None,
@@ -2417,17 +2323,13 @@ class _ParquetDatasetV2:
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_v2_schema',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_v2_schema/')
 
@@ -2437,10 +2339,6 @@ class _ParquetDatasetV2:
         n_legs: int64
         animal: string
         year: dictionary<values=int32, indices=int32, ordered=0>
-        month: dictionary<values=int32, indices=int32, ordered=0>
-        day: dictionary<values=int32, indices=int32, ordered=0>
-        -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, ...
         """
         return self._dataset.schema
 
@@ -2470,17 +2368,13 @@ class _ParquetDatasetV2:
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_v2_read',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_v2_read/')
 
@@ -2531,17 +2425,13 @@ class _ParquetDatasetV2:
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_v2_read_pandas',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_v2_read_pandas/')
 
@@ -2577,17 +2467,13 @@ class _ParquetDatasetV2:
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_v2_fragments',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_v2_fragments/')
 
@@ -2608,24 +2494,20 @@ class _ParquetDatasetV2:
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'month': [3, 5, 7, 9, 11, 12],
-        ...                    'day': [1, 5, 9, 13, 17, 23],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> import pyarrow.parquet as pq
         >>> pq.write_to_dataset(table, root_path='dataset_v2_files',
-        ...                     partition_cols=['year', 'month', 'day'],
+        ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
         >>> dataset = pq._ParquetDatasetV2('dataset_v2_files/')
 
         List the files:
 
         >>> dataset.files
-        ['dataset_v2_files/year=2019/month=11/day=17/part-0.parquet', ...
+        ['dataset_v2_files/year=2019/part-0.parquet', ...
         """
         return self._dataset.files
 
@@ -2724,51 +2606,46 @@ Examples
 Generate an example PyArrow Table and write it to a partitioned dataset:
 
 >>> import pyarrow as pa
->>> import pandas as pd
->>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-...                    'month': [3, 5, 7, 9, 11, 12],
-...                    'day': [1, 5, 9, 13, 17, 23],
-...                    'n_legs': [2, 2, 4, 4, 5, 100],
-...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
-...                    "Brittle stars", "Centipede"]})
->>> table = pa.Table.from_pandas(df)
-
+>>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+...                   'n_legs': [2, 2, 4, 4, 5, 100],
+...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+...                              "Brittle stars", "Centipede"]})
 >>> import pyarrow.parquet as pq
 >>> pq.write_to_dataset(table, root_path='dataset_name_2',
-...                     partition_cols=['year', 'month', 'day'])
+...                     partition_cols=['year'])
 
 Read the data:
 
 >>> pq.read_table('dataset_name_2').to_pandas()
-   n_legs        animals  year month day
-0       5  Brittle stars  2019    11  17
-1       2       Flamingo  2020     3   1
-2     100      Centipede  2021    12  23
-3       4            Dog  2021     7   9
-4       2         Parrot  2022     5   5
-5       4          Horse  2022     9  13
+   n_legs         animal  year
+0       5  Brittle stars  2019
+1       2       Flamingo  2020
+2       4            Dog  2021
+3     100      Centipede  2021
+4       2         Parrot  2022
+5       4          Horse  2022
 
 
 Read only a subset of columns:
 
->>> pq.read_table('dataset_name_2', columns=["n_legs", "animals"])
+>>> pq.read_table('dataset_name_2', columns=["n_legs", "animal"])
 pyarrow.Table
 n_legs: int64
-animals: string
+animal: string
 ----
 n_legs: [[5],[2],...,[2],[4]]
-animals: [["Brittle stars"],["Flamingo"],...,["Parrot"],["Horse"]]
+animal: [["Brittle stars"],["Flamingo"],...,["Parrot"],["Horse"]]
 
 Read a subset of columns and read one column as DictionaryArray:
 
->>> pq.read_table('dataset_name_2', columns=["n_legs", "animals"],
-...               read_dictionary=["animals"])
+>>> pq.read_table('dataset_name_2', columns=["n_legs", "animal"],
+...               read_dictionary=["animal"])
 pyarrow.Table
 n_legs: int64
-animals: dictionary<values=string, indices=int32, ordered=0>
+animal: dictionary<values=string, indices=int32, ordered=0>
 ----
 n_legs: [[5],[2],...,[2],[4]]
-animals: [  -- dictionary:
+animal: [  -- dictionary:
 ["Brittle stars"]  -- indices:
 [0],  -- dictionary:
 ["Flamingo"]  -- indices:
@@ -2780,9 +2657,9 @@ animals: [  -- dictionary:
 
 Read the table with filter:
 
->>> pq.read_table('dataset_name_2', columns=["n_legs", "animals"],
+>>> pq.read_table('dataset_name_2', columns=["n_legs", "animal"],
 ...               filters=[('n_legs','<',4)]).to_pandas()
-   n_legs   animals
+   n_legs    animal
 0       2  Flamingo
 1       2    Parrot
 
@@ -2790,13 +2667,13 @@ Read data from a single Parquet file:
 
 >>> pq.write_table(table, 'example.parquet')
 >>> pq.read_table('dataset_name_2').to_pandas()
-   n_legs        animals  year month day
-0       5  Brittle stars  2019    11  17
-1       2       Flamingo  2020     3   1
-2     100      Centipede  2021    12  23
-3       4            Dog  2021     7   9
-4       2         Parrot  2022     5   5
-5       4          Horse  2022     9  13
+   n_legs         animal  year
+0       5  Brittle stars  2019
+1       2       Flamingo  2020
+2     100      Centipede  2021
+3       4            Dog  2021
+4       2         Parrot  2022
+5       4          Horse  2022
 """
 
 
@@ -2985,14 +2862,9 @@ _write_table_example = """\
 Generate an example PyArrow Table:
 
 >>> import pyarrow as pa
->>> import pandas as pd
->>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-...                    'month': [3, 5, 7, 9, 11, 12],
-...                    'day': [1, 5, 9, 13, 17, 23],
-...                    'n_legs': [2, 2, 4, 4, 5, 100],
-...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
-...                    "Brittle stars", "Centipede"]})
->>> table = pa.Table.from_pandas(df)
+>>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+...                              "Brittle stars", "Centipede"]})
 
 and write the Table into Parquet file:
 
@@ -3010,14 +2882,14 @@ Defining row group compression (default is Snappy):
 Defining row group compression and encoding per-column:
 
 >>> pq.write_table(table, 'example.parquet',
-...                compression={'foo': 'snappy', 'bar': 'gzip'},
-...                use_dictionary=['foo', 'bar'])
+...                compression={'n_legs': 'snappy', 'animal': 'gzip'},
+...                use_dictionary=['n_legs', 'animal'])
 
 
 Defining column encoding per-column:
 
 >>> pq.write_table(table, 'example.parquet',
-...                column_encoding={'animals':'PLAIN'},
+...                column_encoding={'animal':'PLAIN'},
 ...                use_dictionary=False)
 """
 
@@ -3104,34 +2976,30 @@ def write_to_dataset(table, root_path, partition_cols=None,
     Generate an example PyArrow Table:
 
     >>> import pyarrow as pa
-    >>> import pandas as pd
-    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-    ...                    'month': [3, 5, 7, 9, 11, 12],
-    ...                    'day': [1, 5, 9, 13, 17, 23],
-    ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-    ...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
-    ...                    "Brittle stars", "Centipede"]})
-    >>> table = pa.Table.from_pandas(df)
+    >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+    ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+    ...                              "Brittle stars", "Centipede"]})
 
     and write it to a partitioned dataset:
 
     >>> import pyarrow.parquet as pq
     >>> pq.write_to_dataset(table, root_path='dataset_name_3',
-    ...                     partition_cols=['year', 'month', 'day'],
+    ...                     partition_cols=['year'],
     ...                     use_legacy_dataset=False
     ...                    )
     >>> pq.ParquetDataset('dataset_name_3', use_legacy_dataset=False).files
-    ['dataset_name_3/year=2019/month=11/day=17/part-0.parquet', ...
+    ['dataset_name_3/year=2019/part-0.parquet', ...
 
     Use old Arrow Dataset API and override the partition filename:
 
     >>> pq.write_to_dataset(table, root_path='dataset_name_5',
-    ...                     partition_cols=['year', 'month', 'day'],
+    ...                     partition_cols=['year'],
     ...                     partition_filename_cb=lambda x:
-    ...                     str(x[0]) + str(x[1]) + str(x[2])  + '.parquet'
+    ...                     str(x[0]) + '.parquet'
     ...                    )
     >>> pq.ParquetDataset('dataset_name_5/', use_legacy_dataset=False).files
-    ['dataset_name_5/year=2019/month=11/day=17/20191117.parquet', ...
+    ['dataset_name_5/year=2019/2019.parquet', ...
 
     Write to a single Parquet file:
 
@@ -3264,14 +3132,9 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     Generate example data:
 
     >>> import pyarrow as pa
-    >>> import pandas as pd
-    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-    ...                    'month': [3, 5, 7, 9, 11, 12],
-    ...                    'day': [1, 5, 9, 13, 17, 23],
-    ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-    ...                    'animals': ["Flamingo", "Parrot", "Dog", "Horse",
-    ...                    "Brittle stars", "Centipede"]})
-    >>> table = pa.Table.from_pandas(df)
+    >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+    ...                              "Brittle stars", "Centipede"]})
 
     Write a dataset and collect metadata information.
 
