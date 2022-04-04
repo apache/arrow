@@ -251,12 +251,12 @@ gaflight_client_new(GAFlightLocation *location,
   arrow::Status status;
   if (options) {
     const auto flight_options = gaflight_client_options_get_raw(options);
-    status = arrow::flight::FlightClient::Connect(*flight_location,
-                                                  *flight_options
-                                          ).Value(&flight_client);
+    auto result =  arrow::flight::FlightClient::Connect(*flight_location,
+                                                        *flight_options);
+    status = result.Value(&flight_client);
   } else {
-    status = arrow::flight::FlightClient::Connect(*flight_location
-                                                  ).Value(&flight_client);
+    auto result = arrow::flight::FlightClient::Connect(*flight_location);
+    status = result.Value(&flight_client);
   }
   if (garrow::check(error, status, "[flight-client][new]")) {
     return gaflight_client_new_raw(flight_client.release());
