@@ -39,7 +39,6 @@ Status VerifyArityAndInput(compute::Arity arity, const compute::ExecBatch& batch
 
 Status ExecFunctionScalar(const compute::ExecBatch& batch, PyObject* function,
                           int num_args, Datum* out) {
-  std::shared_ptr<Scalar> c_res_data;
   PyObject* arg_tuple = PyTuple_New(num_args);
   for (int arg_id = 0; arg_id < num_args; arg_id++) {
     if (!batch[arg_id].is_scalar()) {
@@ -63,7 +62,6 @@ Status ExecFunctionScalar(const compute::ExecBatch& batch, PyObject* function,
 
 Status ExecFunctionArray(const compute::ExecBatch& batch, PyObject* function,
                          int num_args, Datum* out) {
-  std::shared_ptr<Array> c_res_data;
   PyObject* arg_tuple = PyTuple_New(num_args);
   for (int arg_id = 0; arg_id < num_args; arg_id++) {
     if (!batch[arg_id].is_array()) {
@@ -96,7 +94,6 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
   auto arity = options->arity();
   scalar_func_ = std::make_shared<compute::ScalarFunction>(options->name(), arity, doc);
 
-  // lambda function
   auto exec = [this, arity](compute::KernelContext* ctx, const compute::ExecBatch& batch,
                             Datum* out) -> Status {
     PyAcquireGIL lock;
@@ -109,7 +106,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
       return Status::Invalid("Unexpected input type, scalar or array type expected.");
     }
     return Status::OK();
-  };  // lambda function
+  };
 
   compute::ScalarKernel kernel(
       compute::KernelSignature::Make(options->input_types(), options->output_type(),

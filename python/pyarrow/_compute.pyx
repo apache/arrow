@@ -2359,7 +2359,7 @@ cdef CFunctionDoc _make_function_doc(dict func_doc):
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
         c_bool c_options_required
-
+    
     f_doc.summary = tobytes(func_doc["summary"])
     f_doc.description = tobytes(func_doc["description"])
     for arg_name in func_doc["arg_names"]:
@@ -2448,25 +2448,21 @@ def register_function(func_name, num_args, function_doc, in_types,
         CScalarUdfOptions* c_options
         object obj
 
-    
     c_func_name = tobytes(func_name)
-    
-    if num_args and isinstance(num_args, int):
-        if not(num_args >= 0):
-            raise ValueError("number of arguments must be >= 0")
-        if num_args == 0:
-            c_arity = CArity.Nullary()
-        elif num_args == 1:
-            c_arity = CArity.Unary()
-        elif num_args == 2:
-            c_arity = CArity.Binary()
-        elif num_args == 3:
-            c_arity = CArity.Ternary()
-        elif num_args > 3:
-            c_arity = CArity.VarArgs(num_args)
-    else:
-        raise ValueError("arity must be an instance of Arity")
 
+    if num_args <= 0:
+        raise ValueError("number of arguments must be >= 0")
+    if num_args == 0:
+        c_arity = CArity.Nullary()
+    elif num_args == 1:
+        c_arity = CArity.Unary()
+    elif num_args == 2:
+        c_arity = CArity.Binary()
+    elif num_args == 3:
+        c_arity = CArity.Ternary()
+    elif num_args > 3:
+        c_arity = CArity.VarArgs(num_args)
+    
     c_func_doc = _make_function_doc(function_doc)
 
     if in_types and isinstance(in_types, list):

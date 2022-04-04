@@ -86,44 +86,44 @@ def function_input_types():
     return [
         # scalar data input types
         [
-            InputType.scalar(pa.int64())
-        ],
-        [
             InputType.scalar(pa.int64()),
-            InputType.scalar(pa.int64())
         ],
         [
             InputType.scalar(pa.int64()),
             InputType.scalar(pa.int64()),
-            InputType.scalar(pa.int64())
         ],
         [
             InputType.scalar(pa.int64()),
             InputType.scalar(pa.int64()),
             InputType.scalar(pa.int64()),
+        ],
+        [
             InputType.scalar(pa.int64()),
-            InputType.scalar(pa.int64())
+            InputType.scalar(pa.int64()),
+            InputType.scalar(pa.int64()),
+            InputType.scalar(pa.int64()),
+            InputType.scalar(pa.int64()),
         ],
         # array data input types
         [
-            InputType.array(pa.int64())
-        ],
-        [
             InputType.array(pa.int64()),
-            InputType.array(pa.int64())
         ],
         [
             InputType.array(pa.int64()),
             InputType.array(pa.int64()),
-            InputType.array(pa.int64())
         ],
         [
             InputType.array(pa.int64()),
             InputType.array(pa.int64()),
             InputType.array(pa.int64()),
+        ],
+        [
             InputType.array(pa.int64()),
-            InputType.array(pa.int64())
-        ]
+            InputType.array(pa.int64()),
+            InputType.array(pa.int64()),
+            InputType.array(pa.int64()),
+            InputType.array(pa.int64()),
+        ],
     ]
 
 
@@ -133,7 +133,7 @@ def function_output_types():
         pa.int64(),
         pa.int64(),
         pa.int64(),
-        pa.int64()
+        pa.int64(),
     ]
 
 
@@ -293,58 +293,39 @@ def test_udf_input():
     out_type = pa.int64()
     doc = get_function_doc("scalar add function", "scalar add function",
                            ["scalar_value"])
-    try:
+    with pytest.raises(ValueError):
         register_function(func_name, arity, doc, in_types,
                           out_type, unary_scalar_function)
-    except Exception as ex:
-        assert isinstance(ex, ValueError)
 
     # validate function name
-    try:
+    with pytest.raises(TypeError):
         register_function(None, 1, doc, in_types,
                           out_type, unary_scalar_function)
-    except Exception as ex:
-        assert isinstance(ex, TypeError)
-
-    # validate docs
-    try:
-        register_function(func_name, 1, None, in_types,
-                          out_type, unary_scalar_function)
-    except Exception as ex:
-        assert isinstance(ex, ValueError)
 
     # validate function not matching defined arity config
     def invalid_function(array1, array2):
         return pc.call_function("add", [array1, array2])
 
-    try:
+    with pytest.raises(pa.lib.ArrowInvalid):
         register_function("invalid_function", 1, doc, in_types,
                           out_type, invalid_function)
         pc.call_function("invalid_function", [pa.array([10]), pa.array([20])],
                          options=None, memory_pool=None)
-    except Exception as ex:
-        assert isinstance(ex, pa.lib.ArrowInvalid)
 
     # validate function
-    try:
+    with pytest.raises(ValueError) as execinfo:
         register_function("none_function", 1, doc, in_types,
                           out_type, None)
-    except Exception as ex:
-        assert isinstance(ex, ValueError)
-        assert "callback must be a callable" == str(ex)
+        assert "callback must be a callable" == execinfo.value
 
     # validate output type
-    try:
+    with pytest.raises(ValueError) as execinfo:
         register_function(func_name, 1, doc, in_types,
                           None, unary_scalar_function)
-    except Exception as ex:
-        assert isinstance(ex, ValueError)
-        assert "Output value type must be defined" == str(ex)
+        assert "Output value type must be defined" == execinfo.value
 
     # validate input type
-    try:
+    with pytest.raises(ValueError) as execinfo:
         register_function(func_name, 1, doc, None,
                           out_type, unary_scalar_function)
-    except Exception as ex:
-        assert isinstance(ex, ValueError)
-        assert "input types must be of type InputType" == str(ex)
+        assert "input types must be of type InputType" == execinfo.value

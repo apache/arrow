@@ -2368,8 +2368,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const shared_ptr[CTable]& table() const
         const shared_ptr[CScalar]& scalar() const
 
-        CArrayData* mutable_array() const
-
 
 cdef extern from * namespace "arrow::compute":
     # inlined from compute/function_internal.h to avoid exposing
@@ -2694,17 +2692,6 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     int64_t TotalBufferSize(const CChunkedArray& array)
     int64_t TotalBufferSize(const CRecordBatch& record_batch)
     int64_t TotalBufferSize(const CTable& table)
-
-cdef extern from "arrow/compute/kernel.h" namespace "arrow::compute" nogil:
-    cdef enum MemAllocation" arrow::compute::MemAllocation::type":
-        MemAllocation_PREALLOCATE" arrow::compute::MemAllocation::PREALLOCATE"
-        MemAllocation_NO_PREALLOCATE" arrow::compute::MemAllocation::NO_PREALLOCATE"
-
-    cdef enum NullHandling" arrow::compute::NullHandling::type":
-        NullHandling_INTERSECTION" arrow::compute::NullHandling::INTERSECTION"
-        NullHandling_COMPUTED_PREALLOCATE" arrow::compute::NullHandling::COMPUTED_PREALLOCATE"
-        NullHandling_COMPUTED_NO_PREALLOCATE" arrow::compute::NullHandling::COMPUTED_NO_PREALLOCATE"
-        NullHandling_OUTPUT_NOT_NULL" arrow::compute::NullHandling::OUTPUT_NOT_NULL"
 
 cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
     cdef cppclass CUdfOptions" arrow::py::UdfOptions":
