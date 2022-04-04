@@ -253,7 +253,7 @@ class ParquetFile:
     n_legs: [[2,2,4,4,5,100]]
     animal: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
 
-    create a ParquetFile object with "animal" column as DictionaryArray:
+    Create a ParquetFile object with "animal" column as DictionaryArray:
 
     >>> parquet_file = pq.ParquetFile('example.parquet',
     ...                               read_dictionary=["animal"])
