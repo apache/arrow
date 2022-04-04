@@ -495,23 +495,18 @@ class ParquetFile:
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'example.parquet')
         >>> parquet_file = pq.ParquetFile('example.parquet')
-
-        Read streaming batches:
-
-        >>> for i in parquet_file.iter_batches(batch_size=3):
+        >>> for i in parquet_file.iter_batches():
         ...     print("RecordBatch")
         ...     print(i.to_pandas())
         ...
         RecordBatch
-           n_legs    animal
-        0       2  Flamingo
-        1       2    Parrot
-        2       4       Dog
-        RecordBatch
            n_legs         animal
-        0       4          Horse
-        1       5  Brittle stars
-        2     100      Centipede
+        0       2       Flamingo
+        1       2         Parrot
+        2       4            Dog
+        3       4          Horse
+        4       5  Brittle stars
+        5     100      Centipede
         """
         if row_groups is None:
             row_groups = range(0, self.metadata.num_row_groups)
