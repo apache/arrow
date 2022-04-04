@@ -846,8 +846,7 @@ Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenAppendStream(
 std::shared_ptr<GcsFileSystem> GcsFileSystem::Make(const GcsOptions& options,
                                                    const io::IOContext& context) {
   // Cannot use `std::make_shared<>` as the constructor is private.
-  return std::shared_ptr<GcsFileSystem>(
-      new GcsFileSystem(options, io::default_io_context()));
+  return std::shared_ptr<GcsFileSystem>(new GcsFileSystem(options, context));
 }
 
 GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& context)
