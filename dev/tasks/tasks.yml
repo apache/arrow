@@ -900,7 +900,8 @@ tasks:
 {% for distribution, version in [("conda", "latest"),
                                  ("almalinux", "8"),
                                  ("ubuntu", "18.04"),
-                                 ("ubuntu", "20.04")] %}
+                                 ("ubuntu", "20.04"),
+                                 ("ubuntu", "22.04")] %}
   {% for target in ["cpp",
                     "csharp",
                     "go",
@@ -1060,7 +1061,7 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["18.04", "20.04", "21.04"] %}
+{% for ubuntu_version in ["18.04", "20.04", "22.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1305,12 +1306,12 @@ tasks:
       flags: '-e NOT_CRAN=false -e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
-  test-r-ubuntu-21.04:
+  test-r-ubuntu-22.04:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 21.04
+        UBUNTU: 22.04
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-only-r
 
@@ -1320,7 +1321,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 21.04
+        UBUNTU: 22.04
         GCC_VERSION: 11
       # S3 support is not buildable with gcc11 right now
       flags: '-e ARROW_S3=OFF'

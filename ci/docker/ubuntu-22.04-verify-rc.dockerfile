@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/ubuntu:20.04
+FROM ${arch}/ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 COPY dev/release/setup-ubuntu.sh /

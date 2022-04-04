@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base=amd64/ubuntu:21.04
+ARG base=amd64/ubuntu:22.04
 FROM ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -29,7 +29,7 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 # while debugging package list with docker build.
 ARG clang_tools
 ARG llvm
-RUN latest_system_llvm=12 && \
+RUN latest_system_llvm=14 && \
     if [ ${llvm} -gt ${latest_system_llvm} -o \
          ${clang_tools} -gt ${latest_system_llvm} ]; then \
       apt-get update -y -q && \
@@ -157,7 +157,7 @@ RUN if [ "${gcc_version}" = "" ]; then \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "10" ]; then \
+      if [ "${gcc_version}" -gt "11" ]; then \
           apt-get update -y -q && \
           apt-get install -y -q --no-install-recommends software-properties-common && \
           add-apt-repository ppa:ubuntu-toolchain-r/volatile; \

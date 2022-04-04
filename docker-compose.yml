@@ -1767,7 +1767,7 @@ services:
     #   docker-compose build ubuntu-verify-rc-source
     #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc-source
     # Parameters:
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
     build:
       context: .
