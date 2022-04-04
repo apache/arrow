@@ -51,7 +51,10 @@ Status ExecFunctionScalar(const compute::ExecBatch& batch, PyObject* function,
   }
   PyObject* result = PyObject_CallObject(function, arg_tuple);
   if (result == NULL) {
-    return Status::ExecutionError("Error occured in computation");
+    return Status::ExecutionError("Output is null, but expected a scalar");
+  }
+  if (!is_scalar(result)) {
+    return Status::Invalid("Output from function is not a scalar");
   }
   ARROW_ASSIGN_OR_RAISE(auto unwrapped_result, unwrap_scalar(result));
   *out = unwrapped_result;
@@ -72,13 +75,15 @@ Status ExecFunctionArray(const compute::ExecBatch& batch, PyObject* function,
   }
   PyObject* result = PyObject_CallObject(function, arg_tuple);
   if (result == NULL) {
-    return Status::ExecutionError("Error occured in computation");
+    return Status::ExecutionError("Output is null, but expected an array");
+  }
+  if (!is_array(result)) {
+    return Status::Invalid("Output from function is not an array");
   }
   return unwrap_array(result).Value(out);
 }
 
 Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* options) {
-  // creating a copy of objects for the lambda function
   if (function == NULL) {
     return Status::ExecutionError("python function cannot be null");
   }

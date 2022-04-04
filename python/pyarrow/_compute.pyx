@@ -2400,22 +2400,22 @@ def register_function(func_name, num_args, function_doc, in_types,
     Parameters
     ----------
 
-    func_name: str
+    func_name : str
         function name 
-    num_args: int
+    num_args : int
        number of arguments in the function
-    function_doc: dict
+    function_doc : dict
         a dictionary object with keys 
         ("summary", 
         "description", 
         "arg_names"
         )
-    in_types: List[InputType]
+    in_types : List[InputType]
         list of InputType objects which defines the input 
         types for the function
-    out_type: DataType
+    out_type : DataType
         output type of the function
-    callback: callable
+    callback : callable
         user defined function
         function includes arguments equal to the number
         of input_types defined. The return type of the 
