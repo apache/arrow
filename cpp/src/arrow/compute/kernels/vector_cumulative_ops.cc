@@ -105,7 +105,7 @@ const FunctionDoc cumulative_sum_doc{
      "Use function \"cumulative_sum_checked\" if you want overflow\n"
      "to return an error."),
     {"values"},
-    "CumulativeGenericOptions"};
+    "CumulativeSumOptions"};
 
 const FunctionDoc cumulative_sum_checked_doc{
     "Compute the cumulative sum over an array of numbers",
@@ -114,19 +114,16 @@ const FunctionDoc cumulative_sum_checked_doc{
      "This function returns an error on overflow. For a variant that\n"
      "doesn't fail on overflow, use function \"cumulative_sum\"."),
     {"values"},
-    "CumulativeGenericOptions"};
+    "CumulativeSumOptions"};
 
 template <typename Op, typename OptionsType>
 void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string func_name,
                                   const FunctionDoc* doc) {
-  auto options = OptionsType::Defaults();
-  auto cumulative_func =
-      std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &options);
+  static const OptionsType kDefaultOptions = OptionsType::Defaults();
+  auto func =
+      std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &kDefaultOptions);
 
-  std::vector<std::shared_ptr<DataType>> types;
-  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
-
-  for (const auto& ty : types) {
+  for (const auto& ty : NumericTypes()) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::INTERSECTION;
@@ -134,16 +131,16 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
     kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
     kernel.init = OptionsWrapper<OptionsType>::Init;
-    DCHECK_OK(cumulative_func->AddKernel(std::move(kernel)));
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
 
-  DCHECK_OK(registry->AddFunction(std::move(cumulative_func)));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
-  MakeVectorCumulativeFunction<Add, CumulativeGenericOptions>(registry, "cumulative_sum",
-                                                              &cumulative_sum_doc);
-  MakeVectorCumulativeFunction<AddChecked, CumulativeGenericOptions>(
+  MakeVectorCumulativeFunction<Add, CumulativeSumOptions>(registry, "cumulative_sum",
+                                                          &cumulative_sum_doc);
+  MakeVectorCumulativeFunction<AddChecked, CumulativeSumOptions>(
       registry, "cumulative_sum_checked", &cumulative_sum_checked_doc);
 }
 

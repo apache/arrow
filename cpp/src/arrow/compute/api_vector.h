@@ -189,18 +189,22 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 };
 
 /// \brief Options for cumulative sum function
-class ARROW_EXPORT CumulativeGenericOptions : public FunctionOptions {
+class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
-  explicit CumulativeGenericOptions(
-      std::shared_ptr<Scalar> start = std::make_shared<NumericScalar<Int8Type>>(0),
-      bool skip_nulls = false, bool checked_overflow = false);
-  static constexpr char const kTypeName[] = "CumulativeGenericOptions";
-  static CumulativeGenericOptions Defaults() { return CumulativeGenericOptions(); }
+  // Default `start` value is of type Int8 to allow type casting and compatibility rules
+  // to use the type of the function values.
+  explicit CumulativeSumOptions(
+      std::shared_ptr<Scalar> start = std::make_shared<NumericScalar<Int64Type>>(0),
+      bool skip_nulls = false, bool check_overflow = false);
+  static constexpr char const kTypeName[] = "CumulativeSumOptions";
+  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
 
-  /// Optional starting value for sum computation
+  /// Optional starting value for cumulative operation computation
   std::shared_ptr<Scalar> start;
 
-  /// When false, propagates the first null/NaN encountered
+  /// If true, nulls in the input are ignored and produce a corresponding null output.
+  /// When false, the first null/NaN encountered is propagated through the remaining
+  /// output.
   bool skip_nulls = false;
 
   /// When true, returns an Invalid Status when overflow is detected
@@ -544,7 +548,7 @@ Result<Datum> DictionaryEncode(
 ARROW_EXPORT
 Result<Datum> CumulativeSum(
     const Datum& values,
-    const CumulativeGenericOptions& options = CumulativeGenericOptions::Defaults(),
+    const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
