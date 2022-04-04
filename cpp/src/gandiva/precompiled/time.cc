@@ -246,35 +246,35 @@ static const char* WEEK[] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
 
 static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
 
-#define NEXT_DAY_FUNC(TYPE)                                                             \
-  FORCE_INLINE                                                                          \
-  gdv_date64 next_day_from_##TYPE(gdv_int64 context, gdv_##TYPE millis, const char* in, \
-                                  int32_t in_len) {                                     \
-    EpochTimePoint tp(millis);                                                          \
-    const auto& day_without_hours_and_sec = tp.ClearTimeOfDay();                        \
-    const auto& presentDate = extractDow_timestamp(tp.MillisSinceEpoch());              \
-                                                                                        \
-    int dateSearch = 0;                                                                 \
-    for (int n = 0; n < 7; n++) {                                                       \
-      if (is_substr_utf8_utf8(WEEK[n], WEEK_LEN[n], in, in_len)) {                      \
-        dateSearch = n + 1;                                                             \
-        break;                                                                          \
-      }                                                                                 \
-    }                                                                                   \
-    if (dateSearch == 0) {                                                              \
-      gdv_fn_context_set_error_msg(context, "This entry not is one weekday valid");     \
-      return 0;                                                                         \
-    }                                                                                   \
-                                                                                        \
-    int64_t distanceDay = dateSearch - presentDate;                                     \
-    if (distanceDay <= 0) {                                                             \
-      distanceDay = 7 + distanceDay;                                                    \
-    }                                                                                   \
-                                                                                        \
-    int64_t next_date = date_add_int64_timestamp(                                       \
-        distanceDay, day_without_hours_and_sec.MillisSinceEpoch());                     \
-                                                                                        \
-    return next_date;                                                                   \
+#define NEXT_DAY_FUNC(TYPE)                                                              \
+  FORCE_INLINE                                                                           \
+  gdv_date64 next_day_from_##TYPE(gdv_int64 context, gdv_##TYPE millis, const char* in,  \
+                                  int32_t in_len) {                                      \
+    EpochTimePoint tp(millis);                                                           \
+    const auto& dayWithoutHoursAndSec = tp.ClearTimeOfDay();                             \
+    const auto& presentDate = extractDow_timestamp(tp.MillisSinceEpoch());               \
+                                                                                         \
+    int dateSearch = 0;                                                                  \
+    for (int n = 0; n < 7; n++) {                                                        \
+      if (is_substr_utf8_utf8(WEEK[n], WEEK_LEN[n], in, in_len)) {                       \
+        dateSearch = n + 1;                                                              \
+        break;                                                                           \
+      }                                                                                  \
+    }                                                                                    \
+    if (dateSearch == 0) {                                                               \
+      gdv_fn_context_set_error_msg(context, "The weekday in this entry is invalid");     \
+      return 0;                                                                          \
+    }                                                                                    \
+                                                                                         \
+    int64_t distanceDay = dateSearch - presentDate;                                      \
+    if (distanceDay <= 0) {                                                              \
+      distanceDay = 7 + distanceDay;                                                     \
+    }                                                                                    \
+                                                                                         \
+    int64_t nextDate =                                                                   \
+        date_add_int64_timestamp(distanceDay, dayWithoutHoursAndSec.MillisSinceEpoch()); \
+                                                                                         \
+    return nextDate;                                                                     \
   }
 
 DATE_TYPES(NEXT_DAY_FUNC)
