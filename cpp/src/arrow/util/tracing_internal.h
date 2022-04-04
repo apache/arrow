@@ -62,10 +62,8 @@ inline Result<T> MarkSpan(Result<T> result, opentelemetry::trace::Span* span) {
   return result;
 }
 
-/// \brief Start a new span for each invocation of a generator.
-///
-/// The parent span of the new span will be the currently active span
-/// (if any) as of when WrapAsyncGenerator was itself called.
+/// \brief Tie the current span to a generator, ending it when the generator finishes.
+/// Optionally start a child span for each invocation.
 template <typename T>
 AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
                                      const std::string& span_name = "",
@@ -98,20 +96,15 @@ AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(
 }
 
 /// \brief Propagate the currently active span to each invocation of an async generator.
+///
+/// This prevents spans, created when running generator instances asynchronously,
+/// ending up in a separate, disconnected trace.
 template <typename T>
 AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(AsyncGenerator<T> wrapped) {
   auto span = GetTracer()->GetCurrentSpan();
   if (!span->GetContext().IsValid()) return wrapped;
   return PropagateSpanThroughAsyncGenerator(std::move(wrapped), std::move(span));
 }
-
-/*
- * PropagateSpanThroughAsyncGenerator - only makes sure the trace context is propagated,
- * so that spans created when running generator instances asynchronously do not
- * end up in a separate, disconnected trace.
- * WrapAsyncGenerator - Connect the current span to the generator. When the generator
- * finishes, it will stop the span. Optionally, create child spans at each invocation.
- */
 
 class SpanImpl {
  public:
