@@ -909,14 +909,27 @@ class RoundTemporalOptions(_RoundTemporalOptions):
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
     def _set_options(self, multiple, round_mode):
-        if isinstance(multiple, Scalar):
+        # if isinstance(multiple, Scalar):
+        #     self.wrapped.reset(
+        #         new CRoundToMultipleOptions(pyarrow_unwrap_scalar(multiple),
+        #                                     unwrap_round_mode(round_mode))
+        #     )
+        # else:
+        #     self.wrapped.reset(
+        #         new CRoundToMultipleOptions(<double> multiple,
+        #                                     unwrap_round_mode(round_mode))
+        #     )
+
+        if not isinstance(multiple, Scalar):
+            # Is it a Python scalar?
+            try:
+                multiple = lib.scalar(multiple)
+            except Exception:
+                raise TypeError(f"Got unexpected argument type {type(multiple)} "
+                                "for RoundToMultipleOptions")
+
             self.wrapped.reset(
                 new CRoundToMultipleOptions(pyarrow_unwrap_scalar(multiple),
-                                            unwrap_round_mode(round_mode))
-            )
-        else:
-            self.wrapped.reset(
-                new CRoundToMultipleOptions(<double> multiple,
                                             unwrap_round_mode(round_mode))
             )
 
