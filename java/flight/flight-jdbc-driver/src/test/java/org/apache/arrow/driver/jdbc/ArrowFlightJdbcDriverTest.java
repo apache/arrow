@@ -197,7 +197,7 @@ public class ArrowFlightJdbcDriverTest {
     final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
         "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
 
-    // Check size == the amount of args provided (prefix not included!)
+    // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());
 
     // Check host == the provided host
@@ -224,7 +224,7 @@ public class ArrowFlightJdbcDriverTest {
     final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
         "jdbc:arrow-flight://localhost:2222/;key1=value1;key2=value2;a=b");
 
-    // Check size == the amount of args provided (prefix not included!)
+    // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());
 
     // Check host == the provided host
@@ -237,6 +237,31 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get("key1"), "value1");
     assertEquals(parsedArgs.get("key2"), "value2");
     assertEquals(parsedArgs.get("a"), "b");
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithOneSemicolon() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final Method parseUrl = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
+
+    parseUrl.setAccessible(true);
+
+    final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
+        "jdbc:arrow-flight://localhost:2222/;key1=value1");
+
+    // Check size == the amount of args provided (scheme not included)
+    assertEquals(3, parsedArgs.size());
+
+    // Check host == the provided host
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.HOST.camelName()), "localhost");
+
+    // Check port == the provided port
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.PORT.camelName()), 2222);
+
+    // Check all other non-default arguments
+    assertEquals(parsedArgs.get("key1"), "value1");
   }
 
   /**
@@ -281,7 +306,7 @@ public class ArrowFlightJdbcDriverTest {
     final Map<String, String> parsedArgs =
         (Map<String, String>) getUrlsArgs.invoke(driver, "jdbc:arrow-flight://0.0.0.0:2222");
 
-    // Check size == the amount of args provided (prefix not included!)
+    // Check size == the amount of args provided (scheme not included)
     assertEquals(2, parsedArgs.size());
 
     // Check host == the provided host
@@ -310,7 +335,7 @@ public class ArrowFlightJdbcDriverTest {
     final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs.invoke(driver,
         "jdbc:arrow-flight://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value");
 
-    // Check size == the amount of args provided (prefix not included!)
+    // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());
 
     // Check host == the provided host
