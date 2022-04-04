@@ -1322,8 +1322,9 @@ Parameters
 path_or_paths : str or List[str]
     A directory name, single file name, or list of file names.
 filesystem : FileSystem, default None
-    If nothing passed, paths assumed to be found in the local on-disk
-    filesystem.
+    If nothing passed, will be inferred based on path.
+    Path will try to be found in the local on-disk filesystem otherwise
+    it will be parsed as an URI to determine the filesystem.
 metadata : pyarrow.parquet.FileMetaData
     Use metadata obtained elsewhere to validate file schemas.
 schema : pyarrow.parquet.Schema
@@ -1956,8 +1957,9 @@ ignore_prefixes : list, optional
     By default this is ['.', '_'].
     Note that discovery happens only if a directory is passed as source.
 filesystem : FileSystem, default None
-    If nothing passed, paths assumed to be found in the local on-disk
-    filesystem.
+    If nothing passed, will be inferred based on path.
+    Path will try to be found in the local on-disk filesystem otherwise
+    it will be parsed as an URI to determine the filesystem.
 filters : List[Tuple] or List[List[Tuple]] or None (default)
     Rows which do not match the filter predicate will be removed from scanned
     data. Partition keys embedded in a nested directory structure will be
@@ -2223,8 +2225,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
     root_path : str, pathlib.Path
         The root directory of the dataset
     filesystem : FileSystem, default None
-        If nothing passed, paths assumed to be found in the local on-disk
-        filesystem
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
     partition_cols : list,
         Column names by which to partition the dataset
         Columns are partitioned in the order they are given
