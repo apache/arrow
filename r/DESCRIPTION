@@ -62,7 +62,8 @@ Suggests:
     tzdb,
     withr
 LinkingTo: cpp11 (>= 0.4.2)
-Remotes: jonkeane/lintr@arrow-branch
+Remotes: 
+    jonkeane/lintr@arrow-branch
 Collate:
     'arrowExports.R'
     'enums.R'
