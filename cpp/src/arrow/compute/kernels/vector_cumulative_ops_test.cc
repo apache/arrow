@@ -81,23 +81,6 @@ class TestCumulativeSum : public TestCumulativeOp<T, CumulativeSumOptions> {
     return OptionsType(std::make_shared<ArrowScalar>(start), skip_nulls, check_overflow);
   }
 
-  // enable_if_t<is_time_type<T>::value || is_timestamp_type<T>::value,
-  //             OptionsType>
-  // generate_time_options(CType start = 0, bool skip_nulls = false, bool check_overflow =
-  // false) {
-  //   TimeUnit::type unit;
-  //   switch (ArrowType::type_id) {
-  //     case Type::TIME64:
-  //       unit = TimeUnit::NANO;
-  //       break;
-  //     default:
-  //       unit = TimeUnit::SECOND;
-  //       break;
-  //   }
-  //   return OptionsType(std::make_shared<ArrowScalar>(start, unit),
-  //                               skip_nulls, check_overflow);
-  // }
-
   void Assert(const std::string& values, const std::string& expected,
               const OptionsType& options) {
     auto values_arr = TestCumulativeOp<T, OptionsType>::array(values);

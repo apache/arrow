@@ -30,6 +30,7 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+// NOTE: Missing description of this class
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct CumulativeGeneric {
   using OutValue = typename GetOutputType<OutType>::T;
@@ -40,6 +41,8 @@ struct CumulativeGeneric {
     auto skip_nulls = options.skip_nulls;
 
     // Cast `start` option to match output type
+    // NOTE: Is at least one descriptor guaranteed? If not, need to check size
+    // before indexing.
     auto out_type = batch.GetDescriptors()[0].type;
     ARROW_ASSIGN_OR_RAISE(auto cast_value, Cast(Datum(options.start), out_type));
     auto start = UnboxScalar<OutType>::Unbox(*cast_value.scalar());
@@ -64,38 +67,53 @@ struct CumulativeGeneric {
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& arg0, ArgValue& partial_scan,
+  // NOTE: The option parameters are also available in `ctx`, so why passed them
+  // explicitly? For cases where this method gets invoked multiple times (e.g.,
+  // ChunkedArray), unboxing the options adds unnecessary overhead.
+  static Status Call(KernelContext* ctx, const ArrayData& arg0, ArgValue& accumulator,
                      Datum* out, bool skip_nulls) {
     auto st = Status::OK();
     auto out_arr = out->mutable_array();
     auto out_data = out_arr->GetMutableValues<OutValue>(1);
 
-    bool encountered_null = false;
-    auto start_null_idx = arg0.offset;
+    if (skip_nulls) {
+      VisitArrayValuesInline<ArgType>(
+          arg0,
+          [&](ArgValue v) {
+            // NOTE: If the Status `st` errors, would it be visible immediately or
+            // shadowed by subsequent successful operations?
+            accumulator =
+                Op::template Call<OutValue, ArgValue, ArgValue>(ctx, v, accumulator, &st);
+            *out_data++ = accumulator;
+          },
+          [&]() { *out_data++ = OutValue{}; });
+    } else {
+      bool encountered_null = false;
+      auto start_null_idx = arg0.offset;
 
-    VisitArrayValuesInline<ArgType>(
-        arg0,
-        [&](ArgValue v) {
-          if (!skip_nulls && encountered_null) {
+      VisitArrayValuesInline<ArgType>(
+          arg0,
+          [&](ArgValue v) {
+            if (encountered_null) {
+              *out_data++ = OutValue{};
+            } else {
+              accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(
+                  ctx, v, accumulator, &st);
+              *out_data++ = accumulator;
+              ++start_null_idx;
+            }
+          },
+          [&]() {
             *out_data++ = OutValue{};
-          } else {
-            partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(
-                ctx, v, partial_scan, &st);
-            *out_data++ = partial_scan;
-            ++start_null_idx;
-          }
-        },
-        [&]() {
-          // null
-          *out_data++ = OutValue{};
-          encountered_null = true;
-        });
+            encountered_null = true;
+          });
 
-    if (!skip_nulls) {
-      auto out_bitmap = out_arr->GetMutableValues<uint8_t>(0);
-      auto null_length = arg0.length - (start_null_idx - arg0.offset);
-      out_arr->SetNullCount(null_length);
-      arrow::bit_util::SetBitsTo(out_bitmap, start_null_idx, null_length, false);
+      if (!skip_nulls) {
+        auto out_bitmap = out_arr->GetMutableValues<uint8_t>(0);
+        auto null_length = arg0.length - (start_null_idx - arg0.offset);
+        out_arr->SetNullCount(null_length);
+        arrow::bit_util::SetBitsTo(out_bitmap, start_null_idx, null_length, false);
+      }
     }
 
     return st;

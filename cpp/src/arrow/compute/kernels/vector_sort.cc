@@ -1854,18 +1854,14 @@ class SelectKUnstableMetaFunction : public MetaFunction {
       return Status::Invalid("select_k_unstable requires a non-empty `sort_keys`");
     }
     switch (args[0].kind()) {
-      case Datum::ARRAY: {
+      case Datum::ARRAY:
         return SelectKth(*args[0].make_array(), select_k_options, ctx);
-      } break;
-      case Datum::CHUNKED_ARRAY: {
+      case Datum::CHUNKED_ARRAY:
         return SelectKth(*args[0].chunked_array(), select_k_options, ctx);
-      } break;
       case Datum::RECORD_BATCH:
         return SelectKth(*args[0].record_batch(), select_k_options, ctx);
-        break;
       case Datum::TABLE:
         return SelectKth(*args[0].table(), select_k_options, ctx);
-        break;
       default:
         break;
     }
