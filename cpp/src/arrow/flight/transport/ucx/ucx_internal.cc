@@ -967,7 +967,7 @@ class UcpCallDriver::Impl {
     }
 
     if ((param->recv_attr & UCP_AM_RECV_ATTR_FLAG_DATA) &&
-        (frame->type != FrameType::kPayloadBody || memory_manager_->is_cpu())) {
+        (memory_manager_->is_cpu() || frame->type != FrameType::kPayloadBody)) {
       // Zero-copy path. UCX-allocated buffer must be freed later.
 
       // XXX: this buffer can NOT be freed until AFTER we return from

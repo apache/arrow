@@ -79,36 +79,18 @@ class UcxServerCallContext : public flight::ServerCallContext {
 
 class UcxServerStream : public internal::ServerDataStream {
  public:
-  // TODO(lidavidm): backpressure threshold should be dynamic (ideally
-  // auto-adjusted, or at least configurable)
-  constexpr static size_t kBackpressureThreshold = 8;
-
   explicit UcxServerStream(UcpCallDriver* driver)
       : peer_(driver->peer()), driver_(driver), writes_done_(false) {}
 
   Status WritesDone() override {
-    RETURN_NOT_OK(CheckBackpressure(0));
     writes_done_ = true;
     return Status::OK();
   }
 
  protected:
-  Status CheckBackpressure(size_t limit = kBackpressureThreshold - 1) {
-    while (requests_.size() > limit) {
-      auto& next = requests_.front();
-      while (!next.is_finished()) {
-        driver_->MakeProgress();
-      }
-      RETURN_NOT_OK(next.status());
-      requests_.pop();
-    }
-    return Status::OK();
-  }
-
   std::string peer_;
   UcpCallDriver* driver_;
   bool writes_done_;
-  std::queue<Future<>> requests_;
 };
 
 class GetServerStream : public UcxServerStream {
@@ -117,14 +99,11 @@ class GetServerStream : public UcxServerStream {
 
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
     if (writes_done_) return false;
-    RETURN_NOT_OK(CheckBackpressure());
     Future<> pending_send = driver_->SendFlightPayload(payload);
-    if (!pending_send.is_finished()) {
-      requests_.push(std::move(pending_send));
-    } else {
-      // Request completed instantly
-      RETURN_NOT_OK(pending_send.status());
+    while (!pending_send.is_finished()) {
+      driver_->MakeProgress();
     }
+    RETURN_NOT_OK(pending_send.status());
     return true;
   }
 };
@@ -188,8 +167,6 @@ class ExchangeServerStream : public PutServerStream {
 
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
     if (writes_done_) return false;
-    // Don't use backpressure - the application may expect synchronous
-    // behavior (write a message, read the client response)
     Future<> pending_send = driver_->SendFlightPayload(payload);
     while (!pending_send.is_finished()) {
       driver_->MakeProgress();
