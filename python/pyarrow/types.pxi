@@ -1367,6 +1367,28 @@ cdef class Field(_Weakrefable):
 
 
 cdef class Schema(_Weakrefable):
+    """
+    A named collection of types a.k.a schema.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.schema([
+    ...     ('some_int', pa.int32()),
+    ...     ('some_string', pa.string())
+    ... ])
+    some_int: int32
+    some_string: string
+
+    >>> pa.schema([
+    ...     pa.field('n_legs', pa.int64()),
+    ...     pa.field('animals', pa.string())],
+    ...     metadata={"n_legs": "Number of legs per animal"})
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+    """
 
     def __cinit__(self):
         pass
@@ -1413,6 +1435,16 @@ cdef class Schema(_Weakrefable):
     def pandas_metadata(self):
         """
         Return deserialized-from-JSON pandas metadata field (if it exists)
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> schema = pa.Table.from_pandas(df).schema
+        >>> schema.pandas_metadata
+        {'index_columns': [{'kind': 'range', 'name': None, 'start': 0, 'stop': 4, 'step': 1}], ...
         """
         metadata = self.metadata
         key = b'pandas'
@@ -1430,6 +1462,15 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         list of str
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.names
+        ['n_legs', 'animals']
         """
         cdef int i
         result = []
@@ -1446,11 +1487,37 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         list of DataType
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.types
+        [DataType(int64), DataType(string)]
         """
         return [field.type for field in self]
 
     @property
     def metadata(self):
+        """
+        The schema's field metadata.
+
+        Returns
+        -------
+        metadata: dict
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> schema.metadata
+        {b'n_legs': b'Number of legs per animal'}
+        """
         wrapped = pyarrow_wrap_metadata(self.schema.metadata())
         if wrapped is not None:
             return wrapped.to_dict()
@@ -1470,6 +1537,20 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         table: pyarrow.Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.empty_table()
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[]]
+        animals: [[]]
         """
         arrays = [_empty_array(field.type) for field in self]
         return Table.from_arrays(arrays, schema=self)
@@ -1487,6 +1568,22 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         is_equal : bool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema1 = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> schema2 = pa.schema([
+        ...     ('some_int', pa.int32()),
+        ...     ('some_string', pa.string())
+        ... ])
+        >>> schema1.equals(schema1)
+        True
+        >>> schema1.equals(schema2)
+        False
         """
         return self.sp_schema.get().Equals(deref(other.schema),
                                            check_metadata)
@@ -1516,13 +1613,14 @@ cdef class Schema(_Weakrefable):
         >>> import pandas as pd
         >>> import pyarrow as pa
         >>> df = pd.DataFrame({
-            ...     'int': [1, 2],
-            ...     'str': ['a', 'b']
-            ... })
+        ...     'int': [1, 2],
+        ...     'str': ['a', 'b']
+        ... })
         >>> pa.Schema.from_pandas(df)
         int: int64
         str: string
-        __index_level_0__: int64
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, ...
         """
         from pyarrow.pandas_compat import dataframe_to_types
         names, types, metadata = dataframe_to_types(
@@ -1545,6 +1643,17 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.field(1)
+        pyarrow.Field<animals: string>
+        >>> schema.field(0)
+        pyarrow.Field<n_legs: int64>
         """
         if isinstance(i, (bytes, str)):
             field_index = self.get_field_index(i)
@@ -1574,7 +1683,7 @@ cdef class Schema(_Weakrefable):
 
     def field_by_name(self, name):
         """
-        Access a field by its name rather than the column index.
+        DEPRECATED
 
         Parameters
         ----------
@@ -1616,6 +1725,25 @@ cdef class Schema(_Weakrefable):
             The index of the field with the given name; -1 if the
             name isn't found or there are several fields with the given
             name.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.get_field_index("animals")
+        1
+
+        Several fields with the given name:
+
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string()),
+        ...     pa.field('animals', pa.bool_())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> schema.get_field_index("animals")
+        -1
         """
         return self.schema.GetFieldIndex(tobytes(name))
 
@@ -1631,6 +1759,16 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         indices : List[int]
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string()),
+        ...     pa.field('animals', pa.bool_())])
+        >>> schema.get_all_field_indices("animals")
+        [1, 2]
         """
         return self.schema.GetAllFieldIndices(tobytes(name))
 
@@ -1649,6 +1787,22 @@ cdef class Schema(_Weakrefable):
         -------
         schema: Schema
             New object with appended field.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema_new = schema.append(pa.field('extra', pa.bool_()))
+
+        >>> schema_new
+        n_legs: int64
+        animals: string
+        extra: bool
+        >>> schema
+        n_legs: int64
+        animals: string
         """
         return self.insert(self.schema.num_fields(), field)
 
@@ -1664,6 +1818,17 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         schema: Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.insert(1, pa.field('extra', pa.bool_()))
+        n_legs: int64
+        extra: bool
+        animals: string
         """
         cdef:
             shared_ptr[CSchema] new_schema
@@ -1687,6 +1852,15 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         schema: Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.remove(1)
+        n_legs: int64
         """
         cdef shared_ptr[CSchema] new_schema
 
@@ -1707,6 +1881,16 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         schema: Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.set(1, pa.field('replaced', pa.bool_()))
+        n_legs: int64
+        replaced: bool
         """
         cdef:
             shared_ptr[CSchema] new_schema
@@ -1720,6 +1904,9 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(new_schema)
 
     def add_metadata(self, metadata):
+        """
+        DEPRECATED
+        """
         warnings.warn("The 'add_metadata' method is deprecated, use "
                       "'with_metadata' instead", FutureWarning, stacklevel=2)
         return self.with_metadata(metadata)
@@ -1736,6 +1923,18 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         schema : pyarrow.Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.with_metadata({"n_legs": "Number of legs per animal"})
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
         """
         cdef shared_ptr[CSchema] c_schema
 
@@ -1757,6 +1956,15 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         serialized : Buffer
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+        >>> schema.serialize()
+        <pyarrow.lib.Buffer object at ...>
         """
         cdef:
             shared_ptr[CBuffer] buffer
@@ -1774,6 +1982,25 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         schema : pyarrow.Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+
+        Remove the metadata:
+
+        >>> schema.remove_metadata()
+        n_legs: int64
+        animals: string
         """
         cdef shared_ptr[CSchema] new_schema
         with nogil:
@@ -1798,6 +2025,16 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         str : the formatted output
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> schema.to_string()
+        "n_legs: int64\nanimals: string\n-- schema metadata --\nn_legs: 'N...'"
         """
         cdef:
             c_string result
