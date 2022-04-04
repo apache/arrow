@@ -2390,6 +2390,27 @@ TEST(TestStringOps, TestSoundex) {
   int32_t out_len = 0;
   const char* out;
 
+  out = soundex_utf8(ctx_ptr, "Robert", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+
+  out = soundex_utf8(ctx_ptr, "Rupert", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+
+  out = soundex_utf8(ctx_ptr, "Honeyman", 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "H555");
+
+  out = soundex_utf8(ctx_ptr, "Tymczak", 7, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T522");
+
+  out = soundex_utf8(ctx_ptr, "Ashcraft", 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A226");
+
+  out = soundex_utf8(ctx_ptr, "Ashcroft", 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A226");
+
+  out = soundex_utf8(ctx_ptr, "Jjjice", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "J200");
+
   out = soundex_utf8(ctx_ptr, "Luke Garcia", 11, &out_len);
   EXPECT_EQ(std::string(out, out_len), "L226");
 

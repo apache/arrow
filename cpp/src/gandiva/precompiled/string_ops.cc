@@ -2921,6 +2921,11 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   }
 
   for (int i = 1; i < si; i++) {
+    // If the saved letter's digit is the same as the resulting first digit, remove the
+    // digit.
+    if (i == 1 && soundex[i] == mappings[ret[0] - 65]) {
+      i++;
+    }
     if (soundex[i] != '0') {
       ret[ret_len] = soundex[i];
       ret_len++;
