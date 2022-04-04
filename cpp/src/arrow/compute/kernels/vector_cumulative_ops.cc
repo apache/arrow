@@ -18,6 +18,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common.h"
@@ -29,6 +30,7 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+// NOTE: Missing description of this class
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct CumulativeGeneric {
   using OutValue = typename GetOutputType<OutType>::T;
@@ -36,8 +38,14 @@ struct CumulativeGeneric {
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = OptionsWrapper<OptionsType>::Get(ctx);
-    auto start = UnboxScalar<ArgType>::Unbox(*options.start);
-    bool skip_nulls = options.skip_nulls;
+    auto skip_nulls = options.skip_nulls;
+
+    // Cast `start` option to match output type
+    // NOTE: Is at least one descriptor guaranteed? If not, need to check size
+    // before indexing.
+    auto out_type = batch.GetDescriptors()[0].type;
+    ARROW_ASSIGN_OR_RAISE(auto cast_value, Cast(Datum(options.start), out_type));
+    auto start = UnboxScalar<OutType>::Unbox(*cast_value.scalar());
 
     switch (batch[0].kind()) {
       case Datum::ARRAY: {
@@ -105,7 +113,7 @@ const FunctionDoc cumulative_sum_doc{
      "Use function \"cumulative_sum_checked\" if you want overflow\n"
      "to return an error."),
     {"values"},
-    "CumulativeGenericOptions"};
+    "CumulativeSumOptions"};
 
 const FunctionDoc cumulative_sum_checked_doc{
     "Compute the cumulative sum over an array of numbers",
@@ -114,14 +122,14 @@ const FunctionDoc cumulative_sum_checked_doc{
      "This function returns an error on overflow. For a variant that\n"
      "doesn't fail on overflow, use function \"cumulative_sum\"."),
     {"values"},
-    "CumulativeGenericOptions"};
+    "CumulativeSumOptions"};
 
 template <typename Op, typename OptionsType>
 void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string func_name,
                                   const FunctionDoc* doc) {
-  auto options = OptionsType::Defaults();
-  auto cumulative_func =
-      std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &options);
+  static const OptionsType kDefaultOptions = OptionsType::Defaults();
+  auto func =
+      std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &kDefaultOptions);
 
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
@@ -134,16 +142,16 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
     kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
     kernel.init = OptionsWrapper<OptionsType>::Init;
-    DCHECK_OK(cumulative_func->AddKernel(std::move(kernel)));
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
 
-  DCHECK_OK(registry->AddFunction(std::move(cumulative_func)));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
-  MakeVectorCumulativeFunction<Add, CumulativeGenericOptions>(registry, "cumulative_sum",
-                                                              &cumulative_sum_doc);
-  MakeVectorCumulativeFunction<AddChecked, CumulativeGenericOptions>(
+  MakeVectorCumulativeFunction<Add, CumulativeSumOptions>(registry, "cumulative_sum",
+                                                          &cumulative_sum_doc);
+  MakeVectorCumulativeFunction<AddChecked, CumulativeSumOptions>(
       registry, "cumulative_sum_checked", &cumulative_sum_checked_doc);
 }
 
