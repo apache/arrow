@@ -2880,7 +2880,6 @@ Defining row group compression and encoding per-column:
 ...                compression={'n_legs': 'snappy', 'animal': 'gzip'},
 ...                use_dictionary=['n_legs', 'animal'])
 
-
 Defining column encoding per-column:
 
 >>> pq.write_table(table, 'example.parquet',
@@ -2985,16 +2984,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
     ...                    )
     >>> pq.ParquetDataset('dataset_name_3', use_legacy_dataset=False).files
     ['dataset_name_3/year=2019/part-0.parquet', ...
-
-    Use old Arrow Dataset API and override the partition filename:
-
-    >>> pq.write_to_dataset(table, root_path='dataset_name_5',
-    ...                     partition_cols=['year'],
-    ...                     partition_filename_cb=lambda x:
-    ...                     str(x[0]) + '.parquet'
-    ...                    )
-    >>> pq.ParquetDataset('dataset_name_5/', use_legacy_dataset=False).files
-    ['dataset_name_5/year=2019/2019.parquet', ...
 
     Write to a single Parquet file:
 
