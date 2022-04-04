@@ -204,7 +204,7 @@ FunctionDoc = namedtuple(
 
 cdef wrap_input_type(const CInputType c_input_type):
     """
-    Wrap a C++ InputType in an InputType object
+    Wrap a C++ InputType in an InputType object.
     """
     cdef InputType input_type = InputType.__new__(InputType)
     input_type.init(c_input_type)
@@ -218,7 +218,8 @@ cdef class InputType(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Cannot use constructor to initialize InputType")
+        raise TypeError("Do not call {}'s constructor directly"
+                        .format(self.__class__.__name__))
 
     cdef void init(self, const CInputType &input_type):
         self.input_type = input_type
@@ -226,7 +227,7 @@ cdef class InputType(_Weakrefable):
     @staticmethod
     def scalar(data_type):
         """
-        create a scalar input type of the given data type
+        Create a scalar input type of the given data type.
 
         Parameter
         ---------
@@ -250,7 +251,7 @@ cdef class InputType(_Weakrefable):
     @staticmethod
     def array(data_type):
         """
-        create an array input type of the given data type
+        Create an array input type of the given data type.
 
         Parameter
         ---------
@@ -2350,7 +2351,7 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
         deref(pyarrow_unwrap_schema(schema).get())))
 
 
-cdef CFunctionDoc _make_function_doc(func_doc):
+cdef CFunctionDoc _make_function_doc(dict func_doc):
     """
     Helper function to generate the FunctionDoc
     """
@@ -2358,44 +2359,24 @@ cdef CFunctionDoc _make_function_doc(func_doc):
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
         c_bool c_options_required
-    if func_doc and isinstance(func_doc, dict):
-        if func_doc["summary"] and isinstance(func_doc["summary"], str):
-            f_doc.summary = func_doc["summary"].encode()
-        else:
-            raise ValueError("key `summary` cannot be None")
 
-        if func_doc["description"] and isinstance(func_doc["description"], str):
-            f_doc.description = func_doc["description"].encode()
-        else:
-            raise ValueError("key `description` cannot be None")
-
-        if func_doc["arg_names"] and isinstance(func_doc["arg_names"], list):
-            for arg_name in func_doc["arg_names"]:
-                if isinstance(arg_name, str):
-                    c_arg_names.push_back(arg_name.encode())
-                else:
-                    raise ValueError(
-                        "key `arg_names` must be a list of strings")
-            f_doc.arg_names = c_arg_names
-        else:
-            raise ValueError("key `arg_names` cannot be None")
-
-        # UDFOptions integration:
-        # TODO: https://issues.apache.org/jira/browse/ARROW-16041
-        f_doc.options_class = tobytes("None")
-
-        c_options_required = False
-        f_doc.options_required = c_options_required
-
-        return f_doc
-    else:
-        raise ValueError(f"func_doc must be a dictionary")
+    f_doc.summary = tobytes(func_doc["summary"])
+    f_doc.description = tobytes(func_doc["description"])
+    for arg_name in func_doc["arg_names"]:
+        c_arg_names.push_back(tobytes(arg_name))
+    f_doc.arg_names = c_arg_names
+    # UDFOptions integration:
+    # TODO: https://issues.apache.org/jira/browse/ARROW-16041
+    f_doc.options_class = tobytes("None")
+    c_options_required = False
+    f_doc.options_required = c_options_required
+    return f_doc
 
 
 def register_function(func_name, num_args, function_doc, in_types,
                       out_type, callback):
     """
-    Register a user-defined-function
+    Register a user-defined-function.
 
     Parameters
     ----------
@@ -2405,11 +2386,8 @@ def register_function(func_name, num_args, function_doc, in_types,
     num_args : int
        number of arguments in the function
     function_doc : dict
-        a dictionary object with keys 
-        ("summary", 
-        "description", 
-        "arg_names"
-        )
+        a dictionary object with keys "summary" (str), 
+        "description" (str), and "arg_names" (list of str).
     in_types : List[InputType]
         list of InputType objects which defines the input 
         types for the function
@@ -2420,8 +2398,8 @@ def register_function(func_name, num_args, function_doc, in_types,
         function includes arguments equal to the number
         of input_types defined. The return type of the 
         function is of the type defined as output_type. 
-        The output is a datum object which can be
-        an Array or a ChunkedArray or a Table or a RecordBatch.
+        The output should be an Array, Scalar, ChunkedArray,
+        Table, or RecordBatch based on the out_type.
 
     Example
     -------

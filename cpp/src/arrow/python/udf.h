@@ -48,8 +48,8 @@ class ARROW_PYTHON_EXPORT UdfOptions {
              const compute::OutputType out_type)
       : kind_(kind),
         arity_(arity),
-        func_doc_(func_doc),
-        in_types_(in_types),
+        func_doc_(std::move(func_doc)),
+        in_types_(std::move(in_types)),
         out_type_(out_type) {}
 
   compute::Function::Kind kind() { return kind_; }
@@ -76,7 +76,8 @@ class ARROW_PYTHON_EXPORT ScalarUdfOptions : public UdfOptions {
                    const compute::FunctionDoc func_doc,
                    const std::vector<compute::InputType> in_types,
                    const compute::OutputType out_type)
-      : UdfOptions(compute::Function::SCALAR, arity, func_doc, in_types, out_type),
+      : UdfOptions(compute::Function::SCALAR, arity, func_doc, std::move(in_types),
+                   out_type),
         func_name_(func_name) {}
 
   const std::string& name() const { return func_name_; }
@@ -94,7 +95,7 @@ class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
  public:
   ScalarUdfBuilder() : UdfBuilder() {}
 
-  Status MakeFunction(PyObject* function, ScalarUdfOptions* options = NULLPTR);
+  Status MakeFunction(PyObject* function, ScalarUdfOptions* options);
 
  private:
   OwnedRefNoGIL function_;

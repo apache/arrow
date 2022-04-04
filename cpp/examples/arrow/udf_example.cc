@@ -17,11 +17,6 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/exec/exec_plan.h>  // ARROW-15263
-#include <arrow/util/async_generator.h>
-#include <arrow/util/future.h>
-#include <arrow/util/make_unique.h>
-#include <arrow/util/vector.h>
 
 #include <cstdlib>
 #include <iostream>

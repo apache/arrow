@@ -85,7 +85,7 @@ Status ExecFunctionArray(const compute::ExecBatch& batch, PyObject* function,
 
 Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* options) {
   if (function == NULL) {
-    return Status::ExecutionError("python function cannot be null");
+    return Status::Invalid("python function cannot be null");
   }
   Py_INCREF(function);
   function_.reset(function);
