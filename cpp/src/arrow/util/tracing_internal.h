@@ -162,7 +162,16 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
   generator =                                                 \
       ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator), name, true)
 
-#else
+/*
+ * Calls to the helper macros above are removed by the preprocessor when building
+ * without opentelemetry, because of the empty definitions below.
+ * Without them, every call to a helper function would need to be surrounded with
+ * #ifdef ARROW_WITH_OPENTELEMETRY
+ * ...
+ * #endif
+ */
+
+#else  // !ARROW_WITH_OPENTELEMETRY
 
 class SpanImpl {};
 
