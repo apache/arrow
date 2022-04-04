@@ -24,7 +24,7 @@ set -exu
 
 codename=$(. /etc/os-release && echo ${UBUNTU_CODENAME})
 
-case ${code_name} in
+case ${codename} in
   bionic)
     llvm=12
     python=3.8
@@ -72,7 +72,7 @@ apt-get install -y -q --no-install-recommends \
   wget \
   tzdata
 
-case ${code_name} in
+case ${codename} in
   bionic)
     python${python} -m pip install -U pip
     update-alternatives \
