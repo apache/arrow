@@ -236,7 +236,7 @@ jobs:
     name: AMD64 Windows R ${{ matrix.config.rversion }} RTools ${{ matrix.config.rtools }}
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -329,12 +329,37 @@ jobs:
         if: ${{ matrix.config.rtools == 35 }}
         shell: Rscript {0}
         run: install.packages("cpp11", type = "source")
+      - name: Prune dependencies (on R 3.6)
+        if: ${{ matrix.config.rtools == 35 }}
+        shell: Rscript {0}
+        run: |
+            # To prevent the build from timing out, let's prune some optional deps (and their possible version requirements)
+            setwd("r")
+            # create a backup to use later
+            file.copy("DESCRIPTION", "DESCRIPTION.bak")
+            d <- read.dcf("DESCRIPTION")
+            to_prune <- c("duckdb", "DBI", "dbplyr", "decor", "knitr", "rmarkdown", "pkgload", "reticulate")
+            pattern <- paste0("\\n?", to_prune, "( \\([^,]*\\))?,?", collapse = "|")
+            d[,"Suggests"] <- gsub(pattern, "", d[,"Suggests"])
+            write.dcf(d, "DESCRIPTION")
+      - name: R package cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.R_LIBS_USER }}/*
+          key: r-${{ matrix.config.rtools }}-R-LIBS-${{ hashFiles('r/DESCRIPTION') }}
+          restore-keys: r-${{ matrix.config.rtools }}-R-LIBS-
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
           # options(pkgType="win.binary") # processx doesn't have a binary for UCRT yet
           install.packages(c("remotes", "rcmdcheck"))
           remotes::install_deps("r", dependencies = TRUE)
+      - name: Restore DESCRIPTION for 3.6
+        if: ${{ matrix.config.rtools == 35 }}
+        run: |
+          rm r/DESCRIPTION
+          mv r/DESCRIPTION.bak r/DESCRIPTION
       - name: Check
         shell: Rscript {0}
         run: |

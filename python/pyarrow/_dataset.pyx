@@ -2145,15 +2145,24 @@ cdef class Scanner(_Weakrefable):
     dataset : Dataset
         Dataset to scan.
     columns : list of str or dict, default None
-        The columns to project. This can be a list of column names to include
-        (order and duplicates will be preserved), or a dictionary with
-        {new_column_name: expression} values for more advanced projections.
+        The columns to project. This can be a list of column names to
+        include (order and duplicates will be preserved), or a dictionary
+        with {{new_column_name: expression}} values for more advanced
+        projections.
+
+        The list of columns or expressions may use the special fields
+        `__batch_index` (the index of the batch within the fragment), 
+        `__fragment_index` (the index of the fragment within the dataset), 
+        `__last_in_fragment` (whether the batch is last in fragment), and
+        `__filename` (the name of the source file or a description of the 
+        source fragment).
+
         The columns will be passed down to Datasets and corresponding data
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
-        By default all of the available columns are projected. Raises
-        an exception if any of the referenced column names does not exist
-        in the dataset's Schema.
+        By default all of the available columns are projected. 
+        Raises an exception if any of the referenced column names does 
+        not exist in the dataset's Schema.
     filter : Expression, default None
         Scan will return only the rows matching the filter.
         If possible the predicate will be pushed down to exploit the
@@ -2214,6 +2223,14 @@ cdef class Scanner(_Weakrefable):
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
             projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment), 
+            `__fragment_index` (the index of the fragment within the dataset), 
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the 
+            source fragment).
+
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -2284,6 +2301,14 @@ cdef class Scanner(_Weakrefable):
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
             projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment), 
+            `__fragment_index` (the index of the fragment within the dataset), 
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the 
+            source fragment).
+
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
