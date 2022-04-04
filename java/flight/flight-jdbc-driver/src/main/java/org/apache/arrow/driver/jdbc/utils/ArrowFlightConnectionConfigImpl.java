@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.String.format;
 
-import java.io.File;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -88,8 +87,12 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return the path.
    */
   public String getKeyStorePath() {
-    final File keyStore = keystore();
-    return keyStore == null ? null : keyStore.getPath();
+    return ArrowFlightConnectionProperty.TRUST_STORE.getString(properties);
+  }
+
+  // TODO Add java doc
+  public String getKeystorePassword() {
+    return ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.getString(properties);
   }
 
   /**
@@ -135,6 +138,9 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     PASSWORD("password", null, Type.STRING, false),
     USE_TLS("useTls", true, Type.BOOLEAN, false),
     CERTIFICATE_VERIFICATION("disableCertificateVerification", false, Type.BOOLEAN, false),
+    TRUST_STORE("trustStore", null, Type.STRING, false),
+    TRUST_STORE_PASSWORD("trustStorePassword", null, Type.STRING, false),
+    USE_SYSTEM_TRUST_STORE("useSystemTrustStore", true, Type.BOOLEAN, false),
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
     TOKEN("token", null, Type.STRING, false);
 

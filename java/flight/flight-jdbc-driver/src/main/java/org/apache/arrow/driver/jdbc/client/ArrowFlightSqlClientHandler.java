@@ -426,6 +426,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       return this;
     }
 
+    // TODO Add java doc
     public Builder withDisableCertificateVerification(final boolean disableCertificateVerification) {
       this.disableCertificateVerification = disableCertificateVerification;
       return this;
