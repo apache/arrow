@@ -18,6 +18,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common.h"
@@ -36,8 +37,12 @@ struct CumulativeGeneric {
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = OptionsWrapper<OptionsType>::Get(ctx);
-    auto start = UnboxScalar<ArgType>::Unbox(*options.start);
-    bool skip_nulls = options.skip_nulls;
+    auto skip_nulls = options.skip_nulls;
+
+    // Cast `start` option to match output type
+    auto out_type = batch.GetDescriptors()[0].type;
+    ARROW_ASSIGN_OR_RAISE(auto cast_value, Cast(Datum(options.start), out_type));
+    auto start = UnboxScalar<OutType>::Unbox(*cast_value.scalar());
 
     switch (batch[0].kind()) {
       case Datum::ARRAY: {
@@ -61,17 +66,17 @@ struct CumulativeGeneric {
 
   static Status Call(KernelContext* ctx, const ArrayData& arg0, ArgValue& partial_scan,
                      Datum* out, bool skip_nulls) {
-    Status st = Status::OK();
-    ArrayData* out_arr = out->mutable_array();
+    auto st = Status::OK();
+    auto out_arr = out->mutable_array();
     auto out_data = out_arr->GetMutableValues<OutValue>(1);
 
-    bool encounted_null = false;
+    bool encountered_null = false;
     auto start_null_idx = arg0.offset;
 
     VisitArrayValuesInline<ArgType>(
         arg0,
         [&](ArgValue v) {
-          if (!skip_nulls && encounted_null) {
+          if (!skip_nulls && encountered_null) {
             *out_data++ = OutValue{};
           } else {
             partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(
@@ -83,7 +88,7 @@ struct CumulativeGeneric {
         [&]() {
           // null
           *out_data++ = OutValue{};
-          encounted_null = true;
+          encountered_null = true;
         });
 
     if (!skip_nulls) {
