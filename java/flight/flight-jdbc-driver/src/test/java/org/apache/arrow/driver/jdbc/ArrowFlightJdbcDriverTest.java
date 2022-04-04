@@ -214,7 +214,7 @@ public class ArrowFlightJdbcDriverTest {
 
   @SuppressWarnings("unchecked")
   @Test
-  public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithSemicolon() throws Exception {
+  public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithMultipleSemicolons() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
     final Method parseUrl = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
@@ -237,6 +237,31 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get("key1"), "value1");
     assertEquals(parsedArgs.get("key2"), "value2");
     assertEquals(parsedArgs.get("a"), "b");
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithOneSemicolon() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final Method parseUrl = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
+
+    parseUrl.setAccessible(true);
+
+    final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
+        "jdbc:arrow-flight://localhost:2222/;key1=value1");
+
+    // Check size == the amount of args provided (prefix not included!)
+    assertEquals(5, parsedArgs.size());
+
+    // Check host == the provided host
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.HOST.camelName()), "localhost");
+
+    // Check port == the provided port
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.PORT.camelName()), 2222);
+
+    // Check all other non-default arguments
+    assertEquals(parsedArgs.get("key1"), "value1");
   }
 
   /**

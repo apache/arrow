@@ -107,8 +107,7 @@ public class AccessorTestUtils {
     }
 
     public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
-                                         MatcherGetter<T, R> matcherGetter)
-        throws Exception {
+                                         MatcherGetter<T, R> matcherGetter) throws Exception {
       iterate(vector, (accessor, currentRow) -> {
         R object = getter.apply(accessor);
         boolean wasNull = accessor.wasNull();
