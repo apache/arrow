@@ -230,7 +230,7 @@ cdef class InputType(_Weakrefable):
 
         Parameter
         ---------
-        data_type: DataType
+        data_type : DataType
 
         Examples
         --------
@@ -254,7 +254,7 @@ cdef class InputType(_Weakrefable):
 
         Parameter
         ---------
-        data_type: DataType
+        data_type : DataType
 
         Examples
         --------
