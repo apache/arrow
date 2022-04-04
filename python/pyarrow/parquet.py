@@ -2985,7 +2985,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.ParquetDataset('dataset_name_3', use_legacy_dataset=False).files
     ['dataset_name_3/year=2019/part-0.parquet', ...
 
-    Write to a single Parquet file:
+    Write a single Parquet file into the root folder:
 
     >>> pq.write_to_dataset(table, root_path='dataset_name_4',
     ...                     use_legacy_dataset=False)
