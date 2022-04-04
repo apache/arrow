@@ -297,14 +297,14 @@ def test_udf_input():
         register_function(func_name, arity, doc, in_types,
                           out_type, unary_scalar_function)
     except Exception as ex:
-        assert isinstance(ex, AssertionError)
+        assert isinstance(ex, ValueError)
 
     # validate function name
     try:
         register_function(None, 1, doc, in_types,
                           out_type, unary_scalar_function)
     except Exception as ex:
-        assert isinstance(ex, ValueError)
+        assert isinstance(ex, TypeError)
 
     # validate docs
     try:

@@ -1808,21 +1808,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CMemoryPool* memory_pool() const
         CExecutor* executor()
 
-    cdef cppclass CExecBatch" arrow::compute::ExecBatch":
-        CExecBatch(const CRecordBatch& batch)
-
-        @staticmethod
-        CResult[CExecBatch] Make(vector[CDatum] values)
-        CResult[shared_ptr[CRecordBatch]] ToRecordBatch(
-            shared_ptr[CSchema] schema, CMemoryPool* pool) const
-
-        # inline const CDatum& operator[](i) const
-        vector[CDatum] values
-        c_string ToString() const
-
-    cdef cppclass CKernelContext" arrow::compute::KernelContext":
-        CKernelContext(CExecContext* exec_ctx)
-
     cdef cppclass CKernelSignature" arrow::compute::KernelSignature":
         c_string ToString() const
 

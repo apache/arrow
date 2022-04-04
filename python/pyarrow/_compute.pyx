@@ -2448,13 +2448,12 @@ def register_function(func_name, num_args, function_doc, in_types,
         CScalarUdfOptions* c_options
         object obj
 
-    if func_name and isinstance(func_name, str):
-        c_func_name = tobytes(func_name)
-    else:
-        raise ValueError("func_name should be str")
-
+    
+    c_func_name = tobytes(func_name)
+    
     if num_args and isinstance(num_args, int):
-        assert num_args > 0
+        if not(num_args >= 0):
+            raise ValueError("number of arguments must be >= 0")
         if num_args == 0:
             c_arity = CArity.Nullary()
         elif num_args == 1:
@@ -2482,7 +2481,7 @@ def register_function(func_name, num_args, function_doc, in_types,
     else:
         raise ValueError("Output value type must be defined")
 
-    if callback and callable(callback):
+    if callable(callback):
         c_callback = <PyObject*>callback
     else:
         raise ValueError("callback must be a callable")
@@ -2494,7 +2493,4 @@ def register_function(func_name, num_args, function_doc, in_types,
     c_options = new CScalarUdfOptions(c_func_name, c_arity, c_func_doc,
                                       c_in_types, deref(c_out_type))
     c_sc_builder = new CScalarUdfBuilder()
-    st = c_sc_builder.MakeFunction(c_callback, c_options)
-    if not st.ok():
-        error_msg = frombytes(st.message())
-        raise RuntimeError(error_msg)
+    check_status(c_sc_builder.MakeFunction(c_callback, c_options))
