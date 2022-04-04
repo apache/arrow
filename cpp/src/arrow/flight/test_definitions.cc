@@ -1265,8 +1265,7 @@ void CudaDataTest::TestDoGet() {
       checked_cast<CudaTestServer*>(server_.get())->batches();
 
   Ticket ticket{""};
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(client_->DoGet(options, ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(options, ticket));
 
   size_t idx = 0;
   while (true) {
@@ -1290,10 +1289,9 @@ void CudaDataTest::TestDoPut() {
   RecordBatchVector batches;
   ASSERT_OK(ExampleIntBatches(&batches));
 
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
   auto descriptor = FlightDescriptor::Path({""});
-  ASSERT_OK(client_->DoPut(descriptor, batches[0]->schema(), &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_put_result,
+                       client_->DoPut(descriptor, batches[0]->schema()));
 
   ipc::DictionaryMemo memo;
   for (const auto& batch : batches) {
@@ -1303,9 +1301,9 @@ void CudaDataTest::TestDoPut() {
                          cuda::ReadRecordBatch(batch->schema(), &memo, buffer));
 
     ASSERT_OK(CheckBuffersOnDevice(*cuda_batch, *impl_->device));
-    ASSERT_OK(writer->WriteRecordBatch(*cuda_batch));
+    ASSERT_OK(do_put_result.writer->WriteRecordBatch(*cuda_batch));
   }
-  ASSERT_OK(writer->Close());
+  ASSERT_OK(do_put_result.writer->Close());
   ASSERT_OK(impl_->context->Synchronize());
 
   const RecordBatchVector& written =
@@ -1328,11 +1326,9 @@ void CudaDataTest::TestDoExchange() {
   RecordBatchVector batches;
   ASSERT_OK(ExampleIntBatches(&batches));
 
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightStreamReader> reader;
   auto descriptor = FlightDescriptor::Path({""});
-  ASSERT_OK(client_->DoExchange(options, descriptor, &writer, &reader));
-  ASSERT_OK(writer->Begin(batches[0]->schema()));
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(options, descriptor));
+  ASSERT_OK(exchange.writer->Begin(batches[0]->schema()));
 
   ipc::DictionaryMemo write_memo;
   ipc::DictionaryMemo read_memo;
@@ -1343,16 +1339,16 @@ void CudaDataTest::TestDoExchange() {
                          cuda::ReadRecordBatch(batch->schema(), &write_memo, buffer));
 
     ASSERT_OK(CheckBuffersOnDevice(*cuda_batch, *impl_->device));
-    ASSERT_OK(writer->WriteRecordBatch(*cuda_batch));
+    ASSERT_OK(exchange.writer->WriteRecordBatch(*cuda_batch));
 
-    ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
+    ASSERT_OK_AND_ASSIGN(auto chunk, exchange.reader->Next());
     ASSERT_OK(CheckBuffersOnDevice(*chunk.data, *impl_->device));
 
     // Bounce record batch back to host memory
     ASSERT_OK_AND_ASSIGN(auto host_batch, CopyBatchToHost(*chunk.data));
     AssertBatchesEqual(*batch, *host_batch);
   }
-  ASSERT_OK(writer->Close());
+  ASSERT_OK(exchange.writer->Close());
 }
 
 #else
