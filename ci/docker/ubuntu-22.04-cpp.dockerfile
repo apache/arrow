@@ -96,6 +96,7 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
+        python3-dev \
         python3-pip \
         rapidjson-dev \
         rsync \
@@ -103,6 +104,30 @@ RUN apt-get update -y -q && \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+ARG gcc_version=""
+RUN if [ "${gcc_version}" = "" ]; then \
+      apt-get update -y -q && \
+      apt-get install -y -q --no-install-recommends \
+          g++ \
+          gcc; \
+    else \
+      if [ "${gcc_version}" -gt "11" ]; then \
+          apt-get update -y -q && \
+          apt-get install -y -q --no-install-recommends software-properties-common && \
+          add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
+      fi; \
+      apt-get update -y -q && \
+      apt-get install -y -q --no-install-recommends \
+          g++-${gcc_version} \
+          gcc-${gcc_version} && \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
+      update-alternatives --set cc /usr/bin/gcc && \
+      update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
+      update-alternatives --set c++ /usr/bin/g++; \
+    fi
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
@@ -149,27 +174,3 @@ ENV ARROW_BUILD_TESTS=ON \
     Protobuf_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3
-
-ARG gcc_version=""
-RUN if [ "${gcc_version}" = "" ]; then \
-      apt-get update -y -q && \
-      apt-get install -y -q --no-install-recommends \
-          g++ \
-          gcc; \
-    else \
-      if [ "${gcc_version}" -gt "11" ]; then \
-          apt-get update -y -q && \
-          apt-get install -y -q --no-install-recommends software-properties-common && \
-          add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
-      fi; \
-      apt-get update -y -q && \
-      apt-get install -y -q --no-install-recommends \
-          g++-${gcc_version} \
-          gcc-${gcc_version} && \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
-      update-alternatives --set cc /usr/bin/gcc && \
-      update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
-      update-alternatives --set c++ /usr/bin/g++; \
-    fi
