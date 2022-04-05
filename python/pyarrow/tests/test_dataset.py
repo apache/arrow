@@ -615,6 +615,7 @@ def test_partitioning():
         dictionaries={
             "key": pa.array(["first", "second", "third"]),
         })
+    assert partitioning.dictionaries[0] is None
     assert partitioning.dictionaries[1].to_pylist() == [
         "first", "second", "third"]
 
@@ -626,6 +627,7 @@ def test_partitioning():
         dictionaries={
             "key": pa.array(["first", "second", "third"]),
         })
+    assert partitioning.dictionaries[0] is None
     assert partitioning.dictionaries[1].to_pylist() == [
         "first", "second", "third"]
 
@@ -3326,14 +3328,14 @@ def test_dataset_preserved_partitioning(tempdir):
     part = ds.partitioning(pa.schema([("part", pa.int32())]), flavor="hive")
     assert isinstance(part, ds.HivePartitioning)  # not a factory
     assert len(part.dictionaries) == 1
-    assert all(x is None for x in part.dictionaries) 
+    assert all(x is None for x in part.dictionaries)
     dataset = ds.dataset(path, partitioning=part)
     part = dataset.partitioning
     assert isinstance(part, ds.HivePartitioning)
     assert part.schema == pa.schema([("part", pa.int32())])
     # TODO is this expected?
     assert len(part.dictionaries) == 1
-    assert all(x is None for x in part.dictionaries) 
+    assert all(x is None for x in part.dictionaries)
 
     # through manual creation -> not available
     dataset = ds.dataset(path, partitioning="hive")
