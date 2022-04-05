@@ -3911,7 +3911,8 @@ macro(build_google_cloud_cpp_storage)
                         absl::memory
                         absl::optional
                         absl::time
-                        Threads::Threads)
+                        Threads::Threads
+                        OpenSSL::Crypto)
 
   add_library(google-cloud-cpp::storage STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::storage
