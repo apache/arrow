@@ -50,7 +50,6 @@ Suggests:
     duckdb (>= 0.2.8),
     hms,
     knitr,
-    lintr,
     lubridate,
     pkgload,
     reticulate,
@@ -62,8 +61,6 @@ Suggests:
     tzdb,
     withr
 LinkingTo: cpp11 (>= 0.4.2)
-Remotes: 
-    jonkeane/lintr@arrow-branch
 Collate:
     'arrowExports.R'
     'enums.R'

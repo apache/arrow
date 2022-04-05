@@ -57,11 +57,6 @@ if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
   rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
 fi
 
-# Adding sys req for lintr
-if [ "$RHUB_PLATFORM" = "linux-x86_64-debian-gcc" ]; then
-  $PACKAGE_MANAGER install -y libxml2-dev
-fi
-
 # Special hacking to try to reproduce quirks on centos using non-default build
 # tooling.
 if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
