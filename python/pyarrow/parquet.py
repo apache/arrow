@@ -1791,10 +1791,7 @@ class _ParquetDatasetV2:
 
         # check for single fragment dataset
         single_file = None
-        if isinstance(path_or_paths, list):
-            if len(path_or_paths) == 1:
-                single_file = path_or_paths[0]
-        else:
+        if not isinstance(path_or_paths, list):
             if _is_path_like(path_or_paths):
                 path_or_paths = _stringify_path(path_or_paths)
                 if filesystem is None:
