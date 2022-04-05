@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.flatbuf.Endianness;
 import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
@@ -209,7 +210,8 @@ public class Schema {
     int fieldsOffset = org.apache.arrow.flatbuf.Schema.createFieldsVector(builder, fieldOffsets);
     int metadataOffset = FBSerializables.writeKeyValues(builder, metadata);
     org.apache.arrow.flatbuf.Schema.startSchema(builder);
-    org.apache.arrow.flatbuf.Schema.addEndianness(builder, (short) (LITTLE_ENDIAN ? 0 : 1));
+    org.apache.arrow.flatbuf.Schema.addEndianness(builder,
+        (LITTLE_ENDIAN ? Endianness.Little : Endianness.Big));
     org.apache.arrow.flatbuf.Schema.addFields(builder, fieldsOffset);
     org.apache.arrow.flatbuf.Schema.addCustomMetadata(builder, metadataOffset);
     return org.apache.arrow.flatbuf.Schema.endSchema(builder);
