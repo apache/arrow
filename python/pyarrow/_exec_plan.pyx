@@ -97,14 +97,16 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
             c_in_table = pyarrow_unwrap_table(ipt).get()
             c_sourceopts = GetResultValue(
                 CSourceNodeOptions.FromTable(deref(c_in_table), deref(c_exec_context).executor()))
-            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CSourceNodeOptions](c_sourceopts)
+            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CSourceNodeOptions](
+                c_sourceopts)
         elif isinstance(ipt, Dataset):
             node_factory = "scan"
             c_in_dataset = (<Dataset>ipt).unwrap()
             c_scanopts = make_shared[CScanNodeOptions](
                 c_in_dataset, make_shared[CScanOptions]())
             deref(deref(c_scanopts).scan_options).use_threads = use_threads
-            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CScanNodeOptions](c_scanopts)
+            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CScanNodeOptions](
+                c_scanopts)
         else:
             raise TypeError("Unsupported type")
 
