@@ -2050,8 +2050,10 @@ class TaggedRecordBatch(collections.namedtuple(
 
     Parameters
     ----------
-    record_batch : The record batch.
-    fragment : fragment of the record batch.
+    record_batch : RecordBatch
+        The record batch.
+    fragment : Fragment
+        Fragment of the record batch.
     """
 
 
@@ -2556,7 +2558,12 @@ cdef class Scanner(_Weakrefable):
         return GetResultValue(result)
 
     def to_reader(self):
-        """Consume this scanner as a RecordBatchReader."""
+        """Consume this scanner as a RecordBatchReader.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
         reader.reader = GetResultValue(self.scanner.ToRecordBatchReader())
