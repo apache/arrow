@@ -301,6 +301,57 @@ def test_open_stream_from_buffer(stream_fixture):
     assert tuple(st1) == tuple(stream_fixture.write_stats)
 
 
+@pytest.mark.parametrize('options', [
+    pa.ipc.IpcReadOptions(),
+    pa.ipc.IpcReadOptions(use_threads=False),
+])
+def test_open_stream_options(stream_fixture, options):
+    stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+
+    reader = pa.ipc.open_stream(source, options=options)
+
+    reader.read_all()
+    st = reader.stats
+    assert st.num_messages == 6
+    assert st.num_record_batches == 5
+
+    assert tuple(st) == tuple(stream_fixture.write_stats)
+
+
+def test_open_stream_with_wrong_options(stream_fixture):
+    stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+
+    with pytest.raises(TypeError):
+        pa.ipc.open_stream(source, options=True)
+
+
+@pytest.mark.parametrize('options', [
+    pa.ipc.IpcReadOptions(),
+    pa.ipc.IpcReadOptions(use_threads=False),
+])
+def test_open_file_options(file_fixture, options):
+    file_fixture.write_batches()
+    source = file_fixture.get_source()
+
+    reader = pa.ipc.open_file(source, options=options)
+
+    reader.read_all()
+
+    st = reader.stats
+    assert st.num_messages == 6
+    assert st.num_record_batches == 5
+
+
+def test_open_file_with_wrong_options(file_fixture):
+    file_fixture.write_batches()
+    source = file_fixture.get_source()
+
+    with pytest.raises(TypeError):
+        pa.ipc.open_file(source, options=True)
+
+
 @pytest.mark.pandas
 def test_stream_write_dispatch(stream_fixture):
     # ARROW-1616

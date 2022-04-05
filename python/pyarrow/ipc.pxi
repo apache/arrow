@@ -776,7 +776,8 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
     def __cinit__(self):
         pass
 
-    def _open(self, source):
+    def _open(self, source, IpcReadOptions options=IpcReadOptions()):
+        self.options = options.c_options
         _get_input_stream(source, &self.in_stream)
         with nogil:
             self.reader = GetResultValue(CRecordBatchStreamReader.Open(
@@ -819,7 +820,8 @@ cdef class _RecordBatchFileReader(_Weakrefable):
     def __cinit__(self):
         pass
 
-    def _open(self, source, footer_offset=None):
+    def _open(self, source, footer_offset=None, IpcReadOptions options=IpcReadOptions()):
+        self.options = options.c_options
         try:
             source = as_buffer(source)
         except TypeError:
