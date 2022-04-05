@@ -296,40 +296,36 @@ class TestUcx : public ::testing::Test {
 TEST_F(TestUcx, GetFlightInfo) {
   auto descriptor = FlightDescriptor::Path({"foo", "bar"});
   std::unique_ptr<FlightInfo> info;
-  ASSERT_OK(client_->GetFlightInfo(descriptor, &info));
+  ASSERT_OK_AND_ASSIGN(info, client_->GetFlightInfo(descriptor));
   // Test that we can reuse the connection
-  ASSERT_OK(client_->GetFlightInfo(descriptor, &info));
+  ASSERT_OK_AND_ASSIGN(info, client_->GetFlightInfo(descriptor));
 }
 
 TEST_F(TestUcx, SequentialClients) {
-  std::unique_ptr<FlightClient> client2;
-  ASSERT_OK(FlightClient::Connect(server_->location(), FlightClientOptions::Defaults(),
-                                  &client2));
+  ASSERT_OK_AND_ASSIGN(
+      auto client2,
+      FlightClient::Connect(server_->location(), FlightClientOptions::Defaults()));
 
   Ticket ticket{"a"};
 
-  std::unique_ptr<FlightStreamReader> stream1, stream2;
-
-  ASSERT_OK(client_->DoGet(ticket, &stream1));
+  ASSERT_OK_AND_ASSIGN(auto stream1, client_->DoGet(ticket));
   ASSERT_OK_AND_ASSIGN(auto table1, stream1->ToTable());
 
-  ASSERT_OK(client2->DoGet(ticket, &stream2));
+  ASSERT_OK_AND_ASSIGN(auto stream2, client2->DoGet(ticket));
   ASSERT_OK_AND_ASSIGN(auto table2, stream2->ToTable());
 
   AssertTablesEqual(*table1, *table2);
 }
 
 TEST_F(TestUcx, ConcurrentClients) {
-  std::unique_ptr<FlightClient> client2;
-  ASSERT_OK(FlightClient::Connect(server_->location(), FlightClientOptions::Defaults(),
-                                  &client2));
+  ASSERT_OK_AND_ASSIGN(
+      auto client2,
+      FlightClient::Connect(server_->location(), FlightClientOptions::Defaults()));
 
   Ticket ticket{"a"};
 
-  std::unique_ptr<FlightStreamReader> stream1, stream2;
-
-  ASSERT_OK(client_->DoGet(ticket, &stream1));
-  ASSERT_OK(client2->DoGet(ticket, &stream2));
+  ASSERT_OK_AND_ASSIGN(auto stream1, client_->DoGet(ticket));
+  ASSERT_OK_AND_ASSIGN(auto stream2, client2->DoGet(ticket));
 
   ASSERT_OK_AND_ASSIGN(auto table1, stream1->ToTable());
   ASSERT_OK_AND_ASSIGN(auto table2, stream2->ToTable());
@@ -339,15 +335,13 @@ TEST_F(TestUcx, ConcurrentClients) {
 
 TEST_F(TestUcx, Errors) {
   auto descriptor = FlightDescriptor::Path({"error", "bar"});
-  std::unique_ptr<FlightInfo> info;
-
   auto* server = reinterpret_cast<SimpleTestServer*>(server_.get());
   for (const auto code : kStatusCodes) {
     if (code == StatusCode::OK) continue;
 
     Status expected(code, "Error message");
     server->set_error_status(expected);
-    Status actual = client_->GetFlightInfo(descriptor, &info);
+    Status actual = client_->GetFlightInfo(descriptor).status();
     ASSERT_EQ(actual, expected);
 
     // Attach a generic status detail
@@ -357,7 +351,7 @@ TEST_F(TestUcx, Errors) {
       Status expected(code, "foo",
                       std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal,
                                                            detail->ToString()));
-      Status actual = client_->GetFlightInfo(descriptor, &info);
+      Status actual = client_->GetFlightInfo(descriptor).status();
       ASSERT_EQ(actual, expected);
     }
 
@@ -366,17 +360,13 @@ TEST_F(TestUcx, Errors) {
       Status expected(code, "Error message",
                       std::make_shared<FlightStatusDetail>(flight_code, "extra"));
       server->set_error_status(expected);
-      Status actual = client_->GetFlightInfo(descriptor, &info);
+      Status actual = client_->GetFlightInfo(descriptor).status();
       ASSERT_EQ(actual, expected);
     }
   }
 }
 
 TEST(TestUcxIpV6, DISABLED_IpV6Port) {
-  // TODO(lidavidm): while we can listen on IPv6 fine, we can't
-  // actually connect to it (ucp_conn_request_h appears to point to a
-  // port where nobody is listening)
-
   // Also, disabled in CI as machines lack an IPv6 interface
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme("ucx", "[::1]", 0));
 
@@ -384,13 +374,12 @@ TEST(TestUcxIpV6, DISABLED_IpV6Port) {
   FlightServerOptions server_options(location);
   ASSERT_OK(server->Init(server_options));
 
-  std::unique_ptr<FlightClient> client;
   FlightClientOptions client_options = FlightClientOptions::Defaults();
-  ASSERT_OK(FlightClient::Connect(server->location(), client_options, &client));
+  ASSERT_OK_AND_ASSIGN(auto client,
+                       FlightClient::Connect(server->location(), client_options));
 
   auto descriptor = FlightDescriptor::Path({"foo", "bar"});
-  std::unique_ptr<FlightInfo> info;
-  ASSERT_OK(client->GetFlightInfo(descriptor, &info));
+  ASSERT_OK_AND_ASSIGN(auto info, client->GetFlightInfo(descriptor));
 }
 
 }  // namespace flight
