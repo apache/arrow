@@ -550,7 +550,7 @@ def test_partitioning():
         ])
     )
     assert len(partitioning.dictionaries) == 2
-    assert all(x is None for x in partitioning.dictionaries) is True
+    assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('/3/3.14')
     assert isinstance(expr, ds.Expression)
 
@@ -572,7 +572,7 @@ def test_partitioning():
         null_fallback='xyz'
     )
     assert len(partitioning.dictionaries) == 2
-    assert all(x is None for x in partitioning.dictionaries) is True
+    assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('/alpha=0/beta=3')
     expected = (
         (ds.field('alpha') == ds.scalar(0)) &
@@ -597,7 +597,7 @@ def test_partitioning():
         ])
     )
     assert len(partitioning.dictionaries) == 2
-    assert all(x is None for x in partitioning.dictionaries) is True
+    assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('3_3.14_')
     assert isinstance(expr, ds.Expression)
 
@@ -3326,14 +3326,14 @@ def test_dataset_preserved_partitioning(tempdir):
     part = ds.partitioning(pa.schema([("part", pa.int32())]), flavor="hive")
     assert isinstance(part, ds.HivePartitioning)  # not a factory
     assert len(part.dictionaries) == 1
-    assert all(x is None for x in part.dictionaries) is True
+    assert all(x is None for x in part.dictionaries) 
     dataset = ds.dataset(path, partitioning=part)
     part = dataset.partitioning
     assert isinstance(part, ds.HivePartitioning)
     assert part.schema == pa.schema([("part", pa.int32())])
     # TODO is this expected?
     assert len(part.dictionaries) == 1
-    assert all(x is None for x in part.dictionaries) is True
+    assert all(x is None for x in part.dictionaries) 
 
     # through manual creation -> not available
     dataset = ds.dataset(path, partitioning="hive")
