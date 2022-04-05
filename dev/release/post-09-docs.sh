@@ -63,7 +63,7 @@ done
 # add to list and remove dev docs
 versioned_paths+=("docs/dev/")
 rm -rf docs/dev/
-if [ "$is_major_release" = true ] ; then
+if [ "$is_major_release" = "yes" ] ; then
   # copy the current stable docs to temporary directory
   # (remove java reference to reduce size)
   rm -rf docs/java/reference/
