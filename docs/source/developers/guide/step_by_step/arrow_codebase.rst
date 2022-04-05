@@ -36,10 +36,9 @@ The Apache Arrow repository includes implementations for
 most of the libraries for which Arrow is available.
 
 Languages like GLib (``c_glib/``), C++ (``cpp/``), C# (``csharp/``),
-Go (``go/``), Java (``java/``), JavaScript (``js/``),
-Julia (``julia/``), MATLAB (``matlab/``), Python (``python/``),
-R (``r/``) and Ruby (``ruby/``) have their own subdirectories in
-the main folder as written here.
+Go (``go/``), Java (``java/``), JavaScript (``js/``), MATLAB
+(``matlab/``), Python (``python/``), R (``r/``) and Ruby (``ruby/``)
+have their own subdirectories in the main folder as written here.
 
 Rust has its own repository available `here <https://github.com/apache/arrow-rs>`_.
 

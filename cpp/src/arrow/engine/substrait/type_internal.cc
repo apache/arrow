@@ -79,8 +79,8 @@ Result<FieldVector> FieldsFromProto(int size, const Types& types,
     std::shared_ptr<DataType> type;
     bool nullable;
 
-    if (types[i].has_struct_()) {
-      const auto& struct_ = types[i].struct_();
+    if (types.Get(i).has_struct_()) {
+      const auto& struct_ = types.Get(i).struct_();
 
       ARROW_ASSIGN_OR_RAISE(
           type, FieldsFromProto(struct_.types_size(), struct_.types(), next_name, ext_set)
@@ -88,7 +88,7 @@ Result<FieldVector> FieldsFromProto(int size, const Types& types,
 
       nullable = IsNullable(struct_);
     } else {
-      ARROW_ASSIGN_OR_RAISE(std::tie(type, nullable), FromProto(types[i], ext_set));
+      ARROW_ASSIGN_OR_RAISE(std::tie(type, nullable), FromProto(types.Get(i), ext_set));
     }
 
     fields[i] = field(std::move(name), std::move(type), nullable);

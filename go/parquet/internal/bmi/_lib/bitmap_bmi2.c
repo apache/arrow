@@ -14,14 +14,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <arch.h>
 #include <stdint.h>
-#include <x86intrin.h>
 
-uint64_t extract_bits(uint64_t bitmap, uint64_t select_bitmap) {
+uint64_t FULL_NAME(extract_bits)(uint64_t bitmap, uint64_t select_bitmap) {
+#if defined(__BMI2__)
    return (uint64_t)(_pext_u64(bitmap, select_bitmap));
+#else
+  uint64_t res = 0;
+  for (uint64_t bp = 1; select_bitmap != 0; bp += bp) {
+    if (bitmap & select_bitmap & -select_bitmap) {
+      res |= bp;
+    }
+    select_bitmap &= (select_bitmap - 1);
+  }
+  return res;
+#endif
 }
 
-uint64_t levels_to_bitmap(const int16_t* levels, const int num_levels, const int16_t rhs) {
+uint64_t FULL_NAME(levels_to_bitmap)(const int16_t* levels, const int num_levels, const int16_t rhs) {
   uint64_t mask = 0;
   for (int x = 0; x < num_levels; x++) {
     mask |= (uint64_t)(levels[x] > rhs ? 1 : 0) << x;

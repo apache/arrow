@@ -47,7 +47,7 @@ target environment.**
    Go <https://pkg.go.dev/github.com/apache/arrow/go>
    Java <java/index>
    JavaScript <js/index>
-   Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
+   Julia <https://github.com/apache/arrow-julia/blob/main/README.md>
    MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
    Python <python/index>
    R <r/index>
@@ -74,6 +74,7 @@ target environment.**
    format/Versioning
    format/Columnar
    format/Flight
+   format/FlightSql
    format/Integration
    format/CDataInterface
    format/CStreamInterface
@@ -86,9 +87,12 @@ target environment.**
    :caption: Development
 
    developers/contributing
+   developers/bug_reports
    developers/guide/index
+   developers/overview
    developers/reviewing
    developers/cpp/index
+   developers/java/index
    developers/python
    developers/continuous_integration/index
    developers/benchmarks

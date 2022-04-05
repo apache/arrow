@@ -25,12 +25,10 @@ from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
 
 import hypothesis as h
-import hypothesis.extra.pytz as tzst
 import hypothesis.strategies as st
 import numpy as np
 import numpy.testing as npt
 import pytest
-import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
@@ -1039,18 +1037,22 @@ class TestConvertDateTimeLikeTypes:
         tm.assert_frame_equal(expected_df, result)
 
     def test_python_datetime_with_pytz_tzinfo(self):
+        pytz = pytest.importorskip("pytz")
+
         for tz in [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]:
             values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
             df = pd.DataFrame({'datetime': values})
             _check_pandas_roundtrip(df)
 
-    @h.given(st.none() | tzst.timezones())
+    @h.given(st.none() | past.timezones)
+    @h.settings(deadline=None)
     def test_python_datetime_with_pytz_timezone(self, tz):
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
         df = pd.DataFrame({'datetime': values})
-        _check_pandas_roundtrip(df)
+        _check_pandas_roundtrip(df, check_dtype=False)
 
     def test_python_datetime_with_timezone_tzinfo(self):
+        pytz = pytest.importorskip("pytz")
         from datetime import timezone
 
         if Version(pd.__version__) > Version("0.25.0"):
@@ -4096,7 +4098,7 @@ def test_roundtrip_empty_table_with_extension_dtype_index():
 
 def test_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
-    if Version(pd.__version__) < Version("1.0.0"):
+    if Version(pd.__version__) < Version("1.2.0"):
         pytest.skip("ExtensionDtype to_pandas method missing")
 
     data = pa.array([1, 2, 3], pa.int64())
@@ -4120,7 +4122,7 @@ def test_array_to_pandas_types_mapper():
 @pytest.mark.pandas
 def test_chunked_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
-    if Version(pd.__version__) < Version("1.0.0"):
+    if Version(pd.__version__) < Version("1.2.0"):
         pytest.skip("ExtensionDtype to_pandas method missing")
 
     data = pa.chunked_array([pa.array([1, 2, 3], pa.int64())])

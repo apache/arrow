@@ -64,6 +64,9 @@ _lib/unpack_bool_avx2.s: _lib/unpack_bool.c
 _lib/unpack_bool_sse4.s: _lib/unpack_bool.c
 	$(CC) -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
+_lib/unpack_bool_neon.s: _lib/unpack_bool.c
+	$(CC) -S $(C_FLAGS_NEON) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+
 bit_packing_avx2.s: _lib/bit_packing_avx2.s
 	$(C2GOASM) -a -f $^ $@
 

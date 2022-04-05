@@ -815,8 +815,8 @@ def test_feather_v017_experimental_compression_backward_compatibility(datadir):
     #     table = pa.table({'a': range(5)})
     #     from pyarrow import feather
     #     feather.write_feather(
-    #         table, "v0.17.0.version=2-compression=lz4.feather",
+    #         table, "v0.17.0.version.2-compression.lz4.feather",
     #         compression="lz4", version=2)
     expected = pa.table({'a': range(5)})
-    result = read_table(datadir / "v0.17.0.version=2-compression=lz4.feather")
+    result = read_table(datadir / "v0.17.0.version.2-compression.lz4.feather")
     assert result.equals(expected)

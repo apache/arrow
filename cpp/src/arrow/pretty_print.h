@@ -35,16 +35,17 @@ class Table;
 struct PrettyPrintOptions {
   PrettyPrintOptions() = default;
 
-  PrettyPrintOptions(int indent_arg,  // NOLINT runtime/explicit
-                     int window_arg = 10, int indent_size_arg = 2,
-                     std::string null_rep_arg = "null", bool skip_new_lines_arg = false,
-                     bool truncate_metadata_arg = true)
-      : indent(indent_arg),
-        indent_size(indent_size_arg),
-        window(window_arg),
-        null_rep(std::move(null_rep_arg)),
-        skip_new_lines(skip_new_lines_arg),
-        truncate_metadata(truncate_metadata_arg) {}
+  PrettyPrintOptions(int indent,  // NOLINT runtime/explicit
+                     int window = 10, int indent_size = 2, std::string null_rep = "null",
+                     bool skip_new_lines = false, bool truncate_metadata = true,
+                     int container_window = 2)
+      : indent(indent),
+        indent_size(indent_size),
+        window(window),
+        container_window(container_window),
+        null_rep(std::move(null_rep)),
+        skip_new_lines(skip_new_lines),
+        truncate_metadata(truncate_metadata) {}
 
   static PrettyPrintOptions Defaults() { return PrettyPrintOptions(); }
 
@@ -56,6 +57,10 @@ struct PrettyPrintOptions {
 
   /// Maximum number of elements to show at the beginning and at the end.
   int window = 10;
+
+  /// Maximum number of elements to show at the beginning and at the end, for elements
+  /// that are containers (that is, list in ListArray and chunks in ChunkedArray)
+  int container_window = 2;
 
   /// String to use for representing a null value, defaults to "null"
   std::string null_rep = "null";

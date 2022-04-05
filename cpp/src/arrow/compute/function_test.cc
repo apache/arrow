@@ -64,7 +64,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new RoundTemporalOptions());
   options.emplace_back(new RoundTemporalOptions(
       /*multiple=*/2,
-      /*unit=*/CalendarUnit::WEEK));
+      /*unit=*/CalendarUnit::WEEK, /*week_starts_monday*/ true));
   options.emplace_back(new RoundToMultipleOptions());
   options.emplace_back(new RoundToMultipleOptions(
       /*multiple=*/100, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
@@ -88,7 +88,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new ExtractRegexOptions("pattern2"));
   options.emplace_back(new SetLookupOptions(ArrayFromJSON(int64(), "[1, 2, 3, 4]")));
   options.emplace_back(new SetLookupOptions(ArrayFromJSON(boolean(), "[true, false]")));
-  options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI));
+  options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI, true));
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::NANO));
   options.emplace_back(new StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C"));
 #ifndef _WIN32

@@ -3974,8 +3974,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
     ASSERT_OK(reader->GetRecordBatchReader(
         ::arrow::internal::Iota(options.num_row_groups), &rb));
 
-    std::shared_ptr<Table> actual;
-    ASSERT_OK_NO_THROW(rb->ReadAll(&actual));
+    ASSERT_OK_AND_ASSIGN(auto actual, rb->ToTable());
     ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
   }
 

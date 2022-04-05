@@ -23,10 +23,20 @@ from .util import log
 
 
 class Tester(object):
+    """
+    The interface to declare a tester to run integration tests against.
+    """
+    # whether the language supports producing / writing IPC
     PRODUCER = False
+    # whether the language supports consuming / reading IPC
     CONSUMER = False
+    # whether the language supports serving Flight
     FLIGHT_SERVER = False
+    # whether the language supports receiving Flight
     FLIGHT_CLIENT = False
+
+    # the name shown in the logs
+    name = "unknown"
 
     def __init__(self, debug=False, **args):
         self.args = args
@@ -39,15 +49,30 @@ class Tester(object):
         subprocess.check_call(cmd, shell=True)
 
     def json_to_file(self, json_path, arrow_path):
+        """
+        Run the conversion of an Arrow JSON integration file
+        to an Arrow IPC file
+        """
         raise NotImplementedError
 
     def stream_to_file(self, stream_path, file_path):
+        """
+        Run the conversion of an Arrow IPC stream to an
+        Arrow IPC file
+        """
         raise NotImplementedError
 
     def file_to_stream(self, file_path, stream_path):
+        """
+        Run the conversion of an Arrow IPC file to an Arrow IPC stream
+        """
         raise NotImplementedError
 
     def validate(self, json_path, arrow_path, quirks=None):
+        """
+        Validate that the Arrow IPC file is equal to the corresponding
+        Arrow JSON integration file
+        """
         raise NotImplementedError
 
     def flight_server(self, scenario_name=None):

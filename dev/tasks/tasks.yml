@@ -114,10 +114,10 @@ groups:
     - verify-rc-binaries-*
 
   verify-rc-jars:
-    - verify-rc-jars-*
+    - verify-rc-binaries-jars-*
 
   verify-rc-wheels:
-    - verify-rc-wheels-*
+    - verify-rc-binaries-wheels-*
 
   verify-rc-source:
     - verify-rc-source-*
@@ -131,6 +131,7 @@ groups:
 {######################## Tasks to run regularly #############################}
 
   nightly:
+    - verify-rc-source-*
     - almalinux-*
     - amazon-linux-*
     - debian-*
@@ -147,22 +148,29 @@ groups:
     - example-*
     - wheel-*
     - python-sdist
-    # ARROW-14256
-    - ~conda-linux-gcc-py310-arm64
-    - ~conda-linux-gcc-py310-cuda
-    - ~conda-linux-gcc-py37-arm64
-    - ~conda-linux-gcc-py37-cpu-r41
-    - ~conda-linux-gcc-py37-cuda
-    - ~conda-linux-gcc-py38-arm64
-    - ~conda-linux-gcc-py38-cpu
-    - ~conda-linux-gcc-py38-cuda
-    - ~conda-linux-gcc-py39-arm64
-    - ~conda-linux-gcc-py39-cpu
-    - ~conda-linux-gcc-py39-cuda
-    - ~conda-win-vs2017-py37-r41
-    # ARROW-14215
-    - ~conda-win-vs2017-py38
-    - ~conda-win-vs2017-py39
+
+  nightly-tests:
+    - test-*
+    - example-*
+
+  nightly-packaging:
+    - almalinux-*
+    - amazon-linux-*
+    - debian-*
+    - ubuntu-*
+    - centos-*
+    - conda-*
+    - java-jars
+    # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
+    - homebrew-cpp
+    - homebrew-r-autobrew
+    - homebrew-r-brew
+    - nuget
+    - wheel-*
+    - python-sdist  
+
+  nightly-release:
+    - verify-rc-source-*
 
 tasks:
   # arbitrary_task_name:
@@ -509,7 +517,6 @@ tasks:
                   "debian-bookworm",
                   "ubuntu-bionic",
                   "ubuntu-focal",
-                  "ubuntu-hirsute",
                   "ubuntu-impish"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
@@ -613,8 +620,9 @@ tasks:
 
 {% for target in ["almalinux-8",
                   "amazon-linux-2",
+                  "centos-8-stream",
                   "centos-7"] %}
-  {% set is_rhel8_based = (target == "almalinux-8") %}
+  {% set is_rhel8_based = (target in ["almalinux-8", "centos-8-stream"]) %}
   {% for architecture in ["amd64", "arm64"] %}
     {% if not (target in ["amazon-linux-2", "centos-7"] and architecture == "arm64") %}
   {{ target }}-{{ architecture }}:
@@ -784,6 +792,7 @@ tasks:
       - arrow-dataset-{no_rc_version}-tests.jar
       - arrow-dataset-{no_rc_version}.jar
       - arrow-dataset-{no_rc_version}.pom
+      - arrow-flight-{no_rc_version}.pom
       - arrow-format-{no_rc_version}-javadoc.jar
       - arrow-format-{no_rc_version}-sources.jar
       - arrow-format-{no_rc_version}-tests.jar
@@ -856,6 +865,17 @@ tasks:
       - flight-grpc-{no_rc_version}-tests.jar
       - flight-grpc-{no_rc_version}.jar
       - flight-grpc-{no_rc_version}.pom
+      - flight-integration-tests-{no_rc_version}-jar-with-dependencies.jar
+      - flight-integration-tests-{no_rc_version}-javadoc.jar
+      - flight-integration-tests-{no_rc_version}-sources.jar
+      - flight-integration-tests-{no_rc_version}-tests.jar
+      - flight-integration-tests-{no_rc_version}.jar
+      - flight-integration-tests-{no_rc_version}.pom
+      - flight-sql-{no_rc_version}-javadoc.jar
+      - flight-sql-{no_rc_version}-sources.jar
+      - flight-sql-{no_rc_version}-tests.jar
+      - flight-sql-{no_rc_version}.jar
+      - flight-sql-{no_rc_version}.pom
 
   ############################## NuGet packages ###############################
 
@@ -874,49 +894,10 @@ tasks:
 
   ########################### Release verification ############################
 
-{% for target in ["binary", "yum", "apt"] %}
-  verify-rc-binaries-{{ target }}-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_{{ target|upper }}: 1
-      artifact: binaries
-{% endfor %}
+  ######################## Linux verification #################################
 
-  verify-rc-jars-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_JARS: 1
-      artifact: jars
-
-{% for platform, arch, runner in [("macos", "amd64", "macos-10.15")] %}
-  {% for target in ["cpp",
-                    "csharp",
-                    "go",
-                    "integration",
-                    "java",
-                    "js",
-                    "python",
-                    "ruby"] %}
-
-  verify-rc-source-{{ target }}-{{ platform }}-{{ arch }}:
-    ci: github
-    template: verify-rc/github.{{ platform }}.{{ arch }}.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_{{ target|upper }}: 1
-      artifact: "source"
-      github_runner: "{{ runner }}"
-  {% endfor %}
-{% endfor %}
-
-{% for distribution, version in [("almalinux", "8"),
+{% for distribution, version in [("conda", "latest"),
+                                 ("almalinux", "8"),
                                  ("ubuntu", "18.04"),
                                  ("ubuntu", "20.04")] %}
   {% for target in ["cpp",
@@ -927,19 +908,67 @@ tasks:
                     "js",
                     "python",
                     "ruby"] %}
-
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
-    template: docker-tests/github.linux.yml
+    template: verify-rc/github.linux.amd64.docker.yml
     params:
-      flags: >-
-        -e TEST_DEFAULT=0
-        -e TEST_{{ target|upper }}=1
-      image: {{ distribution }}-verify-rc-source
+      env:
+        {{ distribution.upper() }}: "{{ version }}"
+      target: {{ target }}
+      distro: {{ distribution }}
   {% endfor %}
+
+  {% for target in ["jars", "wheels"] %}
+  verify-rc-binaries-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
+    ci: github
+    template: verify-rc/github.linux.amd64.docker.yml
+    params:
+      target: {{ target }}
+      distro: {{ distribution }}
+  {% endfor %}
+
 {% endfor %}
 
-{% for platform, arch, runner in [("macos", "arm64", "self-hosted")] %}
+  # Separated these tasks from the loop above due to:
+  # - 'binary' verification is not platform dependent
+  # - 'yum' and 'apt' requires docker so we need to run the verification script
+  #   directly on the host
+  {% for target in ["binary", "yum", "apt"] %}
+  verify-rc-binaries-{{ target }}-linux-amd64:
+    ci: github
+    template: verify-rc/github.linux.amd64.yml
+    params:
+      target: {{ target }}
+  {% endfor %}
+
+  ######################## macOS verification ################################
+
+  {% for target in ["cpp", "integration", "python"] %}
+  verify-rc-source-{{ target }}-macos-conda-amd64:
+    ci: github
+    template: verify-rc/github.macos.amd64.yml
+    params:
+      target: {{ target }}
+      use_conda: True
+      github_runner: "macos-10.15"
+  {% endfor %}
+
+  {% for target in ["cpp",
+                    "csharp",
+                    "go",
+                    "integration",
+                    "java",
+                    "js",
+                    "python",
+                    "ruby"] %}
+  verify-rc-source-{{ target }}-macos-amd64:
+    ci: github
+    template: verify-rc/github.macos.amd64.yml
+    params:
+      target: {{ target }}
+      github_runner: "macos-10.15"
+  {% endfor %}
+
   {% for target in ["cpp",
                     "csharp",
                     "go",
@@ -947,63 +976,51 @@ tasks:
                     "js",
                     "python",
                     "ruby"] %}
-
-  verify-rc-source-{{ target }}-{{ platform }}-{{ arch }}:
+  verify-rc-source-{{ target }}-macos-arm64:
     ci: github
-    template: verify-rc/github.{{ platform }}.{{ arch }}.yml
+    template: verify-rc/github.macos.arm64.yml
     params:
       env:
+        ARROW_PLASMA: 0
         ARROW_FLIGHT: 0
         ARROW_GANDIVA: 0
-        TEST_DEFAULT: 0
         TEST_INTEGRATION_JAVA: 0
-        TEST_{{ target|upper }}: 1
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      artifact: "source"
-      github_runner: "{{ runner }}"
+      target: {{ target }}
+      github_runner: "self-hosted"
   {% endfor %}
-{% endfor %}
 
-  verify-rc-wheels-linux-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-      artifact: "wheels"
-
-  verify-rc-wheels-macos-10.15-amd64:
+  verify-rc-binaries-wheels-macos-10.15-amd64:
     ci: github
     template: verify-rc/github.macos.amd64.yml
     params:
       github_runner: "macos-10.15"
+      target: "wheels"
+
+  verify-rc-binaries-wheels-macos-10.15-amd64-conda:
+    ci: github
+    template: verify-rc/github.macos.amd64.yml
+    params:
       env:
-        TEST_DEFAULT: 0
-      artifact: "wheels"
+        USE_CONDA: 1
+      github_runner: "macos-10.15"
+      target: "wheels"
 
   # The github hosted macos-11 runners are in preview only, but should be switched once they are generally available:
   #   https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
-  verify-rc-wheels-macos-11-amd64:
+  {% for arch, emulation in [("amd64", "x86_64"), ("arm64", "arm64")] %}
+  verify-rc-binaries-wheels-macos-11-{{ arch }}:
     ci: github
     template: verify-rc/github.macos.arm64.yml
     params:
-      github_runner: "self-hosted"
-      arch_emulation: "x86_64"
       env:
-        TEST_DEFAULT: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      artifact: "wheels"
+      github_runner: "self-hosted"
+      arch_emulation: {{ emulation }}
+      target: "wheels"
+  {% endfor %}
 
-  verify-rc-wheels-macos-11-arm64:
-    ci: github
-    template: verify-rc/github.macos.arm64.yml
-    params:
-      github_runner: "self-hosted"
-      arch_emulation: "arm64"
-      env:
-        TEST_DEFAULT: 0
-        PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      artifact: "wheels"
+  ######################## Windows verification ##############################
 
   verify-rc-source-windows:
     ci: github
@@ -1013,7 +1030,7 @@ tasks:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate.bat"
 
-  verify-rc-wheels-windows:
+  verify-rc-binaries-wheels-windows:
     ci: github
     template: verify-rc/github.win.yml
     params:
@@ -1021,7 +1038,7 @@ tasks:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate-wheels.bat"
 
-{############################## Docker tests #################################}
+############################## Docker tests ##################################
 
 {% for image in ["conda-cpp",
                  "debian-c-glib",
@@ -1090,12 +1107,12 @@ tasks:
       image: debian-cpp
 {% endfor %}
 
-  test-fedora-33-cpp:
+  test-fedora-35-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        FEDORA: 33
+        FEDORA: 35
       image: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
@@ -1154,9 +1171,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        PYTHON: 3.8
         HYPOTHESIS_PROFILE: ci
         PYARROW_TEST_HYPOTHESIS: ON
-        PYTHON: 3.8
         # limit to execute hypothesis tests only
         PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
@@ -1177,12 +1194,12 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-python
 
-  test-fedora-33-python-3:
+  test-fedora-35-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        FEDORA: 33
+        FEDORA: 35
       image: fedora-python
 
   test-r-linux-valgrind:
@@ -1398,7 +1415,11 @@ tasks:
         PYTHON: "{{ python_version }}"
         PANDAS: "{{ pandas_version }}"
         NUMPY: "{{ numpy_version }}"
-    {% if cache_leaf %}
+      {% if pandas_version == "latest" %}
+        # ensure we have at least one build with parquet encryption disabled
+        PARQUET_REQUIRE_ENCRYPTION: "OFF"
+      {% endif %}
+    {% if not cache_leaf %}
       # use the latest pandas release, so prevent reusing any cached layers
       flags: --no-leaf-cache
     {% endif %}

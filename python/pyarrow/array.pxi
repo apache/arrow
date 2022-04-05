@@ -696,7 +696,7 @@ cdef class _PandasConvertible(_Weakrefable):
             pool is not passed.
         strings_to_categorical : bool, default False
             Encode string (UTF8) and binary types to pandas.Categorical.
-        categories: list, default empty
+        categories : list, default empty
             List of fields that should be returned as pandas.Categorical. Only
             applies to table-like data structures.
         zero_copy_only : bool, default False
@@ -809,8 +809,31 @@ cdef class Array(_PandasConvertible):
         """
         Compare contents of this array against another one.
 
-        Return string containing the result of arrow::Diff comparing contents
-        of this array against the other array.
+        Return a string containing the result of diffing this array
+        (on the left side) against the other array (on the right side).
+
+        Parameters
+        ----------
+        other : Array
+            The other array to compare this array with.
+
+        Returns
+        -------
+        diff : str
+            A human-readable printout of the differences.
+
+        Examples
+        --------
+        >>> left = pa.array(["one", "two", "three"])
+        >>> right = pa.array(["two", None, "two-and-a-half", "three"])
+        >>> print(left.diff(right))
+
+        @@ -0, +0 @@
+        -"one"
+        @@ -2, +1 @@
+        +null
+        +"two-and-a-half"
+
         """
         cdef c_string result
         with nogil:
@@ -821,7 +844,18 @@ cdef class Array(_PandasConvertible):
         """
         Cast array values to another data type
 
-        See pyarrow.compute.cast for usage
+        See :func:`pyarrow.compute.cast` for usage.
+
+        Parameters
+        ----------
+        target_type : DataType
+            Type to cast array to.
+        safe : boolean, default True
+            Whether to check for conversion errors such as overflow.
+
+        Returns
+        -------
+        cast : Array
         """
         return _pc().cast(self, target_type, safe=safe)
 
@@ -849,6 +883,18 @@ cdef class Array(_PandasConvertible):
     def sum(self, **kwargs):
         """
         Sum the values in a numerical array.
+
+        See :func:`pyarrow.compute.sum` for full usage.
+
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            Options to pass to :func:`pyarrow.compute.sum`.
+
+        Returns
+        -------
+        sum : Scalar
+            A scalar containing the sum value.
         """
         options = _pc().ScalarAggregateOptions(**kwargs)
         return _pc().call_function('sum', [self], options)
@@ -856,12 +902,29 @@ cdef class Array(_PandasConvertible):
     def unique(self):
         """
         Compute distinct elements in array.
+
+        Returns
+        -------
+        unique : Array
+            An array of the same data type, with deduplicated elements.
         """
         return _pc().call_function('unique', [self])
 
     def dictionary_encode(self, null_encoding='mask'):
         """
         Compute dictionary-encoded representation of array.
+
+        See :func:`pyarrow.compute.dictionary_encode` for full usage.
+
+        Parameters
+        ----------
+        null_encoding
+            How to handle null entries.
+
+        Returns
+        -------
+        encoded : DictionaryArray
+            A dictionary-encoded version of this array.
         """
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
@@ -1038,7 +1101,7 @@ cdef class Array(_PandasConvertible):
         return '{0}\n{1}'.format(type_format, str(self))
 
     def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
-                  c_bool skip_new_lines=False):
+                  int container_window=2, c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the Array.
 
@@ -1051,9 +1114,13 @@ cdef class Array(_PandasConvertible):
             How much to indent right the entire content of the array,
             by default ``0``.
         window : int
-            How many items to preview at the begin and end
-            of the array when the arrays is bigger than the window.
-            The other elements will be ellipsed.
+            How many primitive items to preview at the begin and end
+            of the array when the array is bigger than the window.
+            The other items will be ellipsed.
+        container_window : int
+            How many container items (such as a list in a list array)
+            to preview at the begin and end of the array when the array
+            is bigger than the window.
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
@@ -1128,7 +1195,17 @@ cdef class Array(_PandasConvertible):
 
     def fill_null(self, fill_value):
         """
-        See pyarrow.compute.fill_null for usage.
+        See :func:`pyarrow.compute.fill_null` for usage.
+
+        Parameters
+        ----------
+        fill_value
+            The replacement value for null entries.
+
+        Returns
+        -------
+        result : Array
+            A new array with nulls replaced by the given value.
         """
         return _pc().fill_null(self, fill_value)
 
@@ -1188,7 +1265,19 @@ cdef class Array(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Select values from an array. See pyarrow.compute.take for full usage.
+        Select values from an array.
+
+        See :func:`pyarrow.compute.take` for full usage.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices in the array whose values will be returned.
+
+        Returns
+        -------
+        taken : Array
+            An array with the same datatype, containing the taken values.
         """
         return _pc().take(self, indices)
 
@@ -1200,7 +1289,22 @@ cdef class Array(_PandasConvertible):
 
     def filter(self, Array mask, *, null_selection_behavior='drop'):
         """
-        Select values from an array. See pyarrow.compute.filter for full usage.
+        Select values from an array.
+
+        See :func:`pyarrow.compute.filter` for full usage.
+
+        Parameters
+        ----------
+        mask : Array or array-like
+            The boolean mask to filter the array with.
+        null_selection_behavior
+            How nulls in the mask should be handled.
+
+        Returns
+        -------
+        filtered : Array
+            An array of the same type, with only the elements selected by
+            the boolean mask.
         """
         return _pc().filter(self, mask,
                             null_selection_behavior=null_selection_behavior)
@@ -1209,7 +1313,23 @@ cdef class Array(_PandasConvertible):
         """
         Find the first index of a value.
 
-        See pyarrow.compute.index for full usage.
+        See :func:`pyarrow.compute.index` for full usage.
+
+        Parameters
+        ----------
+        value : Scalar or object
+            The value to look for in the array.
+        start : int, optional
+            The start index where to look for `value`.
+        end : int, optional
+            The end index where to look for `value`.
+        memory_pool : MemoryPool, optional
+            A memory pool for potential memory allocations.
+
+        Returns
+        -------
+        index : Int64Scalar
+            The index of the value in the array (-1 if not found).
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
@@ -1303,7 +1423,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        full: bool, default False
+        full : bool, default False
             If True, run expensive checks, otherwise cheap checks only.
 
         Raises
@@ -1788,7 +1908,27 @@ cdef class ListArray(BaseListArray):
     @property
     def offsets(self):
         """
-        Return the offsets as an int32 array.
+        Return the list offsets as an int32 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `ListArray.from_arrays` and get back the same
+        list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int32Array
+
+        Examples
+        --------
+        >>> array = pa.array([[1, 2], None, [3, 4, 5])
+        >>> array.offsets
+        <pyarrow.lib.Int32Array object at 0x7f3adc4776a0>
+        [
+          0,
+          2,
+          2,
+          5
+        ]
         """
         return pyarrow_wrap_array((<CListArray*> self.ap).offsets())
 
@@ -1848,7 +1988,15 @@ cdef class LargeListArray(BaseListArray):
     @property
     def offsets(self):
         """
-        Return the offsets as an int64 array.
+        Return the list offsets as an int64 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `LargeListArray.from_arrays` and get back the
+        same list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int64Array
         """
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
@@ -2009,6 +2157,16 @@ cdef class UnionArray(Array):
         and null count adjusted.
 
         For dense unions, the returned array is unchanged.
+
+        Parameters
+        ----------
+        pos : int
+            The physical index of the union child field (not its type code).
+
+        Returns
+        -------
+        field : Array
+            The given child field.
         """
         cdef shared_ptr[CArray] result
         result = (<CUnionArray*> self.ap).field(pos)
@@ -2523,6 +2681,13 @@ cdef class ExtensionArray(Array):
     def to_numpy(self, **kwargs):
         """
         Convert extension array to a numpy ndarray.
+
+        This method simply delegates to the underlying storage array.
+
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            See `Array.to_numpy` for parameter description.
 
         See Also
         --------

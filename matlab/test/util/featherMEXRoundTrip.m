@@ -17,6 +17,6 @@ function [variablesOut, metadataOut] = featherMEXRoundTrip(filename, variablesIn
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-mexfcn('featherwrite', filename, variablesIn, metadataIn);
-[variablesOut, metadataOut] = mexfcn('featherread', filename);
+arrow.cpp.call('featherwrite', filename, variablesIn, metadataIn);
+[variablesOut, metadataOut] = arrow.cpp.call('featherread', filename);
 end

@@ -23,6 +23,8 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/unreachable.h"
 
+#include <unordered_map>
+
 namespace arrow {
 
 using internal::checked_cast;

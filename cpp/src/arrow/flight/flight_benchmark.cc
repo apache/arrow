@@ -44,6 +44,8 @@
 #endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
+DEFINE_string(transport, "grpc",
+              "The network transport to use. Supported: \"grpc\" (default).");
 DEFINE_string(server_host, "",
               "An existing performance server to benchmark against (leave blank to spawn "
               "one automatically)");
@@ -152,7 +154,7 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
   StopWatch timer;
   while (true) {
     timer.Start();
-    RETURN_NOT_OK(reader->Next(&batch));
+    ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
     stats->AddLatency(timer.Stop());
     if (!batch.data) {
       break;
@@ -285,23 +287,28 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
   RETURN_NOT_OK(client->GetFlightInfo(call_options, descriptor, &plan));
 
   // Read the streams in parallel
-  std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
-  RETURN_NOT_OK(plan->GetSchema(&dict_memo, &schema));
+  ARROW_ASSIGN_OR_RAISE(auto schema, plan->GetSchema(&dict_memo));
 
   int64_t start_total_records = stats->total_records;
 
   auto test_loop = test_put ? &RunDoPutTest : &RunDoGetTest;
-  auto ConsumeStream = [&stats, &test_loop, &client_options,
+  auto ConsumeStream = [&client, &stats, &test_loop, &client_options,
                         &call_options](const FlightEndpoint& endpoint) {
-    std::unique_ptr<FlightClient> client;
-    RETURN_NOT_OK(
-        FlightClient::Connect(endpoint.locations.front(), client_options, &client));
+    std::unique_ptr<FlightClient> local_client;
+    FlightClient* data_client;
+    if (endpoint.locations.empty()) {
+      data_client = client;
+    } else {
+      RETURN_NOT_OK(FlightClient::Connect(endpoint.locations.front(), client_options,
+                                          &local_client));
+      data_client = local_client.get();
+    }
 
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
 
-    const auto& result = test_loop(client.get(), call_options, token, endpoint, stats);
+    const auto& result = test_loop(data_client, call_options, token, endpoint, stats);
     if (result.ok()) {
       const PerformanceResult& perf = result.ValueOrDie();
       stats->Update(perf.num_batches, perf.num_records, perf.num_bytes);
@@ -330,7 +337,8 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
     // Check that number of rows read / written is as expected
     int64_t records_for_run = stats->total_records - start_total_records;
     if (records_for_run != static_cast<int64_t>(plan->total_records())) {
-      return Status::Invalid("Did not consume expected number of records");
+      return Status::Invalid("Did not consume expected number of records, got: ",
+                             records_for_run, " but expected: ", plan->total_records());
     }
   }
   return Status::OK();
@@ -433,56 +441,66 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<arrow::flight::TestServer> server;
   std::vector<std::string> server_args;
+  server_args.push_back("-transport");
+  server_args.push_back(FLAGS_transport);
   arrow::flight::Location location;
   auto options = arrow::flight::FlightClientOptions::Defaults();
-  if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
-    if (FLAGS_server_unix == "") {
-      FLAGS_server_unix = "/tmp/flight-bench-spawn.sock";
-      std::cout << "Using spawned Unix server" << std::endl;
-      server.reset(
-          new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_unix));
+  if (FLAGS_transport == "grpc") {
+    if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
+      if (FLAGS_server_unix == "") {
+        FLAGS_server_unix = "/tmp/flight-bench-spawn.sock";
+        std::cout << "Using spawned Unix server" << std::endl;
+        server.reset(
+            new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_unix));
+      } else {
+        std::cout << "Using standalone Unix server" << std::endl;
+      }
+      std::cout << "Server unix socket: " << FLAGS_server_unix << std::endl;
+      ABORT_NOT_OK(
+          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&location));
     } else {
-      std::cout << "Using standalone Unix server" << std::endl;
-    }
-    std::cout << "Server unix socket: " << FLAGS_server_unix << std::endl;
-    ABORT_NOT_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &location));
-  } else {
-    if (FLAGS_server_host == "") {
-      FLAGS_server_host = "localhost";
-      std::cout << "Using spawned TCP server" << std::endl;
-      server.reset(
-          new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
-      if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
-        if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
-          std::cout << "Enabling TLS for spawned server" << std::endl;
-          server_args.push_back("-cert_file");
-          server_args.push_back(FLAGS_cert_file);
-          server_args.push_back("-key_file");
-          server_args.push_back(FLAGS_key_file);
-        } else {
-          std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
-          return 1;
+      if (FLAGS_server_host == "") {
+        FLAGS_server_host = "localhost";
+        std::cout << "Using spawned TCP server" << std::endl;
+        server.reset(
+            new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
+        if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
+          if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
+            std::cout << "Enabling TLS for spawned server" << std::endl;
+            server_args.push_back("-cert_file");
+            server_args.push_back(FLAGS_cert_file);
+            server_args.push_back("-key_file");
+            server_args.push_back(FLAGS_key_file);
+          } else {
+            std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
+            return 1;
+          }
         }
+      } else {
+        std::cout << "Using standalone TCP server" << std::endl;
       }
-    } else {
-      std::cout << "Using standalone TCP server" << std::endl;
-    }
-    if (server) {
-      if (FLAGS_cuda && FLAGS_test_put) {
-        server_args.push_back("-cuda");
+      if (server) {
+        if (FLAGS_cuda && FLAGS_test_put) {
+          server_args.push_back("-cuda");
+        }
+        server->Start(server_args);
       }
-      server->Start(server_args);
+      std::cout << "Server host: " << FLAGS_server_host << std::endl
+                << "Server port: " << FLAGS_server_port << std::endl;
+      if (FLAGS_cert_file.empty()) {
+        ABORT_NOT_OK(
+            arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_server_port)
+                .Value(&location));
+      } else {
+        ABORT_NOT_OK(
+            arrow::flight::Location::ForGrpcTls(FLAGS_server_host, FLAGS_server_port)
+                .Value(&location));
+        options.disable_server_verification = true;
+      }
     }
-    std::cout << "Server host: " << FLAGS_server_host << std::endl
-              << "Server port: " << FLAGS_server_port << std::endl;
-    if (FLAGS_cert_file.empty()) {
-      ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host,
-                                                       FLAGS_server_port, &location));
-    } else {
-      ABORT_NOT_OK(arrow::flight::Location::ForGrpcTls(FLAGS_server_host,
-                                                       FLAGS_server_port, &location));
-      options.disable_server_verification = true;
-    }
+  } else {
+    std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;
+    return EXIT_FAILURE;
   }
 
   if (FLAGS_cuda) {

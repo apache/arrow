@@ -51,7 +51,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[CBasicAuth] Deserialize(const c_string& serialized)
 
     cdef cppclass CResultStream" arrow::flight::ResultStream":
-        CStatus Next(unique_ptr[CFlightResult]* result)
+        CResult[unique_ptr[CFlightResult]] Next()
 
     cdef cppclass CDescriptorType \
             " arrow::flight::FlightDescriptor::DescriptorType":
@@ -93,16 +93,16 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_bool Equals(const CLocation& other)
 
         @staticmethod
-        CStatus Parse(c_string& uri_string, CLocation* location)
+        CResult[CLocation] Parse(c_string& uri_string)
 
         @staticmethod
-        CStatus ForGrpcTcp(c_string& host, int port, CLocation* location)
+        CResult[CLocation] ForGrpcTcp(c_string& host, int port)
 
         @staticmethod
-        CStatus ForGrpcTls(c_string& host, int port, CLocation* location)
+        CResult[CLocation] ForGrpcTls(c_string& host, int port)
 
         @staticmethod
-        CStatus ForGrpcUnix(c_string& path, CLocation* location)
+        CResult[CLocation] ForGrpcUnix(c_string& path)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
         CFlightEndpoint()
@@ -116,7 +116,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightInfo(CFlightInfo info)
         int64_t total_records()
         int64_t total_bytes()
-        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
+        CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
         CResult[c_string] SerializeToString()
@@ -127,10 +127,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CSchemaResult" arrow::flight::SchemaResult":
         CSchemaResult(CSchemaResult result)
-        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
+        CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
 
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
-        CStatus Next(unique_ptr[CFlightInfo]* info)
+        CResult[unique_ptr[CFlightInfo]] Next()
 
     cdef cppclass CSimpleFlightListing" arrow::flight::SimpleFlightListing":
         CSimpleFlightListing(vector[CFlightInfo]&& info)
@@ -142,7 +142,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFlightDataStream" arrow::flight::FlightDataStream":
         shared_ptr[CSchema] schema()
-        CStatus Next(CFlightPayload*)
+        CResult[CFlightPayload] Next()
 
     cdef cppclass CFlightStreamChunk" arrow::flight::FlightStreamChunk":
         CFlightStreamChunk()
@@ -152,8 +152,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CMetadataRecordBatchReader \
             " arrow::flight::MetadataRecordBatchReader":
         CResult[shared_ptr[CSchema]] GetSchema()
-        CStatus Next(CFlightStreamChunk* out)
-        CStatus ReadAll(shared_ptr[CTable]* table)
+        CResult[CFlightStreamChunk] Next()
+        CResult[shared_ptr[CTable]] ToTable()
 
     CResult[shared_ptr[CRecordBatchReader]] MakeRecordBatchReader\
         " arrow::flight::MakeRecordBatchReader"(
@@ -170,8 +170,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CFlightStreamReader \
             " arrow::flight::FlightStreamReader"(CMetadataRecordBatchReader):
         void Cancel()
-        CStatus ReadAllWithStopToken" ReadAll"\
-            (shared_ptr[CTable]* table, const CStopToken& stop_token)
+        CResult[shared_ptr[CTable]] ToTableWithStopToken" ToTable"\
+            (const CStopToken& stop_token)
 
     cdef cppclass CFlightMessageReader \
             " arrow::flight::FlightMessageReader"(CMetadataRecordBatchReader):
@@ -337,9 +337,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus GetFlightInfo(CFlightCallOptions& options,
                               CFlightDescriptor& descriptor,
                               unique_ptr[CFlightInfo]* info)
-        CStatus GetSchema(CFlightCallOptions& options,
-                          CFlightDescriptor& descriptor,
-                          unique_ptr[CSchemaResult]* result)
+        CResult[unique_ptr[CSchemaResult]] GetSchema(CFlightCallOptions& options,
+                                                     CFlightDescriptor& descriptor)
         CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
                       unique_ptr[CFlightStreamReader]* stream)
         CStatus DoPut(CFlightCallOptions& options,

@@ -36,7 +36,7 @@ constexpr char kSep = '/';
 
 // Split an abstract path into its individual components.
 ARROW_EXPORT
-std::vector<std::string> SplitAbstractPath(const std::string& s);
+std::vector<std::string> SplitAbstractPath(const std::string& path, char sep = kSep);
 
 // Return the extension of the file
 ARROW_EXPORT
@@ -95,13 +95,13 @@ std::vector<std::string> MinimalCreateDirSet(std::vector<std::string> dirs);
 
 // Join the components of an abstract path.
 template <class StringIt>
-std::string JoinAbstractPath(StringIt it, StringIt end) {
+std::string JoinAbstractPath(StringIt it, StringIt end, char sep = kSep) {
   std::string path;
   for (; it != end; ++it) {
     if (it->empty()) continue;
 
     if (!path.empty()) {
-      path += kSep;
+      path += sep;
     }
     path += *it;
   }
@@ -109,8 +109,8 @@ std::string JoinAbstractPath(StringIt it, StringIt end) {
 }
 
 template <class StringRange>
-std::string JoinAbstractPath(const StringRange& range) {
-  return JoinAbstractPath(range.begin(), range.end());
+std::string JoinAbstractPath(const StringRange& range, char sep = kSep) {
+  return JoinAbstractPath(range.begin(), range.end(), sep);
 }
 
 /// Convert slashes to backslashes, on all platforms.  Mostly useful for testing.

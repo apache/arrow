@@ -36,8 +36,8 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
-#include "arrow/flight/internal.h"
 #include "arrow/flight/perf.pb.h"
+#include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/test_util.h"
 
 #ifdef ARROW_CUDA
@@ -45,6 +45,8 @@
 #endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
+DEFINE_string(transport, "grpc",
+              "The network transport to use. Supported: \"grpc\" (default).");
 DEFINE_string(server_host, "localhost", "Host where the server is running on");
 DEFINE_int32(port, 31337, "Server port to listen on");
 DEFINE_string(server_unix, "", "Unix socket path where the server is running on");
@@ -83,14 +85,18 @@ class PerfDataStream : public FlightDataStream {
 
   std::shared_ptr<Schema> schema() override { return schema_; }
 
-  Status GetSchemaPayload(FlightPayload* payload) override {
-    return ipc::GetSchemaPayload(*schema_, ipc_options_, mapper_, &payload->ipc_message);
+  arrow::Result<FlightPayload> GetSchemaPayload() override {
+    FlightPayload payload;
+    RETURN_NOT_OK(
+        ipc::GetSchemaPayload(*schema_, ipc_options_, mapper_, &payload.ipc_message));
+    return payload;
   }
 
-  Status Next(FlightPayload* payload) override {
+  arrow::Result<FlightPayload> Next() override {
+    FlightPayload payload;
     if (records_sent_ >= total_records_) {
       // Signal that iteration is over
-      payload->ipc_message.metadata = nullptr;
+      payload.ipc_message.metadata = nullptr;
       return Status::OK();
     }
 
@@ -112,7 +118,8 @@ class PerfDataStream : public FlightDataStream {
     } else {
       records_sent_ += batch_length_;
     }
-    return ipc::GetRecordBatchPayload(*batch, ipc_options_, &payload->ipc_message);
+    RETURN_NOT_OK(ipc::GetRecordBatchPayload(*batch, ipc_options_, &payload.ipc_message));
+    return payload;
   }
 
  private:
@@ -191,7 +198,8 @@ class FlightPerfServer : public FlightServerBase {
                std::unique_ptr<FlightDataStream>* data_stream) override {
     perf::Token token;
     CHECK_PARSE(token.ParseFromString(request.ticket));
-    return GetPerfBatches(token, perf_schema_, false, data_stream);
+    // This must also be set in flight_benchmark.cc
+    return GetPerfBatches(token, perf_schema_, /*verify=*/false, data_stream);
   }
 
   Status DoPut(const ServerCallContext& context,
@@ -199,7 +207,7 @@ class FlightPerfServer : public FlightServerBase {
                std::unique_ptr<FlightMetadataWriter> writer) override {
     FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (!chunk.data) break;
       if (chunk.app_metadata) {
         RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));
@@ -241,28 +249,34 @@ int main(int argc, char** argv) {
 
   arrow::flight::Location bind_location;
   arrow::flight::Location connect_location;
-  if (FLAGS_server_unix.empty()) {
-    if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
-      if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
-        ARROW_CHECK_OK(
-            arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port, &bind_location));
-        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTls(FLAGS_server_host, FLAGS_port,
-                                                           &connect_location));
+  if (FLAGS_transport == "grpc") {
+    if (FLAGS_server_unix.empty()) {
+      if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
+        if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
+          ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port)
+                             .Value(&bind_location));
+          ARROW_CHECK_OK(
+              arrow::flight::Location::ForGrpcTls(FLAGS_server_host, FLAGS_port)
+                  .Value(&connect_location));
+        } else {
+          std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
+          return EXIT_FAILURE;
+        }
       } else {
-        std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
-        return 1;
+        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port)
+                           .Value(&bind_location));
+        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port)
+                           .Value(&connect_location));
       }
     } else {
       ARROW_CHECK_OK(
-          arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &bind_location));
-      ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port,
-                                                         &connect_location));
+          arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix).Value(&bind_location));
+      ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix)
+                         .Value(&connect_location));
     }
   } else {
-    ARROW_CHECK_OK(
-        arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &bind_location));
-    ARROW_CHECK_OK(
-        arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &connect_location));
+    std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;
+    return EXIT_FAILURE;
   }
   arrow::flight::FlightServerOptions options(bind_location);
   if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
@@ -286,13 +300,14 @@ int main(int argc, char** argv) {
     options.memory_manager = device->default_memory_manager();
 #else
     std::cerr << "-cuda requires that Arrow is built with ARROW_CUDA" << std::endl;
-    return 1;
+    return EXIT_FAILURE;
 #endif
   }
 
   ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
+  std::cout << "Server transport: " << FLAGS_transport << std::endl;
   if (FLAGS_server_unix.empty()) {
     std::cout << "Server host: " << FLAGS_server_host << std::endl;
     std::cout << "Server port: " << FLAGS_port << std::endl;
@@ -301,5 +316,5 @@ int main(int argc, char** argv) {
   }
   g_server->SetLocation(connect_location);
   ARROW_CHECK_OK(g_server->Serve());
-  return 0;
+  return EXIT_SUCCESS;
 }

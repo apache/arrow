@@ -106,6 +106,7 @@ create_binding_cache <- function() {
   register_bindings_aggregate()
   register_bindings_conditional()
   register_bindings_datetime()
+  register_bindings_duration()
   register_bindings_math()
   register_bindings_string()
   register_bindings_type()

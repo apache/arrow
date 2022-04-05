@@ -37,6 +37,6 @@ the function that will read the desired IPC format (stream or file) since
 a file or \code{InputStream} may contain either.
 }
 \seealso{
-\code{\link[=read_feather]{read_feather()}} for writing IPC files. \link{RecordBatchReader} for a
+\code{\link[=write_feather]{write_feather()}} for writing IPC files. \link{RecordBatchReader} for a
 lower-level interface.
 }

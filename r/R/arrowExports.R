@@ -432,12 +432,28 @@ ExecNode_Aggregate <- function(input, options, target_names, out_field_names, ke
   .Call(`_arrow_ExecNode_Aggregate`, input, options, target_names, out_field_names, key_names)
 }
 
-ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output) {
-  .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output)
+ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
+  .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
 }
 
-ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
-  .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
+ExecNode_SourceNode <- function(plan, reader) {
+  .Call(`_arrow_ExecNode_SourceNode`, plan, reader)
+}
+
+ExecNode_TableSourceNode <- function(plan, table) {
+  .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
+}
+
+engine__internal__SubstraitToJSON <- function(serialized_plan) {
+  .Call(`_arrow_engine__internal__SubstraitToJSON`, serialized_plan)
+}
+
+engine__internal__SubstraitFromJSON <- function(substrait_json) {
+  .Call(`_arrow_engine__internal__SubstraitFromJSON`, substrait_json)
+}
+
+ExecPlan_run_substrait <- function(plan, serialized_plan, out_names) {
+  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan, out_names)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -462,6 +478,10 @@ build_info <- function() {
 
 runtime_info <- function() {
   .Call(`_arrow_runtime_info`)
+}
+
+set_timezone_database <- function(path) {
+  invisible(.Call(`_arrow_set_timezone_database`, path))
 }
 
 csv___WriteOptions__initialize <- function(options) {
@@ -514,6 +534,10 @@ csv___WriteCSV__Table <- function(table, write_options, stream) {
 
 csv___WriteCSV__RecordBatch <- function(record_batch, write_options, stream) {
   invisible(.Call(`_arrow_csv___WriteCSV__RecordBatch`, record_batch, write_options, stream))
+}
+
+csv___WriteCSV__RecordBatchReader <- function(reader, write_options, stream) {
+  invisible(.Call(`_arrow_csv___WriteCSV__RecordBatchReader`, reader, write_options, stream))
 }
 
 dataset___Dataset__NewScan <- function(ds) {
@@ -1268,6 +1292,10 @@ io___RandomAccessFile__ReadAt <- function(x, position, nbytes) {
   .Call(`_arrow_io___RandomAccessFile__ReadAt`, x, position, nbytes)
 }
 
+io___RandomAccessFile__ReadMetadata <- function(x) {
+  .Call(`_arrow_io___RandomAccessFile__ReadMetadata`, x)
+}
+
 io___MemoryMappedFile__Create <- function(path, size) {
   .Call(`_arrow_io___MemoryMappedFile__Create`, path, size)
 }
@@ -1652,6 +1680,10 @@ Table__from_RecordBatchReader <- function(reader) {
   .Call(`_arrow_Table__from_RecordBatchReader`, reader)
 }
 
+RecordBatchReader__Head <- function(reader, num_rows) {
+  .Call(`_arrow_RecordBatchReader__Head`, reader, num_rows)
+}
+
 ipc___RecordBatchStreamReader__Open <- function(stream) {
   .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
 }
@@ -1911,4 +1943,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

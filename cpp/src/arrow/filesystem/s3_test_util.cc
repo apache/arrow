@@ -16,7 +16,10 @@
 // under the License.
 
 #include <algorithm>  // Missing include in boost/process
-#include <sstream>
+
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
 
 // This boost/asio/io_context.hpp include is needless for no MinGW
 // build.
@@ -60,11 +63,7 @@ const char* kEnvConnectString = "ARROW_TEST_S3_CONNECT_STRING";
 const char* kEnvAccessKey = "ARROW_TEST_S3_ACCESS_KEY";
 const char* kEnvSecretKey = "ARROW_TEST_S3_SECRET_KEY";
 
-std::string GenerateConnectString() {
-  std::stringstream ss;
-  ss << "127.0.0.1:" << GetListenPort();
-  return ss.str();
-}
+std::string GenerateConnectString() { return GetListenAddress(); }
 
 }  // namespace
 
@@ -111,6 +110,9 @@ Status MinioTestServer::Start() {
   env["MINIO_SECRET_KEY"] = kMinioSecretKey;
 
   impl_->connect_string_ = GenerateConnectString();
+  // Also generate a console address, as it seems that Minio sometimes
+  // tries to listen on a port already in use.
+  const auto console_address = GenerateConnectString();
 
   auto exe_path = bp::search_path(kMinioExecutableName);
   if (exe_path.empty()) {
@@ -122,7 +124,8 @@ Status MinioTestServer::Start() {
     // NOTE: --quiet makes startup faster by suppressing remote version check
     impl_->server_process_ = std::make_shared<bp::child>(
         env, exe_path, "server", "--quiet", "--compat", "--address",
-        impl_->connect_string_, impl_->temp_dir_->path().ToString());
+        impl_->connect_string_, "--console-address", console_address,
+        impl_->temp_dir_->path().ToString());
   } catch (const std::exception& e) {
     return Status::IOError("Failed to launch Minio server: ", e.what());
   }
@@ -134,6 +137,11 @@ Status MinioTestServer::Stop() {
     // Brutal shutdown
     impl_->server_process_->terminate();
     impl_->server_process_->wait();
+#ifndef _WIN32
+    // Despite calling wait() above, boost::process fails to clear zombies
+    // so do it ourselves.
+    waitpid(impl_->server_process_->id(), nullptr, 0);
+#endif
   }
   return Status::OK();
 }

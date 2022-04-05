@@ -37,11 +37,20 @@
 
 #if defined(__clang__) || defined(__GNUC__)
 #define BYTESWAP(x) __builtin_bswap64(x)
-#define ROTL(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+#define ROTL(x, n) (((x) << (n)) | ((x) >> ((-n) & 31)))
+#define ROTL64(x, n) (((x) << (n)) | ((x) >> ((-n) & 63)))
+#define PREFETCH(ptr) __builtin_prefetch((ptr), 0 /* rw==read */, 3 /* locality */)
 #elif defined(_MSC_VER)
 #include <intrin.h>
 #define BYTESWAP(x) _byteswap_uint64(x)
 #define ROTL(x, n) _rotl((x), (n))
+#define ROTL64(x, n) _rotl64((x), (n))
+#if defined(_M_X64) || defined(_M_I86)
+#include <mmintrin.h>  // https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx
+#define PREFETCH(ptr) _mm_prefetch((const char*)(ptr), _MM_HINT_T0)
+#else
+#define PREFETCH(ptr) (void)(ptr) /* disabled */
+#endif
 #endif
 
 namespace arrow {
@@ -59,6 +68,17 @@ inline void CheckAlignment(const void* ptr) {
 // compile in all cases.
 //
 using int64_for_gather_t = const long long int;  // NOLINT runtime-int
+
+// All MiniBatch... classes use TempVectorStack for vector allocations and can
+// only work with vectors up to 1024 elements.
+//
+// They should only be allocated on the stack to guarantee the right sequence
+// of allocation and deallocation of vectors from TempVectorStack.
+//
+class MiniBatch {
+ public:
+  static constexpr int kMiniBatchLength = 1024;
+};
 
 /// Storage used to allocate temporary vectors of a batch size.
 /// Temporary vectors should resemble allocating temporary variables on the stack

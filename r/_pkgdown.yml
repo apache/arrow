@@ -23,6 +23,14 @@ template:
   params:
     bootswatch: cosmo
     ganalytics: UA-107500873-1
+  opengraph:
+    image:
+      src: https://arrow.apache.org/img/arrow-logo_horizontal_black-txt_white-bg.png
+      alt: "Apache Arrow logo, displaying the triple chevron image adjacent to the text"
+    twitter:
+      creator: "@apachearrow"
+      site: "@apachearrow"
+      card: summary_large_image
 navbar:
   structure:
     left:

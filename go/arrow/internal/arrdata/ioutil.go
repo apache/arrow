@@ -178,10 +178,10 @@ func WriteFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Sch
 }
 
 // WriteFile writes a list of records to the given file descriptor, as an ARROW file.
-func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record, codec flatbuf.CompressionType) {
+func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record, codec flatbuf.CompressionType, concurrency int) {
 	t.Helper()
 
-	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem)}
+	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem), ipc.WithCompressConcurrency(concurrency)}
 	switch codec {
 	case flatbuf.CompressionTypeLZ4_FRAME:
 		opts = append(opts, ipc.WithLZ4())

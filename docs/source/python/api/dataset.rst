@@ -53,11 +53,12 @@ Classes
    ParquetFileFormat
    ParquetReadOptions
    ParquetFragmentScanOptions
-   ORCFileFormat
+   OrcFileFormat
    Partitioning
    PartitioningFactory
    DirectoryPartitioning
    HivePartitioning
+   FilenamePartitioning
    Dataset
    FileSystemDataset
    FileSystemFactoryOptions
@@ -65,5 +66,6 @@ Classes
    UnionDataset
    Fragment
    FragmentScanOptions
+   TaggedRecordBatch
    Scanner
    Expression

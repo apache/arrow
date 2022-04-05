@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 namespace fs {
@@ -34,6 +35,13 @@ struct ARROW_EXPORT GcsOptions {
 
   std::string endpoint_override;
   std::string scheme;
+  /// \brief Location to use for creating buckets.
+  std::string default_bucket_location;
+
+  /// \brief Default metadata for OpenOutputStream.
+  ///
+  /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
+  std::shared_ptr<const KeyValueMetadata> default_metadata;
 
   bool Equals(const GcsOptions& other) const;
 
@@ -89,6 +97,11 @@ struct ARROW_EXPORT GcsOptions {
   ///
   /// [aip/4112]: https://google.aip.dev/auth/4112
   static GcsOptions FromServiceAccountCredentials(const std::string& json_object);
+
+  /// Initialize from URIs such as "gs://bucket/object".
+  static Result<GcsOptions> FromUri(const arrow::internal::Uri& uri,
+                                    std::string* out_path);
+  static Result<GcsOptions> FromUri(const std::string& uri, std::string* out_path);
 };
 
 /// \brief GCS-backed FileSystem implementation.

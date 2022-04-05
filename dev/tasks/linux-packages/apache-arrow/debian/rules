@@ -30,6 +30,7 @@ override_dh_auto_configure:
 	  -DARROW_FLIGHT=ON					\
 	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GANDIVA_JAVA=OFF				\
+	  -DARROW_GCS=ON					\
 	  -DARROW_MIMALLOC=ON					\
 	  -DARROW_ORC=ON					\
 	  -DARROW_PACKAGE_KIND=deb				\

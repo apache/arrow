@@ -77,6 +77,8 @@ Scanner$create <- function(dataset,
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
+  stop_if_no_datasets()
+
   if (!is.null(use_async)) {
     .Deprecated(msg = paste(
       "The parameter 'use_async' is deprecated",
@@ -144,21 +146,29 @@ names.Scanner <- function(x) names(x$schema)
 
 #' @export
 head.Scanner <- function(x, n = 6L, ...) {
-  assert_that(n > 0) # For now
+  # Negative n requires knowing nrow(x), which requires a scan itself
+  assert_that(n >= 0)
   dataset___Scanner__head(x, n)
 }
 
 #' @export
 tail.Scanner <- function(x, n = 6L, ...) {
-  assert_that(n > 0) # For now
+  tail_from_batches(dataset___Scanner__ScanBatches(x), n)
+}
+
+tail_from_batches <- function(batches, n) {
+  # Negative n requires knowing nrow(x), which requires a scan itself
+  assert_that(n >= 0) # For now
   result <- list()
   batch_num <- 0
-  for (batch in rev(dataset___Scanner__ScanBatches(x))) {
+  # Given a list of batches, iterate from the back
+  for (batch in rev(batches)) {
     batch_num <- batch_num + 1
     result[[batch_num]] <- tail(batch, n)
     n <- n - nrow(batch)
     if (n <= 0) break
   }
+  # rev() the result to put the batches back in the right order
   Table$create(!!!rev(result))
 }
 

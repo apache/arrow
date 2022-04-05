@@ -20,11 +20,36 @@
 #include <atomic>
 #include <memory>
 
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 
 namespace arrow {
 namespace util {
+
+template <typename T>
+AsyncGenerator<T> AsyncVectorIt(std::vector<T> v) {
+  return MakeVectorGenerator(std::move(v));
+}
+
+template <typename T>
+AsyncGenerator<T> FailAt(AsyncGenerator<T> src, int failing_index) {
+  auto index = std::make_shared<std::atomic<int>>(0);
+  return [src, index, failing_index]() {
+    auto idx = index->fetch_add(1);
+    if (idx >= failing_index) {
+      return Future<T>::MakeFinished(Status::Invalid("XYZ"));
+    }
+    return src();
+  };
+}
+
+template <typename T>
+AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
+  return MakeMappedGenerator(std::move(source), [](const T& res) {
+    return SleepABitAsync().Then([res]() { return res; });
+  });
+}
 
 template <typename T>
 class TrackingGenerator {

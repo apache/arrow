@@ -46,9 +46,6 @@ except ImportError:
     pd = tm = None
 
 
-pytestmark = pytest.mark.parquet
-
-
 @pytest.mark.pandas
 def test_pandas_parquet_custom_metadata(tempdir):
     df = alltypes_sample(size=10000)

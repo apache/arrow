@@ -25,8 +25,9 @@
     <packaging>pom</packaging>
 
     <properties>
-        <dep.grpc.version>1.41.0</dep.grpc.version>
-        <dep.protobuf.version>3.17.3</dep.protobuf.version>
+        <dep.grpc.version>1.44.1</dep.grpc.version>
+        <dep.netty-tcnative.version>2.0.46.Final</dep.netty-tcnative.version>
+        <dep.protobuf.version>3.19.4</dep.protobuf.version>
     </properties>
 
     <modules>

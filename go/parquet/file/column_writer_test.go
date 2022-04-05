@@ -222,7 +222,6 @@ type PrimitiveWriterTestSuite struct {
 	metadata   *metadata.ColumnChunkMetaDataBuilder
 	sink       *encoding.BufferWriter
 	readbuffer *memory.Buffer
-	reader     file.ColumnChunkReader
 }
 
 func (p *PrimitiveWriterTestSuite) SetupTest() {

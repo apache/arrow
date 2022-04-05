@@ -148,6 +148,14 @@ class TestBaseUnaryArithmetic : public ::testing::Test {
     }
   }
 
+  // (CScalar, CScalar)
+  void AssertUnaryOpRaises(UnaryFunction func, CType argument,
+                           const std::string& expected_msg) {
+    auto arg = MakeScalar(argument);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
+                                    func(arg, options_, nullptr));
+  }
+
   void AssertUnaryOpRaises(UnaryFunction func, const std::string& argument,
                            const std::string& expected_msg) {
     auto arg = ArrayFromJSON(type_singleton(), argument);
@@ -1538,6 +1546,26 @@ TEST_F(TestUnaryArithmeticDecimal, Log) {
     for (const auto& ty : PositiveScaleTypes()) {
       CheckRaises(func, {DecimalArrayFromJSON(ty, R"(["-2.00"])")},
                   "logarithm of negative number");
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, SquareRoot) {
+  std::vector<std::string> funcs = {"sqrt", "sqrt_checked"};
+  for (const auto& func : funcs) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(
+          func, {DecimalArrayFromJSON(ty, R"(["4.00", "16.00", "36.00", null])")});
+      CheckRaises("sqrt_checked", {DecimalArrayFromJSON(ty, R"(["-2.00"])")},
+                  "square root of negative number");
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {DecimalArrayFromJSON(ty, R"(["400", "1600", "3600", null])")});
+      CheckRaises("sqrt_checked", {DecimalArrayFromJSON(ty, R"(["-400"])")},
+                  "square root of negative number");
     }
   }
 }
@@ -3282,6 +3310,35 @@ TYPED_TEST(TestUnaryArithmeticSigned, Log) {
   this->AssertUnaryOpRaises(Log2, "[-1]", "logarithm of negative number");
   this->AssertUnaryOpRaises(Log1p, "[-1]", "logarithm of zero");
   this->AssertUnaryOpRaises(Log1p, "[-2]", "logarithm of negative number");
+}
+
+TYPED_TEST(TestUnaryArithmeticIntegral, Sqrt) {
+  // Integer arguments promoted to double, sanity check here
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Sqrt, "[1, null]", ArrayFromJSON(float64(), "[1, null]"));
+    this->AssertUnaryOp(Sqrt, "[4, null]", ArrayFromJSON(float64(), "[2, null]"));
+    this->AssertUnaryOp(Sqrt, "[null, 9]", ArrayFromJSON(float64(), "[null, 3]"));
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, Sqrt) {
+  using CType = typename TestFixture::CType;
+  this->SetNansEqual(true);
+  auto min_val = std::numeric_limits<CType>::min();
+  auto max_val = std::numeric_limits<CType>::max();
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Sqrt, "[1, 2, null, NaN, Inf]",
+                        "[1, 1.414213562, null, NaN, Inf]");
+    this->AssertUnaryOp(Sqrt, min_val, static_cast<CType>(std::sqrt(min_val)));
+#ifndef __MINGW32__
+    // this is problematic and produces a slight difference on MINGW
+    this->AssertUnaryOp(Sqrt, max_val, static_cast<CType>(std::sqrt(max_val)));
+#endif
+  }
+  this->AssertUnaryOpRaises(Sqrt, "[-1]", "square root of negative number");
+  this->AssertUnaryOpRaises(Sqrt, "[-Inf]", "square root of negative number");
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Sign) {

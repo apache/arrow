@@ -97,7 +97,8 @@ RecordBatchReader <- R6Class("RecordBatchReader",
     read_next_batch = function() RecordBatchReader__ReadNext(self),
     batches = function() RecordBatchReader__batches(self),
     read_table = function() Table__from_RecordBatchReader(self),
-    export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr)
+    export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr),
+    ToString = function() self$schema$ToString()
   ),
   active = list(
     schema = function() RecordBatchReader__schema(self)
@@ -105,13 +106,26 @@ RecordBatchReader <- R6Class("RecordBatchReader",
 )
 
 #' @export
+names.RecordBatchReader <- function(x) names(x$schema)
+
+#' @export
+dim.RecordBatchReader <- function(x) c(NA_integer_, length(x$schema))
+
+#' @export
+as.data.frame.RecordBatchReader <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.data.frame(x$read_table(), row.names = row.names, optional = optional, ...)
+}
+
+#' @export
 head.RecordBatchReader <- function(x, n = 6L, ...) {
-  head(Scanner$create(x), n)
+  # Negative n requires knowing nrow(x), which requires consuming the whole RBR
+  assert_that(n >= 0)
+  RecordBatchReader__Head(x, n)
 }
 
 #' @export
 tail.RecordBatchReader <- function(x, n = 6L, ...) {
-  tail(Scanner$create(x), n)
+  tail_from_batches(x$batches(), n)
 }
 
 #' @rdname RecordBatchReader
