@@ -94,6 +94,10 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
     footer_offset : int, default None
         If the file is embedded in some larger file, this is the byte offset to
         the very end of the file data
+    options : pyarrow.ipc.IpcReadOptions
+        Options for IPC serialization.
+
+        If None, default values will be used.
     """
 
     def __init__(self, source, footer_offset=None, *, options=None):
