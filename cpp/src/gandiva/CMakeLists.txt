@@ -58,7 +58,6 @@ set(SRC_FILES
     gdv_time_function_stubs.cc
     gdv_string_function_stubs.cc
     gdv_hash_function_stubs.cc
-    gdv_arithmetic_function_stubs.cc
     configuration.cc
     context_helper.cc
     decimal_ir.cc

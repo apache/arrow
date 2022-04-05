@@ -33,8 +33,7 @@
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/in_holder.h"
-#include "gandiva/like_holder.h"
-#include "gandiva/replace_holder.h"
+#include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
@@ -59,35 +58,16 @@ static char mask_array[256] = {
     'x',      'x',      'x',      'x',       'x',       'x',       'x',       'x',
     'x',      'x',      'x',      (char)123, (char)124, (char)125, (char)126, (char)127};
 
-bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
-                           const char* pattern, int pattern_len) {
-  gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
-  return (*holder)(std::string(data, data_len));
+double gdv_fn_random(int64_t ptr) {
+  gandiva::RandomGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
+  return (*holder)();
 }
 
-bool gdv_fn_like_utf8_utf8_utf8(int64_t ptr, const char* data, int data_len,
-                                const char* pattern, int pattern_len,
-                                const char* escape_char, int escape_char_len) {
-  gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
-  return (*holder)(std::string(data, data_len));
-}
-
-bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
-                            const char* pattern, int pattern_len) {
-  gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
-  return (*holder)(std::string(data, data_len));
-}
-
-const char* gdv_fn_regexp_replace_utf8_utf8(
-    int64_t ptr, int64_t holder_ptr, const char* data, int32_t data_len,
-    const char* /*pattern*/, int32_t /*pattern_len*/, const char* replace_string,
-    int32_t replace_string_len, int32_t* out_length) {
-  gandiva::ExecutionContext* context = reinterpret_cast<gandiva::ExecutionContext*>(ptr);
-
-  gandiva::ReplaceHolder* holder = reinterpret_cast<gandiva::ReplaceHolder*>(holder_ptr);
-
-  return (*holder)(context, data, data_len, replace_string, replace_string_len,
-                   out_length);
+double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
+  gandiva::RandomGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
+  return (*holder)();
 }
 
 bool gdv_fn_in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity) {
@@ -583,6 +563,15 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
+  // gdv_fn_random
+  args = {types->i64_type()};
+  engine->AddGlobalMappingForFunc("gdv_fn_random", types->double_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_random));
+
+  args = {types->i64_type(), types->i32_type(), types->i1_type()};
+  engine->AddGlobalMappingForFunc("gdv_fn_random_with_seed", types->double_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_random_with_seed));
+
   // gdv_fn_dec_from_string
   args = {
       types->i64_type(),      // context
@@ -610,56 +599,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_dec_to_string",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_dec_to_string));
-
-  // gdv_fn_like_utf8_utf8
-  args = {types->i64_type(),     // int64_t ptr
-          types->i8_ptr_type(),  // const char* data
-          types->i32_type(),     // int data_len
-          types->i8_ptr_type(),  // const char* pattern
-          types->i32_type()};    // int pattern_len
-
-  engine->AddGlobalMappingForFunc("gdv_fn_like_utf8_utf8",
-                                  types->i1_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_like_utf8_utf8));
-
-  // gdv_fn_like_utf8_utf8_utf8
-  args = {types->i64_type(),     // int64_t ptr
-          types->i8_ptr_type(),  // const char* data
-          types->i32_type(),     // int data_len
-          types->i8_ptr_type(),  // const char* pattern
-          types->i32_type(),     // int pattern_len
-          types->i8_ptr_type(),  // const char* escape_char
-          types->i32_type()};    // int escape_char_len
-
-  engine->AddGlobalMappingForFunc("gdv_fn_like_utf8_utf8_utf8",
-                                  types->i1_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_like_utf8_utf8_utf8));
-
-  // gdv_fn_ilike_utf8_utf8
-  args = {types->i64_type(),     // int64_t ptr
-          types->i8_ptr_type(),  // const char* data
-          types->i32_type(),     // int data_len
-          types->i8_ptr_type(),  // const char* pattern
-          types->i32_type()};    // int pattern_len
-
-  engine->AddGlobalMappingForFunc("gdv_fn_ilike_utf8_utf8",
-                                  types->i1_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_ilike_utf8_utf8));
-
-  // gdv_fn_regexp_replace_utf8_utf8
-  args = {types->i64_type(),       // int64_t ptr
-          types->i64_type(),       // int64_t holder_ptr
-          types->i8_ptr_type(),    // const char* data
-          types->i32_type(),       // int data_len
-          types->i8_ptr_type(),    // const char* pattern
-          types->i32_type(),       // int pattern_len
-          types->i8_ptr_type(),    // const char* replace_string
-          types->i32_type(),       // int32_t replace_string_len
-          types->i32_ptr_type()};  // int32_t* out_length
-
-  engine->AddGlobalMappingForFunc(
-      "gdv_fn_regexp_replace_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(gdv_fn_regexp_replace_utf8_utf8));
 
   // gdv_fn_in_expr_lookup_int32
   args = {types->i64_type(),  // int64_t in holder ptr

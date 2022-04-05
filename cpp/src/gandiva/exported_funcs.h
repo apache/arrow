@@ -68,10 +68,4 @@ class ExportedHashFunctions : public ExportedFuncsBase {
 };
 REGISTER_EXPORTED_FUNCS(ExportedHashFunctions);
 
-// Class for exporting Arithmetic functions
-class ExportedArithmeticFunctions : public ExportedFuncsBase {
-  void AddMappings(Engine* engine) const override;
-};
-REGISTER_EXPORTED_FUNCS(ExportedArithmeticFunctions);
-
 }  // namespace gandiva
