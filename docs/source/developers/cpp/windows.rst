@@ -374,7 +374,7 @@ be defined.
    add_executable(my_example my_example.cc)
    target_link_libraries(my_example PRIVATE arrow_static arrow_flight_static)
 
-   add_compile_definitions(ARROW_STATIC ARROW_FLIGHT_STATIC)
+   target_compile_definitions(my_example PUBLIC ARROW_STATIC ARROW_FLIGHT_STATIC)
 
 Downloading the Timezone Database
 =================================
