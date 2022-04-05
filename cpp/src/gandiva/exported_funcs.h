@@ -56,4 +56,22 @@ class ExportedDecimalFunctions : public ExportedFuncsBase {
 };
 REGISTER_EXPORTED_FUNCS(ExportedDecimalFunctions);
 
+// Class for exporting String functions
+class ExportedStringFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine* engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedStringFunctions);
+
+// Class for exporting Hash functions
+class ExportedHashFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine* engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedHashFunctions);
+
+// Class for exporting Arithmetic functions
+class ExportedArithmeticFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine* engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedArithmeticFunctions);
+
 }  // namespace gandiva
