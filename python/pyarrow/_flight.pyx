@@ -1145,8 +1145,8 @@ cdef class FlightClient(_Weakrefable):
                     pair[c_string, CIntStringVariant](tobytes(key), variant))
 
         with nogil:
-            check_flight_status(CFlightClient.Connect(c_location, c_options,
-                                                      &self.client))
+            check_flight_status(CFlightClient.Connect(c_location, c_options
+                                                      ).Value(&self.client))
 
     def wait_for_available(self, timeout=5):
         """Block until the server can be contacted.
@@ -1259,7 +1259,7 @@ cdef class FlightClient(_Weakrefable):
                 (<StopToken> stop_handler.stop_token).stop_token
             with nogil:
                 check_flight_status(
-                    self.client.get().ListActions(deref(c_options), &results))
+                    self.client.get().ListActions(deref(c_options)).Value(&results))
 
             result = []
             for action_type in results:
@@ -1300,7 +1300,7 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(
                 self.client.get().DoAction(
-                    deref(c_options), c_action, &results))
+                    deref(c_options), c_action).Value(&results))
 
         def _do_action_response():
             cdef:
@@ -1332,7 +1332,7 @@ cdef class FlightClient(_Weakrefable):
             with nogil:
                 check_flight_status(
                     self.client.get().ListFlights(deref(c_options),
-                                                  c_criteria, &listing))
+                                                  c_criteria).Value(&listing))
 
             while True:
                 result = FlightInfo.__new__(FlightInfo)
@@ -1353,7 +1353,7 @@ cdef class FlightClient(_Weakrefable):
 
         with nogil:
             check_flight_status(self.client.get().GetFlightInfo(
-                deref(c_options), c_descriptor, &result.info))
+                deref(c_options), c_descriptor).Value(&result.info))
 
         return result
 
@@ -1387,7 +1387,7 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(
                 self.client.get().DoGet(
-                    deref(c_options), ticket.ticket, &reader))
+                    deref(c_options), ticket.ticket).Value(&reader))
         result = FlightStreamReader()
         result.reader.reset(reader.release())
         return result
@@ -1403,23 +1403,21 @@ cdef class FlightClient(_Weakrefable):
         """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
-            unique_ptr[CFlightStreamWriter] writer
-            unique_ptr[CFlightMetadataReader] metadata_reader
+            CDoPutResult c_do_put_result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
             CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
-            FlightMetadataReader reader = FlightMetadataReader()
 
         with nogil:
             check_flight_status(self.client.get().DoPut(
                 deref(c_options),
                 c_descriptor,
-                c_schema,
-                &writer,
-                &reader.reader))
-        result = FlightStreamWriter()
-        result.writer.reset(writer.release())
-        return result, reader
+                c_schema).Value(&c_do_put_result))
+        py_writer = FlightStreamWriter()
+        py_writer.writer.reset(c_do_put_result.writer.release())
+        py_reader = FlightMetadataReader()
+        py_reader.reader.reset(c_do_put_result.reader.release())
+        return py_writer, py_reader
 
     def do_exchange(self, descriptor: FlightDescriptor,
                     options: FlightCallOptions = None):
@@ -1438,8 +1436,7 @@ cdef class FlightClient(_Weakrefable):
         reader : FlightStreamReader
         """
         cdef:
-            unique_ptr[CFlightStreamWriter] c_writer
-            unique_ptr[CFlightStreamReader] c_reader
+            CDoExchangeResult c_do_exchange_result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
             CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
@@ -1447,13 +1444,11 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(self.client.get().DoExchange(
                 deref(c_options),
-                c_descriptor,
-                &c_writer,
-                &c_reader))
+                c_descriptor).Value(&c_do_exchange_result))
         py_writer = FlightStreamWriter()
-        py_writer.writer.reset(c_writer.release())
+        py_writer.writer.reset(c_do_exchange_result.writer.release())
         py_reader = FlightStreamReader()
-        py_reader.reader.reset(c_reader.release())
+        py_reader.reader.reset(c_do_exchange_result.reader.release())
         return py_writer, py_reader
 
     def close(self):

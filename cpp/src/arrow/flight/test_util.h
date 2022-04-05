@@ -117,7 +117,7 @@ Status MakeServer(const Location& location, std::unique_ptr<FlightServerBase>* s
   ARROW_ASSIGN_OR_RAISE(auto real_location, Location::Parse(uri));
   FlightClientOptions client_options = FlightClientOptions::Defaults();
   RETURN_NOT_OK(make_client_options(&client_options));
-  return FlightClient::Connect(real_location, client_options, client);
+  return FlightClient::Connect(real_location, client_options).Value(client);
 }
 
 // Helper to initialize a server and matching client with callbacks to
