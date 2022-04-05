@@ -795,6 +795,6 @@ def test_read_table_legacy_deprecated(tempdir):
     pq.write_table(table, path)
 
     with pytest.warns(
-        DeprecationWarning, match="Passing 'use_legacy_dataset=True'"
+        FutureWarning, match="Passing 'use_legacy_dataset=True'"
     ):
         pq.read_table(path, use_legacy_dataset=True)
