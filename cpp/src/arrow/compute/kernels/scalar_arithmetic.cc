@@ -1818,13 +1818,11 @@ struct ArithmeticFunction : ScalarFunction {
     // Only promote types for binary functions
     if (values->size() == 2) {
       ReplaceNullWithOtherType(values);
-      auto type = CommonTemporalResolution(values->data(), values->size());
-      if (type) {
-        ReplaceTemporalTypes(type, values);
+      TimeUnit::type finest_unit;
+      if (CommonTemporalResolution(values->data(), values->size(), &finest_unit)) {
+        ReplaceTemporalTypes(finest_unit, values);
       } else if (auto numeric_type = CommonNumeric(*values)) {
         ReplaceTypes(numeric_type, values);
-      } else if (type == TimeUnit::SECOND) {
-        ReplaceTemporalTypes(type, values);
       }
     }
 
