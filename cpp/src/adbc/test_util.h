@@ -23,6 +23,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/macros.h"
 
 namespace adbc {
 
@@ -30,6 +31,24 @@ namespace adbc {
   do {                                \
     auto code_ = (expr);              \
     ASSERT_EQ(code_, ADBC_STATUS_OK); \
+  } while (false)
+
+#define ADBC_ASSERT_OK_WITH_ERROR(driver, error, expr)                         \
+  do {                                                                         \
+    auto code_ = (expr);                                                       \
+    if (code_ != ADBC_STATUS_OK) {                                             \
+      std::string errmsg_ = error.message ? error.message : "(unknown error)"; \
+      driver->ErrorRelease(&error);                                            \
+      ASSERT_EQ(code_, ADBC_STATUS_OK) << errmsg_;                             \
+    }                                                                          \
+  } while (false)
+
+#define ADBC_ASSERT_ERROR_THAT(driver, error, pattern)                       \
+  do {                                                                       \
+    ASSERT_NE(error.message, nullptr);                                       \
+    std::string errmsg_ = error.message ? error.message : "(unknown error)"; \
+    driver->ErrorRelease(&error);                                            \
+    ASSERT_THAT(errmsg_, pattern) << errmsg_;                                \
   } while (false)
 
 static inline void ReadStatement(adbc::AdbcDriver* driver, AdbcStatement* statement,
@@ -47,7 +66,7 @@ static inline void ReadStatement(adbc::AdbcDriver* driver, AdbcStatement* statem
     if (!batch) break;
     batches->push_back(std::move(batch));
   }
-  ADBC_ASSERT_OK(driver->StatementRelease(statement, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error, driver->StatementRelease(statement, &error));
 }
 
 }  // namespace adbc

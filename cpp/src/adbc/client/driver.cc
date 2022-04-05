@@ -85,6 +85,7 @@ arrow::Result<std::unique_ptr<AdbcDriver>> AdbcDriver::Load(const std::string& d
   GET_FUNC(driver, handle, StatementGetPartitionDesc);
   GET_FUNC(driver, handle, StatementGetPartitionDescSize);
   GET_FUNC(driver, handle, StatementGetStream);
+  GET_FUNC(driver, handle, StatementInit);
   GET_FUNC(driver, handle, StatementRelease);
   return instance;
 }

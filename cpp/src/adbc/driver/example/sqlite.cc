@@ -26,7 +26,6 @@
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/string_builder.h"
 
 namespace {
@@ -48,16 +47,37 @@ void SetError(sqlite3* db, const std::string& source, struct AdbcError* error) {
   error->message[message.size()] = '\0';
 }
 
+template <typename... Args>
+void SetError(struct AdbcError* error, Args&&... args) {
+  if (!error) return;
+  std::string message =
+      arrow::util::StringBuilder("[SQLite3] ", std::forward<Args>(args)...);
+  if (error->message) {
+    message.reserve(message.size() + 1 + std::strlen(error->message));
+    message.append(1, '\n');
+    message.append(error->message);
+    delete[] error->message;
+  }
+  error->message = new char[message.size() + 1];
+  message.copy(error->message, message.size());
+  error->message[message.size()] = '\0';
+}
+
 class SqliteStatementImpl : public arrow::RecordBatchReader {
  public:
-  explicit SqliteStatementImpl(sqlite3* db, sqlite3_stmt* stmt,
-                               std::shared_ptr<arrow::Schema> schema, int sqlite_rc)
-      : db_(db),
-        stmt_(stmt),
-        schema_(std::move(schema)),
-        done_(sqlite_rc != SQLITE_ROW) {}
+  SqliteStatementImpl() : db_(nullptr), stmt_(nullptr), schema_(nullptr), done_(false) {}
 
-  // arrow::RecordBatchReader methods
+  void Init(sqlite3* db, sqlite3_stmt* stmt, std::shared_ptr<arrow::Schema> schema,
+            int sqlite_rc) {
+    db_ = db;
+    stmt_ = stmt;
+    schema_ = std::move(schema);
+    done_ = sqlite_rc != SQLITE_ROW;
+  }
+
+  //----------------------------------------------------------
+  // arrow::RecordBatchReader
+  //----------------------------------------------------------
 
   std::shared_ptr<arrow::Schema> schema() const override { return schema_; }
   Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch) override {
@@ -100,8 +120,7 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
         done_ = true;
         break;
       }
-      ARROW_LOG(WARNING) << "[SQLite3] sqlite3_step: " << sqlite3_errmsg(db_);
-      return Status::IOError("");
+      return Status::IOError("[SQLite3] sqlite3_step: ", sqlite3_errmsg(db_));
     }
 
     arrow::ArrayVector arrays(builders.size());
@@ -117,10 +136,13 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
   //----------------------------------------------------------
 
   enum AdbcStatusCode Close(struct AdbcError* error) {
-    auto status = sqlite3_finalize(stmt_);
-    if (status != SQLITE_OK) {
-      // TODO: record error
-      return ADBC_STATUS_UNKNOWN;
+    if (stmt_) {
+      auto status = sqlite3_finalize(stmt_);
+      if (status != SQLITE_OK) {
+        // TODO: record error
+        return ADBC_STATUS_UNKNOWN;
+      }
+      stmt_ = nullptr;
     }
     return ADBC_STATUS_OK;
   }
@@ -131,10 +153,13 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
 
   enum AdbcStatusCode GetStream(const std::shared_ptr<SqliteStatementImpl>& self,
                                 struct ArrowArrayStream* out, struct AdbcError* error) {
+    if (!stmt_) {
+      SetError(error, "Statement has not yet been executed");
+      return ADBC_STATUS_UNINITIALIZED;
+    }
     auto status = arrow::ExportRecordBatchReader(self, out);
     if (!status.ok()) {
-      ARROW_LOG(WARNING) << "[ADBC-SQLite3] Could not initialize result reader: "
-                         << status.ToString();
+      SetError(error, "Could not initialize result reader: ", status);
       return ADBC_STATUS_UNKNOWN;
     }
     return ADBC_STATUS_OK;
@@ -200,6 +225,14 @@ class AdbcSqliteImpl {
 
   enum AdbcStatusCode SqlExecute(const char* query, size_t query_length,
                                  struct AdbcStatement* out, struct AdbcError* error) {
+    if (!out->private_data) {
+      SetError(error, "Statement is uninitialized, use AdbcStatementInit");
+      return ADBC_STATUS_UNINITIALIZED;
+    }
+    auto* ptr =
+        reinterpret_cast<std::shared_ptr<SqliteStatementImpl>*>(out->private_data);
+    auto* impl = ptr->get();
+
     // TODO: This needs to get RAII-guarded to clean up error handling
     sqlite3_stmt* stmt = nullptr;
     auto rc = sqlite3_prepare_v2(db_, query, query_length, &stmt, /*pzTail=*/nullptr);
@@ -228,9 +261,7 @@ class AdbcSqliteImpl {
     }
     auto schema = StatementToSchema(stmt);
 
-    std::memset(out, 0, sizeof(*out));
-    auto impl = std::make_shared<SqliteStatementImpl>(db_, stmt, std::move(schema), rc);
-    out->private_data = new std::shared_ptr<SqliteStatementImpl>(impl);
+    impl->Init(db_, stmt, std::move(schema), rc);
     return ADBC_STATUS_OK;
   }
 
@@ -302,6 +333,14 @@ enum AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
   auto* ptr =
       reinterpret_cast<std::shared_ptr<SqliteStatementImpl>*>(statement->private_data);
   return (*ptr)->GetStream(*ptr, out, error);
+}
+
+enum AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
+                                      struct AdbcStatement* statement,
+                                      struct AdbcError* error) {
+  auto impl = std::make_shared<SqliteStatementImpl>();
+  statement->private_data = new std::shared_ptr<SqliteStatementImpl>(impl);
+  return ADBC_STATUS_OK;
 }
 
 enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,

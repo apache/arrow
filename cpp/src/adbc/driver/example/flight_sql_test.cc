@@ -50,11 +50,13 @@ class AdbcFlightSqlTest : public ::testing::Test {
     std::string target = "Location=grpc://localhost:" + std::to_string(server->port());
     options.target = target.c_str();
     options.target_length = target.size();
-    ADBC_ASSERT_OK(driver->ConnectionInit(&options, &connection, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                              driver->ConnectionInit(&options, &connection, &error));
   }
 
   void TearDown() override {
-    ADBC_ASSERT_OK(driver->ConnectionRelease(&connection, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                              driver->ConnectionRelease(&connection, &error));
     ASSERT_OK(server->Shutdown());
   }
 
@@ -68,7 +70,11 @@ class AdbcFlightSqlTest : public ::testing::Test {
 TEST_F(AdbcFlightSqlTest, Metadata) {
   {
     AdbcStatement statement;
-    ADBC_ASSERT_OK(driver->ConnectionGetTableTypes(&connection, &statement, &error));
+    std::memset(&statement, 0, sizeof(statement));
+    ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                              driver->StatementInit(&connection, &statement, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(
+        driver, error, driver->ConnectionGetTableTypes(&connection, &statement, &error));
 
     std::shared_ptr<arrow::Schema> schema;
     arrow::RecordBatchVector batches;
@@ -87,8 +93,13 @@ TEST_F(AdbcFlightSqlTest, Metadata) {
 TEST_F(AdbcFlightSqlTest, SqlExecute) {
   std::string query = "SELECT 1";
   AdbcStatement statement;
-  ADBC_ASSERT_OK(driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(),
-                                              &statement, &error));
+  std::memset(&statement, 0, sizeof(statement));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                            driver->StatementInit(&connection, &statement, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(
+      driver, error,
+      driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(), &statement,
+                                   &error));
 
   std::shared_ptr<arrow::Schema> schema;
   arrow::RecordBatchVector batches;
@@ -108,26 +119,38 @@ TEST_F(AdbcFlightSqlTest, Partitions) {
   // parallel.)
   std::string query = "SELECT 42";
   AdbcStatement statement;
-  ADBC_ASSERT_OK(driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(),
-                                              &statement, &error));
+  std::memset(&statement, 0, sizeof(statement));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                            driver->StatementInit(&connection, &statement, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(
+      driver, error,
+      driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(), &statement,
+                                   &error));
 
   std::vector<std::vector<uint8_t>> descs;
 
   while (true) {
     size_t length = 0;
-    ADBC_ASSERT_OK(driver->StatementGetPartitionDescSize(&statement, &length, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(
+        driver, error,
+        driver->StatementGetPartitionDescSize(&statement, &length, &error));
     if (length == 0) break;
     descs.emplace_back(length);
-    ADBC_ASSERT_OK(
+    ADBC_ASSERT_OK_WITH_ERROR(
+        driver, error,
         driver->StatementGetPartitionDesc(&statement, descs.back().data(), &error));
   }
 
   ASSERT_EQ(descs.size(), 1);
-  ADBC_ASSERT_OK(driver->StatementRelease(&statement, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error, driver->StatementRelease(&statement, &error));
 
   // Reconstruct the partition
-  ADBC_ASSERT_OK(driver->ConnectionDeserializePartitionDesc(
-      &connection, descs.back().data(), descs.back().size(), &statement, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                            driver->StatementInit(&connection, &statement, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(
+      driver, error,
+      driver->ConnectionDeserializePartitionDesc(
+          &connection, descs.back().data(), descs.back().size(), &statement, &error));
 
   std::shared_ptr<arrow::Schema> schema;
   arrow::RecordBatchVector batches;
@@ -143,13 +166,14 @@ TEST_F(AdbcFlightSqlTest, Partitions) {
 TEST_F(AdbcFlightSqlTest, InvalidSql) {
   std::string query = "INVALID";
   AdbcStatement statement;
+  std::memset(&statement, 0, sizeof(statement));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                            driver->StatementInit(&connection, &statement, &error));
   ASSERT_NE(driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(),
                                          &statement, &error),
             ADBC_STATUS_OK);
-
-  ARROW_LOG(WARNING) << "Got error message: " << error.message;
-  EXPECT_THAT(error.message, ::testing::HasSubstr("syntax error"));
-  driver->ErrorRelease(&error);
+  ADBC_ASSERT_ERROR_THAT(driver, error, ::testing::HasSubstr("syntax error"));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error, driver->StatementRelease(&statement, &error));
 }
 
 }  // namespace adbc

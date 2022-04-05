@@ -132,7 +132,7 @@ enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
 /// \param[in] connection The database connection.
 /// \param[in] query The query to execute.
 /// \param[in] query_length The length of the query string.
-/// \param[out] statement The result set.
+/// \param[in,out] statement The result set. Allocate with AdbcStatementInit.
 /// \param[out] error Error details, if an error occurs.
 enum AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
                                              const char* query, size_t query_length,
@@ -289,10 +289,13 @@ enum AdbcStatusCode AdbcConnectionGetTables(
 /// }@
 
 /// \defgroup adbc-statement Managing statements.
+/// Applications should first initialize and configure a statement with
+/// AdbcStatementInit and the AdbcStatementSetOption functions, then use the
+/// statement with a function like AdbcConnectionSqlExecute.
 /// @{
 
-/// \brief The result of executing a database query. Can be consumed
-///   to produce a result.
+/// \brief An instance of a database query, from parameters set before
+///   execution to the result of execution.
 ///
 /// Statements are not thread-safe and clients should take care to
 /// serialize access.
@@ -301,6 +304,22 @@ struct AdbcStatement {
   /// This field is NULLPTR iff the connection is unintialized/freed.
   void* private_data;
 };
+
+/// \brief Create a new statement for a given connection.
+enum AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
+                                      struct AdbcStatement* statement,
+                                      struct AdbcError* error);
+
+/// \brief Set an integer option on a statement.
+enum AdbcStatusCode AdbcStatementSetOptionInt64(struct AdbcStatement* statement,
+                                                struct AdbcError* error);
+
+/// \brief Destroy a statement.
+/// \param[in] statement The statement to release.
+/// \param[out] error An optional location to return an error
+///   message if necessary.
+enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
+                                         struct AdbcError* error);
 
 /// \brief Read the result of a statement.
 ///
@@ -312,13 +331,6 @@ struct AdbcStatement {
 enum AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
                                            struct ArrowArrayStream* out,
                                            struct AdbcError* error);
-
-/// \brief Destroy a statement connection.
-/// \param[in] statement The statement to release.
-/// \param[out] error An optional location to return an error
-///   message if necessary.
-enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
-                                         struct AdbcError* error);
 
 /// \defgroup adbc-statement-partition Partitioned Results
 /// Some backends may internally partition the results. These

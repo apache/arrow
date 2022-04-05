@@ -25,7 +25,6 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include "arrow/util/logging.h"
 
 namespace adbc {
 
@@ -57,13 +56,19 @@ TEST(AdbcSqlite, SqlExecute) {
   ASSERT_OK_AND_ASSIGN(auto driver, adbc::AdbcDriver::Load("libadbc_driver_sqlite.so"));
 
   AdbcConnectionOptions options;
-  ADBC_ASSERT_OK(driver->ConnectionInit(&options, &connection, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                            driver->ConnectionInit(&options, &connection, &error));
 
   {
     std::string query = "SELECT 1";
     AdbcStatement statement;
-    ADBC_ASSERT_OK(driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(),
-                                                &statement, &error));
+    std::memset(&statement, 0, sizeof(statement));
+    ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                              driver->StatementInit(&connection, &statement, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(
+        driver, error,
+        driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(), &statement,
+                                     &error));
 
     std::shared_ptr<arrow::Schema> schema;
     arrow::RecordBatchVector batches;
@@ -80,18 +85,22 @@ TEST(AdbcSqlite, SqlExecute) {
   {
     std::string query = "INVALID";
     AdbcStatement statement;
+    std::memset(&statement, 0, sizeof(statement));
+    ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                              driver->StatementInit(&connection, &statement, &error));
     ASSERT_NE(driver->ConnectionSqlExecute(&connection, query.c_str(), query.size(),
                                            &statement, &error),
               ADBC_STATUS_OK);
-
-    ASSERT_NE(error.message, nullptr);
-    ARROW_LOG(WARNING) << "Got error message: " << error.message;
-    EXPECT_THAT(error.message, ::testing::HasSubstr("[SQLite3] sqlite3_prepare_v2:"));
-    EXPECT_THAT(error.message, ::testing::HasSubstr("syntax error"));
-    driver->ErrorRelease(&error);
+    ADBC_ASSERT_ERROR_THAT(
+        driver, error,
+        ::testing::AllOf(::testing::HasSubstr("[SQLite3] sqlite3_prepare_v2:"),
+                         ::testing::HasSubstr("syntax error")));
+    ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                              driver->StatementRelease(&statement, &error));
   }
 
-  ADBC_ASSERT_OK(driver->ConnectionRelease(&connection, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                            driver->ConnectionRelease(&connection, &error));
 }
 
 }  // namespace adbc

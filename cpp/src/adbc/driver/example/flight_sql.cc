@@ -28,12 +28,13 @@
 
 namespace flight = arrow::flight;
 namespace flightsql = arrow::flight::sql;
+using arrow::Status;
 
 namespace {
 
-void SetError(const arrow::Status& status, struct AdbcError* error) {
+void SetError(const Status& status, struct AdbcError* error) {
   if (!error) return;
-  std::string message = arrow::util::StringBuilder("[Flight SQL]: ", status.ToString());
+  std::string message = arrow::util::StringBuilder("[Flight SQL] ", status.ToString());
   if (error->message) {
     message.reserve(message.size() + 1 + std::strlen(error->message));
     message.append(1, '\n');
@@ -45,19 +46,30 @@ void SetError(const arrow::Status& status, struct AdbcError* error) {
   error->message[message.size()] = '\0';
 }
 
-using arrow::Status;
+template <typename... Args>
+void SetError(struct AdbcError* error, Args&&... args) {
+  if (!error) return;
+  std::string message =
+      arrow::util::StringBuilder("[Flight SQL] ", std::forward<Args>(args)...);
+  if (error->message) {
+    message.reserve(message.size() + 1 + std::strlen(error->message));
+    message.append(1, '\n');
+    message.append(error->message);
+    delete[] error->message;
+  }
+  error->message = new char[message.size() + 1];
+  message.copy(error->message, message.size());
+  error->message[message.size()] = '\0';
+}
 
 class FlightSqlStatementImpl : public arrow::RecordBatchReader {
  public:
-  explicit FlightSqlStatementImpl(flightsql::FlightSqlClient* client,
-                                  std::unique_ptr<flight::FlightInfo> info)
-      : client_(client), info_(std::move(info)) {}
+  FlightSqlStatementImpl() : client_(nullptr), info_() {}
 
-  static void Make(flightsql::FlightSqlClient* client,
-                   std::unique_ptr<flight::FlightInfo> info, struct AdbcStatement* out) {
-    std::memset(out, 0, sizeof(*out));
-    auto impl = std::make_shared<FlightSqlStatementImpl>(client, std::move(info));
-    out->private_data = new std::shared_ptr<FlightSqlStatementImpl>(impl);
+  void Init(flightsql::FlightSqlClient* client,
+            std::unique_ptr<flight::FlightInfo> info) {
+    client_ = client;
+    info_ = std::move(info);
   }
 
   //----------------------------------------------------------
@@ -94,6 +106,11 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
 
   enum AdbcStatusCode GetStream(const std::shared_ptr<FlightSqlStatementImpl>& self,
                                 struct ArrowArrayStream* out, struct AdbcError* error) {
+    if (!client_) {
+      SetError(error, "Statement has not yet been executed");
+      return ADBC_STATUS_UNINITIALIZED;
+    }
+
     auto status = NextStream();
     if (!status.ok()) {
       SetError(status, error);
@@ -113,6 +130,11 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
 
   enum AdbcStatusCode GetPartitionDescSize(size_t* length,
                                            struct AdbcError* error) const {
+    if (!client_) {
+      SetError(error, "Statement has not yet been executed");
+      return ADBC_STATUS_UNINITIALIZED;
+    }
+
     // TODO: we're only encoding the ticket, not the actual locations
     if (next_endpoint_ >= info_->endpoints().size()) {
       *length = 0;
@@ -123,6 +145,11 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
   }
 
   enum AdbcStatusCode GetPartitionDesc(uint8_t* partition_desc, struct AdbcError* error) {
+    if (!client_) {
+      SetError(error, "Statement has not yet been executed");
+      return ADBC_STATUS_UNINITIALIZED;
+    }
+
     if (next_endpoint_ >= info_->endpoints().size()) {
       return ADBC_STATUS_INVALID_ARGUMENT;
     }
@@ -180,6 +207,14 @@ class AdbcFlightSqlImpl {
   //----------------------------------------------------------
 
   enum AdbcStatusCode GetTableTypes(struct AdbcStatement* out, struct AdbcError* error) {
+    if (!out->private_data) {
+      SetError(error, "Statement is uninitialized, use AdbcStatementInit");
+      return ADBC_STATUS_UNINITIALIZED;
+    }
+    auto* ptr =
+        reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(out->private_data);
+    auto* impl = ptr->get();
+
     flight::FlightCallOptions call_options;
     std::unique_ptr<flight::FlightInfo> flight_info;
     auto status = client_->GetTableTypes(call_options).Value(&flight_info);
@@ -187,7 +222,7 @@ class AdbcFlightSqlImpl {
       SetError(status, error);
       return ADBC_STATUS_IO;
     }
-    FlightSqlStatementImpl::Make(client_.get(), std::move(flight_info), out);
+    impl->Init(client_.get(), std::move(flight_info));
     return ADBC_STATUS_OK;
   }
 
@@ -197,6 +232,14 @@ class AdbcFlightSqlImpl {
 
   enum AdbcStatusCode SqlExecute(const char* query, size_t query_length,
                                  struct AdbcStatement* out, struct AdbcError* error) {
+    if (!out->private_data) {
+      SetError(error, "Statement is uninitialized, use AdbcStatementInit");
+      return ADBC_STATUS_UNINITIALIZED;
+    }
+    auto* ptr =
+        reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(out->private_data);
+    auto* impl = ptr->get();
+
     flight::FlightCallOptions call_options;
     std::unique_ptr<flight::FlightInfo> flight_info;
     auto status = client_->Execute(call_options, std::string(query, query_length))
@@ -205,7 +248,7 @@ class AdbcFlightSqlImpl {
       SetError(status, error);
       return ADBC_STATUS_IO;
     }
-    FlightSqlStatementImpl::Make(client_.get(), std::move(flight_info), out);
+    impl->Init(client_.get(), std::move(flight_info));
     return ADBC_STATUS_OK;
   }
 
@@ -217,6 +260,14 @@ class AdbcFlightSqlImpl {
                                                size_t serialized_length,
                                                struct AdbcStatement* out,
                                                struct AdbcError* error) {
+    if (!out->private_data) {
+      SetError(error, "Statement is uninitialized, use AdbcStatementInit");
+      return ADBC_STATUS_UNINITIALIZED;
+    }
+    auto* ptr =
+        reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(out->private_data);
+    auto* impl = ptr->get();
+
     std::vector<flight::FlightEndpoint> endpoints(1);
     endpoints[0].ticket.ticket = std::string(
         reinterpret_cast<const char*>(serialized_partition), serialized_length);
@@ -230,10 +281,7 @@ class AdbcFlightSqlImpl {
     std::unique_ptr<flight::FlightInfo> flight_info(
         new flight::FlightInfo(maybe_info.MoveValueUnsafe()));
 
-    std::memset(out, 0, sizeof(*out));
-    auto impl =
-        std::make_shared<FlightSqlStatementImpl>(client_.get(), std::move(flight_info));
-    out->private_data = new std::shared_ptr<FlightSqlStatementImpl>(impl);
+    impl->Init(client_.get(), std::move(flight_info));
     return ADBC_STATUS_OK;
   }
 
@@ -351,6 +399,14 @@ enum AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
   auto* ptr =
       reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);
   return (*ptr)->GetStream(*ptr, out, error);
+}
+
+enum AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
+                                      struct AdbcStatement* statement,
+                                      struct AdbcError* error) {
+  auto impl = std::make_shared<FlightSqlStatementImpl>();
+  statement->private_data = new std::shared_ptr<FlightSqlStatementImpl>(impl);
+  return ADBC_STATUS_OK;
 }
 
 enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,

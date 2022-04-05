@@ -48,6 +48,7 @@ class AdbcDriver {
   decltype(&AdbcStatementGetPartitionDesc) StatementGetPartitionDesc;
   decltype(&AdbcStatementGetPartitionDescSize) StatementGetPartitionDescSize;
   decltype(&AdbcStatementGetStream) StatementGetStream;
+  decltype(&AdbcStatementInit) StatementInit;
   decltype(&AdbcStatementRelease) StatementRelease;
 };
 
