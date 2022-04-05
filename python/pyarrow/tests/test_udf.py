@@ -21,7 +21,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow import compute as pc
-from pyarrow.compute import register_function
+from pyarrow.compute import register_scalar_function
 from pyarrow.compute import InputType
 
 
@@ -273,7 +273,7 @@ def test_scalar_udf_function_with_scalar_data(function_names,
                                function_inputs,
                                expected_outputs):
 
-        register_function(name, arity, doc, in_types, out_type, function)
+        register_scalar_function(name, arity, doc, in_types, out_type, function)
 
         func = pc.get_function(name)
         assert func.name == name
@@ -294,12 +294,12 @@ def test_udf_input():
     doc = get_function_doc("scalar add function", "scalar add function",
                            ["scalar_value"])
     with pytest.raises(ValueError):
-        register_function(func_name, arity, doc, in_types,
+        register_scalar_function(func_name, arity, doc, in_types,
                           out_type, unary_scalar_function)
 
     # validate function name
     with pytest.raises(TypeError):
-        register_function(None, 1, doc, in_types,
+        register_scalar_function(None, 1, doc, in_types,
                           out_type, unary_scalar_function)
 
     # validate function not matching defined arity config
@@ -307,25 +307,25 @@ def test_udf_input():
         return pc.call_function("add", [array1, array2])
 
     with pytest.raises(pa.lib.ArrowInvalid):
-        register_function("invalid_function", 1, doc, in_types,
+        register_scalar_function("invalid_function", 1, doc, in_types,
                           out_type, invalid_function)
         pc.call_function("invalid_function", [pa.array([10]), pa.array([20])],
                          options=None, memory_pool=None)
 
     # validate function
     with pytest.raises(ValueError) as execinfo:
-        register_function("none_function", 1, doc, in_types,
+        register_scalar_function("none_function", 1, doc, in_types,
                           out_type, None)
         assert "callback must be a callable" == execinfo.value
 
     # validate output type
     with pytest.raises(ValueError) as execinfo:
-        register_function(func_name, 1, doc, in_types,
+        register_scalar_function(func_name, 1, doc, in_types,
                           None, unary_scalar_function)
         assert "Output value type must be defined" == execinfo.value
 
     # validate input type
     with pytest.raises(ValueError) as execinfo:
-        register_function(func_name, 1, doc, None,
+        register_scalar_function(func_name, 1, doc, None,
                           out_type, unary_scalar_function)
         assert "input types must be of type InputType" == execinfo.value

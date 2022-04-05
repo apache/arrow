@@ -77,7 +77,7 @@ from pyarrow._compute import (  # noqa
     get_function,
     list_functions,
     _group_by,
-    register_function,
+    register_scalar_function,
     # Expressions
     Expression,
 )

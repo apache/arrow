@@ -29,7 +29,6 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
 
-from cpython.ref cimport PyObject
 from libcpp cimport bool as c_bool
 
 import numpy as np
@@ -2359,7 +2358,7 @@ cdef CFunctionDoc _make_function_doc(dict func_doc):
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
         c_bool c_options_required
-    
+
     f_doc.summary = tobytes(func_doc["summary"])
     f_doc.description = tobytes(func_doc["description"])
     for arg_name in func_doc["arg_names"]:
@@ -2373,7 +2372,7 @@ cdef CFunctionDoc _make_function_doc(dict func_doc):
     return f_doc
 
 
-def register_function(func_name, num_args, function_doc, in_types,
+def register_scalar_function(func_name, num_args, function_doc, in_types,
                       out_type, callback):
     """
     Register a user-defined-function.
@@ -2446,7 +2445,7 @@ def register_function(func_name, num_args, function_doc, in_types,
         CScalarUdfBuilder* c_sc_builder
         CStatus st
         CScalarUdfOptions* c_options
-        object obj
+
 
     c_func_name = tobytes(func_name)
 
