@@ -28,6 +28,24 @@ namespace arrow {
 
 namespace py {
 
+Status VerifyArrayInput(const compute::ExecBatch& batch) {
+  for (auto value : batch.values) {
+    if (!value.is_array()) {
+      return Status::Invalid("Expected array input, but got ", value.type());
+    }
+  }
+  return Status::OK();
+}
+
+Status VerifyScalarInput(const compute::ExecBatch& batch) {
+  for (auto value : batch.values) {
+    if (!value.is_scalar()) {
+      return Status::Invalid("Expected scalar input, but got ", value.type());
+    }
+  }
+  return Status::OK();
+}
+
 Status VerifyArityAndInput(compute::Arity arity, const compute::ExecBatch& batch) {
   bool match = static_cast<uint64_t>(arity.num_args) == batch.values.size();
   if (!match) {
@@ -98,9 +116,10 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
                             Datum* out) -> Status {
     PyAcquireGIL lock;
     RETURN_NOT_OK(VerifyArityAndInput(arity, batch));
-    if (batch[0].is_array()) {  // checke 0-th element to select array callable
+    if (VerifyArrayInput(batch).ok()) {  // checke 0-th element to select array callable
       RETURN_NOT_OK(ExecFunctionArray(batch, func, arity.num_args, out));
-    } else if (batch[0].is_scalar()) {  // check 0-th element to select scalar callable
+    } else if (VerifyScalarInput(batch)
+                   .ok()) {  // check 0-th element to select scalar callable
       RETURN_NOT_OK(ExecFunctionScalar(batch, func, arity.num_args, out));
     } else {
       return Status::Invalid("Unexpected input type, scalar or array type expected.");
