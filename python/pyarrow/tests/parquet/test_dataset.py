@@ -642,8 +642,7 @@ def test_read_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_read_single_file_list(tempdir, use_legacy_dataset):
-    base_path = str(tempdir)
-    data_path = os.path.join(base_path, 'data.parquet')
+    data_path = str(tempdir / 'data.parquet')
 
     table = pa.table({"a": [1, 2, 3]})
     _write_table(table, data_path)
