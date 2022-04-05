@@ -137,9 +137,13 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
           CopyDataUtils<Type>::CopyData(*array.type, replacements, replacements_offset,
                                         out_values, out_offset + write_offset + i,
                                         /*length=*/1);
-          copy_bitmap.SetBit(out_bitmap, out_offset + write_offset + i,
+          if (replacements_bitmap) {
+            copy_bitmap.SetBit(out_bitmap, out_offset + write_offset + i,
 
-                             replacements_offset);
+                               replacements_offset);
+          } else if (out_bitmap) {
+            bit_util::SetBitTo(out_bitmap, out_offset + write_offset + i, true);
+          }
           replacements_offset++;
         }
       }
@@ -212,44 +216,13 @@ template <typename Type, typename Enable = void>
 struct ReplaceWithMask {};
 
 template <typename Type>
-struct ReplaceWithMask<Type,
-                       enable_if_t<is_number_type<Type>::value ||
-                                   std::is_same<Type, MonthDayNanoIntervalType>::value>> {
+struct ReplaceWithMask<
+    Type, enable_if_t<!(is_base_binary_type<Type>::value || is_null_type<Type>::value)>> {
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
     return ReplaceWithScalarMask<Type>(ctx, array, mask, replacements, output);
   }
-
-  static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
-                              const ArrayData& mask, const Datum& replacements,
-                              ArrayData* output) {
-    return ReplaceWithArrayMask<Type>(ctx, array, mask, replacements, output);
-  }
-};
-
-template <typename Type>
-struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
-  static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
-                               const BooleanScalar& mask, const Datum& replacements,
-                               ArrayData* output) {
-    return ReplaceWithScalarMask<Type>(ctx, array, mask, replacements, output);
-  }
-  static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
-                              const ArrayData& mask, const Datum& replacements,
-                              ArrayData* output) {
-    return ReplaceWithArrayMask<Type>(ctx, array, mask, replacements, output);
-  }
-};
-
-template <typename Type>
-struct ReplaceWithMask<Type, enable_if_fixed_size_binary<Type>> {
-  static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
-                               const BooleanScalar& mask, const Datum& replacements,
-                               ArrayData* output) {
-    return ReplaceWithScalarMask<Type>(ctx, array, mask, replacements, output);
-  }
-
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
                               const ArrayData& mask, const Datum& replacements,
                               ArrayData* output) {
