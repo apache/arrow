@@ -73,22 +73,23 @@ with some optional schema-wide metadata (in addition to per-field metadata).
 VectorSchemaRoot
 ================
 
+A `VectorSchemaRoot`_ is a container for batches of data. Batches flow through
+VectorSchemaRoot as part of a pipeline.
+
 .. note::
 
-    VectorSchemaRoot is somewhat analogous to tables and record batches in the other Arrow implementations
-    in that they all are 2D datasets, but the usage is different.
+    VectorSchemaRoot is somewhat analogous to tables or record batches in the
+    other Arrow implementations in that they all are 2D datasets, but their
+    usage is different.
 
-A :class:`VectorSchemaRoot` is a container that can hold batches, batches flow through :class:`VectorSchemaRoot`
-as part of a pipeline. Note this is different from other implementations (i.e. in C++ and Python,
-a :class:`RecordBatch` is a collection of equal-length vector instances and was created each time for a new batch).
+The recommended usage is to create a single VectorSchemaRoot based on a known
+schema and populate data over and over into that root in a stream of batches,
+rather than creating a new instance each time (see `Flight`_ or
+``ArrowFileWriter`` as examples). Thus at any one point, a VectorSchemaRoot may
+have data or may have no data (say it was transferred downstream or not yet
+populated).
 
-The recommended usage for :class:`VectorSchemaRoot` is creating a single :class:`VectorSchemaRoot`
-based on the known schema and populated data over and over into the same VectorSchemaRoot in a stream
-of batches rather than creating a new :class:`VectorSchemaRoot` instance each time
-(see `Flight`_ or ``ArrowFileWriter`` for better understanding). Thus at any one point a VectorSchemaRoot may have data or
-may have no data (say it was transferred downstream or not yet populated).
-
-Here is the example of building a :class:`VectorSchemaRoot`
+Here is an example of creating a VectorSchemaRoot:
 
 .. code-block:: Java
 
@@ -107,9 +108,10 @@ Here is the example of building a :class:`VectorSchemaRoot`
     List<FieldVector> vectors = Arrays.asList(bitVector, varCharVector);
     VectorSchemaRoot vectorSchemaRoot = new VectorSchemaRoot(fields, vectors);
 
-The vectors within a :class:`VectorSchemaRoot` could be loaded/unloaded via :class:`VectorLoader` and :class:`VectorUnloader`.
-:class:`VectorLoader` and :class:`VectorUnloader` handles converting between :class:`VectorSchemaRoot` and :class:`ArrowRecordBatch` (
-representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message). Examples as below
+Data can be loaded into/unloaded from a VectorSchemaRoot via `VectorLoader`_
+and `VectorUnloader`_.  They handle converting between VectorSchemaRoot and
+`ArrowRecordBatch`_ (a representation of a RecordBatch :ref:`IPC <format-ipc>`
+message). For example:
 
 .. code-block:: Java
 
@@ -123,13 +125,18 @@ representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message). Example
     VectorLoader loader = new VectorLoader(root2);
     loader.load(recordBatch);
 
-A new :class:`VectorSchemaRoot` could be sliced from an existing instance with zero-copy
+A new VectorSchemaRoot can be sliced from an existing root without copying
+data:
 
 .. code-block:: Java
 
     // 0 indicates start index (inclusive) and 5 indicated length (exclusive).
     VectorSchemaRoot newRoot = vectorSchemaRoot.slice(0, 5);
 
+.. _`ArrowRecordBatch`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/ipc/message/ArrowRecordBatch.html
 .. _`Field`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/types/pojo/Field.html
-.. _`Schema`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/types/pojo/Schema.html
 .. _`Flight`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/package-summary.html
+.. _`Schema`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/types/pojo/Schema.html
+.. _`VectorLoader`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/VectorLoader.html
+.. _`VectorSchemaRoot`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/VectorSchemaRoot.html
+.. _`VectorUnloader`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/VectorUnloader.html
