@@ -2069,15 +2069,16 @@ TEST_F(TestProjector, TestConcatWsFunction) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 2;
+  int num_records = 3;
 
-  auto array0 = MakeArrowArrayUtf8({"-", "<>"}, {true, true});
-  auto array1 = MakeArrowArrayUtf8({"john", "hello"}, {true, true});
-  auto array2 = MakeArrowArrayUtf8({"doe", "world"}, {true, true});
+  auto array0 = MakeArrowArrayUtf8({"-", "<>", "jllkjsdhfg"}, {true, true, true});
+  auto array1 = MakeArrowArrayUtf8({"john", "hello", "P18582D"}, {true, true, true});
+  auto array2 = MakeArrowArrayUtf8({"doe", "world", "|"}, {true, true, true});
   auto in_batch0 =
       arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
 
-  auto expected_out0 = MakeArrowArrayUtf8({"john-doe", "hello<>world"}, {true, true});
+  auto expected_out0 = MakeArrowArrayUtf8(
+      {"john-doe", "hello<>world", "P18582Djllkjsdhfg|"}, {true, true, true});
 
   arrow::ArrayVector outputs;
 

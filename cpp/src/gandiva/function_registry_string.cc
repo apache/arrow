@@ -98,22 +98,22 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("concat_ws", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
-                     kResultNullIfNull, "concat_ws_utf8_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+                     kResultNullInternal, "concat_ws_utf8_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("concat_ws", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8()},
-                     utf8(), kResultNullIfNull, "concat_ws_utf8_utf8_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+                     utf8(), kResultNullInternal, "concat_ws_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("concat_ws", {},
                      DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8()}, utf8(),
-                     kResultNullIfNull, "concat_ws_utf8_utf8_utf8_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+                     kResultNullInternal, "concat_ws_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("concat_ws", {},
                      DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8()},
-                     utf8(), kResultNullIfNull, "concat_ws_utf8_utf8_utf8_utf8_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+                     utf8(), kResultNullInternal, "concat_ws_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("elt", {}, DataTypeVector{int32(), utf8(), utf8()}, utf8(),
                      kResultNullInternal, "elt_int32_utf8_utf8"),
