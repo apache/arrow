@@ -251,8 +251,7 @@ gaflight_client_new(GAFlightLocation *location,
   arrow::Status status;
   if (options) {
     const auto flight_options = gaflight_client_options_get_raw(options);
-     arrow::Result<std::unique_ptr<arrow::flight::FlightClient>> result = arrow::flight::FlightClient::Connect(*flight_location,
-                                                        *flight_options);
+    auto result = arrow::flight::FlightClient::Connect(*flight_location, *flight_options);
     status = std::move(result).Value(&flight_client);
   } else {
     auto result = arrow::flight::FlightClient::Connect(*flight_location);
@@ -315,9 +314,8 @@ gaflight_client_list_flights(GAFlightClient *client,
     flight_options = gaflight_call_options_get_raw(options);
   }
   std::unique_ptr<arrow::flight::FlightListing> flight_listing;
-  auto status = flight_client->ListFlights(*flight_options,
-                                           *flight_criteria
-                               ).Value(&flight_listing);
+  auto result = flight_client->ListFlights(*flight_options, *flight_criteria);
+  auto status = std::move(result).Value(&flight_listing);
   if (!garrow::check(error,
                      status,
                      "[flight-client][list-flights]")) {
@@ -369,9 +367,8 @@ gaflight_client_do_get(GAFlightClient *client,
     flight_options = gaflight_call_options_get_raw(options);
   }
   std::unique_ptr<arrow::flight::FlightStreamReader> flight_reader;
-  auto status = flight_client->DoGet(*flight_options,
-                                     *flight_ticket
-                               ).Value(&flight_reader);
+  auto result = flight_client->DoGet(*flight_options, *flight_ticket);
+  auto status = std::move(result).Value(&flight_reader);
   if (garrow::check(error,
                     status,
                     "[flight-client][do-get]")) {
