@@ -1259,7 +1259,7 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
   date_to_add <- ymd("2009-08-03", tz = "America/Chicago")
 
   compare_dplyr_binding(
-    .input%>%
+    .input %>%
       mutate(
         dminutes = dminutes(x),
         dhours = dhours(x),
@@ -1274,7 +1274,7 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
   )
 
   compare_dplyr_binding(
-    .input%>%
+    .input %>%
       mutate(
         dhours = dhours(x),
         ddays = ddays(x),
