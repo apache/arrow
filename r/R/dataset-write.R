@@ -153,6 +153,16 @@ write_dataset <- function(dataset,
     }
   }
 
+  if (!missing(max_rows_per_file) && max_rows_per_group > max_rows_per_file) {
+    if (!missing(max_rows_per_group)) {
+      warning(paste0(c(
+        "'max_rows_per_group' must be less or equal to 'max_rows_per_file'.",
+        "\n'max_rows_per_group' set to value of 'max_rows_per_file'."
+      )))
+    }
+    max_rows_per_group <- max_rows_per_file
+  }
+
   path_and_fs <- get_path_and_filesystem(path)
   options <- FileWriteOptions$create(format, table = scanner, ...)
 
