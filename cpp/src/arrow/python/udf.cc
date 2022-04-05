@@ -93,15 +93,15 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
   auto doc = options->doc();
   auto arity = options->arity();
   scalar_func_ = std::make_shared<compute::ScalarFunction>(options->name(), arity, doc);
-
-  auto exec = [this, arity](compute::KernelContext* ctx, const compute::ExecBatch& batch,
+  auto func = function_.obj();
+  auto exec = [func, arity](compute::KernelContext* ctx, const compute::ExecBatch& batch,
                             Datum* out) -> Status {
     PyAcquireGIL lock;
     RETURN_NOT_OK(VerifyArityAndInput(arity, batch));
     if (batch[0].is_array()) {  // checke 0-th element to select array callable
-      RETURN_NOT_OK(ExecFunctionArray(batch, function_.obj(), arity.num_args, out));
+      RETURN_NOT_OK(ExecFunctionArray(batch, func, arity.num_args, out));
     } else if (batch[0].is_scalar()) {  // check 0-th element to select scalar callable
-      RETURN_NOT_OK(ExecFunctionScalar(batch, function_.obj(), arity.num_args, out));
+      RETURN_NOT_OK(ExecFunctionScalar(batch, func, arity.num_args, out));
     } else {
       return Status::Invalid("Unexpected input type, scalar or array type expected.");
     }
