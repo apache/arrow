@@ -81,7 +81,7 @@ cp ../docs.tar.gz .
 tar xvf docs.tar.gz
 rm -f docs.tar.gz
 git checkout docs/c_glib/index.html
-if [ "$is_major_release" = true ] ; then
+if [ "$is_major_release" = "yes" ] ; then
   mv docs_temp docs/${previous_version}
 fi
 git add docs
