@@ -47,16 +47,29 @@ Status VerifyScalarInput(const compute::ExecBatch& batch) {
 }
 
 Status VerifyArityAndInput(compute::Arity arity, const compute::ExecBatch& batch) {
-  bool match = static_cast<uint64_t>(arity.num_args) == batch.values.size();
-  if (!match) {
-    return Status::Invalid("Function Arity and Input data shape doesn't match, expected ",
-                           arity.num_args, ", got ", batch.values.size());
+  if (!arity.is_varargs) {
+    bool match = static_cast<uint64_t>(arity.num_args) == batch.values.size();
+    if (!match) {
+      return Status::Invalid(
+          "Function Arity and Input data shape doesn't match, expected ", arity.num_args,
+          ", got ", batch.values.size());
+    }
+  } else {
+    bool match = static_cast<uint64_t>(arity.num_args) <= batch.values.size();
+    if (!match) {
+      return Status::Invalid("Required minimum number of arguments", arity.num_args,
+                             " in VarArgs function is not met.", ", Received ",
+                             batch.values.size());
+    }
   }
   return Status::OK();
 }
 
 Status ExecFunctionScalar(const compute::ExecBatch& batch, PyObject* function,
-                          int num_args, Datum* out) {
+                          const compute::Arity& arity, Datum* out) {
+  // num_args for arity varargs is arity.num_args, and for other arities,
+  // it is equal to the number of values in the batch
+  int num_args = arity.is_varargs ? batch.values.size() : arity.num_args;
   PyObject* arg_tuple = PyTuple_New(num_args);
   for (int arg_id = 0; arg_id < num_args; arg_id++) {
     if (!batch[arg_id].is_scalar()) {
@@ -79,7 +92,10 @@ Status ExecFunctionScalar(const compute::ExecBatch& batch, PyObject* function,
 }
 
 Status ExecFunctionArray(const compute::ExecBatch& batch, PyObject* function,
-                         int num_args, Datum* out) {
+                         const compute::Arity& arity, Datum* out) {
+  // num_args for arity varargs is arity.num_args, and for other arities,
+  // it is equal to the number of values in the batch
+  int num_args = arity.is_varargs ? batch.values.size() : arity.num_args;
   PyObject* arg_tuple = PyTuple_New(num_args);
   for (int arg_id = 0; arg_id < num_args; arg_id++) {
     if (!batch[arg_id].is_array()) {
@@ -117,10 +133,10 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
     PyAcquireGIL lock;
     RETURN_NOT_OK(VerifyArityAndInput(arity, batch));
     if (VerifyArrayInput(batch).ok()) {  // checke 0-th element to select array callable
-      RETURN_NOT_OK(ExecFunctionArray(batch, func, arity.num_args, out));
+      RETURN_NOT_OK(ExecFunctionArray(batch, func, arity, out));
     } else if (VerifyScalarInput(batch)
                    .ok()) {  // check 0-th element to select scalar callable
-      RETURN_NOT_OK(ExecFunctionScalar(batch, func, arity.num_args, out));
+      RETURN_NOT_OK(ExecFunctionScalar(batch, func, arity, out));
     } else {
       return Status::Invalid("Unexpected input type, scalar or array type expected.");
     }

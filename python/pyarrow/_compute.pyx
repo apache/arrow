@@ -23,6 +23,7 @@ from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
 from collections import namedtuple
+import inspect
 
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
@@ -2373,7 +2374,7 @@ cdef CFunctionDoc _make_function_doc(dict func_doc):
 
 
 def register_scalar_function(func_name, num_args, function_doc, in_types,
-                      out_type, callback):
+                             out_type, function):
     """
     Register a user-defined-function.
 
@@ -2381,19 +2382,25 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
     ----------
 
     func_name : str
-        function name 
+        Function name 
     num_args : int
-       number of arguments in the function
+       Number of arguments in the function.
+       When defining a function with variable arguments, 
+       the num_args represents the minimum number of arguments
+       required. 
     function_doc : dict
-        a dictionary object with keys "summary" (str), 
+        A dictionary object with keys "summary" (str),
         "description" (str), and "arg_names" (list of str).
     in_types : List[InputType]
-        list of InputType objects which defines the input 
-        types for the function
+        List of InputType objects which defines the input 
+        types for the function. When defining a list of InputType
+        for a varargs function, the list only needs to contain the
+        number of elements equal to the num_args (which is the miniumu
+        required arguments).
     out_type : DataType
-        output type of the function
-    callback : callable
-        user defined function
+        Output type of the function.
+    function : callable
+        User-defined-function
         function includes arguments equal to the number
         of input_types defined. The return type of the 
         function is of the type defined as output_type. 
@@ -2404,7 +2411,7 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
     -------
 
     >>> from pyarrow import compute as pc
-    >>> from pyarrow.compute import register_function
+    >>> from pyarrow.compute import register_scalar_function
     >>> from pyarrow.compute import InputType
     >>> 
     >>> func_doc = {}
@@ -2439,29 +2446,37 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
         CFunctionDoc c_func_doc
         CInputType in_tmp
         vector[CInputType] c_in_types
-        PyObject* c_callback
+        PyObject* c_function
         shared_ptr[CDataType] c_type
         COutputType* c_out_type
         CScalarUdfBuilder* c_sc_builder
         CStatus st
         CScalarUdfOptions* c_options
 
-
     c_func_name = tobytes(func_name)
 
-    if num_args <= 0:
-        raise ValueError("number of arguments must be >= 0")
-    if num_args == 0:
-        c_arity = CArity.Nullary()
-    elif num_args == 1:
-        c_arity = CArity.Unary()
-    elif num_args == 2:
-        c_arity = CArity.Binary()
-    elif num_args == 3:
-        c_arity = CArity.Ternary()
-    elif num_args > 3:
+    if callable(function):
+        c_function = <PyObject*>function
+    else:
+        raise ValueError("Object must be a callable")
+
+    func_spec = inspect.getfullargspec(function)
+    if func_spec.varargs:
+        if num_args <= 0:
+            raise ValueError("number of arguments must be >= 0")
         c_arity = CArity.VarArgs(num_args)
-    
+    else:
+        if num_args <= 0:
+            raise ValueError("number of arguments must be >= 0")
+        if num_args == 0:
+            c_arity = CArity.Nullary()
+        elif num_args == 1:
+            c_arity = CArity.Unary()
+        elif num_args == 2:
+            c_arity = CArity.Binary()
+        elif num_args == 3:
+            c_arity = CArity.Ternary()
+
     c_func_doc = _make_function_doc(function_doc)
 
     if in_types and isinstance(in_types, list):
@@ -2476,11 +2491,6 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
     else:
         raise ValueError("Output value type must be defined")
 
-    if callable(callback):
-        c_callback = <PyObject*>callback
-    else:
-        raise ValueError("callback must be a callable")
-
     c_out_type = new COutputType(c_type)
     # Note: The VectorUDF, TableUDF and AggregatorUDFs will be defined
     # when they are implemented. Only ScalarUDFBuilder is supported at the
@@ -2488,4 +2498,4 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
     c_options = new CScalarUdfOptions(c_func_name, c_arity, c_func_doc,
                                       c_in_types, deref(c_out_type))
     c_sc_builder = new CScalarUdfBuilder()
-    check_status(c_sc_builder.MakeFunction(c_callback, c_options))
+    check_status(c_sc_builder.MakeFunction(c_function, c_options))

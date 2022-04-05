@@ -74,7 +74,8 @@ varargs_doc = get_function_doc("z=ax+by+c",
                                ["a", "x", "b", "y", "c"])
 
 
-def varargs_function(a, x, b, y, c):
+def varargs_function(*args):
+    a, x, b, y, c = args
     ax = pc.call_function("multiply", [a, x])
     by = pc.call_function("multiply", [b, y])
     ax_by = pc.call_function("add", [ax, by])
@@ -273,7 +274,8 @@ def test_scalar_udf_function_with_scalar_data(function_names,
                                function_inputs,
                                expected_outputs):
 
-        register_scalar_function(name, arity, doc, in_types, out_type, function)
+        register_scalar_function(
+            name, arity, doc, in_types, out_type, function)
 
         func = pc.get_function(name)
         assert func.name == name
@@ -295,12 +297,12 @@ def test_udf_input():
                            ["scalar_value"])
     with pytest.raises(ValueError):
         register_scalar_function(func_name, arity, doc, in_types,
-                          out_type, unary_scalar_function)
+                                 out_type, unary_scalar_function)
 
     # validate function name
     with pytest.raises(TypeError):
         register_scalar_function(None, 1, doc, in_types,
-                          out_type, unary_scalar_function)
+                                 out_type, unary_scalar_function)
 
     # validate function not matching defined arity config
     def invalid_function(array1, array2):
@@ -308,24 +310,53 @@ def test_udf_input():
 
     with pytest.raises(pa.lib.ArrowInvalid):
         register_scalar_function("invalid_function", 1, doc, in_types,
-                          out_type, invalid_function)
+                                 out_type, invalid_function)
         pc.call_function("invalid_function", [pa.array([10]), pa.array([20])],
                          options=None, memory_pool=None)
 
     # validate function
     with pytest.raises(ValueError) as execinfo:
         register_scalar_function("none_function", 1, doc, in_types,
-                          out_type, None)
+                                 out_type, None)
         assert "callback must be a callable" == execinfo.value
 
     # validate output type
     with pytest.raises(ValueError) as execinfo:
         register_scalar_function(func_name, 1, doc, in_types,
-                          None, unary_scalar_function)
+                                 None, unary_scalar_function)
         assert "Output value type must be defined" == execinfo.value
 
     # validate input type
     with pytest.raises(ValueError) as execinfo:
         register_scalar_function(func_name, 1, doc, None,
-                          out_type, unary_scalar_function)
+                                 out_type, unary_scalar_function)
         assert "input types must be of type InputType" == execinfo.value
+
+
+def test_varargs_function_validation():
+    def n_add(*values):
+        base_val = values[:2]
+        res = pc.call_function("add", base_val)
+        for other_val in values[2:]:
+            res = pc.call_function("add", [res, other_val])
+        return res
+
+    func_name = "n_add"
+    arity = 2
+    in_types = [InputType.array(pa.int64()), InputType.array(pa.int64())]
+    out_type = pa.int64()
+    doc = get_function_doc("n add function", "add N number of arrays",
+                           ["value1", "value2"])
+    register_scalar_function(func_name, arity, doc,
+                             in_types, out_type, n_add)
+
+    func = pc.get_function(func_name)
+
+    assert func.name == func_name
+
+    with pytest.raises(pa.lib.ArrowInvalid) as execinfo:
+        pc.call_function(func_name, [pa.array([1, 10]),
+                                     ])
+        error_msg = "VarArgs function 'n_add' needs at least 2 arguments"
+        +" but attempted to look up kernel(s) with only 1"
+        assert error_msg == execinfo.value
