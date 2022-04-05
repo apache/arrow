@@ -487,6 +487,24 @@ def test_stream_options_roundtrip(stream_fixture, options):
         reader.read_next_batch()
 
 
+def test_read_options():
+    options = pa.ipc.IpcReadOptions()
+    assert options.use_threads is True
+    assert options.ensure_native_endian is True
+
+    options.ensure_native_endian = False
+    assert options.ensure_native_endian is False
+
+    options.use_threads = False
+    assert options.use_threads is False
+
+    options = pa.ipc.IpcReadOptions(
+        use_threads=False, ensure_native_endian=False
+    )
+    assert options.use_threads is False
+    assert options.ensure_native_endian is False
+
+
 def test_dictionary_delta(format_fixture):
     ty = pa.dictionary(pa.int8(), pa.utf8())
     data = [["foo", "foo", None],

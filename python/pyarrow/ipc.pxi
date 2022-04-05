@@ -100,6 +100,45 @@ cdef _wrap_read_stats(CIpcReadStats c):
                      c.num_replaced_dictionaries)
 
 
+cdef class IpcReadOptions(_Weakrefable):
+    """
+    Serialization options for reading IPC format.
+
+    Parameters
+    ----------
+    use_threads : bool
+        Whether to use the global CPU thread pool to parallelize any
+        computational tasks like decompression.
+    ensure_native_endian : bool
+        Whether to convert incoming data to platform-native endianness.
+        Default is true.
+    """
+    __slots__ = ()
+
+    # cdef block is in lib.pxd
+
+    def __init__(self, *, bint ensure_native_endian=True, bint use_threads=True):
+        self.c_options = CIpcReadOptions.Defaults()
+        self.ensure_native_endian = ensure_native_endian
+        self.use_threads = use_threads
+
+    @property
+    def ensure_native_endian(self):
+        return self.c_options.ensure_native_endian
+
+    @ensure_native_endian.setter
+    def ensure_native_endian(self, bint value):
+        self.c_options.ensure_native_endian = value
+
+    @property
+    def use_threads(self):
+        return self.c_options.use_threads
+
+    @use_threads.setter
+    def use_threads(self, bint value):
+        self.c_options.use_threads = value
+
+
 cdef class IpcWriteOptions(_Weakrefable):
     """
     Serialization options for the IPC format.

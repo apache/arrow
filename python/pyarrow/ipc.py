@@ -21,7 +21,7 @@ import os
 
 import pyarrow as pa
 
-from pyarrow.lib import (IpcWriteOptions, ReadStats, WriteStats,  # noqa
+from pyarrow.lib import (IpcReadOptions, IpcWriteOptions, ReadStats, WriteStats,  # noqa
                          Message, MessageReader,
                          RecordBatchReader, _ReadPandasMixin,
                          MetadataVersion,
