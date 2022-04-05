@@ -87,7 +87,7 @@ jobs:
           ulimit -c unlimited
           # Setting a non-default and non-probable Marquesas French Polynesia time
           # it has both with a .45 offset and very very few people who live there.
-          archery docker run -e TZ=MART ubuntu-r
+          archery docker run -e TZ=MART -e GITHUB_ACTIONS="true" ubuntu-r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
@@ -144,7 +144,7 @@ jobs:
           # Don't set a TZ here to test that case. These builds will have the following warning in them:
           #   System has not been booted with systemd as init system (PID 1). Can't operate.
           #   Failed to connect to bus: Host is down
-          archery docker run -e TZ="" r
+          archery docker run -e TZ="" -e GITHUB_ACTIONS="true" r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
@@ -248,6 +248,7 @@ jobs:
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN}}
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
