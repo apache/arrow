@@ -35,12 +35,28 @@ Java to C++
 The C Data Interface is a protocol implemented in Arrow to exchange data within different
 environments without the cost of marshaling and copying data.
 
-Example:
-How to expose an int32 array using C Data Interface?
+Example: How to expose an int32 array using C Data Interface?
 
-Let's review all steps needed to expose an int32 array using C Data Interface:
+**C++ Side**
 
-1st: Define c++ code CDataInterfaceLibrary.h that export functions for third party like Java consumer:
+Compile arrow minimal library:
+
+.. code-block:: shell
+
+    git clone https://github.com/apache/arrow.git
+    cd arrow/cpp
+    cmake --preset -N ninja-debug-minimal
+    mkdir build   # from inside the `cpp` subdirectory
+    cd build
+    cmake .. --preset ninja-debug-minimal
+    cmake --build .
+    tree debug/
+    debug/
+    ├── libarrow.800.0.0.dylib
+    ├── libarrow.800.dylib -> libarrow.800.0.0.dylib
+    └── libarrow.dylib -> libarrow.800.dylib
+
+Define c++ code CDataInterfaceLibrary.h that export functions for third party like Java consumer:
 
 .. code-block:: cpp
 
@@ -52,7 +68,6 @@ Let's review all steps needed to expose an int32 array using C Data Interface:
     #define ARROW_FLAG_MAP_KEYS_SORTED 4
 
     using arrow::Int64Builder;
-    using arrow::Int32Builder;
 
     struct ArrowSchema {
         // Array type description
@@ -95,7 +110,7 @@ Let's review all steps needed to expose an int32 array using C Data Interface:
     void export_int32_type(struct ArrowSchema* schema) {
         *schema = (struct ArrowSchema) {
                 // Type description
-                .format = "i",
+                .format = "l",
                 .name = "",
                 .metadata = NULL,
                 .flags = 0,
@@ -105,6 +120,7 @@ Let's review all steps needed to expose an int32 array using C Data Interface:
                 // Bookkeeping
                 .release = &release_int32_type
         };
+        std::cout << "C Data - Schema Pointer = " << schema << std::endl;
     }
 
     static void release_int32_array(struct ArrowArray* array) {
@@ -116,12 +132,29 @@ Let's review all steps needed to expose an int32 array using C Data Interface:
         array->release = NULL;
     }
 
-    void export_int32_array(const int32_t* data, int64_t nitems,
-                            struct ArrowArray* array) {
-        // Initialize primitive fields
+    void export_int32_array(struct ArrowArray* array) {
+        arrow::Int64Builder builder;
+        builder.Append(1);
+        builder.Append(2);
+        builder.Append(3);
+        builder.AppendNull();
+        builder.Append(5);
+        builder.Append(6);
+        builder.Append(7);
+        builder.Append(8);
+
+        auto maybe_array = builder.Finish();
+        std::shared_ptr<arrow::Array> array_arrow = *maybe_array;
+        auto int64_array = std::static_pointer_cast<arrow::Int64Array>(array_arrow);
+        const int64_t* data = int64_array->raw_values();
+        std::cout << "Data To Exchange Pointer = " << data << std::endl;
+        for (int j = 0; j < int64_array->length(); j++){
+            std::cout << "Data To Exchange Value[" << j << "] = " << data[j] << std::endl;
+        }
+
         *array = (struct ArrowArray) {
                 // Data description
-                .length = nitems,
+                .length = int64_array->length(),
                 .offset = 0,
                 .null_count = 0,
                 .n_buffers = 2,
@@ -131,55 +164,20 @@ Let's review all steps needed to expose an int32 array using C Data Interface:
                 // Bookkeeping
                 .release = &release_int32_array
         };
+
         // Allocate list of buffers
         array->buffers = (const void**) malloc(sizeof(void*) * array->n_buffers);
         assert(array->buffers != NULL);
         array->buffers[0] = NULL;  // no nulls, null bitmap can be omitted
         array->buffers[1] = data;
+
+        std::cout << "C Data - Array Pointer = " << array << std::endl;
+        std::cout << "C Data - Array Data Pointer Buffer array->buffers[1] = " << array->buffers[1] << std::endl;
     }
 
-    int main() {
-        std::cout << "Hello, World" << std::endl;
-        std::cout << "Create int32*" << std::endl;
-        arrow::Int32Builder builder;
-        builder.Append(1);
-        builder.Append(2);
-        builder.Append(3);
-        builder.Append(4);
-        builder.Append(5);
-        builder.Append(6);
-        builder.Append(7);
-        builder.Append(8);
-        builder.Append(9);
-        builder.Append(10);
-        auto maybe_array = builder.Finish();
-        std::shared_ptr<arrow::Array> arrayArrow = *maybe_array;
-        auto int32_array = std::static_pointer_cast<arrow::Int32Array>(arrayArrow);
-        const int32_t* data = reinterpret_cast<const int32_t *>(int32_array->raw_values());
-        std::cout << "int32* data pointer = " << data << std::endl;
+**Java Side**
 
-
-        // This is an example about what are the steps that is going to be executed by java program
-
-        struct ArrowSchema* schema;
-        struct ArrowArray* array;
-
-        export_int32_type(schema);
-        std::cout << "Schema pointer = " << schema << std::endl;
-
-        export_int32_array(data, 10, array);
-        std::cout << "Array pointer = " << array << std::endl;
-        std::cout << "Array pointer int32* data = " << array->buffers[1] << std::endl;
-
-        release_int32_type(schema);
-        release_int32_array(array);
-
-        // recreate array with: IntVector fieldVector = (IntVector) Data.importVector(allocator, arrow_array, arrow_schema, null);
-
-        return 0;
-    }
-
-2nd: Define Java code CDataInterfaceLibraryConfig.java that consume by JNI C++ functions exported through
+Define Java code CDataInterfaceLibraryConfig.java that consume by JNI C++ functions exported through
 C Data Interface:
 
 .. code-block:: xml
@@ -227,7 +225,7 @@ C Data Interface:
             value = @Platform(
                     include = {"CDataInterfaceLibrary.h"},
                     compiler = {"cpp11"},
-                    linkpath = {"/arrow/cpp/build/"},
+                    linkpath = {"/arrow/cpp/build/debug/"},
                     link = {"arrow"}
             )
     )
@@ -256,7 +254,9 @@ C Data Interface:
             /usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 1200.3.0)
             /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1311.0.0)
 
-3rd: Let's create a Java class to Test C Data Interface from Java to C++:
+**Java Test**
+
+Let's create a Java class to Test C Data Interface from Java to C++:
 
 .. code-block:: java
 
@@ -265,27 +265,49 @@ C Data Interface:
     import org.apache.arrow.c.Data;
     import org.apache.arrow.memory.BufferAllocator;
     import org.apache.arrow.memory.RootAllocator;
-    import org.apache.arrow.vector.IntVector;
+    import org.apache.arrow.vector.BigIntVector;
 
-    public class TestCDataInterfaceJavaToCpp {
+    public class TestCDataInterfaceV5 {
 
         public static void main(String[] args) {
-            CDataInterfaceLibrary.NativeClass nativeCData = new CDataInterfaceLibrary.NativeClass();
-            CDataInterfaceLibrary.NativeClass.ArrowSchema arrowSchema = new CDataInterfaceLibrary.NativeClass.ArrowSchema();
-            nativeCData.export_int32_type(arrowSchema);
+            CDataInterfaceLibrary.ArrowSchema arrowSchema = new CDataInterfaceLibrary.ArrowSchema();
+            CDataInterfaceLibrary.export_int32_type(arrowSchema);
+
             ArrowSchema arrow_schema = ArrowSchema.wrap(arrowSchema.address());
-            CDataInterfaceLibrary.NativeClass.ArrowArray arrowArray = new CDataInterfaceLibrary.NativeClass.ArrowArray();
-            nativeCData.export_int32_array(arrowArray);
+            System.out.println("Java C Data - Schema Pointer = = " + Long.toHexString(arrowSchema.address()));
+
+            CDataInterfaceLibrary.ArrowArray arrowArray = new CDataInterfaceLibrary.ArrowArray();
+            CDataInterfaceLibrary.export_int32_array(arrowArray);
+
             ArrowArray arrow_array = ArrowArray.wrap(arrowArray.address());
+            System.out.println("Java C Data - Array Pointer = " + Long.toHexString(arrowArray.address()));
+            System.out.println("Java C Data - Array Data Pointer Buffer array->buffers[1] = " + Long.toHexString(arrowArray.buffers(1).address()));
+
             BufferAllocator allocator = new RootAllocator();
-            IntVector fieldVector = (IntVector) Data.importVector(allocator, arrow_array, arrow_schema, null);
-            System.out.println("Int 32 Vector: " + fieldVector);
+            BigIntVector bigIntVector = (BigIntVector) Data.importVector(allocator, arrow_array, arrow_schema, null);
+            System.out.println("Java C Data - BigIntVector: " + bigIntVector);
+
+            CDataInterfaceLibrary.release_int32_type(arrowSchema);
+            CDataInterfaceLibrary.release_int32_array(arrowArray);
         }
     }
 
 .. code-block:: shell
 
-    Data pointer = 0x108f8b040
-    Value Index 2 = 3
-    Int 32 Vector: [1515870810, 1515870810, 1515870810, 1515870810, 1515870810, 1515870810, 1515870810, 1515870810, 1515870810, 1515870810]
+    C Data - Schema Pointer = 0x7fba97f36070
+    Java C Data - Schema Pointer = = 7fba97f36070
+    Data To Exchange Pointer = 0x10ec0d040
+    Data To Exchange Value[0] = 1
+    Data To Exchange Value[1] = 2
+    Data To Exchange Value[2] = 3
+    Data To Exchange Value[3] = 0
+    Data To Exchange Value[4] = 5
+    Data To Exchange Value[5] = 6
+    Data To Exchange Value[6] = 7
+    Data To Exchange Value[7] = 8
+    C Data - Array Pointer = 0x7fba67d0d380
+    C Data - Array Data Pointer Buffer array->buffers[1] = 0x10ec0d040
+    Java C Data - Array Pointer = 7fba67d0d380
+    Java C Data - Array Data Pointer Buffer array->buffers[1] = 10ec0d040
+    Java C Data - BigIntVector: [6510615555426900570, 6510615555426900570, 6510615555426900570, 6510615555426900570, 6510615555426900570, 6510615555426900570, 6510615555426900570, 6510615555426900570]
 
