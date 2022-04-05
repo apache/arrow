@@ -95,6 +95,11 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     return ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.getString(properties);
   }
 
+  // TODO Add java doc
+  public boolean useSystemCertificate() {
+    return ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.getBoolean(properties);
+  }
+
   /**
    * Whether to use TLS encryption.
    *

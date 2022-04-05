@@ -98,6 +98,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
           .withPassword(config.getPassword())
           .withKeyStorePath(config.getKeyStorePath())
           .withKeyStorePassword(config.getKeystorePassword())
+          .withSystemCertificate(config.useSystemCertificate())
           .withBufferAllocator(allocator)
           .withTlsEncryption(config.useTls())
           .withDisableCertificateVerification(config.getDisableCertificateVerification())

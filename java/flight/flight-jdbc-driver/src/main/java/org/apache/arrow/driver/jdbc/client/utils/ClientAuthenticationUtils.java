@@ -26,6 +26,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
@@ -102,6 +104,47 @@ public final class ClientAuthenticationUtils {
   }
 
   /**
+   * It gets the trusted certificate based on the operating system and loads all the certificate into a
+   * {@link InputStream}.
+   *
+   * @return An input stream with all the certificates.
+   *
+   * @throws KeyStoreException
+   * @throws CertificateException
+   * @throws IOException
+   * @throws NoSuchAlgorithmException
+   */
+  public static InputStream getCertificateInputStreamFromSystem() throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
+    String systemName = System.getProperty("os.name");
+
+    KeyStore keyStore = null;
+    if (systemName.contains("Windows")) {
+      keyStore = KeyStore.getInstance("Windows-ROOT");
+    } else if (systemName.contains("Mac")) {
+      keyStore = KeyStore.getInstance("KeychainStore");
+    }
+
+    assert keyStore != null;
+    keyStore.load(null, null);
+
+    Enumeration<String> aliases = keyStore.aliases();
+
+    try (final StringWriter writer = new StringWriter();
+         final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+
+      while (aliases.hasMoreElements()) {
+        String alias = aliases.nextElement();
+        if (keyStore.isCertificateEntry(alias)) {
+          pemWriter.writeObject(keyStore.getCertificate(alias));
+        }
+      }
+      pemWriter.flush();
+      return new ByteArrayInputStream(
+              writer.toString().getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
+  /**
    * Generates an {@link InputStream} that contains certificates for a private
    * key.
    *
@@ -124,6 +167,10 @@ public final class ClientAuthenticationUtils {
           Preconditions.checkNotNull(keyStorePass).toCharArray());
     }
 
+    return getCertificateInputStream(keyStore);
+  }
+
+  private static InputStream getCertificateInputStream(KeyStore keyStore) throws KeyStoreException, IOException, CertificateException {
     final Enumeration<String> aliases = keyStore.aliases();
 
     while (aliases.hasMoreElements()) {
