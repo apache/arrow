@@ -673,7 +673,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
 
   Status ReturnConnection(ClientConnection conn) {
     std::unique_lock<std::mutex> connections_mutex_;
-    // TODO(lidavidm): for future improvement: reclaim clients
+    // TODO(ARROW-16127): for future improvement: reclaim clients
     // asynchronously in the background (try to avoid issues like
     // constantly opening/closing clients because the application is
     // just barely over the limit of open connections)

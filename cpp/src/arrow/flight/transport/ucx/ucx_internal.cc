@@ -684,7 +684,7 @@ class UcpCallDriver::Impl {
     if (kEnableContigSend && all_cpu) {
       // CONTIG - concatenate buffers into one before sending
 
-      // TODO(lidavidm): this needs to be pipelined since it can be expensive.
+      // TODO(ARROW-16126): this needs to be pipelined since it can be expensive.
       // Preliminary profiling shows ~5% overhead just from mapping the buffer
       // alone (on Infiniband; it seems to be trivial for shared memory)
       request_param.datatype = ucp_dt_make_contig(1);
@@ -929,8 +929,8 @@ class UcpCallDriver::Impl {
     } else {
       pending_send->completed.MarkFinished(FromUcsStatus("ucp_am_send_nbx", status));
     }
-    // TODO(lidavidm): delete should occur on a background thread if there's mapped
-    // buffers, since unmapping can be nontrivial and we don't want to block
+    // TODO(ARROW-16126): delete should occur on a background thread if there's
+    // mapped buffers, since unmapping can be nontrivial and we don't want to block
     // the thread doing UCX work. (Borrow the Rust transfer-and-drop pattern.)
     delete pending_send;
     ucp_request_free(request);
@@ -989,7 +989,7 @@ class UcpCallDriver::Impl {
 
       // We want to map/pin/register the buffer for faster transfer
       // where possible. (It gets unmapped in ~PendingAmRecv.)
-      // TODO(lidavidm): This takes non-trivial time, so return
+      // TODO(ARROW-16126): This takes non-trivial time, so return
       // UCS_INPROGRESS, kick off the allocation in the background,
       // and recv the data later (is it allowed to call
       // ucp_am_recv_data_nbx asynchronously?).

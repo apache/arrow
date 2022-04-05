@@ -325,7 +325,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
   }
 
   Status Shutdown(const std::chrono::system_clock::time_point& deadline) override {
-    // TODO(lidavidm): implement shutdown with deadline
+    // TODO(ARROW-16125): implement shutdown with deadline
     return Shutdown();
   }
 
@@ -578,7 +578,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
   static void HandleIncomingConnection(ucp_conn_request_h connection_request,
                                        void* data) {
     UcxServerImpl* server = reinterpret_cast<UcxServerImpl*>(data);
-    // TODO(lidavidm): enable shedding load above some threshold
+    // TODO(ARROW-16124): enable shedding load above some threshold
     // (which is a pitfall with gRPC/Java)
     server->EnqueueClient(connection_request);
   }
