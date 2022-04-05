@@ -145,6 +145,12 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT SinkNodeConsumer {
  public:
   virtual ~SinkNodeConsumer() = default;
+  /// \brief Prepare any consumer state
+  ///
+  /// This will be run once the schema is finalized as the plan is starting and
+  /// before any calls to Consume.  A common use is to save off the schema so that
+  /// batches can be interpreted.
+  virtual Status Init(const std::shared_ptr<Schema>& schema) = 0;
   /// \brief Consume a batch of data
   virtual Status Consume(ExecBatch batch) = 0;
   /// \brief Signal to the consumer that the last batch has been delivered
@@ -308,12 +314,10 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 /// a table pointer.
 class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
  public:
-  TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
-                       std::shared_ptr<Schema> output_schema)
-      : output_table(output_table), output_schema(std::move(output_schema)) {}
+  explicit TableSinkNodeOptions(std::shared_ptr<Table>* output_table)
+      : output_table(output_table) {}
 
   std::shared_ptr<Table>* output_table;
-  std::shared_ptr<Schema> output_schema;
 };
 
 }  // namespace compute
