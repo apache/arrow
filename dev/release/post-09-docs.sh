@@ -77,7 +77,6 @@ curl \
   --location \
   --remote-name \
   https://apache.jfrog.io/artifactory/arrow/docs/${version}/docs.tar.gz
-cp ../docs.tar.gz .
 tar xvf docs.tar.gz
 rm -f docs.tar.gz
 git checkout docs/c_glib/index.html
