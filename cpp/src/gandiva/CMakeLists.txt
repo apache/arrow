@@ -56,8 +56,6 @@ set(SRC_FILES
     bitmap_accumulator.cc
     cache.cc
     cast_time.cc
-    gdv_string_function_stubs.cc
-    gdv_hash_function_stubs.cc
     configuration.cc
     context_helper.cc
     decimal_ir.cc
@@ -83,6 +81,8 @@ set(SRC_FILES
     function_signature.cc
     gandiva_object_cache.cc
     gdv_function_stubs.cc
+    gdv_string_function_stubs.cc
+    gdv_hash_function_stubs.cc
     hash_utils.cc
     interval_holder.cc
     llvm_generator.cc
