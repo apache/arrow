@@ -101,9 +101,11 @@ To connect to a Flight service, create an instance of
 :class:`arrow::flight::FlightClient` by calling :func:`Connect
 <arrow::flight::FlightClient::Connect>`.
 
-Each RPC method returns :class:`arrow::Status` to indicate the
-success/failure of the request. Any other return values are specified
-through out parameters.
+Each RPC method returns :class:`arrow::Result` to indicate the
+success/failure of the request, and the result object if the request
+succeeded. Some calls are streaming calls, so they will return a
+reader and/or a writer object; the final call status isn't known until
+the stream is completed.
 
 Cancellation and Timeouts
 =========================
