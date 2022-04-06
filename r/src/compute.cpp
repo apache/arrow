@@ -522,7 +522,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   if (func_name == "round_temporal" || func_name == "floor_temporal" ||
       func_name == "ceil_temporal") {
     using Options = arrow::compute::RoundTemporalOptions;
-    
+
     int64_t multiple = 1;
     enum arrow::compute::CalendarUnit unit = arrow::compute::CalendarUnit::DAY;
     bool week_starts_monday = true;
@@ -544,7 +544,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     if (!Rf_isNull(options["calendar_based_origin"])) {
       calendar_based_origin = cpp11::as_cpp<int64_t>(options["calendar_based_origin"]);
     }
-    return std::make_shared<Options>(multiple, unit, week_starts_monday, change_on_boundary, calendar_based_origin);
+    return std::make_shared<Options>(multiple, unit, week_starts_monday,
+                                     change_on_boundary, calendar_based_origin);
   }
 
   if (func_name == "round_to_multiple") {
