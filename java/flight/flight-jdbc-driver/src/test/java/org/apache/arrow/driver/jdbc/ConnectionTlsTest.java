@@ -156,33 +156,6 @@ public class ConnectionTlsTest {
   }
 
   /**
-   * Try to instantiate an encrypted FlightClient with cert verification
-   * disabled and passing some valid certification.
-   *
-   * @throws Exception on error.
-   */
-  @Test(expected = SQLException.class)
-  public void testGetEncryptedClientWithDisableCertVerificationPassingCertification() throws Exception {
-    final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        userTest, passTest);
-
-    try (ArrowFlightSqlClientHandler client =
-             new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-                 .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-                 .withUsername(credentials.getUserName())
-                 .withPassword(credentials.getPassword())
-                 .withDisableCertificateVerification(true)
-                 .withTrustStorePath(trustStorePath)
-                 .withTrustStorePassword(trustStorePass)
-                 .withBufferAllocator(allocator)
-                 .withTlsEncryption(true)
-                 .build()) {
-      Assert.fail();
-    }
-  }
-
-  /**
    * Try to instantiate an encrypted FlightClient without credentials.
    *
    * @throws Exception on error.
