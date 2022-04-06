@@ -2565,12 +2565,6 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
 })
 
 
-# NOTE: arrow dplyr binding for ceiling_date() does not force dates up to the
-# next date. the logic mirrors lubridate prior to v1.6.0 (change_on_boundary = FALSE).
-# I'm not 100% sold on this implementation, but it's not obviously terrible.
-# The bigger concern is that it introduces minor discrepancies between arrow and
-# lubridate in some edge cases with ceiling_date()
-
 test_that("change_on_boundary is respected in ceiling_time", {
 
   boundary_times <- tibble::tibble(
@@ -2583,29 +2577,40 @@ test_that("change_on_boundary is respected in ceiling_time", {
     ), tz="UTC", format = "%F %T"))
   )
 
-  cob <- FALSE
   compare_dplyr_binding(
     .input %>%
       mutate(
-        out_1 = ceiling_date(datetime, "day", change_on_boundary = cob),
-        out_2 = ceiling_date(datetime, "hour", change_on_boundary = cob),
-        out_3 = ceiling_date(datetime, "minute", change_on_boundary = cob),
-        out_4 = ceiling_date(datetime, "second", change_on_boundary = cob),
-        out_5 = ceiling_date(datetime, ".001 second", change_on_boundary = cob)
+        out_1 = ceiling_date(datetime, "day"),
+        out_2 = ceiling_date(datetime, "hour"),
+        out_3 = ceiling_date(datetime, "minute"),
+        out_4 = ceiling_date(datetime, "second"),
+        out_5 = ceiling_date(datetime, ".001 second")
       ) %>%
       collect(),
     boundary_times
   )
 
-  cob <- TRUE
   compare_dplyr_binding(
     .input %>%
       mutate(
-        out_1 = ceiling_date(datetime, "day", change_on_boundary = cob),
-        out_2 = ceiling_date(datetime, "hour", change_on_boundary = cob),
-        out_3 = ceiling_date(datetime, "minute", change_on_boundary = cob),
-        out_4 = ceiling_date(datetime, "second", change_on_boundary = cob),
-        out_5 = ceiling_date(datetime, ".001 second", change_on_boundary = cob)
+        out_1 = ceiling_date(datetime, "day", change_on_boundary = FALSE),
+        out_2 = ceiling_date(datetime, "hour", change_on_boundary = FALSE),
+        out_3 = ceiling_date(datetime, "minute", change_on_boundary = FALSE),
+        out_4 = ceiling_date(datetime, "second", change_on_boundary = FALSE),
+        out_5 = ceiling_date(datetime, ".001 second", change_on_boundary = FALSE)
+      ) %>%
+      collect(),
+    boundary_times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = ceiling_date(datetime, "day", change_on_boundary = TRUE),
+        out_2 = ceiling_date(datetime, "hour", change_on_boundary = TRUE),
+        out_3 = ceiling_date(datetime, "minute", change_on_boundary = TRUE),
+        out_4 = ceiling_date(datetime, "second", change_on_boundary = TRUE),
+        out_5 = ceiling_date(datetime, ".001 second", change_on_boundary = TRUE)
       ) %>%
       collect(),
     boundary_times
@@ -2616,7 +2621,8 @@ test_that("change_on_boundary is respected in ceiling_time", {
     .input %>%
       mutate(
         out_1 = ceiling_date(date, "day", change_on_boundary = FALSE),
-        out_2 = ceiling_date(date, "day", change_on_boundary = TRUE)
+        out_2 = ceiling_date(date, "day", change_on_boundary = TRUE),
+        out_3 = ceiling_date(date, "day")
       ) %>%
       collect(),
     boundary_date
@@ -2625,17 +2631,17 @@ test_that("change_on_boundary is respected in ceiling_time", {
 })
 
 
-test_that("do not attempt to round to week units", {
+test_that("do not attempt to round to weeks that don't start Sun/Mon", {
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_error(
-    call_binding("round_date", Expression$scalar(Sys.Date()), "week"),
+    call_binding("round_date", Expression$scalar(Sys.Date()), "week", week_start = 3),
     "Date/time rounding to week units"
   )
 
   expect_error(
-    call_binding("round_date", Expression$scalar(Sys.time()), "week"),
+    call_binding("round_date", Expression$scalar(Sys.time()), "week", week_start = 3),
     "Date/time rounding to week units"
   )
 
