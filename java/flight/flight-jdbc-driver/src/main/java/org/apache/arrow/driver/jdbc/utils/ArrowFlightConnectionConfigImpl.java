@@ -86,7 +86,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    *
    * @return the path.
    */
-  public String getKeyStorePath() {
+  public String getTrustStorePath() {
     return ArrowFlightConnectionProperty.TRUST_STORE.getString(properties);
   }
 
@@ -95,7 +95,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    *
    * @return the password.
    */
-  public String getKeystorePassword() {
+  public String getTrustStorePassword() {
     return ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.getString(properties);
   }
 

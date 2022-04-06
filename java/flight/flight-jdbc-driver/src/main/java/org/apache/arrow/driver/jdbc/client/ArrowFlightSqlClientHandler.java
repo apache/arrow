@@ -401,7 +401,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @param keyStorePath the KeyStore path.
      * @return this instance.
      */
-    public Builder withKeyStorePath(final String keyStorePath) {
+    public Builder withTrustStorePath(final String keyStorePath) {
       this.keyStorePath = keyStorePath;
       return this;
     }
@@ -412,7 +412,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @param keyStorePassword the KeyStore password.
      * @return this instance.
      */
-    public Builder withKeyStorePassword(final String keyStorePassword) {
+    public Builder withTrustStorePassword(final String keyStorePassword) {
       this.keyStorePassword = keyStorePassword;
       return this;
     }
