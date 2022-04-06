@@ -627,7 +627,18 @@ register_bindings_datetime_parsers <- function() {
                                           week_start = getOption("lubridate.week.start", 7)) {
     opts <- parse_period_unit(unit)
     if (opts$unit == 7L) {
-      arrow_not_supported("Date/time rounding to week units")
+      if (week_start == 7) { # Sunday
+        opts$week_starts_monday <- 0L
+        return(Expression$create("round_temporal", x, options = opts))
+
+      } else if (week_start == 1) { # Monday
+        opts$week_starts_monday <- 1L
+        return(Expression$create("round_temporal", x, options = opts))
+
+      } else { # other days
+        arrow_not_supported("Date/time rounding to week units")
+      }
+
     }
     Expression$create("round_temporal", x, options = opts)
   })
