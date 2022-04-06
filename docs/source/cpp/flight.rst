@@ -100,9 +100,7 @@ Using the Flight Client
 To connect to a Flight service, create an instance of
 :class:`arrow::flight::FlightClient` by calling :func:`Connect
 <arrow::flight::FlightClient::Connect>`. This takes a Location and
-returns the client through an out parameter. To authenticate, call
-:func:`Authenticate <arrow::flight::FlightClient::Authenticate>` with
-the desired client authentication implementation.
+returns the client through an out parameter.
 
 Each RPC method returns :class:`arrow::Status` to indicate the
 success/failure of the request. Any other return values are specified
@@ -141,13 +139,21 @@ Enabling Authentication
 .. warning:: Authentication is insecure without enabling TLS.
 
 Handshake-based authentication can be enabled by implementing
-:class:`ServerAuthHandler <arrow::flight::ServerAuthHandler>`.
+:class:`ServerAuthHandler <arrow::flight::ServerAuthHandler>` and
+providing this to the server during construction.
+
 Authentication consists of two parts: on initial client connection,
 the server and client authentication implementations can perform any
-negotiation needed; then, on each RPC thereafter, the client provides
-a token. The server authentication handler validates the token and
-provides the identity of the client. This identity can be obtained
-from the :class:`arrow::flight::ServerCallContext`.
+negotiation needed. The client authentication handler then provides a
+token that will be attached to future calls. This is done by calling
+:func:`Authenticate <arrow::flight::FlightClient::Authenticate>` with
+the desired client authentication implementation.
+
+On each RPC thereafter, the client handler's token is automatically
+added to the call in the request headers. The server authentication
+handler validates the token and provides the identity of the
+client. On the server, this identity can be obtained from the
+:class:`arrow::flight::ServerCallContext`.
 
 Custom Middleware
 =================
