@@ -71,14 +71,11 @@ class FilterNode : public MapNode {
 
     util::tracing::Span span;
 
-    START_SPAN(
-        span, "Filter",
-        {{"filter.expression", ToStringExtra()},
-         {"filter.expression.simplified", simplified_filter.ToString()},
-         {"filter.length", target.length},
-         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
-         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
-         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
+    START_SPAN(span, "Filter",
+               {{"filter.expression", ToStringExtra()},
+                {"filter.expression.simplified", simplified_filter.ToString()},
+                {"filter.length", target.length},
+                GET_MEMORY_POOL_INFO});
 
     ARROW_ASSIGN_OR_RAISE(Datum mask, ExecuteScalarExpression(simplified_filter, target,
                                                               plan()->exec_context()));
@@ -108,14 +105,11 @@ class FilterNode : public MapNode {
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
       util::tracing::Span span;
-      START_SPAN_WITH_PARENT(
-          span, span_, "InputReceived",
-          {{"filter", ToStringExtra()},
-           {"node.label", label()},
-           {"batch.length", batch.length},
-           {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
-           {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
-           {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
+      START_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                             {{"filter", ToStringExtra()},
+                              {"node.label", label()},
+                              {"batch.length", batch.length},
+                              GET_MEMORY_POOL_INFO});
       auto result = DoFilter(std::move(batch));
       MARK_SPAN(span, result.status());
       END_SPAN(span);

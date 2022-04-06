@@ -51,7 +51,6 @@
 
 #include <fcntl.h>
 #include <signal.h>
-#include <arrow/util/string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>  // IWYU pragma: keep
@@ -69,18 +68,11 @@
 
 #ifdef _WIN32
 #include "arrow/io/mman.h"
-#include "psapi.h"
-#include "windows.h"
 #undef Realloc
 #undef Free
 #else  // POSIX-like platforms
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
-#include <sys/sysinfo.h>
 #include <unistd.h>
-#include <fstream>
 #endif
 
 // define max read/write count
@@ -105,8 +97,30 @@
 #include "arrow/util/logging.h"
 
 // For filename conversion
-#if defined(_WIN32)
+#ifdef _WIN32
 #include "arrow/util/utf8.h"
+#endif
+
+#ifdef _WIN32
+#include <psapi.h>
+#include <windows.h>
+
+#elif __unix__ || __unix || unix || (__APPLE__ && __MACH__)
+#include <sys/resource.h>
+
+#if __APPLE__ && __MACH__
+#include <mach/mach.h>
+
+#elif (_AIX || __TOS__AIX__) || (__sun__ || __sun || sun && (_SVR4 || __svr4__))
+#include <procfs.h>
+
+#elif __linux__ || __linux || linux || __gnu_linux__
+#include <stdio.h>
+
+#endif
+
+#else
+#error "Cannot define getPeakRSS( ) or getCurrentRSS( ) for an unknown OS."
 #endif
 
 namespace arrow {
@@ -1875,59 +1889,41 @@ uint64_t GetOptionalThreadId() {
   return (tid == 0) ? tid - 1 : tid;
 }
 
-int parseLine(std::string line){
-  // This assumes that a digit will be found and the line ends in " Kb".
-  uint64_t i = line.length();
-  uint64_t index = 0;
-  while (line[index] <'0' || line[index] > '9') index++;
-  line[i-3] = '\0';
-  i = atoi(&line[index]);
-  return i;
-}
+// Returns the current resident set size (physical memory use) measured
+// in bytes, or zero if the value cannot be determined on this OS.
+// See: https://stackoverflow.com/a/14927379
+int64_t GetCurrentRSS() {
+#if defined(_WIN32)
+  // Windows --------------------------------------------------
+  PROCESS_MEMORY_COUNTERS info;
+  GetProcessMemoryInfo(GetCurrentProcess(), &info, sizeof(info));
+  return (int64_t)info.WorkingSetSize;
 
-int64_t GetMemoryUsedByProcess() {
-#ifdef _WIN32
-  PROCESS_MEMORY_COUNTERS_EX pmc;
-  PROCESS_MEMORY_COUNTERS_EX pmc;
-  GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
-  return pmc.WorkingSetSize;
-#else
-  std::string line;
-  std::string name;
-  uint64_t result;
-  std::ifstream status_info("/proc/self/status", std::ios::in);
-  while (status_info) {
-    std::getline(status_info, line);
-    int64_t colon = line.find(':');
-    if (colon != std::string::npos) {
-      name = TrimString(line.substr(0, colon - 1));
-      if (name.compare("VmRSS") == 0){
-        result = parseLine(line);
-        break;
-      }
-    }
+#elif defined(__APPLE__) && defined(__MACH__)
+  // OSX ------------------------------------------------------
+  struct mach_task_basic_info info;
+  mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
+      KERN_SUCCESS)
+    return (int64_t)0L;
+  return (int64_t)info.resident_size;
+
+#elif defined(__linux__) || defined(__linux) || defined(linux) || defined(__gnu_linux__)
+  // Linux ----------------------------------------------------
+  int64_t rss = 0L;
+  FILE* fp = NULL;
+  if ((fp = fopen("/proc/self/statm", "r")) == NULL) return (int64_t)0L;
+  if (fscanf(fp, "%*s%ld", &rss) != 1) {
+    fclose(fp);
+    return (int64_t)0L;
   }
-  if (status_info.is_open()) status_info.close();
-  return result * 1024;
-#endif
-}
+  fclose(fp);
+  return (int64_t)rss * (int64_t)sysconf(_SC_PAGESIZE);
 
-//TODO: Reutilize PR-11426 functions
-int64_t GetMemoryUsed() {
-#ifdef _WIN32
-  MEMORYSTATUSEX memInfo;
-  memInfo.dwLength = sizeof(MEMORYSTATUSEX);
-  GlobalMemoryStatusEx(&memInfo);
-  return memInfo.ullTotalPhys - memInfo.ullAvailPhys;
 #else
+  // AIX, BSD, Solaris, and Unknown OS ------------------------
+  return (int64_t)0L;  // Unsupported.
 #endif
-  int64_t total_memory_size;
-  int64_t used_memory_size;
-  struct sysinfo si;
-  sysinfo(&si);
-  total_memory_size = static_cast<int64_t>(si.totalram);
-  used_memory_size = total_memory_size - static_cast<int64_t>(si.freeram);
-  return used_memory_size;
 }
 
 }  // namespace internal

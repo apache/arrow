@@ -20,13 +20,13 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/sysinfo.h>
 #include <iostream>
 #include <sstream>
 #include <thread>
-#include <sys/sysinfo.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 #ifdef _MSC_VER
 #pragma warning(push)

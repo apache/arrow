@@ -90,14 +90,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
               TaskScheduler::ScheduleImpl schedule_task_callback) override {
     num_threads = std::max(num_threads, static_cast<size_t>(1));
 
-    START_SPAN(
-        span_, "HashJoinBasicImpl",
-        {{"detail", filter.ToString()},
-         {"join.kind", ToString(join_type)},
-         {"join.threads", static_cast<uint32_t>(num_threads)},
-         {"memory_pool_bytes", ctx->memory_pool()->bytes_allocated()},
-         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
-         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
+    START_SPAN(span_, "HashJoinBasicImpl",
+               {{"detail", filter.ToString()},
+                {"join.kind", ToString(join_type)},
+                {"join.threads", static_cast<uint32_t>(num_threads)},
+                GET_MEMORY_POOL_INFO});
 
     ctx_ = ctx;
     join_type_ = join_type;

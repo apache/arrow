@@ -151,6 +151,9 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
         return st;                                                                \
       })
 
+#define GET_MEMORY_POOL_INFO \
+  { "memory_pool_bytes", default_memory_pool()->bytes_allocated() }
+
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)                                \
   generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator( \
       std::move(generator))
@@ -181,6 +184,7 @@ class SpanImpl {};
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
+#define GET_MEMORY_POOL_INFO
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
 #define WRAP_ASYNC_GENERATOR(generator)
 #define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name)

@@ -112,14 +112,11 @@ class UnionNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_SPAN(
-        span_, std::string(kind_name()) + ":" + label(),
-        {{"node.label", label()},
-         {"node.detail", ToString()},
-         {"node.kind", kind_name()},
-         {"memory_pool_bytes", plan_->exec_context()->memory_pool()->bytes_allocated()},
-         {"memory_used", arrow::internal::tracing::GetMemoryUsed()},
-         {"memory_used_process", arrow::internal::tracing::GetMemoryUsedByProcess()}});
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.label", label()},
+                {"node.detail", ToString()},
+                {"node.kind", kind_name()},
+                GET_MEMORY_POOL_INFO});
     finished_ = Future<>::Make();
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
