@@ -23,7 +23,7 @@
 #include "gandiva/gdv_function_stubs.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/precompiled/types.h"
-#include "hash_utils.h"
+#include "gandiva/hash_utils.h"
 
 extern "C" {
 
