@@ -274,13 +274,13 @@ parse_period_unit <- function(x) {
 
   # more special cases: lubridate imposes sensible maximum
   # values on the number of seconds, minutes and hours
-  if(unit == 3L & multiple > 60) {
+  if (unit == 3L & multiple > 60) {
     abort("Rounding with second > 60 is not supported")
   }
-  if(unit == 4L & multiple > 60) {
+  if (unit == 4L & multiple > 60) {
     abort("Rounding with minute > 60 is not supported")
   }
-  if(unit == 5L & multiple > 24) {
+  if (unit == 5L & multiple > 24) {
     abort("Rounding with hour > 24 is not supported")
   }
 
