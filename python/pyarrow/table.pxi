@@ -1601,17 +1601,6 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         str
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.to_string()
-        'pyarrow.Table\nyear: int64\nn_legs: int64\nanimals: string'
         """
         # Use less verbose schema output.
         schema_as_string = self.schema.to_string(
