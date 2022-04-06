@@ -110,7 +110,7 @@ A client that wishes to download the data would:
    client must connect to one of the indicated locations.
 
    In this way, the locations inside an endpoint can also be thought
-of as performing look-aside load balancing or service discovery
+   of as performing look-aside load balancing or service discovery
    functions. And the endpoints can represent data that is partitioned
    or otherwise distributed.
 

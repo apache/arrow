@@ -99,8 +99,7 @@ Using the Flight Client
 
 To connect to a Flight service, create an instance of
 :class:`arrow::flight::FlightClient` by calling :func:`Connect
-<arrow::flight::FlightClient::Connect>`. This takes a Location and
-returns the client through an out parameter.
+<arrow::flight::FlightClient::Connect>`.
 
 Each RPC method returns :class:`arrow::Status` to indicate the
 success/failure of the request. Any other return values are specified
@@ -116,8 +115,9 @@ headers, among other features. Also, some objects returned by client
 RPC calls expose a ``Cancel`` method which allows terminating a call
 early.
 
-On the server side, no additional code is needed to implement timeouts. For cancellation, the
-server needs to manually poll :func:`ServerCallContext::is_cancelled
+On the server side, no additional code is needed to implement
+timeouts. For cancellation, the server needs to manually poll
+:func:`ServerCallContext::is_cancelled
 <arrow::flight::ServerCallContext::is_cancelled>` to check if the
 client has cancelled the call, and if so, break out of any processing
 the server is currently doing.
