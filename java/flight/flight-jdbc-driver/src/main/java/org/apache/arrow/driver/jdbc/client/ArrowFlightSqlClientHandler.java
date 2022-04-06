@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc.client;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -545,18 +544,19 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         useSystemTrustStore = keyStorePassword == null;
 
         if (disableCertificateVerification) {
-          useSystemTrustStore = false;
           clientBuilder.verifyServer(false);
+        } else {
+          if (keyStorePath != null) {
+            clientBuilder.trustedCertificates(
+                ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
+          } else if (useSystemTrustStore && !ClientAuthenticationUtils.isLinux()) {
+            clientBuilder.trustedCertificates(
+                ClientAuthenticationUtils.getCertificateInputStreamFromSystem());
+          } else if (ClientAuthenticationUtils.isLinux()) {
+            clientBuilder.trustedCertificates(ClientAuthenticationUtils.getCertificateInputStreamFromJVM());
+          }
         }
 
-        if (keyStorePath != null && !useSystemTrustStore) {
-          clientBuilder.trustedCertificates(
-              ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
-        } else if (keyStorePath == null && useSystemTrustStore) {
-          InputStream certificateStreamFromSystem = ClientAuthenticationUtils.getCertificateInputStreamFromSystem();
-          clientBuilder.trustedCertificates(
-                  certificateStreamFromSystem);
-        }
         client = clientBuilder.build();
         if (authFactory != null) {
           options.add(
