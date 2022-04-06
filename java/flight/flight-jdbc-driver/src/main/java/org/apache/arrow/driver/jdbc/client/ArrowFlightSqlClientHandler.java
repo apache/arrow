@@ -541,8 +541,6 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         }
         clientBuilder.location(location);
 
-        useSystemTrustStore = keyStorePassword == null;
-
         if (disableCertificateVerification) {
           clientBuilder.verifyServer(false);
         } else {
