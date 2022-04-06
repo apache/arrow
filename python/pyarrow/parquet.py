@@ -2423,7 +2423,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
 
     >>> pq.read_metadata('example.parquet')
     <pyarrow._parquet.FileMetaData object at ...>
-      created_by: parquet-cpp-arrow version 8.0.0-SNAPSHOT
+      created_by: parquet-cpp-arrow version ...
       num_columns: 2
       num_rows: 3
       num_row_groups: 1
