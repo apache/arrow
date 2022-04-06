@@ -350,3 +350,30 @@ print.arrow_r_metadata <- function(x, ...) {
   utils::str(.unserialize_arrow_r_metadata(x))
   invisible(x)
 }
+
+#' Convert an object to an Arrow DataType
+#'
+#' @param x An object to convert to a [schema()]
+#' @param ... Passed to S3 methods.
+#'
+#' @return A [Schema] object.
+#' @export
+#'
+#' @examplesIf arrow_available()
+#' as_schema(schema(col1 = int32()))
+#'
+as_schema <- function(x, ...) {
+  UseMethod("as_schema")
+}
+
+#' @rdname as_schema
+#' @export
+as_schema.Schema <- function(x, ...) {
+  x
+}
+
+#' @rdname as_schema
+#' @export
+as_schema.StructType <- function(x, ...) {
+  schema(!!! x$fields())
+}

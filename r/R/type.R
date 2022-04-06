@@ -722,7 +722,7 @@ canonical_type_str <- function(type_str) {
 #' @return A [DataType][data-type] object.
 #' @export
 #'
-#' @examples
+#' @examplesIf arrow_available()
 #' as_data_type(int32())
 #'
 as_data_type <- function(x, ...) {
