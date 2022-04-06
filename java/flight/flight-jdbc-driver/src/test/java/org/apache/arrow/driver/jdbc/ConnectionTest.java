@@ -261,7 +261,7 @@ public class ConnectionTest {
         userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.setProperty(ArrowFlightConnectionProperty.USE_TLS.camelName(), "false");
+    properties.setProperty(ArrowFlightConnectionProperty.SSL.camelName(), "false");
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -289,7 +289,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), false);
+    properties.put(ArrowFlightConnectionProperty.SSL.camelName(), false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -340,7 +340,7 @@ public class ConnectionTest {
         userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.setProperty(ArrowFlightConnectionProperty.USE_TLS.camelName(), "0");
+    properties.setProperty(ArrowFlightConnectionProperty.SSL.camelName(), "0");
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -369,7 +369,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), 0);
+    properties.put(ArrowFlightConnectionProperty.SSL.camelName(), 0);
 
     Connection connection = DriverManager.getConnection(
         String.format(

@@ -348,7 +348,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private String token;
     private boolean useTls;
     private boolean disableCertificateVerification;
-    private boolean useSystemCertificate;
+    private boolean useSystemTrustStore;
     private BufferAllocator allocator;
 
     /**
@@ -435,8 +435,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     // TODO Add java doc
-    public Builder withSystemCertificate(final boolean useSystemCertificate) {
-      this.useSystemCertificate = useSystemCertificate;
+    public Builder withSystemTrustStore(final boolean useSystemTrustStore) {
+      this.useSystemTrustStore = useSystemTrustStore;
       return this;
     }
 
@@ -532,14 +532,16 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         }
         clientBuilder.location(location);
 
+        useSystemTrustStore = keyStorePassword == null;
+
         if (disableCertificateVerification) {
           clientBuilder.verifyServer(false);
         }
 
-        if (keyStorePath != null && !useSystemCertificate) {
+        if (keyStorePath != null && !useSystemTrustStore) {
           clientBuilder.trustedCertificates(
               ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
-        } else if (keyStorePath == null && useSystemCertificate) {
+        } else if (keyStorePath == null && useSystemTrustStore) {
           InputStream certificateStreamFromSystem = ClientAuthenticationUtils.getCertificateInputStreamFromSystem();
           clientBuilder.trustedCertificates(
                   certificateStreamFromSystem);

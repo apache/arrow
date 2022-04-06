@@ -96,7 +96,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
   }
 
   // TODO Add java doc
-  public boolean useSystemCertificate() {
+  public boolean useSystemTrustStore() {
     return ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.getBoolean(properties);
   }
 
@@ -106,7 +106,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return whether to use TLS encryption.
    */
   public boolean useTls() {
-    return ArrowFlightConnectionProperty.USE_TLS.getBoolean(properties);
+    return ArrowFlightConnectionProperty.SSL.getBoolean(properties);
   }
 
   public boolean getDisableCertificateVerification() {
@@ -141,7 +141,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     PORT("port", null, Type.NUMBER, true),
     USER("user", null, Type.STRING, false),
     PASSWORD("password", null, Type.STRING, false),
-    USE_TLS("useTls", true, Type.BOOLEAN, false),
+    SSL("ssl", true, Type.BOOLEAN, false),
     CERTIFICATE_VERIFICATION("disableCertificateVerification", false, Type.BOOLEAN, false),
     TRUST_STORE("trustStore", null, Type.STRING, false),
     TRUST_STORE_PASSWORD("trustStorePassword", null, Type.STRING, false),
