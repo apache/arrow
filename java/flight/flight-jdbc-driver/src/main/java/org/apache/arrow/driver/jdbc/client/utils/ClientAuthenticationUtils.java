@@ -105,10 +105,61 @@ public final class ClientAuthenticationUtils {
     return factory.getCredentialCallOption();
   }
 
-  private static void getKeyStoreInstance (KeyStore keyStore, String instance)
+  private static void getKeyStoreInstance(KeyStore keyStore, String instance)
       throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
     keyStore = KeyStore.getInstance(instance);
     keyStore.load(null, null);
+  }
+
+  private static String getOperatingSystem() {
+    return System.getProperty("os.name");
+  }
+
+  /**
+   * Check if the operating system running the software is Windows.
+   *
+   * @return whether is the windows system.
+   */
+  public static boolean isWindows() {
+    return getOperatingSystem().contains("Windows");
+  }
+
+  /**
+   * Check if the operating system running the software is Mac.
+   *
+   * @return whether is the mac system.
+   */
+  public static boolean isMac() {
+    return getOperatingSystem().contains("Mac");
+  }
+
+  /**
+   * Check if the operating system running the software is Linux.
+   *
+   * @return whether is the linux system.
+   */
+  public static boolean isLinux() {
+    return getOperatingSystem().contains("Linux");
+  }
+
+  /**
+   * Gets the trusted certificates input stream from the JVM.
+   *
+   * @return the trusted certificates as an {@link InputStream}.
+   * @throws IOException                if it fails reading the file.
+   * @throws KeyStoreException          if a key store could not be loaded.
+   * @throws CertificateException       if a certificate could not be found.
+   */
+  public static InputStream getCertificateInputStreamFromJVM()
+      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
+    String filename = System.getProperty("java.home") + "/lib/security/cacerts".replace('/', File.separatorChar);
+    FileInputStream fileInputStream = new FileInputStream(filename);
+    KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+    String password = "changeit";
+
+    keyStore.load(fileInputStream, password.toCharArray());
+
+    return getCertificatesInputStream(keyStore);
   }
 
   /**
@@ -117,29 +168,25 @@ public final class ClientAuthenticationUtils {
    *
    * @return An input stream with all the certificates.
    *
-   * @throws KeyStoreException
-   * @throws CertificateException
-   * @throws IOException
-   * @throws NoSuchAlgorithmException
+   * @throws KeyStoreException        if a key store could not be loaded.
+   * @throws CertificateException     if a certificate could not be found.
+   * @throws IOException              if it fails reading the file.
    */
-  public static InputStream getCertificateInputStreamFromSystem() throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
-    String systemName = System.getProperty("os.name");
+  public static InputStream getCertificateInputStreamFromSystem() throws KeyStoreException,
+      CertificateException, IOException, NoSuchAlgorithmException {
 
     KeyStore keyStore = null;
-    if (systemName.contains("Windows")) {
+    if (isWindows()) {
       getKeyStoreInstance(keyStore, "Windows-ROOT");
-    } else if (systemName.contains("Mac")) {
+    } else if (isMac()) {
       getKeyStoreInstance(keyStore, "KeychainStore");
-    } else {
-      String filename = System.getProperty("java.home") + "/lib/security/cacerts".replace('/', File.separatorChar);
-      FileInputStream fileInputStream = new FileInputStream(filename);
-      keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-      String password = "changeit";
-
-      keyStore.load(fileInputStream, password.toCharArray());
     }
 
     assert keyStore != null;
+    return getCertificatesInputStream(keyStore);
+  }
+
+  private static InputStream getCertificatesInputStream(KeyStore keyStore) throws KeyStoreException, IOException {
     Enumeration<String> aliases = keyStore.aliases();
 
     try (final StringWriter writer = new StringWriter();
@@ -153,7 +200,7 @@ public final class ClientAuthenticationUtils {
       }
       pemWriter.flush();
       return new ByteArrayInputStream(
-              writer.toString().getBytes(StandardCharsets.UTF_8));
+          writer.toString().getBytes(StandardCharsets.UTF_8));
     }
   }
 
@@ -180,10 +227,11 @@ public final class ClientAuthenticationUtils {
           Preconditions.checkNotNull(keyStorePass).toCharArray());
     }
 
-    return getCertificateInputStream(keyStore);
+    return getSingleCertificateInputStream(keyStore);
   }
 
-  private static InputStream getCertificateInputStream(KeyStore keyStore) throws KeyStoreException, IOException, CertificateException {
+  private static InputStream getSingleCertificateInputStream(KeyStore keyStore)
+      throws KeyStoreException, IOException, CertificateException {
     final Enumeration<String> aliases = keyStore.aliases();
 
     while (aliases.hasMoreElements()) {
