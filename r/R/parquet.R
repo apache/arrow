@@ -156,12 +156,7 @@ write_parquet <- function(x,
                           properties = NULL,
                           arrow_properties = NULL) {
   x_out <- x
-
-  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
-    x <- Table$create(x)
-  }
-
-  assert_that(is_writable_table(x))
+  x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)

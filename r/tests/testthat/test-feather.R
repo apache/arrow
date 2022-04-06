@@ -105,10 +105,7 @@ test_that("write_feather option error handling", {
 
 test_that("write_feather with invalid input type", {
   bad_input <- Array$create(1:5)
-  expect_error(
-    write_feather(bad_input, feather_file),
-    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
-  )
+  expect_snapshot_error(write_feather(bad_input, feather_file))
 })
 
 test_that("read_feather supports col_select = <names>", {

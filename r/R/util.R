@@ -138,18 +138,20 @@ handle_parquet_io_error <- function(e, format, call) {
   abort(msg, call = call)
 }
 
-is_writable_table <- function(x) {
-  inherits(x, c("data.frame", "ArrowTabular"))
-}
-
-# This attribute is used when is_writable is passed into assert_that, and allows
-# the call to form part of the error message when is_writable is FALSE
-attr(is_writable_table, "fail") <- function(call, env) {
-  paste0(
-    deparse(call$x),
-    " must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '",
-    class(env[[deparse(call$x)]])[[1]],
-    "'."
+as_writable_table <- function(x, arg_name = "x") {
+  tryCatch(
+    as_arrow_table(x),
+    error = function(e) {
+      if (grepl("no applicable method for 'as_arrow_table'", conditionMessage(e))) {
+        abort(
+          c("`x` must be coercible to an Arrow Table using as_arrow_table()",
+            "i" = glue::glue("`x` inherits from {paste(class(x), collapse = ' / ')}")
+          )
+        )
+      } else{
+        abort("Error converting to a writable Table", parent = e)
+      }
+    }
   )
 }
 

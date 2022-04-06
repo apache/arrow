@@ -113,10 +113,7 @@ test_that("write_parquet() handles grouped_df", {
 
 test_that("write_parquet() with invalid input type", {
   bad_input <- Array$create(1:5)
-  expect_error(
-    write_parquet(bad_input, tempfile()),
-    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
-  )
+  expect_snapshot_error(write_parquet(bad_input, tempfile()))
 })
 
 test_that("write_parquet() can truncate timestamps", {

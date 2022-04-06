@@ -15,31 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_that("read_ipc_stream() and write_ipc_stream() accept connection objects", {
-  tf <- tempfile()
-  on.exit(unlink(tf))
-
-  test_tbl <- tibble::tibble(
-    x = 1:1e4,
-    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
-    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
-  )
-
-  write_ipc_stream(test_tbl, file(tf))
-  expect_identical(read_ipc_stream(tf), test_tbl)
-  expect_identical(read_ipc_stream(file(tf)), read_ipc_stream(tf))
-})
-
-test_that("write_ipc_stream can write Table", {
+test_that("as_writable_table() works for data.frame, RecordBatch, and Table", {
   table <- arrow_table(col1 = 1, col2 = "two")
-  tf <- tempfile()
-  on.exit(unlink(tf))
+  expect_identical(as_writable_table(table), table)
 
-  expect_identical(write_ipc_stream(table, tf), table)
-  expect_equal(read_ipc_stream(tf, as_data_frame = FALSE), table)
+  batch <- record_batch(col1 = 1, col2 = "two")
+  expect_equal(as_writable_table(batch), table)
+
+  tbl <- data.frame(col1 = 1, col2 = "two")
+  # because of metadata
+  table_from_tbl <- as_writable_table(tbl)
+  table_from_tbl$metadata <- NULL
+  expect_equal(table_from_tbl, table)
 })
 
-test_that("write_ipc_stream errors for invalid input type", {
-  bad_input <- Array$create(1:5)
-  expect_snapshot_error(write_ipc_stream(bad_input, feather_file))
+test_that("as_writable_table() errors for invalid input", {
+  expect_snapshot_error(as_writable_table("not a table", "arg_name"))
 })
