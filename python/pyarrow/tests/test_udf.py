@@ -376,39 +376,64 @@ def test_function_doc_validation():
     func_doc = {}
     func_doc["description"] = "desc"
     func_doc["arg_names"] = ["scalar1"]
-    
+
     with pytest.raises(ValueError) as execinfo:
         register_scalar_function("no_summary", arity, func_doc, in_types,
-                                    out_type, unary_scalar_function)
+                                 out_type, unary_scalar_function)
         expected_expr = "must contain summary, arg_names and a description"
         assert expected_expr in execinfo.value
-        
+
     # doc with no decription
     func_doc = {}
     func_doc["summary"] = "test summary"
     func_doc["arg_names"] = ["scalar1"]
-    
+
     with pytest.raises(ValueError) as execinfo:
         register_scalar_function("no_desc", arity, func_doc, in_types,
-                                    out_type, unary_scalar_function)
+                                 out_type, unary_scalar_function)
         expected_expr = "must contain summary, arg_names and a description"
         assert expected_expr in execinfo.value
-        
+
     # doc with no arg_names
     func_doc = {}
     func_doc["summary"] = "test summary"
     func_doc["description"] = "some test func"
-    
+
     with pytest.raises(ValueError) as execinfo:
         register_scalar_function("no_arg_names", arity, func_doc, in_types,
-                                    out_type, unary_scalar_function)
+                                 out_type, unary_scalar_function)
         expected_expr = "must contain summary, arg_names and a description"
         assert expected_expr in execinfo.value
-        
+
     # doc with empty dictionary
     func_doc = {}
     with pytest.raises(ValueError) as execinfo:
         register_scalar_function("no_arg_names", arity, func_doc, in_types,
-                                    out_type, unary_scalar_function)
+                                 out_type, unary_scalar_function)
         expected_expr = "must contain summary, arg_names and a description"
         assert expected_expr in execinfo.value
+
+
+def test_non_uniform_input_udfs():
+
+    def unary_scalar_function(scalar1, array1, scalar2):
+        coeff = pc.call_function("add", [scalar1, scalar2])
+        return pc.call_function("multiply", [coeff, array1])
+
+    in_types = [InputType.scalar(pa.int64()),
+                InputType.array(pa.int64()),
+                InputType.scalar(pa.int64()),
+                ]
+    func_doc = {
+        "summary": "multi type udf",
+        "description": "desc",
+        "arg_names": ["scalar1", "array", "scalar2"]
+    }
+    register_scalar_function("multi_type_udf", len(in_types), func_doc,
+                             in_types,
+                             pa.int64(), unary_scalar_function)
+
+    res = pc.call_function("multi_type_udf",
+                           [pa.scalar(10), pa.array([1, 2, 3]), pa.scalar(20)])
+
+    assert pc.sum(pc.equal(res, pa.array([30, 60, 90]))).as_py() == 3
