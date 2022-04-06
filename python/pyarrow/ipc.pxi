@@ -116,17 +116,21 @@ cdef class IpcReadOptions(_Weakrefable):
         If empty (the default), return all deserialized fields.
         If non-empty, the values are the indices of fields to read on
         the top-level schema.
+    memory_pool : MemoryPool, default None
+        Uses default memory pool if not specified
     """
     __slots__ = ()
 
     # cdef block is in lib.pxd
 
     def __init__(self, *, bint ensure_native_endian=True,
-                 bint use_threads=True, list included_fields=None):
+                 bint use_threads=True, list included_fields=None,
+                 MemoryPool memory_pool=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
         self.use_threads = use_threads
         self.included_fields = included_fields
+        self.memory_pool = memory_pool
 
     @property
     def ensure_native_endian(self):
@@ -151,6 +155,17 @@ cdef class IpcReadOptions(_Weakrefable):
     @included_fields.setter
     def included_fields(self, list value):
         self.c_options.included_fields = value or list()
+
+    @property
+    def memory_pool(self):
+        cdef:
+            MemoryPool pool = MemoryPool.__new__(MemoryPool)
+        pool.init(self.c_options.memory_pool)
+        return pool
+
+    @memory_pool.setter
+    def memory_pool(self, MemoryPool value):
+        self.c_options.memory_pool = maybe_unbox_memory_pool(value)
 
 
 cdef class IpcWriteOptions(_Weakrefable):
