@@ -516,22 +516,12 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
         >>> n_legs.type
         DataType(int64)
-        >>> n_legs.cast(pa.duration('s')).type
+
+        Change the data type of an array:
+
+        >>> n_legs_seconds = n_legs.cast(pa.duration('s'))
+        >>> n_legs_seconds.type
         DurationType(duration[s])
-        >>> n_legs.cast(pa.duration('s'))
-        <pyarrow.lib.ChunkedArray object at ...>
-        [
-          [
-            2,
-            2,
-            4
-          ],
-          [
-            4,
-            5,
-            100
-          ]
-        ]
         """
         return _pc().cast(self, target_type, safe=safe)
 
