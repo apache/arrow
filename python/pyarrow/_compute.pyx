@@ -2360,6 +2360,11 @@ cdef CFunctionDoc _make_function_doc(dict func_doc):
         vector[c_string] c_arg_names
         c_bool c_options_required
 
+    validate_expr = func_doc.has_key("summary") and func_doc.has_key(
+        "description") and func_doc.has_key("arg_names")
+    if not validate_expr:
+        raise ValueError(
+            "function doc dictionary must contain, summary, arg_names and a description(str)")
     f_doc.summary = tobytes(func_doc["summary"])
     f_doc.description = tobytes(func_doc["description"])
     for arg_name in func_doc["arg_names"]:
@@ -2382,7 +2387,7 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
     ----------
 
     func_name : str
-        Function name 
+        Name of the function. This name must be globally unique. 
     num_args : int
        Number of arguments in the function.
        When defining a function with variable arguments, 
