@@ -21,7 +21,7 @@ C Data Interface
 
 .. contents::
 
-Arrow supports exchanging data within the same process through the :ref:`c-data-interface`.
+Arrow supports exchanging data without copying or serialization within the same process through the :ref:`c-data-interface`, even between different language runtimes.
 
 Java to Python
 --------------
@@ -35,7 +35,7 @@ Java to C++
 The C Data Interface is a protocol implemented in Arrow to exchange data within different
 environments without the cost of marshaling and copying data.
 
-Example: How to expose an int32 array using C Data Interface?
+Example: share an Int32 array from C++ to Java:
 
 **C++ Side**
 
