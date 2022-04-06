@@ -17,104 +17,15 @@
 
 #include <cstdint>
 #include "arrow/vendored/datetime.h"
-#include "gandiva/engine.h"
+#include "gandiva/precompiled/time_fields.h"
+
+#ifndef GANDIVA_UNIT_TEST
 #include "gandiva/exported_funcs.h"
 #include "gandiva/gdv_function_stubs.h"
+
+#include "gandiva/engine.h"
 #include "gandiva/interval_holder.h"
-#include "gandiva/precompiled/time_fields.h"
 #include "gandiva/to_date_holder.h"
-
-extern "C" {
-
-// TODO : Do input validation or make sure the callers do that ?
-int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
-                          int64_t* ret_time) {
-  using arrow_vendored::date::day;
-  using arrow_vendored::date::local_days;
-  using arrow_vendored::date::locate_zone;
-  using arrow_vendored::date::month;
-  using arrow_vendored::date::time_zone;
-  using arrow_vendored::date::year;
-  using std::chrono::hours;
-  using std::chrono::milliseconds;
-  using std::chrono::minutes;
-  using std::chrono::seconds;
-
-  using gandiva::TimeFields;
-  try {
-    const time_zone* tz = locate_zone(std::string(zone, zone_len));
-    *ret_time = tz->to_sys(local_days(year(time_fields[TimeFields::kYear]) /
-                                      month(time_fields[TimeFields::kMonth]) /
-                                      day(time_fields[TimeFields::kDay])) +
-                           hours(time_fields[TimeFields::kHours]) +
-                           minutes(time_fields[TimeFields::kMinutes]) +
-                           seconds(time_fields[TimeFields::kSeconds]) +
-                           milliseconds(time_fields[TimeFields::kSubSeconds]))
-                    .time_since_epoch()
-                    .count();
-  } catch (...) {
-    return EINVAL;
-  }
-
-  return 0;
-}
-
-int64_t gdv_fn_to_date_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
-                                 const char* data, int data_len, bool in1_validity,
-                                 const char* pattern, int pattern_len, bool in2_validity,
-                                 bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToDateHolder* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
-  return (*holder)(context, data, data_len, in1_validity, out_valid);
-}
-
-int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
-                                       const char* data, int data_len, bool in1_validity,
-                                       const char* pattern, int pattern_len,
-                                       bool in2_validity, int32_t suppress_errors,
-                                       bool in3_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToDateHolder* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
-  return (*holder)(context, data, data_len, in1_validity, out_valid);
-}
-
-int64_t gdv_fn_cast_intervalday_utf8(int64_t context_ptr, int64_t holder_ptr,
-                                     const char* data, int data_len, bool in1_validity,
-                                     bool* out_valid) {
-  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  auto* holder = reinterpret_cast<gandiva::IntervalDaysHolder*>(holder_ptr);
-  return (*holder)(context, data, data_len, in1_validity, out_valid);
-}
-
-int64_t gdv_fn_cast_intervalday_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
-                                           const char* data, int data_len,
-                                           bool in1_validity, int32_t /*suppress_errors*/,
-                                           bool /*in3_validity*/, bool* out_valid) {
-  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  auto* holder = reinterpret_cast<gandiva::IntervalDaysHolder*>(holder_ptr);
-  return (*holder)(context, data, data_len, in1_validity, out_valid);
-}
-
-int32_t gdv_fn_cast_intervalyear_utf8(int64_t context_ptr, int64_t holder_ptr,
-                                      const char* data, int data_len, bool in1_validity,
-                                      bool* out_valid) {
-  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
-  return (*holder)(context, data, data_len, in1_validity, out_valid);
-}
-
-int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
-                                            const char* data, int data_len,
-                                            bool in1_validity,
-                                            int32_t /*suppress_errors*/,
-                                            bool /*in3_validity*/, bool* out_valid) {
-  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
-  return (*holder)(context, data, data_len, in1_validity, out_valid);
-}
-}  // extern "C"
 
 namespace gandiva {
 
@@ -226,3 +137,96 @@ void ExportedTimeFunctions::AddMappings(Engine* engine) const {
 }
 
 }  // namespace gandiva
+#endif  // !GANDIVA_UNIT_TEST
+
+extern "C" {
+
+// TODO : Do input validation or make sure the callers do that ?
+int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
+                          int64_t* ret_time) {
+  using arrow_vendored::date::day;
+  using arrow_vendored::date::local_days;
+  using arrow_vendored::date::locate_zone;
+  using arrow_vendored::date::month;
+  using arrow_vendored::date::time_zone;
+  using arrow_vendored::date::year;
+  using std::chrono::hours;
+  using std::chrono::milliseconds;
+  using std::chrono::minutes;
+  using std::chrono::seconds;
+
+  using gandiva::TimeFields;
+  try {
+    const time_zone* tz = locate_zone(std::string(zone, zone_len));
+    *ret_time = tz->to_sys(local_days(year(time_fields[TimeFields::kYear]) /
+                                      month(time_fields[TimeFields::kMonth]) /
+                                      day(time_fields[TimeFields::kDay])) +
+                           hours(time_fields[TimeFields::kHours]) +
+                           minutes(time_fields[TimeFields::kMinutes]) +
+                           seconds(time_fields[TimeFields::kSeconds]) +
+                           milliseconds(time_fields[TimeFields::kSubSeconds]))
+                    .time_since_epoch()
+                    .count();
+  } catch (...) {
+    return EINVAL;
+  }
+
+  return 0;
+}
+
+int64_t gdv_fn_to_date_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                 const char* data, int data_len, bool in1_validity,
+                                 const char* pattern, int pattern_len, bool in2_validity,
+                                 bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::ToDateHolder* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                       const char* data, int data_len, bool in1_validity,
+                                       const char* pattern, int pattern_len,
+                                       bool in2_validity, int32_t suppress_errors,
+                                       bool in3_validity, bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::ToDateHolder* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+int64_t gdv_fn_cast_intervalday_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                     const char* data, int data_len, bool in1_validity,
+                                     bool* out_valid) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IntervalDaysHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+int64_t gdv_fn_cast_intervalday_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                           const char* data, int data_len,
+                                           bool in1_validity, int32_t /*suppress_errors*/,
+                                           bool /*in3_validity*/, bool* out_valid) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IntervalDaysHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+int32_t gdv_fn_cast_intervalyear_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                      const char* data, int data_len, bool in1_validity,
+                                      bool* out_valid) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                            const char* data, int data_len,
+                                            bool in1_validity,
+                                            int32_t /*suppress_errors*/,
+                                            bool /*in3_validity*/, bool* out_valid) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+}  // extern "C"

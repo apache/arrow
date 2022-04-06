@@ -89,6 +89,36 @@ bool in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_va
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time);
 
+int64_t gdv_fn_to_date_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                 const char* data, int data_len, bool in1_validity,
+                                 const char* pattern, int pattern_len, bool in2_validity,
+                                 bool* out_valid);
+
+int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                       const char* data, int data_len, bool in1_validity,
+                                       const char* pattern, int pattern_len,
+                                       bool in2_validity, int32_t suppress_errors,
+                                       bool in3_validity, bool* out_valid);
+
+int64_t gdv_fn_cast_intervalday_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                     const char* data, int data_len, bool in1_validity,
+                                     bool* out_valid);
+
+int64_t gdv_fn_cast_intervalday_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                           const char* data, int data_len,
+                                           bool in1_validity, int32_t /*suppress_errors*/,
+                                           bool /*in3_validity*/, bool* out_valid);
+
+int32_t gdv_fn_cast_intervalyear_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                      const char* data, int data_len, bool in1_validity,
+                                      bool* out_valid);
+
+int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                            const char* data, int data_len,
+                                            bool in1_validity,
+                                            int32_t /*suppress_errors*/,
+                                            bool /*in3_validity*/, bool* out_valid);
+
 GANDIVA_EXPORT
 const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t in_len,
                                         int32_t* out_len);
