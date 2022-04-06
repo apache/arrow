@@ -135,6 +135,11 @@ strides: {0.strides}""".format(self)
         """
         Returns the name of the i-th tensor dimension.
 
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+
         Examples
         --------
         >>> import pyarrow as pa
