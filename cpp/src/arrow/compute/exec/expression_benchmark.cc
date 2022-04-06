@@ -70,7 +70,7 @@ static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filt
   }
 }
 
-static void BatchedExecution(benchmark::State& state, Expression expr) {
+static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression expr) {
   const auto array_batches = static_cast<int32_t>(state.range(0));
   const auto array_size = 10000000 / array_batches;
 
@@ -144,10 +144,10 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
                   field_ref(FieldRef("struct_arr", "float")));
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
-BENCHMARK_CAPTURE(BatchedExecution, execution_with_copy, expression_with_copy)
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_with_copy, expression_with_copy)
     ->RangeMultiplier(10)
     ->Range(1, 10000000);
-BENCHMARK_CAPTURE(BatchedExecution, execution_without_copy, expression_without_copy)
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy, expression_without_copy)
     ->RangeMultiplier(10)
     ->Range(1, 10000000);
 }  // namespace compute
