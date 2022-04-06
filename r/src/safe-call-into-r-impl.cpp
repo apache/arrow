@@ -82,7 +82,7 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
     arrow::StopIfNotOk(result.status());
     return result.ValueUnsafe();
   } else {
-    return "";
+    cpp11::stop("Unknown `opt`");
   }
 }
 

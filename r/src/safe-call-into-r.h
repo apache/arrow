@@ -92,14 +92,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<T(void)> fun) {
     // If we're on the main thread, run the task immediately and let
     // the cpp11::unwind_exception be thrown since it will be caught
     // at the top level.
-    return arrow::Future<T>::MakeFinished(fun());
-    // try {
-
-    // } catch (cpp11::unwind_exception& e) {
-    //   auto error_status = arrow::Status::ExecutionError("R code execution error");
-    //   auto error_detail = std::make_shared<MainRThread::UnwindStatusDetail>(e.token);
-    //   return arrow::Future<T>::MakeFinished(error_status.WithDetail(error_detail));
-    // }
+    return fun();
   } else if (main_r_thread.Executor() != nullptr) {
     // If we are not on the main thread and have an Executor,
     // use it to run the task on the main R thread. We can't throw
@@ -118,15 +111,15 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<T(void)> fun) {
       }
     }));
   } else {
-    return arrow::Future<T>::MakeFinished(arrow::Status::NotImplemented(
-        "Call to R from a non-R thread without calling RunWithCapturedR"));
+    return arrow::Status::NotImplemented(
+        "Call to R from a non-R thread without calling RunWithCapturedR");
   }
 }
 
 template <typename T>
 arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
-  arrow::Future<T> result = SafeCallIntoRAsync<T>(std::move(fun));
-  return result.result();
+  arrow::Future<T> future = SafeCallIntoRAsync<T>(std::move(fun));
+  return future.result();
 }
 
 template <typename T>
@@ -140,8 +133,7 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
   arrow::Result<T> result = arrow::internal::SerialExecutor::RunInSerialExecutor<T>(
       [make_arrow_call](arrow::internal::Executor* executor) {
         GetMainRThread().Executor() = executor;
-        arrow::Future<T> result = make_arrow_call();
-        return result;
+        return make_arrow_call();
       });
 
   GetMainRThread().Executor() = nullptr;

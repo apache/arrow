@@ -39,7 +39,6 @@ test_that("SafeCallIntoR works within RunWithCapturedR", {
   )
 })
 
-
 test_that("SafeCallIntoR errors from the non-R thread", {
   expect_error(
     TestSafeCallIntoR(function() "string one!", opt = "async_without_executor"),
