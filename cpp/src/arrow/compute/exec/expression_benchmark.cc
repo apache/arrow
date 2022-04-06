@@ -86,7 +86,8 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
     for (int it = 0; it < num_batches; ++it)
       ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
   }
-  state.counters["rows_per_second"] = benchmark::Counter(num_batches * rows_per_batch, benchmark::Counter::kIsRate);
+  state.counters["rows_per_second"] =
+      benchmark::Counter(num_batches * rows_per_batch, benchmark::Counter::kIsRate);
 }
 
 auto to_int64 = compute::CastOptions::Safe(int64());
@@ -146,17 +147,29 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
                   field_ref(FieldRef("struct_arr", "float")));
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
-BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_with_copy, complex_expression)
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_with_copy,
+                  complex_expression)
     ->RangeMultiplier(10)
-    ->Range(10, 10000000)->DenseThreadRange(1, std::thread::hardware_concurrency(), std::thread::hardware_concurrency());    
-BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy, simple_expression)
+    ->Range(10, 10000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency());
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy,
+                  simple_expression)
     ->RangeMultiplier(10)
-    ->Range(10, 10000000)->DenseThreadRange(1, std::thread::hardware_concurrency(), std::thread::hardware_concurrency());
-BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy, zero_copy_expression)
+    ->Range(10, 10000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency());
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy,
+                  zero_copy_expression)
     ->RangeMultiplier(10)
-    ->Range(10, 10000000)->DenseThreadRange(1, std::thread::hardware_concurrency(), std::thread::hardware_concurrency());
-BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy, ref_only_expression)
+    ->Range(10, 10000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency());
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy,
+                  ref_only_expression)
     ->RangeMultiplier(10)
-    ->Range(10, 10000000)->DenseThreadRange(1, std::thread::hardware_concurrency(), std::thread::hardware_concurrency());
+    ->Range(10, 10000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency());
 }  // namespace compute
 }  // namespace arrow
