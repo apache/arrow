@@ -24,8 +24,6 @@
 #include "gandiva/precompiled/time_fields.h"
 #include "gandiva/to_date_holder.h"
 
-#ifndef GANDIVA_UNIT_TEST
-
 extern "C" {
 
 // TODO : Do input validation or make sure the callers do that ?
@@ -228,4 +226,3 @@ void ExportedTimeFunctions::AddMappings(Engine* engine) const {
 }
 
 }  // namespace gandiva
-#endif  // !GANDIVA_UNIT_TEST
