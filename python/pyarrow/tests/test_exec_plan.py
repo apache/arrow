@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from ast import Import
 import pytest
 
 pytestmark = pytest.mark.dataset
