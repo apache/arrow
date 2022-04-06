@@ -109,8 +109,12 @@ function wrapGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
 const getNull = <T extends Null>(_data: Data<T>, _index: number): T['TValue'] => null;
 /** @ignore */
 const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number) => {
-    const { [index]: x, [index + 1]: y } = valueOffsets;
-    return x != null && y != null ? values.subarray(x, y) : null as any;
+    if (index + 1 >= valueOffsets.length) {
+        return null as any;
+    }
+    const x = valueOffsets[index];
+    const y = valueOffsets[index + 1];
+    return values.subarray(x, y);
 };
 
 /** @ignore */
