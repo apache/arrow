@@ -94,7 +94,8 @@ mutate.arrow_dplyr_query <- function(.data,
 
   # Respect .keep
   if (.keep == "none") {
-    .data$selected_columns <- .data$selected_columns[new_vars]
+    new_cols_last <- c(intersect(old_vars, new_vars), setdiff(new_vars, old_vars))
+    .data$selected_columns <- .data$selected_columns[new_cols_last]
   } else if (.keep != "all") {
     # "used" or "unused"
     used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)

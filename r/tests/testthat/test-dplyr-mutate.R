@@ -329,13 +329,13 @@ test_that("dplyr::mutate's examples", {
   #>   <chr> <chr> <dbl>
   #> 1 a     b         3
   compare_dplyr_binding(
-    .input %>% mutate(z = x + y, .keep = "none") %>% collect(), # same as transmute()
+    .input %>% mutate(z = x + y, x, .keep = "none") %>% collect(), # same as transmute()
     df
   )
-  #> # A tibble: 1 x 1
-  #>       z
-  #>   <dbl>
-  #> 1     3
+  #> # A tibble: 1 × 2
+  #>       x     z
+  #>   <dbl> <dbl>
+  #> 1     1     3
 
   # Grouping ----------------------------------------
   # The mutate operation may yield different results on grouped
