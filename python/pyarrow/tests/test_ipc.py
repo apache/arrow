@@ -542,6 +542,7 @@ def test_read_options():
     options = pa.ipc.IpcReadOptions()
     assert options.use_threads is True
     assert options.ensure_native_endian is True
+    assert options.included_fields == []
 
     options.ensure_native_endian = False
     assert options.ensure_native_endian is False
@@ -549,11 +550,36 @@ def test_read_options():
     options.use_threads = False
     assert options.use_threads is False
 
+    options.included_fields = [0, 1]
+    assert options.included_fields == [0, 1]
+    options.included_fields = None
+    assert options.included_fields == []
+
     options = pa.ipc.IpcReadOptions(
-        use_threads=False, ensure_native_endian=False
+        use_threads=False, ensure_native_endian=False,
+        included_fields=[1]
     )
     assert options.use_threads is False
     assert options.ensure_native_endian is False
+    assert options.included_fields == [1]
+
+
+def test_read_options_included_fields(stream_fixture):
+    options1 = pa.ipc.IpcReadOptions()
+    options2 = pa.ipc.IpcReadOptions(included_fields=[1])
+    stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+
+    reader1 = pa.ipc.open_stream(source, options=options1)
+    reader2 = pa.ipc.open_stream(source, options=options2)
+
+    result1 = reader1.read_all()
+    result2 = reader2.read_all()
+
+    assert result1.num_columns == 2
+    assert result2.num_columns == 1
+
+    assert result2[0] == result1[1]
 
 
 def test_dictionary_delta(format_fixture):

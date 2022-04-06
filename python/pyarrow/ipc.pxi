@@ -112,15 +112,21 @@ cdef class IpcReadOptions(_Weakrefable):
     ensure_native_endian : bool
         Whether to convert incoming data to platform-native endianness.
         Default is true.
+    included_fields : list
+        If empty (the default), return all deserialized fields.
+        If non-empty, the values are the indices of fields to read on
+        the top-level schema.
     """
     __slots__ = ()
 
     # cdef block is in lib.pxd
 
-    def __init__(self, *, bint ensure_native_endian=True, bint use_threads=True):
+    def __init__(self, *, bint ensure_native_endian=True,
+                 bint use_threads=True, list included_fields=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
         self.use_threads = use_threads
+        self.included_fields = included_fields
 
     @property
     def ensure_native_endian(self):
@@ -137,6 +143,14 @@ cdef class IpcReadOptions(_Weakrefable):
     @use_threads.setter
     def use_threads(self, bint value):
         self.c_options.use_threads = value
+
+    @property
+    def included_fields(self):
+        return self.c_options.included_fields
+
+    @included_fields.setter
+    def included_fields(self, list value):
+        self.c_options.included_fields = value or list()
 
 
 cdef class IpcWriteOptions(_Weakrefable):
