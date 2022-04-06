@@ -614,6 +614,7 @@ def test_column_selection(tempdir):
     with pytest.raises(ValueError):
         orc_file.read(columns=[5])
 
+
 def test_wrong_usage_orc_writer(tempdir):
     from pyarrow import orc
 
