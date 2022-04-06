@@ -353,7 +353,7 @@ test_that("dplyr::mutate's examples", {
   #>   <chr> <chr> <dbl>
   #> 1 a     b         3
   compare_dplyr_binding(
-    .input %>% mutate(z = x + y, x, .keep = "none") %>% collect(), # same as transmute()
+    .input %>% mutate(z = x + y, x, .keep = "none") %>% collect(),
     df
   )
   #> # A tibble: 1 × 2
