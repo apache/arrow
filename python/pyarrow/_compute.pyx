@@ -1743,7 +1743,8 @@ cdef class _CumulativeSumOptions(FunctionOptions):
             try:
                 start = lib.scalar(start)
             except Exception:
-                _raise_invalid_function_option(start, "`start` type for CumulativeSumOptions", TypeError)
+                _raise_invalid_function_option(
+                    start, "`start` type for CumulativeSumOptions", TypeError)
 
         self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
 

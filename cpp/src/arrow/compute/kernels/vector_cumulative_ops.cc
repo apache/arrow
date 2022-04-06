@@ -47,58 +47,69 @@ struct CumulativeGeneric {
     ARROW_ASSIGN_OR_RAISE(auto cast_value, Cast(Datum(options.start), out_type));
     auto start = UnboxScalar<OutType>::Unbox(*cast_value.scalar());
 
+    int64_t base_output_offset = 0;
+    bool encounted_null = false;
+    ArrayData* out_arr = out->mutable_array();
+
     switch (batch[0].kind()) {
       case Datum::ARRAY: {
-        return Call(ctx, *batch[0].array(), start, out, skip_nulls);
+        auto st = Call(ctx, base_output_offset, *batch[0].array(), out_arr, start,
+                       skip_nulls, encounted_null);
+        out_arr->SetNullCount(arrow::kUnknownNullCount);
+        return st;
       }
       case Datum::CHUNKED_ARRAY: {
         const auto& input = batch[0].chunked_array();
 
         for (const auto& chunk : input->chunks()) {
-          RETURN_NOT_OK(Call(ctx, *chunk->data(), start, out, skip_nulls));
+          RETURN_NOT_OK(Call(ctx, base_output_offset, *chunk->data(), out_arr, start,
+                             skip_nulls, encounted_null));
+          base_output_offset += chunk->length();
         }
+        out_arr->SetNullCount(arrow::kUnknownNullCount);
+        return Status::OK();
       }
       default:
         return Status::NotImplemented(
             "Unsupported input type for function 'cumulative_<operator>': ",
             batch[0].ToString());
     }
-
-    return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& arg0, ArgValue& partial_scan,
-                     Datum* out, bool skip_nulls) {
+  static Status Call(KernelContext* ctx, int64_t base_output_offset,
+                     const ArrayData& input, ArrayData* output, ArgValue& accumulator,
+                     bool skip_nulls, bool& encounted_null) {
     Status st = Status::OK();
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<OutValue>(1);
-
-    bool encounted_null = false;
-    auto start_null_idx = arg0.offset;
+    auto out_bitmap = output->GetMutableValues<uint8_t>(0);
+    auto out_data = output->GetMutableValues<OutValue>(1) + base_output_offset;
+    auto start_null_idx = input.offset;
+    int64_t curr = 0;
 
     VisitArrayValuesInline<ArgType>(
-        arg0,
+        input,
         [&](ArgValue v) {
           if (!skip_nulls && encounted_null) {
             *out_data++ = OutValue{};
           } else {
-            partial_scan = Op::template Call<OutValue, ArgValue, ArgValue>(
-                ctx, v, partial_scan, &st);
-            *out_data++ = partial_scan;
+            accumulator =
+                Op::template Call<OutValue, ArgValue, ArgValue>(ctx, v, accumulator, &st);
+            *out_data++ = accumulator;
             ++start_null_idx;
           }
+          ++curr;
         },
         [&]() {
           // null
           *out_data++ = OutValue{};
           encounted_null = true;
+          arrow::bit_util::SetBitsTo(out_bitmap, base_output_offset + curr, 1, false);
+          ++curr;
         });
 
     if (!skip_nulls) {
-      auto out_bitmap = out_arr->GetMutableValues<uint8_t>(0);
-      auto null_length = arg0.length - (start_null_idx - arg0.offset);
-      out_arr->SetNullCount(null_length);
-      arrow::bit_util::SetBitsTo(out_bitmap, start_null_idx, null_length, false);
+      auto null_length = input.length - (start_null_idx - input.offset);
+      arrow::bit_util::SetBitsTo(out_bitmap, base_output_offset + start_null_idx,
+                                 null_length, false);
     }
 
     return st;
