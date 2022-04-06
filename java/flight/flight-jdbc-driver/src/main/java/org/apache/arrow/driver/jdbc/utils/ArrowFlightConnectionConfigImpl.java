@@ -90,12 +90,20 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     return ArrowFlightConnectionProperty.TRUST_STORE.getString(properties);
   }
 
-  // TODO Add java doc
+  /**
+   * Gets the KeyStore password.
+   *
+   * @return the password.
+   */
   public String getKeystorePassword() {
     return ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.getString(properties);
   }
 
-  // TODO Add java doc
+  /**
+   * Check if the JDBC should use the trusted store files from the operating system.
+   *
+   * @return whether to use system trusted store certificates.
+   */
   public boolean useSystemTrustStore() {
     return ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.getBoolean(properties);
   }

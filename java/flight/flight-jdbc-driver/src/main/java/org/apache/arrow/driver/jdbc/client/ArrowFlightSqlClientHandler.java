@@ -428,13 +428,23 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       return this;
     }
 
-    // TODO Add java doc
+    /**
+     * Sets whether to disable the certificate verification in this handler.
+     *
+     * @param disableCertificateVerification whether to disable certificate verification.
+     * @return this instance.
+     */
     public Builder withDisableCertificateVerification(final boolean disableCertificateVerification) {
       this.disableCertificateVerification = disableCertificateVerification;
       return this;
     }
 
-    // TODO Add java doc
+    /**
+     * Sets whether to use the certificates from the operating system.
+     *
+     * @param useSystemTrustStore whether to use the system operating certificates.
+     * @return this instance.
+     */
     public Builder withSystemTrustStore(final boolean useSystemTrustStore) {
       this.useSystemTrustStore = useSystemTrustStore;
       return this;
@@ -535,6 +545,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         useSystemTrustStore = keyStorePassword == null;
 
         if (disableCertificateVerification) {
+          useSystemTrustStore = false;
           clientBuilder.verifyServer(false);
         }
 

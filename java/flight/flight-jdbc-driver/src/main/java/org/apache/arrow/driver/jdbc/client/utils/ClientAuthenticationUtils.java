@@ -18,6 +18,8 @@
 package org.apache.arrow.driver.jdbc.client.utils;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
@@ -103,6 +105,12 @@ public final class ClientAuthenticationUtils {
     return factory.getCredentialCallOption();
   }
 
+  private static void getKeyStoreInstance (KeyStore keyStore, String instance)
+      throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
+    keyStore = KeyStore.getInstance(instance);
+    keyStore.load(null, null);
+  }
+
   /**
    * It gets the trusted certificate based on the operating system and loads all the certificate into a
    * {@link InputStream}.
@@ -119,14 +127,19 @@ public final class ClientAuthenticationUtils {
 
     KeyStore keyStore = null;
     if (systemName.contains("Windows")) {
-      keyStore = KeyStore.getInstance("Windows-ROOT");
+      getKeyStoreInstance(keyStore, "Windows-ROOT");
     } else if (systemName.contains("Mac")) {
-      keyStore = KeyStore.getInstance("KeychainStore");
+      getKeyStoreInstance(keyStore, "KeychainStore");
+    } else {
+      String filename = System.getProperty("java.home") + "/lib/security/cacerts".replace('/', File.separatorChar);
+      FileInputStream fileInputStream = new FileInputStream(filename);
+      keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+      String password = "changeit";
+
+      keyStore.load(fileInputStream, password.toCharArray());
     }
 
     assert keyStore != null;
-    keyStore.load(null, null);
-
     Enumeration<String> aliases = keyStore.aliases();
 
     try (final StringWriter writer = new StringWriter();
