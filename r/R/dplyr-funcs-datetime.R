@@ -649,16 +649,20 @@ register_bindings_datetime_parsers <- function() {
       arrow_not_supported("Date/time rounding to week units")
     }
 
+    if (is.null(change_on_boundary)) {
+      if (call_binding("is.Date", x)) {
+        change_on_boundary <- TRUE
+      } else {
+        change_on_boundary <- FALSE
+      }
+    }
+
     if (change_on_boundary == FALSE) {
       opts$change_on_boundary <- 0L
-    } else if (change_on_boundary == TRUE) {
+    }
+
+    if (change_on_boundary == TRUE) {
       opts$change_on_boundary <- 1L
-    } else {
-      if (call_binding("is.Date", x)) {
-        opts$change_on_boundary <- 1L
-      } else {
-        opts$change_on_boundary <- 0L
-      }
     }
 
     return(Expression$create("ceil_temporal", x, options = opts))
