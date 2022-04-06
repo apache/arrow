@@ -1379,6 +1379,8 @@ cdef class Schema(_Weakrefable):
 
     Examples
     --------
+    Create a new Arrow Schema object:
+
     >>> import pyarrow as pa
     >>> pa.schema([
     ...     ('some_int', pa.int32()),
@@ -1386,6 +1388,8 @@ cdef class Schema(_Weakrefable):
     ... ])
     some_int: int32
     some_string: string
+
+    Create Arrow Schema with metadata:
 
     >>> pa.schema([
     ...     pa.field('n_legs', pa.int64()),
@@ -1450,6 +1454,9 @@ cdef class Schema(_Weakrefable):
         >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
         ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> schema = pa.Table.from_pandas(df).schema
+
+        Select pandas metadata field from Arrow Schema:
+
         >>> schema.pandas_metadata
         {'index_columns': [{'kind': 'range', 'name': None, 'start': 0, 'stop': 4, 'step': 1}], ...
         """
@@ -1476,6 +1483,9 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Get the names of the schema's fileds:
+
         >>> schema.names
         ['n_legs', 'animals']
         """
@@ -1501,6 +1511,9 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Get the types of the schema's fileds:
+
         >>> schema.types
         [DataType(int64), DataType(string)]
         """
@@ -1522,6 +1535,9 @@ cdef class Schema(_Weakrefable):
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())],
         ...     metadata={"n_legs": "Number of legs per animal"})
+
+        Get the metadata of the schema's fileds:
+
         >>> schema.metadata
         {b'n_legs': b'Number of legs per animal'}
         """
@@ -1551,6 +1567,9 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Create an empty table with schema's fields:
+
         >>> schema.empty_table()
         pyarrow.Table
         n_legs: int64
@@ -1587,8 +1606,14 @@ cdef class Schema(_Weakrefable):
         ...     ('some_int', pa.int32()),
         ...     ('some_string', pa.string())
         ... ])
+
+        Test two equal schemas:
+
         >>> schema1.equals(schema1)
         True
+
+        Test two unequal schemas:
+
         >>> schema1.equals(schema2)
         False
         """
@@ -1616,13 +1641,15 @@ cdef class Schema(_Weakrefable):
 
         Examples
         --------
-
         >>> import pandas as pd
         >>> import pyarrow as pa
         >>> df = pd.DataFrame({
         ...     'int': [1, 2],
         ...     'str': ['a', 'b']
         ... })
+
+        Create an Arrow Schema from the schema of a pandas dataframe:
+
         >>> pa.Schema.from_pandas(df)
         int: int64
         str: string
@@ -1657,9 +1684,15 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Select the second field:
+
         >>> schema.field(1)
         pyarrow.Field<animals: string>
-        >>> schema.field(0)
+
+        Select the field of the column named 'n_legs':
+
+        >>> schema.field('n_legs')
         pyarrow.Field<n_legs: int64>
         """
         if isinstance(i, (bytes, str)):
@@ -1739,10 +1772,13 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Get the index of the field named 'animals':
+
         >>> schema.get_field_index("animals")
         1
 
-        Several fields with the given name:
+        Index in case of several fields with the given name:
 
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
@@ -1774,6 +1810,9 @@ cdef class Schema(_Weakrefable):
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string()),
         ...     pa.field('animals', pa.bool_())])
+
+        Get the indexes of the fields named 'animals':
+
         >>> schema.get_all_field_indices("animals")
         [1, 2]
         """
@@ -1801,12 +1840,17 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
-        >>> schema_new = schema.append(pa.field('extra', pa.bool_()))
 
+        Append a field 'extra' at the end of the schema:
+
+        >>> schema_new = schema.append(pa.field('extra', pa.bool_()))
         >>> schema_new
         n_legs: int64
         animals: string
         extra: bool
+
+        Original schema is unmodified:
+
         >>> schema
         n_legs: int64
         animals: string
@@ -1832,6 +1876,9 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Insert a new field on the second position:
+
         >>> schema.insert(1, pa.field('extra', pa.bool_()))
         n_legs: int64
         extra: bool
@@ -1866,6 +1913,9 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Remove the second field of the schema:
+
         >>> schema.remove(1)
         n_legs: int64
         """
@@ -1895,6 +1945,9 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Replace the second field of the schema with a new field 'extra':
+
         >>> schema.set(1, pa.field('replaced', pa.bool_()))
         n_legs: int64
         replaced: bool
@@ -1937,6 +1990,9 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Add metadata to existing schema field:
+
         >>> schema.with_metadata({"n_legs": "Number of legs per animal"})
         n_legs: int64
         animals: string
@@ -1970,6 +2026,9 @@ cdef class Schema(_Weakrefable):
         >>> schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
+
+        Write schema to Buffer:
+
         >>> schema.serialize()
         <pyarrow.lib.Buffer object at ...>
         """
@@ -2003,7 +2062,7 @@ cdef class Schema(_Weakrefable):
         -- schema metadata --
         n_legs: 'Number of legs per animal'
 
-        Remove the metadata:
+        Create a new schema with removing the metadata from the original:
 
         >>> schema.remove_metadata()
         n_legs: int64
@@ -2040,6 +2099,9 @@ cdef class Schema(_Weakrefable):
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())],
         ...     metadata={"n_legs": "Number of legs per animal"})
+
+        Get a text representation of the schema:
+
         >>> schema.to_string()
         "n_legs: int64\nanimals: string\n-- schema metadata --\nn_legs: 'N...'"
         """
