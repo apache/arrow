@@ -2926,7 +2926,7 @@ def _mkdir_if_not_exists(fs, path):
 
 def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
-                     use_legacy_dataset=None, **kwargs):
+                     use_legacy_dataset=False, **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -2962,11 +2962,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
     use_legacy_dataset : bool
-        Default is True unless a ``pyarrow.fs`` filesystem is passed.
-        Set to False to enable the new code path (experimental, using the
-        new Arrow Dataset API). This is more efficient when using partition
-        columns, but does not (yet) support `partition_filename_cb` and
-        `metadata_collector` keywords.
+        Default is False. Set to True to use the the legacy behaviour
+        (this option is deprecated, and the legacy implementation will be
+        removed in a future version). The legacy implementation still
+        supports `partition_filename_cb` and `metadata_collector` keywords
+        but is less efficient when using partition columns.
     **kwargs : dict,
         Additional kwargs for write_table function. See docstring for
         `write_table` or `ParquetWriter` for more information.
@@ -3001,13 +3001,18 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
     ['dataset_name_4/part-0.parquet']
     """
-    if use_legacy_dataset is None:
-        # if a new filesystem is passed -> default to new implementation
-        if isinstance(filesystem, FileSystem):
-            use_legacy_dataset = False
-        # otherwise the default is still True
-        else:
-            use_legacy_dataset = True
+    if use_legacy_dataset:
+        warnings.warn(
+        "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
+        "deprecated as of pyarrow 8.0.0, and the legacy implementation will "
+        "be removed in a future version.",
+        FutureWarning, stacklevel=2)
+
+        # raise for unsupported keywords
+        if partition_filename_cb is not None:
+            warnings.warn(
+            _DEPR_MSG.format("partition_filename_cb", ""),
+            FutureWarning, stacklevel=2)
 
     if not use_legacy_dataset:
         import pyarrow.dataset as ds

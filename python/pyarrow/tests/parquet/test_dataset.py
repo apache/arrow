@@ -1304,7 +1304,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     # Without partitions, append files to root_path
     n = 5
     for i in range(n):
-        pq.write_to_dataset(output_table, base_path,
+        pq.write_to_dataset(output_table, base_path, use_legacy_dataset=True,
                             filesystem=filesystem)
     output_files = [file for file in filesystem.ls(str(base_path))
                     if file.endswith(".parquet")]
@@ -1545,8 +1545,8 @@ def test_dataset_read_dictionary(tempdir, use_legacy_dataset):
     t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
     t2 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
     # TODO pass use_legacy_dataset (need to fix unique names)
-    pq.write_to_dataset(t1, root_path=str(path))
-    pq.write_to_dataset(t2, root_path=str(path))
+    pq.write_to_dataset(t1, root_path=str(path), use_legacy_dataset=True)
+    pq.write_to_dataset(t2, root_path=str(path), use_legacy_dataset=True)
 
     result = pq.ParquetDataset(
         path, read_dictionary=['f0'],
@@ -1716,3 +1716,15 @@ def test_parquet_dataset_deprecated_properties(tempdir):
 
     with pytest.warns(DeprecationWarning, match="'ParquetDataset.pieces"):
         dataset2.pieces
+
+@pytest.mark.dataset
+def test_parquet_write_to_dataset_deprecated_properties(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+
+    with pytest.warns(FutureWarning, match="Passing 'use_legacy_dataset=True'"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True)
+
+    with pytest.warns(FutureWarning, match="Passing 'use_legacy_dataset=True'"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            partition_filename_cb=lambda x: 'file_name.parquet')
