@@ -16,9 +16,6 @@
 # under the License.
 
 import pytest
-
-pytestmark = pytest.mark.dataset
-
 import pyarrow as pa
 
 try:
@@ -26,6 +23,8 @@ try:
     import pyarrow._exec_plan as ep
 except ImportError:
     pass
+
+pytestmark = pytest.mark.dataset
 
 
 def test_joins_corner_cases():
