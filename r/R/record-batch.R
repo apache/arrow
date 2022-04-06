@@ -242,3 +242,58 @@ cbind.RecordBatch <- function(...) {
 
   RecordBatch$create(!!! columns)
 }
+
+#' Convert an object to an Arrow RecordBatch
+#'
+#' Whereas [record_batch()] constructs a [RecordBatch] from one or more columns,
+#' `as_record_batch()` converts a single object to an Arrow [RecordBatch].
+#'
+#' @param x An object to convert to an Arrow RecordBatch
+#' @param ... Passed to S3 methods
+#' @inheritParams record_batch
+#'
+#' @return A [RecordBatch]
+#' @export
+#'
+#' @examples
+#' as_record_batch(data.frame(col1 = 1, col2 = "two"))
+#'
+as_record_batch <- function(x, ..., schema = NULL) {
+  UseMethod("as_record_batch")
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.RecordBatch <- function(x, ..., schema = NULL) {
+  if (is.null(schema)) {
+    x
+  } else {
+    x$cast(schema)
+  }
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.Table <- function(x, ..., schema = NULL) {
+  if (x$num_columns == 0) {
+    batch <- record_batch(data.frame())
+    return(batch$Take(rep_len(0, x$num_rows)))
+  }
+
+  arrays_out <- vector(mode = "list", length = x$num_columns)
+  for (i in seq_len(x$num_columns)) {
+    arrays_out[[i]] <- as_arrow_array(
+      x$column(i - 1L),
+      type = schema[[i]]$type
+    )
+  }
+  names(arrays_out) <- names(x)
+
+  record_batch(!!! arrays_out)
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.data.frame <- function(x, ..., schema = NULL) {
+  RecordBatch$create(x, schema = schema)
+}
