@@ -482,8 +482,8 @@ class LeafReader : public ColumnReaderImpl {
         NextRowGroup();
       }
     }
-    RETURN_NOT_OK(TransferColumnData(record_reader_.get(), field_->type(), descr_,
-                                     ctx_->pool, &out_));
+    RETURN_NOT_OK(
+        TransferColumnData(record_reader_.get(), field_, descr_, ctx_->pool, &out_));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }

@@ -49,6 +49,7 @@
 #include "arrow/util/config.h"  // for ARROW_CSV definition
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 
@@ -3239,6 +3240,116 @@ TEST(TestArrowWrite, CheckChunkSize) {
                 WriteTable(*table, ::arrow::default_memory_pool(), sink, chunk_size));
 }
 
+void DoNestedRequiredRoundtrip(
+    const std::shared_ptr<::arrow::DataType>& inner_type,
+    const std::shared_ptr<WriterProperties>& writer_properties,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties) {
+  // Test ARROW-15961/ARROW-16116
+  ARROW_SCOPED_TRACE("Type: ", inner_type->ToString());
+  std::shared_ptr<::arrow::KeyValueMetadata> metadata;
+  if (inner_type->id() != ::arrow::Type::DICTIONARY) {
+    metadata = ::arrow::key_value_metadata({{"min", "0"}, {"max", "127"}});
+  }
+  auto inner_field =
+      ::arrow::field("inner", inner_type, /*nullable=*/false, std::move(metadata));
+  auto type = ::arrow::struct_({inner_field});
+  auto field = ::arrow::field("outer", type, /*nullable=*/true);
+
+  auto gen = ::arrow::random::RandomArrayGenerator(/*seed=*/42);
+  auto inner = gen.ArrayOf(*inner_field, /*size=*/4);
+  ASSERT_EQ(inner->null_count(), 0) << inner->ToString();
+
+  ::arrow::TypedBufferBuilder<bool> bitmap_builder;
+  ASSERT_OK(bitmap_builder.Append(2, false));
+  ASSERT_OK(bitmap_builder.Append(2, true));
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, bitmap_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       ::arrow::StructArray::Make({inner}, {inner_field}, null_bitmap));
+  auto table = ::arrow::Table::Make(::arrow::schema({field}), {array});
+  ASSERT_OK(table->ValidateFull());
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                /*row_group_size=*/4, writer_properties,
+                                arrow_writer_properties));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder reader_builder;
+  ASSERT_OK(reader_builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(reader_builder.Build(&reader));
+  ARROW_SCOPED_TRACE("Parquet schema: ",
+                     reader->parquet_reader()->metadata()->schema()->ToString());
+  std::shared_ptr<Table> result;
+  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+
+  if (inner_type->id() == ::arrow::Type::DATE64 ||
+      inner_type->id() == ::arrow::Type::TIMESTAMP ||
+      inner_type->Equals(*::arrow::time32(::arrow::TimeUnit::SECOND))) {
+    // Encoding is different when written out, cast back
+    ASSERT_OK_AND_ASSIGN(auto casted_array,
+                         ::arrow::compute::Cast(result->column(0), type));
+    result =
+        ::arrow::Table::Make(::arrow::schema({field}), {casted_array.chunked_array()});
+  }
+
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result, false));
+  // Ensure inner array has no nulls
+  for (const auto& chunk : result->column(0)->chunks()) {
+    const auto& arr = checked_cast<const ::arrow::StructArray&>(*chunk);
+    const auto inner_arr = arr.field(0);
+    ASSERT_EQ(inner_arr->null_count(), 0) << inner_arr->ToString();
+  }
+}
+
+TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
+  std::vector<std::shared_ptr<DataType>> types = ::arrow::PrimitiveTypes();
+  types.insert(types.end(), ::arrow::TemporalTypes().begin(),
+               ::arrow::TemporalTypes().end());
+  types.push_back(::arrow::duration(::arrow::TimeUnit::SECOND));
+  types.push_back(::arrow::duration(::arrow::TimeUnit::MILLI));
+  types.push_back(::arrow::duration(::arrow::TimeUnit::MICRO));
+  types.push_back(::arrow::duration(::arrow::TimeUnit::NANO));
+  types.push_back(::arrow::decimal128(3, 2));
+  types.push_back(::arrow::decimal256(3, 2));
+  types.push_back(::arrow::fixed_size_binary(4));
+  // Note large variants of types appear to get converted back to regular on read
+  types.push_back(::arrow::dictionary(::arrow::int32(), ::arrow::binary()));
+  types.push_back(::arrow::dictionary(::arrow::int32(), ::arrow::utf8()));
+
+  for (const auto& inner_type : types) {
+    if (inner_type->id() == ::arrow::Type::NA) continue;
+
+    auto writer_props = WriterProperties::Builder();
+    auto arrow_writer_props = ArrowWriterProperties::Builder();
+    arrow_writer_props.store_schema();
+    if (inner_type->id() == ::arrow::Type::UINT32) {
+      writer_props.version(ParquetVersion::PARQUET_2_4);
+    } else if (inner_type->id() == ::arrow::Type::TIMESTAMP) {
+      // By default ns is coerced to us, override that
+      ::arrow::TimeUnit::type unit =
+          checked_cast<const ::arrow::TimestampType&>(*inner_type).unit();
+      if (unit == ::arrow::TimeUnit::NANO) {
+        writer_props.version(ParquetVersion::PARQUET_2_6);
+        arrow_writer_props.coerce_timestamps(unit);
+      }
+    }
+
+    ASSERT_NO_FATAL_FAILURE(DoNestedRequiredRoundtrip(inner_type, writer_props.build(),
+                                                      arrow_writer_props.build()));
+
+    if (inner_type->id() == ::arrow::Type::TIMESTAMP) {
+      ARROW_SCOPED_TRACE("enable_deprecated_int96_timestamps = true");
+      arrow_writer_props.enable_deprecated_int96_timestamps();
+      ASSERT_NO_FATAL_FAILURE(DoNestedRequiredRoundtrip(inner_type, writer_props.build(),
+                                                        arrow_writer_props.build()));
+    }
+  }
+  // NOTE: read_dictionary option only applies to top-level columns,
+  // so we don't address that path here
+}
+
 class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
  protected:
   // make it *3 to make it easily divisible by 3
@@ -3516,7 +3627,17 @@ TEST_F(TestNestedSchemaRead, ReadIntoTableFull) {
   // validate struct array
   ASSERT_NO_FATAL_FAILURE(ValidateArray(*struct_field_array, NUM_SIMPLE_TEST_ROWS / 3));
   // validate leaf1
-  ASSERT_NO_FATAL_FAILURE(ValidateColumnArray(*leaf1_array, NUM_SIMPLE_TEST_ROWS / 3));
+  ASSERT_NO_FATAL_FAILURE(ValidateArray(*leaf1_array, /*expected_nulls=*/0));
+  // Validate values manually here. The child array is non-nullable,
+  // but Parquet does not store null values, so we need to account for
+  // the struct's validity bitmap.
+  {
+    int j = 0;
+    for (int i = 0; i < values_array_->length(); i++) {
+      if (struct_field_array->IsNull(i)) continue;
+      ASSERT_EQ(leaf1_array->Value(i), values_array_->Value(j++));
+    }
+  }
   // validate leaf2
   ASSERT_NO_FATAL_FAILURE(
       ValidateColumnArray(*leaf2_array, NUM_SIMPLE_TEST_ROWS * 2 / 3));
