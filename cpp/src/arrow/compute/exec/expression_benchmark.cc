@@ -78,7 +78,7 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
   auto dataset_schema = schema({
       field("x", int64()),
   });
-  ExecBatch input({Datum(ConstantArrayGenerator::Int64(num_batches, 5))},
+  ExecBatch input({Datum(ConstantArrayGenerator::Int64(rows_per_batch, 5))},
                   /*length=*/1);
 
   ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
@@ -147,26 +147,29 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
                   field_ref(FieldRef("struct_arr", "float")));
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
-BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_with_copy,
-                  complex_expression)
+
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, complex_expression, complex_expression)
+    ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
     ->Range(10, 10000000)
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
                        std::thread::hardware_concurrency());
-BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy,
-                  simple_expression)
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, simple_expression, simple_expression)
+    ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
     ->Range(10, 10000000)
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
                        std::thread::hardware_concurrency());
-BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy,
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, zero_copy_expression,
                   zero_copy_expression)
+    ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
     ->Range(10, 10000000)
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
                        std::thread::hardware_concurrency());
-BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy,
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, ref_only_expression,
                   ref_only_expression)
+    ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
     ->Range(10, 10000000)
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
