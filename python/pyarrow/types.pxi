@@ -1371,7 +1371,7 @@ cdef class Schema(_Weakrefable):
     A named collection of types a.k.a schema. A schema defines the
     column names and types in a record batch or table data structure.
 
-    See Also
+    Warnings
     --------
     Do not call this class's constructor directly. Instead use
     :func:`pyarrow.schema` factory function which makes a new Arrow
