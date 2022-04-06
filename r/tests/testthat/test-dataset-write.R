@@ -516,34 +516,11 @@ test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file", {
   )
   dst_dir <- make_temp_dir()
 
-  # max_rows_per_group unset => pass
+  # max_rows_per_group unset adjust silently
   expect_silent(
     write_dataset(df, dst_dir, max_rows_per_file = 5)
   )
 
-  expect_equal(
-    {
-      write_dataset(df, dst_dir, max_rows_per_file = 5)
-      list.files(dst_dir, "part-") %>%
-        length()
-    },
-    2
-  )
-
-  # Throw warning if user set a incompatible value and change it.
-  expect_warning(
-    write_dataset(df, dst_dir, max_rows_per_file = 5, max_rows_per_group = 10),
-    "'max_rows_per_group' must be less or equal"
-  )
-
-  expect_equal(
-    {
-      suppressWarnings(write_dataset(df, dst_dir, max_rows_per_file = 5, max_rows_per_group = 10))
-      list.files(dst_dir, "part-") %>%
-        length()
-    },
-    2
-  )
 })
 
 
