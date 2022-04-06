@@ -74,6 +74,16 @@ test_that("transmute", {
   )
 })
 
+test_that("transmute respect bespoke dplyr implementation", {
+  ## see: https://github.com/tidyverse/dplyr/issues/6086
+  compare_dplyr_binding(
+    .input %>%
+      transmute(dbl, int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("transmute() with NULL inputs", {
   compare_dplyr_binding(
     .input %>%

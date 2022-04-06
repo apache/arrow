@@ -113,7 +113,15 @@ mutate.Dataset <- mutate.ArrowTabular <- mutate.RecordBatchReader <- mutate.arro
 
 transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
-  dplyr::mutate(.data, !!!dots, .keep = "none")
+  has_null <- vapply(dots, quo_is_null, logical(1))
+  .data <- dplyr::mutate(.data, !!!dots, .keep = "none")
+  if (is_empty(dots) | any(has_null)) return(.data)
+
+  ## keeping with: https://github.com/tidyverse/dplyr/issues/6086
+  cur_exprs <- vapply(dots, as_label, character(1))
+  new_col_names <- names(dots)
+  transmute_order <- ifelse(nzchar(new_col_names), new_col_names, cur_exprs)
+  dplyr::select(.data, all_of(transmute_order))
 }
 transmute.Dataset <- transmute.ArrowTabular <- transmute.RecordBatchReader <- transmute.arrow_dplyr_query
 
