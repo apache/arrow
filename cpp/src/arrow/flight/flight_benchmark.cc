@@ -123,8 +123,7 @@ struct PerformanceStats {
 Status WaitForReady(FlightClient* client, const FlightCallOptions& call_options) {
   Action action{"ping", nullptr};
   for (int attempt = 0; attempt < 10; attempt++) {
-    std::unique_ptr<ResultStream> stream;
-    if (client->DoAction(call_options, action, &stream).ok()) {
+    if (client->DoAction(call_options, action).ok()) {
       return Status::OK();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -138,7 +137,7 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
                                               const FlightEndpoint& endpoint,
                                               PerformanceStats* stats) {
   std::unique_ptr<FlightStreamReader> reader;
-  RETURN_NOT_OK(client->DoGet(call_options, endpoint.ticket, &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, client->DoGet(call_options, endpoint.ticket));
 
   FlightStreamChunk batch;
 
@@ -246,10 +245,10 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
   StopWatch timer;
   int64_t num_records = 0;
   int64_t num_bytes = 0;
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
-  RETURN_NOT_OK(client->DoPut(call_options, FlightDescriptor{},
-                              batches[0].batch->schema(), &writer, &reader));
+  ARROW_ASSIGN_OR_RAISE(
+      auto do_put_result,
+      client->DoPut(call_options, FlightDescriptor{}, batches[0].batch->schema()));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
   for (size_t i = 0; i < batches.size(); i++) {
     auto batch = batches[i];
     auto is_last = i == (batches.size() - 1);
@@ -283,8 +282,7 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
   descriptor.type = FlightDescriptor::CMD;
   perf.SerializeToString(&descriptor.cmd);
 
-  std::unique_ptr<FlightInfo> plan;
-  RETURN_NOT_OK(client->GetFlightInfo(call_options, descriptor, &plan));
+  ARROW_ASSIGN_OR_RAISE(auto plan, client->GetFlightInfo(call_options, descriptor));
 
   // Read the streams in parallel
   ipc::DictionaryMemo dict_memo;
@@ -300,8 +298,9 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
     if (endpoint.locations.empty()) {
       data_client = client;
     } else {
-      RETURN_NOT_OK(FlightClient::Connect(endpoint.locations.front(), client_options,
-                                          &local_client));
+      ARROW_ASSIGN_OR_RAISE(
+          local_client,
+          FlightClient::Connect(endpoint.locations.front(), client_options));
       data_client = local_client.get();
     }
 
@@ -521,8 +520,7 @@ int main(int argc, char** argv) {
 #endif
   }
 
-  std::unique_ptr<arrow::flight::FlightClient> client;
-  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
+  auto client = arrow::flight::FlightClient::Connect(location, options).ValueOrDie();
   ABORT_NOT_OK(arrow::flight::WaitForReady(client.get(), call_options));
 
   arrow::Status s = arrow::flight::RunPerformanceTest(client.get(), options, call_options,

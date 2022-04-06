@@ -591,6 +591,10 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
     CustomSinkNodeConsumer(std::atomic<uint32_t>* batches_seen, arrow::Future<> finish)
         : batches_seen(batches_seen), finish(std::move(finish)) {}
 
+    arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema) override {
+      return arrow::Status::OK();
+    }
+
     arrow::Status Consume(cp::ExecBatch batch) override {
       (*batches_seen)++;
       return arrow::Status::OK();
@@ -794,7 +798,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   write_options.partitioning = partitioning;
   write_options.basename_template = "part{i}.parquet";
 
-  arrow::dataset::WriteNodeOptions write_node_options{write_options, dataset->schema()};
+  arrow::dataset::WriteNodeOptions write_node_options{write_options};
 
   ARROW_RETURN_NOT_OK(cp::MakeExecNode("write", plan.get(), {scan}, write_node_options));
 

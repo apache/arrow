@@ -422,6 +422,24 @@ def test_scanner(dataset, dataset_reader):
 
     assert table.num_rows == scanner.count_rows()
 
+    scanner = dataset_reader.scanner(dataset, columns=['__filename',
+                                                       '__fragment_index',
+                                                       '__batch_index',
+                                                       '__last_in_fragment'],
+                                     memory_pool=pa.default_memory_pool())
+    table = scanner.to_table()
+    expected_names = ['__filename', '__fragment_index',
+                      '__batch_index', '__last_in_fragment']
+    assert table.column_names == expected_names
+
+    sorted_table = table.sort_by('__fragment_index')
+    assert sorted_table['__filename'].to_pylist() == (
+        ['subdir/1/xxx/file0.parquet'] * 5 +
+        ['subdir/2/yyy/file1.parquet'] * 5)
+    assert sorted_table['__fragment_index'].to_pylist() == ([0] * 5 + [1] * 5)
+    assert sorted_table['__batch_index'].to_pylist() == [0] * 10
+    assert sorted_table['__last_in_fragment'].to_pylist() == [True] * 10
+
 
 @pytest.mark.parquet
 def test_scanner_async_deprecated(dataset):
@@ -531,7 +549,8 @@ def test_partitioning():
             pa.field('key', pa.float64())
         ])
     )
-    assert len(partitioning.dictionaries) == 0
+    assert len(partitioning.dictionaries) == 2
+    assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('/3/3.14')
     assert isinstance(expr, ds.Expression)
 
@@ -552,7 +571,8 @@ def test_partitioning():
         ]),
         null_fallback='xyz'
     )
-    assert len(partitioning.dictionaries) == 0
+    assert len(partitioning.dictionaries) == 2
+    assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('/alpha=0/beta=3')
     expected = (
         (ds.field('alpha') == ds.scalar(0)) &
@@ -576,7 +596,8 @@ def test_partitioning():
             pa.field('key', pa.float64())
         ])
     )
-    assert len(partitioning.dictionaries) == 0
+    assert len(partitioning.dictionaries) == 2
+    assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('3_3.14_')
     assert isinstance(expr, ds.Expression)
 
@@ -594,7 +615,8 @@ def test_partitioning():
         dictionaries={
             "key": pa.array(["first", "second", "third"]),
         })
-    assert partitioning.dictionaries[0].to_pylist() == [
+    assert partitioning.dictionaries[0] is None
+    assert partitioning.dictionaries[1].to_pylist() == [
         "first", "second", "third"]
 
     partitioning = ds.FilenamePartitioning(
@@ -605,7 +627,8 @@ def test_partitioning():
         dictionaries={
             "key": pa.array(["first", "second", "third"]),
         })
-    assert partitioning.dictionaries[0].to_pylist() == [
+    assert partitioning.dictionaries[0] is None
+    assert partitioning.dictionaries[1].to_pylist() == [
         "first", "second", "third"]
 
 
@@ -2137,7 +2160,7 @@ def test_scan_iterator(use_threads):
     # When constructed from readers/iterators, should be one-shot
     match = "OneShotFragment was already scanned"
     for factory, schema in (
-            (lambda: pa.ipc.RecordBatchReader.from_batches(
+            (lambda: pa.RecordBatchReader.from_batches(
                 batch.schema, [batch]), None),
             (lambda: (batch for _ in range(1)), batch.schema),
     ):
@@ -3304,13 +3327,15 @@ def test_dataset_preserved_partitioning(tempdir):
     # through discovery, with hive partitioning (from a partitioning object)
     part = ds.partitioning(pa.schema([("part", pa.int32())]), flavor="hive")
     assert isinstance(part, ds.HivePartitioning)  # not a factory
-    assert len(part.dictionaries) == 0
+    assert len(part.dictionaries) == 1
+    assert all(x is None for x in part.dictionaries)
     dataset = ds.dataset(path, partitioning=part)
     part = dataset.partitioning
     assert isinstance(part, ds.HivePartitioning)
     assert part.schema == pa.schema([("part", pa.int32())])
     # TODO is this expected?
-    assert len(part.dictionaries) == 0
+    assert len(part.dictionaries) == 1
+    assert all(x is None for x in part.dictionaries)
 
     # through manual creation -> not available
     dataset = ds.dataset(path, partitioning="hive")
@@ -4011,8 +4036,8 @@ def test_write_iterable(tempdir):
     assert result.equals(table)
 
     base_dir = tempdir / 'inmemory_reader'
-    reader = pa.ipc.RecordBatchReader.from_batches(table.schema,
-                                                   table.to_batches())
+    reader = pa.RecordBatchReader.from_batches(table.schema,
+                                               table.to_batches())
     ds.write_dataset(reader, base_dir,
                      basename_template='dat_{i}.arrow', format="feather")
     result = ds.dataset(base_dir, format="ipc").to_table()

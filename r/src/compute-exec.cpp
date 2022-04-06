@@ -299,27 +299,15 @@ std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
 // a RecordBatchReader output (ARROW-15849)
 class AccumulatingConsumer : public compute::SinkNodeConsumer {
  public:
-  explicit AccumulatingConsumer(const std::vector<std::string>& schema_names)
-      : schema_names_(schema_names) {}
-
   const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches() { return batches_; }
 
+  arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema) {
+    schema_ = schema;
+    return arrow::Status::OK();
+  }
+
   arrow::Status Consume(compute::ExecBatch batch) override {
-    arrow::SchemaBuilder builder;
-    auto descriptors = batch.GetDescriptors();
-    for (int64_t i = 0; i < schema_names_.size(); i++) {
-      if (i == (descriptors.size() - 1)) {
-        break;
-      }
-
-      RETURN_NOT_OK(builder.AddField(
-          std::make_shared<arrow::Field>(schema_names_[i], descriptors[i].type)));
-    }
-
-    auto schema = builder.Finish();
-    RETURN_NOT_OK(schema);
-
-    auto record_batch = batch.ToRecordBatch(schema.ValueUnsafe());
+    auto record_batch = batch.ToRecordBatch(schema_);
     ARROW_RETURN_NOT_OK(record_batch);
     batches_.push_back(record_batch.ValueUnsafe());
 
@@ -329,7 +317,7 @@ class AccumulatingConsumer : public compute::SinkNodeConsumer {
   arrow::Future<> Finish() override { return arrow::Future<>::MakeFinished(); }
 
  private:
-  std::vector<std::string> schema_names_;
+  std::shared_ptr<arrow::Schema> schema_;
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches_;
 };
 
@@ -350,15 +338,11 @@ std::shared_ptr<arrow::Buffer> engine__internal__SubstraitFromJSON(
 // [[engine::export]]
 std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
     const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<arrow::Buffer>& serialized_plan, cpp11::strings out_names) {
+    const std::shared_ptr<arrow::Buffer>& serialized_plan) {
   std::vector<std::shared_ptr<AccumulatingConsumer>> consumers;
-  std::vector<std::string> out_names_string;
-  for (const auto& item : out_names) {
-    out_names_string.push_back(item);
-  }
 
   std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
-    consumers.emplace_back(new AccumulatingConsumer(out_names_string));
+    consumers.emplace_back(new AccumulatingConsumer());
     return consumers.back();
   };
 
