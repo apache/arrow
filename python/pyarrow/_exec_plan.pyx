@@ -32,7 +32,7 @@ from pyarrow.lib import tobytes, _pc
 from pyarrow._compute cimport Expression, _true
 from pyarrow._dataset cimport Dataset
 
-_dataset_support_initialised = False
+Initialize()  # Initialise support for Datasets in ExecPlan
 
 
 cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
@@ -72,11 +72,6 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
         vector[CDeclaration.Input] no_c_inputs
-
-    global _dataset_support_initialised
-    if not _dataset_support_initialised:
-        Initialize()  # Initialise support for Datasets in ExecPlan
-        _dataset_support_initialised = True
 
     if use_threads:
         c_executor = GetCpuThreadPool()

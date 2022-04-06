@@ -15,11 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from ast import Import
 import pytest
 
+pytestmark = pytest.mark.dataset
+
 import pyarrow as pa
-import pyarrow.dataset as ds
-import pyarrow._exec_plan as ep
+
+try:
+    import pyarrow.dataset as ds
+    import pyarrow._exec_plan as ep
+except ImportError:
+    pass
 
 
 def test_joins_corner_cases():
