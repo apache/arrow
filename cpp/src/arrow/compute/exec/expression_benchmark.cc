@@ -71,22 +71,22 @@ static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filt
 }
 
 static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression expr) {
-  const auto array_batches = static_cast<int32_t>(state.range(0));
-  const auto array_size = 10000000 / array_batches;
+  const auto rows_per_batch = static_cast<int32_t>(state.range(0));
+  const auto num_batches = 10000000 / rows_per_batch;
 
   ExecContext ctx;
   auto dataset_schema = schema({
       field("x", int64()),
   });
-  ExecBatch input({Datum(ConstantArrayGenerator::Int64(array_size, 5))},
+  ExecBatch input({Datum(ConstantArrayGenerator::Int64(num_batches, 5))},
                   /*length=*/1);
 
   ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
   for (auto _ : state) {
-    for (int it = 0; it < array_batches; ++it)
+    for (int it = 0; it < num_batches; ++it)
       ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
   }
-  state.SetItemsProcessed(state.iterations() * array_size * array_batches);
+  state.SetItemsProcessed(state.iterations() * num_batches * rows_per_batch);
 }
 
 auto to_int64 = compute::CastOptions::Safe(int64());
@@ -146,9 +146,9 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
 BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_with_copy, expression_with_copy)
     ->RangeMultiplier(10)
-    ->Range(1, 10000000);
+    ->Range(10, 10000000);
 BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, execution_without_copy, expression_without_copy)
     ->RangeMultiplier(10)
-    ->Range(1, 10000000);
+    ->Range(10, 10000000);
 }  // namespace compute
 }  // namespace arrow
