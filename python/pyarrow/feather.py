@@ -151,7 +151,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
             df = df.to_dense()
 
     if _pandas_api.is_data_frame(df):
-        table = Table.from_pandas(df, preserve_index=False)
+        table = Table.from_pandas(df, preserve_index=True)
 
         if version == 1:
             # Version 1 does not chunking
