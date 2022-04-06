@@ -2394,12 +2394,32 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
 }
 
 FORCE_INLINE
+void concat_word(char* tmp, int* out_tmp, bool* last, const char* word, int word_len,
+                 bool word_validity) {
+  if (word_validity) {
+    memcpy(tmp + *out_tmp, word, word_len);
+    *out_tmp += word_len;
+    *last = true;
+  }
+}
+
+FORCE_INLINE
+void concat_separator(char* tmp, int* out_tmp, const char* separator, int separator_len,
+                      bool last, bool next) {
+  if (last && next) {
+    memcpy(tmp + *out_tmp, separator, separator_len);
+    *out_tmp += separator_len;
+  }
+}
+
+FORCE_INLINE
 const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
                                 int32_t separator_len, bool separator_validity,
                                 const char* word1, int32_t word1_len, bool word1_validity,
                                 const char* word2, int32_t word2_len, bool word2_validity,
                                 bool* out_valid, int32_t* out_len) {
   *out_len = 0;
+  // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
@@ -2425,22 +2445,13 @@ const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
 
   char* tmp = out;
   int out_tmp = 0;
-  if (word1_validity) {
-    memcpy(tmp, word1, word1_len);
-    tmp += word1_len;
-    out_tmp += word1_len;
-    last = true;
-    next = word2_validity;
-  }
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word2_validity) {
-    memcpy(tmp, word2, word2_len);
-    out_tmp += word2_len;
-  }
+
+  concat_word(tmp, &out_tmp, &last, word1, word1_len, word1_validity);
+  next = word2_validity;
+
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+
+  concat_word(tmp, &out_tmp, &last, word2, word2_len, word2_validity);
 
   *out_valid = true;
   *out_len = out_tmp;
@@ -2482,34 +2493,16 @@ const char* concat_ws_utf8_utf8_utf8(
 
   char* tmp = out;
   int out_tmp = 0;
-  if (word1_validity) {
-    memcpy(tmp, word1, word1_len);
-    tmp += word1_len;
-    out_tmp += word1_len;
-    last = true;
-  }
+
+  concat_word(tmp, &out_tmp, &last, word1, word1_len, word1_validity);
   next = word2_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word2_validity) {
-    memcpy(tmp, word2, word2_len);
-    tmp += word2_len;
-    out_tmp += word2_len;
-    last = true;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+
+  concat_word(tmp, &out_tmp, &last, word2, word2_len, word2_validity);
   next = word3_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word3_validity) {
-    memcpy(tmp, word3, word3_len);
-    out_tmp += word3_len;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+
+  concat_word(tmp, &out_tmp, &last, word3, word3_len, word3_validity);
 
   *out_valid = true;
   *out_len = out_tmp;
@@ -2555,46 +2548,19 @@ const char* concat_ws_utf8_utf8_utf8_utf8(
 
   char* tmp = out;
   int out_tmp = 0;
-  if (word1_validity) {
-    memcpy(tmp, word1, word1_len);
-    tmp += word1_len;
-    out_tmp += word1_len;
-    last = true;
-  }
+  concat_word(tmp, &out_tmp, &last, word1, word1_len, word1_validity);
   next = word2_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word2_validity) {
-    memcpy(tmp, word2, word2_len);
-    tmp += word2_len;
-    out_tmp += word2_len;
-    last = true;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+
+  concat_word(tmp, &out_tmp, &last, word2, word2_len, word2_validity);
   next = word3_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word3_validity) {
-    memcpy(tmp, word3, word3_len);
-    tmp += word3_len;
-    out_tmp += word3_len;
-    last = true;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+
+  concat_word(tmp, &out_tmp, &last, word3, word3_len, word3_validity);
   next = word4_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word4_validity) {
-    memcpy(tmp, word4, word4_len);
-    out_tmp += word4_len;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+
+  concat_word(tmp, &out_tmp, &last, word4, word4_len, word4_validity);
 
   *out_valid = true;
   *out_len = out_tmp;
@@ -2644,58 +2610,19 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(
 
   char* tmp = out;
   int out_tmp = 0;
-  if (word1_validity) {
-    memcpy(tmp, word1, word1_len);
-    tmp += word1_len;
-    out_tmp += word1_len;
-    last = true;
-  }
+  concat_word(tmp, &out_tmp, &last, word1, word1_len, word1_validity);
   next = word2_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word2_validity) {
-    memcpy(tmp, word2, word2_len);
-    tmp += word2_len;
-    out_tmp += word2_len;
-    last = true;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+  concat_word(tmp, &out_tmp, &last, word2, word2_len, word2_validity);
   next = word3_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word3_validity) {
-    memcpy(tmp, word3, word3_len);
-    tmp += word3_len;
-    out_tmp += word3_len;
-    last = true;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+  concat_word(tmp, &out_tmp, &last, word3, word3_len, word3_validity);
   next = word4_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word4_validity) {
-    memcpy(tmp, word4, word4_len);
-    tmp += word4_len;
-    out_tmp += word4_len;
-    last = true;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+  concat_word(tmp, &out_tmp, &last, word4, word4_len, word4_validity);
   next = word5_validity;
-  if (last && next) {
-    memcpy(tmp, separator, separator_len);
-    tmp += separator_len;
-    out_tmp += separator_len;
-  }
-  if (word5_validity) {
-    memcpy(tmp, word5, word5_len);
-    out_tmp += word5_len;
-  }
+  concat_separator(tmp, &out_tmp, separator, separator_len, last, next);
+  concat_word(tmp, &out_tmp, &last, word5, word5_len, word5_validity);
 
   *out_valid = true;
   *out_len = out_tmp;
