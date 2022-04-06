@@ -191,10 +191,8 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 /// \brief Options for cumulative sum function
 class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
-  // Default `start` value is of type Int8 to allow type casting and compatibility rules
-  // to use the type of the function values.
   explicit CumulativeSumOptions(
-      std::shared_ptr<Scalar> start = std::make_shared<NumericScalar<Int64Type>>(0),
+      std::shared_ptr<Scalar> start = std::make_shared<Int64Scalar>(0),
       bool skip_nulls = false, bool check_overflow = false);
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
   static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }

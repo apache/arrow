@@ -15,25 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-#include <functional>
-#include <locale>
-#include <memory>
-#include <stdexcept>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/array/builder_decimal.h"
-#include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/testing/gtest_util.h"  // IntegralArrowTypes
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -41,20 +31,14 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 
-#include "arrow/ipc/json_simple.h"
-
 namespace arrow {
 namespace compute {
-
-using CumulativeTypes =
-    testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                   Int32Type, Int64Type, FloatType, DoubleType>;
 
 template <typename T, typename OptionsType>
 class TestCumulativeOp : public ::testing::Test {
  public:
   using ArrowType = T;
-  using ArrowScalar = typename TypeTraits<T>::ScalarType;
+  using ScalarType = typename TypeTraits<T>::ScalarType;
   using CType = typename TypeTraits<T>::CType;
 
  protected:
@@ -117,7 +101,7 @@ class TestCumulativeSum : public TestCumulativeOp<T, CumulativeSumOptions> {
  public:
   using OptionsType = CumulativeSumOptions;
   using ArrowType = typename TestCumulativeOp<T, OptionsType>::ArrowType;
-  using ArrowScalar = typename TestCumulativeOp<T, OptionsType>::ArrowScalar;
+  using ScalarType = typename TestCumulativeOp<T, OptionsType>::ScalarType;
   using CType = typename TestCumulativeOp<T, OptionsType>::CType;
 
  protected:
@@ -125,7 +109,7 @@ class TestCumulativeSum : public TestCumulativeOp<T, CumulativeSumOptions> {
   enable_if_parameter_free<U, OptionsType> generate_options(CType start = 0,
                                                             bool skip_nulls = false,
                                                             bool check_overflow = false) {
-    return OptionsType(std::make_shared<ArrowScalar>(start), skip_nulls, check_overflow);
+    return OptionsType(std::make_shared<ScalarType>(start), skip_nulls, check_overflow);
   }
 
   template <typename U = T>
@@ -141,7 +125,7 @@ class TestCumulativeSum : public TestCumulativeOp<T, CumulativeSumOptions> {
         unit = TimeUnit::SECOND;
         break;
     }
-    return OptionsType(std::make_shared<ArrowScalar>(start, unit), skip_nulls,
+    return OptionsType(std::make_shared<ScalarType>(start, unit), skip_nulls,
                        check_overflow);
   }
 
