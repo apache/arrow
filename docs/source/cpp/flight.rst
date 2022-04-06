@@ -116,7 +116,7 @@ headers, among other features. Also, some objects returned by client
 RPC calls expose a ``Cancel`` method which allows terminating a call
 early.
 
-On the server side, timeouts are transparent. For cancellation, the
+On the server side, no additional code is needed to implement timeouts. For cancellation, the
 server needs to manually poll :func:`ServerCallContext::is_cancelled
 <arrow::flight::ServerCallContext::is_cancelled>` to check if the
 client has cancelled the call, and if so, break out of any processing
