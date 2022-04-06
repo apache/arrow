@@ -75,6 +75,14 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   int64_t max_batch_size;
 };
 
+/// \brief Used for keeping the index of the source batch. No matched ExecNode.
+class ARROW_EXPORT SourceIndexOptions : public ExecNodeOptions {
+ public:
+  explicit SourceIndexOptions(int32_t index) : index(index) {}
+
+  int32_t index;
+};
+
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to

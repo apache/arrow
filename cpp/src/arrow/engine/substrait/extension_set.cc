@@ -135,6 +135,7 @@ Result<ExtensionSet> ExtensionSet::Make(
     if (function_ids[i].empty()) continue;
     RETURN_NOT_OK(set.CheckHasUri(function_ids[i].uri));
 
+    function_ids[i].name = function_ids[i].name.substr(0, function_ids[i].name.find(':'));
     if (auto rec = registry->GetFunction(function_ids[i])) {
       set.functions_[i] = {rec->id, rec->function_name};
       continue;
@@ -204,6 +205,7 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
   return &it->second;
 }
 
+<<<<<<< HEAD
 namespace {
 
 struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
@@ -216,6 +218,64 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   util::optional<TypeRecord> GetType(const DataType& type) const override {
     if (auto index = GetIndex(type_to_index_, &type)) {
       return TypeRecord{type_ids_[*index], types_[*index]};
+=======
+ExtensionIdRegistry* default_extension_id_registry() {
+  static struct Impl : ExtensionIdRegistry {
+    Impl() {
+      struct TypeName {
+        std::shared_ptr<DataType> type;
+        util::string_view name;
+      };
+
+      // The type (variation) mappings listed below need to be kept in sync
+      // with the YAML at substrait/format/extension_types.yaml manually;
+      // see ARROW-15535.
+      for (TypeName e : {
+               TypeName{uint8(), "u8"},
+               TypeName{uint16(), "u16"},
+               TypeName{uint32(), "u32"},
+               TypeName{uint64(), "u64"},
+               TypeName{int8(), "i8"},
+               TypeName{int16(), "i16"},
+               TypeName{int32(), "i32"},
+               TypeName{int64(), "i64"},
+               TypeName{float16(), "fp16"},
+               TypeName{float64(), "fp64"},
+               TypeName{date64(), "date"},
+           }) {
+        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
+                               /*is_variation=*/true));
+      }
+
+      for (TypeName e : {
+               TypeName{null(), "null"},
+               TypeName{month_interval(), "interval_month"},
+               TypeName{day_time_interval(), "interval_day_milli"},
+               TypeName{month_day_nano_interval(), "interval_month_day_nano"},
+           }) {
+        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
+                               /*is_variation=*/false));
+      }
+
+      // TODO: this is just a placeholder right now. We'll need a YAML file for
+      // all functions (and prototypes) that Arrow provides that are relevant
+      // for Substrait, and include mappings for all of them here. See
+      // ARROW-15535.
+      for (std::pair<util::string_view, std::string> name : {std::make_pair("add", "add"),
+                                                             {"subtract", "subtract"},
+                                                             {"sum", "sum"},
+                                                             {"count", "count"},
+                                                             {"avg", "mean"},
+                                                             {"multiply", "multiply"},
+                                                             {"is_not_null", "is_valid"},
+                                                             {"and", "and"},
+                                                             {"lt", "less"},
+                                                             {"lte", "less_equal"},
+                                                             {"gte", "greater_equal"},
+                                                             {"alias", "alias"}}) {
+        DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name.first}, name.second));
+      }
+>>>>>>> 8880d79f7... Enable TPCH Q6 & Q1
     }
     return {};
   }
@@ -423,7 +483,15 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
              TypeName{uint16(), "u16"},
              TypeName{uint32(), "u32"},
              TypeName{uint64(), "u64"},
+             TypeName{int8(), "i8"},
+             TypeName{int16(), "i16"},
+             TypeName{int32(), "i32"},
+             TypeName{int64(), "i64"},
              TypeName{float16(), "fp16"},
+             TypeName{float32(), "fp32"},
+             TypeName{float64(), "fp64"},
+             TypeName{date64(), "date"},
+             TypeName{utf8(), "string"},
          }) {
       DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type)));
     }
@@ -441,12 +509,25 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     // all functions (and prototypes) that Arrow provides that are relevant
     // for Substrait, and include mappings for all of them here. See
     // ARROW-15535.
-    for (util::string_view name : {
-             "add",
-             "equal",
-             "is_not_distinct_from",
-         }) {
-      DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
+    for (std::pair<util::string_view, std::string> name : {
+              std::make_pair("add", "add"),
+              {"subtract", "subtract"},
+              {"sum", "sum"},
+              {"count", "count"},
+              {"avg", "mean"},
+              {"multiply", "multiply"},
+              {"is_null", "is_null"},
+              {"is_not_null", "is_valid"},
+              {"and", "and_kleene"},
+              {"or", "or_kleene"},
+              {"equal", "equal"},
+              {"lt", "less"},
+              {"lte", "less_equal"},
+              {"gte", "greater_equal"},
+              {"in", "is_in"},
+              {"is_not_distinct_from","is_not_distinct_from"}
+              {"alias", "alias"}}) {
+      DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name.first}, name.second));
     }
   }
 };

@@ -31,6 +31,7 @@
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/util/string_view.h"
+#include "substrait/plan.pb.h"
 
 namespace arrow {
 namespace engine {
@@ -38,6 +39,27 @@ namespace engine {
 /// Factory function type for generating the node that consumes the batches produced by
 /// each toplevel Substrait relation when deserializing a Substrait Plan.
 using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>()>;
+
+/// \brief Convert an existing Substrait Plan to a list of ExecNode declarations
+///
+/// \param[in] plan Substrait Plan message
+/// \param[out] ext_set if non-null, the extension mapping used by the Substrait Plan is
+/// returned here.
+/// \return a vector of ExecNode declarations, one for each toplevel relation in the
+/// Substrait Plan
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> ConvertPlan(
+    const substrait::Plan& plan, ExtensionSet* ext_set_out = NULLPTR);
+
+/// \brief Deserializes a Substrait Plan message to a list of ExecNode declarations
+///
+/// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
+/// message
+/// \param[out] ext_set if non-null, the extension mapping used by the Substrait Plan is
+/// returned here.
+/// \return a vector of ExecNode declarations, one for each toplevel relation in the
+/// Substrait Plan
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
+    const Buffer& buf, ExtensionSet* ext_set_out = NULLPTR);
 
 /// \brief Deserializes a Substrait Plan message to a list of ExecNode declarations
 ///

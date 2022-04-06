@@ -177,6 +177,11 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       auto func_name = decoded_function.name.to_string();
       if (func_name != "cast") {
         return compute::call(func_name, std::move(arguments));
+      } else if (func_name == "alias") {
+       if (scalar_fn.args_size() != 1) {
+          return arrow::Status::Invalid("Alias should have exact 1 arg, but got " + std::to_string(scalar_fn.args_size()));
+        }
+        return FromProto(scalar_fn.args().at(0), ext_set);
       } else {
         ARROW_ASSIGN_OR_RAISE(auto output_type_desc,
                               FromProto(scalar_fn.output_type(), ext_set));

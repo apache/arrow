@@ -112,6 +112,29 @@ DeclarationFactory MakeWriteDeclarationFactory(
   };
 }
 
+Result<std::vector<compute::Declaration>> ConvertPlan(const substrait::Plan& plan,
+                                                      ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan));
+
+  std::vector<compute::Declaration> decls;
+  for (const substrait::PlanRel& plan_rel : plan.relations()) {
+    const substrait::Rel& rel =
+        plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel();
+    ARROW_ASSIGN_OR_RAISE(auto decl, FromProto(rel, ext_set));
+    decls.push_back(std::move(decl));
+  }
+  if (ext_set_out) {
+    *ext_set_out = std::move(ext_set);
+  }
+  return decls;
+}
+
+Result<std::vector<compute::Declaration>> DeserializePlan(const Buffer& buf,
+                                                          ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
+  return ConvertPlan(plan, ext_set_out);
+}
+
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, DeclarationFactory declaration_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {

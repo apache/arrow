@@ -100,6 +100,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
   for (const auto& uri : plan.extension_uris()) {
     uris[uri.extension_uri_anchor()] = uri.uri();
   }
+  SetElement(0, kArrowExtTypesUri, &uris);
 
   // NOTE: it's acceptable to use views to memory owned by plan; ExtensionSet::Make
   // will only store views to memory owned by registry.
