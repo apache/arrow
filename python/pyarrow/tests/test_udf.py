@@ -360,3 +360,55 @@ def test_varargs_function_validation():
         error_msg = "VarArgs function 'n_add' needs at least 2 arguments"
         +" but attempted to look up kernel(s) with only 1"
         assert error_msg == execinfo.value
+
+
+def test_function_doc_validation():
+
+    def unary_scalar_function(scalar):
+        return pc.call_function("add", [scalar, 1])
+
+    # validate arity
+    arity = 1
+    in_types = [InputType.scalar(pa.int64())]
+    out_type = pa.int64()
+
+    # doc with no summary
+    func_doc = {}
+    func_doc["description"] = "desc"
+    func_doc["arg_names"] = ["scalar1"]
+    
+    with pytest.raises(ValueError) as execinfo:
+        register_scalar_function("no_summary", arity, func_doc, in_types,
+                                    out_type, unary_scalar_function)
+        expected_expr = "must contain summary, arg_names and a description"
+        assert expected_expr in execinfo.value
+        
+    # doc with no decription
+    func_doc = {}
+    func_doc["summary"] = "test summary"
+    func_doc["arg_names"] = ["scalar1"]
+    
+    with pytest.raises(ValueError) as execinfo:
+        register_scalar_function("no_desc", arity, func_doc, in_types,
+                                    out_type, unary_scalar_function)
+        expected_expr = "must contain summary, arg_names and a description"
+        assert expected_expr in execinfo.value
+        
+    # doc with no arg_names
+    func_doc = {}
+    func_doc["summary"] = "test summary"
+    func_doc["description"] = "some test func"
+    
+    with pytest.raises(ValueError) as execinfo:
+        register_scalar_function("no_arg_names", arity, func_doc, in_types,
+                                    out_type, unary_scalar_function)
+        expected_expr = "must contain summary, arg_names and a description"
+        assert expected_expr in execinfo.value
+        
+    # doc with empty dictionary
+    func_doc = {}
+    with pytest.raises(ValueError) as execinfo:
+        register_scalar_function("no_arg_names", arity, func_doc, in_types,
+                                    out_type, unary_scalar_function)
+        expected_expr = "must contain summary, arg_names and a description"
+        assert expected_expr in execinfo.value

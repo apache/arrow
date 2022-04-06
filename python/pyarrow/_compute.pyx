@@ -2351,7 +2351,7 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
         deref(pyarrow_unwrap_schema(schema).get())))
 
 
-cdef CFunctionDoc _make_function_doc(dict func_doc):
+cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     """
     Helper function to generate the FunctionDoc
     """
@@ -2360,11 +2360,11 @@ cdef CFunctionDoc _make_function_doc(dict func_doc):
         vector[c_string] c_arg_names
         c_bool c_options_required
 
-    validate_expr = func_doc.has_key("summary") and func_doc.has_key(
-        "description") and func_doc.has_key("arg_names")
+    validate_expr = "summary" in func_doc.keys(
+    ) and "description" in func_doc.keys() and "arg_names" in func_doc.keys()
     if not validate_expr:
         raise ValueError(
-            "function doc dictionary must contain, summary, arg_names and a description(str)")
+            "function doc dictionary must contain, summary, arg_names and a description")
     f_doc.summary = tobytes(func_doc["summary"])
     f_doc.description = tobytes(func_doc["description"])
     for arg_name in func_doc["arg_names"]:

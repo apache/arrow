@@ -69,7 +69,8 @@ Status ExecFunctionScalar(const compute::ExecBatch& batch, PyObject* function,
                           const compute::Arity& arity, Datum* out) {
   // num_args for arity varargs is arity.num_args, and for other arities,
   // it is equal to the number of values in the batch
-  int64_t num_args = arity.is_varargs ? static_cast<int64_t>(batch.values.size()) : arity.num_args;
+  int64_t num_args =
+      arity.is_varargs ? static_cast<int64_t>(batch.values.size()) : arity.num_args;
   PyObject* arg_tuple = PyTuple_New(num_args);
   for (int arg_id = 0; arg_id < num_args; arg_id++) {
     if (!batch[arg_id].is_scalar()) {
@@ -95,7 +96,8 @@ Status ExecFunctionArray(const compute::ExecBatch& batch, PyObject* function,
                          const compute::Arity& arity, Datum* out) {
   // num_args for arity varargs is arity.num_args, and for other arities,
   // it is equal to the number of values in the batch
-  int num_args = arity.is_varargs ? static_cast<int64_t>(batch.values.size()) : arity.num_args;
+  int num_args =
+      arity.is_varargs ? static_cast<int64_t>(batch.values.size()) : arity.num_args;
   PyObject* arg_tuple = PyTuple_New(num_args);
   for (int arg_id = 0; arg_id < num_args; arg_id++) {
     if (!batch[arg_id].is_array()) {
