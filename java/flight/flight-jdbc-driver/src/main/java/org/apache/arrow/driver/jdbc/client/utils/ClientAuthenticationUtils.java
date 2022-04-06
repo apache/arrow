@@ -18,13 +18,12 @@
 package org.apache.arrow.driver.jdbc.client.utils;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -34,6 +33,8 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -105,10 +106,12 @@ public final class ClientAuthenticationUtils {
     return factory.getCredentialCallOption();
   }
 
-  private static void getKeyStoreInstance(KeyStore keyStore, String instance)
+  private static KeyStore getKeyStoreInstance(String instance)
       throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
-    keyStore = KeyStore.getInstance(instance);
+    KeyStore keyStore = KeyStore.getInstance(instance);
     keyStore.load(null, null);
+
+    return keyStore;
   }
 
   private static String getOperatingSystem() {
@@ -152,14 +155,14 @@ public final class ClientAuthenticationUtils {
    */
   public static InputStream getCertificateInputStreamFromJVM()
       throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
-    String filename = System.getProperty("java.home") + "/lib/security/cacerts".replace('/', File.separatorChar);
-    FileInputStream fileInputStream = new FileInputStream(filename);
+    Path path = Paths.get(System.getProperty("java.home"), "lib", "security", "cacerts");
+    InputStream fileInputStream = Files.newInputStream(path);
     KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
     String password = "changeit";
 
     keyStore.load(fileInputStream, password.toCharArray());
 
-    return getCertificatesInputStream(keyStore);
+    return getCertificatesInputStream(Collections.singletonList(keyStore));
   }
 
   /**
@@ -175,32 +178,42 @@ public final class ClientAuthenticationUtils {
   public static InputStream getCertificateInputStreamFromSystem() throws KeyStoreException,
       CertificateException, IOException, NoSuchAlgorithmException {
 
-    KeyStore keyStore = null;
+    List<KeyStore> keyStoreList = new ArrayList<>();
     if (isWindows()) {
-      getKeyStoreInstance(keyStore, "Windows-ROOT");
+      keyStoreList.add(getKeyStoreInstance("Windows-ROOT"));
+      keyStoreList.add(getKeyStoreInstance("Windows-MY"));
     } else if (isMac()) {
-      getKeyStoreInstance(keyStore, "KeychainStore");
+      keyStoreList.add(getKeyStoreInstance("KeychainStore"));
+    } else {
+      throw new RuntimeException(getOperatingSystem() + "not a supported operating system");
     }
 
-    assert keyStore != null;
-    return getCertificatesInputStream(keyStore);
+    return getCertificatesInputStream(keyStoreList);
   }
 
-  private static InputStream getCertificatesInputStream(KeyStore keyStore) throws KeyStoreException, IOException {
+  private static void getCertificatesInputStream(KeyStore keyStore, JcaPEMWriter pemWriter)
+      throws IOException, KeyStoreException {
     Enumeration<String> aliases = keyStore.aliases();
+    while (aliases.hasMoreElements()) {
+      String alias = aliases.nextElement();
+      if (keyStore.isCertificateEntry(alias)) {
+        pemWriter.writeObject(keyStore.getCertificate(alias));
+      }
+    }
+    pemWriter.flush();
+  }
 
+  private static InputStream getCertificatesInputStream(Collection<KeyStore> keyStores)
+      throws IOException, KeyStoreException {
     try (final StringWriter writer = new StringWriter();
          final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
 
-      while (aliases.hasMoreElements()) {
-        String alias = aliases.nextElement();
-        if (keyStore.isCertificateEntry(alias)) {
-          pemWriter.writeObject(keyStore.getCertificate(alias));
-        }
-      }
-      pemWriter.flush();
-      return new ByteArrayInputStream(
-          writer.toString().getBytes(StandardCharsets.UTF_8));
+    for (KeyStore keyStore : keyStores) {
+      getCertificatesInputStream(keyStore, pemWriter);
+    }
+
+    return new ByteArrayInputStream(
+        writer.toString().getBytes(StandardCharsets.UTF_8));
     }
   }
 
