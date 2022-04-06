@@ -94,6 +94,8 @@ mutate.arrow_dplyr_query <- function(.data,
 
   # Respect .keep
   if (.keep == "none") {
+    ## for consistency with dplyr, this appends new columns after existing columns
+    ## by specifying the order
     new_cols_last <- c(intersect(old_vars, new_vars), setdiff(new_vars, old_vars))
     .data$selected_columns <- .data$selected_columns[new_cols_last]
   } else if (.keep != "all") {
@@ -113,12 +115,14 @@ mutate.Dataset <- mutate.ArrowTabular <- mutate.RecordBatchReader <- mutate.arro
 
 transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
-  has_null <- vapply(dots, quo_is_null, logical(1))
+  has_null <- map_lgl(dots, quo_is_null)
   .data <- dplyr::mutate(.data, !!!dots, .keep = "none")
-  if (is_empty(dots) | any(has_null)) return(.data)
+  if (is_empty(dots) | any(has_null)) {
+    return(.data)
+  }
 
   ## keeping with: https://github.com/tidyverse/dplyr/issues/6086
-  cur_exprs <- vapply(dots, as_label, character(1))
+  cur_exprs <- map_chr(dots, as_label)
   new_col_names <- names(dots)
   transmute_order <- ifelse(nzchar(new_col_names), new_col_names, cur_exprs)
   dplyr::select(.data, all_of(transmute_order))
