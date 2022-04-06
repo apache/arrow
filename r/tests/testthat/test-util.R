@@ -30,5 +30,9 @@ test_that("as_writable_table() works for data.frame, RecordBatch, and Table", {
 })
 
 test_that("as_writable_table() errors for invalid input", {
+  # make sure we get the custom error message
   expect_snapshot_error(as_writable_table("not a table", "arg_name"))
+
+  # make sure other errors make it through
+  expect_snapshot_error(as_writable_table(data.frame(x = I(list(1, "a")))))
 })

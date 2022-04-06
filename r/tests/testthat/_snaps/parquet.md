@@ -1,5 +1,6 @@
 # write_parquet() with invalid input type
 
     `x` must be coercible to an Arrow Table using as_arrow_table()
-    i `x` inherits from Array / ArrowDatum / ArrowObject / R6
+    Caused by error in `as_arrow_table()`:
+    ! No method for `as_arrow_table()` for object of class Array / ArrowDatum / ArrowObject / R6
 

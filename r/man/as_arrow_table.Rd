@@ -2,6 +2,7 @@
 % Please edit documentation in R/table.R, R/record-batch-reader.R
 \name{as_arrow_table}
 \alias{as_arrow_table}
+\alias{as_arrow_table.default}
 \alias{as_arrow_table.Table}
 \alias{as_arrow_table.RecordBatch}
 \alias{as_arrow_table.data.frame}
@@ -10,6 +11,8 @@
 \title{Convert an object to an Arrow Table}
 \usage{
 as_arrow_table(x, ..., schema = NULL)
+
+\method{as_arrow_table}{default}(x, ...)
 
 \method{as_arrow_table}{Table}(x, ..., schema = NULL)
 

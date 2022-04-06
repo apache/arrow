@@ -141,16 +141,12 @@ handle_parquet_io_error <- function(e, format, call) {
 as_writable_table <- function(x, arg_name = "x") {
   tryCatch(
     as_arrow_table(x),
-    error = function(e) {
-      if (grepl("no applicable method for 'as_arrow_table'", conditionMessage(e))) {
-        abort(
-          c("`x` must be coercible to an Arrow Table using as_arrow_table()",
-            "i" = glue::glue("`x` inherits from {paste(class(x), collapse = ' / ')}")
-          )
-        )
-      } else{
-        abort("Error converting to a writable Table", parent = e)
-      }
+    arrow_no_method_as_arrow_table = function(e) {
+      msg <- glue::glue(
+        "`{arg_name}` must be coercible to an Arrow Table using as_arrow_table()"
+      )
+
+      abort(msg, parent = e)
     }
   )
 }

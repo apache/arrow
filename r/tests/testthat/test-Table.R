@@ -729,3 +729,10 @@ test_that("as_arrow_table() works for data.frame()", {
     arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
   )
 })
+
+test_that("as_arrow_table() errors for invalid input", {
+  expect_error(
+    as_arrow_table("no as_arrow_table() method"),
+    classs = "arrow_no_method_as_arrow_table"
+  )
+})
