@@ -77,7 +77,7 @@ public class IntervalStringUtils {
     return String.format("%c%03d %02d:%02d:%02d.%03d", neg ? '-' : '+', days, hours, minutes, seconds, millis);
   }
 
-  public static int millisFromPeriod(org.joda.time.Period period) {
+  public static int millisFromPeriod(Period period) {
     return period.getHours() * DateUtility.hoursToMillis + period.getMinutes() * DateUtility.minutesToMillis +
         period.getSeconds() * DateUtility.secondsToMillis + period.getMillis();
   }
