@@ -714,6 +714,40 @@ canonical_type_str <- function(type_str) {
   )
 }
 
+#' Convert an object to an Arrow DataType
+#'
+#' @param x An object to convert to an Arrow [DataType][data-type]
+#' @param ... Passed to S3 methods.
+#'
+#' @return A [DataType][data-type] object.
+#' @export
+#'
+#' @examples
+#' as_data_type(int32())
+#'
+as_data_type <- function(x, ...) {
+  UseMethod("as_data_type")
+}
+
+#' @rdname as_data_type
+#' @export
+as_data_type.DataType <- function(x, ...) {
+  x
+}
+
+#' @rdname as_data_type
+#' @export
+as_data_type.Field <- function(x, ...) {
+  x$type
+}
+
+#' @rdname as_data_type
+#' @export
+as_data_type.Schema <- function(x, ...) {
+  struct__(x$fields)
+}
+
+
 # vctrs support -----------------------------------------------------------
 duplicate_string <- function(x, times) {
   paste0(rep(x, times = times), collapse = "")
