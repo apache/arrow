@@ -118,6 +118,8 @@ UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
 
 __pc = None
+
+
 def _pc():
     global __pc
     if __pc is None:
