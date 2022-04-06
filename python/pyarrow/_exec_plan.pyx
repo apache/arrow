@@ -159,94 +159,43 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     return output
 
 
-def tables_join(join_type, left_table not None, left_keys,
-                right_table not None, right_keys,
-                left_suffix=None, right_suffix=None,
-                use_threads=True, coalesce_keys=False):
-    """
-    Perform join of two tables.
-
-    The result will be an output table with the result of the join operation
-
-    Parameters
-    ----------
-    join_type : str
-        One of supported join types.
-    left_table : Table
-        The left table for the join operation.
-    left_keys : str or list[str]
-        The left table key (or keys) on which the join operation should be performed.
-    right_table : Table
-        The right table for the join operation.
-    right_keys : str or list[str]
-        The right table key (or keys) on which the join operation should be performed.
-    left_suffix : str, default None
-        Which suffix to add to right column names. This prevents confusion
-        when the columns in left and right tables have colliding names.
-    right_suffix : str, default None
-        Which suffic to add to the left column names. This prevents confusion
-        when the columns in left and right tables have colliding names.
-    use_threads : bool, default True
-        Whenever to use multithreading or not.
-    coalesce_keys : bool, default False
-        If the duplicated keys should be omitted from one of the sides
-        in the join result.
-
-    Returns
-    -------
-    result_table : Table
-    """
-    return _perform_join(join_type, left_table, left_keys,
-                         right_table, right_keys, left_suffix,
-                         right_suffix, use_threads, coalesce_keys)
-
-
-def datasets_join(join_type, left_dataset not None, left_keys,
-                  right_dataset not None, right_keys,
-                  left_suffix=None, right_suffix=None,
-                  use_threads=True, coalesce_keys=False):
-    """
-    Perform join of two datasets.
-
-    The result will be an output table with the result of the join operation
-
-    Parameters
-    ----------
-    join_type : str
-        One of supported join types.
-    left_datasets : Dataset
-        The left dataset for the join operation.
-    left_keys : str or list[str]
-        The left dataset key (or keys) on which the join operation should be performed.
-    right_dataset : Dataset
-        The right dataset for the join operation.
-    right_keys : str or list[str]
-        The right dataset key (or keys) on which the join operation should be performed.
-    left_suffix : str, default None
-        Which suffix to add to right column names. This prevents confusion
-        when the columns in left and right datasets have colliding names.
-    right_suffix : str, default None
-        Which suffic to add to the left column names. This prevents confusion
-        when the columns in left and right datasets have colliding names.
-    use_threads : bool, default True
-        Whenever to use multithreading or not.
-    coalesce_keys : bool, default False
-        If the duplicated keys should be omitted from one of the sides
-        in the join result.
-
-    Returns
-    -------
-    result_table : Table
-    """
-    return _perform_join(join_type, left_dataset, left_keys,
-                         right_dataset, right_keys, left_suffix,
-                         right_suffix, use_threads, coalesce_keys)
-
-
 def _perform_join(join_type, left_operand not None, left_keys,
                   right_operand not None, right_keys,
                   left_suffix=None, right_suffix=None,
                   use_threads=True, coalesce_keys=False):
+    """
+    Perform join of two tables or datasets.
+
+    The result will be an output table with the result of the join operation
+
+    Parameters
+    ----------
+    join_type : str
+        One of supported join types.
+    left_operand : Table or Dataset
+        The left operand for the join operation.
+    left_keys : str or list[str]
+        The left key (or keys) on which the join operation should be performed.
+    right_operand : Table or Dataset
+        The right operand for the join operation.
+    right_keys : str or list[str]
+        The right key (or keys) on which the join operation should be performed.
+    left_suffix : str, default None
+        Which suffix to add to right column names. This prevents confusion
+        when the columns in left and right operands have colliding names.
+    right_suffix : str, default None
+        Which suffic to add to the left column names. This prevents confusion
+        when the columns in left and right operands have colliding names.
+    use_threads : bool, default True
+        Whenever to use multithreading or not.
+    coalesce_keys : bool, default False
+        If the duplicated keys should be omitted from one of the sides
+        in the join result.
+
+    Returns
+    -------
+    result_table : Table
+    """
     cdef:
         vector[CFieldRef] c_left_keys
         vector[CFieldRef] c_right_keys
