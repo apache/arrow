@@ -1966,6 +1966,11 @@ cdef class Schema(_Weakrefable):
     def add_metadata(self, metadata):
         """
         DEPRECATED
+
+        Parameters
+        ----------
+        metadata : dict
+            Keys and values must be string-like / coercible to bytes
         """
         warnings.warn("The 'add_metadata' method is deprecated, use "
                       "'with_metadata' instead", FutureWarning, stacklevel=2)
