@@ -115,7 +115,7 @@ if(ARROW_BUILD_TESTS)
                  time_test.cc
                  time.cc
                  timestamp_arithmetic.cc
-                 ../gdv_time_function_stubs.cc
+                 ../cast_time.cc
                  ../gdv_string_function_stubs.cc
                  ../gdv_hash_function_stubs.cc
                  ../../arrow/vendored/datetime/tz.cpp

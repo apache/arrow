@@ -55,7 +55,7 @@ set(SRC_FILES
     annotator.cc
     bitmap_accumulator.cc
     cache.cc
-    gdv_time_function_stubs.cc
+    cast_time.cc
     gdv_string_function_stubs.cc
     gdv_hash_function_stubs.cc
     configuration.cc
