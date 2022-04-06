@@ -102,6 +102,20 @@ test_that("empty transmute()", {
   )
 })
 
+test_that("transmute with unnamed expressions", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, padded_strings) %>%
+      transmute(
+        int, # bare column name
+        nchar(padded_strings) # expression
+      ) %>%
+      filter(int > 5) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("transmute() with unsupported arguments", {
   expect_error(
     tbl %>%
