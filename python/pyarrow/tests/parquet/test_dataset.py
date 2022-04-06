@@ -1717,14 +1717,17 @@ def test_parquet_dataset_deprecated_properties(tempdir):
     with pytest.warns(DeprecationWarning, match="'ParquetDataset.pieces"):
         dataset2.pieces
 
+
 @pytest.mark.dataset
 def test_parquet_write_to_dataset_deprecated_properties(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'data.parquet'
 
-    with pytest.warns(FutureWarning, match="Passing 'use_legacy_dataset=True'"):
+    with pytest.warns(FutureWarning,
+                      match="Passing 'use_legacy_dataset=True'"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True)
 
-    with pytest.warns(FutureWarning, match="Passing 'use_legacy_dataset=True'"):
+    with pytest.warns(FutureWarning,
+                      match="Passing 'use_legacy_dataset=True'"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
-                            partition_filename_cb=lambda x: 'file_name.parquet')
+                            partition_filename_cb=lambda x: 'filename.parquet')

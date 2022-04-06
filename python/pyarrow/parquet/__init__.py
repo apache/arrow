@@ -3003,16 +3003,16 @@ def write_to_dataset(table, root_path, partition_cols=None,
     """
     if use_legacy_dataset:
         warnings.warn(
-        "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
-        "deprecated as of pyarrow 8.0.0, and the legacy implementation will "
-        "be removed in a future version.",
-        FutureWarning, stacklevel=2)
+            "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
+            "deprecated as of pyarrow 8.0.0, and the legacy implementation "
+            "will be removed in a future version.",
+            FutureWarning, stacklevel=2)
 
         # raise for unsupported keywords
         if partition_filename_cb is not None:
             warnings.warn(
-            _DEPR_MSG.format("partition_filename_cb", ""),
-            FutureWarning, stacklevel=2)
+                _DEPR_MSG.format("partition_filename_cb", ""),
+                FutureWarning, stacklevel=2)
 
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
