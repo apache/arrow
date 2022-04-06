@@ -347,8 +347,7 @@ struct ReplaceWithMaskFunctor {
                              replacements.ToString());
     }
     if (!batch[1].is_array() && !batch[1].is_scalar()) {
-      return Status::Invalid("Mask must be array or scalar, not ",
-                             replacements.ToString());
+      return Status::Invalid("Mask must be array or scalar, not ", batch[1].ToString());
     }
 
     int64_t mask_count = 0;

@@ -65,8 +65,8 @@ class TestReplaceKernel : public ::testing::Test {
     return ArrayFromJSON(boolean(), value);
   }
 
-  Status AssertRaises(ReplaceFunction func, const std::shared_ptr<Array>& array,
-                      const Datum& mask, const std::shared_ptr<Array>& replacements) {
+  Status AssertRaises(ReplaceFunction func, const Datum& array, const Datum& mask,
+                      const Datum& replacements) {
     auto result = func(array, mask, replacements, nullptr);
     EXPECT_FALSE(result.ok());
     return result.status();
@@ -457,6 +457,17 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskErrors) {
                            "items but got 0 items)"),
       this->AssertRaises(ReplaceWithMask, this->array("[1, 2]"), this->mask_scalar(true),
                          this->array("[]")));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Replacements must be array or scalar, not ChunkedArray"),
+      this->AssertRaises(ReplaceWithMask, this->array("[1, 2]"),
+                         this->mask("[true, false]"), this->chunked_array({"[0]"})));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Mask must be array or scalar, not ChunkedArray"),
+      this->AssertRaises(ReplaceWithMask, this->array("[1, 2]"),
+                         ChunkedArrayFromJSON(boolean(), {"[true]", "[false]"}),
+                         this->array({"[0]"})));
 }
 
 TEST_F(TestReplaceBoolean, ReplaceWithMask) {
