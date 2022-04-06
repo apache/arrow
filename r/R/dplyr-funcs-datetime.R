@@ -635,8 +635,19 @@ register_bindings_datetime_parsers <- function() {
         opts$week_starts_monday <- 1L
         return(Expression$create("round_temporal", x, options = opts))
 
-      } else { # other days
-        arrow_not_supported("Date/time rounding to week units")
+      } else { # other values of week_start
+
+        # create a duration object as an offset
+        shift <- build_expr(
+          "cast",
+          Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
+          options = cast_options(to_type = duration(unit = "s"))
+        )
+
+        # add the offset, round, then subtract the offset
+        # [throws error: add_checked has no kernel for date32-array and duration(s)-scalar]
+        interim <- build_expr("round_temporal", x + shift, options = opts)
+        return(interim - shift)
       }
 
     }

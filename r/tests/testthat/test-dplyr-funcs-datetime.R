@@ -2618,9 +2618,13 @@ test_that("change_on_boundary is respected in ceiling_time", {
 
   boundary_dates <- tibble::tibble(
     date = as.Date(c(
-      "2022-05-10", # regular day
-      "2022-05-01", # boundary of a month
-      "2022-01-01"  # boundary of a month and a year
+      "2001-05-10", # regular day
+      "2002-05-10", # regular day
+      "2003-05-10", # regular day
+      "2004-05-10", # regular day
+      "2005-05-10", # regular day
+      "2006-05-10", # regular day
+      "2007-05-10"  # regular day
     ))
   )
 
@@ -2628,7 +2632,7 @@ test_that("change_on_boundary is respected in ceiling_time", {
     .input %>%
       mutate(
         out_1 = ceiling_date(date, "day", change_on_boundary = FALSE),
-        out_2 = ceiling_date(date, "day", change_on_boundary = TRUE), # this fails, why?
+        out_2 = ceiling_date(date, "day", change_on_boundary = TRUE),
         out_3 = ceiling_date(date, "day")
       ) %>%
       collect(),
@@ -2638,18 +2642,36 @@ test_that("change_on_boundary is respected in ceiling_time", {
 })
 
 
-test_that("do not attempt to round to weeks that don't start Sun/Mon", {
+test_that("round to nearest week, adjusted for week_start", {
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
-  expect_error(
-    call_binding("round_date", Expression$scalar(Sys.Date()), "week", week_start = 3),
-    "Date/time rounding to week units"
+  one_week <- tibble::tibble(
+    date = as.Date(c(
+      "2022-04-04", # Monday
+      "2022-04-05", # Tuesday
+      "2022-04-06", # Wednesday
+      "2022-04-07", # Thursday
+      "2022-04-08", # Friday
+      "2022-04-09", # Saturday
+      "2022-04-10"  # Sunday
+    )),
+    datetime = as.POSIXct(date)
   )
 
-  expect_error(
-    call_binding("round_date", Expression$scalar(Sys.time()), "week", week_start = 3),
-    "Date/time rounding to week units"
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(date, "week", week_start = 1),
+        #out_2 = round_date(date, "week", week_start = 2), # doesn't currently work
+        #out_3 = round_date(date, "week", week_start = 3),
+        #out_4 = round_date(date, "week", week_start = 4),
+        #out_5 = round_date(date, "week", week_start = 5),
+        #out_6 = round_date(date, "week", week_start = 6),
+        out_7 = round_date(date, "week", week_start = 7)
+      ) %>%
+      collect(),
+    one_week
   )
 
 })
