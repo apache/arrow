@@ -217,6 +217,50 @@ Array$create <- function(x, type = NULL) {
 Array$import_from_c <- ImportArray
 
 
+#' Convert an object to an Arrow Array
+#'
+#' Whereas `Array$create()` constructs an [Array] from the built-in data types
+#' for which the Arrow package implements fast converters, `as_arrow_array()`
+#' provides a means by which other packages can define conversions to Arrow
+#' objects.
+#'
+#' @param x An object to convert to an Arrow Array
+#' @param ... Passed to S3 methods
+#' @param type A [type][data-type] for the final Array. A value of `NULL`
+#'   will default to the type guessed by [type()].
+#'
+#' @return An [Array].
+#' @export
+#'
+#' @examplesIf arrow_available()
+#' as_arrow_array(1:5)
+#'
+as_arrow_array <- function(x, ..., type = NULL) {
+  UseMethod("as_arrow_array")
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.Array <- function(x, ..., type = NULL) {
+  if (is.null(type)) {
+    x
+  } else {
+    x$cast(type)
+  }
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.ChunkedArray <- function(x, ..., type = NULL) {
+  concat_arrays(!!! x$chunks, type = type)
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.default <- function(x, ..., type = NULL) {
+  Array$create(x, type = type)
+}
+
 #' Concatenate zero or more Arrays
 #'
 #' Concatenates zero or more [Array] objects into a single

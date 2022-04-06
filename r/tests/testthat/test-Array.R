@@ -1010,6 +1010,44 @@ test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
   })
 })
 
+test_that("as_arrow_array() default method calls Array$create()", {
+  expect_equal(
+    as_arrow_array(1:10),
+    Array$create(1:10)
+  )
+
+  expect_equal(
+    as_arrow_array(1:10, type = float64()),
+    Array$create(1:10, type = float64())
+  )
+})
+
+test_that("as_arrow_array() works for Array", {
+  array <- Array$create(logical(), type = null())
+  expect_identical(as_arrow_array(array), array)
+  expect_equal(
+    as_arrow_array(array, type = int32()),
+    Array$create(integer())
+  )
+})
+
+test_that("as_arrow_array() works for ChunkedArray", {
+  expect_equal(
+    as_arrow_array(chunked_array(type = null())),
+    Array$create(logical(), type = null())
+  )
+
+  expect_equal(
+    as_arrow_array(chunked_array(1:3, 4:6)),
+    Array$create(1:6)
+  )
+
+  expect_equal(
+    as_arrow_array(chunked_array(1:3, 4:6), type = float64()),
+    Array$create(1:6, type = float64())
+  )
+})
+
 test_that("concat_arrays works", {
   concat_empty <- concat_arrays()
   expect_true(concat_empty$type == null())
