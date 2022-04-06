@@ -2616,16 +2616,23 @@ test_that("change_on_boundary is respected in ceiling_time", {
     boundary_times
   )
 
-  boundary_date <- tibble::tibble(date = as.Date("2022-05-10"))
+  boundary_dates <- tibble::tibble(
+    date = as.Date(c(
+      "2022-05-10", # regular day
+      "2022-05-01", # boundary of a month
+      "2022-01-01"  # boundary of a month and a year
+    ))
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(
         out_1 = ceiling_date(date, "day", change_on_boundary = FALSE),
-        out_2 = ceiling_date(date, "day", change_on_boundary = TRUE),
+        out_2 = ceiling_date(date, "day", change_on_boundary = TRUE), # this fails, why?
         out_3 = ceiling_date(date, "day")
       ) %>%
       collect(),
-    boundary_date
+    boundary_dates
   )
 
 })
