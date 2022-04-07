@@ -2503,6 +2503,7 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         vector[Input] inputs
 
         CDeclaration(c_string factory_name, CExecNodeOptions options)
+        CDeclaration(c_string factory_name, vector[Input] inputs, shared_ptr[CExecNodeOptions] options)
 
         @staticmethod
         CDeclaration Sequence(vector[CDeclaration] decls)

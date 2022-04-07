@@ -26,9 +26,13 @@ from cython.operator cimport dereference as deref, preincrement as inc
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
 from pyarrow.lib import tobytes, _pc
 from pyarrow._compute cimport Expression, _true
+from pyarrow._dataset cimport Dataset
+
+Initialize()  # Initialise support for Datasets in ExecPlan
 
 
 cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
@@ -61,10 +65,13 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         CTable* c_table
         shared_ptr[CTable] c_out_table
         shared_ptr[CSourceNodeOptions] c_sourceopts
+        shared_ptr[CScanNodeOptions] c_scanopts
+        shared_ptr[CExecNodeOptions] c_input_node_opts
         shared_ptr[CSinkNodeOptions] c_sinkopts
         shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
+        vector[CDeclaration.Input] no_c_inputs
 
     if use_threads:
         c_executor = GetCpuThreadPool()
@@ -81,21 +88,34 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     # Create source nodes for each input
     for ipt in inputs:
         if isinstance(ipt, Table):
+            node_factory = "source"
             c_in_table = pyarrow_unwrap_table(ipt).get()
             c_sourceopts = GetResultValue(
                 CSourceNodeOptions.FromTable(deref(c_in_table), deref(c_exec_context).executor()))
+            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CSourceNodeOptions](
+                c_sourceopts)
+        elif isinstance(ipt, Dataset):
+            node_factory = "scan"
+            c_in_dataset = (<Dataset>ipt).unwrap()
+            c_scanopts = make_shared[CScanNodeOptions](
+                c_in_dataset, make_shared[CScanOptions]())
+            deref(deref(c_scanopts).scan_options).use_threads = use_threads
+            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CScanNodeOptions](
+                c_scanopts)
         else:
             raise TypeError("Unsupported type")
 
         if plan_iter != plan.end():
             # Flag the source as the input of the first plan node.
             deref(plan_iter).inputs.push_back(CDeclaration.Input(
-                CDeclaration(tobytes("source"), deref(c_sourceopts))
+                CDeclaration(tobytes(node_factory),
+                             no_c_inputs, c_input_node_opts)
             ))
         else:
             # Empty plan, make the source the first plan node.
             c_decls.push_back(
-                CDeclaration(tobytes("source"), deref(c_sourceopts))
+                CDeclaration(tobytes(node_factory),
+                             no_c_inputs, c_input_node_opts)
             )
 
     # Add Here additional nodes
@@ -139,12 +159,12 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     return output
 
 
-def tables_join(join_type, left_table not None, left_keys,
-                right_table not None, right_keys,
-                left_suffix=None, right_suffix=None,
-                use_threads=True, coalesce_keys=False):
+def _perform_join(join_type, left_operand not None, left_keys,
+                  right_operand not None, right_keys,
+                  left_suffix=None, right_suffix=None,
+                  use_threads=True, coalesce_keys=False):
     """
-    Perform join of two tables.
+    Perform join of two tables or datasets.
 
     The result will be an output table with the result of the join operation
 
@@ -152,20 +172,20 @@ def tables_join(join_type, left_table not None, left_keys,
     ----------
     join_type : str
         One of supported join types.
-    left_table : Table
-        The left table for the join operation.
+    left_operand : Table or Dataset
+        The left operand for the join operation.
     left_keys : str or list[str]
-        The left table key (or keys) on which the join operation should be performed.
-    right_table : Table
-        The right table for the join operation.
+        The left key (or keys) on which the join operation should be performed.
+    right_operand : Table or Dataset
+        The right operand for the join operation.
     right_keys : str or list[str]
-        The right table key (or keys) on which the join operation should be performed.
+        The right key (or keys) on which the join operation should be performed.
     left_suffix : str, default None
         Which suffix to add to right column names. This prevents confusion
-        when the columns in left and right tables have colliding names.
+        when the columns in left and right operands have colliding names.
     right_suffix : str, default None
         Which suffic to add to the left column names. This prevents confusion
-        when the columns in left and right tables have colliding names.
+        when the columns in left and right operands have colliding names.
     use_threads : bool, default True
         Whenever to use multithreading or not.
     coalesce_keys : bool, default False
@@ -202,8 +222,19 @@ def tables_join(join_type, left_table not None, left_keys,
         c_right_keys.push_back(CFieldRef(<c_string>tobytes(key)))
 
     # By default expose all columns on both left and right table
-    left_columns = left_table.column_names
-    right_columns = right_table.column_names
+    if isinstance(left_operand, Table):
+        left_columns = left_operand.column_names
+    elif isinstance(left_operand, Dataset):
+        left_columns = left_operand.schema.names
+    else:
+        raise TypeError("Unsupported left join member type")
+
+    if isinstance(right_operand, Table):
+        right_columns = right_operand.column_names
+    elif isinstance(right_operand, Dataset):
+        right_columns = right_operand.schema.names
+    else:
+        raise TypeError("Unsupported right join member type")
 
     # Pick the join type
     if join_type == "left semi":
@@ -262,7 +293,7 @@ def tables_join(join_type, left_table not None, left_keys,
             left_columns_set = set(left_columns)
             right_columns_set = set(right_columns)
             # Where the right table columns start.
-            right_table_index = len(left_columns)
+            right_operand_index = len(left_columns)
             for idx, col in enumerate(left_columns + right_columns):
                 if idx < len(left_columns) and col in left_column_keys_indices:
                     # Include keys only once and coalesce left+right table keys.
@@ -275,19 +306,19 @@ def tables_join(join_type, left_table not None, left_keys,
                     c_projections.push_back(Expression.unwrap(
                         Expression._call("coalesce", [
                             Expression._field(idx), Expression._field(
-                                right_table_index+right_key_index)
+                                right_operand_index+right_key_index)
                         ])
                     ))
-                elif idx >= right_table_index and col in right_column_keys_indices:
+                elif idx >= right_operand_index and col in right_column_keys_indices:
                     # Do not include right table keys. As they would lead to duplicated keys.
                     continue
                 else:
                     # For all the other columns incude them as they are.
                     # Just recompute the suffixes that the join produced as the projection
                     # would lose them otherwise.
-                    if left_suffix and idx < right_table_index and col in right_columns_set:
+                    if left_suffix and idx < right_operand_index and col in right_columns_set:
                         col += left_suffix
-                    if right_suffix and idx >= right_table_index and col in left_columns_set:
+                    if right_suffix and idx >= right_operand_index and col in left_columns_set:
                         col += right_suffix
                     c_projected_col_names.push_back(tobytes(col))
                     c_projections.push_back(
@@ -306,7 +337,7 @@ def tables_join(join_type, left_table not None, left_keys,
             ))
         )
 
-    result_table = execplan([left_table, right_table],
+    result_table = execplan([left_operand, right_operand],
                             output_type=Table,
                             plan=c_decl_plan)
 
