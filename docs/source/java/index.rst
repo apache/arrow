@@ -33,4 +33,5 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    ipc
    algorithm
    dataset
+   cdata
    Reference (javadoc) <reference/index>
