@@ -89,7 +89,7 @@ consumers like Java:
 
 **Java Side**
 
-For this example, we will use `JavaCPP`_ to call our main C++ **fillCArray** function from Java,
+For this example, we will use `JavaCPP`_ to call our C++ function from Java,
 without writing JNI bindings ourselves.
 
 .. code-block:: xml
@@ -198,8 +198,7 @@ Let's create a Java class to test our bridge:
                     BigIntVector bigIntVector = (BigIntVector) Data.importVector(
                             allocator, arrowArray, arrowSchema, null)
                 ){
-                    System.out.println("C++-allocated array: "
-                            + bigIntVector);
+                    System.out.println("C++-allocated array: " + bigIntVector);
                 }
             }
         }
