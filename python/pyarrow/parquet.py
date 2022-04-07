@@ -2058,7 +2058,8 @@ Examples
         >>> pq.write_to_dataset(table, root_path='dataset_name_fragments',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_name_fragments/')
+        >>> dataset = pq.ParquetDataset('dataset_name_files/',
+        ...                             use_legacy_dataset=False)
 
         List the fragments:
 
@@ -2089,7 +2090,8 @@ Examples
         >>> pq.write_to_dataset(table, root_path='dataset_name_files',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_name_files/')
+        >>> dataset = pq.ParquetDataset('dataset_name_files/',
+        ...                             use_legacy_dataset=False)
 
         List the files:
 
