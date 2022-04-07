@@ -60,12 +60,11 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
   explicit SubstraitExecutor(
       std::string substrait_json,
       AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator,
-      std::shared_ptr<cp::ExecPlan> plan, std::shared_ptr<Schema> schema,
+      std::shared_ptr<cp::ExecPlan> plan,
       cp::ExecContext exec_context)
       : substrait_json_(substrait_json),
         generator_(generator),
         plan_(std::move(plan)),
-        schema_(schema),
         exec_context_(exec_context) {}
 
   Result<std::shared_ptr<RecordBatchReader>> Execute();
@@ -73,14 +72,13 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
   Status Close();
 
   static Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
-      std::string& substrait_json, std::shared_ptr<arrow::Schema> schema);
+      std::string& substrait_json);
 
  private:
   std::string substrait_json_;
   AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator_;
   std::vector<cp::Declaration> declarations_;
   std::shared_ptr<cp::ExecPlan> plan_;
-  std::shared_ptr<Schema> schema_;
   cp::ExecContext exec_context_;
 
   Status MakePlan();

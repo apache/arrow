@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-import sys
-
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 
@@ -37,14 +35,11 @@ def run_query(plan, output_schema):
         CResult[shared_ptr[CRecordBatchReader]] c_res_reader
         shared_ptr[CRecordBatchReader] c_reader
         shared_ptr[CSchema] c_schema
-        c_string c_plan
         RecordBatchReader reader
-
-    c_plan = plan
 
     c_schema = pyarrow_unwrap_schema(output_schema)
 
-    c_res_reader = GetRecordBatchReader(c_plan, c_schema)
+    c_res_reader = GetRecordBatchReader(plan, c_schema)
     c_reader = GetResultValue(c_res_reader)
 
     reader = RecordBatchReader.__new__(RecordBatchReader)

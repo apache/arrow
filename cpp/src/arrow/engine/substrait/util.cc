@@ -69,8 +69,9 @@ Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::Execute() {
   }
   ARROW_RETURN_NOT_OK(plan_->Validate());
   ARROW_RETURN_NOT_OK(plan_->StartProducing());
+  auto schema = plan_->sinks()[0]->output_schema();
   std::shared_ptr<RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-      schema_, std::move(*generator_), exec_context_.memory_pool());
+      schema, std::move(*generator_), exec_context_.memory_pool());
   return sink_reader;
 }
 
@@ -80,13 +81,13 @@ Status SubstraitExecutor::Close() {
 }
 
 Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::GetRecordBatchReader(
-    std::string& substrait_json, std::shared_ptr<arrow::Schema> schema) {
+    std::string& substrait_json) {
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
-  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, schema,
+  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan,
                                             exec_context);
   RETURN_NOT_OK(executor.MakePlan());
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());

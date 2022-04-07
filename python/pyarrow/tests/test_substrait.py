@@ -86,6 +86,5 @@ def test_run_query():
 
     assert res.schema == schema
     assert res.num_rows > 0
-    
+
     assert pq.read_table(filename).equals(res)
-    

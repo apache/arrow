@@ -797,12 +797,11 @@ TEST(Substrait, GetRecordBatchReader) {
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
                          filename_placeholder.size(), file_path);
-  auto in_schema = schema({field("foo", binary())});
   AsyncGenerator<util::optional<cp::ExecBatch>> sink_gen;
   cp::ExecContext exec_context(default_memory_pool(),
                                arrow::internal::GetCpuThreadPool());
   ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
-  engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan, in_schema,
+  engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan,
                                      exec_context);
   ASSERT_OK_AND_ASSIGN(auto reader, executor.Execute());
   ASSERT_OK(executor.Close());
@@ -848,10 +847,9 @@ TEST(Substrait, GetRecordBatchReaderUtil) {
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
                          filename_placeholder.size(), file_path);
-  auto in_schema = schema({field("foo", binary())});
 
   ASSERT_OK_AND_ASSIGN(auto reader, engine::SubstraitExecutor::GetRecordBatchReader(
-                                        substrait_json, in_schema));
+                                        substrait_json));
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
   EXPECT_GT(table->num_rows(), 0);
 }
