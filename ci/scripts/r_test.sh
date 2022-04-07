@@ -95,7 +95,6 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     }
   }
 
-  cat('::message ::Pyarrow flight is available: ', reticulate::py_module_available('pyarrow'), '\n', sep = '')
   if(reticulate::py_module_available('pyarrow')){
     message('Running flight demo server for tests.')
     pid_flight <- sys::exec_background(
