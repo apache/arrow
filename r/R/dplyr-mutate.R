@@ -123,8 +123,8 @@ transmute.arrow_dplyr_query <- function(.data, ...) {
 
   ## keeping with: https://github.com/tidyverse/dplyr/issues/6086
   cur_exprs <- map_chr(dots, as_label)
-  new_col_names <- names(dots)
-  transmute_order <- ifelse(nzchar(new_col_names), new_col_names, cur_exprs)
+  transmute_order <- names(cur_exprs)
+  transmute_order[!nzchar(transmute_order)] <- cur_exprs[!nzchar(transmute_order)]
   dplyr::select(.data, all_of(transmute_order))
 }
 transmute.Dataset <- transmute.ArrowTabular <- transmute.RecordBatchReader <- transmute.arrow_dplyr_query
