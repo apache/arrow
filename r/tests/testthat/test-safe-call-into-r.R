@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Note that TestSafeCallIntoR is defined in safe-call-into-r-impl.cpp
+
 test_that("SafeCallIntoR works from the main R thread", {
   expect_identical(
     TestSafeCallIntoR(function() "string one!", opt = "on_main_thread"),
