@@ -1373,6 +1373,7 @@ cdef class Schema(_Weakrefable):
     They also contain metadata about the columns. For example, schemas 
     converted from Pandas contain metadata about their original Pandas 
     types so they can be converted back to the same types.
+
     Warnings
     --------
     Do not call this class's constructor directly. Instead use
@@ -1524,7 +1525,7 @@ cdef class Schema(_Weakrefable):
     @property
     def metadata(self):
         """
-        The schema's field metadata.
+        The schema's metadata.
 
         Returns
         -------
