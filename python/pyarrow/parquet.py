@@ -610,7 +610,7 @@ write_batch_size : int, default None
     1024. ``write_batch_size`` is complementary to ``data_page_size``. If pages
     are exceeding the ``data_page_size`` due to large column values, lowering
     the batch size can help keep page sizes closer to the intended size.
-dictionary_pagesize_limit: int, default None
+dictionary_pagesize_limit : int, default None
     Specify the dictionary page size limit per row group. If None, use the
     default 1MB.
 """
