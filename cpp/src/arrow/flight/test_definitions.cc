@@ -45,7 +45,7 @@ using arrow::internal::checked_cast;
 void ConnectivityTest::TestGetPort() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
   ASSERT_GT(server->port(), 0);
@@ -53,7 +53,7 @@ void ConnectivityTest::TestGetPort() {
 void ConnectivityTest::TestBuilderHook() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   bool builder_hook_run = false;
   options.builder_hook = [&builder_hook_run](void* builder) {
@@ -68,7 +68,7 @@ void ConnectivityTest::TestBuilderHook() {
 void ConnectivityTest::TestShutdown() {
   // Regression test for ARROW-15181
   constexpr int kIterations = 10;
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   for (int i = 0; i < kIterations; i++) {
     std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
@@ -84,7 +84,7 @@ void ConnectivityTest::TestShutdown() {
 void ConnectivityTest::TestShutdownWithDeadline() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
   ASSERT_GT(server->port(), 0);
@@ -96,13 +96,13 @@ void ConnectivityTest::TestShutdownWithDeadline() {
 }
 void ConnectivityTest::TestBrokenConnection() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
 
   std::unique_ptr<FlightClient> client;
   ASSERT_OK_AND_ASSIGN(location,
-                       Location::ForScheme(transport(), "localhost", server->port()));
+                       Location::ForScheme(transport(), "127.0.0.1", server->port()));
   ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location));
 
   ASSERT_OK(server->Shutdown());
@@ -117,7 +117,7 @@ void ConnectivityTest::TestBrokenConnection() {
 void DataTest::SetUp() {
   server_ = ExampleTestServer();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server_->Init(options));
 
@@ -129,7 +129,7 @@ void DataTest::TearDown() {
 }
 Status DataTest::ConnectClient() {
   ARROW_ASSIGN_OR_RAISE(auto location,
-                        Location::ForScheme(transport(), "localhost", server_->port()));
+                        Location::ForScheme(transport(), "127.0.0.1", server_->port()));
   ARROW_ASSIGN_OR_RAISE(client_, FlightClient::Connect(location));
   return Status::OK();
 }
@@ -638,7 +638,7 @@ class DoPutTestServer : public FlightServerBase {
 };
 
 void DoPutTest::SetUp() {
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<DoPutTestServer>(
       location, &server_, &client_,
       [](FlightServerOptions* options) { return Status::OK(); },
@@ -766,7 +766,7 @@ void DoPutTest::TestLargeBatch() {
 void DoPutTest::TestSizeLimit() {
   const int64_t size_limit = 4096;
   ASSERT_OK_AND_ASSIGN(auto location,
-                       Location::ForScheme(transport(), "localhost", server_->port()));
+                       Location::ForScheme(transport(), "127.0.0.1", server_->port()));
   auto client_options = FlightClientOptions::Defaults();
   client_options.write_size_limit_bytes = size_limit;
   ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location, client_options));
@@ -866,7 +866,7 @@ Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
 }
 
 void AppMetadataTest::SetUp() {
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<AppMetadataTestServer>(
       location, &server_, &client_,
       [](FlightServerOptions* options) { return Status::OK(); },
@@ -1045,7 +1045,7 @@ class IpcOptionsTestServer : public FlightServerBase {
 };
 
 void IpcOptionsTest::SetUp() {
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<IpcOptionsTestServer>(
       location, &server_, &client_,
       [](FlightServerOptions* options) { return Status::OK(); },
@@ -1241,7 +1241,7 @@ void CudaDataTest::SetUp() {
   impl_->device = std::move(device);
   impl_->context = std::move(context);
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<CudaTestServer>(
       location, &server_, &client_,
       [this](FlightServerOptions* options) {

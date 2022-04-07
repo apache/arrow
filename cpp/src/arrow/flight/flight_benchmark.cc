@@ -40,12 +40,20 @@
 #include "arrow/flight/test_util.h"
 
 #ifdef ARROW_CUDA
+#include <cuda.h>
 #include "arrow/gpu/cuda_api.h"
+#endif
+#ifdef ARROW_WITH_UCX
+#include "arrow/flight/transport/ucx/ucx.h"
 #endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
 DEFINE_string(transport, "grpc",
-              "The network transport to use. Supported: \"grpc\" (default).");
+              "The network transport to use. Supported: \"grpc\" (default)"
+#ifdef ARROW_WITH_UCX
+              ", \"ucx\""
+#endif  // ARROW_WITH_UCX
+              ".");
 DEFINE_string(server_host, "",
               "An existing performance server to benchmark against (leave blank to spawn "
               "one automatically)");
@@ -497,6 +505,21 @@ int main(int argc, char** argv) {
         options.disable_server_verification = true;
       }
     }
+  } else if (FLAGS_transport == "ucx") {
+#ifdef ARROW_WITH_UCX
+    arrow::flight::transport::ucx::InitializeFlightUcx();
+    if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
+      std::cerr << "Transport does not support domain sockets: " << FLAGS_transport
+                << std::endl;
+      return EXIT_FAILURE;
+    }
+    ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
+                                                  std::to_string(FLAGS_server_port))
+                       .Value(&location));
+#else
+    std::cerr << "Not built with transport: " << FLAGS_transport << std::endl;
+    return EXIT_FAILURE;
+#endif
   } else {
     std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;
     return EXIT_FAILURE;
@@ -514,6 +537,16 @@ int main(int argc, char** argv) {
     ABORT_NOT_OK(arrow::cuda::CudaDeviceManager::Instance().Value(&manager));
     ABORT_NOT_OK(manager->GetDevice(0).Value(&device));
     call_options.memory_manager = device->default_memory_manager();
+
+    // Needed to prevent UCX warning
+    // cuda_md.c:162  UCX  ERROR cuMemGetAddressRange(0x7f2ab5dc0000) error: invalid
+    // device context
+    std::shared_ptr<arrow::cuda::CudaContext> context;
+    ABORT_NOT_OK(device->GetContext().Value(&context));
+    auto cuda_status = cuCtxPushCurrent(reinterpret_cast<CUcontext>(context->handle()));
+    if (cuda_status != CUDA_SUCCESS) {
+      ARROW_LOG(WARNING) << "CUDA error " << cuda_status;
+    }
 #else
     std::cerr << "-cuda requires that Arrow is built with ARROW_CUDA" << std::endl;
     return 1;
