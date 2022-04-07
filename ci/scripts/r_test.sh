@@ -96,12 +96,25 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   }
 
   if(reticulate::py_module_available('pyarrow')){
+    old_pp <- Sys.getenv('PYTHONPATH', unset = NA)
+    on.exit(
+        {
+            if (is.na(old_pp)) {
+                Sys.unsetenv('PYTHONPATH')
+            } else {
+                Sys.setenv(PYTHONPATH = old_pp)
+            }
+        },
+        add = TRUE
+    )
+    Sys.setenv(PYTHONPATH = './inst')
+
     message('Running flight demo server for tests.')
     pid_flight <- sys::exec_background(
-      'R', 
+      'python', 
       c(
-        '-e',
-        'reticulate::import_from_path(\"demo_flight_server\", \"./inst\")\$DemoFlightServer(port = 8089)\$serve()'
+        '-c',
+        '__import__(\"demo_flight_server\").DemoFlightServer(port=8089).serve()'
        )
       )
     on.exit(tools::pskill(pid_flight), add = TRUE)
