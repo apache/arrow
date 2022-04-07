@@ -75,15 +75,16 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   cloned->storage_type_ = storage_type;
   cloned->extension_metadata_ = serialized_data;
 
-  // We create an ephemeral R6 instance here, which will call the R6 instance's
+  // We could create an ephemeral R6 instance here, which will call the R6 instance's
   // deserialize_instance() method, possibly erroring when the metadata is
-  // invalid or the deserialized values are invalid.
-  arrow::Result<bool> result = SafeCallIntoR<bool>([&]() {
+  // invalid or the deserialized values are invalid. The complexity of setting up
+  // an event loop from wherever this *might* be called is high and hard to
+  // predict. As a compromise, just create the instance when it is safe to
+  // do so.
+  if (GetMainRThread().IsMainThread()) {
     r6_instance();
-    return true;
-  });
+  }
 
-  ARROW_RETURN_NOT_OK(result);
   return std::shared_ptr<RExtensionType>(cloned.release());
 }
 
