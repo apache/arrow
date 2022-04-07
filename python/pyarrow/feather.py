@@ -152,14 +152,17 @@ def write_feather(df, dest, compression=None, compression_level=None,
 
     if _pandas_api.is_data_frame(df):
         """
-        Feather v1 creates a new column in the resulting Table for 
+        Feather v1 creates a new column in the resulting Table for
         storing index.
         """
         if version == 1:
             preserve_index = False
 
-        else:
+        elif version == 2:
             preserve_index = True
+
+        else:
+            raise ValueError("Version value should either be 1 or 2")
 
         table = Table.from_pandas(df, preserve_index=preserve_index)
 
