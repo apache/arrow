@@ -53,15 +53,13 @@ Use this guide to :doc:`compile arrow <../developers/cpp/building.rst>` library:
     ├── libarrow.800.dylib -> libarrow.800.0.0.dylib
     └── libarrow.dylib -> libarrow.800.dylib
 
-Implement a function in CDataCppBridge.cpp that exports an array via the C Data Interface:
+Implement a function in CDataCppBridge.h that exports an array via the C Data Interface:
 
 .. code-block:: cpp
 
     #include <iostream>
     #include <arrow/api.h>
     #include <arrow/c/bridge.h>
-
-    using arrow::Int64Builder;
 
     void FillInt64Array(const uintptr_t c_schema_ptr, const uintptr_t c_array_ptr) {
         arrow::Int64Builder builder;
@@ -121,7 +119,22 @@ without writing JNI bindings ourselves.
             </dependency>
             <dependency>
                 <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-core</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-memory-netty</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-format</artifactId>
                 <version>${arrow.version}</version>
             </dependency>
         </dependencies>
@@ -138,7 +151,7 @@ without writing JNI bindings ourselves.
             target = "CDataJavaToCppExample",
             value = @Platform(
                     include = {
-                            "CDataCppBridge.cpp"
+                            "CDataCppBridge.h"
                     },
                     compiler = {"cpp11"},
                     linkpath = {"/arrow/cpp/build/debug/"},
