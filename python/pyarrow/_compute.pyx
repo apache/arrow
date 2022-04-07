@@ -34,6 +34,8 @@ from libcpp cimport bool as c_bool
 
 import numpy as np
 
+from typing import Dict
+
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     """
@@ -2364,9 +2366,8 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     cdef:
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
-        c_bool c_options_required
 
-    if not func_doc:
+    if len(func_doc) <= 1:
         raise ValueError(
             "Function doc must contain a summary, a description and arg_names")
 
@@ -2387,8 +2388,7 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     # UDFOptions integration:
     # TODO: https://issues.apache.org/jira/browse/ARROW-16041
     f_doc.options_class = tobytes("None")
-    c_options_required = False
-    f_doc.options_required = c_options_required
+    f_doc.options_required = False
     return f_doc
 
 
@@ -2399,18 +2399,17 @@ def register_scalar_function(func_name, function_doc, in_types,
 
     Parameters
     ----------
-
     func_name : str
         Name of the function. This name must be globally unique. 
     function_doc : dict
         A dictionary object with keys "summary" (str),
-        "description" (str), and "arg_names" (list of str).
-    in_types : List[InputType]
-        List of InputType objects which defines the input 
-        types for the function. When defining a list of InputType
-        for a varargs function, the list only needs to contain the
-        number of elements equal to the num_args (which is the miniumu
-        required arguments). 
+        and "description" (str).
+    in_types : Dict[str, InputType]
+        Dictionary containing items with input type name, InputType
+        objects which defines the input types for the function.
+        When defining a list of InputType for a varargs function,
+        the list only needs to contain the number of elements equal
+        to the num_args (which is the miniumu required arguments). 
     out_type : DataType
         Output type of the function.
     function : callable
@@ -2418,20 +2417,18 @@ def register_scalar_function(func_name, function_doc, in_types,
         function includes arguments equal to the number
         of input_types defined. The return type of the 
         function is of the type defined as output_type. 
-        The output should be an Array, Scalar, ChunkedArray,
-        Table, or RecordBatch based on the out_type.
+        The output should be an Array or a Scalar.
 
     Example
     -------
 
-    >>> from pyarrow import compute as pc
+    >>> import pyarrow.compute as pc
     >>> from pyarrow.compute import register_scalar_function
     >>> from pyarrow.compute import InputType
     >>> 
     >>> func_doc = {}
     >>> func_doc["summary"] = "simple udf"
     >>> func_doc["description"] = "add a constant to a scalar"
-    >>> func_doc["arg_names"] = ["x"]
     >>> 
     >>> def add_constant(array):
     ...     return pc.call_function("add", [array, 1])
@@ -2476,10 +2473,14 @@ def register_scalar_function(func_name, function_doc, in_types,
 
     func_spec = inspect.getfullargspec(function)
     num_args = -1
-    if isinstance(in_types, list):
-        for in_type in in_types:
-            in_tmp = (<InputType> in_type).input_type
-            c_in_types.push_back(in_tmp)
+    if isinstance(in_types, dict):
+        for in_type in in_types.values():
+            if isinstance(in_type, InputType):
+                in_tmp = (<InputType> in_type).input_type
+                c_in_types.push_back(in_tmp)
+            else:
+                raise ValueError("Expected an object of type InputType")
+        function_doc["arg_names"] = in_types.keys()
         num_args = len(in_types)
     else:
         if num_args == -1:
