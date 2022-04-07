@@ -44,48 +44,6 @@ else
   apt-get update
 fi
 
-# Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
-: ${R_CUSTOM_CCACHE:=FALSE}
-R_CUSTOM_CCACHE=`echo $R_CUSTOM_CCACHE | tr '[:upper:]' '[:lower:]'`
-if [ ${R_CUSTOM_CCACHE} = "true" ]; then
-  # install ccache
-  $PACKAGE_MANAGER install -y epel-release || true
-  $PACKAGE_MANAGER install -y ccache
-
-  mkdir -p ~/.R
-  echo "VER=
-CCACHE=ccache
-CC=\$(CCACHE) gcc\$(VER)
-CXX=\$(CCACHE) g++\$(VER)
-CXX11=\$(CCACHE) g++\$(VER)" >> ~/.R/Makevars
-
-  mkdir -p ~/.ccache/
-  echo "max_size = 5.0G
-# important for R CMD INSTALL *.tar.gz as tarballs are expanded freshly -> fresh ctime
-sloppiness = include_file_ctime
-# also important as the (temp.) directory name will differ
-hash_dir = false" >> ~/.ccache/ccache.conf
-fi
-
-
-# Special hacking to try to reproduce quirks on fedora-clang-devel on CRAN
-# which uses a bespoke clang compiled to use libc++
-# https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
-if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
-  dnf install -y libcxx-devel
-  sed -i.bak -E -e 's/(CXX1?1? =.*)/\1 -stdlib=libc++/g' $(${R_BIN} RHOME)/etc/Makeconf
-  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-
-  sed -i.bak -E -e 's/(\-std=gnu\+\+)/-std=c++/g' $(${R_BIN} RHOME)/etc/Makeconf
-  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-
-  sed -i.bak -E -e 's/(CXXFLAGS = )(.*)/\1 -g -O3 -Wall -pedantic -frtti -fPIC/' $(${R_BIN} RHOME)/etc/Makeconf
-  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-
-  sed -i.bak -E -e 's/(LDFLAGS =.*)/\1 -stdlib=libc++/g' $(${R_BIN} RHOME)/etc/Makeconf
-  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-fi
-
 # Special hacking to try to reproduce quirks on centos using non-default build
 # tooling.
 if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
