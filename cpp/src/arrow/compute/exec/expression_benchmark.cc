@@ -86,8 +86,8 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
     for (int it = 0; it < num_batches; ++it)
       ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
   }
-  state.counters["rows_per_second"] =
-      benchmark::Counter(num_batches * rows_per_batch, benchmark::Counter::kIsRate);
+  state.counters["rows_per_second"] = benchmark::Counter(
+      state.iterations() * num_batches * rows_per_batch, benchmark::Counter::kIsRate);
 }
 
 auto to_int64 = compute::CastOptions::Safe(int64());
