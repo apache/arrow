@@ -758,8 +758,8 @@ cdef class _PandasConvertible(_Weakrefable):
         >>> import pyarrow as pa
         >>> n_legs = pa.array([2, 4, 5, 100])
         >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
+        >>> batch = pa.record_batch([n_legs, animals],
+        ...                         names=["n_legs", "animals"])
         >>> batch
         pyarrow.RecordBatch
         n_legs: int64
