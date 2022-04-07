@@ -495,6 +495,7 @@ test_that("Including partition columns in schema and partitioning, hive style CS
     partitioning = "cyl"
   )
   expect_equal(mtcars_ds$schema, tab$schema)
+  expect_equal(collect(mtcars_ds), mtcars)
 })
 
 test_that("partitioning = NULL to ignore partition information (but why?)", {
