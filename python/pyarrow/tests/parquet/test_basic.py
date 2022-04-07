@@ -88,6 +88,10 @@ def test_set_dictionary_pagesize_limit(use_legacy_dataset):
     _check_roundtrip(table, dictionary_pagesize_limit=1,
                      data_page_size=10, version='2.4')
 
+    with pytest.raises(TypeError):
+        _check_roundtrip(table, dictionary_pagesize_limit="a",
+                         data_page_size=10, version='2.4')
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
