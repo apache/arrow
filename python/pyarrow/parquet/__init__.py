@@ -3001,19 +3001,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
     ['dataset_name_4/part-0.parquet']
     """
-    if use_legacy_dataset:
-        warnings.warn(
-            "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
-            "deprecated as of pyarrow 8.0.0, and the legacy implementation "
-            "will be removed in a future version.",
-            FutureWarning, stacklevel=2)
-
-        # raise for unsupported keywords
-        if partition_filename_cb is not None:
-            warnings.warn(
-                _DEPR_MSG.format("partition_filename_cb", ""),
-                FutureWarning, stacklevel=2)
-
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
 
@@ -3053,6 +3040,13 @@ def write_to_dataset(table, root_path, partition_cols=None,
             partitioning=partitioning, use_threads=use_threads,
             file_visitor=file_visitor)
         return
+
+    if use_legacy_dataset:
+        warnings.warn(
+            "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
+            "deprecated as of pyarrow 8.0.0, and the legacy implementation "
+            "will be removed in a future version.",
+            FutureWarning, stacklevel=2)
 
     fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)
 
@@ -3099,6 +3093,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
     else:
         if partition_filename_cb:
             outfile = partition_filename_cb(None)
+
+            # raise for unsupported keywords
+            warnings.warn(
+                _DEPR_MSG.format("partition_filename_cb", ""),
+                FutureWarning, stacklevel=2)
         else:
             outfile = guid() + '.parquet'
         full_path = '/'.join([root_path, outfile])
