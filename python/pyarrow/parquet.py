@@ -2412,6 +2412,23 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
     Returns
     -------
     metadata : FileMetadata
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.parquet as pq
+    >>> table = pa.table({'n_legs': [4, 5, 100],
+    ...                   'animal': ["Dog", "Brittle stars", "Centipede"]})
+    >>> pq.write_table(table, 'example.parquet')
+
+    >>> pq.read_metadata('example.parquet')
+    <pyarrow._parquet.FileMetaData object at ...>
+      created_by: parquet-cpp-arrow version ...
+      num_columns: 2
+      num_rows: 3
+      num_row_groups: 1
+      format_version: 1.0
+      serialized_size: 561
     """
     return ParquetFile(where, memory_map=memory_map,
                        decryption_properties=decryption_properties).metadata
@@ -2432,6 +2449,18 @@ def read_schema(where, memory_map=False, decryption_properties=None):
     Returns
     -------
     schema : pyarrow.Schema
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.parquet as pq
+    >>> table = pa.table({'n_legs': [4, 5, 100],
+    ...                   'animal': ["Dog", "Brittle stars", "Centipede"]})
+    >>> pq.write_table(table, 'example.parquet')
+
+    >>> pq.read_schema('example.parquet')
+    n_legs: int64
+    animal: string
     """
     return ParquetFile(
         where, memory_map=memory_map,
