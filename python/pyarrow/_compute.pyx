@@ -2447,6 +2447,7 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
     """
     cdef:
         c_string c_func_name
+        CArity* c_arity_ptr
         CArity c_arity
         CFunctionDoc c_func_doc
         CInputType in_tmp
@@ -2468,11 +2469,11 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
     func_spec = inspect.getfullargspec(function)
     if func_spec.varargs:
         if num_args <= 0:
-            raise ValueError("number of arguments must be >= 0")
+            raise ValueError("Number of arguments must be >= 0")
         c_arity = CArity.VarArgs(num_args)
     else:
         if num_args <= 0:
-            raise ValueError("number of arguments must be >= 0")
+            raise ValueError("Number of arguments must be >= 0")
         if num_args == 0:
             c_arity = CArity.Nullary()
         elif num_args == 1:
@@ -2481,6 +2482,9 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
             c_arity = CArity.Binary()
         elif num_args == 3:
             c_arity = CArity.Ternary()
+        elif num_args > 3:
+            c_arity_ptr = new CArity(num_args, False)
+            c_arity = deref(c_arity_ptr)
 
     c_func_doc = _make_function_doc(function_doc)
 

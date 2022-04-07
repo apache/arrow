@@ -1835,6 +1835,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int num_args
         c_bool is_varargs
 
+        CArity()
+        CArity(int num_args, c_bool is_varargs)
+
         @staticmethod
         CArity Nullary()
 
@@ -2694,11 +2697,7 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     int64_t TotalBufferSize(const CTable& table)
 
 cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
-    cdef cppclass CUdfOptions" arrow::py::UdfOptions":
-        CUdfOptions(FunctionKind kind, CArity arity, CFunctionDoc func_doc,
-                    vector[CInputType] in_types, COutputType out_type)
-
-    cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions"(CUdfOptions):
+    cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions":
 
         CScalarUdfOptions(c_string func_name, CArity arity, CFunctionDoc func_doc,
                           vector[CInputType] in_types, COutputType out_type)

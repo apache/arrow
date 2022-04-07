@@ -40,17 +40,20 @@ namespace arrow {
 namespace py {
 
 // Exposing the UDFOptions: https://issues.apache.org/jira/browse/ARROW-16041
-class ARROW_PYTHON_EXPORT UdfOptions {
+class ARROW_PYTHON_EXPORT ScalarUdfOptions {
  public:
-  UdfOptions(const compute::Function::Kind kind, const compute::Arity arity,
-             const compute::FunctionDoc func_doc,
-             const std::vector<compute::InputType> in_types,
-             const compute::OutputType out_type)
-      : kind_(kind),
+  ScalarUdfOptions(const std::string func_name, const compute::Arity arity,
+                   const compute::FunctionDoc func_doc,
+                   const std::vector<compute::InputType> in_types,
+                   const compute::OutputType out_type)
+      : func_name_(func_name),
+        kind_(compute::Function::SCALAR),
         arity_(arity),
         func_doc_(std::move(func_doc)),
         in_types_(std::move(in_types)),
         out_type_(out_type) {}
+
+  const std::string& name() const { return func_name_; }
 
   compute::Function::Kind kind() { return kind_; }
 
@@ -63,27 +66,12 @@ class ARROW_PYTHON_EXPORT UdfOptions {
   const compute::OutputType& output_type() const { return out_type_; }
 
  private:
+  std::string func_name_;
   compute::Function::Kind kind_;
   compute::Arity arity_;
   const compute::FunctionDoc func_doc_;
   std::vector<compute::InputType> in_types_;
   compute::OutputType out_type_;
-};
-
-class ARROW_PYTHON_EXPORT ScalarUdfOptions : public UdfOptions {
- public:
-  ScalarUdfOptions(const std::string func_name, const compute::Arity arity,
-                   const compute::FunctionDoc func_doc,
-                   const std::vector<compute::InputType> in_types,
-                   const compute::OutputType out_type)
-      : UdfOptions(compute::Function::SCALAR, arity, func_doc, std::move(in_types),
-                   out_type),
-        func_name_(func_name) {}
-
-  const std::string& name() const { return func_name_; }
-
- private:
-  std::string func_name_;
 };
 
 class ARROW_PYTHON_EXPORT UdfBuilder {
