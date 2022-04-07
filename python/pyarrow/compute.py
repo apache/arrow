@@ -79,6 +79,7 @@ from pyarrow._compute import (  # noqa
     # Expressions
     Expression,
 )
+from pyarrow import _exec_plan  # noqa
 
 from collections import namedtuple
 import inspect
@@ -591,22 +592,22 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
-def field(name):
-    """Reference a named column of the dataset.
+def field(name_or_index):
+    """Reference a column of the dataset.
 
     Stores only the field's name. Type and other information is known only when
     the expression is bound to a dataset having an explicit scheme.
 
     Parameters
     ----------
-    name : string
-        The name of the field the expression references to.
+    name_or_index : string or int
+        The name or index of the field the expression references to.
 
     Returns
     -------
     field_expr : Expression
     """
-    return Expression._field(name)
+    return Expression._field(name_or_index)
 
 
 def scalar(value):

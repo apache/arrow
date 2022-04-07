@@ -395,10 +395,12 @@ if(ARROW_COMPUTE)
        compute/exec/options.cc
        compute/exec/order_by_impl.cc
        compute/exec/partition_util.cc
+       compute/exec/options.cc
        compute/exec/project_node.cc
        compute/exec/sink_node.cc
        compute/exec/source_node.cc
        compute/exec/task_util.cc
+       compute/exec/tpch_node.cc
        compute/exec/union_node.cc
        compute/exec/util.cc
        compute/function.cc

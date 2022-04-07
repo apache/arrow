@@ -207,6 +207,7 @@ class build_ext(_build_ext):
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',
+        '_exec_plan',
         '_feather',
         '_parquet',
         '_parquet_encryption',

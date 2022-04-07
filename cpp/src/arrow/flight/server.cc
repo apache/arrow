@@ -405,11 +405,17 @@ RecordBatchStream::~RecordBatchStream() {}
 
 std::shared_ptr<Schema> RecordBatchStream::schema() { return impl_->schema(); }
 
-Status RecordBatchStream::GetSchemaPayload(FlightPayload* payload) {
-  return impl_->GetSchemaPayload(payload);
+arrow::Result<FlightPayload> RecordBatchStream::GetSchemaPayload() {
+  FlightPayload payload;
+  RETURN_NOT_OK(impl_->GetSchemaPayload(&payload));
+  return payload;
 }
 
-Status RecordBatchStream::Next(FlightPayload* payload) { return impl_->Next(payload); }
+arrow::Result<FlightPayload> RecordBatchStream::Next() {
+  FlightPayload payload;
+  RETURN_NOT_OK(impl_->Next(&payload));
+  return payload;
+}
 
 }  // namespace flight
 }  // namespace arrow

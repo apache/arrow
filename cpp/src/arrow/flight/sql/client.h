@@ -170,10 +170,7 @@ class ARROW_EXPORT FlightSqlClient {
   // function GetFlightInfoForCommand.
   virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfo(
       const FlightCallOptions& options, const FlightDescriptor& descriptor) {
-    std::unique_ptr<FlightInfo> info;
-    ARROW_RETURN_NOT_OK(impl_->GetFlightInfo(options, descriptor, &info));
-
-    return info;
+    return impl_->GetFlightInfo(options, descriptor);
   }
 
   /// \brief Explicitly shut down and clean up the client.
@@ -183,19 +180,22 @@ class ARROW_EXPORT FlightSqlClient {
   virtual Status DoPut(const FlightCallOptions& options,
                        const FlightDescriptor& descriptor,
                        const std::shared_ptr<Schema>& schema,
-                       std::unique_ptr<FlightStreamWriter>* stream,
+                       std::unique_ptr<FlightStreamWriter>* writer,
                        std::unique_ptr<FlightMetadataReader>* reader) {
-    return impl_->DoPut(options, descriptor, schema, stream, reader);
+    ARROW_ASSIGN_OR_RAISE(auto result, impl_->DoPut(options, descriptor, schema));
+    *writer = std::move(result.writer);
+    *reader = std::move(result.reader);
+    return Status::OK();
   }
 
   virtual Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
                        std::unique_ptr<FlightStreamReader>* stream) {
-    return impl_->DoGet(options, ticket, stream);
+    return impl_->DoGet(options, ticket).Value(stream);
   }
 
   virtual Status DoAction(const FlightCallOptions& options, const Action& action,
                           std::unique_ptr<ResultStream>* results) {
-    return impl_->DoAction(options, action, results);
+    return impl_->DoAction(options, action).Value(results);
   }
 };
 

@@ -291,4 +291,86 @@ std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
   return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
 }
 
+#if defined(ARROW_R_WITH_ENGINE)
+
+#include <arrow/engine/api.h>
+
+// Just for example usage until a C++ method is available that implements
+// a RecordBatchReader output (ARROW-15849)
+class AccumulatingConsumer : public compute::SinkNodeConsumer {
+ public:
+  const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches() { return batches_; }
+
+  arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema) {
+    schema_ = schema;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Consume(compute::ExecBatch batch) override {
+    auto record_batch = batch.ToRecordBatch(schema_);
+    ARROW_RETURN_NOT_OK(record_batch);
+    batches_.push_back(record_batch.ValueUnsafe());
+
+    return arrow::Status::OK();
+  }
+
+  arrow::Future<> Finish() override { return arrow::Future<>::MakeFinished(); }
+
+ private:
+  std::shared_ptr<arrow::Schema> schema_;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches_;
+};
+
+// Expose these so that it's easier to write tests
+
+// [[engine::export]]
+std::string engine__internal__SubstraitToJSON(
+    const std::shared_ptr<arrow::Buffer>& serialized_plan) {
+  return ValueOrStop(arrow::engine::internal::SubstraitToJSON("Plan", *serialized_plan));
+}
+
+// [[engine::export]]
+std::shared_ptr<arrow::Buffer> engine__internal__SubstraitFromJSON(
+    std::string substrait_json) {
+  return ValueOrStop(arrow::engine::internal::SubstraitFromJSON("Plan", substrait_json));
+}
+
+// [[engine::export]]
+std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<arrow::Buffer>& serialized_plan) {
+  std::vector<std::shared_ptr<AccumulatingConsumer>> consumers;
+
+  std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
+    consumers.emplace_back(new AccumulatingConsumer());
+    return consumers.back();
+  };
+
+  arrow::Result<std::vector<compute::Declaration>> maybe_decls =
+      ValueOrStop(arrow::engine::DeserializePlan(*serialized_plan, consumer_factory));
+  std::vector<compute::Declaration> decls = std::move(ValueOrStop(maybe_decls));
+
+  // For now, the Substrait plan must include a 'read' that points to
+  // a Parquet file (instead of using a source node create in Arrow)
+  for (const compute::Declaration& decl : decls) {
+    auto node = decl.AddToPlan(plan.get());
+    StopIfNotOk(node.status());
+  }
+
+  StopIfNotOk(plan->Validate());
+  StopIfNotOk(plan->StartProducing());
+  StopIfNotOk(plan->finished().status());
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> all_batches;
+  for (const auto& consumer : consumers) {
+    for (const auto& batch : consumer->batches()) {
+      all_batches.push_back(batch);
+    }
+  }
+
+  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(all_batches)));
+}
+
+#endif
+
 #endif

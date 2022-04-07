@@ -89,13 +89,13 @@ With a JIRA account created we will navigate to the
 `Apache Arrow JIRA dashboard <https://issues.apache.org/jira/projects/ARROW>`_
 and click on the **Create** button.
 
-.. figure:: python_tutorial_jira_title.jpeg
+.. figure:: /developers/images/python_tutorial_jira_title.jpeg
    :scale: 70 %
    :alt: JIRA dashboard with a window for creating a new issue.
 
    Creating a JIRA issue, adding title (summary) and components.
 
-.. figure:: python_tutorial_jira_description.jpeg
+.. figure:: /developers/images/python_tutorial_jira_description.jpeg
    :scale: 70 %
    :alt: JIRA dashboard with a window for creating a
          description for the new issue.
@@ -109,7 +109,7 @@ need to ask for a project maintainer’s help on the
 
 Lets also add some comments to start a conversation.
 
-.. figure:: python_tutorial_jira_comment.jpeg
+.. figure:: /developers/images/python_tutorial_jira_comment.jpeg
    :scale: 50 %
    :alt: JIRA issue page where comment is being added.
 
@@ -118,7 +118,7 @@ Lets also add some comments to start a conversation.
 We have successfully created a new JIRA issue with index
 `ARROW-14977 <https://issues.apache.org/jira/browse/ARROW-14977>`_.
 
-.. figure:: python_tutorial_jira_issue.jpeg
+.. figure:: /developers/images/python_tutorial_jira_issue.jpeg
    :scale: 50 %
    :alt: JIRA page of the issue just created.
 
@@ -146,7 +146,7 @@ Let's research the Arrow library to see where the ``pc.min_max``
 function is defined/connected with the C++ and get an idea
 where we could implement the new feature.
 
-.. figure:: python_tutorial_github_search.jpeg
+.. figure:: /developers/images/python_tutorial_github_search.jpeg
    :scale: 50 %
    :alt: Apache Arrow GitHub repository dashboard where we are
          searching for a pc.min_max function reference.
@@ -154,7 +154,7 @@ where we could implement the new feature.
    We could try to search for the function reference in a
    GitHub Apache Arrow repository.
 
-.. figure:: python_tutorial_github_find_in_file.jpeg
+.. figure:: /developers/images/python_tutorial_github_find_in_file.jpeg
    :scale: 50 %
    :alt: In the GitHub repository we are searching through the
          test_compute.py file for the pc.min_max function.
@@ -523,7 +523,7 @@ bar with a note that we made recent pushes to the branch
 ARROW-14977. That’s great, now we can make the Pull Request
 by clicking on **Compare & pull request**. 
 
-.. figure:: python_tutorial_github_pr_notice.jpeg
+.. figure:: /developers/images/python_tutorial_github_pr_notice.jpeg
    :scale: 50 %
    :alt: GitHub page of the Apache Arrow repository showing a notice bar
          indicating change has been made in our branch and a Pull Request
@@ -541,7 +541,7 @@ trying to do.
 Once I click **Create pull request** my code can be reviewed as a
 Pull Request in the Apache Arrow repository.
 
-.. figure:: python_tutorial_pr.jpeg
+.. figure:: /developers/images/python_tutorial_pr.jpeg
    :scale: 50 %
    :alt: GitHub page of the Pull Request showing the title and a
          description.

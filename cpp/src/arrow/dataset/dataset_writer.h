@@ -79,7 +79,7 @@ class ARROW_DS_EXPORT DatasetWriter {
   /// directory.  The only way to get two parallel writes immediately would be to queue
   /// all 1000 pending writes to the first directory.
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
-                            const std::string& directory);
+                            const std::string& directory, const std::string& prefix = "");
 
   /// Finish all pending writes and close any open files
   Future<> Finish();

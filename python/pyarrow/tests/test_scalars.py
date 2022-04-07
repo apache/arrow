@@ -289,6 +289,7 @@ def test_timestamp():
 @pytest.mark.nopandas
 def test_timestamp_nanos_nopandas():
     # ARROW-5450
+    pytest.importorskip("pytz")
     import pytz
     tz = 'America/New_York'
     ty = pa.timestamp('ns', tz=tz)
@@ -312,6 +313,7 @@ def test_timestamp_nanos_nopandas():
 
 def test_timestamp_no_overflow():
     # ARROW-5450
+    pytest.importorskip("pytz")
     import pytz
 
     timestamps = [
@@ -326,6 +328,7 @@ def test_timestamp_no_overflow():
 
 def test_timestamp_fixed_offset_print():
     # ARROW-13896
+    pytest.importorskip("pytz")
     arr = pa.array([0], pa.timestamp('s', tz='+02:00'))
     assert str(arr[0]) == "1970-01-01 02:00:00+02:00"
 

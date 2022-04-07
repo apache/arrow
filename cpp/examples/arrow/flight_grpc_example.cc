@@ -97,7 +97,8 @@ int main(int argc, char** argv) {
   server.reset(new SimpleFlightServer());
 
   flight::Location bind_location;
-  ABORT_ON_FAILURE(flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &bind_location));
+  ABORT_ON_FAILURE(
+      flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port).Value(&bind_location));
   flight::FlightServerOptions options(bind_location);
 
   HelloWorldServiceImpl grpc_service;
