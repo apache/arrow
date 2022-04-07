@@ -17,35 +17,24 @@
 
 package org.apache.arrow.vector.util;
 
-import java.util.ArrayList;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 /**
- * Extension of {@link ArrayList} that {@link #toString()} method returns the serialized JSON
- * version of its members (or throws an exception if they can't be converted to JSON).
- *
- * @param <E> Type of value held in the list.
+ * A {@link ObjectMapper} factory to read/write JSON.
  */
-public class JsonStringArrayList<E> extends ArrayList<E> {
+public final class ObjectMapperFactory {
 
-  private static final ObjectMapper MAPPER = ObjectMapperFactory.newObjectMapper();
+  private ObjectMapperFactory() {}
 
-  public JsonStringArrayList() {
-    super();
-  }
-
-  public JsonStringArrayList(int size) {
-    super(size);
-  }
-
-  @Override
-  public final String toString() {
-    try {
-      return MAPPER.writeValueAsString(this);
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Cannot serialize array list to JSON string", e);
-    }
+  /**
+   * Creates a new {@link ObjectMapper} instance.
+   */
+  public static ObjectMapper newObjectMapper() {
+    return JsonMapper.builder()
+       .addModule(new JavaTimeModule())
+       .build();
   }
 }
+
