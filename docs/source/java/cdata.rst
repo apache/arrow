@@ -53,8 +53,7 @@ Use this guide to :doc:`compile arrow <../developers/cpp/building.rst>` library:
     ├── libarrow.800.dylib -> libarrow.800.0.0.dylib
     └── libarrow.dylib -> libarrow.800.dylib
 
-Define C++ code CDataCppBridge.cpp that export function **fillCArray** for third party
-consumers like Java:
+Implement a function in CDataCppBridge.cpp that exports an array via the C Data Interface:
 
 .. code-block:: cpp
 
