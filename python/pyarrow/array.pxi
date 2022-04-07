@@ -750,6 +750,24 @@ cdef class _PandasConvertible(_Weakrefable):
         Returns
         -------
         pandas.Series or pandas.DataFrame depending on type of object
+
+        Examples
+        --------
+        Convert a Table to pandas DataFrame:
+
+        >>> import pyarrow as pa
+        >>> table = pa.table([
+        ...    pa.array([2, 4, 5, 100]),
+        ...    pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        ...    ], names=['n_legs', 'animals'])
+        >>> table.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       4          Horse
+        2       5  Brittle stars
+        3     100      Centipede
+        >>> isinstance(table.to_pandas(), pd.DataFrame)
+        True
         """
         options = dict(
             pool=memory_pool,
@@ -2780,6 +2798,23 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
         Arrays to concatenate, must be identically typed.
     memory_pool : MemoryPool, default None
         For memory allocations. If None, the default pool is used.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr1 = pa.array([2, 4, 5, 100])
+    >>> arr2 = pa.array([2, 4])
+    >>> pa.concat_arrays([arr1, arr2])
+    <pyarrow.lib.Int64Array object at 0x1166eb1c0>
+    [
+      2,
+      4,
+      5,
+      100,
+      2,
+      4
+    ]
+
     """
     cdef:
         vector[shared_ptr[CArray]] c_arrays
