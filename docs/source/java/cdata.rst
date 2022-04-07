@@ -53,7 +53,7 @@ Use this guide to :doc:`compile arrow <../developers/cpp/building.rst>` library:
     ├── libarrow.800.dylib -> libarrow.800.0.0.dylib
     └── libarrow.dylib -> libarrow.800.dylib
 
-Define C++ code CDataCppBridge.h that export function **fillCArray** for third party
+Define C++ code CDataCppBridge.cpp that export function **fillCArray** for third party
 consumers like Java:
 
 .. code-block:: cpp
@@ -101,13 +101,13 @@ without writing JNI bindings ourselves.
         <modelVersion>4.0.0</modelVersion>
 
         <groupId>org.example</groupId>
-        <artifactId>cdatav2</artifactId>
+        <artifactId>java-cdata-example</artifactId>
         <version>1.0-SNAPSHOT</version>
 
         <properties>
             <maven.compiler.source>8</maven.compiler.source>
             <maven.compiler.target>8</maven.compiler.target>
-            <arrow.version>8.0.0.dev254</arrow.version>
+            <arrow.version>8.0.0</arrow.version>
         </properties>
         <dependencies>
             <dependency>
@@ -139,7 +139,7 @@ without writing JNI bindings ourselves.
             target = "CDataJavaToCppExample",
             value = @Platform(
                     include = {
-                            "CDataCppBridge.h"
+                            "CDataCppBridge.cpp"
                     },
                     compiler = {"cpp11"},
                     linkpath = {"/arrow/cpp/build/debug/"},
@@ -192,7 +192,7 @@ Let's create a Java class to test our bridge:
                 ArrowSchema arrowSchema = ArrowSchema.allocateNew(allocator);
                 ArrowArray arrowArray = ArrowArray.allocateNew(allocator)
             ){
-                CDataJavaToCppExample.fillCArray(
+                CDataJavaToCppExample.FillInt64Array(
                         arrowSchema.memoryAddress(), arrowArray.memoryAddress());
                 try(
                     BigIntVector bigIntVector = (BigIntVector) Data.importVector(
@@ -207,6 +207,6 @@ Let's create a Java class to test our bridge:
 
 .. code-block:: shell
 
-    Java using C Data Interface to read Array Filled by C++: [1, 2, 3, null, 5, 6, 7, 8, 9, 10]
+    C++-allocated array: [1, 2, 3, null, 5, 6, 7, 8, 9, 10]
 
 .. _`JavaCPP`: https://github.com/bytedeco/javacpp
