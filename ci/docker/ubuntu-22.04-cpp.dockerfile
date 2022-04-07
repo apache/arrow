@@ -123,6 +123,14 @@ RUN if [ "${gcc_version}" = "" ]; then \
           gcc-${gcc_version} && \
       update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
       update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+      update-alternatives --install \
+        /usr/bin/$(uname --machine)-linux-gnu-gcc \
+        $(uname --machine)-linux-gnu-gcc \
+        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc_version} 100 && \
+      update-alternatives --install \
+        /usr/bin/$(uname --machine)-linux-gnu-g++ \
+        $(uname --machine)-linux-gnu-g++ \
+        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc_version} 100 && \
       update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
       update-alternatives --set cc /usr/bin/gcc && \
       update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
