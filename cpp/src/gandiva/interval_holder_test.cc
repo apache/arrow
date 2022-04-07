@@ -61,6 +61,14 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
   EXPECT_TRUE(out_valid);
   EXPECT_FALSE(execution_context_.has_error());
 
+  data = "1";
+  response = cast_interval_day(&execution_context_, data.data(), 1, true, &out_valid);
+  qty_days_in_response = 0;
+  qty_millis_in_response = 1;
+  EXPECT_TRUE(out_valid);
+  EXPECT_FALSE(execution_context_.has_error());
+  EXPECT_EQ(response, (qty_millis_in_response << 32) | qty_days_in_response);
+
   // Pass only years and days to cast
   data = "P12Y15D";
   response = cast_interval_day(&execution_context_, data.data(), 7, true, &out_valid);
