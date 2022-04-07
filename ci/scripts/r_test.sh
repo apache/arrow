@@ -97,16 +97,6 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
 
   if(reticulate::py_module_available('pyarrow')){
     old_pp <- Sys.getenv('PYTHONPATH', unset = NA)
-    on.exit(
-        {
-            if (is.na(old_pp)) {
-                Sys.unsetenv('PYTHONPATH')
-            } else {
-                Sys.setenv(PYTHONPATH = old_pp)
-            }
-        },
-        add = TRUE
-    )
     Sys.setenv(PYTHONPATH = './inst')
 
     message('Running flight demo server for tests.')
@@ -118,6 +108,12 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
        )
       )
     on.exit(tools::pskill(pid_flight), add = TRUE)
+
+    if (is.na(old_pp)) {
+        Sys.unsetenv('PYTHONPATH')
+    } else {
+        Sys.setenv(PYTHONPATH = old_pp)
+    }   
   }
 
   run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')
