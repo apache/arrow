@@ -438,3 +438,10 @@ stop_if_no_datasets <- function() {
     stop("This build of the arrow package does not support Datasets", call. = FALSE)
   }
 }
+
+#' Add filename to the dataset
+#'
+#' @export
+add_filenames <- function(){
+  Expression$field_ref("__filename")
+}

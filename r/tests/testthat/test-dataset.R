@@ -1131,7 +1131,6 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   delete_arrow_array_stream(stream_ptr)
 })
 
-
 test_that("Filter parquet dataset with is.na ARROW-15312", {
   ds_path <- make_temp_dir()
 
@@ -1348,4 +1347,13 @@ test_that("FileSystemFactoryOptions input validation", {
     ),
     fixed = TRUE
   )
+})
+
+test_that("can add in augmented fields", {
+  ds <- open_dataset(hive_dir)
+
+  ds <- ds %>%
+    mutate(file_name = add_filenames()) %>%
+    collect()
+
 })
