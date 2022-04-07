@@ -2096,19 +2096,6 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         str : the formatted output
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> schema = pa.schema([
-        ...     pa.field('n_legs', pa.int64()),
-        ...     pa.field('animals', pa.string())],
-        ...     metadata={"n_legs": "Number of legs per animal"})
-
-        Get a text representation of the schema:
-
-        >>> schema.to_string()
-        "n_legs: int64\nanimals: string\n-- schema metadata --\nn_legs: 'N...'"
         """
         cdef:
             c_string result
