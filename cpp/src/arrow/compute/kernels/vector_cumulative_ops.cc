@@ -45,17 +45,19 @@ struct CumulativeGeneric {
     auto skip_nulls = options.skip_nulls;
 
     auto out_type = batch.GetDescriptors()[0].type;
-    ARROW_ASSIGN_OR_RAISE(auto cast_value, Cast(Datum(options.start), out_type));
+    ARROW_ASSIGN_OR_RAISE(
+        auto cast_value,
+        Cast(Datum(options.start), out_type, CastOptions::Safe(), ctx->exec_context()));
     auto start = UnboxScalar<OutType>::Unbox(*cast_value.scalar());
 
     int64_t base_output_offset = 0;
-    bool encounted_null = false;
+    bool encountered_null = false;
     ArrayData* out_arr = out->mutable_array();
 
     switch (batch[0].kind()) {
       case Datum::ARRAY: {
         auto st = Call(ctx, base_output_offset, *batch[0].array(), out_arr, &start,
-                       skip_nulls, &encounted_null);
+                       skip_nulls, &encountered_null);
         out_arr->SetNullCount(arrow::kUnknownNullCount);
         return st;
       }
@@ -64,7 +66,7 @@ struct CumulativeGeneric {
 
         for (const auto& chunk : input->chunks()) {
           RETURN_NOT_OK(Call(ctx, base_output_offset, *chunk->data(), out_arr, &start,
-                             skip_nulls, &encounted_null));
+                             skip_nulls, &encountered_null));
           base_output_offset += chunk->length();
         }
         out_arr->SetNullCount(arrow::kUnknownNullCount);
@@ -79,17 +81,16 @@ struct CumulativeGeneric {
 
   static Status Call(KernelContext* ctx, int64_t base_output_offset,
                      const ArrayData& input, ArrayData* output, ArgValue* accumulator,
-                     bool skip_nulls, bool* encounted_null) {
+                     bool skip_nulls, bool* encountered_null) {
     Status st = Status::OK();
-    auto out_bitmap =
-        output->GetMutableValues<uint8_t>(0) + (base_output_offset / CHAR_BIT);
-    int64_t curr = base_output_offset % CHAR_BIT;
+    auto out_bitmap = output->GetMutableValues<uint8_t>(0);
     auto out_data = output->GetMutableValues<OutValue>(1) + base_output_offset;
+    int64_t curr = base_output_offset;
 
     auto null_func = [&]() {
       *out_data++ = OutValue{};
-      *encounted_null = true;
-      arrow::bit_util::SetBitsTo(out_bitmap, curr, 1, false);
+      *encountered_null = true;
+      arrow::bit_util::SetBitTo(out_bitmap, curr, false);
       ++curr;
     };
 
@@ -104,11 +105,11 @@ struct CumulativeGeneric {
           },
           null_func);
     } else {
-      auto start_null_idx = curr;
+      auto start_null_idx = 0;
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {
-            if (*encounted_null) {
+            if (*encountered_null) {
               *out_data++ = OutValue{};
             } else {
               *accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(
@@ -120,8 +121,9 @@ struct CumulativeGeneric {
           },
           null_func);
 
-      auto null_length = curr - start_null_idx;
-      arrow::bit_util::SetBitsTo(out_bitmap, start_null_idx, null_length, false);
+      auto null_length = input.length - start_null_idx;
+      arrow::bit_util::SetBitsTo(out_bitmap, base_output_offset + start_null_idx,
+                                 null_length, false);
     }
 
     return st;
