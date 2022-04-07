@@ -65,10 +65,10 @@ arrow-vector, and arrow-memory-netty.
         </dependencies>
     </project>
 
-In case to add Arrow Java Flight dependencies don't forget to
-add `os-maven-plugin` extension. This `os-maven-plugin` generate
-useful platform-dependent project properties such as `os.detected.name`
-or `os.detected.arch` needed by Arrow Java Flight dependencies.
+To use the Arrow Flight dependencies, also add the ``os-maven-plugin``
+plugin. This plugin generates useful platform-dependent properties
+such as ``os.detected.name`` and ``os.detected.arch`` needed to resolve
+transitive dependencies of Flight.
 
 .. code-block::
 
@@ -137,7 +137,7 @@ Instead, install them to the local Maven repository:
         </dependency>
     </dependencies>
 
-3. Download packages needed to a temporary directory: pom and jar files
+3. Download the necessary pom and jar files to a temporary directory:
 
 .. code-block:: shell
 
@@ -172,7 +172,7 @@ Instead, install them to the local Maven repository:
     ├── flight-core-8.0.0.dev254.jar
     └── flight-core-8.0.0.dev254.pom
 
-4. Install the artifacts to the local Maven repository with **mvn install:install-file**:
+4. Install the artifacts to the local Maven repository with ``mvn install:install-file``:
 
 .. code-block:: shell
 
@@ -194,7 +194,7 @@ Instead, install them to the local Maven repository:
 
 .. code-block:: shell
 
-    $ tree /Users/arrow/.m2/repository/org/apache/arrow
+    $ tree ~/.m2/repository/org/apache/arrow
     .
     ├── arrow-flight
     │   ├── 8.0.0.dev254
@@ -227,7 +227,7 @@ Instead, install them to the local Maven repository:
         │   ├── flight-core-8.0.0.dev254.jar
         │   └── flight-core-8.0.0.dev254.pom
 
-6. Compile your project like usual with **mvn clean install**.
+6. Compile your project like usual with ``mvn clean install``.
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
 .. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-19-0-github-java-jars
