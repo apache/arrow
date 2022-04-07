@@ -228,6 +228,10 @@ cdef class InputType(_Weakrefable):
     def scalar(data_type):
         """
         Create a scalar input type of the given data type.
+        Input data to a function is defined with a InputType
+        of Scalar. Here the accepted argument to the function
+        must be of type defined as `data_type` and it must be
+        a scalar value.  
 
         Parameter
         ---------
@@ -2354,17 +2358,27 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
 cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     """
     Helper function to generate the FunctionDoc
+    This function accepts a dictionary and expect the 
+    summary(str), description(str) and arg_names(List[str]) keys. 
     """
     cdef:
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
         c_bool c_options_required
 
-    validate_expr = "summary" in func_doc.keys(
-    ) and "description" in func_doc.keys() and "arg_names" in func_doc.keys()
-    if not validate_expr:
+    if not func_doc:
         raise ValueError(
-            "function doc dictionary must contain, summary, arg_names and a description")
+            "Function doc must contain a summary, a description and arg_names")
+
+    if not "summary" in func_doc.keys():
+        raise ValueError("Function doc must contain a summary")
+
+    if not "description" in func_doc.keys():
+        raise ValueError("Function doc must contain a description")
+
+    if not "arg_names" in func_doc.keys():
+        raise ValueError("Function doc must contain arg_names")
+
     f_doc.summary = tobytes(func_doc["summary"])
     f_doc.description = tobytes(func_doc["description"])
     for arg_name in func_doc["arg_names"]:
@@ -2461,16 +2475,16 @@ def register_scalar_function(func_name, function_doc, in_types,
         raise ValueError("Object must be a callable")
 
     func_spec = inspect.getfullargspec(function)
-    num_args = 0
-    if in_types and isinstance(in_types, list):
+    num_args = -1
+    if isinstance(in_types, list):
         for in_type in in_types:
             in_tmp = (<InputType> in_type).input_type
             c_in_types.push_back(in_tmp)
         num_args = len(in_types)
     else:
-        # Nullary arity doesn't have input types
-        if c_arity.num_args != 0:
-            raise ValueError("input types must be of type InputType")
+        if num_args == -1:
+            raise ValueError(
+                "Input types must be an empty list or a List[InputType]")
 
     if func_spec.varargs:
         if num_args < 0:

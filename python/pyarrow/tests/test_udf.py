@@ -292,6 +292,12 @@ def test_udf_input():
                                  out_type, unary_scalar_function)
 
     # validate function not matching defined arity config
+    doc = {
+        "summary": "test udf input",
+        "description": "parameters are validated",
+        "arg_names": ["array1", "array2"],
+    }
+
     def invalid_function(array1, array2):
         return pc.call_function("add", [array1, array2])
 
@@ -302,22 +308,20 @@ def test_udf_input():
                          options=None, memory_pool=None)
 
     # validate function
-    with pytest.raises(ValueError) as execinfo:
+    with pytest.raises(ValueError, match="Object must be a callable"):
         register_scalar_function("none_function", doc, in_types,
                                  out_type, None)
-        assert "callback must be a callable" == execinfo.value
 
     # validate output type
-    with pytest.raises(ValueError) as execinfo:
+    with pytest.raises(ValueError, match="Output value type must be defined"):
         register_scalar_function("output_function", doc, in_types,
                                  None, unary_scalar_function)
-        assert "Output value type must be defined" == execinfo.value
 
     # validate input type
-    with pytest.raises(ValueError) as execinfo:
+    expected_expr = r'Input types must be an'
+    with pytest.raises(ValueError, match=expected_expr):
         register_scalar_function("input_function", doc, None,
                                  out_type, unary_scalar_function)
-        assert "input types must be of type InputType" == execinfo.value
 
 
 def test_varargs_function_validation():
@@ -339,13 +343,10 @@ def test_varargs_function_validation():
     func = pc.get_function("n_add")
 
     assert func.name == "n_add"
-
-    with pytest.raises(pa.lib.ArrowInvalid) as execinfo:
+    error_msg = "VarArgs function 'n_add' needs at least 2 arguments"
+    with pytest.raises(pa.lib.ArrowInvalid, match=error_msg):
         pc.call_function("n_add", [pa.array([1, 10]),
                                    ])
-        error_msg = "VarArgs function 'n_add' needs at least 2 arguments"
-        +" but attempted to look up kernel(s) with only 1"
-        assert error_msg == execinfo.value
 
 
 def test_function_doc_validation():
@@ -363,11 +364,11 @@ def test_function_doc_validation():
         "arg_names": ["scalar1"]
     }
 
-    with pytest.raises(ValueError) as execinfo:
+    expected_expr = "Function doc must contain a summary"
+
+    with pytest.raises(ValueError, match=expected_expr):
         register_scalar_function("no_summary", func_doc, in_types,
                                  out_type, unary_scalar_function)
-        expected_expr = "must contain summary, arg_names and a description"
-        assert expected_expr in execinfo.value
 
     # doc with no decription
     func_doc = {
@@ -375,11 +376,11 @@ def test_function_doc_validation():
         "arg_names": ["scalar1"]
     }
 
-    with pytest.raises(ValueError) as execinfo:
+    expected_expr = "Function doc must contain a description"
+
+    with pytest.raises(ValueError, match=expected_expr):
         register_scalar_function("no_desc", func_doc, in_types,
                                  out_type, unary_scalar_function)
-        expected_expr = "must contain summary, arg_names and a description"
-        assert expected_expr in execinfo.value
 
     # doc with no arg_names
     func_doc = {
@@ -387,19 +388,18 @@ def test_function_doc_validation():
         "description": "some test func"
     }
 
-    with pytest.raises(ValueError) as execinfo:
+    expected_expr = "Function doc must contain arg_names"
+
+    with pytest.raises(ValueError, match=expected_expr):
         register_scalar_function("no_arg_names", func_doc, in_types,
                                  out_type, unary_scalar_function)
-        expected_expr = "must contain summary, arg_names and a description"
-        assert expected_expr in execinfo.value
 
     # doc with empty dictionary
     func_doc = {}
-    with pytest.raises(ValueError) as execinfo:
+    expected_expr = r"Function doc must contain a summary,"
+    with pytest.raises(ValueError, match=expected_expr):
         register_scalar_function("no_arg_names", func_doc, in_types,
                                  out_type, unary_scalar_function)
-        expected_expr = "must contain summary, arg_names and a description"
-        assert expected_expr in execinfo.value
 
 
 def test_non_uniform_input_udfs():
