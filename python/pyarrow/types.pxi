@@ -1370,7 +1370,9 @@ cdef class Schema(_Weakrefable):
     """
     A named collection of types a.k.a schema. A schema defines the
     column names and types in a record batch or table data structure.
-
+    They also contain metadata about the columns. For example, schemas 
+    converted from Pandas contain metadata about their original Pandas 
+    types so they can be converted back to the same types.
     Warnings
     --------
     Do not call this class's constructor directly. Instead use
@@ -1484,7 +1486,7 @@ cdef class Schema(_Weakrefable):
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
 
-        Get the names of the schema's fileds:
+        Get the names of the schema's fields:
 
         >>> schema.names
         ['n_legs', 'animals']
@@ -1512,7 +1514,7 @@ cdef class Schema(_Weakrefable):
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())])
 
-        Get the types of the schema's fileds:
+        Get the types of the schema's fields:
 
         >>> schema.types
         [DataType(int64), DataType(string)]
@@ -1536,7 +1538,7 @@ cdef class Schema(_Weakrefable):
         ...     pa.field('animals', pa.string())],
         ...     metadata={"n_legs": "Number of legs per animal"})
 
-        Get the metadata of the schema's fileds:
+        Get the metadata of the schema's fields:
 
         >>> schema.metadata
         {b'n_legs': b'Number of legs per animal'}
