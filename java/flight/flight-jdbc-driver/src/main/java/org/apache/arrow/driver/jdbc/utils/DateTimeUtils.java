@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.Calendar;
+import java.util.TimeZone;
 
 /**
  * Datetime utility functions.
@@ -32,7 +33,7 @@ public class DateTimeUtils {
    */
   public static long applyCalendarOffset(long milliseconds, Calendar calendar) {
     if (calendar == null) {
-      return milliseconds;
+      return milliseconds - Calendar.getInstance(TimeZone.getDefault()).getTimeZone().getOffset(milliseconds);
     }
     return milliseconds - calendar.getTimeZone().getOffset(milliseconds);
   }
