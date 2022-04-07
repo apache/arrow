@@ -74,13 +74,6 @@ def test_scalar_udf_function_with_scalar_valued_functions():
         "scalar_z=ax+by+c",
     ]
 
-    function_arities = [
-        1,
-        2,
-        3,
-        5,
-    ]
-
     function_input_types = [
         [
             InputType.scalar(pa.int64()),
@@ -154,14 +147,12 @@ def test_scalar_udf_function_with_scalar_valued_functions():
     ]
 
     for name, \
-        arity, \
         in_types, \
         out_type, \
         doc, \
         function, \
         input, \
         expected_output in zip(function_names,
-                               function_arities,
                                function_input_types,
                                function_output_types,
                                function_docs,
@@ -170,7 +161,7 @@ def test_scalar_udf_function_with_scalar_valued_functions():
                                expected_outputs):
 
         register_scalar_function(
-            name, arity, doc, in_types, out_type, function)
+            name, doc, in_types, out_type, function)
 
         func = pc.get_function(name)
         assert func.name == name
@@ -185,13 +176,6 @@ def test_scalar_udf_with_array_data_functions():
         "array_y=mx",
         "array_y=mx+c",
         "array_z=ax+by+c"
-    ]
-
-    function_arities = [
-        1,
-        2,
-        3,
-        5,
     ]
 
     function_input_types = [
@@ -268,14 +252,12 @@ def test_scalar_udf_with_array_data_functions():
     ]
 
     for name, \
-        arity, \
         in_types, \
         out_type, \
         doc, \
         function, \
         input, \
         expected_output in zip(function_names,
-                               function_arities,
                                function_input_types,
                                function_output_types,
                                function_docs,
@@ -284,7 +266,7 @@ def test_scalar_udf_with_array_data_functions():
                                expected_outputs):
 
         register_scalar_function(
-            name, arity, doc, in_types, out_type, function)
+            name, doc, in_types, out_type, function)
 
         func = pc.get_function(name)
         assert func.name == name
@@ -297,22 +279,16 @@ def test_udf_input():
     def unary_scalar_function(scalar):
         return pc.call_function("add", [scalar, 1])
 
-    # validate arity
-    arity = -1
-    func_name = "py_scalar_add_func"
+    # validate function name
+    doc = {
+        "summary": "test udf input",
+        "description": "parameters are validated",
+        "arg_names": ["scalar"],
+    }
     in_types = [InputType.scalar(pa.int64())]
     out_type = pa.int64()
-    doc = {"summary": "scalar add function",
-           "description": "scalar add function",
-           "arg_names": ["scalar_value"]
-           }
-    with pytest.raises(ValueError):
-        register_scalar_function(func_name, arity, doc, in_types,
-                                 out_type, unary_scalar_function)
-
-    # validate function name
     with pytest.raises(TypeError):
-        register_scalar_function(None, 1, doc, in_types,
+        register_scalar_function(None, doc, in_types,
                                  out_type, unary_scalar_function)
 
     # validate function not matching defined arity config
@@ -320,26 +296,26 @@ def test_udf_input():
         return pc.call_function("add", [array1, array2])
 
     with pytest.raises(pa.lib.ArrowInvalid):
-        register_scalar_function("invalid_function", 1, doc, in_types,
+        register_scalar_function("invalid_function", doc, in_types,
                                  out_type, invalid_function)
         pc.call_function("invalid_function", [pa.array([10]), pa.array([20])],
                          options=None, memory_pool=None)
 
     # validate function
     with pytest.raises(ValueError) as execinfo:
-        register_scalar_function("none_function", 1, doc, in_types,
+        register_scalar_function("none_function", doc, in_types,
                                  out_type, None)
         assert "callback must be a callable" == execinfo.value
 
     # validate output type
     with pytest.raises(ValueError) as execinfo:
-        register_scalar_function(func_name, 1, doc, in_types,
+        register_scalar_function("output_function", doc, in_types,
                                  None, unary_scalar_function)
         assert "Output value type must be defined" == execinfo.value
 
     # validate input type
     with pytest.raises(ValueError) as execinfo:
-        register_scalar_function(func_name, 1, doc, None,
+        register_scalar_function("input_function", doc, None,
                                  out_type, unary_scalar_function)
         assert "input types must be of type InputType" == execinfo.value
 
@@ -357,7 +333,7 @@ def test_varargs_function_validation():
            "description": "add N number of arrays",
            "arg_names": ["value1", "value2"]
            }
-    register_scalar_function("n_add", 2, doc,
+    register_scalar_function("n_add", doc,
                              in_types, pa.int64(), n_add)
 
     func = pc.get_function("n_add")
@@ -378,7 +354,6 @@ def test_function_doc_validation():
         return pc.call_function("add", [scalar, 1])
 
     # validate arity
-    arity = 1
     in_types = [InputType.scalar(pa.int64())]
     out_type = pa.int64()
 
@@ -389,7 +364,7 @@ def test_function_doc_validation():
     }
 
     with pytest.raises(ValueError) as execinfo:
-        register_scalar_function("no_summary", arity, func_doc, in_types,
+        register_scalar_function("no_summary", func_doc, in_types,
                                  out_type, unary_scalar_function)
         expected_expr = "must contain summary, arg_names and a description"
         assert expected_expr in execinfo.value
@@ -401,7 +376,7 @@ def test_function_doc_validation():
     }
 
     with pytest.raises(ValueError) as execinfo:
-        register_scalar_function("no_desc", arity, func_doc, in_types,
+        register_scalar_function("no_desc", func_doc, in_types,
                                  out_type, unary_scalar_function)
         expected_expr = "must contain summary, arg_names and a description"
         assert expected_expr in execinfo.value
@@ -413,7 +388,7 @@ def test_function_doc_validation():
     }
 
     with pytest.raises(ValueError) as execinfo:
-        register_scalar_function("no_arg_names", arity, func_doc, in_types,
+        register_scalar_function("no_arg_names", func_doc, in_types,
                                  out_type, unary_scalar_function)
         expected_expr = "must contain summary, arg_names and a description"
         assert expected_expr in execinfo.value
@@ -421,7 +396,7 @@ def test_function_doc_validation():
     # doc with empty dictionary
     func_doc = {}
     with pytest.raises(ValueError) as execinfo:
-        register_scalar_function("no_arg_names", arity, func_doc, in_types,
+        register_scalar_function("no_arg_names", func_doc, in_types,
                                  out_type, unary_scalar_function)
         expected_expr = "must contain summary, arg_names and a description"
         assert expected_expr in execinfo.value
@@ -442,7 +417,7 @@ def test_non_uniform_input_udfs():
         "description": "desc",
         "arg_names": ["scalar1", "array", "scalar2"]
     }
-    register_scalar_function("multi_type_udf", len(in_types), func_doc,
+    register_scalar_function("multi_type_udf", func_doc,
                              in_types,
                              pa.int64(), unary_scalar_function)
 
@@ -450,3 +425,24 @@ def test_non_uniform_input_udfs():
                            [pa.scalar(10), pa.array([1, 2, 3]), pa.scalar(20)])
 
     assert pc.sum(pc.equal(res, pa.array([30, 60, 90]))).as_py() == 3
+
+
+def test_nullary_functions():
+
+    def gen_random():
+        import random
+        val = random.randint(0, 10)
+        return pa.scalar(val)
+
+    func_doc = {
+        "summary": "random function",
+        "description": "generates a random value",
+        "arg_names": []
+    }
+
+    register_scalar_function("random_func", func_doc,
+                             [],
+                             pa.int64(), gen_random)
+
+    res = pc.call_function("random_func", [])
+    assert res.as_py() >= 0 and res.as_py() <= 10

@@ -2378,7 +2378,7 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     return f_doc
 
 
-def register_scalar_function(func_name, num_args, function_doc, in_types,
+def register_scalar_function(func_name, function_doc, in_types,
                              out_type, function):
     """
     Register a user-defined-function.
@@ -2388,11 +2388,6 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
 
     func_name : str
         Name of the function. This name must be globally unique. 
-    num_args : int
-       Number of arguments in the function.
-       When defining a function with variable arguments, 
-       the num_args represents the minimum number of arguments
-       required. 
     function_doc : dict
         A dictionary object with keys "summary" (str),
         "description" (str), and "arg_names" (list of str).
@@ -2401,7 +2396,7 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
         types for the function. When defining a list of InputType
         for a varargs function, the list only needs to contain the
         number of elements equal to the num_args (which is the miniumu
-        required arguments).
+        required arguments). 
     out_type : DataType
         Output type of the function.
     function : callable
@@ -2429,10 +2424,9 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
     ... 
     >>> 
     >>> func_name = "py_add_func"
-    >>> arity = 1
     >>> in_types = [InputType.array(pa.int64())]
     >>> out_type = pa.int64()
-    >>> register_function(func_name, arity, func_doc,
+    >>> register_function(func_name, func_doc,
     ...                   in_types, out_type, add_constant)
     >>> 
     >>> func = pc.get_function(func_name)
@@ -2467,12 +2461,23 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
         raise ValueError("Object must be a callable")
 
     func_spec = inspect.getfullargspec(function)
+    num_args = 0
+    if in_types and isinstance(in_types, list):
+        for in_type in in_types:
+            in_tmp = (<InputType> in_type).input_type
+            c_in_types.push_back(in_tmp)
+        num_args = len(in_types)
+    else:
+        # Nullary arity doesn't have input types
+        if c_arity.num_args != 0:
+            raise ValueError("input types must be of type InputType")
+
     if func_spec.varargs:
-        if num_args <= 0:
+        if num_args < 0:
             raise ValueError("Number of arguments must be >= 0")
         c_arity = CArity.VarArgs(num_args)
     else:
-        if num_args <= 0:
+        if num_args < 0:
             raise ValueError("Number of arguments must be >= 0")
         if num_args == 0:
             c_arity = CArity.Nullary()
@@ -2487,13 +2492,6 @@ def register_scalar_function(func_name, num_args, function_doc, in_types,
             c_arity = deref(c_arity_ptr)
 
     c_func_doc = _make_function_doc(function_doc)
-
-    if in_types and isinstance(in_types, list):
-        for in_type in in_types:
-            in_tmp = (<InputType> in_type).input_type
-            c_in_types.push_back(in_tmp)
-    else:
-        raise ValueError("input types must be of type InputType")
 
     if out_type:
         c_type = pyarrow_unwrap_data_type(out_type)
