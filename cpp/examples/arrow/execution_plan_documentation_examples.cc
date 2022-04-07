@@ -877,7 +877,7 @@ arrow::Status TableSinkExample(cp::ExecContext& exec_context) {
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
   std::shared_ptr<arrow::Table> output_table;
-  auto table_sink_options = cp::TableSinkNodeOptions{&output_table, basic_data.schema};
+  auto table_sink_options = cp::TableSinkNodeOptions{&output_table};
 
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("table_sink", plan.get(), {source}, table_sink_options));
