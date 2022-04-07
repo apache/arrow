@@ -1826,7 +1826,7 @@ Examples
         Generate an example dataset:
 
         >>> import pyarrow as pa
-        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],         
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
         ...                   'n_legs': [2, 2, 4, 4, 5, 100],
         ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
         ...                              "Brittle stars", "Centipede"]})
