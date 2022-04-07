@@ -18,6 +18,8 @@
 # Note that TestSafeCallIntoR is defined in safe-call-into-r-impl.cpp
 
 test_that("SafeCallIntoR works from the main R thread", {
+  skip_on_cran()
+
   expect_identical(
     TestSafeCallIntoR(function() "string one!", opt = "on_main_thread"),
     "string one!"
@@ -30,6 +32,8 @@ test_that("SafeCallIntoR works from the main R thread", {
 })
 
 test_that("SafeCallIntoR works within RunWithCapturedR", {
+  skip_on_cran()
+
   expect_identical(
     TestSafeCallIntoR(function() "string one!", opt = "async_with_executor"),
     "string one!"
@@ -42,6 +46,8 @@ test_that("SafeCallIntoR works within RunWithCapturedR", {
 })
 
 test_that("SafeCallIntoR errors from the non-R thread", {
+  skip_on_cran()
+
   expect_error(
     TestSafeCallIntoR(function() "string one!", opt = "async_without_executor"),
     "Call to R from a non-R thread"
