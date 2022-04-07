@@ -41,14 +41,13 @@ Use this guide to :doc:`compile arrow <../developers/cpp/building.rst>` library:
 
 .. code-block:: shell
 
-    git clone https://github.com/apache/arrow.git
-    cd arrow/cpp
-    cmake --preset -N ninja-debug-minimal
-    mkdir build   # from inside the `cpp` subdirectory
-    cd build
-    cmake .. --preset ninja-debug-minimal
-    cmake --build .
-    tree debug/
+    $ git clone https://github.com/apache/arrow.git
+    $ cd arrow/cpp
+    $ mkdir build   # from inside the `cpp` subdirectory
+    $ cd build
+    $ cmake .. --preset ninja-debug-minimal
+    $ cmake --build .
+    $ tree debug/
     debug/
     ├── libarrow.800.0.0.dylib
     ├── libarrow.800.dylib -> libarrow.800.0.0.dylib
@@ -65,7 +64,7 @@ consumers like Java:
 
     using arrow::Int64Builder;
 
-    void fillCArray(const uintptr_t c_schema_ptr, const uintptr_t c_array_ptr){
+    void FillInt64Array(const uintptr_t c_schema_ptr, const uintptr_t c_array_ptr) {
         arrow::Int64Builder builder;
         builder.Append(1);
         builder.Append(2);
@@ -77,7 +76,7 @@ consumers like Java:
         builder.Append(8);
         builder.Append(9);
         builder.Append(10);
-        std::shared_ptr<arrow::Array> array = *builder.Finish();;
+        std::shared_ptr<arrow::Array> array = *builder.Finish();
 
         struct ArrowSchema* c_schema = reinterpret_cast<struct ArrowSchema*>(c_schema_ptr);
         auto c_schema_status = arrow::ExportType(*array->type(), c_schema);
@@ -156,17 +155,17 @@ without writing JNI bindings ourselves.
 
 .. code-block:: shell
 
-    // Compile our Java code
-    javac -cp javacpp-1.5.7.jar CDataJavaConfig.java
+    # Compile our Java code
+    $ javac -cp javacpp-1.5.7.jar CDataJavaConfig.java
 
-    // Generate CDataInterfaceLibrary
-    java -jar javacpp-1.5.7.jar CDataJavaConfig.java
+    # Generate CDataInterfaceLibrary
+    $ java -jar javacpp-1.5.7.jar CDataJavaConfig.java
 
-    // Generate libjniCDataInterfaceLibrary.dylib
-    java -jar javacpp-1.5.7.jar CDataJavaToCppExample.java
+    # Generate libjniCDataInterfaceLibrary.dylib
+    $ java -jar javacpp-1.5.7.jar CDataJavaToCppExample.java
 
-    // Validate libjniCDataInterfaceLibrary.dylib created
-    otool -L macosx-x86_64/libjniCDataJavaToCppExample.dylib
+    # Validate libjniCDataInterfaceLibrary.dylib created
+    $ otool -L macosx-x86_64/libjniCDataJavaToCppExample.dylib
     macosx-x86_64/libjniCDataJavaToCppExample.dylib:
         libjniCDataJavaToCppExample.dylib (compatibility version 0.0.0, current version 0.0.0)
         @rpath/libarrow.800.dylib (compatibility version 800.0.0, current version 800.0.0)
@@ -175,7 +174,7 @@ without writing JNI bindings ourselves.
 
 **Java Test**
 
-Let's create a Java class to Test C Data Interface from Java to C++:
+Let's create a Java class to test our bridge:
 
 .. code-block:: java
 
@@ -199,7 +198,7 @@ Let's create a Java class to Test C Data Interface from Java to C++:
                     BigIntVector bigIntVector = (BigIntVector) Data.importVector(
                             allocator, arrowArray, arrowSchema, null)
                 ){
-                    System.out.println("Java using C Data Interface to read Array Filled by C++: "
+                    System.out.println("C++-allocated array: "
                             + bigIntVector);
                 }
             }
