@@ -36,7 +36,7 @@ Installing from Maven
 By default, Maven will download from the central repository: https://repo.maven.apache.org/maven2/org/apache/arrow/
 
 Configure your pom.xml with the Java modules needed, for example:
-arrow-vector, arrow-memory-netty and flight-core.
+arrow-vector, arrow-memory-netty, and flight-core.
 
 .. code-block::
 
