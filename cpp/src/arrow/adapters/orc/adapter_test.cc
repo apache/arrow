@@ -253,6 +253,23 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
+void TestORCWriterNoWrite(const int64_t max_size = kDefaultSmallMemStreamSize) {
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(max_size));
+  auto write_options = adapters::orc::WriteOptions();
+#ifdef ARROW_WITH_SNAPPY
+  write_options.compression = Compression::SNAPPY;
+#else
+  write_options.compression = Compression::UNCOMPRESSED;
+#endif
+  write_options.file_version = adapters::orc::FileVersion(0, 11);
+  write_options.compression_block_size = 32768;
+  write_options.row_index_stride = 5000;
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
+  ARROW_EXPECT_OK(writer->Close());
+}
+
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
@@ -406,6 +423,10 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
 
 // Trivial
 
+class TestORCWriterTrivialNoWrite : public ::testing::Test {};
+TEST_F(TestORCWriterTrivialNoWrite, noWrite) {
+  TestORCWriterNoWrite(kDefaultSmallMemStreamSize / 16);
+}
 class TestORCWriterTrivialNoConversion : public ::testing::Test {
  public:
   TestORCWriterTrivialNoConversion() {
