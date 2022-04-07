@@ -36,7 +36,7 @@ Installing from Maven
 By default, Maven will download from the central repository: https://repo.maven.apache.org/maven2/org/apache/arrow/
 
 Configure your pom.xml with the Java modules needed, for example:
-arrow-vector, arrow-memory-netty, and flight-core.
+arrow-vector, and arrow-memory-netty.
 
 .. code-block::
 
@@ -62,25 +62,13 @@ arrow-vector, arrow-memory-netty, and flight-core.
                 <artifactId>arrow-memory-netty</artifactId>
                 <version>${arrow.version}</version>
             </dependency>
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
-                <artifactId>flight-core</artifactId>
-                <version>${arrow.version}</version>
-            </dependency>
         </dependencies>
-        <build>
-            <extensions>
-                <extension>
-                    <groupId>kr.motd.maven</groupId>
-                    <artifactId>os-maven-plugin</artifactId>
-                    <version>1.7.0</version>
-                </extension>
-            </extensions>
-        </build>
     </project>
 
-This `os-maven-plugin` generate useful platform-dependent project properties such as
-`os.detected.name` or `os.detected.arch` needed by Arrow Java Flight dependencies.
+In case to add Arrow Java Flight dependencies don't forget to
+add `os-maven-plugin` extension. This `os-maven-plugin` generate
+useful platform-dependent project properties such as `os.detected.name`
+or `os.detected.arch` needed by Arrow Java Flight dependencies.
 
 Installing from Source
 ----------------------
@@ -94,7 +82,7 @@ Installing Nightly Packages
     These packages are not official releases. Use them at your own risk.
 
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
-The artifacts are uploaded to GitHub. For example, for 2022/03/19, they can be found at `Github Nightly`_.
+The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
 Maven cannot directly use the artifacts from GitHub.
 Instead, install them to the local Maven repository:
