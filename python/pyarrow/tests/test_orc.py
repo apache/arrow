@@ -623,6 +623,7 @@ def test_wrong_usage_orc_writer(tempdir):
         with pytest.raises(AttributeError):
             writer.test()
 
+
 def test_orc_writer_with_null_arrays(tempdir):
     from pyarrow import orc
     import pyarrow as pa
