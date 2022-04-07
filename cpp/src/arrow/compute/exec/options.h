@@ -307,9 +307,9 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 };
 /// @}
 
-/// \brief Adapt an Table as a sink node
+/// \brief Adapt a Table as a sink node
 ///
-/// obtains the output of a execution plan to
+/// obtains the output of an execution plan to
 /// a table pointer.
 class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
  public:

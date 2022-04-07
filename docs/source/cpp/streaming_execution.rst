@@ -654,8 +654,8 @@ SelectK example:
 
 .. _stream_execution_table_sink_docs:
 
-The ``table_sink`` node provides the ability to take the output as an in-memory table. 
-This is much simpler to use than the other sink nodes provided by the streaming execution engine
+The ``table_sink`` node provides the ability to receive the output as an in-memory table. 
+This is simpler to use than the other sink nodes provided by the streaming execution engine
 but it only makes sense when the output fits comfortably in memory.
 The node is created using :class:`arrow::compute::TableSinkNodeOptions`.
 
