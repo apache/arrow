@@ -26,6 +26,7 @@
 #include <arrow/type.h>
 
 #include "./extension.h"
+#include "./safe-call-into-r.h"
 
 bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
   // Avoid materializing the R6 instance if at all possible
@@ -40,20 +41,23 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
   // With any ambiguity, we need to materialize the R6 instance and call its
   // ExtensionEquals method. We can't do this on the non-R thread.
   // After ARROW-15841, we can use SafeCallIntoR.
-  arrow::Status is_r_thread = assert_r_thread();
-  if (!assert_r_thread().ok()) {
-    throw std::runtime_error(is_r_thread.message());
+  arrow::Result<bool> result = SafeCallIntoR<bool>([&]() {
+    cpp11::environment instance = r6_instance();
+    cpp11::function instance_ExtensionEquals(instance["ExtensionEquals"]);
+
+    std::shared_ptr<DataType> other_shared =
+        ValueOrStop(other.Deserialize(other.storage_type(), other.Serialize()));
+    cpp11::sexp other_r6 = cpp11::to_r6<DataType>(other_shared, "ExtensionType");
+
+    cpp11::logicals result(instance_ExtensionEquals(other_r6));
+    return cpp11::as_cpp<bool>(result);
+  });
+
+  if (!result.ok()) {
+    throw std::runtime_error(result.status().message());
   }
 
-  cpp11::environment instance = r6_instance();
-  cpp11::function instance_ExtensionEquals(instance["ExtensionEquals"]);
-
-  std::shared_ptr<DataType> other_shared =
-      ValueOrStop(other.Deserialize(other.storage_type(), other.Serialize()));
-  cpp11::sexp other_r6 = cpp11::to_r6<DataType>(other_shared, "ExtensionType");
-
-  cpp11::logicals result(instance_ExtensionEquals(other_r6));
-  return cpp11::as_cpp<bool>(result);
+  return result.ValueUnsafe();
 }
 
 std::shared_ptr<arrow::Array> RExtensionType::MakeArray(
@@ -71,31 +75,33 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   cloned->storage_type_ = storage_type;
   cloned->extension_metadata_ = serialized_data;
 
-  // We probably should create an ephemeral R6 instance here, which will call
-  // the R6 instance's Deserialize() method, possibly erroring when the metadata is
-  // invalid or the deserialized values are invalid. When there is an error it will be
-  // confusing, since it will only occur when the result surfaces to R
-  // (which might be much later). Unfortunately, the Deserialize() method gets
-  // called from other threads frequently (e.g., when reading a multi-file Dataset),
-  // and we get crashes if we try this. After ARROW-15841, we can use SafeCallIntoR.
-  if (assert_r_thread().ok()) {
-    cloned->r6_instance();
-  }
+  // We create an ephemeral R6 instance here, which will call the R6 instance's
+  // deserialize_instance() method, possibly erroring when the metadata is
+  // invalid or the deserialized values are invalid.
+  arrow::Result<bool> result = SafeCallIntoR<bool>([&]() {
+    r6_instance();
+    return true;
+  });
 
+  ARROW_RETURN_NOT_OK(result);
   return std::shared_ptr<RExtensionType>(cloned.release());
 }
 
 std::string RExtensionType::ToString() const {
-  // In case this gets called from another thread
-  // After ARROW-15841, we can use SafeCallIntoR.
-  if (!assert_r_thread().ok()) {
-    return ExtensionType::ToString();
-  }
+  arrow::Result<std::string> result = SafeCallIntoR<std::string>([&]() {
+    cpp11::environment instance = r6_instance();
+    cpp11::function instance_ToString(instance["ToString"]);
+    cpp11::sexp result = instance_ToString();
+    return cpp11::as_cpp<std::string>(result);
+  });
 
-  cpp11::environment instance = r6_instance();
-  cpp11::function instance_ToString(instance["ToString"]);
-  cpp11::sexp result = instance_ToString();
-  return cpp11::as_cpp<std::string>(result);
+  // In the event of an error (e.g., we are not on the main thread
+  // and we are not inside RunWithCapturedR()), just call the default method
+  if (!result.ok()) {
+    return ExtensionType::ToString();
+  } else {
+    return result.ValueUnsafe();
+  }
 }
 
 cpp11::sexp RExtensionType::Convert(
@@ -107,8 +113,8 @@ cpp11::sexp RExtensionType::Convert(
 }
 
 std::unique_ptr<RExtensionType> RExtensionType::Clone() const {
-  RExtensionType* ptr = new RExtensionType(
-      storage_type(), extension_name_, extension_metadata_, r6_class_, creation_thread_);
+  RExtensionType* ptr =
+      new RExtensionType(storage_type(), extension_name_, extension_metadata_, r6_class_);
   return std::unique_ptr<RExtensionType>(ptr);
 }
 
@@ -133,8 +139,7 @@ cpp11::environment ExtensionType__initialize(
     cpp11::raws extension_metadata, cpp11::environment r6_class) {
   std::string metadata_string(extension_metadata.begin(), extension_metadata.end());
   auto r6_class_shared = std::make_shared<cpp11::environment>(r6_class);
-  RExtensionType cpp_type(storage_type, extension_name, metadata_string, r6_class_shared,
-                          std::this_thread::get_id());
+  RExtensionType cpp_type(storage_type, extension_name, metadata_string, r6_class_shared);
   return cpp_type.r6_instance();
 }
 
