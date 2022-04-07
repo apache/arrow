@@ -150,15 +150,39 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetNegativeIntervalYear( ) {
-    String period = "-001-01";
-    Assert.assertEquals(period, formatIntervalYear(parse("P-1Y-1M")));
+  public void testShouldGetIntervalYear( ) {
+    Assert.assertEquals("-002-00", formatIntervalYear(parse("P-2Y")));
+    Assert.assertEquals("-001-01", formatIntervalYear(parse("P-1Y-1M")));
+    Assert.assertEquals("-001-02", formatIntervalYear(parse("P-1Y-2M")));
+    Assert.assertEquals("-002-03", formatIntervalYear(parse("P-2Y-3M")));
+    Assert.assertEquals("-002-04", formatIntervalYear(parse("P-2Y-4M")));
+    Assert.assertEquals("-011-01", formatIntervalYear(parse("P-11Y-1M")));
+    Assert.assertEquals("+002-00", formatIntervalYear(parse("P+2Y")));
+    Assert.assertEquals("+001-01", formatIntervalYear(parse("P+1Y1M")));
+    Assert.assertEquals("+001-02", formatIntervalYear(parse("P+1Y2M")));
+    Assert.assertEquals("+002-03", formatIntervalYear(parse("P+2Y3M")));
+    Assert.assertEquals("+002-04", formatIntervalYear(parse("P+2Y4M")));
+    Assert.assertEquals("+011-01", formatIntervalYear(parse("P+11Y1M")));
   }
 
   @Test
-  public void testShouldGetNegativeIntervalDay( ) {
-    String period = "-000 01:00:00.000";
-    Assert.assertEquals(period, formatIntervalDay(parse("PT-1H")));
+  public void testShouldGetIntervalDay( ) {
+    Assert.assertEquals("-000 01:00:00.000", formatIntervalDay(parse("PT-1H")));
+    Assert.assertEquals("-000 01:00:00.001", formatIntervalDay(parse("PT-1H-0M-00.001S")));
+    Assert.assertEquals("-000 01:01:01.000", formatIntervalDay(parse("PT-1H-1M-1S")));
+    Assert.assertEquals("-000 02:02:02.002", formatIntervalDay(parse("PT-2H-2M-02.002S")));
+    Assert.assertEquals("-000 23:59:59.999", formatIntervalDay(parse("PT-23H-59M-59.999S")));
+    Assert.assertEquals("-000 11:59:00.100", formatIntervalDay(parse("PT-11H-59M-00.100S")));
+    Assert.assertEquals("-000 05:02:03.000", formatIntervalDay(parse("PT-5H-2M-3S")));
+    Assert.assertEquals("-000 22:22:22.222", formatIntervalDay(parse("PT-22H-22M-22.222S")));
+    Assert.assertEquals("+000 01:00:00.000", formatIntervalDay(parse("PT+1H")));
+    Assert.assertEquals("+000 01:00:00.001", formatIntervalDay(parse("PT+1H0M00.001S")));
+    Assert.assertEquals("+000 01:01:01.000", formatIntervalDay(parse("PT+1H1M1S")));
+    Assert.assertEquals("+000 02:02:02.002", formatIntervalDay(parse("PT+2H2M02.002S")));
+    Assert.assertEquals("+000 23:59:59.999", formatIntervalDay(parse("PT+23H59M59.999S")));
+    Assert.assertEquals("+000 11:59:00.100", formatIntervalDay(parse("PT+11H59M00.100S")));
+    Assert.assertEquals("+000 05:02:03.000", formatIntervalDay(parse("PT+5H2M3S")));
+    Assert.assertEquals("+000 22:22:22.222", formatIntervalDay(parse("PT+22H22M22.222S")));
   }
 
   @Test
