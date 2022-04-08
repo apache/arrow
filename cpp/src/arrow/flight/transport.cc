@@ -343,10 +343,10 @@ Status ReconstructStatus(const std::string& code_str, const Status& current_stat
   if (detail_message.has_value()) {
     status_message << ". Detail: " << *detail_message;
   }
-  if ((detail_message.has_value() || detail_bin.has_value()) && !detail) {
-    detail = std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal);
-  }
   if (detail_bin.has_value()) {
+    if (!detail) {
+      detail = std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal);
+    }
     detail->set_extra_info(std::move(*detail_bin));
   }
   return Status(status_code, status_message.str(), std::move(detail));
