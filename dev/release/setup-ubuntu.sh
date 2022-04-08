@@ -27,6 +27,7 @@ codename=$(. /etc/os-release && echo ${UBUNTU_CODENAME})
 case ${codename} in
   bionic)
     llvm=12
+    nlohmann_json=
     python=3.8
     apt-get update -y -q
     apt-get install -y -q --no-install-recommends \
@@ -42,6 +43,7 @@ case ${codename} in
       llvm-${llvm}-dev
     ;;
   *)
+    nlohmann_json=3
     python=3
     apt-get update -y -q
     apt-get install -y -q --no-install-recommends \
@@ -62,7 +64,7 @@ apt-get install -y -q --no-install-recommends \
   libssl-dev \
   maven \
   ninja-build \
-  nlohmann-json3-dev \
+  nlohmann-json${nlohmann_json}-dev \
   openjdk-11-jdk \
   pkg-config \
   python3-pip \
