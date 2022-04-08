@@ -301,7 +301,7 @@ class AccumulatingConsumer : public compute::SinkNodeConsumer {
  public:
   const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches() { return batches_; }
 
-  arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema) {
+  arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema) override {
     schema_ = schema;
     return arrow::Status::OK();
   }
