@@ -246,7 +246,7 @@ enum class TransportStatusCode {
 /// Transport implementations may use side channels (e.g. HTTP
 /// trailers) to convey additional information to reconstruct the
 /// original C++ status for implementations that can use it.
-struct TransportStatus {
+struct ARROW_FLIGHT_EXPORT TransportStatus {
   TransportStatusCode code;
   std::string message;
 
@@ -263,6 +263,7 @@ struct TransportStatus {
 
 /// \brief Convert the string representation of an Arrow status code
 ///   back to an Arrow status.
+ARROW_FLIGHT_EXPORT
 Status ReconstructStatus(const std::string& code_str, const Status& current_status,
                          util::optional<std::string> message,
                          util::optional<std::string> detail_message,
