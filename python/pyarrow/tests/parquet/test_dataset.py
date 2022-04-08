@@ -1727,7 +1727,41 @@ def test_parquet_write_to_dataset_deprecated_properties(tempdir):
                       match="Passing 'use_legacy_dataset=True'"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True)
 
+    # check also that legacy implementation is set when
+    # partition_filename_cb is specified
     with pytest.warns(FutureWarning,
                       match="Passing 'use_legacy_dataset=True'"):
-        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+        pq.write_to_dataset(table, path,
                             partition_filename_cb=lambda x: 'filename.parquet')
+
+
+@pytest.mark.dataset
+def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+
+    with pytest.raises(ValueError, match="format"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            format="ipc")
+
+    with pytest.raises(ValueError, match="file_options"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            file_options=True)
+
+    with pytest.raises(ValueError, match="schema"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            schema=pa.schema([
+                                ('a', pa.int32())
+                            ]))
+
+    with pytest.raises(ValueError, match="partitioning"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            partitioning=["a"])
+
+    with pytest.raises(ValueError, match="use_threads"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            use_threads=False)
+
+    with pytest.raises(ValueError, match="file_visitor"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            file_visitor=lambda x: x)
