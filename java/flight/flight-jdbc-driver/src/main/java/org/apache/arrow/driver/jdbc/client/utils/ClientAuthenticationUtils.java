@@ -137,35 +137,6 @@ public final class ClientAuthenticationUtils {
   }
 
   /**
-   * Check if the operating system running the software is Linux.
-   *
-   * @return whether is the linux system.
-   */
-  public static boolean isLinux() {
-    return getOperatingSystem().contains("Linux");
-  }
-
-  /**
-   * Gets the trusted certificates input stream from the JVM.
-   *
-   * @return the trusted certificates as an {@link InputStream}.
-   * @throws IOException                if it fails reading the file.
-   * @throws KeyStoreException          if a key store could not be loaded.
-   * @throws CertificateException       if a certificate could not be found.
-   */
-  public static InputStream getCertificateInputStreamFromJVM()
-      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
-    Path path = Paths.get(System.getProperty("java.home"), "lib", "security", "cacerts");
-    InputStream fileInputStream = Files.newInputStream(path);
-    KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-    String password = "changeit";
-
-    keyStore.load(fileInputStream, password.toCharArray());
-
-    return getCertificatesInputStream(Collections.singletonList(keyStore));
-  }
-
-  /**
    * It gets the trusted certificate based on the operating system and loads all the certificate into a
    * {@link InputStream}.
    *
