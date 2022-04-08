@@ -24,7 +24,7 @@ import org.joda.time.Period;
  * Utility class to format periods similar to Oracle's representation
  * of "INTERVAL * to *" data type.
  */
-public class IntervalStringUtils {
+public final class IntervalStringUtils {
 
   /**
    * Constructor Method of class.
