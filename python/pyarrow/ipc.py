@@ -43,11 +43,13 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
         Options for IPC serialization.
 
         If None, default values will be used.
+    memory_pool : MemoryPool, default None
+        Uses default memory pool if not specified.
     """
 
-    def __init__(self, source, *, options=None):
+    def __init__(self, source, *, options=None, memory_pool=None):
         options = _ensure_default_ipc_read_options(options)
-        self._open(source, options)
+        self._open(source, options=options, memory_pool=memory_pool)
 
 
 _ipc_writer_class_doc = """\
@@ -98,11 +100,15 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
         Options for IPC serialization.
 
         If None, default values will be used.
+    memory_pool : MemoryPool, default None
+        Uses default memory pool if not specified.
     """
 
-    def __init__(self, source, footer_offset=None, *, options=None):
+    def __init__(self, source, footer_offset=None, *, options=None,
+                 memory_pool=None):
         options = _ensure_default_ipc_read_options(options)
-        self._open(source, footer_offset=footer_offset, options=options)
+        self._open(source, footer_offset=footer_offset,
+                   options=options, memory_pool=memory_pool)
 
 
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):
@@ -156,7 +162,7 @@ Create an Arrow columnar IPC stream writer instance
 {}""".format(_ipc_writer_class_doc)
 
 
-def open_stream(source, *, options=None):
+def open_stream(source, *, options=None, memory_pool=None):
     """
     Create reader for Arrow streaming format.
 
@@ -168,12 +174,14 @@ def open_stream(source, *, options=None):
         Options for IPC serialization.
 
         If None, default values will be used.
-
+    memory_pool : MemoryPool, default None
+        Uses default memory pool if not specified.
     Returns
     -------
     reader : RecordBatchStreamReader
     """
-    return RecordBatchStreamReader(source, options=options)
+    return RecordBatchStreamReader(source, options=options,
+                                   memory_pool=memory_pool)
 
 
 def new_file(sink, schema, *, use_legacy_format=None, options=None):
@@ -188,7 +196,7 @@ Create an Arrow columnar IPC file writer instance
 {}""".format(_ipc_writer_class_doc)
 
 
-def open_file(source, footer_offset=None, *, options=None):
+def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
     """
     Create reader for Arrow file format.
 
@@ -203,13 +211,15 @@ def open_file(source, footer_offset=None, *, options=None):
         Options for IPC serialization.
 
         If None, default values will be used.
+    memory_pool : MemoryPool, default None
+        Uses default memory pool if not specified.
     Returns
     -------
     reader : RecordBatchFileReader
     """
     return RecordBatchFileReader(
-        source, footer_offset=footer_offset, options=options
-    )
+        source, footer_offset=footer_offset,
+        options=options, memory_pool=memory_pool)
 
 
 def serialize_pandas(df, *, nthreads=None, preserve_index=None):

@@ -116,22 +116,18 @@ cdef class IpcReadOptions(_Weakrefable):
         If empty (the default), return all deserialized fields.
         If non-empty, the values are the indices of fields to read on
         the top-level schema.
-    memory_pool : MemoryPool, default None
-        Uses default memory pool if not specified
     """
     __slots__ = ()
 
     # cdef block is in lib.pxd
 
     def __init__(self, *, bint ensure_native_endian=True,
-                 bint use_threads=True, list included_fields=None,
-                 MemoryPool memory_pool=None):
+                 bint use_threads=True, list included_fields=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
         self.use_threads = use_threads
         if included_fields is not None:
             self.included_fields = included_fields
-        self.memory_pool = memory_pool
 
     @property
     def ensure_native_endian(self):
@@ -161,17 +157,6 @@ cdef class IpcReadOptions(_Weakrefable):
             self.c_options.included_fields = included_fields
         else:
             self.c_options.included_fields = value
-
-    @property
-    def memory_pool(self):
-        cdef:
-            MemoryPool pool = MemoryPool.__new__(MemoryPool)
-        pool.init(self.c_options.memory_pool)
-        return pool
-
-    @memory_pool.setter
-    def memory_pool(self, MemoryPool value):
-        self.c_options.memory_pool = maybe_unbox_memory_pool(value)
 
 
 cdef class IpcWriteOptions(_Weakrefable):
@@ -811,8 +796,10 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
     def __cinit__(self):
         pass
 
-    def _open(self, source, IpcReadOptions options=IpcReadOptions()):
+    def _open(self, source, IpcReadOptions options=IpcReadOptions(),
+              MemoryPool memory_pool=None):
         self.options = options.c_options
+        self.options.memory_pool = maybe_unbox_memory_pool(memory_pool)
         _get_input_stream(source, &self.in_stream)
         with nogil:
             self.reader = GetResultValue(CRecordBatchStreamReader.Open(
@@ -855,8 +842,11 @@ cdef class _RecordBatchFileReader(_Weakrefable):
     def __cinit__(self):
         pass
 
-    def _open(self, source, footer_offset=None, IpcReadOptions options=IpcReadOptions()):
+    def _open(self, source, footer_offset=None,
+              IpcReadOptions options=IpcReadOptions(),
+              MemoryPool memory_pool=None):
         self.options = options.c_options
+        self.options.memory_pool = maybe_unbox_memory_pool(memory_pool)
         try:
             source = as_buffer(source)
         except TypeError:

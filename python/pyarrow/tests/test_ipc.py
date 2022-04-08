@@ -571,7 +571,8 @@ def test_read_options_included_fields(stream_fixture):
     source = stream_fixture.get_source()
 
     reader1 = pa.ipc.open_stream(source, options=options1)
-    reader2 = pa.ipc.open_stream(source, options=options2)
+    reader2 = pa.ipc.open_stream(
+        source, options=options2, memory_pool=pa.system_memory_pool())
 
     result1 = reader1.read_all()
     result2 = reader2.read_all()
