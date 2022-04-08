@@ -170,7 +170,7 @@ cdef class FlightTimedOutError(FlightError, ArrowException):
                                tobytes(str(self)), self.extra_info)
 
 
-cdef class FlightCancelledError(FlightError, ArrowException):
+cdef class FlightCancelledError(FlightError, pa.ArrowCancelled):
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)),
                                self.extra_info)
