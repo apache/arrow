@@ -43,75 +43,43 @@ const char* kGrpcStatusMessageHeader = "x-arrow-status-message-bin";
 const char* kGrpcStatusDetailHeader = "x-arrow-status-detail-bin";
 const char* kBinaryErrorDetailsKey = "grpc-status-details-bin";
 
-static Status StatusCodeFromString(const ::grpc::string_ref& code_ref, StatusCode* code) {
-  // Bounce through std::string to get a proper null-terminated C string
-  const auto code_int = std::atoi(std::string(code_ref.data(), code_ref.size()).c_str());
-  switch (code_int) {
-    case static_cast<int>(StatusCode::OutOfMemory):
-    case static_cast<int>(StatusCode::KeyError):
-    case static_cast<int>(StatusCode::TypeError):
-    case static_cast<int>(StatusCode::Invalid):
-    case static_cast<int>(StatusCode::IOError):
-    case static_cast<int>(StatusCode::CapacityError):
-    case static_cast<int>(StatusCode::IndexError):
-    case static_cast<int>(StatusCode::Cancelled):
-    case static_cast<int>(StatusCode::UnknownError):
-    case static_cast<int>(StatusCode::NotImplemented):
-    case static_cast<int>(StatusCode::SerializationError):
-    case static_cast<int>(StatusCode::RError):
-    case static_cast<int>(StatusCode::CodeGenError):
-    case static_cast<int>(StatusCode::ExpressionValidationError):
-    case static_cast<int>(StatusCode::ExecutionError):
-    case static_cast<int>(StatusCode::AlreadyExists): {
-      *code = static_cast<StatusCode>(code_int);
-      return Status::OK();
-    }
-    default:
-      // Code is invalid
-      return Status::UnknownError("Unknown Arrow status code", code_ref);
-  }
-}
-
 /// Try to extract a status from gRPC trailers.
 /// Return Status::OK if found, an error otherwise.
-static Status FromGrpcContext(const ::grpc::ClientContext& ctx, Status* status,
-                              std::shared_ptr<FlightStatusDetail> flight_status_detail) {
+static bool FromGrpcContext(const ::grpc::ClientContext& ctx,
+                            const Status& current_status, Status* status,
+                            std::shared_ptr<FlightStatusDetail> flight_status_detail) {
   const std::multimap<::grpc::string_ref, ::grpc::string_ref>& trailers =
       ctx.GetServerTrailingMetadata();
-  const auto code_val = trailers.find(kGrpcStatusCodeHeader);
-  if (code_val == trailers.end()) {
-    return Status::IOError("Status code header not found");
-  }
 
-  const ::grpc::string_ref code_ref = code_val->second;
-  StatusCode code = {};
-  RETURN_NOT_OK(StatusCodeFromString(code_ref, &code));
+  const auto code_val = trailers.find(kGrpcStatusCodeHeader);
+  if (code_val == trailers.end()) return false;
 
   const auto message_val = trailers.find(kGrpcStatusMessageHeader);
-  if (message_val == trailers.end()) {
-    return Status::IOError("Status message header not found");
-  }
+  const util::optional<std::string> message =
+      message_val == trailers.end()
+          ? util::nullopt
+          : util::optional<std::string>(
+                std::string(message_val->second.data(), message_val->second.size()));
 
-  const ::grpc::string_ref message_ref = message_val->second;
-  std::string message = std::string(message_ref.data(), message_ref.size());
   const auto detail_val = trailers.find(kGrpcStatusDetailHeader);
-  if (detail_val != trailers.end()) {
-    const ::grpc::string_ref detail_ref = detail_val->second;
-    message += ". Detail: ";
-    message += std::string(detail_ref.data(), detail_ref.size());
-  }
+  const util::optional<std::string> detail_message =
+      detail_val == trailers.end()
+          ? util::nullopt
+          : util::optional<std::string>(
+                std::string(detail_val->second.data(), detail_val->second.size()));
+
   const auto grpc_detail_val = trailers.find(kBinaryErrorDetailsKey);
-  if (grpc_detail_val != trailers.end()) {
-    const ::grpc::string_ref detail_ref = grpc_detail_val->second;
-    std::string bin_detail = std::string(detail_ref.data(), detail_ref.size());
-    if (!flight_status_detail) {
-      flight_status_detail =
-          std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal);
-    }
-    flight_status_detail->set_extra_info(bin_detail);
-  }
-  *status = Status(code, message, flight_status_detail);
-  return Status::OK();
+  const util::optional<std::string> detail_bin =
+      grpc_detail_val == trailers.end()
+          ? util::nullopt
+          : util::optional<std::string>(std::string(grpc_detail_val->second.data(),
+                                                    grpc_detail_val->second.size()));
+
+  std::string code_str(code_val->second.data(), code_val->second.size());
+  *status = internal::ReconstructStatus(code_str, current_status, std::move(message),
+                                        std::move(detail_message), std::move(detail_bin),
+                                        std::move(flight_status_detail));
+  return true;
 }
 
 /// Convert a gRPC status to an Arrow status, ignoring any
@@ -187,18 +155,14 @@ static Status FromGrpcCode(const ::grpc::Status& grpc_status) {
 
 Status FromGrpcStatus(const ::grpc::Status& grpc_status, ::grpc::ClientContext* ctx) {
   const Status status = FromGrpcCode(grpc_status);
-
   if (!status.ok() && ctx) {
     Status arrow_status;
-
-    if (!FromGrpcContext(*ctx, &arrow_status, FlightStatusDetail::UnwrapStatus(status))
-             .ok()) {
-      // If we fail to decode a more detailed status from the headers,
-      // proceed normally
-      return status;
+    if (FromGrpcContext(*ctx, status, &arrow_status,
+                        FlightStatusDetail::UnwrapStatus(status))) {
+      return arrow_status;
     }
-
-    return arrow_status;
+    // If we fail to decode a more detailed status from the headers,
+    // proceed normally
   }
   return status;
 }
