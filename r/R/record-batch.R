@@ -192,14 +192,14 @@ names.RecordBatch <- function(x) x$names()
 
 #' @export
 rbind.RecordBatch <- function(...) {
-  abort("Use Table$create to combine record batches")
+  abort("Use `Table$create()` to combine record batches")
 }
 
 cbind_check_length <- function(target_length, length, idx) {
   if (length != target_length) {
     abort(
       sprintf(
-        "Non-scalar inputs must have an equal number of rows. ..1 has %i, ..%i has %i",
+        "Non-scalar inputs must have an equal number of rows. ..1 has %d, ..%d has %d",
         target_length,
         idx,
         length
@@ -226,7 +226,7 @@ cbind.RecordBatch <- function(...) {
           RecordBatch$create("{idx}" := input)
         },
         error = function(err) {
-          abort(sprintf("Input ..%i cannot be converted to an Arrow Array: %s", idx, err))
+          abort(sprintf("Error processing argument ..%d", idx), parent = err)
         }
       )
     }
