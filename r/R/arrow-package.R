@@ -109,7 +109,7 @@
       if (some_features_are_off(features)) {
         packageStartupMessage(
           paste(
-            "Some features of Arrow C++ are turned off.",
+            "Some features are not enabled in this build of Arrow.",
             "Run `arrow_info()` for more information."
           )
         )
