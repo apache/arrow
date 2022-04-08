@@ -325,6 +325,28 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' struct(a = int32(), b = double())
 #' timestamp("ms", timezone = "CEST")
 #' time64("ns")
+#'
+#' # Use the cast method to change the type of data contained in Arrow objects.
+#' # Please check the documentation of each data object class for details.
+#' my_scalar <- Scalar$create(0L, type = int64()) # int64
+#' my_scalar$cast(timestamp("ns")) # timestamp[ns]
+#'
+#' my_array <- Array$create(0L, type = int64()) # int64
+#' my_array$cast(timestamp("s", timezone = "UTC")) # timestamp[s, tz=UTC]
+#'
+#' my_chunked_array <- chunked_array(0L, 1L) # int32
+#' my_chunked_array$cast(date32()) # date32[day]
+#'
+#' # You can also use `cast()` in an Arrow dplyr query.
+#' if (requireNamespace("dplyr", quietly = TRUE)) {
+#'   library(dplyr, warn.conflicts = FALSE)
+#'   arrow_table(mtcars) %>%
+#'     transmute(
+#'       col1 = cast(cyl, string()),
+#'       col2 = cast(cyl, int8())
+#'     ) %>%
+#'     compute()
+#' }
 int8 <- function() Int8__initialize()
 
 #' @rdname data-type

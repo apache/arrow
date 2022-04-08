@@ -351,6 +351,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 			cancel()
 			break
 		}
+		//lint:ignore SA9001 defer.
 		defer data.data.Release()
 		col := arrow.NewColumn(sc.Field(data.idx), data.data)
 		columns[data.idx] = *col
@@ -361,6 +362,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 		// so the goroutines don't leak and so memory can get cleaned up. we already
 		// cancelled the context so we're just consuming anything that was already queued up.
 		for data := range results {
+			//lint:ignore SA9001 defer.
 			defer data.data.Release()
 		}
 		return nil, err

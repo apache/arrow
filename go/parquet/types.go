@@ -54,7 +54,7 @@ var (
 // to be able to call ReadAt, Read, and Seek
 type ReaderAtSeeker interface {
 	io.ReaderAt
-	io.ReadSeeker
+	io.Seeker
 }
 
 // NewInt96 creates a new Int96 from the given 3 uint32 values.

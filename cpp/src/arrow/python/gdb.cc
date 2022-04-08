@@ -82,13 +82,10 @@ class UuidType : public ExtensionType {
   std::string Serialize() const override { return "uuid-serialized"; }
 };
 
-// TODO migrate arrow::ipc::internal::json::ArrayFromJSON to Result<>?
-
 std::shared_ptr<Array> SliceArrayFromJSON(const std::shared_ptr<DataType>& ty,
                                           util::string_view json, int64_t offset = 0,
                                           int64_t length = -1) {
-  std::shared_ptr<Array> array;
-  ARROW_CHECK_OK(ArrayFromJSON(ty, json, &array));
+  auto array = *ArrayFromJSON(ty, json);
   if (length != -1) {
     return array->Slice(offset, length);
   } else {
@@ -360,13 +357,13 @@ void TestSession() {
   FixedSizeBinaryScalar fixed_size_binary_scalar_null{fixed_size_binary(3)};
 
   std::shared_ptr<Array> dict_array;
-  ARROW_CHECK_OK(ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])", &dict_array));
+  dict_array = *ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
   DictionaryScalar dict_scalar{{std::make_shared<Int8Scalar>(42), dict_array},
                                dictionary(int8(), utf8())};
   DictionaryScalar dict_scalar_null{dictionary(int8(), utf8())};
 
   std::shared_ptr<Array> list_value_array;
-  ARROW_CHECK_OK(ArrayFromJSON(int32(), R"([4, 5, 6])", &list_value_array));
+  list_value_array = *ArrayFromJSON(int32(), R"([4, 5, 6])");
   ListScalar list_scalar{list_value_array};
   ListScalar list_scalar_null{list(int32())};
   LargeListScalar large_list_scalar{list_value_array};
@@ -499,15 +496,15 @@ void TestSession() {
 
   // ChunkedArray
   ArrayVector array_chunks(2);
-  ARROW_CHECK_OK(ArrayFromJSON(int32(), "[1, 2]", &array_chunks[0]));
-  ARROW_CHECK_OK(ArrayFromJSON(int32(), "[3, null, 4]", &array_chunks[1]));
+  array_chunks[0] = *ArrayFromJSON(int32(), "[1, 2]");
+  array_chunks[1] = *ArrayFromJSON(int32(), "[3, null, 4]");
   ChunkedArray chunked_array{array_chunks};
 
   // RecordBatch
   auto batch_schema = schema({field("ints", int32()), field("strs", utf8())});
   ArrayVector batch_columns{2};
-  ARROW_CHECK_OK(ArrayFromJSON(int32(), "[1, 2, 3]", &batch_columns[0]));
-  ARROW_CHECK_OK(ArrayFromJSON(utf8(), R"(["abc", null, "def"])", &batch_columns[1]));
+  batch_columns[0] = *ArrayFromJSON(int32(), "[1, 2, 3]");
+  batch_columns[1] = *ArrayFromJSON(utf8(), R"(["abc", null, "def"])");
   auto batch = RecordBatch::Make(batch_schema, /*num_rows=*/3, batch_columns);
   auto batch_with_metadata = batch->ReplaceSchemaMetadata(
       key_value_metadata({"key1", "key2", "key3"}, {"value1", "value2", "value3"}));

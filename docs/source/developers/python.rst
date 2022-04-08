@@ -16,6 +16,7 @@
 .. under the License.
 
 .. currentmodule:: pyarrow
+.. highlight:: console
 .. _python-development:
 
 ==================
@@ -32,19 +33,19 @@ We follow a similar PEP8-like coding style to the `pandas project
 <https://github.com/pandas-dev/pandas>`_.  To check style issues, use the
 :ref:`Archery <archery>` subcommand ``lint``:
 
-.. code-block:: shell
+.. code-block::
 
-   pip install -e arrow/dev/archery[lint]
+   $ pip install -e "arrow/dev/archery[lint]"
 
-.. code-block:: shell
+.. code-block::
 
-   archery lint --python
+   $ archery lint --python
 
 Some of the issues can be automatically fixed by passing the ``--fix`` option:
 
-.. code-block:: shell
+.. code-block::
 
-   archery lint --python --fix
+   $ archery lint --python --fix
 
 .. _python-unit-testing:
 
@@ -55,9 +56,9 @@ We are using `pytest <https://docs.pytest.org/en/latest/>`_ to develop our unit
 test suite. After building the project (see below) you can run its unit tests
 like so:
 
-.. code-block:: shell
+.. code-block::
 
-   python -m pytest arrow/python/pyarrow
+   $ python -m pytest arrow/python/pyarrow
 
 Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
@@ -71,9 +72,9 @@ The project has a number of custom command line options for its test
 suite. Some tests are disabled by default, for example. To see all the options,
 run
 
-.. code-block:: shell
+.. code-block::
 
-   python -m pytest pyarrow --help
+   $ python -m pytest pyarrow --help
 
 and look for the "custom options" section.
 
@@ -120,36 +121,36 @@ Xcode Command Line Tools (``xcode-select --install``) are sufficient.
 On Linux, for this guide, we require a minimum of gcc 4.8 or clang 3.7.
 You can check your version by running
 
-.. code-block:: console
+.. code-block::
 
    $ gcc --version
 
 If the system compiler is older than gcc 4.8, it can be set to a newer version
 using the ``$CC`` and ``$CXX`` environment variables:
 
-.. code-block:: shell
+.. code-block::
 
-   export CC=gcc-4.8
-   export CXX=g++-4.8
+   $ export CC=gcc-4.8
+   $ export CXX=g++-4.8
 
 Environment Setup and Build
 ---------------------------
 
 First, let's clone the Arrow git repository:
 
-.. code-block:: shell
+.. code-block::
 
-   git clone https://github.com/apache/arrow.git
+   $ git clone https://github.com/apache/arrow.git
 
 Pull in the test data and setup the environment variables:
 
-.. code-block:: shell
+.. code-block::
 
-   pushd arrow
-   git submodule update --init
-   export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data"
-   export ARROW_TEST_DATA="${PWD}/testing/data"
-   popd
+   $ pushd arrow
+   $ git submodule update --init
+   $ export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data"
+   $ export ARROW_TEST_DATA="${PWD}/testing/data"
+   $ popd
 
 Using Conda
 ~~~~~~~~~~~
@@ -163,34 +164,34 @@ from conda-forge, targeting development for Python 3.9:
 
 On Linux and macOS:
 
-.. code-block:: shell
+.. code-block::
 
-    conda create -y -n pyarrow-dev -c conda-forge \
-        --file arrow/ci/conda_env_unix.txt \
-        --file arrow/ci/conda_env_cpp.txt \
-        --file arrow/ci/conda_env_python.txt \
-        --file arrow/ci/conda_env_gandiva.txt \
-        compilers \
-        python=3.9 \
-        pandas
+   $ conda create -y -n pyarrow-dev -c conda-forge \
+          --file arrow/ci/conda_env_unix.txt \
+          --file arrow/ci/conda_env_cpp.txt \
+          --file arrow/ci/conda_env_python.txt \
+          --file arrow/ci/conda_env_gandiva.txt \
+          compilers \
+          python=3.9 \
+          pandas
 
 As of January 2019, the ``compilers`` package is needed on many Linux
 distributions to use packages from conda-forge.
 
 With this out of the way, you can now activate the conda environment
 
-.. code-block:: shell
+.. code-block::
 
-   conda activate pyarrow-dev
+   $ conda activate pyarrow-dev
 
 For Windows, see the `Building on Windows`_ section below.
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
 
-.. code-block:: shell
+.. code-block::
 
-   export ARROW_HOME=$CONDA_PREFIX
+   $ export ARROW_HOME=$CONDA_PREFIX
 
 Using system and bundled dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -212,31 +213,31 @@ on the fly, but this will take a longer time than with pre-installed binaries.
 On macOS, use Homebrew to install all dependencies required for
 building Arrow C++:
 
-.. code-block:: shell
+.. code-block::
 
-   brew update && brew bundle --file=arrow/cpp/Brewfile
+   $ brew update && brew bundle --file=arrow/cpp/Brewfile
 
 See :ref:`here <cpp-build-dependency-management>` for a list of dependencies you
 may need.
 
 On Debian/Ubuntu, you need the following minimal set of dependencies:
 
-.. code-block:: console
+.. code-block::
 
    $ sudo apt-get install build-essential cmake python3-dev
 
 Now, let's create a Python virtual environment with all Python dependencies
 in the same folder as the repositories, and a target installation folder:
 
-.. code-block:: shell
+.. code-block::
 
-   python3 -m venv pyarrow-dev
-   source ./pyarrow-dev/bin/activate
-   pip install -r arrow/python/requirements-build.txt
+   $ python3 -m venv pyarrow-dev
+   $ source ./pyarrow-dev/bin/activate
+   $ pip install -r arrow/python/requirements-build.txt
 
-   # This is the folder where we will install the Arrow libraries during
-   # development
-   mkdir dist
+   $ # This is the folder where we will install the Arrow libraries during
+   $ # development
+   $ mkdir dist
 
 If your CMake version is too old on Linux, you could get a newer one via
 ``pip install cmake``.
@@ -244,10 +245,10 @@ If your CMake version is too old on Linux, you could get a newer one via
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
 
-.. code-block:: shell
+.. code-block::
 
-   export ARROW_HOME=$(pwd)/dist
-   export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+   $ export ARROW_HOME=$(pwd)/dist
+   $ export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
 
 Build and test
 --------------
@@ -255,28 +256,28 @@ Build and test
 Now build the Arrow C++ libraries and install them into the directory we
 created above (stored in ``$ARROW_HOME``):
 
-.. code-block:: shell
+.. code-block::
 
-   mkdir arrow/cpp/build
-   pushd arrow/cpp/build
+   $ mkdir arrow/cpp/build
+   $ pushd arrow/cpp/build
 
-   cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-         -DCMAKE_INSTALL_LIBDIR=lib \
-         -DCMAKE_BUILD_TYPE=Debug \
-         -DARROW_WITH_BZ2=ON \
-         -DARROW_WITH_ZLIB=ON \
-         -DARROW_WITH_ZSTD=ON \
-         -DARROW_WITH_LZ4=ON \
-         -DARROW_WITH_SNAPPY=ON \
-         -DARROW_WITH_BROTLI=ON \
-         -DARROW_PARQUET=ON \
-         -DPARQUET_REQUIRE_ENCRYPTION=ON \
-         -DARROW_PYTHON=ON \
-         -DARROW_BUILD_TESTS=ON \
-         ..
-   make -j4
-   make install
-   popd
+   $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+           -DCMAKE_INSTALL_LIBDIR=lib \
+           -DCMAKE_BUILD_TYPE=Debug \
+           -DARROW_WITH_BZ2=ON \
+           -DARROW_WITH_ZLIB=ON \
+           -DARROW_WITH_ZSTD=ON \
+           -DARROW_WITH_LZ4=ON \
+           -DARROW_WITH_SNAPPY=ON \
+           -DARROW_WITH_BROTLI=ON \
+           -DARROW_PARQUET=ON \
+           -DPARQUET_REQUIRE_ENCRYPTION=ON \
+           -DARROW_PYTHON=ON \
+           -DARROW_BUILD_TESTS=ON \
+           ..
+   $ make -j4
+   $ make install
+   $ popd
 
 There are a number of optional components that can can be switched ON by
 adding flags with ``ON``:
@@ -340,12 +341,12 @@ from git master, then this step is not needed.
 
 Now, build pyarrow:
 
-.. code-block:: shell
+.. code-block::
 
-   pushd arrow/python
-   export PYARROW_WITH_PARQUET=1
-   python setup.py build_ext --inplace
-   popd
+   $ pushd arrow/python
+   $ export PYARROW_WITH_PARQUET=1
+   $ python setup.py build_ext --inplace
+   $ popd
 
 If you did build one of the optional components (in C++), you need to set the
 corresponding ``PYARROW_WITH_$COMPONENT`` environment variable to 1.
@@ -363,11 +364,11 @@ described above.
 To build a self-contained wheel (including the Arrow and Parquet C++
 libraries), one can set ``--bundle-arrow-cpp``:
 
-.. code-block:: shell
+.. code-block::
 
-   pip install wheel  # if not installed
-   python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-          --bundle-arrow-cpp bdist_wheel
+   $ pip install wheel  # if not installed
+   $ python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
+            --bundle-arrow-cpp bdist_wheel
 
 .. note::
    To install an editable PyArrow build run ``pip install -e . --no-build-isolation``
@@ -393,14 +394,14 @@ Using gdb on Linux
 To debug the C++ libraries with gdb while running the Python unit
 tests, first start pytest with gdb:
 
-.. code-block:: console
+.. code-block::
 
    $ gdb --args python -m pytest pyarrow/tests/test_to_run.py -k $TEST_TO_MATCH
 
 To set a breakpoint, use the same gdb syntax that you would when
 debugging a C++ program, for example:
 
-.. code-block:: console
+.. code-block::
 
    (gdb) b src/arrow/python/arrow_to_pandas.cc:1874
    No source file named src/arrow/python/arrow_to_pandas.cc.
@@ -428,18 +429,18 @@ Linux/macOS-only packages:
 
 First, starting from a fresh clone of Apache Arrow:
 
-.. code-block:: shell
+.. code-block::
 
-   git clone https://github.com/apache/arrow.git
+   $ git clone https://github.com/apache/arrow.git
 
-.. code-block:: shell
+.. code-block::
 
-   conda create -y -n pyarrow-dev -c conda-forge ^
-       --file arrow\ci\conda_env_cpp.txt ^
-       --file arrow\ci\conda_env_python.txt ^
-       --file arrow\ci\conda_env_gandiva.txt ^
-       python=3.9
-   conda activate pyarrow-dev
+   $ conda create -y -n pyarrow-dev -c conda-forge ^
+         --file arrow\ci\conda_env_cpp.txt ^
+         --file arrow\ci\conda_env_python.txt ^
+         --file arrow\ci\conda_env_gandiva.txt ^
+         python=3.9
+   $ conda activate pyarrow-dev
 
 Now, we build and install Arrow C++ libraries.
 
@@ -450,40 +451,40 @@ We set a number of environment variables:
 - add the path of installed DLL libraries to ``PATH``
 - and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``
 
-.. code-block:: shell
+.. code-block::
 
-   set ARROW_HOME=%cd%\arrow-dist
-   set PATH=%ARROW_HOME%\bin;%PATH%
-   set PYARROW_CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+   $ set ARROW_HOME=%cd%\arrow-dist
+   $ set PATH=%ARROW_HOME%\bin;%PATH%
+   $ set PYARROW_CMAKE_GENERATOR=Visual Studio 15 2017 Win64
 
 Let's configure, build and install the Arrow C++ libraries:
 
-.. code-block:: shell
+.. code-block::
 
-   mkdir arrow\cpp\build
-   pushd arrow\cpp\build
-   cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
-       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-       -DCMAKE_UNITY_BUILD=ON ^
-       -DARROW_CXXFLAGS="/WX /MP" ^
-       -DARROW_WITH_LZ4=on ^
-       -DARROW_WITH_SNAPPY=on ^
-       -DARROW_WITH_ZLIB=on ^
-       -DARROW_WITH_ZSTD=on ^
-       -DARROW_PARQUET=on ^
-       -DARROW_PYTHON=on ^
-       ..
-   cmake --build . --target INSTALL --config Release
-   popd
+   $ mkdir arrow\cpp\build
+   $ pushd arrow\cpp\build
+   $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
+         -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+         -DCMAKE_UNITY_BUILD=ON ^
+         -DARROW_CXXFLAGS="/WX /MP" ^
+         -DARROW_WITH_LZ4=on ^
+         -DARROW_WITH_SNAPPY=on ^
+         -DARROW_WITH_ZLIB=on ^
+         -DARROW_WITH_ZSTD=on ^
+         -DARROW_PARQUET=on ^
+         -DARROW_PYTHON=on ^
+         ..
+   $ cmake --build . --target INSTALL --config Release
+   $ popd
 
 Now, we can build pyarrow:
 
-.. code-block:: shell
+.. code-block::
 
-   pushd arrow\python
-   set PYARROW_WITH_PARQUET=1
-   python setup.py build_ext --inplace
-   popd
+   $ pushd arrow\python
+   $ set PYARROW_WITH_PARQUET=1
+   $ python setup.py build_ext --inplace
+   $ popd
 
 .. note::
 
@@ -492,11 +493,11 @@ Now, we can build pyarrow:
 
 Then run the unit tests with:
 
-.. code-block:: shell
+.. code-block::
 
-   pushd arrow\python
-   python -m pytest pyarrow
-   popd
+   $ pushd arrow\python
+   $ python -m pytest pyarrow
+   $ popd
 
 .. note::
 
@@ -511,9 +512,9 @@ Then run the unit tests with:
    If you want to bundle the Arrow C++ libraries with ``pyarrow``, add
    the ``--bundle-arrow-cpp`` option when building:
 
-   .. code-block:: shell
+   .. code-block::
 
-      python setup.py build_ext --bundle-arrow-cpp
+      $ python setup.py build_ext --bundle-arrow-cpp
 
    Important: If you combine ``--bundle-arrow-cpp`` with ``--inplace`` the
    Arrow C++ libraries get copied to the source tree and are not cleared
@@ -529,41 +530,39 @@ Running C++ unit tests should not be necessary for most developers. If you do
 want to run them, you need to pass ``-DARROW_BUILD_TESTS=ON`` during
 configuration of the Arrow C++ library build:
 
-.. code-block:: shell
+.. code-block::
 
-   mkdir arrow\cpp\build
-   pushd arrow\cpp\build
-   cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
-       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-       -DARROW_CXXFLAGS="/WX /MP" ^
-       -DARROW_PARQUET=on ^
-       -DPARQUET_REQUIRE_ENCRYPTION=on ^
-       -DARROW_PYTHON=on ^
-       -DARROW_BUILD_TESTS=ON ^
-       ..
-   cmake --build . --target INSTALL --config Release
-   popd
-
+   $ mkdir arrow\cpp\build
+   $ pushd arrow\cpp\build
+   $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
+         -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+         -DARROW_CXXFLAGS="/WX /MP" ^
+         -DARROW_PARQUET=on ^
+         -DARROW_PYTHON=on ^
+         -DARROW_BUILD_TESTS=ON ^
+         ..
+   $ cmake --build . --target INSTALL --config Release
+   $ popd
 
 Getting ``arrow-python-test.exe`` (C++ unit tests for python integration) to
 run is a bit tricky because your ``%PYTHONHOME%`` must be configured to point
 to the active conda environment:
 
-.. code-block:: shell
+.. code-block::
 
-   set PYTHONHOME=%CONDA_PREFIX%
-   pushd arrow\cpp\build\release\Release
-   arrow-python-test.exe
-   popd
+   $ set PYTHONHOME=%CONDA_PREFIX%
+   $ pushd arrow\cpp\build\release\Release
+   $ arrow-python-test.exe
+   $ popd
 
 To run all tests of the Arrow C++ library, you can also run ``ctest``:
 
-.. code-block:: shell
+.. code-block::
 
-   set PYTHONHOME=%CONDA_PREFIX%
-   pushd arrow\cpp\build
-   ctest
-   popd
+   $ set PYTHONHOME=%CONDA_PREFIX%
+   $ pushd arrow\cpp\build
+   $ ctest
+   $ popd
 
 Caveats
 -------

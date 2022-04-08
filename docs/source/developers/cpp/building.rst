@@ -76,6 +76,14 @@ On Fedora Linux:
         gcc-c++ \
         make
 
+On Arch Linux:
+
+.. code-block:: shell
+
+   sudo pacman -S --needed \
+        base-devel \
+        cmake
+
 On macOS, you can use `Homebrew <https://brew.sh/>`_:
 
 .. code-block:: shell

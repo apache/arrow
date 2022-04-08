@@ -44,7 +44,7 @@
 # Ensure that all machines are sorting the same way
 invisible(Sys.setlocale("LC_COLLATE", "C"))
 
-features <- c("arrow", "dataset", "parquet", "s3", "json")
+features <- c("arrow", "dataset", "engine", "parquet", "s3", "json")
 
 suppressPackageStartupMessages({
   library(decor)
@@ -184,9 +184,9 @@ glue::glue_collapse(glue::glue('
 '
 static const R_CallMethodDef CallEntries[] = {
 ',
-glue::glue_collapse(glue::glue('
-\t\t{{ "_{features}_available", (DL_FUNC)& _{features}_available, 0 }},
-'), sep = '\n'),
+glue::glue_collapse(glue::glue(
+  '\t\t{{ "_{features}_available", (DL_FUNC)& _{features}_available, 0 }},',
+), sep = '\n'),
 glue::glue('\n
 {cpp_functions_registration}
 \t\t{{NULL, NULL, 0}}

@@ -225,6 +225,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	defer cancel()
 
 	for i := 0; i < w.compressNP; i++ {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			codec := getCompressor(w.codec)

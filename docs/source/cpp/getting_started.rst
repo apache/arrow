@@ -34,9 +34,12 @@ User Guide
    streaming_execution
    io
    ipc
+   orc
    parquet
    csv
    json
    dataset
    flight
    gdb
+   threading
+   env_vars

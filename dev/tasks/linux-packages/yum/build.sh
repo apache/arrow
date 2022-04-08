@@ -41,6 +41,9 @@ else
   distribution_version=$(cut -d ":" -f 5 /etc/system-release-cpe)
 fi
 distribution_version=$(echo ${distribution_version} | sed -e 's/\..*$//g')
+if grep -q 'CentOS Stream' /etc/system-release; then
+  distribution_version+="-stream"
+fi
 
 architecture="$(arch)"
 lib_directory=/usr/lib64

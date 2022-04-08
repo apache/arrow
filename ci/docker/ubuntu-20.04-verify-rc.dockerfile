@@ -34,6 +34,7 @@ RUN apt-get update -y -q && \
         llvm-dev \
         maven \
         ninja-build \
+        nlohmann-json3-dev \
         openjdk-11-jdk \
         pkg-config \
         python3-dev \

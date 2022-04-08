@@ -408,7 +408,7 @@ cdef class FileSystem(_Weakrefable):
 
         Parameters
         ----------
-        paths_or_selector: FileSelector, path-like or list of path-likes
+        paths_or_selector : FileSelector, path-like or list of path-likes
             Either a selector object, a path-like object or a list of
             path-like objects. The selector's base directory will not be
             part of the results, even if it exists. If it doesn't exist,
@@ -455,7 +455,7 @@ cdef class FileSystem(_Weakrefable):
         ----------
         path : str
             The path of the new directory.
-        recursive: bool, default True
+        recursive : bool, default True
             Create nested directories as well.
         """
         cdef c_string directory = _path_as_bytes(path)
@@ -463,7 +463,8 @@ cdef class FileSystem(_Weakrefable):
             check_status(self.fs.CreateDir(directory, recursive=recursive))
 
     def delete_dir(self, path):
-        """Delete a directory and its contents, recursively.
+        """
+        Delete a directory and its contents, recursively.
 
         Parameters
         ----------
@@ -475,7 +476,8 @@ cdef class FileSystem(_Weakrefable):
             check_status(self.fs.DeleteDir(directory))
 
     def delete_dir_contents(self, path, *, bint accept_root_dir=False):
-        """Delete a directory's contents, recursively.
+        """
+        Delete a directory's contents, recursively.
 
         Like delete_dir, but doesn't delete the directory itself.
 
@@ -599,7 +601,7 @@ cdef class FileSystem(_Weakrefable):
 
         Parameters
         ----------
-        source : str
+        path : str
             The source to open for reading.
         compression : str optional, default 'detect'
             The compression algorithm to use for on-the-fly decompression.

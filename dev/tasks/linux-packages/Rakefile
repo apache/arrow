@@ -18,6 +18,7 @@
 # under the License.
 
 require "English"
+require "json"
 
 require_relative "../../release/binary-task"
 require_relative "helper"
@@ -108,14 +109,29 @@ class LocalBinaryTask < BinaryTask
   end
 
   def resolve_docker_image(target)
-    image = ""
-    target = target.gsub(/\Aamazon-linux/, "amazonlinux")
     case target
     when /-(?:arm64|aarch64)\z/
-      target = $PREMATCH
-      image << "arm64v8/"
+      target = Regexp.last_match.pre_match
+      platform = "linux/arm64"
+    else
+      platform = "linux/amd64"
     end
-    image << target.gsub(/-/, ":")
+
+    case target
+    when "centos-8-stream"
+      image = "quay.io/centos/centos:stream8"
+    else
+      case platform
+      when "linux/arm64"
+        image = "arm64v8/"
+      else
+        image = ""
+      end
+      target = target.gsub(/\Aamazon-linux/, "amazonlinux")
+      image << target.gsub(/-/, ":")
+    end
+
+    [platform, image]
   end
 
   def verify(target)
@@ -133,7 +149,16 @@ class LocalBinaryTask < BinaryTask
       verify_command_line.concat(["--attach", "STDOUT"])
       verify_command_line.concat(["--attach", "STDERR"])
     end
-    verify_command_line << resolve_docker_image(target)
+    platform, docker_image = resolve_docker_image(target)
+    docker_info = JSON.parse(`docker info --format '{{json .}}'`)
+    case [platform, docker_info["Architecture"]]
+    when ["linux/amd64", "x86_64"],
+         ["linux/arm64", "aarch64"]
+      # Do nothing
+    else
+      verify_command_line.concat(["--platform", platform])
+    end
+    verify_command_line << docker_image
     case target
     when /\Adebian-/, /\Aubuntu-/
       verify_command_line << "/arrow/dev/release/verify-apt.sh"
@@ -215,6 +240,8 @@ class LocalBinaryTask < BinaryTask
       # "almalinux-8-aarch64",
       "amazon-linux-2",
       # "amazon-linux-2-aarch64",
+      "centos-8-stream-8",
+      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
     ]

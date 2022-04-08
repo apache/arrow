@@ -31,6 +31,7 @@ RUN \
     bzip2-devel \
     ccache \
     cmake3 \
+    curl-devel \
     flex \
     gcc-c++ \
     gflags-devel \
@@ -38,6 +39,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    json-devel \
     libzstd-devel \
     lz4-devel \
     make \

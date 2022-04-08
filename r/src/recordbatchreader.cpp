@@ -38,17 +38,13 @@ std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
 // [[arrow::export]]
 cpp11::list RecordBatchReader__batches(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  std::vector<std::shared_ptr<arrow::RecordBatch>> res;
-  StopIfNotOk(reader->ReadAll(&res));
-  return arrow::r::to_r_list(res);
+  return arrow::r::to_r_list(ValueOrStop(reader->ToRecordBatches()));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  std::shared_ptr<arrow::Table> table = nullptr;
-  StopIfNotOk(reader->ReadAll(&table));
-  return table;
+  return ValueOrStop(reader->ToTable());
 }
 
 // [[arrow::export]]

@@ -552,7 +552,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     use_byte_stream_split=*,
     column_encoding=*,
     data_page_version=*,
-    FileEncryptionProperties encryption_properties=*) except *
+    FileEncryptionProperties encryption_properties=*,
+    write_batch_size=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(

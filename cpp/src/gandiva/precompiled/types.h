@@ -700,7 +700,7 @@ const char* to_hex_int64(int64_t context, int64_t data, int32_t* out_len);
 const char* to_hex_int32(int64_t context, int32_t data, int32_t* out_len);
 
 const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
-                          int32_t* out_len);
+                          bool text_validity, bool* out_valid, int32_t* out_len);
 
 int32_t castINT_utf8(int64_t context, const char* data, int32_t len);
 

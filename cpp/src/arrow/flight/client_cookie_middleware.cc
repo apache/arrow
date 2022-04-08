@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/flight/client_cookie_middleware.h"
-#include "arrow/flight/client_header_internal.h"
+#include "arrow/flight/cookie_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {

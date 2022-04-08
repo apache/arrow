@@ -62,43 +62,48 @@ inline Result<T> MarkSpan(Result<T> result, opentelemetry::trace::Span* span) {
   return result;
 }
 
-template <typename T>
-Iterator<T> WrapIterator(
-    Iterator<T> wrapped,
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span,
-    const std::string& span_name) {
-  struct {
-    Result<T> operator()() {
-      opentelemetry::trace::StartSpanOptions options;
-      options.parent = parent_span->GetContext();
-      auto span = GetTracer()->StartSpan(span_name, options);
-      auto scope = GetTracer()->WithActiveSpan(span);
-      return wrapped.Next();
-    }
-
-    Iterator<T> wrapped;
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span;
-    std::string span_name;
-  } Wrapper;
-  Wrapper.wrapped = std::move(wrapped);
-  Wrapper.parent_span = std::move(parent_span);
-  Wrapper.span_name = span_name;
-  return MakeFunctionIterator(std::move(Wrapper));
-}
-
+/// \brief Tie the current span to a generator, ending it when the generator finishes.
+/// Optionally start a child span for each invocation.
 template <typename T>
 AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
-                                     const std::string& span_name) {
+                                     const std::string& span_name = "",
+                                     bool create_childspan = false) {
+  auto active_span = GetTracer()->GetCurrentSpan();
   return [=]() mutable -> Future<T> {
-    auto span = GetTracer()->StartSpan(span_name);
-    auto scope = GetTracer()->WithActiveSpan(span);
+    auto span = active_span;
+    auto scope = GetTracer()->WithActiveSpan(active_span);
     auto fut = wrapped();
+    if (create_childspan) {
+      span = GetTracer()->StartSpan(span_name);
+    }
     fut.AddCallback([span](const Result<T>& result) {
       MarkSpan(result.status(), span.get());
       span->End();
     });
     return fut;
   };
+}
+
+/// \brief Propagate the given span to each invocation of an async generator.
+template <typename T>
+AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(
+    AsyncGenerator<T> wrapped,
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span) {
+  return [=]() mutable -> Future<T> {
+    auto scope = GetTracer()->WithActiveSpan(span);
+    return wrapped();
+  };
+}
+
+/// \brief Propagate the currently active span to each invocation of an async generator.
+///
+/// This prevents spans, created when running generator instances asynchronously,
+/// ending up in a separate, disconnected trace.
+template <typename T>
+AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(AsyncGenerator<T> wrapped) {
+  auto span = GetTracer()->GetCurrentSpan();
+  if (!span->GetContext().IsValid()) return wrapped;
+  return PropagateSpanThroughAsyncGenerator(std::move(wrapped), std::move(span));
 }
 
 class SpanImpl {
@@ -146,7 +151,27 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
         return st;                                                                \
       })
 
-#else
+#define PROPAGATE_SPAN_TO_GENERATOR(generator)                                \
+  generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator( \
+      std::move(generator))
+
+#define WRAP_ASYNC_GENERATOR(generator) \
+  generator = ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator))
+
+#define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name) \
+  generator =                                                 \
+      ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator), name, true)
+
+/*
+ * Calls to the helper macros above are removed by the preprocessor when building
+ * without opentelemetry, because of the empty definitions below.
+ * Without them, every call to a helper function would need to be surrounded with
+ * #ifdef ARROW_WITH_OPENTELEMETRY
+ * ...
+ * #endif
+ */
+
+#else  // !ARROW_WITH_OPENTELEMETRY
 
 class SpanImpl {};
 
@@ -156,6 +181,9 @@ class SpanImpl {};
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
+#define PROPAGATE_SPAN_TO_GENERATOR(generator)
+#define WRAP_ASYNC_GENERATOR(generator)
+#define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name)
 
 #endif
 

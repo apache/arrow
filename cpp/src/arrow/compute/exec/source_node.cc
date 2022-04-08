@@ -186,7 +186,7 @@ struct TableSourceNode : public SourceNode {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "TableSourceNode"));
     const auto& table_options = checked_cast<const TableSourceNodeOptions&>(options);
     const auto& table = table_options.table;
-    const int64_t batch_size = table_options.batch_size;
+    const int64_t batch_size = table_options.max_batch_size;
 
     RETURN_NOT_OK(ValidateTableSourceNodeInput(table, batch_size));
 

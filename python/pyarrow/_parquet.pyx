@@ -613,8 +613,15 @@ cdef class FileMetaData(_Weakrefable):
 
     def set_file_path(self, path):
         """
-        Modify the file_path field of each ColumnChunk in the
-        FileMetaData to be a particular value
+        Set ColumnChunk file paths to the given value.
+
+        This method modifies the ``file_path`` field of each ColumnChunk
+        in the FileMetaData to be a particular value.
+
+        Parameters
+        ----------
+        path : str
+            The file path to set on all ColumnChunks.
         """
         cdef:
             c_string c_path = tobytes(path)
@@ -622,7 +629,12 @@ cdef class FileMetaData(_Weakrefable):
 
     def append_row_groups(self, FileMetaData other):
         """
-        Append row groups of other FileMetaData object
+        Append row groups from other FileMetaData object.
+
+        Parameters
+        ----------
+        other : FileMetaData
+            Other metadata to append row groups from.
         """
         cdef shared_ptr[CFileMetaData] c_metadata
 
@@ -631,7 +643,13 @@ cdef class FileMetaData(_Weakrefable):
 
     def write_metadata_file(self, where):
         """
-        Write the metadata object to a metadata-only file
+        Write the metadata to a metadata-only Parquet file.
+
+        Parameters
+        ----------
+        where : path or file-like object
+            Where to write the metadata.  Should be a writable path on
+            the local filesystem, or a writable file-like object.
         """
         cdef:
             shared_ptr[COutputStream] sink
@@ -700,7 +718,16 @@ cdef class ParquetSchema(_Weakrefable):
 
     def equals(self, ParquetSchema other):
         """
-        Returns True if the Parquet schemas are equal
+        Return whether the two schemas are equal.
+
+        Parameters
+        ----------
+        other : ParquetSchema
+            Schema to compare against.
+
+        Returns
+        -------
+        are_equal : bool
         """
         return self.schema.Equals(deref(other.schema))
 
@@ -733,7 +760,16 @@ cdef class ColumnSchema(_Weakrefable):
 
     def equals(self, ColumnSchema other):
         """
-        Returns True if the column schemas are equal
+        Return whether the two column schemas are equal.
+
+        Parameters
+        ----------
+        other : ColumnSchema
+            Schema to compare against.
+
+        Returns
+        -------
+        are_equal : bool
         """
         return self.descr.Equals(deref(other.descr))
 
@@ -1173,17 +1209,17 @@ cdef class ParquetReader(_Weakrefable):
 
     def column_name_idx(self, column_name):
         """
-        Find the matching index of a column in the schema.
+        Find the index of a column by its name.
 
-        Parameter
-        ---------
-        column_name: str
-            Name of the column, separation of nesting levels is done via ".".
+        Parameters
+        ----------
+        column_name : str
+            Name of the column; separation of nesting levels is done via ".".
 
         Returns
         -------
-        column_idx: int
-            Integer index of the position of the column
+        column_idx : int
+            Integer index of the column in the schema.
         """
         cdef:
             FileMetaData container = self.metadata
@@ -1224,7 +1260,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_byte_stream_split=False,
         column_encoding=None,
         data_page_version=None,
-        FileEncryptionProperties encryption_properties=None) except *:
+        FileEncryptionProperties encryption_properties=None,
+        write_batch_size=None) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1347,6 +1384,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
+    if write_batch_size is not None:
+        props.write_batch_size(write_batch_size)
+
     # encryption
 
     if encryption_properties is not None:
@@ -1441,6 +1481,7 @@ cdef class ParquetWriter(_Weakrefable):
         int row_group_size
         int64_t data_page_size
         FileEncryptionProperties encryption_properties
+        int64_t write_batch_size
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
@@ -1456,7 +1497,8 @@ cdef class ParquetWriter(_Weakrefable):
                   writer_engine_version=None,
                   data_page_version=None,
                   use_compliant_nested_type=False,
-                  encryption_properties=None):
+                  encryption_properties=None,
+                  write_batch_size=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1484,7 +1526,8 @@ cdef class ParquetWriter(_Weakrefable):
             use_byte_stream_split=use_byte_stream_split,
             column_encoding=column_encoding,
             data_page_version=data_page_version,
-            encryption_properties=encryption_properties
+            encryption_properties=encryption_properties,
+            write_batch_size=write_batch_size
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,

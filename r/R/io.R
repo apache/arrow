@@ -163,6 +163,9 @@ RandomAccessFile <- R6Class("RandomAccessFile",
         nbytes <- self$GetSize() - position
       }
       io___RandomAccessFile__ReadAt(self, position, nbytes)
+    },
+    ReadMetadata = function() {
+      as.list(io___RandomAccessFile__ReadMetadata(self))
     }
   )
 )

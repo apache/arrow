@@ -30,7 +30,7 @@ namespace internal {
 
 // XXX How does this encode Windows UNC paths?
 
-std::vector<std::string> SplitAbstractPath(const std::string& path) {
+std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
   std::vector<std::string> parts;
   auto v = util::string_view(path);
   // Strip trailing slash
@@ -51,7 +51,7 @@ std::vector<std::string> SplitAbstractPath(const std::string& path) {
 
   size_t start = 0;
   while (true) {
-    size_t end = v.find_first_of(kSep, start);
+    size_t end = v.find_first_of(sep, start);
     append_part(start, end);
     if (end == std::string::npos) {
       break;

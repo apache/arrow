@@ -1156,7 +1156,7 @@ struct StreamWriterHelper {
                              ReadStats* out_stats = nullptr) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(buf_reader, options))
-    RETURN_NOT_OK(reader->ReadAll(out_batches));
+    ARROW_ASSIGN_OR_RAISE(*out_batches, reader->ToRecordBatches());
     if (out_stats) {
       *out_stats = reader->stats();
     }

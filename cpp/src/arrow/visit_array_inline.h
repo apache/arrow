@@ -29,6 +29,23 @@ namespace arrow {
         internal::checked_cast<const typename TypeTraits<TYPE_CLASS##Type>::ArrayType&>( \
             array));
 
+/// \brief Apply the visitors Visit() method specialized to the array type
+///
+/// \tparam VISITOR Visitor type that implements Visit() for all array types.
+/// \return Status
+///
+/// A visitor is a type that implements specialized logic for each Arrow type.
+/// Example usage:
+///
+/// ```
+/// class ExampleVisitor {
+///   arrow::Status Visit(arrow::NumericArray<Int32Type> arr) { ... }
+///   arrow::Status Visit(arrow::NumericArray<Int64Type> arr) { ... }
+///   ...
+/// }
+/// ExampleVisitor visitor;
+/// VisitArrayInline(some_array, &visitor);
+/// ```
 template <typename VISITOR>
 inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
   switch (array.type_id()) {

@@ -120,6 +120,8 @@ use the template :class:`arrow::TypedBufferBuilder` API::
    }
    std::shared_ptr<arrow::Buffer> buffer = *maybe_buffer;
 
+.. _cpp_memory_pool:
+
 Memory Pools
 ============
 
@@ -146,10 +148,7 @@ Overriding the Default Memory Pool
 ----------------------------------
 
 One can override the above selection algorithm by setting the
-``ARROW_DEFAULT_MEMORY_POOL`` environment variable to one of the following
-values: ``jemalloc``, ``mimalloc`` or ``system``.  This variable is inspected
-once when Arrow C++ is loaded in memory (for example when the Arrow C++ DLL
-is loaded).
+:envvar:`ARROW_DEFAULT_MEMORY_POOL` environment variable.
 
 STL Integration
 ---------------

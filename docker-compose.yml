@@ -951,6 +951,9 @@ services:
     environment:
       <<: *ccache
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
+      PYTEST_ARGS:  # inherit
+      HYPOTHESIS_PROFILE:  # inherit
+      PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -976,7 +979,7 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
-        archery numpydoc --allow-rule PR01"]
+        archery numpydoc --allow-rule PR01,PR10"]
 
   conda-python-dask:
     # Possible $DASK parameters:

@@ -22,15 +22,15 @@
 #include <gtest/gtest.h>
 
 #include "arrow/flight/client_cookie_middleware.h"
-#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/client_middleware.h"
+#include "arrow/flight/cookie_internal.h"
+#include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/test_util.h"
+#include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
-
-#include "arrow/flight/internal.h"
-#include "arrow/flight/test_util.h"
 
 namespace arrow {
 namespace flight {
@@ -78,9 +78,8 @@ TEST(FlightTypes, FlightDescriptorToFromProto) {
 // ARROW-6017: we should be able to construct locations for unknown
 // schemes
 TEST(FlightTypes, LocationUnknownScheme) {
-  Location location;
-  ASSERT_OK(Location::Parse("s3://test", &location));
-  ASSERT_OK(Location::Parse("https://example.com/foo", &location));
+  ASSERT_OK(Location::Parse("s3://test"));
+  ASSERT_OK(Location::Parse("https://example.com/foo"));
 }
 
 TEST(FlightTypes, RoundTripTypes) {
@@ -105,10 +104,9 @@ TEST(FlightTypes, RoundTripTypes) {
   std::shared_ptr<Schema> schema =
       arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
                      field("d", int64())});
-  Location location1, location2, location3;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 10010, &location1));
-  ASSERT_OK(Location::ForGrpcTls("localhost", 10010, &location2));
-  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location3));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 10010));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 10010));
+  ASSERT_OK_AND_ASSIGN(auto location3, Location::ForGrpcUnix("/tmp/test.sock"));
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
                                         FlightEndpoint{ticket, {location3}}};
   ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
@@ -156,24 +154,63 @@ TEST(FlightTypes, RoundtripStatus) {
   ASSERT_NE(nullptr, detail);
   ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
 
-  Status status = internal::FromGrpcStatus(
-      internal::ToGrpcStatus(Status::NotImplemented("Sentinel")));
+  Status status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::NotImplemented("Sentinel")));
   ASSERT_TRUE(status.IsNotImplemented());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::Invalid("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::Invalid("Sentinel")));
   ASSERT_TRUE(status.IsInvalid());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::KeyError("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::KeyError("Sentinel")));
   ASSERT_TRUE(status.IsKeyError());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status =
-      internal::FromGrpcStatus(internal::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
   ASSERT_TRUE(status.IsAlreadyExists());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 }
+
+TEST(FlightTypes, LocationConstruction) {
+  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI").status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcTcp("This is not a hostname", 12345).status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcTls("This is not a hostname", 12345).status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename").status());
+
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("s3://test"));
+  ASSERT_EQ(location.ToString(), "s3://test");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", 12345));
+  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTls("localhost", 12345));
+  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcUnix("/tmp/test.sock"));
+  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
+}
+
+ARROW_SUPPRESS_DEPRECATION_WARNING
+TEST(FlightTypes, DeprecatedLocationConstruction) {
+  Location location;
+  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI", &location));
+  ASSERT_RAISES(Invalid,
+                Location::ForGrpcTcp("This is not a hostname", 12345, &location));
+  ASSERT_RAISES(Invalid,
+                Location::ForGrpcTls("This is not a hostname", 12345, &location));
+  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename", &location));
+
+  ASSERT_OK(Location::Parse("s3://test", &location));
+  ASSERT_EQ(location.ToString(), "s3://test");
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 12345, &location));
+  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
+  ASSERT_OK(Location::ForGrpcTls("localhost", 12345, &location));
+  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
+  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location));
+  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
+}
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 // ----------------------------------------------------------------------
 // Cookie authentication/middleware
@@ -300,18 +337,18 @@ TEST_F(TestCookieMiddleware, Expires) {
 class TestCookieParsing : public ::testing::Test {
  public:
   void VerifyParseCookie(const std::string& cookie_str, bool expired) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(expired, cookie.IsExpired());
   }
 
   void VerifyCookieName(const std::string& cookie_str, const std::string& name) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(name, cookie.GetName());
   }
 
   void VerifyCookieString(const std::string& cookie_str,
                           const std::string& cookie_as_string) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(cookie_as_string, cookie.AsCookieString());
   }
 

@@ -299,26 +299,38 @@ struct ARROW_FLIGHT_EXPORT Location {
   Location();
 
   /// \brief Initialize a location by parsing a URI string
+  static arrow::Result<Location> Parse(const std::string& uri_string);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Parse(const std::string& uri_string, Location* location);
 
   /// \brief Initialize a location for a non-TLS, gRPC-based Flight
   /// service from a host and port
   /// \param[in] host The hostname to connect to
   /// \param[in] port The port
-  /// \param[out] location The resulting location
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcTcp(const std::string& host, const int port);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status ForGrpcTcp(const std::string& host, const int port, Location* location);
 
   /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
   /// service from a host and port
   /// \param[in] host The hostname to connect to
   /// \param[in] port The port
-  /// \param[out] location The resulting location
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcTls(const std::string& host, const int port);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status ForGrpcTls(const std::string& host, const int port, Location* location);
 
   /// \brief Initialize a location for a domain socket-based Flight
   /// service
   /// \param[in] path The path to the domain socket
-  /// \param[out] location The resulting location
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcUnix(const std::string& path);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status ForGrpcUnix(const std::string& path, Location* location);
 
   /// \brief Initialize a location based on a URI scheme
@@ -387,7 +399,11 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   /// \brief return schema
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \param[out] out the reconstructed Schema
+  /// \return Arrrow result with the reconstructed Schema
+  arrow::Result<std::shared_ptr<Schema>> GetSchema(
+      ipc::DictionaryMemo* dictionary_memo) const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;
 
@@ -424,7 +440,11 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \param[out] out the reconstructed Schema
+  /// \return Arrrow result with the reconstructed Schema
+  arrow::Result<std::shared_ptr<Schema>> GetSchema(
+      ipc::DictionaryMemo* dictionary_memo) const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;
 
@@ -475,10 +495,12 @@ class ARROW_FLIGHT_EXPORT FlightListing {
   virtual ~FlightListing() = default;
 
   /// \brief Retrieve the next FlightInfo from the iterator.
-  /// \param[out] info A single FlightInfo. Set to \a nullptr if there
+  /// \return Arrow result with a single FlightInfo. Set to \a nullptr if there
   /// are none left.
-  /// \return Status
-  virtual Status Next(std::unique_ptr<FlightInfo>* info) = 0;
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> Next() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(std::unique_ptr<FlightInfo>* info);
 };
 
 /// \brief An iterator to Result instances returned by DoAction.
@@ -487,10 +509,11 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   virtual ~ResultStream() = default;
 
   /// \brief Retrieve the next Result from the iterator.
-  /// \param[out] info A single result. Set to \a nullptr if there
-  /// are none left.
-  /// \return Status
-  virtual Status Next(std::unique_ptr<Result>* info) = 0;
+  /// \return Arrow result with a single Result. Set to \a nullptr if there are none left.
+  virtual arrow::Result<std::unique_ptr<Result>> Next() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(std::unique_ptr<Result>* info);
 };
 
 /// \brief A holder for a RecordBatch with associated Flight metadata.
@@ -507,14 +530,26 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
 
   /// \brief Get the schema for this stream.
   virtual arrow::Result<std::shared_ptr<Schema>> GetSchema() = 0;
+
   /// \brief Get the next message from Flight. If the stream is
   /// finished, then the members of \a FlightStreamChunk will be
   /// nullptr.
-  virtual Status Next(FlightStreamChunk* next) = 0;
+  virtual arrow::Result<FlightStreamChunk> Next() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(FlightStreamChunk* next);
+
   /// \brief Consume entire stream as a vector of record batches
-  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+  virtual arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+
   /// \brief Consume entire stream as a Table
-  virtual Status ReadAll(std::shared_ptr<Table>* table);
+  virtual arrow::Result<std::shared_ptr<Table>> ToTable();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
+  Status ReadAll(std::shared_ptr<Table>* table);
 };
 
 /// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.
@@ -544,7 +579,7 @@ class ARROW_FLIGHT_EXPORT SimpleFlightListing : public FlightListing {
   explicit SimpleFlightListing(const std::vector<FlightInfo>& flights);
   explicit SimpleFlightListing(std::vector<FlightInfo>&& flights);
 
-  Status Next(std::unique_ptr<FlightInfo>* info) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> Next() override;
 
  private:
   int position_;
@@ -558,7 +593,7 @@ class ARROW_FLIGHT_EXPORT SimpleFlightListing : public FlightListing {
 class ARROW_FLIGHT_EXPORT SimpleResultStream : public ResultStream {
  public:
   explicit SimpleResultStream(std::vector<Result>&& results);
-  Status Next(std::unique_ptr<Result>* result) override;
+  arrow::Result<std::unique_ptr<Result>> Next() override;
 
  private:
   std::vector<Result> results_;

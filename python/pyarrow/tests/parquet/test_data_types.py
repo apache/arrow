@@ -44,9 +44,6 @@ except ImportError:
     pd = tm = None
 
 
-pytestmark = pytest.mark.parquet
-
-
 # General roundtrip of data types
 # -----------------------------------------------------------------------------
 

@@ -78,7 +78,7 @@ func NewFileWriter(arrschema *arrow.Schema, w io.Writer, props *parquet.WriterPr
 		}
 
 		serializedSchema := flight.SerializeSchema(arrschema, props.Allocator())
-		meta.Append("ARROW:schema", base64.RawStdEncoding.EncodeToString(serializedSchema))
+		meta.Append("ARROW:schema", base64.StdEncoding.EncodeToString(serializedSchema))
 	}
 
 	schemaNode := pqschema.Root()

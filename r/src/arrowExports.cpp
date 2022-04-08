@@ -1696,8 +1696,8 @@ extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SE
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, int type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output);
-extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp){
+std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, int type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
 	arrow::r::Input<int>::type type(type_sexp);
@@ -1706,11 +1706,13 @@ BEGIN_CPP11
 	arrow::r::Input<std::vector<std::string>>::type right_keys(right_keys_sexp);
 	arrow::r::Input<std::vector<std::string>>::type left_output(left_output_sexp);
 	arrow::r::Input<std::vector<std::string>>::type right_output(right_output_sexp);
-	return cpp11::as_sexp(ExecNode_Join(input, type, right_data, left_keys, right_keys, left_output, right_output));
+	arrow::r::Input<std::string>::type output_suffix_for_left(output_suffix_for_left_sexp);
+	arrow::r::Input<std::string>::type output_suffix_for_right(output_suffix_for_right_sexp);
+	return cpp11::as_sexp(ExecNode_Join(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp){
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
 	Rf_error("Cannot call ExecNode_Join(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1744,6 +1746,52 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ExecNode_TableSourceNode(SEXP plan_sexp, SEXP table_sexp){
 	Rf_error("Cannot call ExecNode_TableSourceNode(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ENGINE)
+std::string engine__internal__SubstraitToJSON(const std::shared_ptr<arrow::Buffer>& serialized_plan);
+extern "C" SEXP _arrow_engine__internal__SubstraitToJSON(SEXP serialized_plan_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type serialized_plan(serialized_plan_sexp);
+	return cpp11::as_sexp(engine__internal__SubstraitToJSON(serialized_plan));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_engine__internal__SubstraitToJSON(SEXP serialized_plan_sexp){
+	Rf_error("Cannot call engine__internal__SubstraitToJSON(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ENGINE)
+std::shared_ptr<arrow::Buffer> engine__internal__SubstraitFromJSON(std::string substrait_json);
+extern "C" SEXP _arrow_engine__internal__SubstraitFromJSON(SEXP substrait_json_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type substrait_json(substrait_json_sexp);
+	return cpp11::as_sexp(engine__internal__SubstraitFromJSON(substrait_json));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_engine__internal__SubstraitFromJSON(SEXP substrait_json_sexp){
+	Rf_error("Cannot call engine__internal__SubstraitFromJSON(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ENGINE)
+std::shared_ptr<arrow::Table> ExecPlan_run_substrait(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::Buffer>& serialized_plan);
+extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type serialized_plan(serialized_plan_sexp);
+	return cpp11::as_sexp(ExecPlan_run_substrait(plan, serialized_plan));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp){
+	Rf_error("Cannot call ExecPlan_run_substrait(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1837,6 +1885,22 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_runtime_info(){
 	Rf_error("Cannot call runtime_info(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// config.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void set_timezone_database(cpp11::strings path);
+extern "C" SEXP _arrow_set_timezone_database(SEXP path_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::strings>::type path(path_sexp);
+	set_timezone_database(path);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_set_timezone_database(SEXP path_sexp){
+	Rf_error("Cannot call set_timezone_database(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5013,6 +5077,21 @@ extern "C" SEXP _arrow_io___RandomAccessFile__ReadAt(SEXP x_sexp, SEXP position_
 
 // io.cpp
 #if defined(ARROW_R_WITH_ARROW)
+cpp11::strings io___RandomAccessFile__ReadMetadata(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
+extern "C" SEXP _arrow_io___RandomAccessFile__ReadMetadata(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	return cpp11::as_sexp(io___RandomAccessFile__ReadMetadata(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_io___RandomAccessFile__ReadMetadata(SEXP x_sexp){
+	Rf_error("Cannot call io___RandomAccessFile__ReadMetadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// io.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(const std::string& path, int64_t size);
 extern "C" SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_sexp){
 BEGIN_CPP11
@@ -6743,6 +6822,37 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
+// safe-call-into-r-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void InitializeMainRThread();
+extern "C" SEXP _arrow_InitializeMainRThread(){
+BEGIN_CPP11
+	InitializeMainRThread();
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_InitializeMainRThread(){
+	Rf_error("Cannot call InitializeMainRThread(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// safe-call-into-r-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::string opt);
+extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP r_fun_that_returns_a_string_sexp, SEXP opt_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::function>::type r_fun_that_returns_a_string(r_fun_that_returns_a_string_sexp);
+	arrow::r::Input<std::string>::type opt(opt_sexp);
+	return cpp11::as_sexp(TestSafeCallIntoR(r_fun_that_returns_a_string, opt));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP r_fun_that_returns_a_string_sexp, SEXP opt_sexp){
+	Rf_error("Cannot call TestSafeCallIntoR(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
@@ -7591,6 +7701,15 @@ return Rf_ScalarLogical(
 #endif
 );
 }
+extern "C" SEXP _engine_available() {
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_ENGINE)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}
 extern "C" SEXP _parquet_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_PARQUET)
@@ -7621,6 +7740,7 @@ return Rf_ScalarLogical(
 static const R_CallMethodDef CallEntries[] = {
 { "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
 { "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+{ "_engine_available", (DL_FUNC)& _engine_available, 0 },
 { "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 { "_s3_available", (DL_FUNC)& _s3_available, 0 },
 { "_json_available", (DL_FUNC)& _json_available, 0 },
@@ -7732,15 +7852,19 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 5}, 
-		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 7}, 
+		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 9}, 
 		{ "_arrow_ExecNode_SourceNode", (DL_FUNC) &_arrow_ExecNode_SourceNode, 2}, 
 		{ "_arrow_ExecNode_TableSourceNode", (DL_FUNC) &_arrow_ExecNode_TableSourceNode, 2}, 
+		{ "_arrow_engine__internal__SubstraitToJSON", (DL_FUNC) &_arrow_engine__internal__SubstraitToJSON, 1}, 
+		{ "_arrow_engine__internal__SubstraitFromJSON", (DL_FUNC) &_arrow_engine__internal__SubstraitFromJSON, 1}, 
+		{ "_arrow_ExecPlan_run_substrait", (DL_FUNC) &_arrow_ExecPlan_run_substrait, 2}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
 		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
 		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
+		{ "_arrow_set_timezone_database", (DL_FUNC) &_arrow_set_timezone_database, 1}, 
 		{ "_arrow_csv___WriteOptions__initialize", (DL_FUNC) &_arrow_csv___WriteOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
@@ -7943,6 +8067,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___RandomAccessFile__Tell", (DL_FUNC) &_arrow_io___RandomAccessFile__Tell, 1}, 
 		{ "_arrow_io___RandomAccessFile__Read0", (DL_FUNC) &_arrow_io___RandomAccessFile__Read0, 1}, 
 		{ "_arrow_io___RandomAccessFile__ReadAt", (DL_FUNC) &_arrow_io___RandomAccessFile__ReadAt, 3}, 
+		{ "_arrow_io___RandomAccessFile__ReadMetadata", (DL_FUNC) &_arrow_io___RandomAccessFile__ReadMetadata, 1}, 
 		{ "_arrow_io___MemoryMappedFile__Create", (DL_FUNC) &_arrow_io___MemoryMappedFile__Create, 2}, 
 		{ "_arrow_io___MemoryMappedFile__Open", (DL_FUNC) &_arrow_io___MemoryMappedFile__Open, 2}, 
 		{ "_arrow_io___MemoryMappedFile__Resize", (DL_FUNC) &_arrow_io___MemoryMappedFile__Resize, 2}, 
@@ -8052,6 +8177,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
+		{ "_arrow_InitializeMainRThread", (DL_FUNC) &_arrow_InitializeMainRThread, 0}, 
+		{ "_arrow_TestSafeCallIntoR", (DL_FUNC) &_arrow_TestSafeCallIntoR, 2}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 

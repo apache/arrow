@@ -1088,6 +1088,7 @@ class BinaryTask
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "impish", "main"],
+      ["ubuntu", "jammy", "main"],
     ]
   end
 
@@ -1457,6 +1458,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     [
       ["almalinux", "8"],
       ["amazon-linux", "2"],
+      ["centos", "8-stream"],
       ["centos", "7"],
     ]
   end
