@@ -151,10 +151,8 @@ cdef class IpcReadOptions(_Weakrefable):
 
     @included_fields.setter
     def included_fields(self, list value):
-        cdef:
-            vector[int] included_fields
         if value is None:
-            self.c_options.included_fields = included_fields
+            self.c_options.included_fields.clear()
         else:
             self.c_options.included_fields = value
 
