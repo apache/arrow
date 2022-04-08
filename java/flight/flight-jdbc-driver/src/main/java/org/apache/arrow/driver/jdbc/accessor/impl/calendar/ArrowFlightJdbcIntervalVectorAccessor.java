@@ -17,6 +17,11 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
+import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatIntervalDay;
+import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatIntervalYear;
+import static org.joda.time.Period.parse;
+
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Period;
 import java.util.function.IntSupplier;
@@ -91,15 +96,20 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
   }
 
   @Override
-  public String getString() {
-    StringBuilder stringBuilder = stringBuilderGetter.get(getCurrentRow());
+  public String getString() throws SQLException {
+    Object object = getObject();
 
-    this.wasNull = stringBuilder == null;
+    this.wasNull = object == null;
     this.wasNullConsumer.setWasNull(this.wasNull);
-    if (stringBuilder == null) {
+    if (object == null) {
       return null;
     }
-
-    return stringBuilder.toString();
+    if (vector instanceof IntervalDayVector) {
+      return formatIntervalDay(parse(object.toString()));
+    } else if (vector instanceof IntervalYearVector) {
+      return formatIntervalYear(parse(object.toString()));
+    } else {
+      throw new SQLException("Invalid Interval vector instance");
+    }
   }
 }
