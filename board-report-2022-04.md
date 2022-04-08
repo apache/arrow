@@ -43,5 +43,7 @@ Recent releases:
 - We'll start IP clearance for Apache Arrow Flight JDBC driver donation.
 - We may register Apache Arrow as a Digital Public Good like Apache
   Fineract: https://digitalpublicgoods.net/registry/apache-fineract.html
-- We'll rename the "master" branch to "main".
+- We'll rename the "master" branch to "main":
+  https://issues.apache.org/jira/browse/ARROW-15689
+  We'll be asking INFRA for support on this when we're ready.
 - We've rotated the PMC chair.
