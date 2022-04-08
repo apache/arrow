@@ -107,7 +107,7 @@ test_that("ChunkedArray can be concatenated with c()", {
   expect_equal(c(a, b), expected)
 
   # Can handle Arrays and base vectors
-  vectors <- list(chunked_array(1:10), arrow::Array$create(1:10), 1:10)
+  vectors <- list(chunked_array(1:10), Array$create(1:10), 1:10)
   expected <- chunked_array(1:10, 1:10, 1:10)
   expect_equal(do.call(c, vectors), expected)
 })

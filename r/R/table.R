@@ -157,17 +157,17 @@ rbind.Table <- function(...) {
   schema <- tables[[1]]$schema
   unequal_schema_idx <- which.min(lapply(tables, function(x) x$schema == schema))
   if (unequal_schema_idx != 1) {
-    stop(paste0(
+    abort(paste0(
       sprintf("Schema at index %i does not match the first schema\n", unequal_schema_idx),
       "Schema 1:\n",
       schema$ToString(),
-      sprintf("\nSchema %i:\n", unequal_schema_idx),
+      sprintf("\nSchema %d:\n", unequal_schema_idx),
       tables[[unequal_schema_idx]]$schema$ToString()
     ))
   }
 
   # create chunked array for each column
-  columns <- map(1:tables[[1]]$num_columns, function(i) {
+  columns <- map(seq_len(tables[[1]]$num_columns), function(i) {
     do.call(c, map(tables, ~ .[[i]]))
   })
 
