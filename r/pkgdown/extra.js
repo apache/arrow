@@ -33,6 +33,16 @@ function check_page_exists_and_redirect(event) {
     return false;
 }
 
+/**
+ * We need to do this so that the version dropdown doesn't used cached HTML
+ * on Chrome on MacOS (see ARROW-15895)
+ */
+$(window).bind("pageshow", function(event) {
+  if (event.originalEvent.persisted) {
+    window.location.reload()
+  }
+});
+
 (function () {
   // Load the rmarkdown tabset script
   var script = document.createElement("script");
