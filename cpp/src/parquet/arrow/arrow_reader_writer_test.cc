@@ -3240,6 +3240,39 @@ TEST(TestArrowWrite, CheckChunkSize) {
                 WriteTable(*table, ::arrow::default_memory_pool(), sink, chunk_size));
 }
 
+void DoNestedValidate(const std::shared_ptr<::arrow::DataType>& inner_type,
+                      const std::shared_ptr<::arrow::Field>& outer_field,
+                      const std::shared_ptr<Buffer>& buffer,
+                      const std::shared_ptr<::arrow::Table>& table) {
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder reader_builder;
+  ASSERT_OK(reader_builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(reader_builder.Build(&reader));
+  ARROW_SCOPED_TRACE("Parquet schema: ",
+                     reader->parquet_reader()->metadata()->schema()->ToString());
+  std::shared_ptr<Table> result;
+  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+
+  if (inner_type->id() == ::arrow::Type::DATE64 ||
+      inner_type->id() == ::arrow::Type::TIMESTAMP ||
+      inner_type->Equals(*::arrow::time32(::arrow::TimeUnit::SECOND))) {
+    // Encoding is different when written out, cast back
+    ASSERT_OK_AND_ASSIGN(auto casted_array,
+                         ::arrow::compute::Cast(result->column(0), outer_field->type()));
+    result = ::arrow::Table::Make(::arrow::schema({outer_field}),
+                                  {casted_array.chunked_array()});
+  }
+
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result, false));
+  // Ensure inner array has no nulls
+  for (const auto& chunk : result->column(0)->chunks()) {
+    const auto& arr = checked_cast<const ::arrow::StructArray&>(*chunk);
+    const auto inner_arr = arr.field(0);
+    ASSERT_EQ(inner_arr->null_count(), 0) << inner_arr->ToString();
+  }
+}
+
 void DoNestedRequiredRoundtrip(
     const std::shared_ptr<::arrow::DataType>& inner_type,
     const std::shared_ptr<WriterProperties>& writer_properties,
@@ -3273,34 +3306,7 @@ void DoNestedRequiredRoundtrip(
                                 /*row_group_size=*/4, writer_properties,
                                 arrow_writer_properties));
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
-
-  std::unique_ptr<FileReader> reader;
-  FileReaderBuilder reader_builder;
-  ASSERT_OK(reader_builder.Open(std::make_shared<BufferReader>(buffer)));
-  ASSERT_OK(reader_builder.Build(&reader));
-  ARROW_SCOPED_TRACE("Parquet schema: ",
-                     reader->parquet_reader()->metadata()->schema()->ToString());
-  std::shared_ptr<Table> result;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
-
-  if (inner_type->id() == ::arrow::Type::DATE64 ||
-      inner_type->id() == ::arrow::Type::TIMESTAMP ||
-      inner_type->Equals(*::arrow::time32(::arrow::TimeUnit::SECOND))) {
-    // Encoding is different when written out, cast back
-    ASSERT_OK_AND_ASSIGN(auto casted_array,
-                         ::arrow::compute::Cast(result->column(0), type));
-    result =
-        ::arrow::Table::Make(::arrow::schema({field}), {casted_array.chunked_array()});
-  }
-
-  ASSERT_OK(result->ValidateFull());
-  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result, false));
-  // Ensure inner array has no nulls
-  for (const auto& chunk : result->column(0)->chunks()) {
-    const auto& arr = checked_cast<const ::arrow::StructArray&>(*chunk);
-    const auto inner_arr = arr.field(0);
-    ASSERT_EQ(inner_arr->null_count(), 0) << inner_arr->ToString();
-  }
+  ASSERT_NO_FATAL_FAILURE(DoNestedValidate(inner_type, field, buffer, table));
 }
 
 TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
@@ -3348,6 +3354,81 @@ TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
   }
   // NOTE: read_dictionary option only applies to top-level columns,
   // so we don't address that path here
+}
+
+TEST(ArrowReadWrite, NestedRequiredOuterOptionalDecimal) {
+  // Manually construct files to test decimals encoded as variable-length byte array
+  ::arrow::TypedBufferBuilder<bool> bitmap_builder;
+  ASSERT_OK(bitmap_builder.Append(2, false));
+  ASSERT_OK(bitmap_builder.Append(2, true));
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, bitmap_builder.Finish());
+
+  const std::vector<int16_t> def_levels = {0, 0, 1, 1};
+  const std::vector<ByteArray> byte_arrays = {
+      ByteArray("\x01\xe2\x40"),  // 123456
+      ByteArray("\x0f\x12\x06"),  // 987654
+  };
+  const std::vector<int32_t> int32_values = {123456, 987654};
+  const std::vector<int64_t> int64_values = {123456, 987654};
+
+  const auto inner_type = ::arrow::decimal128(6, 3);
+  auto inner_field = ::arrow::field("inner", inner_type, /*nullable=*/false);
+  auto type = ::arrow::struct_({inner_field});
+  auto field = ::arrow::field("outer", type, /*nullable=*/true);
+  auto inner =
+      ArrayFromJSON(inner_type, R"(["000.000", "000.000", "123.456", "987.654"])");
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       ::arrow::StructArray::Make({inner}, {inner_field}, null_bitmap));
+  auto table = ::arrow::Table::Make(::arrow::schema({field}), {array});
+
+  for (const auto& encoding : {Type::BYTE_ARRAY, Type::INT32, Type::INT64}) {
+    // Manually write out file based on encoding type
+    ARROW_SCOPED_TRACE("Encoding decimals as ", encoding);
+    auto parquet_schema = GroupNode::Make(
+        "schema", Repetition::REQUIRED,
+        {GroupNode::Make("outer", Repetition::OPTIONAL,
+                         {
+                             PrimitiveNode::Make("inner", Repetition::REQUIRED,
+                                                 LogicalType::Decimal(6, 3), encoding),
+                         })});
+
+    auto sink = CreateOutputStream();
+    auto file_writer =
+        ParquetFileWriter::Open(sink, checked_pointer_cast<GroupNode>(parquet_schema));
+    auto column_writer = file_writer->AppendRowGroup()->NextColumn();
+    ARROW_SCOPED_TRACE("Column descriptor: ", column_writer->descr()->ToString());
+
+    switch (encoding) {
+      case Type::BYTE_ARRAY: {
+        auto typed_writer =
+            checked_cast<TypedColumnWriter<ByteArrayType>*>(column_writer);
+        typed_writer->WriteBatch(4, def_levels.data(), /*rep_levels=*/nullptr,
+                                 byte_arrays.data());
+        break;
+      }
+      case Type::INT32: {
+        auto typed_writer = checked_cast<Int32Writer*>(column_writer);
+        typed_writer->WriteBatch(4, def_levels.data(), /*rep_levels=*/nullptr,
+                                 int32_values.data());
+        break;
+      }
+      case Type::INT64: {
+        auto typed_writer = checked_cast<Int64Writer*>(column_writer);
+        typed_writer->WriteBatch(4, def_levels.data(), /*rep_levels=*/nullptr,
+                                 int64_values.data());
+        break;
+      }
+      default:
+        FAIL() << "Invalid encoding";
+        return;
+    }
+
+    column_writer->Close();
+    file_writer->Close();
+
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    ASSERT_NO_FATAL_FAILURE(DoNestedValidate(inner_type, field, buffer, table));
+  }
 }
 
 class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
