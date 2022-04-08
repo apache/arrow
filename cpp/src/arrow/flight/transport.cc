@@ -214,6 +214,40 @@ TransportStatus TransportStatus::FromStatus(const Status& arrow_status) {
   return TransportStatus{code, std::move(message)};
 }
 
+TransportStatus TransportStatus::FromCodeStringAndMessage(const std::string& code_str,
+                                                          std::string message) {
+  int code_int = 0;
+  try {
+    code_int = std::stoi(code_str);
+  } catch (...) {
+    return TransportStatus{
+        TransportStatusCode::kUnknown,
+        message + ". Also, server sent unknown or invalid Arrow status code " + code_str};
+  }
+  switch (code_int) {
+    case static_cast<int>(TransportStatusCode::kOk):
+    case static_cast<int>(TransportStatusCode::kUnknown):
+    case static_cast<int>(TransportStatusCode::kInternal):
+    case static_cast<int>(TransportStatusCode::kInvalidArgument):
+    case static_cast<int>(TransportStatusCode::kTimedOut):
+    case static_cast<int>(TransportStatusCode::kNotFound):
+    case static_cast<int>(TransportStatusCode::kAlreadyExists):
+    case static_cast<int>(TransportStatusCode::kCancelled):
+    case static_cast<int>(TransportStatusCode::kUnauthenticated):
+    case static_cast<int>(TransportStatusCode::kUnauthorized):
+    case static_cast<int>(TransportStatusCode::kUnimplemented):
+    case static_cast<int>(TransportStatusCode::kUnavailable):
+      return TransportStatus{static_cast<TransportStatusCode>(code_int),
+                             std::move(message)};
+    default: {
+      return TransportStatus{
+          TransportStatusCode::kUnknown,
+          message + ". Also, server sent unknown or invalid Arrow status code " +
+              code_str};
+    }
+  }
+}
+
 Status TransportStatus::ToStatus() const {
   switch (code) {
     case TransportStatusCode::kOk:

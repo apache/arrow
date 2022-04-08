@@ -253,6 +253,10 @@ struct TransportStatus {
   /// \brief Convert a C++ status to an abstract transport status.
   static TransportStatus FromStatus(const Status& arrow_status);
 
+  /// \brief Reconstruct a string-encoded TransportStatus.
+  static TransportStatus FromCodeStringAndMessage(const std::string& code_str,
+                                                  std::string message);
+
   /// \brief Convert an abstract transport status to a C++ status.
   Status ToStatus() const;
 };

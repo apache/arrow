@@ -50,10 +50,18 @@ static constexpr char kMethodDoGet[] = "DoGet";
 static constexpr char kMethodDoPut[] = "DoPut";
 static constexpr char kMethodGetFlightInfo[] = "GetFlightInfo";
 
+/// The header encoding the transport status.
+static constexpr char kHeaderStatus[] = "flight-status";
+/// The header encoding the transport status.
+static constexpr char kHeaderMessage[] = "flight-message";
+/// The header encoding the C++ status.
 static constexpr char kHeaderStatusCode[] = "flight-status-code";
+/// The header encoding the C++ status message.
 static constexpr char kHeaderStatusMessage[] = "flight-status-message";
+/// The header encoding the C++ status detail message.
 static constexpr char kHeaderStatusDetail[] = "flight-status-detail";
-static constexpr char kHeaderStatusDetailCode[] = "flight-status-detail-code";
+/// The header encoding the C++ status detail binary data.
+static constexpr char kHeaderStatusDetailBin[] = "flight-status-detail-bin";
 
 //------------------------------------------------------------
 // UCX Helpers
