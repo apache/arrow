@@ -191,9 +191,10 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 /// \brief Options for cumulative sum function
 class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
-  explicit CumulativeSumOptions(
-      std::shared_ptr<Scalar> start = std::make_shared<Int64Scalar>(0),
-      bool skip_nulls = false, bool check_overflow = false);
+ explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false,
+                               bool check_overflow = false);
+  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
+                                bool check_overflow = false);
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
   static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
 
@@ -201,8 +202,7 @@ class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
   std::shared_ptr<Scalar> start;
 
   /// If true, nulls in the input are ignored and produce a corresponding null output.
-  /// When false, the first null/NaN encountered is propagated through the remaining
-  /// output.
+  /// When false, the first null encountered is propagated through the remaining output.
   bool skip_nulls = false;
 
   /// When true, returns an Invalid Status when overflow is detected

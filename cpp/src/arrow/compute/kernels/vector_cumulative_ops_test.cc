@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -22,11 +23,9 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
-#include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
 
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"

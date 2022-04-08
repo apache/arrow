@@ -180,6 +180,10 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
+CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls,
+                                           bool check_overflow)
+    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
+                           check_overflow) {}
 CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls,
                                            bool check_overflow)
     : FunctionOptions(internal::kCumulativeSumOptionsType),

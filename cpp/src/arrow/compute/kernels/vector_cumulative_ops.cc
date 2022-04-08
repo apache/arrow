@@ -30,11 +30,11 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-// Base class for all cumulative compute functions. Op can be any binary associative
-// operation (+, *, min, etc.) and OptionsType the options type corresponding to Op.
-// ArgType and OutType are the input and output types, which will normally be the
-// same (e.g. the cumulative sum of an array of Int64Type will result in an array of
-// Int64Type).
+// The driver kernel for all cumulative compute functions. Op is a compute kernel
+// representing any binary associative operation (add, product, min, max, etc.) and
+// OptionsType the options type corresponding to Op. ArgType and OutType are the input
+// and output types, which will normally be the same (e.g. the cumulative sum of an array
+//  of Int64Type will result in an array of Int64Type).
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct CumulativeGeneric {
   using OutValue = typename GetOutputType<OutType>::T;
@@ -83,13 +83,16 @@ struct CumulativeGeneric {
                      const ArrayData& input, ArrayData* output, ArgValue* accumulator,
                      bool skip_nulls, bool* encountered_null) {
     Status st = Status::OK();
+    ArgValue accumulator_tmp = *accumulator;
+    bool encountered_null_tmp = *encountered_null;
+
     auto out_bitmap = output->GetMutableValues<uint8_t>(0);
     auto out_data = output->GetMutableValues<OutValue>(1) + base_output_offset;
     int64_t curr = base_output_offset;
 
     auto null_func = [&]() {
       *out_data++ = OutValue{};
-      *encountered_null = true;
+      encountered_null_tmp = true;
       arrow::bit_util::SetBitTo(out_bitmap, curr, false);
       ++curr;
     };
@@ -98,9 +101,9 @@ struct CumulativeGeneric {
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {
-            *accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(
-                ctx, v, *accumulator, &st);
-            *out_data++ = *accumulator;
+            accumulator_tmp = Op::template Call<OutValue, ArgValue, ArgValue>(
+                ctx, v, accumulator_tmp, &st);
+            *out_data++ = accumulator_tmp;
             ++curr;
           },
           null_func);
@@ -109,12 +112,12 @@ struct CumulativeGeneric {
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {
-            if (*encountered_null) {
+            if (encountered_null_tmp) {
               *out_data++ = OutValue{};
             } else {
-              *accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(
-                  ctx, v, *accumulator, &st);
-              *out_data++ = *accumulator;
+              accumulator_tmp = Op::template Call<OutValue, ArgValue, ArgValue>(
+                  ctx, v, accumulator_tmp, &st);
+              *out_data++ = accumulator_tmp;
               ++start_null_idx;
             }
             ++curr;
@@ -126,26 +129,28 @@ struct CumulativeGeneric {
                                  null_length, false);
     }
 
+    *accumulator = accumulator_tmp;
+    *encountered_null = encountered_null_tmp;
     return st;
   }
 };
 
 const FunctionDoc cumulative_sum_doc{
-    "Compute the cumulative sum over an array of numbers",
-    ("`values` must be an array of numeric type values.\n"
-     "Return an array which is the cumulative sum computed over `values`.\n"
-     "Results will wrap around on integer overflow.\n"
+    "Compute the cumulative sum over an array/chunked array of numbers",
+    ("`values` must be an array/chunked array of numeric type values.\n"
+     "Return an array/chunked array which is the cumulative sum computed\n"
+     "over `values`. Results will wrap around on integer overflow.\n"
      "Use function \"cumulative_sum_checked\" if you want overflow\n"
      "to return an error."),
     {"values"},
     "CumulativeSumOptions"};
 
 const FunctionDoc cumulative_sum_checked_doc{
-    "Compute the cumulative sum over an array of numbers",
-    ("`values` must be an array of numeric type values.\n"
-     "Return an array which is the cumulative sum computed over `values`.\n"
-     "This function returns an error on overflow. For a variant that\n"
-     "doesn't fail on overflow, use function \"cumulative_sum\"."),
+    "Compute the cumulative sum over an array/chunked array of numbers",
+    ("`values` must be an array/chunked array of numeric type values.\n"
+     "Return an array/chunked array which is the cumulative sum computed\n"
+     "over `values`. This function returns an error on overflow. For a\n"
+     "variant that doesn't fail on overflow, use function \"cumulative_sum\"."),
     {"values"},
     "CumulativeSumOptions"};
 
