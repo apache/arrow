@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include "./safe-call-into-r.h"
+
 #include <R_ext/Riconv.h>
 
 #include <arrow/buffer_builder.h>
@@ -26,8 +28,6 @@
 #include <arrow/io/memory.h>
 #include <arrow/io/transform.h>
 #include <arrow/util/key_value_metadata.h>
-
-#include <thread>
 
 // ------ arrow::io::Readable
 
@@ -215,8 +215,7 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
  public:
   explicit RConnectionFileInterface(cpp11::sexp connection_sexp)
       : connection_sexp_(connection_sexp),
-        closed_(false),
-        thread_id_(std::this_thread::get_id()) {
+        closed_(false) {
     check_closed();
   }
 
@@ -224,6 +223,8 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
     if (closed_) {
       return arrow::Status::OK();
     }
+
+    auto result = SafeCallIntoR<bool>([&]() {});
 
     RETURN_NOT_OK(check_thread_is_r_main());
     cpp11::package("base")["close"](connection_sexp_);
@@ -312,17 +313,8 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
     }
   }
 
-  arrow::Status check_thread_is_r_main() {
-    if (std::this_thread::get_id() != thread_id_) {
-      return arrow::Status::IOError("Attempt to call into R from a non-R thread");
-    } else {
-      return arrow::Status::OK();
-    }
-  }
-
  private:
   bool closed_;
-  std::thread::id thread_id_;
 
   bool check_closed() {
     if (closed_) {
