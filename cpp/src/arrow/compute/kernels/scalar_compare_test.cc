@@ -502,6 +502,52 @@ TEST(TestCompareTimestamps, DifferentParameters) {
   }
 }
 
+TEST(TestCompareTimestamps, ScalarArray) {
+  const char* scalar_json = R"("1970-01-02")";
+  const char* array_json = R"(["1970-01-02","2000-02-01","1900-02-28"])";
+
+  auto CheckArrayCase = [&](std::shared_ptr<DataType> scalar_type,
+                            std::shared_ptr<DataType> array_type,
+                            CompareOperator op, const char* expected_json) {
+    auto lhs = ScalarFromJSON(scalar_type, scalar_json);
+    auto rhs = ArrayFromJSON(array_type, array_json);
+    auto expected = ArrayFromJSON(boolean(), expected_json);
+    if (scalar_type->Equals(array_type)) {
+      ASSERT_OK_AND_ASSIGN(Datum result,
+                           CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
+      AssertArraysEqual(*expected, *result.make_array(), /*verbose=*/true);
+    } else {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr(
+              "Cannot compare timestamp with timezone to timestamp without timezone"),
+          CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
+    }
+  };
+
+  for (auto unit : {TimeUnit::SECOND,
+                    TimeUnit::MILLI,
+                    TimeUnit::MICRO,
+                    TimeUnit::NANO,
+		   }) {
+    for (auto types :
+         std::vector<std::pair<std::shared_ptr<DataType>, std::shared_ptr<DataType>>> {
+	   {timestamp(unit), timestamp(unit)},
+           {timestamp(unit), timestamp(unit, "utc")},
+           {timestamp(unit, "utc"), timestamp(unit)},
+           {timestamp(unit, "utc"), timestamp(unit, "utc")},
+         }) {
+      auto t0 = types.first, t1 = types.second;
+      CheckArrayCase(t0, t1, CompareOperator::EQUAL, "[true, false, false]");
+      CheckArrayCase(t0, t1, CompareOperator::NOT_EQUAL, "[false, true, true]");
+      CheckArrayCase(t0, t1, CompareOperator::LESS, "[false, true, false]");
+      CheckArrayCase(t0, t1, CompareOperator::LESS_EQUAL, "[true, true, false]");
+      CheckArrayCase(t0, t1, CompareOperator::GREATER, "[false, false, true]");
+      CheckArrayCase(t0, t1, CompareOperator::GREATER_EQUAL, "[true, false, true]");
+    }
+  }
+}
+
 template <typename ArrowType>
 class TestCompareDecimal : public ::testing::Test {};
 TYPED_TEST_SUITE(TestCompareDecimal, DecimalArrowTypes);

@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
+#include <iostream>
 #include "arrow/engine/substrait/relation_internal.h"
 
 #include "arrow/compute/api_scalar.h"
@@ -75,11 +75,72 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
+Result<FieldRef> FromProto(const substrait::Expression& expr, const std::string& what) {
+  int32_t index;
+  switch (expr.rex_type_case()) {
+    case substrait::Expression::RexTypeCase::kSelection: {
+      const auto& selection = expr.selection();
+      switch (selection.root_type_case()) {
+        case substrait::Expression_FieldReference::RootTypeCase::kRootReference: {
+          break;
+        }
+        default: {
+          return Status::NotImplemented(std::string(
+              "substrait::Expression with non-root-reference for ") + what);
+        }
+      }
+      switch (selection.reference_type_case()) {
+        case substrait::Expression_FieldReference::ReferenceTypeCase::kDirectReference: {
+          const auto& direct_reference = selection.direct_reference();
+          switch (direct_reference.reference_type_case()) {
+            case substrait::Expression_ReferenceSegment::ReferenceTypeCase::kStructField:
+            {
+              break;
+            }
+            default: {
+              return Status::NotImplemented(std::string(
+                  "substrait::Expression with non-struct-field for ") + what);
+            }
+          }
+          const auto& struct_field = direct_reference.struct_field();
+          if (struct_field.has_child()) {
+            return Status::NotImplemented(std::string(
+                "substrait::Expression with non-flat struct-field for ") + what);
+          }
+          index = struct_field.field();
+          break;
+        }
+        default: {
+          return Status::NotImplemented(std::string(
+              "substrait::Expression with non-direct reference for ") + what);
+        }
+      }
+      break;
+    }
+    default: {
+      return Status::NotImplemented(std::string(
+          "substrait::AsOfMergeRel with non-selection for ") + what);
+    }
+  }
+  return FieldRef(FieldPath({index}));
+}
+
+Result<std::vector<FieldRef>> FromProto(
+    const google::protobuf::RepeatedPtrField<substrait::Expression>& exprs,
+    const std::string& what) {
+  std::vector<FieldRef> fields;
+  int size = exprs.size();
+  for (int i = 0; i < size; i++) {
+      ARROW_ASSIGN_OR_RAISE(
+          FieldRef field, FromProto(exprs[i], what));
+      fields.push_back(field);
+  }
+  return fields;
+}
+
 Result<compute::Declaration> FromProtoInternal(
     const substrait::Rel& rel,
-    const ExtensionSet& ext_set,
-    std::vector<std::string>::const_iterator& names_begin,
-    std::vector<std::string>::const_iterator& names_end) {
+    const ExtensionSet& ext_set) {
   static bool dataset_init = false;
   if (!dataset_init) {
     dataset_init = true;
@@ -185,8 +246,7 @@ Result<compute::Declaration> FromProtoInternal(
       if (!write.has_input()) {
         return Status::Invalid("substrait::WriteRel with no input relation");
       }
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(write.input(), ext_set,
-                                                          names_begin, names_end));
+      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(write.input(), ext_set));
 
       if (!write.has_local_files()) {
         return Status::NotImplemented(
@@ -275,8 +335,7 @@ Result<compute::Declaration> FromProtoInternal(
       if (!filter.has_input()) {
         return Status::Invalid("substrait::FilterRel with no input relation");
       }
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(filter.input(), ext_set,
-                                                          names_begin, names_end));
+      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(filter.input(), ext_set));
 
       if (!filter.has_condition()) {
         return Status::Invalid("substrait::FilterRel with no condition expression");
@@ -296,27 +355,18 @@ Result<compute::Declaration> FromProtoInternal(
       if (!project.has_input()) {
         return Status::Invalid("substrait::ProjectRel with no input relation");
       }
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(project.input(), ext_set,
-                                                          names_begin, names_end));
+      ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(project.input(), ext_set));
 
-      auto expr_size =
-          static_cast<decltype(names_end - names_begin)>(project.expressions_size());
-      auto names_mid = names_end - std::min(expr_size, names_end - names_begin);
-      auto names_iter = names_mid;
-      std::vector<std::string> project_names;
       std::vector<compute::Expression> expressions;
       for (const auto& expr : project.expressions()) {
         expressions.emplace_back();
         ARROW_ASSIGN_OR_RAISE(expressions.back(), FromProto(expr, ext_set));
-        project_names.push_back(
-            names_iter != names_end ? *names_iter++ : expressions.back().ToString());
       }
-      names_end = names_mid;
 
       return compute::Declaration::Sequence({
           std::move(input),
           {"project",
-           compute::ProjectNodeOptions{std::move(expressions), std::move(project_names)}
+           compute::ProjectNodeOptions{std::move(expressions)}
           },
       });
     }
@@ -335,22 +385,25 @@ Result<compute::Declaration> FromProtoInternal(
       if (as_of_merge.version_case() != substrait::AsOfMergeRel::VersionCase::kV1) {
         return Status::Invalid("substrait::AsOfMergeRel with unsupported version");
       }
+
+      const auto& v1 = as_of_merge.v1();
+      ARROW_ASSIGN_OR_RAISE(
+          auto key_fields, FromProto(v1.key_fields(), "AsOfMerge key field"));
+      ARROW_ASSIGN_OR_RAISE(
+          auto time_fields, FromProto(v1.time_fields(), "AsOfMerge time field"));
+      int64_t tolerance = as_of_merge.v1().tolerance();
+
       std::vector<compute::Declaration::Input> inputs;
       inputs.reserve(inputs_size);
       for (auto input_rel : as_of_merge.inputs()) {
-        ARROW_ASSIGN_OR_RAISE(auto decl, FromProtoInternal(input_rel, ext_set,
-                                                           names_begin, names_end));
-	auto input = compute::Declaration::Input(decl);
-	inputs.push_back(input);
+        ARROW_ASSIGN_OR_RAISE(auto decl, FromProtoInternal(input_rel, ext_set));
+        auto input = compute::Declaration::Input(decl);
+        inputs.push_back(input);
       }
       return compute::Declaration{
           "as_of_merge",
-	  inputs,
-	  compute::AsOfMergeV1NodeOptions{
-              as_of_merge.v1().key_column(),
-              as_of_merge.v1().time_column(),
-              as_of_merge.v1().tolerance(),
-          }
+          inputs,
+          compute::AsOfMergeV1NodeOptions{key_fields, time_fields, tolerance}
       };
     }
 
@@ -366,9 +419,18 @@ Result<compute::Declaration> FromProtoInternal(
 Result<compute::Declaration> FromProto(const substrait::Rel& rel,
                                        const ExtensionSet& ext_set,
                                        const std::vector<std::string>& names) {
-  std::vector<std::string>::const_iterator names_begin = names.begin();
-  std::vector<std::string>::const_iterator names_end = names.end();
-  return FromProtoInternal(rel, ext_set, names_begin, names_end);
+  ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(rel, ext_set));
+  int names_size = names.size();
+  std::vector<compute::Expression> expressions;
+  for (int i = 0; i < names_size; i++) {
+    expressions.push_back(compute::field_ref(FieldRef(i)));
+  }
+  return compute::Declaration::Sequence({
+      std::move(input),
+      {"project",
+       compute::ProjectNodeOptions{std::move(expressions), std::move(names)}
+      },
+  });
 }
 
 }  // namespace engine

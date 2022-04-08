@@ -247,6 +247,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
       // for Substrait, and include mappings for all of them here. See
       // ARROW-15535.
       for (std::pair<util::string_view, util::string_view> name_pair : {
+               std::make_pair("and", "and"),
                std::make_pair("add", "add"),
                std::make_pair("divide", "divide"),
                std::make_pair("power", "power"),

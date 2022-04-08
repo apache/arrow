@@ -424,6 +424,10 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   Status Finish(std::shared_ptr<StringArray>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override { return utf8(); }
+
+  util::string_view operator[](int64_t i) const {
+    return GetView(i);
+  }
 };
 
 /// \class LargeBinaryBuilder
