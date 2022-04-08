@@ -2970,6 +2970,43 @@ def write_to_dataset(table, root_path, partition_cols=None,
         removed in a future version). The legacy implementation still
         supports `partition_filename_cb` and `metadata_collector` keywords
         but is less efficient when using partition columns.
+    format : FileFormat or str
+        The format in which to write the dataset. Currently supported:
+        "parquet", "ipc"/"arrow"/"feather", and "csv". If a FileSystemDataset
+        is being written and `format` is not specified, it defaults to the
+        same format as the specified FileSystemDataset. When writing a
+        Table or RecordBatch, this keyword is required.
+    file_options : pyarrow.dataset.FileWriteOptions, optional
+        FileFormat specific write options, created using the
+        ``FileFormat.make_write_options()`` function.
+    use_threads : bool, default True
+        Write files in parallel. If enabled, then maximum parallelism will be
+        used determined by the number of available CPU cores.
+    schema : Schema, optional
+    partitioning : Partitioning or list[str], optional
+        The partitioning scheme specified with the ``partitioning()``
+        function or a list of field names. When providing a list of
+        field names, you can use ``partitioning_flavor`` to drive which
+        partitioning type should be used.
+    file_visitor : function
+        If set, this function will be called with a WrittenFile instance
+        for each file created during the call.  This object will have both
+        a path attribute and a metadata attribute.
+
+        The path attribute will be a string containing the path to
+        the created file.
+
+        The metadata attribute will be the parquet metadata of the file.
+        This metadata will have the file path attribute set and can be used
+        to build a _metadata file.  The metadata attribute will be None if
+        the format is not parquet.
+
+        Example visitor which simple collects the filenames created::
+
+            visited_paths = []
+
+            def file_visitor(written_file):
+                visited_paths.append(written_file.path)
     **kwargs : dict,
         Additional kwargs for write_table function. See docstring for
         `write_table` or `ParquetWriter` for more information.
