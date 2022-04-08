@@ -214,8 +214,7 @@ void io___BufferOutputStream__Write(
 class RConnectionFileInterface : public virtual arrow::io::FileInterface {
  public:
   explicit RConnectionFileInterface(cpp11::sexp connection_sexp)
-      : connection_sexp_(connection_sexp),
-        closed_(false) {
+      : connection_sexp_(connection_sexp), closed_(false) {
     check_closed();
   }
 
@@ -224,10 +223,12 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::OK();
     }
 
-    auto result = SafeCallIntoR<bool>([&]() {});
+    auto result = SafeCallIntoR<bool>([&]() {
+      cpp11::package("base")["close"](connection_sexp_);
+      return true;
+    });
 
-    RETURN_NOT_OK(check_thread_is_r_main());
-    cpp11::package("base")["close"](connection_sexp_);
+    RETURN_NOT_OK(result);
     closed_ = true;
     return arrow::Status::OK();
   }
@@ -254,8 +255,7 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    try {
-      RETURN_NOT_OK(check_thread_is_r_main());
+    return SafeCallIntoR<int64_t>([&] {
       cpp11::function read_bin = cpp11::package("base")["readBin"];
       cpp11::writable::raws ptype((R_xlen_t)0);
       cpp11::integers n = cpp11::as_sexp<int>(nbytes);
@@ -265,9 +265,7 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       int64_t result_size = cpp11::safe[Rf_xlength](result);
       memcpy(out, cpp11::safe[RAW](result), result_size);
       return result_size;
-    } catch (std::exception& e) {
-      return arrow::Status::IOError(e.what());
-    }
+    });
   }
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> ReadBase(int64_t nbytes) {
@@ -286,17 +284,16 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    try {
-      RETURN_NOT_OK(check_thread_is_r_main());
+    auto result = SafeCallIntoR<bool>([&]() {
       cpp11::writable::raws data_raw(nbytes);
       memcpy(cpp11::safe[RAW](data_raw), data, nbytes);
 
       cpp11::function write_bin = cpp11::package("base")["writeBin"];
       write_bin(data_raw, connection_sexp_);
-      return arrow::Status::OK();
-    } catch (std::exception& e) {
-      return arrow::Status::IOError(e.what());
-    }
+      return true;
+    });
+
+    return result.status();
   }
 
   arrow::Status SeekBase(int64_t pos) {
@@ -304,13 +301,12 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    try {
-      RETURN_NOT_OK(check_thread_is_r_main());
+    auto result = SafeCallIntoR<bool>([&]() {
       cpp11::package("base")["seek"](connection_sexp_, cpp11::as_sexp<double>(pos));
-      return arrow::Status::OK();
-    } catch (std::exception& e) {
-      return arrow::Status::IOError(e.what());
-    }
+      return true;
+    });
+
+    return result.status();
   }
 
  private:
@@ -321,17 +317,15 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return true;
     }
 
-    // safer than maybe calling into R and crashing it while checking
-    if (!check_thread_is_r_main().ok()) {
-      closed_ = true;
-      return true;
-    }
-
-    try {
+    auto is_open_result = SafeCallIntoR<bool>([&]() {
       cpp11::sexp result = cpp11::package("base")["isOpen"](connection_sexp_);
-      closed_ = !cpp11::as_cpp<bool>(result);
-    } catch (std::exception& e) {
+      return cpp11::as_cpp<bool>(result);
+    });
+
+    if (!is_open_result.ok()) {
       closed_ = true;
+    } else {
+      closed_ = !is_open_result.ValueUnsafe();
     }
 
     return closed_;
