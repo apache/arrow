@@ -538,39 +538,42 @@ test_that("Table supports rbind", {
 })
 
 test_that("Table supports cbind", {
-  expect_error(
+  expect_snapshot_error(
     cbind(
-      Table$create(a = 1:10, ),
-      Table$create(a = c("a", "b"))
-    ),
-    regexp = "Non-scalar inputs must have an equal number of rows"
+      arrow_table(a = 1:10, ),
+      arrow_table(a = c("a", "b"))
+    )
   )
 
-  tables <- list(
-    Table$create(a = 1:10, b = Scalar$create("x")),
-    Table$create(a = 11:20, b = Scalar$create("y")),
-    Table$create(c = rnorm(10))
+  actual <- cbind(
+    arrow_table(a = 1:10, b = Scalar$create("x")),
+    arrow_table(a = 11:20, b = Scalar$create("y")),
+    arrow_table(c = 1:10)
   )
-  expected <- Table$create(do.call(cbind, lapply(tables, function(table) as.data.frame(table))))
-  actual <- do.call(cbind, tables)
+  expected <- arrow_table(cbind(
+    data.frame(a = 1:10, b = "x"),
+    data.frame(a = 11:20, b = "y"),
+    data.frame(c = 1:10)
+  ))
   expect_equal(actual, expected, ignore_attr = TRUE)
 
-  # Handles a variety of input types
-  inputs <- list(
-    Table$create(a = 1L:2L),
-    b = Array$create(4:5),
-    c = factor(c("a", "b")),
-    d = 1L
+  # Handles Arrow arrays
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = Array$create(4:5)),
+    arrow_table(a = 1:2, b = 4:5)
   )
 
-  r_inputs <- inputs
-  r_inputs[[1]] <- as.data.frame(r_inputs[[1]])
-  r_inputs[["b"]] <- as.vector(r_inputs[["b"]])
+  # Handle factors
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = factor(c("a", "b"))),
+    arrow_table(a = 1:2, b = factor(c("a", "b")))
+  )
 
-  expected <- Table$create(do.call(cbind, r_inputs))
-  actual <- do.call(cbind, inputs)
-  expect_equal(expected, actual, ignore_attr = TRUE)
-  expect_equal(names(actual), c("a", "b", "c", "d"))
+  # Handles scalar values
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = "x"),
+    arrow_table(a = 1:2, b = c("x", "x"))
+  )
 })
 
 test_that("cbind.Table handles record batches and tables", {
@@ -578,15 +581,10 @@ test_that("cbind.Table handles record batches and tables", {
   # there are multiple arguments with distinct cbind implementations
   skip_if(getRversion() < "4.0.0", "R 3.6 cbind dispatch rules prevent this behavior")
 
-  inputs <- list(
-    Table$create(a = 1L:2L),
-    RecordBatch$create(b = 4:5)
+  expect_equal(
+    cbind(arrow_table(a = 1L:2L), record_batch(b = 4:5)),
+    arrow_table(a = 1L:2L, b = 4:5)
   )
-
-  expected <- Table$create(do.call(cbind, map(inputs, as.data.frame)))
-  actual <- do.call(cbind, inputs)
-  expect_equal(expected, actual, ignore_attr = TRUE)
-  expect_equal(names(actual), c("a", "b"))
 })
 
 test_that("ARROW-11769 - grouping preserved in table creation", {

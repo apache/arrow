@@ -514,50 +514,52 @@ test_that("record_batch() with different length arrays", {
 })
 
 test_that("RecordBatch doesn't support rbind", {
-  expect_error(
+  expect_snapshot_error(
     rbind(
-      RecordBatch$create(a = 1:10),
-      RecordBatch$create(a = 2:4)
-    ),
-    regexp = "Use Table\\$create"
+      record_batch(a = 1:10),
+      record_batch(a = 2:4)
+    )
   )
 })
 
 test_that("RecordBatch supports cbind", {
-  expect_error(
+  expect_snapshot_error(
     cbind(
-      RecordBatch$create(a = 1:10, ),
-      RecordBatch$create(a = c("a", "b"))
-    ),
-    regexp = "Non-scalar inputs must have an equal number of rows"
+      record_batch(a = 1:10),
+      record_batch(a = c("a", "b"))
+    )
   )
 
-  batches <- list(
-    RecordBatch$create(a = c(1, 2), b = c("a", "b")),
-    RecordBatch$create(a = c("d", "c")),
-    RecordBatch$create(c = c(2, 3))
+  actual <- cbind(
+    record_batch(a = c(1, 2), b = c("a", "b")),
+    record_batch(a = c("d", "c")),
+    record_batch(c = c(2, 3))
+  )
+  expected <- record_batch(
+    a = c(1, 2),
+    b = c("a", "b"),
+    a = c("d", "c"),
+    c = c(2, 3)
+  )
+  expect_equal(actual, expected)
+
+  # Handles arrays
+  expect_equal(
+    cbind(record_batch(a = 1:2), b = Array$create(4:5)),
+    record_batch(a = 1:2, b = 4:5)
   )
 
-  expected <- RecordBatch$create(
-    do.call(cbind, lapply(batches, function(batch) as.data.frame(batch)))
+  # Handles base factors
+  expect_equal(
+    cbind(record_batch(a = 1:2), b = factor(c("a", "b"))),
+    record_batch(a = 1:2, b = factor(c("a", "b")))
   )
-  expect_equal(do.call(cbind, batches), expected, ignore_attr = TRUE)
 
-  # Handles a variety of input types
-  inputs <- list(
-    RecordBatch$create(a = 1:2),
-    b = Array$create(4:5),
-    c = factor(c("a", "b")),
-    d = 1L
+  # Handles base scalars
+  expect_equal(
+    cbind(record_batch(a = 1:2), b = 1L),
+    record_batch(a = 1:2, b = rep(1L, 2))
   )
-  r_inputs <- inputs
-  r_inputs[[1]] <- as.data.frame(r_inputs[[1]])
-  r_inputs[["b"]] <- as.vector(r_inputs[["b"]])
-
-  expected <- RecordBatch$create(do.call(cbind, r_inputs))
-  actual <- do.call(cbind, inputs)
-  expect_equal(expected, actual, ignore_attr = TRUE)
-  expect_equal(names(actual), c("a", "b", "c", "d"))
 })
 
 test_that("Handling string data with embedded nuls", {
