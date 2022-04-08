@@ -38,7 +38,6 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.IntSupplier;
 
-
 /**
  * Base Jdbc Accessor.
  */
