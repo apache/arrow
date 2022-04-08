@@ -80,6 +80,8 @@ cdef class ChunkedArray(_PandasConvertible):
     @property
     def type(self):
         """
+        Return data type of a ChunkedArray.
+
         Examples
         --------
         >>> import pyarrow as pa
