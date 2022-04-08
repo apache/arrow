@@ -2926,7 +2926,7 @@ def _mkdir_if_not_exists(fs, path):
 
 def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
-                     use_legacy_dataset=False, **kwargs):
+                     use_legacy_dataset=None, **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -3001,6 +3001,15 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
     ['dataset_name_4/part-0.parquet']
     """
+    if use_legacy_dataset is None:
+        # if partition_filename_cb is specified ->
+        # default to the old implementation
+        if partition_filename_cb:
+            use_legacy_dataset = True
+        # otherwise the default is False
+        else:
+            use_legacy_dataset = False
+
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
 
