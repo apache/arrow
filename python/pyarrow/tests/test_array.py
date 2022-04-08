@@ -36,10 +36,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 
-def fail_always():
-    assert False
 
-    
 def test_total_bytes_allocated():
     assert pa.total_allocated_bytes() == 0
 
