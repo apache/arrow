@@ -144,6 +144,8 @@ reference:
       - buffer
       - read_message
       - concat_arrays
+      - ExtensionArray
+      - vctrs_extension_array
   - title: Arrow data types and schema
     contents:
       - Schema
@@ -156,6 +158,9 @@ reference:
       - DataType
       - DictionaryType
       - FixedWidthType
+      - new_extension_type
+      - vctrs_extension_type
+      - ExtensionType
   - title: Flight
     contents:
       - load_flight_server
