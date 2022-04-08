@@ -342,8 +342,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private int port;
     private String username;
     private String password;
-    private String keyStorePath;
-    private String keyStorePassword;
+    private String trustStorePath;
+    private String trustStorePassword;
     private String token;
     private boolean useTls;
     private boolean disableCertificateVerification;
@@ -397,22 +397,22 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     /**
      * Sets the KeyStore path for this handler.
      *
-     * @param keyStorePath the KeyStore path.
+     * @param trustStorePath the KeyStore path.
      * @return this instance.
      */
-    public Builder withTrustStorePath(final String keyStorePath) {
-      this.keyStorePath = keyStorePath;
+    public Builder withTrustStorePath(final String trustStorePath) {
+      this.trustStorePath = trustStorePath;
       return this;
     }
 
     /**
      * Sets the KeyStore password for this handler.
      *
-     * @param keyStorePassword the KeyStore password.
+     * @param trustStorePassword the KeyStore password.
      * @return this instance.
      */
-    public Builder withTrustStorePassword(final String keyStorePassword) {
-      this.keyStorePassword = keyStorePassword;
+    public Builder withTrustStorePassword(final String trustStorePassword) {
+      this.trustStorePassword = trustStorePassword;
       return this;
     }
 
@@ -544,14 +544,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         if (disableCertificateVerification) {
           clientBuilder.verifyServer(false);
         } else {
-          if (keyStorePath != null) {
+          if (useSystemTrustStore) {
             clientBuilder.trustedCertificates(
-                ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
-          } else if (useSystemTrustStore && !ClientAuthenticationUtils.isLinux()) {
+                ClientAuthenticationUtils.getCertificateInputStreamFromSystem(trustStorePassword));
+          } else if (trustStorePath != null) {
             clientBuilder.trustedCertificates(
-                ClientAuthenticationUtils.getCertificateInputStreamFromSystem());
-          } else if (ClientAuthenticationUtils.isLinux()) {
-            clientBuilder.trustedCertificates(ClientAuthenticationUtils.getCertificateInputStreamFromJVM());
+                ClientAuthenticationUtils.getCertificateStream(trustStorePath, trustStorePassword));
           }
         }
 
