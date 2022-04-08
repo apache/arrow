@@ -1234,6 +1234,84 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractDate) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalSubtractTimestampAndDate) {
+  std::string seconds_between_date_and_time =
+      "[59, 84203, 3560, 12800, 3905, 7810, 11715, 15620, "
+      "19525, 23430, 27335, 31240, 35145, 0, 0, 3723, null]";
+  std::string milliseconds_between_date_and_time =
+      "[59000, 84203000, 3560000, 12800000, 3905000, 7810000, 11715000, 15620000, "
+      "19525000, 23430000, 27335000, 31240000, 35145000, 0, 0, 3723000, null]";
+  std::string microseconds_between_date_and_time =
+      "[59000000, 84203000000, 3560000000, 12800000000, 3905000000, 7810000000, "
+      "11715000000, 15620000000, 19525000000, 23430000000, 27335000000, 31240000000, "
+      "35145000000, 0, 0, 3723000000, null]";
+  std::string nanoseconds_between_date_and_time =
+      "[59000000000, 84203000000000, 3560000000000, 12800000000000, 3905000000000, "
+      "7810000000000, 11715000000000, 15620000000000, 19525000000000, 23430000000000, "
+      "27335000000000, 31240000000000, 35145000000000, 0, 0, 3723000000000, null]";
+  std::string seconds_between_date_and_time2 =
+      "[-59, -84203, -3560, -12800, -3905, -7810, -11715, -15620, "
+      "-19525, -23430, -27335, -31240, -35145, 0, 0, -3723, null]";
+  std::string milliseconds_between_date_and_time2 =
+      "[-59000, -84203000, -3560000, -12800000, -3905000, -7810000, -11715000,"
+      "-15620000, -19525000, -23430000, -27335000, -31240000, -35145000, 0, 0, "
+      "-3723000, null]";
+  std::string microseconds_between_date_and_time2 =
+      "[-59000000, -84203000000, -3560000000, -12800000000, -3905000000, -7810000000, "
+      "-11715000000, -15620000000, -19525000000, -23430000000, -27335000000,"
+      "-31240000000, -35145000000, 0, 0, -3723000000, null]";
+  std::string nanoseconds_between_date_and_time2 =
+      "[-59000000000, -84203000000000, -3560000000000, -12800000000000, "
+      "-3905000000000, -7810000000000, -11715000000000, -15620000000000, "
+      "-19525000000000, -23430000000000, -27335000000000, -31240000000000, "
+      "-35145000000000, 0, 0, -3723000000000, null]";
+
+  auto arr_date32s = ArrayFromJSON(date32(), date32s);
+  auto arr_date32s2 = ArrayFromJSON(date32(), date32s2);
+  auto arr_date64s = ArrayFromJSON(date64(), date64s);
+  auto arr_date64s2 = ArrayFromJSON(date64(), date64s2);
+  auto timestamp_s = ArrayFromJSON(timestamp(TimeUnit::SECOND), times_seconds_precision);
+  auto timestamp_ms = ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
+  auto timestamp_us = ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
+  auto timestamp_ns = ArrayFromJSON(timestamp(TimeUnit::NANO), times_seconds_precision);
+  auto between_s =
+      ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_date_and_time);
+  auto between_ms =
+      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date_and_time);
+  auto between_us =
+      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_date_and_time);
+  auto between_ns =
+      ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_date_and_time);
+  auto between_s2 =
+      ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_date_and_time2);
+  auto between_ms2 =
+      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date_and_time2);
+  auto between_us2 =
+      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_date_and_time2);
+  auto between_ns2 =
+      ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_date_and_time2);
+
+  for (auto op : {"subtract", "subtract_checked"}) {
+    CheckScalarBinary(op, timestamp_s, arr_date32s, between_s);
+    CheckScalarBinary(op, timestamp_ms, arr_date32s, between_ms);
+    CheckScalarBinary(op, timestamp_us, arr_date32s, between_us);
+    CheckScalarBinary(op, timestamp_ns, arr_date32s, between_ns);
+    CheckScalarBinary(op, timestamp_s, arr_date64s, between_ms);
+    CheckScalarBinary(op, timestamp_ms, arr_date64s, between_ms);
+    CheckScalarBinary(op, timestamp_us, arr_date64s, between_us);
+    CheckScalarBinary(op, timestamp_ns, arr_date64s, between_ns);
+
+    CheckScalarBinary(op, arr_date32s, timestamp_s, between_s2);
+    CheckScalarBinary(op, arr_date32s, timestamp_ms, between_ms2);
+    CheckScalarBinary(op, arr_date32s, timestamp_us, between_us2);
+    CheckScalarBinary(op, arr_date32s, timestamp_ns, between_ns2);
+    CheckScalarBinary(op, arr_date64s, timestamp_s, between_ms2);
+    CheckScalarBinary(op, arr_date64s, timestamp_ms, between_ms2);
+    CheckScalarBinary(op, arr_date64s, timestamp_us, between_us2);
+    CheckScalarBinary(op, arr_date64s, timestamp_ns, between_ns2);
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalSubtractTimestamp) {
   for (auto op : {"subtract", "subtract_checked"}) {
     for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {

@@ -328,7 +328,7 @@ def _export_import_batch_reader(ptr_stream, reader_factory):
     # Delete and recreate C++ object from exported pointer
     del reader, batches
 
-    reader_new = pa.ipc.RecordBatchReader._import_from_c(ptr_stream)
+    reader_new = pa.RecordBatchReader._import_from_c(ptr_stream)
     assert reader_new.schema == schema
     got_batches = list(reader_new)
     del reader_new
@@ -344,7 +344,7 @@ def _export_import_batch_reader(ptr_stream, reader_factory):
         reader._export_to_c(ptr_stream)
         del reader, batches
 
-        reader_new = pa.ipc.RecordBatchReader._import_from_c(ptr_stream)
+        reader_new = pa.RecordBatchReader._import_from_c(ptr_stream)
         got_df = reader_new.read_pandas()
         del reader_new
         tm.assert_frame_equal(expected_df, got_df)
@@ -355,7 +355,7 @@ def make_ipc_stream_reader(schema, batches):
 
 
 def make_py_record_batch_reader(schema, batches):
-    return pa.ipc.RecordBatchReader.from_batches(schema, batches)
+    return pa.RecordBatchReader.from_batches(schema, batches)
 
 
 @needs_cffi
@@ -375,7 +375,7 @@ def test_export_import_batch_reader(reader_factory):
 
     # Now released
     with assert_stream_released:
-        pa.ipc.RecordBatchReader._import_from_c(ptr_stream)
+        pa.RecordBatchReader._import_from_c(ptr_stream)
 
 
 @needs_cffi
@@ -393,7 +393,7 @@ def test_imported_batch_reader_error():
     reader._export_to_c(ptr_stream)
     del reader
 
-    reader_new = pa.ipc.RecordBatchReader._import_from_c(ptr_stream)
+    reader_new = pa.RecordBatchReader._import_from_c(ptr_stream)
     batch = reader_new.read_next_batch()
     assert batch == batches[0]
     with pytest.raises(OSError,
@@ -406,7 +406,7 @@ def test_imported_batch_reader_error():
     reader._export_to_c(ptr_stream)
     del reader
 
-    reader_new = pa.ipc.RecordBatchReader._import_from_c(ptr_stream)
+    reader_new = pa.RecordBatchReader._import_from_c(ptr_stream)
     with pytest.raises(OSError,
                        match="Expected to be able to read 16 bytes "
                              "for message body, got 8"):

@@ -148,10 +148,6 @@ cdef class Dataset(_Weakrefable):
     can accelerate queries that only touch some partitions (files).
     """
 
-    cdef:
-        shared_ptr[CDataset] wrapped
-        CDataset* dataset
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -1354,8 +1350,9 @@ cdef class KeyValuePartitioning(Partitioning):
             if arr.get() == nullptr:
                 # Partitioning object has not been created through
                 # inspected Factory
-                continue
-            res.append(pyarrow_wrap_array(arr))
+                res.append(None)
+            else:
+                res.append(pyarrow_wrap_array(arr))
         return res
 
 
@@ -2049,8 +2046,10 @@ class TaggedRecordBatch(collections.namedtuple(
 
     Parameters
     ----------
-    record_batch : The record batch.
-    fragment : fragment of the record batch.
+    record_batch : RecordBatch
+        The record batch.
+    fragment : Fragment
+        Fragment of the record batch.
     """
 
 
@@ -2555,7 +2554,12 @@ cdef class Scanner(_Weakrefable):
         return GetResultValue(result)
 
     def to_reader(self):
-        """Consume this scanner as a RecordBatchReader."""
+        """Consume this scanner as a RecordBatchReader.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
         reader.reader = GetResultValue(self.scanner.ToRecordBatchReader())

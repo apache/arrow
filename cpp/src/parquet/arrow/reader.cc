@@ -38,6 +38,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
+#include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
@@ -270,6 +271,17 @@ class FileReaderImpl : public FileReader {
       records_to_read +=
           reader_->metadata()->RowGroup(row_group)->ColumnChunk(i)->num_values();
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    std::string column_name = reader_->metadata()->schema()->Column(i)->name();
+    std::string phys_type =
+        TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
+    ::arrow::util::tracing::Span span;
+    START_SPAN(span, "parquet::arrow::read_column",
+               {{"parquet.arrow.columnindex", i},
+                {"parquet.arrow.columnname", column_name},
+                {"parquet.arrow.physicaltype", phys_type},
+                {"parquet.arrow.records_to_read", records_to_read}});
+#endif
     return reader->NextBatch(records_to_read, out);
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -1124,6 +1136,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
     row_group_generator = ::arrow::MakeReadaheadGenerator(std::move(row_group_generator),
                                                           row_group_readahead);
   }
+  WRAP_ASYNC_GENERATOR(std::move(row_group_generator));
   return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
 }
 

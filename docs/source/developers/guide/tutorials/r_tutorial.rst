@@ -52,12 +52,12 @@ to Arrow R package following the steps specified by the
 :ref:`step_by_step` section. Navigate there whenever there is
 some information you may find is missing here.
 
-The binding will be added to the ``expression.R`` file in the 
+The binding will be added to the ``expression.R`` file in the
 R package. But you can also follow these steps in case you are
 adding a binding that will live somewhere else.
 
 .. seealso::
-   
+
    To read more about the philosophy behind R bindings, refer to the
    `Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.
 
@@ -219,7 +219,7 @@ tests we have is in ``test-dplyr-funcs-datetime.R``:
      )
    })
 
-And 
+And
 
 .. code-block:: R
 
@@ -245,7 +245,7 @@ more research and code corrections.
    ℹ Testing arrow
    See arrow_info() for available features
    ✔ | F W S  OK | Context
-   ✖ | 1     230 | dplyr-funcs-datetime [1.4s]                                                                                             
+   ✖ | 1     230 | dplyr-funcs-datetime [1.4s]
    ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
    Failure (test-dplyr-funcs-datetime.R:187:3): strftime
    ``%>%`(...)` did not throw the expected error.
@@ -328,7 +328,7 @@ And ``git diff`` to see the changes in the files in order to spot any error we m
    @@ -444,6 +444,15 @@ test_that("extract wday from timestamp", {
       )
     })
-    
+
    +test_that("extract mday from timestamp", {
    +  compare_dplyr_binding(
    +    .input %>%
@@ -383,11 +383,11 @@ We can use ``git log`` to check the history of commits:
    Date:   Thu Jan 20 09:45:59 2022 +0900
 
        ARROW-15372: [C++][Gandiva] Gandiva now depends on boost/crc.hpp which is missing from the trimmed boost archive
-       
+
        See build error https://github.com/ursacomputing/crossbow/runs/4871392838?check_suite_focus=true#step:5:11762
-       
+
        Closes #12190 from kszucs/ARROW-15372
-       
+
        Authored-by: Krisztián Szűcs <szucs.krisztian@gmail.com>
        Signed-off-by: Sutou Kouhei <kou@clear-code.com>
 
@@ -411,10 +411,10 @@ on GitHub called origin.
    Writing objects: 100% (151/151), 35.78 KiB | 8.95 MiB/s, done.
    Total 151 (delta 129), reused 33 (delta 20), pack-reused 0
    remote: Resolving deltas: 100% (129/129), completed with 80 local objects.
-   remote: 
+   remote:
    remote: Create a pull request for 'ARROW-14816' on GitHub by visiting:
    remote:      https://github.com/AlenkaF/arrow/pull/new/ARROW-14816
-   remote: 
+   remote:
    To https://github.com/AlenkaF/arrow.git
     * [new branch]          ARROW-14816 -> ARROW-14816
 
@@ -423,7 +423,7 @@ to create a Pull Request. On the GitHub Arrow
 page (main or forked) we will see a yellow notice
 bar with a note that we made recent pushes to the branch
 ARROW-14816. That’s great, now we can make the Pull Request
-by clicking on **Compare & pull request**. 
+by clicking on **Compare & pull request**.
 
 .. figure:: /developers/images/R_tutorial_create_pr_notice.jpeg
    :scale: 60 %

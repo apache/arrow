@@ -74,6 +74,16 @@ test_that("transmute", {
   )
 })
 
+test_that("transmute respect bespoke dplyr implementation", {
+  ## see: https://github.com/tidyverse/dplyr/issues/6086
+  compare_dplyr_binding(
+    .input %>%
+      transmute(dbl, int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("transmute() with NULL inputs", {
   compare_dplyr_binding(
     .input %>%
@@ -87,6 +97,20 @@ test_that("empty transmute()", {
   compare_dplyr_binding(
     .input %>%
       transmute() %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("transmute with unnamed expressions", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, padded_strings) %>%
+      transmute(
+        int, # bare column name
+        nchar(padded_strings) # expression
+      ) %>%
+      filter(int > 5) %>%
       collect(),
     tbl
   )
@@ -329,13 +353,13 @@ test_that("dplyr::mutate's examples", {
   #>   <chr> <chr> <dbl>
   #> 1 a     b         3
   compare_dplyr_binding(
-    .input %>% mutate(z = x + y, .keep = "none") %>% collect(), # same as transmute()
+    .input %>% mutate(z = x + y, x, .keep = "none") %>% collect(),
     df
   )
-  #> # A tibble: 1 x 1
-  #>       z
-  #>   <dbl>
-  #> 1     3
+  #> # A tibble: 1 × 2
+  #>       x     z
+  #>   <dbl> <dbl>
+  #> 1     1     3
 
   # Grouping ----------------------------------------
   # The mutate operation may yield different results on grouped

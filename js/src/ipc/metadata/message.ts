@@ -297,6 +297,9 @@ function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = ne
 
 /** @ignore */
 function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
+    if (batch.compression() !== null) {
+        throw new Error('Record batch compression not implemented');
+    }
     return new RecordBatch(batch.length(), decodeFieldNodes(batch), decodeBuffers(batch, version));
 }
 

@@ -452,8 +452,8 @@ engine__internal__SubstraitFromJSON <- function(substrait_json) {
   .Call(`_arrow_engine__internal__SubstraitFromJSON`, substrait_json)
 }
 
-ExecPlan_run_substrait <- function(plan, serialized_plan, out_names) {
-  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan, out_names)
+ExecPlan_run_substrait <- function(plan, serialized_plan) {
+  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -1732,6 +1732,14 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
   .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
 }
 
+InitializeMainRThread <- function() {
+  invisible(.Call(`_arrow_InitializeMainRThread`))
+}
+
+TestSafeCallIntoR <- function(r_fun_that_returns_a_string, opt) {
+  .Call(`_arrow_TestSafeCallIntoR`, r_fun_that_returns_a_string, opt)
+}
+
 Array__GetScalar <- function(x, i) {
   .Call(`_arrow_Array__GetScalar`, x, i)
 }
@@ -1943,3 +1951,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

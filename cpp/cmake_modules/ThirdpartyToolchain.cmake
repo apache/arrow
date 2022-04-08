@@ -3852,7 +3852,10 @@ macro(build_google_cloud_cpp_storage)
       # Compile only the storage library and its dependencies. To enable
       # other services (Spanner, Bigtable, etc.) add them (as a list) to this
       # parameter. Each has its own `google-cloud-cpp::*` library.
-      -DGOOGLE_CLOUD_CPP_ENABLE=storage)
+      -DGOOGLE_CLOUD_CPP_ENABLE=storage
+      # We need this to build with OpenSSL 3.0.
+      # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
+      -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF)
   if(OPENSSL_ROOT_DIR)
     list(APPEND GOOGLE_CLOUD_CPP_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
   endif()
