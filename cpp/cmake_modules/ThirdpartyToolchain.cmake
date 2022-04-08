@@ -2593,8 +2593,9 @@ endmacro()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-macro(build_absl_once)
-  if(NOT TARGET absl_ep)
+macro(resolve_dependency_absl)
+  # Choose one of built absl::* targets
+  if(NOT TARGET absl::algorithm)
     message(STATUS "Building Abseil-cpp from source")
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
     set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
@@ -3451,6 +3452,7 @@ macro(build_absl_once)
     # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
     file(MAKE_DIRECTORY ${ABSL_INCLUDE_DIR})
 
+    set(ABSL_VENDORED TRUE)
   endif()
 endmacro()
 
@@ -3464,8 +3466,8 @@ macro(build_grpc)
   get_target_property(c-ares_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${c-ares_INCLUDE_DIR})
 
-  # First need to build Abseil
-  build_absl_once()
+  # First need Abseil
+  resolve_dependency_absl()
 
   message(STATUS "Building gRPC from source")
 
@@ -3498,7 +3500,9 @@ macro(build_grpc)
 
   add_custom_target(grpc_dependencies)
 
-  add_dependencies(grpc_dependencies absl_ep)
+  if(ABSL_VENDORED)
+    add_dependencies(grpc_dependencies absl_ep)
+  endif()
   if(CARES_VENDORED)
     add_dependencies(grpc_dependencies cares_ep)
   endif()
@@ -3819,7 +3823,7 @@ macro(build_google_cloud_cpp_storage)
   message(STATUS "Only building the google-cloud-cpp::storage component")
 
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/master/doc/packaging.md
-  build_absl_once()
+  resolve_dependency_absl()
   build_crc32c_once()
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
@@ -3830,7 +3834,9 @@ macro(build_google_cloud_cpp_storage)
   # Build google-cloud-cpp, with only storage_client
 
   # Inject vendored packages via CMAKE_PREFIX_PATH
-  list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${ABSL_PREFIX})
+  if(ABSL_VENDORED)
+    list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${ABSL_PREFIX})
+  endif()
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${CRC32C_PREFIX})
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
 
@@ -3862,7 +3868,9 @@ macro(build_google_cloud_cpp_storage)
 
   add_custom_target(google_cloud_cpp_dependencies)
 
-  add_dependencies(google_cloud_cpp_dependencies absl_ep)
+  if(ABSL_VENDORED)
+    add_dependencies(google_cloud_cpp_dependencies absl_ep)
+  endif()
   add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
   add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
 
@@ -3903,7 +3911,8 @@ macro(build_google_cloud_cpp_storage)
                         absl::memory
                         absl::optional
                         absl::time
-                        Threads::Threads)
+                        Threads::Threads
+                        OpenSSL::Crypto)
 
   add_library(google-cloud-cpp::storage STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::storage
