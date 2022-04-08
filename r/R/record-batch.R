@@ -213,20 +213,24 @@ cbind.RecordBatch <- function(...) {
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
-  batches <- imap(inputs, function(input, idx) {
+  batches <- imap(inputs, function(input, name) {
     if (inherits(input, "RecordBatch")) {
-      cbind_check_length(num_rows, input$num_rows, idx)
+      cbind_check_length(num_rows, input$num_rows, name)
       input
     } else if (is.atomic(input) && length(input) == 1) {
-      RecordBatch$create("{idx}" := rep(input, num_rows))
+      RecordBatch$create("{name}" := rep(input, num_rows))
     } else {
       tryCatch(
         {
-          cbind_check_length(num_rows, length(input), idx)
-          RecordBatch$create("{idx}" := input)
+          cbind_check_length(num_rows, length(input), name)
+          RecordBatch$create("{name}" := input)
         },
         error = function(err) {
+<<<<<<< HEAD
           abort(sprintf("Error processing argument ..%d", idx), parent = err)
+=======
+          abort(sprintf("Input ..%s cannot be converted to an Arrow Array: %s", name, err))
+>>>>>>> 8e4866907 (Rename from idx to name to make more clear)
         }
       )
     }
