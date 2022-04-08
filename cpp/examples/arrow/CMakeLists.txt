@@ -21,9 +21,8 @@ if(ARROW_COMPUTE)
   add_arrow_example(compute_register_example)
 endif()
 
-if(ARROW_SUBSTRAIT)
-  add_arrow_example(engine_substrait_consumption EXTRA_LINK_LIBS arrow_substrait_shared)
-  add_arrow_example(engine_substrait_example EXTRA_LINK_LIBS arrow_substrait_shared)
+if(ARROW_ENGINE)
+  add_arrow_example(engine_substrait_consumption EXTRA_LINK_LIBS arrow_engine_shared)
 endif()
 
 if(ARROW_COMPUTE AND ARROW_CSV)

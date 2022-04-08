@@ -57,6 +57,11 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public cp::SinkNodeConsumer {
 Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
     std::string& substrait_json);
 
+Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+    std::shared_ptr<Buffer> substrait_buffer);
+
+Result<std::shared_ptr<Buffer>> GetSubstraitBufferFromJSON(std::string& substrait_json);
+
 }  // namespace engine
 
 }  // namespace arrow

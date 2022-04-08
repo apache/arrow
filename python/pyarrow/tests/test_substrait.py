@@ -24,24 +24,13 @@ try:
     from pyarrow import engine
     from pyarrow.engine import (
         run_query,
+        get_buffer_from_json,
     )
 except ImportError:
     engine = None
 
 
-def resource_root():
-    """Get the path to the test resources directory."""
-    if not os.environ.get("PARQUET_TEST_DATA"):
-        raise RuntimeError("Test resources not found; set "
-                           "PARQUET_TEST_DATA to "
-                           "<repo root>/cpp/submodules/parquet-testing/data")
-    return pathlib.Path(os.environ["PARQUET_TEST_DATA"])
-
-
-def test_run_query():
-    filename = str(resource_root() / "binary.parquet")
-
-    query = """
+_substrait_query = """
     {
         "relations": [
         {"rel": {
@@ -70,8 +59,39 @@ def test_run_query():
     }
     """
 
+
+def resource_root():
+    """Get the path to the test resources directory."""
+    if not os.environ.get("PARQUET_TEST_DATA"):
+        raise RuntimeError("Test resources not found; set "
+                           "PARQUET_TEST_DATA to "
+                           "<repo root>/cpp/submodules/parquet-testing/data")
+    return pathlib.Path(os.environ["PARQUET_TEST_DATA"])
+
+
+def test_run_query():
+    filename = str(resource_root() / "binary.parquet")
+
+    query = _substrait_query
+
     query = tobytes(query.replace("FILENAME_PLACEHOLDER", filename))
     reader = run_query(query)
+    res_tb = reader.read_all()
+
+    expected_tb = pq.read_table(filename)
+
+    assert expected_tb.num_rows == res_tb.num_rows
+
+
+def test_run_query_in_bytes():
+    filename = str(resource_root() / "binary.parquet")
+
+    query = _substrait_query
+    query = tobytes(query.replace("FILENAME_PLACEHOLDER", filename))
+
+    buf = get_buffer_from_json(query)
+
+    reader = run_query(buf)
     res_tb = reader.read_all()
 
     expected_tb = pq.read_table(filename)

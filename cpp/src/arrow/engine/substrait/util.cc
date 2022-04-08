@@ -47,10 +47,10 @@ Status SubstraitSinkConsumer::Init(const std::shared_ptr<Schema>& schema) {
 class ARROW_ENGINE_EXPORT SubstraitExecutor {
  public:
   explicit SubstraitExecutor(
-      std::string substrait_json,
+      std::shared_ptr<Buffer> substrait_buffer,
       AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator,
       std::shared_ptr<cp::ExecPlan> plan, cp::ExecContext exec_context)
-      : substrait_json_(substrait_json),
+      : substrait_buffer_(substrait_buffer),
         generator_(generator),
         plan_(std::move(plan)),
         exec_context_(exec_context) {}
@@ -73,19 +73,19 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
   Status Close() { return plan_->finished().status(); }
 
   Status Init() {
-    ARROW_ASSIGN_OR_RAISE(auto serialized_plan,
-                          engine::internal::SubstraitFromJSON("Plan", substrait_json_));
-    RETURN_NOT_OK(engine::internal::SubstraitToJSON("Plan", *serialized_plan));
+    if (substrait_buffer_ == NULLPTR) {
+      return Status::Invalid("Buffer containing Substrait plan is null.");
+    }
     std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
       return std::make_shared<SubstraitSinkConsumer>(generator_);
     };
     ARROW_ASSIGN_OR_RAISE(declarations_,
-                          engine::DeserializePlan(*serialized_plan, consumer_factory));
+                          engine::DeserializePlan(*substrait_buffer_, consumer_factory));
     return Status::OK();
   }
 
  private:
-  std::string substrait_json_;
+  std::shared_ptr<Buffer> substrait_buffer_;
   AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator_;
   std::vector<cp::Declaration> declarations_;
   std::shared_ptr<cp::ExecPlan> plan_;
@@ -103,19 +103,33 @@ SubstraitSinkConsumer::MakeProducer(
   return out;
 }
 
+/// \brief Retrieve a RecordBatchReader from a Substrait plan in JSON.
 Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
     std::string& substrait_json) {
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
+  ARROW_ASSIGN_OR_RAISE(auto substrait_buffer,
+                        GetSubstraitBufferFromJSON(substrait_json));
+  return GetRecordBatchReader(substrait_buffer);
+}
 
+/// \brief Retrieve a RecordBatchReader from a Substrait plan in Buffer.
+Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+    std::shared_ptr<Buffer> substrait_buffer) {
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
-  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan,
+  cp::ExecContext exec_context(arrow::default_memory_pool(),
+                               ::arrow::internal::GetCpuThreadPool());
+  arrow::engine::SubstraitExecutor executor(substrait_buffer, &sink_gen, plan,
                                             exec_context);
   RETURN_NOT_OK(executor.Init());
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   RETURN_NOT_OK(executor.Close());
   return sink_reader;
+}
+
+/// \brief Get Substrait Buffer from a Substrait JSON plan.
+/// This is a helper method for Python tests.
+Result<std::shared_ptr<Buffer>> GetSubstraitBufferFromJSON(std::string& substrait_json) {
+  return engine::internal::SubstraitFromJSON("Plan", substrait_json);
 }
 
 }  // namespace engine
