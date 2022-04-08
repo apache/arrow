@@ -2927,7 +2927,7 @@ def _mkdir_if_not_exists(fs, path):
 def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
                      use_legacy_dataset=None, **kwargs):
-    """Wrapper around parquet.write_table for writing a Table to
+    """Wrapper around parquet.write_dataset for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
     a subdirectories are created in the following
@@ -2936,14 +2936,14 @@ def write_to_dataset(table, root_path, partition_cols=None,
     root_dir/
       group1=value1
         group2=value1
-          <uuid>.parquet
+          part-0.parquet
         group2=value2
-          <uuid>.parquet
+          part-0.parquet
       group1=valueN
         group2=value1
-          <uuid>.parquet
+          part-0.parquet
         group2=valueN
-          <uuid>.parquet
+          part-0.parquet
 
     Parameters
     ----------
