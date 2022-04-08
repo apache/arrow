@@ -21,25 +21,22 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 
 
-def run_query(plan, output_schema):
+def run_query(plan):
     """
-    executes a substrait plan and returns a RecordBatchReader
+    Executes a substrait plan and returns a RecordBatchReader.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     plan : bytes
-    output_schema: expected output schema
+        Substrait Plan as a byte stream. 
     """
 
     cdef:
         CResult[shared_ptr[CRecordBatchReader]] c_res_reader
         shared_ptr[CRecordBatchReader] c_reader
-        shared_ptr[CSchema] c_schema
         RecordBatchReader reader
 
-    c_schema = pyarrow_unwrap_schema(output_schema)
-
-    c_res_reader = GetRecordBatchReader(plan, c_schema)
+    c_res_reader = GetRecordBatchReader(plan)
     c_reader = GetResultValue(c_res_reader)
 
     reader = RecordBatchReader.__new__(RecordBatchReader)

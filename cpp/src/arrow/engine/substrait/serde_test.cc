@@ -29,6 +29,7 @@
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 #include "arrow/util/async_generator.h"
@@ -731,6 +732,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
     "relations": [],
@@ -757,16 +759,12 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
           &ext_set));
 }
 
-TEST(Substrait, GetRecordBatchIterator) {
-=======
-TEST(Substrait, GetRecordBatchReader) {
->>>>>>> 7ed254e6a (addressing review comments)
-  const auto parquet_root = std::getenv("PARQUET_TEST_DATA");
-  std::string dir_string(parquet_root);
-  std::stringstream ss;
-  ss << dir_string << "/binary.parquet";
-  auto file_path = ss.str();
-
+Result<std::string> GetSubstraitJSON() {
+  ARROW_ASSIGN_OR_RAISE(std::string dir_string,
+                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto file_name =
+      arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
+  auto file_path = file_name->ToString();
   std::string substrait_json = R"({
     "relations": [
       {"rel": {
@@ -797,59 +795,12 @@ TEST(Substrait, GetRecordBatchReader) {
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
                          filename_placeholder.size(), file_path);
-  AsyncGenerator<util::optional<cp::ExecBatch>> sink_gen;
-  cp::ExecContext exec_context(default_memory_pool(),
-                               arrow::internal::GetCpuThreadPool());
-  ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
-  engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan,
-                                     exec_context);
-  ASSERT_OK_AND_ASSIGN(auto reader, executor.Execute());
-  ASSERT_OK(executor.Close());
-  
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
-  EXPECT_GT(table->num_rows(), 0);
+  return substrait_json;
 }
 
-TEST(Substrait, GetRecordBatchReaderUtil) {
-  const auto parquet_root = std::getenv("PARQUET_TEST_DATA");
-  std::string dir_string(parquet_root);
-  std::stringstream ss;
-  ss << dir_string << "/binary.parquet";
-  auto file_path = ss.str();
-
-  std::string substrait_json = R"({
-    "relations": [
-      {"rel": {
-        "read": {
-          "base_schema": {
-            "struct": {
-              "types": [ 
-                         {"binary": {}}
-                       ]
-            },
-            "names": [
-                      "foo"
-                      ]
-          },
-          "local_files": {
-            "items": [
-              {
-                "uri_file": "file://FILENAME_PLACEHOLDER",
-                "format": "FILE_FORMAT_PARQUET"
-              }
-            ]
-          }
-        }
-      }}
-    ]
-  })";
-
-  std::string filename_placeholder = "FILENAME_PLACEHOLDER";
-  substrait_json.replace(substrait_json.find(filename_placeholder),
-                         filename_placeholder.size(), file_path);
-
-  ASSERT_OK_AND_ASSIGN(auto reader, engine::SubstraitExecutor::GetRecordBatchReader(
-                                        substrait_json));
+TEST(Substrait, GetRecordBatchReader) {
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  ASSERT_OK_AND_ASSIGN(auto reader, engine::GetRecordBatchReader(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
   EXPECT_GT(table->num_rows(), 0);
 }

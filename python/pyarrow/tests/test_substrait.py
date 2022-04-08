@@ -17,7 +17,6 @@
 
 import os
 import pathlib
-import pyarrow as pa
 from pyarrow.lib import tobytes
 import pyarrow.parquet as pq
 
@@ -28,11 +27,6 @@ try:
     )
 except ImportError:
     engine = None
-
-
-def test_import():
-    # So we see the ImportError somewhere
-    import pyarrow.engine  # noqa
 
 
 def resource_root():
@@ -77,14 +71,9 @@ def test_run_query():
     """
 
     query = tobytes(query.replace("FILENAME_PLACEHOLDER", filename))
+    reader = run_query(query)
+    res_tb = reader.read_all()
 
-    schema = pa.schema({"foo": pa.binary()})
+    expected_tb = pq.read_table(filename)
 
-    reader = run_query(query, schema)
-
-    res = reader.read_all()
-
-    assert res.schema == schema
-    assert res.num_rows > 0
-
-    assert pq.read_table(filename).equals(res)
+    assert expected_tb.num_rows == res_tb.num_rows

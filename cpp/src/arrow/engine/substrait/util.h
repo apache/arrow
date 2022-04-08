@@ -42,6 +42,8 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public cp::SinkNodeConsumer {
 
   Status Consume(cp::ExecBatch batch) override;
 
+  Status Init(const std::shared_ptr<Schema>& schema) override;
+
   static arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer
   MakeProducer(AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* out_gen,
                arrow::util::BackpressureOptions backpressure);
@@ -52,37 +54,8 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public cp::SinkNodeConsumer {
   PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer producer_;
 };
 
-/// \brief An executor to run a Substrait Query
-/// This interface is provided as a utility when creating language
-/// bindings for consuming a Substrait plan.
-class ARROW_ENGINE_EXPORT SubstraitExecutor {
- public:
-  explicit SubstraitExecutor(
-      std::string substrait_json,
-      AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator,
-      std::shared_ptr<cp::ExecPlan> plan,
-      cp::ExecContext exec_context)
-      : substrait_json_(substrait_json),
-        generator_(generator),
-        plan_(std::move(plan)),
-        exec_context_(exec_context) {}
-
-  Result<std::shared_ptr<RecordBatchReader>> Execute();
-
-  Status Close();
-
-  static Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
-      std::string& substrait_json);
-
- private:
-  std::string substrait_json_;
-  AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator_;
-  std::vector<cp::Declaration> declarations_;
-  std::shared_ptr<cp::ExecPlan> plan_;
-  cp::ExecContext exec_context_;
-
-  Status MakePlan();
-};
+Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+    std::string& substrait_json);
 
 }  // namespace engine
 

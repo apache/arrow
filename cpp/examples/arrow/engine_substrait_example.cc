@@ -76,23 +76,13 @@ std::string GetSubstraitPlanFromServer(const std::string& filename) {
 }
 
 arrow::Status Main(std::string substrait_json) {
-  cp::ExecContext exec_context;
-
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
-  ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
-
-  arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan,
-                                            exec_context);
-
-  ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
+  ARROW_ASSIGN_OR_RAISE(auto sink_reader,
+                        arrow::engine::GetRecordBatchReader(substrait_json));
 
   ARROW_ASSIGN_OR_RAISE(auto table,
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
   std::cout << "Results : " << table->ToString() << std::endl;
-
-  RETURN_NOT_OK(executor.Close());
 
   return arrow::Status::OK();
 }

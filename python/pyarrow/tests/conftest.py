@@ -181,6 +181,12 @@ try:
 except ImportError:
     pass
 
+try:
+    import pyarrow.engine  # noqa
+    defaults['engine'] = True
+except ImportError:
+    pass
+
 
 def pytest_addoption(parser):
     # Create options to selectively enable test groups

@@ -37,19 +37,60 @@ Future<> SubstraitSinkConsumer::Finish() {
       Status::ExecutionError("Error occurred in closing the batch producer"));
 }
 
-Status SubstraitExecutor::MakePlan() {
-  ARROW_ASSIGN_OR_RAISE(auto serialized_plan,
-                        engine::internal::SubstraitFromJSON("Plan", substrait_json_));
-  RETURN_NOT_OK(engine::internal::SubstraitToJSON("Plan", *serialized_plan));
-  std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
-  std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
-    consumers.emplace_back(new SubstraitSinkConsumer{generator_});
-    return consumers.back();
-  };
-  ARROW_ASSIGN_OR_RAISE(declarations_,
-                        engine::DeserializePlan(*serialized_plan, consumer_factory));
+Status SubstraitSinkConsumer::Init(const std::shared_ptr<Schema>& schema) {
   return Status::OK();
 }
+
+/// \brief An executor to run a Substrait Query
+/// This interface is provided as a utility when creating language
+/// bindings for consuming a Substrait plan.
+class ARROW_ENGINE_EXPORT SubstraitExecutor {
+ public:
+  explicit SubstraitExecutor(
+      std::string substrait_json,
+      AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator,
+      std::shared_ptr<cp::ExecPlan> plan, cp::ExecContext exec_context)
+      : substrait_json_(substrait_json),
+        generator_(generator),
+        plan_(std::move(plan)),
+        exec_context_(exec_context) {}
+
+  Result<std::shared_ptr<RecordBatchReader>> Execute() {
+    RETURN_NOT_OK(SubstraitExecutor::Init());
+    for (const cp::Declaration& decl : declarations_) {
+      RETURN_NOT_OK(decl.AddToPlan(plan_.get()).status());
+    }
+    ARROW_RETURN_NOT_OK(plan_->Validate());
+    ARROW_RETURN_NOT_OK(plan_->StartProducing());
+    // schema of the output can be obtained by the output_schema
+    // of the input to the sink node.
+    auto schema = plan_->sinks()[0]->inputs()[0]->output_schema();
+    std::shared_ptr<RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+        schema, std::move(*generator_), exec_context_.memory_pool());
+    return sink_reader;
+  }
+
+  Status Close() { return plan_->finished().status(); }
+
+  Status Init() {
+    ARROW_ASSIGN_OR_RAISE(auto serialized_plan,
+                          engine::internal::SubstraitFromJSON("Plan", substrait_json_));
+    RETURN_NOT_OK(engine::internal::SubstraitToJSON("Plan", *serialized_plan));
+    std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
+      return std::make_shared<SubstraitSinkConsumer>(generator_);
+    };
+    ARROW_ASSIGN_OR_RAISE(declarations_,
+                          engine::DeserializePlan(*serialized_plan, consumer_factory));
+    return Status::OK();
+  }
+
+ private:
+  std::string substrait_json_;
+  AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator_;
+  std::vector<cp::Declaration> declarations_;
+  std::shared_ptr<cp::ExecPlan> plan_;
+  cp::ExecContext exec_context_;
+};
 
 arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer
 SubstraitSinkConsumer::MakeProducer(
@@ -62,25 +103,7 @@ SubstraitSinkConsumer::MakeProducer(
   return out;
 }
 
-Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::Execute() {
-  RETURN_NOT_OK(SubstraitExecutor::MakePlan());
-  for (const cp::Declaration& decl : declarations_) {
-    RETURN_NOT_OK(decl.AddToPlan(plan_.get()).status());
-  }
-  ARROW_RETURN_NOT_OK(plan_->Validate());
-  ARROW_RETURN_NOT_OK(plan_->StartProducing());
-  auto schema = plan_->sinks()[0]->output_schema();
-  std::shared_ptr<RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-      schema, std::move(*generator_), exec_context_.memory_pool());
-  return sink_reader;
-}
-
-Status SubstraitExecutor::Close() {
-  ARROW_RETURN_NOT_OK(plan_->finished().status());
-  return Status::OK();
-}
-
-Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::GetRecordBatchReader(
+Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
     std::string& substrait_json) {
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
@@ -89,7 +112,7 @@ Result<std::shared_ptr<RecordBatchReader>> SubstraitExecutor::GetRecordBatchRead
   ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
   arrow::engine::SubstraitExecutor executor(substrait_json, &sink_gen, plan,
                                             exec_context);
-  RETURN_NOT_OK(executor.MakePlan());
+  RETURN_NOT_OK(executor.Init());
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   RETURN_NOT_OK(executor.Close());
   return sink_reader;
