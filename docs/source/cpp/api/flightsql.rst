@@ -15,31 +15,40 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+.. default-domain:: cpp
+.. highlight:: cpp
 
-.. toctree::
-   :maxdepth: 3
+================
+Arrow Flight SQL
+================
 
-   api/support
-   api/memory
-   api/thread
-   api/datatype
-   api/array
-   api/scalar
-   api/builder
-   api/table
-   api/c_abi
-   api/compute
-   api/tensor
-   api/utilities
-   api/async
-   api/io
-   api/ipc
-   api/formats
-   api/cuda
-   api/flight
-   api/flightsql
-   api/filesystem
-   api/dataset
+.. note:: Flight SQL is currently experimental and APIs are subject to change.
+
+Common Types
+============
+
+.. doxygengroup:: flight-sql-common-types
+   :members:
+
+Client
+======
+
+.. doxygenclass:: arrow::flight::sql::FlightSqlClient
+   :members:
+
+.. doxygenclass:: arrow::flight::sql::PreparedStatement
+   :members:
+
+Server
+======
+
+.. doxygenclass:: arrow::flight::sql::FlightSqlServerBase
+   :members:
+
+.. doxygenfunction:: arrow::flight::sql::CreateStatementQueryTicket
+
+.. doxygenclass:: arrow::flight::sql::SqlSchema
+   :members:
+
+.. doxygengroup:: flight-sql-protocol-messages
+   :members:
