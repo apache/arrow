@@ -580,6 +580,12 @@ test_that("Table supports cbind", {
     cbind(arrow_table(a = 1:2), b = "x"),
     arrow_table(a = 1:2, b = c("x", "x"))
   )
+
+  # Handles unnamed arrays
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = 3:4, 5:6),
+    arrow_table(a = 1:2, b = 3:4, X3 = 5:6)
+  )
 })
 
 test_that("cbind.Table handles record batches and tables", {

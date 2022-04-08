@@ -179,22 +179,26 @@ cbind.Table <- function(...) {
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
-  tables <- imap(inputs, function(input, name) {
+  tables <- map(seq_along(inputs), function(i) {
+    input <- inputs[[i]]
+    name <- names(inputs)[i]
+    name <- ifelse(name == "", paste0("X", as.character(i)), name)
+
     if (inherits(input, "Table")) {
-      cbind_check_length(num_rows, input$num_rows, name)
+      cbind_check_length(num_rows, input$num_rows, i)
       input
     } else if (inherits(input, "RecordBatch")) {
-      cbind_check_length(num_rows, input$num_rows, name)
+      cbind_check_length(num_rows, input$num_rows, i)
       Table$create(input)
     } else if (inherits(input, "data.frame")) {
-      cbind_check_length(num_rows, nrow(input), name)
+      cbind_check_length(num_rows, nrow(input), i)
       Table$create(input)
     } else if (length(input) == 1) {
       Table$create("{name}" := repeat_value_as_array(input, num_rows))
     } else {
       tryCatch(
         {
-          cbind_check_length(num_rows, length(input), name)
+          cbind_check_length(num_rows, length(input), i)
           RecordBatch$create("{name}" := input)
         },
         error = function(err) {
