@@ -129,7 +129,8 @@ cdef class IpcReadOptions(_Weakrefable):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
         self.use_threads = use_threads
-        self.included_fields = included_fields
+        if included_fields is not None:
+            self.included_fields = included_fields
         self.memory_pool = memory_pool
 
     @property
@@ -154,7 +155,12 @@ cdef class IpcReadOptions(_Weakrefable):
 
     @included_fields.setter
     def included_fields(self, list value):
-        self.c_options.included_fields = value or list()
+        cdef:
+            vector[int] included_fields
+        if value is None:
+            self.c_options.included_fields = included_fields
+        else:
+            self.c_options.included_fields = value
 
     @property
     def memory_pool(self):
