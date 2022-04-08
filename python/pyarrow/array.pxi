@@ -790,7 +790,7 @@ cdef class _PandasConvertible(_Weakrefable):
         3     100      Centipede
         >>> isinstance(batch.to_pandas(), pd.DataFrame)
         True
-        
+
         Convert a Chunked Array to pandas Series:
 
         >>> import pyarrow as pa
