@@ -29,6 +29,10 @@ try:
 except ImportError:
     engine = None
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not engine'
+pytestmark = pytest.mark.engine
+
 
 _substrait_query = """
     {
