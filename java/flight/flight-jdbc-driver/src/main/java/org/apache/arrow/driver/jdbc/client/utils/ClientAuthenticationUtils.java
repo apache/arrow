@@ -146,7 +146,7 @@ public final class ClientAuthenticationUtils {
    * @throws CertificateException     if a certificate could not be found.
    * @throws IOException              if it fails reading the file.
    */
-  public static InputStream getCertificateInputStreamFromSystem() throws KeyStoreException,
+  public static InputStream getCertificateInputStreamFromSystem(String password) throws KeyStoreException,
       CertificateException, IOException, NoSuchAlgorithmException {
 
     List<KeyStore> keyStoreList = new ArrayList<>();
@@ -156,7 +156,11 @@ public final class ClientAuthenticationUtils {
     } else if (isMac()) {
       keyStoreList.add(getKeyStoreInstance("KeychainStore"));
     } else {
-      throw new RuntimeException(getOperatingSystem() + "not a supported operating system");
+      Path path = Paths.get(System.getProperty("java.home"), "lib", "security", "cacerts");
+      InputStream fileInputStream = Files.newInputStream(path);
+      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+      keyStore.load(fileInputStream, password.toCharArray());
+      keyStoreList.add(keyStore);
     }
 
     return getCertificatesInputStream(keyStoreList);
