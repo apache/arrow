@@ -189,8 +189,8 @@ cbind.Table <- function(...) {
     } else if (inherits(input, "data.frame")) {
       cbind_check_length(num_rows, nrow(input), name)
       Table$create(input)
-    } else if (is.atomic(input) && length(input) == 1) {
-      Table$create("{name}" := rep(input, num_rows))
+    } else if (length(input) == 1) {
+      Table$create("{name}" := repeat_value_as_array(input, num_rows))
     } else {
       tryCatch(
         {
