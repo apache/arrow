@@ -156,6 +156,9 @@ jobs:
           rm -f /usr/local/bin/2to3
           brew update --preinstall
           brew bundle --file=cpp/Brewfile
+      - name: Install Google Cloud Storage Testbench
+        shell: bash
+        run: ci/scripts/install_gcs_testbench.sh
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
