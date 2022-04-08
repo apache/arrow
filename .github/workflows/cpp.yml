@@ -158,7 +158,7 @@ jobs:
           brew bundle --file=cpp/Brewfile
       - name: Install Google Cloud Storage Testbench
         shell: bash
-        run: ci/scripts/install_gcs_testbench.sh
+        run: ci/scripts/install_gcs_testbench.sh default
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
