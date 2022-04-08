@@ -214,6 +214,7 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
+    properties.put(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), false);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
     final ArrowFlightJdbcDataSource dataSource =
@@ -264,6 +265,7 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), FLIGHT_SERVER_TEST_RULE.getHost());
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(), FLIGHT_SERVER_TEST_RULE.getPort());
     properties.put(ArrowFlightConnectionProperty.SSL.camelName(), true);
+    properties.put(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), false);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
@@ -286,7 +288,7 @@ public class ConnectionTlsTest {
 
     final Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=true&%s=%s&%s=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=true&useSystemTrustStore=false&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -317,6 +319,7 @@ public class ConnectionTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.setProperty(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
     properties.setProperty(ArrowFlightConnectionProperty.SSL.camelName(), "true");
+    properties.setProperty(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), "false");
 
     final Connection connection = DriverManager.getConnection(
         String.format(
@@ -344,6 +347,7 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.USER.camelName(), userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), passTest);
     properties.put(ArrowFlightConnectionProperty.SSL.camelName(), true);
+    properties.put(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), false);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
@@ -370,7 +374,7 @@ public class ConnectionTlsTest {
 
     final Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=1&%s=%s&%s=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=1&useSystemTrustStore=0&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -401,6 +405,7 @@ public class ConnectionTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.setProperty(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
     properties.setProperty(ArrowFlightConnectionProperty.SSL.camelName(), "1");
+    properties.setProperty(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), "0");
 
     final Connection connection = DriverManager.getConnection(
         String.format("jdbc:arrow-flight://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
@@ -426,6 +431,7 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.USER.camelName(), userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), passTest);
     properties.put(ArrowFlightConnectionProperty.SSL.camelName(), 1);
+    properties.put(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), 0);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
