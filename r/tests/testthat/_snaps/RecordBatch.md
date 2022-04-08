@@ -1,6 +1,6 @@
 # RecordBatch doesn't support rbind
 
-    Use Table$create to combine record batches
+    Use `Table$create()` to combine record batches
 
 # RecordBatch supports cbind
 

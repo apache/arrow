@@ -218,7 +218,7 @@ cbind.RecordBatch <- function(...) {
       cbind_check_length(num_rows, input$num_rows, name)
       input
     } else if (inherits(input, "data.frame")) {
-      cbind_check_length(num_rows, nrow(input), idx)
+      cbind_check_length(num_rows, nrow(input), name)
       RecordBatch$create(input)
     } else if (is.atomic(input) && length(input) == 1) {
       RecordBatch$create("{name}" := rep(input, num_rows))
@@ -229,11 +229,7 @@ cbind.RecordBatch <- function(...) {
           RecordBatch$create("{name}" := input)
         },
         error = function(err) {
-<<<<<<< HEAD
-          abort(sprintf("Error processing argument ..%d", idx), parent = err)
-=======
           abort(sprintf("Input ..%s cannot be converted to an Arrow Array: %s", name, err))
->>>>>>> 8e4866907 (Rename from idx to name to make more clear)
         }
       )
     }
