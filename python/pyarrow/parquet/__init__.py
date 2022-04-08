@@ -2929,8 +2929,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
                      use_legacy_dataset=None, schema=None,
                      partitioning=None, basename_template=None,
-                     use_threads=None, file_visitor=None, **kwargs):
-    """Wrapper around parquet.write_dataset for writing a Table to
+                     use_threads=None, file_visitor=None,
+                     existing_data_behavior='error', **kwargs):
+    """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
     a subdirectories are created in the following
@@ -3003,6 +3004,23 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
             def file_visitor(written_file):
                 visited_paths.append(written_file.path)
+    existing_data_behavior : 'error' | 'overwrite_or_ignore' | \
+'delete_matching'
+        It is used in the new code path using the new Arrow Dataset API.
+        In case the legacy implementation is selected the parameter
+        is ignored as the old implementation does not support it.
+        Controls how the dataset will handle data that already exists in
+        the destination.  The default behavior ('error') is to raise an error
+        if any data exists in the destination.
+        'overwrite_or_ignore' will ignore any existing data and will
+        overwrite files with the same name as an output file.  Other
+        existing files will be ignored.  This behavior, in combination
+        with a unique basename_template for each write, will allow for
+        an append workflow.
+        'delete_matching' is useful when you are writing a partitioned
+        dataset.  The first time each partition directory is encountered
+        the entire directory will be deleted.  This allows you to overwrite
+        old partitions completely.
     **kwargs : dict,
         Additional kwargs for write_table function. See docstring for
         `write_table` or `ParquetWriter` for more information.
