@@ -217,6 +217,9 @@ cbind.RecordBatch <- function(...) {
     if (inherits(input, "RecordBatch")) {
       cbind_check_length(num_rows, input$num_rows, name)
       input
+    } else if (inherits(input, "data.frame")) {
+      cbind_check_length(num_rows, nrow(input), idx)
+      RecordBatch$create(input)
     } else if (is.atomic(input) && length(input) == 1) {
       RecordBatch$create("{name}" := rep(input, num_rows))
     } else {

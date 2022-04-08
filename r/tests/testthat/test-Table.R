@@ -563,6 +563,12 @@ test_that("Table supports cbind", {
     arrow_table(a = 1:2, b = 4:5)
   )
 
+  # Handles data.frame
+  expect_equal(
+    cbind(arrow_table(a = 1:2), data.frame(b = 4:5)),
+    arrow_table(a = 1:2, b = 4:5)
+  )
+
   # Handle factors
   expect_equal(
     cbind(arrow_table(a = 1:2), b = factor(c("a", "b"))),

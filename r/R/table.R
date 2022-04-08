@@ -179,23 +179,26 @@ cbind.Table <- function(...) {
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
-  tables <- imap(inputs, function(input, idx) {
+  tables <- imap(inputs, function(input, name) {
     if (inherits(input, "Table")) {
-      cbind_check_length(num_rows, input$num_rows, idx)
+      cbind_check_length(num_rows, input$num_rows, name)
       input
     } else if (inherits(input, "RecordBatch")) {
-      cbind_check_length(num_rows, input$num_rows, idx)
+      cbind_check_length(num_rows, input$num_rows, name)
+      Table$create(input)
+    } else if (inherits(input, "data.frame")) {
+      cbind_check_length(num_rows, nrow(input), name)
       Table$create(input)
     } else if (is.atomic(input) && length(input) == 1) {
-      Table$create("{idx}" := rep(input, num_rows))
+      Table$create("{name}" := rep(input, num_rows))
     } else {
       tryCatch(
         {
-          cbind_check_length(num_rows, length(input), idx)
-          RecordBatch$create("{idx}" := input)
+          cbind_check_length(num_rows, length(input), name)
+          RecordBatch$create("{name}" := input)
         },
         error = function(err) {
-          abort(sprintf("Input ..%i cannot be converted to an Arrow Array: %s", idx, err))
+          abort(sprintf("Input ..%i cannot be converted to an Arrow Array: %s", name, err))
         }
       )
     }
