@@ -107,7 +107,12 @@
       #
       # Let's print a message if some are off
       if (some_features_are_off(features)) {
-        packageStartupMessage("See arrow_info() for available features")
+        packageStartupMessage(
+          paste(
+            "Some features are not enabled in this build of Arrow.",
+            "Run `arrow_info()` for more information."
+          )
+        )
       }
     })
   }
@@ -264,7 +269,7 @@ arrow_info <- function() {
 some_features_are_off <- function(features) {
   # `features` is a named logical vector (as in arrow_info()$capabilities)
   # Let's exclude some less relevant ones
-  blocklist <- c("lzo", "bz2", "brotli")
+  blocklist <- c("lzo", "bz2", "brotli", "engine")
   # Return TRUE if any of the other features are FALSE
   !all(features[setdiff(names(features), blocklist)])
 }
