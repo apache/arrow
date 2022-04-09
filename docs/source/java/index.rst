@@ -32,6 +32,7 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    vector_schema_root
    ipc
    algorithm
+   flight
    dataset
    cdata
    Reference (javadoc) <reference/index>
