@@ -30,11 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class JsonStringArrayList<E> extends ArrayList<E> {
 
-  private static ObjectMapper mapper;
-
-  static {
-    mapper = new ObjectMapper();
-  }
+  private static final ObjectMapper MAPPER = ObjectMapperFactory.newObjectMapper();
 
   public JsonStringArrayList() {
     super();
@@ -47,7 +43,7 @@ public class JsonStringArrayList<E> extends ArrayList<E> {
   @Override
   public final String toString() {
     try {
-      return mapper.writeValueAsString(this);
+      return MAPPER.writeValueAsString(this);
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Cannot serialize array list to JSON string", e);
     }

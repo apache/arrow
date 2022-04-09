@@ -40,7 +40,7 @@ register_bindings_datetime <- function() {
 
     unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
 
-    Expression$create("strptime", x, options = list(format = format, unit = unit))
+    build_expr("strptime", x, options = list(format = format, unit = unit, error_is_null = TRUE))
   })
 
   register_binding("strftime", function(x, format = "", tz = "", usetz = FALSE) {

@@ -559,7 +559,7 @@ class Queue(Repo):
         return '{}-{}'.format(prefix, latest_id + 1)
 
     def latest_for_prefix(self, prefix):
-        if prefix == "nightly":
+        if prefix.startswith("nightly"):
             latest_id = self._latest_prefix_date(prefix)
             if not latest_id:
                 raise RuntimeError(

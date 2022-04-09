@@ -17,10 +17,10 @@
 
 .. currentmodule:: pyarrow.fs
 
+.. _api.fs:
+
 Filesystems
 ===========
-
-.. _api.fs:
 
 Interface
 ---------

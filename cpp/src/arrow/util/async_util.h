@@ -116,8 +116,12 @@ class ARROW_EXPORT AsyncTaskGroup {
   /// If WaitForTasksToFinish has been called and the returned future has been marked
   /// completed then adding a task will fail.
   Status AddTask(std::function<Result<Future<>>()> task);
+  /// Same as AddTask but doesn't add the task if End() has been called.
+  Status AddTaskIfNotEnded(std::function<Result<Future<>>()> task);
   /// Add a task that has already been started
   Status AddTask(const Future<>& task);
+  /// Same as AddTask but doesn't add the task if End() has been called.
+  Status AddTaskIfNotEnded(const Future<>& task);
   /// Signal that top level tasks are done being added
   ///
   /// It is allowed for tasks to be added after this call provided the future has not yet

@@ -28,6 +28,23 @@ namespace arrow {
   case TYPE_CLASS##Type::type_id:     \
     return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Type&>(type));
 
+/// \brief Calls `visitor` with the corresponding concrete type class
+///
+/// \tparam VISITOR Visitor type that implements Visit() for all Arrow types.
+/// \return Status
+///
+/// A visitor is a type that implements specialized logic for each Arrow type.
+/// Example usage:
+///
+/// ```
+/// class ExampleVisitor {
+///   arrow::Status Visit(const arrow::Int32Type& type) { ... }
+///   arrow::Status Visit(const arrow::Int64Type& type) { ... }
+///   ...
+/// }
+/// ExampleVisitor visitor;
+/// VisitTypeInline(some_type, &visitor);
+/// ```
 template <typename VISITOR>
 inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   switch (type.id()) {
@@ -46,7 +63,10 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
     return visitor->Visit(concrete_ptr);            \
   }
 
-// Calls `visitor` with a nullptr of the corresponding concrete type class
+/// \brief Calls `visitor` with a nullptr of the corresponding concrete type class
+///
+/// \tparam VISITOR Visitor type that implements Visit() for all Arrow types.
+/// \return Status
 template <typename VISITOR>
 inline Status VisitTypeIdInline(Type::type id, VISITOR* visitor) {
   switch (id) {

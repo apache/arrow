@@ -28,13 +28,14 @@
 Lifecycle of a pull request
 ***************************
 
-:ref:`As mentioned before<set-up>`, the Arrow project uses Git for
-version control and a workflow based on pull requests. That means
-that you contribute the changes to the code by creating a branch
-in Git, make changes to the code, push the changes to your ``origin``
-which is your fork of the Arrow repository on GitHub and then you
-create a **pull request** against the official Arrow repository
-which is saved in your set up as ``upstream``.
+:ref:`As mentioned before<set-up>`, the Arrow project uses Git
+for version control and a workflow based on pull requests. That
+means that you contribute the changes, or "patches", to the code
+by creating a branch in Git, make changes to the code, push the
+changes to your ``origin`` which is your fork of the Arrow
+repository on GitHub and then you create a **pull request** against
+the official Arrow repository which is saved in your set up as
+``upstream``.
 
 You should have Git set up by now, have cloned the repository,
 have successfully built Arrow and have a JIRA issue to work on.
@@ -124,7 +125,7 @@ If all is set, you can make the pull request!
    .. seealso::
       
       Get more details on naming the pull request in Arrow repository
-      and other additional information :ref:`pull_request_and_review`
+      and other additional information :ref:`pull-request-and-review`
       section.
 
 Continuous Integration (CI)
@@ -144,21 +145,21 @@ You will see checks running at the bottom of the pull request page
 on GitHub. In case of an error, click on the details and research the cause
 of the failing build.
 
-.. figure:: ci_process_docs.jpeg
+.. figure:: /developers/images/ci_process_docs.jpeg
    :scale: 60 %
    :alt: CI window showing the status of the code checks
          in case of changes made to the documentation.
 
    CI checks for changes made to the documentation.
 
-.. figure:: ci_process_python.jpeg
+.. figure:: /developers/images/ci_process_python.jpeg
    :scale: 58 %
    :alt: CI window showing the status of the code checks
          in case of changes made to the python files
 
    CI checks for changes made to the python files.
 
-.. figure:: ci_process_r.jpeg
+.. figure:: /developers/images/ci_process_r.jpeg
    :scale: 58 %
    :alt: CI window showing the status of the code checks
          in case of changes made to the R files.
@@ -242,8 +243,8 @@ The steps for updating the pull request would then be as follows:
 
       $ git commit -am "<message>" #if all changed files are to be committed
 
-2. **Important!** In case there are commits from other developers on the Pull
-   Request branch or if you committed suggestions from the GitHub you need
+2. **Important!** In case there are commits from other developers on the pull
+   request branch or if you committed suggestions from the GitHub you need
    to update you code with ``origin`` before rebasing! To do this run:
 
    .. code:: console
@@ -260,16 +261,23 @@ The steps for updating the pull request would then be as follows:
 
       $ git pull upstream master --rebase
 
+   This will rebase your local commits on top of the tip of ``upstream/master``.
+
 4. Now you can push the changes by running:
 
    .. code:: console
 
-         $ git push origin <branch-name>
+         $ git push origin <branch-name> --force
+
+   *Note about force pushing to a branch that is being reviewed:* if you want
+   reviewers to look at your updates, please ensure you comment on the PR on
+   GitHub as simply force pushing does not trigger a notification in the
+   GitHub user interface.
 
 .. seealso::
 
-   See more about updating the branch (we use ``rebase``, not ``merge``) in
-   the review process :ref:`here <git_conventions>`. 
+   See more about updating the branch (we use ``rebase``, not ``merge``)
+   and squashing local commits in :ref:`git-conventions`. 
 
 If the review process is successful your pull request will get merged.
 
