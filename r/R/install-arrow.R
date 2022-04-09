@@ -161,7 +161,7 @@ reload_arrow <- function() {
   version_regex <- "\\$\\{(ARROW_[A-Z0-9_]+?_VERSION)(//./_|:1)?\\}"
   match_mat <- regmatches(
     one_string,
-    gregexec(version_regex, one_string, perl = TRUE)
+    ..gregexec(version_regex, one_string, perl = TRUE)
   )[[1]] # Subset [[1]] because one_string has length 1
   # But if there are multiple matches, string_to_sub could still have length > 1
   string_to_sub <- match_mat[1, , drop = TRUE]
@@ -217,6 +217,79 @@ reload_arrow <- function() {
     filenames = unname(file_substituted),
     urls = unname(url_substituted)
   )
+}
+
+# gregexec() was introduced in R 4.1, but is very useful in the above function
+# ..install_substitute_like_bash(). The function below is copied from the
+# R source, renaming gregexec to ..gregexec to avoid collisions with newer R.
+# https://svn.r-project.org/R/branches/R-4-2-branch/src/library/base/R/grep.R
+# (Code formatting changed slightly by `styler`)
+..gregexec <- function(pattern, text, ignore.case = FALSE, perl = FALSE,
+                       fixed = FALSE, useBytes = FALSE) {
+  if (is.factor(text) && length(levels(text)) < length(text)) {
+    out <- ..gregexec(
+      pattern, c(levels(text), NA_character_),
+      ignore.case, perl, fixed, useBytes
+    )
+    outna <- out[length(out)]
+    out <- out[text]
+    out[is.na(text)] <- outna
+    return(out)
+  }
+
+  dat <- gregexpr(
+    pattern = pattern, text = text, ignore.case = ignore.case,
+    fixed = fixed, useBytes = useBytes, perl = perl
+  )
+  if (perl && !fixed) {
+    ## Perl generates match data, so use that
+    capt.attr <- c("capture.start", "capture.length", "capture.names")
+    process <- function(x) {
+      if (anyNA(x) || any(x < 0)) {
+        y <- x
+      } else {
+        ## Interleave matches with captures
+        y <- t(cbind(x, attr(x, "capture.start")))
+        attributes(y)[names(attributes(x))] <- attributes(x)
+        ml <- t(cbind(attr(x, "match.length"), attr(x, "capture.length")))
+        nm <- attr(x, "capture.names")
+        ## Remove empty names that `gregexpr` returns
+        dimnames(ml) <- dimnames(y) <-
+          if (any(nzchar(nm))) list(c("", nm), NULL)
+        attr(y, "match.length") <- ml
+        y
+      }
+      attributes(y)[capt.attr] <- NULL
+      y
+    }
+    lapply(dat, process)
+  } else {
+    ## For TRE or fixed we must compute the match data ourselves
+    m1 <- lapply(regmatches(text, dat),
+      regexec,
+      pattern = pattern, ignore.case = ignore.case,
+      perl = perl, fixed = fixed, useBytes = useBytes
+    )
+    mlen <- lengths(m1)
+    res <- vector("list", length(m1))
+    im <- mlen > 0
+    res[!im] <- dat[!im] # -1, NA
+    res[im] <- Map(
+      function(outer, inner) {
+        tmp <- do.call(cbind, inner)
+        attributes(tmp)[names(attributes(inner))] <- attributes(inner)
+        attr(tmp, "match.length") <-
+          do.call(cbind, lapply(inner, `attr`, "match.length"))
+        # useBytes/index.type should be same for all so use outer vals
+        attr(tmp, "useBytes") <- attr(outer, "useBytes")
+        attr(tmp, "index.type") <- attr(outer, "index.type")
+        tmp + rep(outer - 1L, each = nrow(tmp))
+      },
+      dat[im],
+      m1[im]
+    )
+    res
+  }
 }
 
 # Parse the version lines portion of versions.txt
