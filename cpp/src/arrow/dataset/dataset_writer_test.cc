@@ -371,6 +371,21 @@ TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
                       "testdir/part1/chunk-0.arrow", "testdir/part2/chunk-0.arrow"});
 }
 
+TEST_F(DatasetWriterTestFixture, NoExistingDirectory) {
+  fs::TimePoint mock_now = std::chrono::system_clock::now();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> fs,
+                       MockFileSystem::Make(mock_now, {::arrow::fs::Dir("testdir")}));
+  filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
+  write_options_.filesystem = filesystem_;
+  write_options_.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
+  write_options_.base_dir = "testdir/subdir";
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertCreatedData({{"testdir/subdir/chunk-0.arrow", 0, 100}});
+}
+
 TEST_F(DatasetWriterTestFixture, DeleteExistingData) {
   fs::TimePoint mock_now = std::chrono::system_clock::now();
   ASSERT_OK_AND_ASSIGN(
