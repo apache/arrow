@@ -40,7 +40,7 @@ Recent releases:
 ## Community Health:
 
 - We've released a new version of Apache Arrow Julia after it was re-donated.
-- We'll start IP clearance for Apache Arrow Flight JDBC driver donation.
+- We'll start IP clearance for Apache Arrow Flight SQL JDBC driver donation.
 - We may register Apache Arrow as a Digital Public Good like Apache
   Fineract: https://digitalpublicgoods.net/registry/apache-fineract.html
 - We'll rename the "master" branch to "main":
