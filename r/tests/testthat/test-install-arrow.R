@@ -34,4 +34,50 @@ r_only({
       expect_identical(arrow_repos(c(ours, other), nightly = TRUE), c(ours, other))
     })
   })
+
+  test_that("bash-like substitution works", {
+    vals <- c(ARROW_ZZZ_VERSION = "c.2", ARROW_AAA_VERSION = "v7")
+    expect_equal(
+      ..install_substitute_like_bash("x ${ARROW_ZZZ_VERSION} _", vals), "x c.2 _"
+    )
+    expect_equal(
+      ..install_substitute_like_bash("https://example.com/${ARROW_AAA_VERSION:1}", vals),
+      "https://example.com/7"
+    )
+    expect_equal(
+      ..install_substitute_like_bash("x ${ARROW_ZZZ_VERSION//./_} .", vals), "x c_2 ."
+    )
+  })
+
+  test_that("able to parse and substitute versions.txt url-filename array", {
+    test_array_lines <- c(
+      '"ARROW_ZLIB_URL zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"'
+    )
+    test_version_lines <- c(
+      "ARROW_ZLIB_BUILD_VERSION=1.2.12",
+      "ARROW_ZLIB_BUILD_SHA256_CHECKSUM=91844808532e5ce316b3c010929493c0244f3d37593afd6de04f71821d5136d9"
+    )
+    expected_paths_unsub <- list(
+      filenames = "zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz",
+      urls = "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
+    )
+    expected_version_info <- c(ARROW_ZLIB_BUILD_VERSION = "1.2.12")
+    expected_paths_sub <- list(
+      filenames = "zlib-1.2.12.tar.gz",
+      urls = "https://zlib.net/fossils/zlib-1.2.12.tar.gz"
+    )
+
+    expect_equal(
+      ..install_parse_version_lines(test_version_lines),
+      expected_version_info
+    )
+    expect_equal(
+      ..install_parse_dependency_array(test_array_lines),
+      expected_paths_unsub
+    )
+    expect_equal(
+      ..install_substitute_all(expected_paths_unsub, expected_version_info),
+      expected_paths_sub
+    )
+  })
 })

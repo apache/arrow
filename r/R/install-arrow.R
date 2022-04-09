@@ -137,6 +137,245 @@ reload_arrow <- function() {
   }
 }
 
+# Substitute like the bash shell
+#
+# @param one_string A length-1 character vector
+# @param possible_values A dictionary-ish set of variables that could provide
+#   values to substitute in.
+# @return `one_string`, with values substituted like bash would.
+#
+# Only supports a small subset of bash substitution patterns. May have multiple
+# bash variables in `one_string`
+# Used as a helper to parse versions.txt
+..install_substitute_like_bash <- function(one_string, possible_values) {
+  stopifnot(
+    !is.null(names(possible_values)),
+    !any(names(possible_values) == ""),
+    anyDuplicated(names(possible_values)) == 0,
+    length(one_string) == 1,
+    !anyNA(possible_values)
+  )
+  # Find the name of the version we want, something like
+  # ARROW_RAPIDJSON_BUILD_VERSION
+  # The `(//./_|:1)` is a special case to handle some bash fanciness.
+  version_regex <- "\\$\\{(ARROW_[A-Z0-9_]+?_VERSION)(//./_|:1)?\\}"
+  match_mat <- regmatches(
+    one_string,
+    gregexec(version_regex, one_string, perl = TRUE)
+  )[[1]] # Subset [[1]] because one_string has length 1
+  # But if there are multiple matches, string_to_sub could still have length > 1
+  string_to_sub <- match_mat[1, , drop = TRUE]
+  version_varnames <- match_mat[2, , drop = TRUE]
+  version_values <- possible_values[version_varnames]
+  bash_special_cases <- match_mat[3, , drop = TRUE]
+  version_values <- ifelse(
+    bash_special_cases == "", version_values, ifelse(
+      bash_special_cases == ":1", substring(version_values, 2), ifelse(
+        bash_special_cases == "//./_", gsub(".", "_", version_values, fixed = TRUE),
+        NA_character_ # otherwise
+      )
+    )
+  )
+  num_to_sub <- length(string_to_sub)
+  stopifnot(
+    all(version_varnames %in% names(possible_values)),
+    !anyNA(version_values),
+    num_to_sub >= 1,
+    num_to_sub < 10 # Something has gone wrong if we're doing 10+
+  )
+  out <- one_string
+  for (idx in seq_len(num_to_sub)) {
+    # not gsub in case there are duplicates
+    out <- sub(string_to_sub[idx], version_values[idx], out, fixed = TRUE)
+  }
+  out
+}
+
+# Substitute all values in the filenames and URLs of versions.txt
+#
+# @param deps_unsubstituted A list with two elements, `filenames` and `urls`
+# @param possible_values A dictionary-ish set of variables that could provide
+#   values to substitute in.
+# @return A list with two elements, `filenames` and `urls`, with values
+#   substituted into the strings like bash would.
+#
+# Used as a helper to parse versions.txt
+..install_substitute_all <- function(deps_unsubstituted, possible_values) {
+  file_substituted <- vapply(
+    deps_unsubstituted$filenames,
+    ..install_substitute_like_bash,
+    FUN.VALUE = character(1),
+    possible_values = possible_values
+  )
+  url_substituted <- vapply(
+    deps_unsubstituted$urls,
+    ..install_substitute_like_bash,
+    FUN.VALUE = character(1),
+    possible_values = possible_values
+  )
+  list(
+    filenames = unname(file_substituted),
+    urls = unname(url_substituted)
+  )
+}
+
+# Parse the version lines portion of versions.txt
+#
+# @param version_lines A character vector of lines read from versions.txt
+# @return The parsed and bash-substiuted version values
+#
+# Used as a helper to parse versions.txt
+..install_parse_version_lines <- function(version_lines) {
+  version_lines <- trimws(version_lines)
+  version_regex <- "^(ARROW_[A-Z0-9_]+_)(VERSION|SHA256_CHECKSUM)=([^=]+)$"
+  if (!all(grepl(version_regex, version_lines, perl = TRUE))) {
+    stop("Failed to parse version lines")
+  }
+  match_list <- regmatches(
+    version_lines,
+    regexec(version_regex, version_lines, perl = TRUE)
+  )
+  # Find the lines where the second regex match group is that are "VERSION" (as
+  # opposed to "SHA256_CHECKSUM")
+  version_idx <- vapply(
+    match_list,
+    function(m) m[[3]] == "VERSION",
+    FUN.VALUE = logical(1)
+  )
+  version_matches <- match_list[version_idx]
+  # Fancy indexing here is just to pull the first and second regex match out,
+  # e.g. "ARROW_RAPIDJSON_BUILD_" and "VERSION"
+  version_varnames <- vapply(
+    version_matches,
+    function(m) paste0(m[[2]], m[[3]]),
+    FUN.VALUE = character(1)
+  )
+  version_values <- vapply(version_matches,
+    function(m) m[[4]],
+    FUN.VALUE = character(1)
+  )
+  names(version_values) <- version_varnames
+  return(version_values)
+}
+
+# Parse the URL + filename array portion of versions.txt
+#
+# @param array_lines Characer vector of lines from the versions.txt file with
+#   the filename and URL array
+# @return A list with two character vectors, with names `filenames` and `urls`
+#
+# The output of this function has split out the filename and URL components,
+# but has not yet substituted in the version numbers. The output is next passed
+# to `..install_substitute_all()`
+#
+# Used as a helper to parse versions.txt
+..install_parse_dependency_array <- function(array_lines) {
+  stopifnot(
+    length(array_lines) >= 1,
+    is.character(array_lines),
+    !anyNA(array_lines)
+  )
+  array_lines <- trimws(array_lines)
+
+  # Parse the array_lines with a regex. Each line of the array is a different
+  # component, e.g.
+  # `"ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"`
+  # The first element is the variable name of the URL. This matters for cmake,
+  # but not here. The second is the filename that will be saved (no directory).
+  # The third is the URL, including some version string that's defined earlier
+  # in the file.
+  # Regex in words:
+  # Start with `"ARROW_`, then any capital ASCII letter, number, or underscore.
+  # After a space, find anything except a space, colon, or forward slash. (No
+  # space is essential, and would be essential to parsing the array in bash.
+  # The colon and slash are just basic guards that this is a filename.) Next, a
+  # space. Then a URL, starting with https://, and including anything except a
+  # space. (This is the URL before substituting in the version sting, so normal
+  # URL parsing rules don't apply.)
+  dep_array_regex <- '^"(ARROW_[A-Z0-9_]+_URL) ([^ :/"]+) (https://[^ "]+)"$'
+  if (!all(grepl(dep_array_regex, array_lines, perl = TRUE))) {
+    stop("Cannot parse thirdparty dependency array in expected format.")
+  }
+  list(
+    filenames = gsub(dep_array_regex, "\\2", array_lines, perl = TRUE),
+    urls      = gsub(dep_array_regex, "\\3", array_lines, perl = TRUE)
+  )
+}
+
+# Parse the versions.txt file
+#
+# @param versions_file Filename pointing to versions.txt
+# @return The parsed and ready-to-use values, as a named list of vectors
+#
+#
+# The versions.txt file is included as part of the R tar file, and is here:
+# https://github.com/apache/arrow/blob/master/cpp/thirdparty/versions.txt
+#
+# Used as a helper to parse versions.txt
+..install_parse_lines <- function(versions_file) {
+  orig_lines <- readLines(versions_file)
+
+  lines <- gsub("#.*", "", orig_lines, perl = TRUE)
+  lines <- lines[lines != ""]
+
+  dep_array_start_idx <- grep("^DEPENDENCIES=\\($", lines, perl = TRUE)
+  dep_array_lines <- lines[
+    seq.int(from = dep_array_start_idx + 1, to = length(lines) - 1, by = 1)
+  ]
+  version_lines <- lines[seq.int(1, dep_array_start_idx - 1, by = 1)]
+  version_info <- ..install_parse_version_lines(version_lines)
+
+  failed_to_parse <- anyNA(orig_lines) ||
+    length(orig_lines) > 1000 ||
+    length(lines) == 0 ||
+    length(dep_array_start_idx) != 1 ||
+    dep_array_start_idx <= 1 ||
+    dep_array_start_idx >= length(lines) - 3 ||
+    lines[length(lines)] != ")" ||
+    length(dep_array_lines) == 0 ||
+    anyNA(version_info)
+
+  if (failed_to_parse) {
+    stop(
+      "Failed to parse 3rd party dependency file. It's possible the function ",
+      "is not reading the correct file or the file formatting was not what ",
+      "was expected.",
+      call. = FALSE
+    )
+  }
+  deps_unsubstituted <- ..install_parse_dependency_array(dep_array_lines)
+  ..install_substitute_all(deps_unsubstituted, possible_values = version_info)
+}
+
+# Download the thirdparty dependencies specified in versions.txt
+#
+# @param dep_info Dependency info (named list of character vectors) as created
+#   by `..install_parse_lines()`
+# @param download_dir Directory name for download destination.
+#   The directory must already exist.
+# @return NULL
+..install_download_dependencies <- function(dep_info, download_dir) {
+  stopifnot(
+    length(dep_info$urls) == length(dep_info$filenames),
+    length(dep_info$urls) > 0,
+    length(download_dir) == 1
+  )
+  download_dir <- normalizePath(download_dir, winslash = "/", mustWork = TRUE)
+  full_filenames <- file.path(download_dir, dep_info$filenames, fsep = "/")
+  # Using libcurl here is well supported in R, but is a different download
+  # engine than the wget in download_dependencies.sh
+  # libcurl is required for supplying multiple URLs, and is available in all
+  # CRAN builds, but isn't guaranteed.
+  download_result_code <- download.file(dep_info$urls,
+    full_filenames,
+    method = "libcurl",
+    quiet = TRUE
+  )
+  if (!isTRUE(download_result_code == 0)) {
+    stop("Failed to download thirdparty dependencies")
+  }
+  invisible(NULL)
+}
 
 #' Create a source bundle that includes all thirdparty dependencies
 #'
@@ -209,16 +448,14 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   on.exit(unlink(untar_dir, recursive = TRUE), add = TRUE)
   utils::untar(source_file, exdir = untar_dir)
   tools_dir <- file.path(untar_dir, "arrow/tools")
-  download_dependencies_sh <- file.path(tools_dir, "cpp/thirdparty/download_dependencies.sh")
+  versions_file <- file.path(tools_dir, "cpp/thirdparty/versions.txt")
   # If you change this path, also need to edit nixlibs.R
   download_dir <- file.path(tools_dir, "thirdparty_dependencies")
   dir.create(download_dir)
+  dependency_info <- ..install_parse_lines(versions_file)
 
   message("Downloading files to ", download_dir)
-  download_successful <- system2(download_dependencies_sh, download_dir, stdout = FALSE) == 0
-  if (!download_successful) {
-    stop("Failed to download thirdparty dependencies")
-  }
+  ..install_download_dependencies(dependency_info, download_dir)
   # Need to change directory to untar_dir so tar() will use relative paths. That
   # means we'll need a full, non-relative path for dest_file. (extra_flags="-C"
   # doesn't work with R's internal tar)
