@@ -50,6 +50,7 @@ r_only({
   })
 
   test_that("able to parse and substitute versions.txt url-filename array", {
+    # nolint start
     test_array_lines <- c(
       '"ARROW_ZLIB_URL zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"'
     )
@@ -57,6 +58,7 @@ r_only({
       "ARROW_ZLIB_BUILD_VERSION=1.2.12",
       "ARROW_ZLIB_BUILD_SHA256_CHECKSUM=91844808532e5ce316b3c010929493c0244f3d37593afd6de04f71821d5136d9"
     )
+    # nolint end
     expected_paths_unsub <- list(
       filenames = "zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz",
       urls = "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
@@ -79,5 +81,13 @@ r_only({
       ..install_substitute_all(expected_paths_unsub, expected_version_info),
       expected_paths_sub
     )
+  })
+
+  test_that("read versions.txt without error", {
+    versions_file <- test_path("../../../cpp/thirdparty/versions.txt")
+    skip_if_not(file.exists(versions_file), "Thirdparty versions.txt file missing")
+    expect_silent(dep_info <- ..install_parse_lines(versions_file))
+    expect_named(dep_info, c("urls", "filenames"), ignore.order = TRUE)
+    expect_equal(length(dep_info$urls), length(dep_info$filenames))
   })
 })

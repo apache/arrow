@@ -296,12 +296,9 @@ reload_arrow <- function() {
   array_lines <- trimws(array_lines)
 
   # Parse the array_lines with a regex. Each line of the array is a different
-  # component, e.g.
-  # `"ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"`
-  # The first element is the variable name of the URL. This matters for cmake,
-  # but not here. The second is the filename that will be saved (no directory).
-  # The third is the URL, including some version string that's defined earlier
-  # in the file.
+  # component, with a format like `"<component name> <filename> <url>"` (quotes
+  # included). The filename and URL include some version string that's defined
+  # earlier in the file.
   # Regex in words:
   # Start with `"ARROW_`, then any capital ASCII letter, number, or underscore.
   # After a space, find anything except a space, colon, or forward slash. (No
@@ -343,6 +340,7 @@ reload_arrow <- function() {
   version_lines <- lines[seq.int(1, dep_array_start_idx - 1, by = 1)]
   version_info <- ..install_parse_version_lines(version_lines)
 
+  # nolint start
   failed_to_parse <- anyNA(orig_lines) ||
     length(orig_lines) > 1000 ||
     length(lines) == 0 ||
@@ -352,6 +350,7 @@ reload_arrow <- function() {
     lines[length(lines)] != ")" ||
     length(dep_array_lines) == 0 ||
     anyNA(version_info)
+  # nolint end
 
   if (failed_to_parse) {
     stop(
