@@ -110,7 +110,7 @@ struct ExtensionSet::Impl {
 ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry)
     : registry_(registry), impl_(new Impl(), [](Impl* impl) { delete impl; }) {}
 
-Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
+Result<ExtensionSet> ExtensionSet::Make(std::unordered_map<uint32_t, util::string_view> uris,
                                         std::vector<Id> type_ids,
                                         std::vector<bool> type_is_variation,
                                         std::vector<Id> function_ids,
@@ -126,12 +126,11 @@ Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
   }
 
   for (auto& uri : uris) {
-    if (uri.empty()) continue;
-    auto it = uris_owned_by_registry.find(uri);
+    auto it = uris_owned_by_registry.find(uri.second);
     if (it == uris_owned_by_registry.end()) {
       return Status::KeyError("Uri '", uri, "' not found in registry");
     }
-    uri = *it;  // Ensure uris point into the registry's memory
+    // uri = *it;  // Ensure uris point into the registry's memory
     set.impl_->AddUri(*it, &set);
   }
 

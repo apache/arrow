@@ -158,7 +158,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// An extension set should instead be created using
   /// arrow::engine::GetExtensionSetFromPlan
   static Result<ExtensionSet> Make(
-      std::vector<util::string_view> uris, std::vector<Id> type_ids,
+      std::unordered_map<uint32_t, util::string_view> uris, std::vector<Id> type_ids,
       std::vector<bool> type_is_variation, std::vector<Id> function_ids,
       ExtensionIdRegistry* = default_extension_id_registry());
 
@@ -226,7 +226,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
  private:
   ExtensionIdRegistry* registry_;
   /// The subset of extension registry URIs referenced by this extension set
-  std::vector<util::string_view> uris_;
+  std::unordered_map<uint32_t, util::string_view> uris_;
   std::vector<TypeRecord> types_;
 
   std::vector<FunctionRecord> functions_;

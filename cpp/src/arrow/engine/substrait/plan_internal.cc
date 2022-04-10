@@ -108,13 +108,23 @@ void SetElement(size_t i, const Element& element, std::vector<T>* vector) {
   }
   (*vector)[i] = static_cast<T>(element);
 }
+
+template <typename Element, typename key, typename value>
+void SetMapElement(key i, const Element& element, std::unordered_map<key, value>* map) {
+  DCHECK_LE(i, 1 << 20);
+  if (i >= map->size()) {
+    vector->reserve(i + 1);
+  }
+  (*map)[i] = static_cast<T>(element);
+}
+
 }  // namespace
 
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                                              ExtensionIdRegistry* registry) {
-  std::vector<util::string_view> uris;
+  std::unordered_map<uint32_t, util::string_view> uris;
   for (const auto& uri : plan.extension_uris()) {
-    SetElement(uri.extension_uri_anchor(), uri.uri(), &uris);
+    SetMapElement(uri.extension_uri_anchor(), uri.uri(), &uris);
   }
 
   // NOTE: it's acceptable to use views to memory owned by plan; ExtensionSet::Make
