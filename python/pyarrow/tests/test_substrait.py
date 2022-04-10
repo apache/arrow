@@ -19,6 +19,7 @@ import os
 import pathlib
 from pyarrow.lib import tobytes
 import pyarrow.parquet as pq
+import pytest
 
 try:
     from pyarrow import engine

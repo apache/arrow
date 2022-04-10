@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/util.h"
 
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/json_util.h>
