@@ -22,44 +22,23 @@
 #include <vector>
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/api.h"
-#include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
 
-namespace cp = arrow::compute;
-
 namespace engine {
 
-/// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
-class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public cp::SinkNodeConsumer {
- public:
-  explicit SubstraitSinkConsumer(
-      AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator,
-      arrow::util::BackpressureOptions backpressure = {})
-      : producer_(MakeProducer(generator, std::move(backpressure))) {}
-
-  Status Consume(cp::ExecBatch batch) override;
-
-  Status Init(const std::shared_ptr<Schema>& schema) override;
-
-  static arrow::PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer
-  MakeProducer(AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* out_gen,
-               arrow::util::BackpressureOptions backpressure);
-
-  Future<> Finish() override;
-
- private:
-  PushGenerator<arrow::util::optional<cp::ExecBatch>>::Producer producer_;
-};
-
+/// \brief Retrieve a RecordBatchReader from a Substrait plan in JSON.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
     std::string& substrait_json);
 
+/// \brief Retrieve a RecordBatchReader from a Substrait plan in Buffer.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
     std::shared_ptr<Buffer> substrait_buffer);
 
+/// \brief Get Substrait Buffer from a Substrait JSON plan.
+/// This is a helper method for Python tests.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> GetSubstraitBufferFromJSON(std::string& substrait_json);
 
 }  // namespace engine
