@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/engine/substrait/serde.h"
-#include "arrow/engine/substrait/util.h"
 
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/json_util.h>
@@ -29,10 +28,7 @@
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
-
-#include "arrow/util/async_generator.h"
 
 using testing::ElementsAre;
 using testing::Eq;
@@ -42,7 +38,6 @@ using testing::UnorderedElementsAre;
 namespace arrow {
 
 using internal::checked_cast;
-namespace cp = arrow::compute;
 
 namespace engine {
 
