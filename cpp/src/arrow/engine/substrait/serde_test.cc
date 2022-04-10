@@ -731,8 +731,6 @@ TEST(Substrait, ExtensionSetFromPlan) {
   EXPECT_EQ(decoded_add_func.name, "add");
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
     "relations": [],
