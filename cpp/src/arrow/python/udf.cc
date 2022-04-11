@@ -54,7 +54,12 @@ Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
     }
   }
   // call to Python executing the function
-  PyObject* result = PyObject_CallObject(function, arg_tuple);
+  PyObject* result;
+  auto st = SafeCallIntoPython([&]() -> Status {
+    result = PyObject_CallObject(function, arg_tuple);
+    return CheckPyError();
+  });
+  RETURN_NOT_OK(st);
   if (result == nullptr) {
     return Status::ExecutionError("Output is null, but expected an array");
   }
@@ -101,7 +106,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
                                    Datum* out) -> Status {
     PyAcquireGIL lock;
     RETURN_NOT_OK(ExecuteFunction(batch, func, exp_out_type, out));
-    return CheckPyError();
+    return Status::OK();
   };
 
   compute::ScalarKernel kernel(

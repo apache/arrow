@@ -39,7 +39,9 @@ namespace arrow {
 
 namespace py {
 
-// Exposing the UDFOptions: https://issues.apache.org/jira/browse/ARROW-16041
+/// TODO: TODO(ARROW-16041): UDF Options are not exposed to the Python
+/// users. This feature will be included when extending to provide advanced
+/// options for the users.
 class ARROW_PYTHON_EXPORT ScalarUdfOptions {
  public:
   ScalarUdfOptions(const std::string func_name, const compute::Arity arity,
