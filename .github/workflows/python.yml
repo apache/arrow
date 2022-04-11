@@ -112,6 +112,28 @@ jobs:
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
 
+  build-example:
+    name: Python Minimal Build Example
+    runs-on: ubuntu-latest
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Run minimal example Fedora conda
+        run: |
+          cd python/examples/minimal_build
+          docker-compose run --rm minimal-fedora-conda
+      - name: Run minimal example Ubuntu venv
+        run: |
+          cd python/examples/minimal_build
+          docker-compose run --rm minimal-ubuntu-venv
+
   macos:
     name: AMD64 MacOS 10.15 Python 3
     runs-on: macos-latest
