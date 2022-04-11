@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/engine/substrait/visibility.h"
@@ -143,6 +144,9 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   explicit ExtensionSet(ExtensionIdRegistry* = default_extension_id_registry());
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExtensionSet);
 
+  static Status CheckHasUri(util::string_view uri, ExtensionSet* self);
+  static void AddUri(std::pair<uint32_t, util::string_view> uri, ExtensionSet* self);
+
   /// Construct an ExtensionSet with explicit extension ids for efficient referencing
   /// during deserialization. Note that input vectors need not be densely packed; an empty
   /// (default constructed) Id may be used as a placeholder to indicate an unused
@@ -165,7 +169,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   // index in these vectors == value of _anchor/_reference fields
   /// TODO(ARROW-15583) this assumes that _anchor/_references won't be huge, which is not
   /// guaranteed. Could it be?
-  const std::vector<util::string_view>& uris() const { return uris_; }
+  const std::unordered_map<uint32_t, util::string_view>& uris() const { return uris_; }
 
   /// \brief Returns a data type given an anchor
   ///
@@ -230,10 +234,6 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   std::vector<TypeRecord> types_;
 
   std::vector<FunctionRecord> functions_;
-
-  // pimpl pattern to hide lookup details
-  struct Impl;
-  std::unique_ptr<Impl, void (*)(Impl*)> impl_;
 };
 
 }  // namespace engine

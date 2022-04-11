@@ -58,80 +58,53 @@ struct IdHashEq {
 // A builder used when creating a Substrait plan from an Arrow execution plan.  In
 // that situation we do not have a set of anchor values already defined so we keep
 // a map of what Ids we have seen.
-struct ExtensionSet::Impl {
-  void AddUri(util::string_view uri, ExtensionSet* self) {
-    if (uris_.find(uri) != uris_.end()) return;
+ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry) : registry_(registry) {}
 
-    self->uris_.push_back(uri);
-    uris_.insert(self->uris_.back());  // lookup helper's keys should reference memory
-                                       // owned by this ExtensionSet
-  }
+Status ExtensionSet::CheckHasUri(util::string_view uri, ExtensionSet* self) {
+  auto it =
+      std::find_if(self->uris_.begin(), self->uris_.end(),
+                   [&uri](const std::pair<uint32_t, util::string_view>& anchor_uri_pair) {
+                     return anchor_uri_pair.second == uri;
+                   });
+  if (it != self->uris_.end()) return Status::OK();
 
-  Status CheckHasUri(util::string_view uri) {
-    if (uris_.find(uri) != uris_.end()) return Status::OK();
+  return Status::Invalid(
+      "Uri ", uri,
+      " was referenced by an extension but was not declared in the ExtensionSet.");
+}
 
-    return Status::Invalid(
-        "Uri ", uri,
-        " was referenced by an extension but was not declared in the ExtensionSet.");
-  }
+void ExtensionSet::AddUri(std::pair<uint32_t, util::string_view> uri,
+                          ExtensionSet* self) {
+  auto it =
+      std::find_if(self->uris_.begin(), self->uris_.end(),
+                   [&uri](const std::pair<uint32_t, util::string_view>& anchor_uri_pair) {
+                     return anchor_uri_pair.second == uri.second;
+                   });
+  if (it != self->uris_.end()) return;
+  self->uris_[uri.first] = uri.second;
+}
 
-  uint32_t EncodeType(ExtensionIdRegistry::TypeRecord type_record, ExtensionSet* self) {
-    // note: at this point we're guaranteed to have an Id which points to memory owned by
-    // the set's registry.
-    AddUri(type_record.id.uri, self);
-    auto it_success =
-        types_.emplace(type_record.id, static_cast<uint32_t>(types_.size()));
-
-    if (it_success.second) {
-      self->types_.push_back(
-          {type_record.id, type_record.type, type_record.is_variation});
-    }
-
-    return it_success.first->second;
-  }
-
-  uint32_t EncodeFunction(Id id, util::string_view function_name, ExtensionSet* self) {
-    // note: at this point we're guaranteed to have an Id which points to memory owned by
-    // the set's registry.
-    AddUri(id.uri, self);
-    auto it_success = functions_.emplace(id, static_cast<uint32_t>(functions_.size()));
-
-    if (it_success.second) {
-      self->functions_.push_back({id, function_name});
-    }
-
-    return it_success.first->second;
-  }
-
-  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> uris_;
-  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_, functions_;
-};
-
-ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry)
-    : registry_(registry), impl_(new Impl(), [](Impl* impl) { delete impl; }) {}
-
-Result<ExtensionSet> ExtensionSet::Make(std::unordered_map<uint32_t, util::string_view> uris,
-                                        std::vector<Id> type_ids,
-                                        std::vector<bool> type_is_variation,
-                                        std::vector<Id> function_ids,
-                                        ExtensionIdRegistry* registry) {
+Result<ExtensionSet> ExtensionSet::Make(
+    std::unordered_map<uint32_t, util::string_view> uris, std::vector<Id> type_ids,
+    std::vector<bool> type_is_variation, std::vector<Id> function_ids,
+    ExtensionIdRegistry* registry) {
   ExtensionSet set;
   set.registry_ = registry;
 
   // TODO(bkietz) move this into the registry as registry->OwnUris(&uris) or so
   std::unordered_set<util::string_view, ::arrow::internal::StringViewHash>
       uris_owned_by_registry;
-  for (util::string_view uri : registry->Uris()) {
+  for (auto uri : registry->Uris()) {
     uris_owned_by_registry.insert(uri);
   }
 
   for (auto& uri : uris) {
     auto it = uris_owned_by_registry.find(uri.second);
     if (it == uris_owned_by_registry.end()) {
-      return Status::KeyError("Uri '", uri, "' not found in registry");
+      return Status::KeyError("Uri '", uri.second, "' not found in registry");
     }
     // uri = *it;  // Ensure uris point into the registry's memory
-    set.impl_->AddUri(*it, &set);
+    AddUri(uri, &set);
   }
 
   if (type_ids.size() != type_is_variation.size()) {
@@ -143,7 +116,7 @@ Result<ExtensionSet> ExtensionSet::Make(std::unordered_map<uint32_t, util::strin
 
   for (size_t i = 0; i < type_ids.size(); ++i) {
     if (type_ids[i].empty()) continue;
-    RETURN_NOT_OK(set.impl_->CheckHasUri(type_ids[i].uri));
+    RETURN_NOT_OK(CheckHasUri(type_ids[i].uri, &set));
 
     if (auto rec = registry->GetType(type_ids[i], type_is_variation[i])) {
       set.types_[i] = {rec->id, rec->type, rec->is_variation};
@@ -157,7 +130,7 @@ Result<ExtensionSet> ExtensionSet::Make(std::unordered_map<uint32_t, util::strin
 
   for (size_t i = 0; i < function_ids.size(); ++i) {
     if (function_ids[i].empty()) continue;
-    RETURN_NOT_OK(set.impl_->CheckHasUri(function_ids[i].uri));
+    RETURN_NOT_OK(CheckHasUri(function_ids[i].uri, &set));
 
     if (auto rec = registry->GetFunction(function_ids[i])) {
       set.functions_[i] = {rec->id, rec->function_name};
@@ -182,7 +155,8 @@ Result<ExtensionSet::TypeRecord> ExtensionSet::DecodeType(uint32_t anchor) const
 
 Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
   if (auto rec = registry_->GetType(type)) {
-    return impl_->EncodeType(*rec, this);
+    types_.push_back({(*rec).id, (*rec).type, (*rec).is_variation});
+    return types_.size();
   }
   return Status::KeyError("type ", type.ToString(), " not found in the registry");
 }
@@ -197,7 +171,8 @@ Result<ExtensionSet::FunctionRecord> ExtensionSet::DecodeFunction(uint32_t ancho
 
 Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
   if (auto rec = registry_->GetFunction(function_name)) {
-    return impl_->EncodeFunction(rec->id, rec->function_name, this);
+    functions_.push_back(FunctionRecord{rec->id, function_name});
+    return functions_.size();
   }
   return Status::KeyError("function ", function_name, " not found in the registry");
 }
