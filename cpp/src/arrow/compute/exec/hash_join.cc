@@ -103,8 +103,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     filter_ = std::move(filter);
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
-    // Adding ten, since each side of join might have an IO thread being called from.
-    local_states_.resize(num_threads + 10);
+    // TODO(ARROW-15732)
+    // Each side of join might have an IO thread being called from.
+    local_states_.resize(GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1);
     for (size_t i = 0; i < local_states_.size(); ++i) {
       local_states_[i].is_initialized = false;
       local_states_[i].is_has_match_initialized = false;
