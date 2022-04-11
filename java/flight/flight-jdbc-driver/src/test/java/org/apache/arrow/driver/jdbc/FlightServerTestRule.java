@@ -132,7 +132,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   }
 
   private void setUseTls(boolean useTls) {
-    properties.put("useTls", useTls);
+    properties.put("ssl", useTls);
   }
 
   public MiddlewareCookie.Factory getMiddlewareCookieFactory() {

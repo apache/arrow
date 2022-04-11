@@ -23,13 +23,17 @@ import java.io.InputStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -39,6 +43,7 @@ import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 
 /**
@@ -101,6 +106,96 @@ public final class ClientAuthenticationUtils {
     return factory.getCredentialCallOption();
   }
 
+  @VisibleForTesting
+  static KeyStore getKeyStoreInstance(String instance)
+      throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
+    KeyStore keyStore = KeyStore.getInstance(instance);
+    keyStore.load(null, null);
+
+    return keyStore;
+  }
+
+  static String getOperatingSystem() {
+    return System.getProperty("os.name");
+  }
+
+  /**
+   * Check if the operating system running the software is Windows.
+   *
+   * @return whether is the windows system.
+   */
+  public static boolean isWindows() {
+    return getOperatingSystem().contains("Windows");
+  }
+
+  /**
+   * Check if the operating system running the software is Mac.
+   *
+   * @return whether is the mac system.
+   */
+  public static boolean isMac() {
+    return getOperatingSystem().contains("Mac");
+  }
+
+  /**
+   * It gets the trusted certificate based on the operating system and loads all the certificate into a
+   * {@link InputStream}.
+   *
+   * @return An input stream with all the certificates.
+   *
+   * @throws KeyStoreException        if a key store could not be loaded.
+   * @throws CertificateException     if a certificate could not be found.
+   * @throws IOException              if it fails reading the file.
+   */
+  public static InputStream getCertificateInputStreamFromSystem(String password) throws KeyStoreException,
+      CertificateException, IOException, NoSuchAlgorithmException {
+
+    List<KeyStore> keyStoreList = new ArrayList<>();
+    if (isWindows()) {
+      keyStoreList.add(getKeyStoreInstance("Windows-ROOT"));
+      keyStoreList.add(getKeyStoreInstance("Windows-MY"));
+    } else if (isMac()) {
+      keyStoreList.add(getKeyStoreInstance("KeychainStore"));
+    } else {
+      Path path = Paths.get(System.getProperty("java.home"), "lib", "security", "cacerts");
+      try (InputStream fileInputStream = Files.newInputStream(path)) {
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(fileInputStream, password.toCharArray());
+        keyStoreList.add(keyStore);
+      }
+    }
+
+    return getCertificatesInputStream(keyStoreList);
+  }
+
+  @VisibleForTesting
+  static void getCertificatesInputStream(KeyStore keyStore, JcaPEMWriter pemWriter)
+      throws IOException, KeyStoreException {
+    Enumeration<String> aliases = keyStore.aliases();
+    while (aliases.hasMoreElements()) {
+      String alias = aliases.nextElement();
+      if (keyStore.isCertificateEntry(alias)) {
+        pemWriter.writeObject(keyStore.getCertificate(alias));
+      }
+    }
+    pemWriter.flush();
+  }
+
+  @VisibleForTesting
+  static InputStream getCertificatesInputStream(Collection<KeyStore> keyStores)
+      throws IOException, KeyStoreException {
+    try (final StringWriter writer = new StringWriter();
+         final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+
+      for (KeyStore keyStore : keyStores) {
+        getCertificatesInputStream(keyStore, pemWriter);
+      }
+
+      return new ByteArrayInputStream(
+        writer.toString().getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
   /**
    * Generates an {@link InputStream} that contains certificates for a private
    * key.
@@ -124,6 +219,11 @@ public final class ClientAuthenticationUtils {
           Preconditions.checkNotNull(keyStorePass).toCharArray());
     }
 
+    return getSingleCertificateInputStream(keyStore);
+  }
+
+  private static InputStream getSingleCertificateInputStream(KeyStore keyStore)
+      throws KeyStoreException, IOException, CertificateException {
     final Enumeration<String> aliases = keyStore.aliases();
 
     while (aliases.hasMoreElements()) {

@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.String.format;
 
-import java.io.File;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -87,9 +86,26 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    *
    * @return the path.
    */
-  public String getKeyStorePath() {
-    final File keyStore = keystore();
-    return keyStore == null ? null : keyStore.getPath();
+  public String getTrustStorePath() {
+    return ArrowFlightConnectionProperty.TRUST_STORE.getString(properties);
+  }
+
+  /**
+   * Gets the KeyStore password.
+   *
+   * @return the password.
+   */
+  public String getTrustStorePassword() {
+    return ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.getString(properties);
+  }
+
+  /**
+   * Check if the JDBC should use the trusted store files from the operating system.
+   *
+   * @return whether to use system trusted store certificates.
+   */
+  public boolean useSystemTrustStore() {
+    return ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.getBoolean(properties);
   }
 
   /**
@@ -98,7 +114,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return whether to use TLS encryption.
    */
   public boolean useTls() {
-    return ArrowFlightConnectionProperty.USE_TLS.getBoolean(properties);
+    return ArrowFlightConnectionProperty.SSL.getBoolean(properties);
   }
 
   public boolean getDisableCertificateVerification() {
@@ -133,8 +149,11 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     PORT("port", null, Type.NUMBER, true),
     USER("user", null, Type.STRING, false),
     PASSWORD("password", null, Type.STRING, false),
-    USE_TLS("useTls", true, Type.BOOLEAN, false),
+    SSL("ssl", true, Type.BOOLEAN, false),
     CERTIFICATE_VERIFICATION("disableCertificateVerification", false, Type.BOOLEAN, false),
+    TRUST_STORE("trustStore", null, Type.STRING, false),
+    TRUST_STORE_PASSWORD("trustStorePassword", null, Type.STRING, false),
+    USE_SYSTEM_TRUST_STORE("useSystemTrustStore", true, Type.BOOLEAN, false),
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
     TOKEN("token", null, Type.STRING, false);
 

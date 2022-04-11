@@ -342,11 +342,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private int port;
     private String username;
     private String password;
-    private String keyStorePath;
-    private String keyStorePassword;
+    private String trustStorePath;
+    private String trustStorePassword;
     private String token;
     private boolean useTls;
     private boolean disableCertificateVerification;
+    private boolean useSystemTrustStore;
     private BufferAllocator allocator;
 
     /**
@@ -396,22 +397,22 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     /**
      * Sets the KeyStore path for this handler.
      *
-     * @param keyStorePath the KeyStore path.
+     * @param trustStorePath the KeyStore path.
      * @return this instance.
      */
-    public Builder withKeyStorePath(final String keyStorePath) {
-      this.keyStorePath = keyStorePath;
+    public Builder withTrustStorePath(final String trustStorePath) {
+      this.trustStorePath = trustStorePath;
       return this;
     }
 
     /**
      * Sets the KeyStore password for this handler.
      *
-     * @param keyStorePassword the KeyStore password.
+     * @param trustStorePassword the KeyStore password.
      * @return this instance.
      */
-    public Builder withKeyStorePassword(final String keyStorePassword) {
-      this.keyStorePassword = keyStorePassword;
+    public Builder withTrustStorePassword(final String trustStorePassword) {
+      this.trustStorePassword = trustStorePassword;
       return this;
     }
 
@@ -426,8 +427,25 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Sets whether to disable the certificate verification in this handler.
+     *
+     * @param disableCertificateVerification whether to disable certificate verification.
+     * @return this instance.
+     */
     public Builder withDisableCertificateVerification(final boolean disableCertificateVerification) {
       this.disableCertificateVerification = disableCertificateVerification;
+      return this;
+    }
+
+    /**
+     * Sets whether to use the certificates from the operating system.
+     *
+     * @param useSystemTrustStore whether to use the system operating certificates.
+     * @return this instance.
+     */
+    public Builder withSystemTrustStore(final boolean useSystemTrustStore) {
+      this.useSystemTrustStore = useSystemTrustStore;
       return this;
     }
 
@@ -523,14 +541,20 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         }
         clientBuilder.location(location);
 
-        if (disableCertificateVerification) {
-          clientBuilder.verifyServer(false);
+        if (useTls) {
+          if (disableCertificateVerification) {
+            clientBuilder.verifyServer(false);
+          } else {
+            if (useSystemTrustStore) {
+              clientBuilder.trustedCertificates(
+                  ClientAuthenticationUtils.getCertificateInputStreamFromSystem(trustStorePassword));
+            } else if (trustStorePath != null) {
+              clientBuilder.trustedCertificates(
+                  ClientAuthenticationUtils.getCertificateStream(trustStorePath, trustStorePassword));
+            }
+          }
         }
 
-        if (keyStorePath != null) {
-          clientBuilder.trustedCertificates(
-              ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
-        }
         client = clientBuilder.build();
         if (authFactory != null) {
           options.add(
