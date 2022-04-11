@@ -237,7 +237,7 @@ cdef class InputType(_Weakrefable):
 
         Parameter
         ---------
-        data_type : DataType
+        data_type: DataType
 
         Examples
         --------
@@ -261,7 +261,7 @@ cdef class InputType(_Weakrefable):
 
         Parameter
         ---------
-        data_type : DataType
+        data_type: DataType
 
         Examples
         --------
@@ -2435,7 +2435,7 @@ def register_scalar_function(func_name, function_doc, in_types,
     ... 
     >>> 
     >>> func_name = "py_add_func"
-    >>> in_types = [InputType.array(pa.int64())]
+    >>> in_types = {"array": InputType.array(pa.int64())}
     >>> out_type = pa.int64()
     >>> register_function(func_name, func_doc,
     ...                   in_types, out_type, add_constant)

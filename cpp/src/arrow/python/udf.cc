@@ -101,7 +101,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
                                    Datum* out) -> Status {
     PyAcquireGIL lock;
     RETURN_NOT_OK(ExecuteFunction(batch, func, exp_out_type, out));
-    return Status::OK();
+    return CheckPyError();
   };
 
   compute::ScalarKernel kernel(
