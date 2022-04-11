@@ -25,14 +25,12 @@ WORKDIR=${WORKDIR:-$HOME}
 MINICONDA=$WORKDIR/miniconda-for-arrow
 LIBRARY_INSTALL_DIR=$WORKDIR/local-libs
 CPP_BUILD_DIR=$WORKDIR/arrow-cpp-build
-ARROW_ROOT=$WORKDIR/arrow
+ARROW_ROOT=/arrow
 export ARROW_HOME=$WORKDIR/dist
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 
 python3 -m venv $WORKDIR/venv
 source $WORKDIR/venv/bin/activate
-
-git clone --depth=100 https://github.com/apache/arrow.git $ARROW_ROOT
 
 pip install -r $ARROW_ROOT/python/requirements-build.txt
 

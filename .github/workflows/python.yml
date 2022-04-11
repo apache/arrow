@@ -119,20 +119,35 @@ jobs:
     timeout-minutes: 45
     strategy:
       fail-fast: false
+      matrix:
+        name:
+          - minimal-fedora-conda
+          - minimal-fedora-venv
+          - minimal-ubuntu-conda
+          - minimal-ubuntu-venv
+        include:
+          - name: minimal-fedora-conda
+            image: minimal-fedora-conda
+            title: Minimal Build Fedora Conda
+          - name: minimal-fedora-venv
+            image: minimal-fedora-venv
+            title: Minimal Build Fedora venv
+          - name: minimal-ubuntu-conda
+            image: minimal-ubuntu-conda
+            title: Minimal Build Ubuntu Conda
+          - name: minimal-ubuntu-venv
+            image: minimal-ubuntu-venv
+            title: Minimal Build Ubuntu venv
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Run minimal example Fedora conda
+      - name: Run minimal build example
         run: |
           cd python/examples/minimal_build
-          docker-compose run --rm minimal-fedora-conda
-      - name: Run minimal example Ubuntu venv
-        run: |
-          cd python/examples/minimal_build
-          docker-compose run --rm minimal-ubuntu-venv
+          docker-compose run --rm ${{ matrix.image }}
 
   macos:
     name: AMD64 MacOS 10.15 Python 3
