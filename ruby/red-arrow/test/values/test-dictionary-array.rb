@@ -238,7 +238,7 @@ module ValuesDictionaryArrayTests
       # 02:00:09.987654
       Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000 + 987_654),
     ]
-    target = build(Arrow::Time64Array.new(:micro, values))
+    target = build(Arrow::Time64Array.new(unit, values))
     assert_equal(values, target.values)
   end
 
