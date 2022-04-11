@@ -214,7 +214,7 @@ module ValuesDictionaryArrayTests
       nil,
       Arrow::Time.new(unit, 60 * 60 * 2 + 9), # 02:00:09
     ]
-    target = build(Arrow::Time32Array.new(:second, values))
+    target = build(Arrow::Time32Array.new(unit, values))
     assert_equal(values, target.values)
   end
 
