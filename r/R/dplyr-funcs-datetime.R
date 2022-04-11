@@ -270,6 +270,20 @@ register_bindings_duration <- function() {
       time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
     }
 
+    # if time1 or time2 are timestamps they cannot be expressed in "s" /seconds
+    # otherwise they cannot be added subtracted with durations
+    # TODO delete the casting to "us" once
+    # https://issues.apache.org/jira/browse/ARROW-16060 is solved
+    if (inherits(time1, "Expression") &&
+        time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp("us")))
+    }
+
+    if (inherits(time2, "Expression") &&
+        time2$type_id() %in% Type[c("TIMESTAMP")] && time2$type()$unit() != 2L) {
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp("us")))
+    }
+
     # we need to go build the subtract expression instead of `time1 - time2` to
     # prevent complaints when we try to subtract an R object from an Expression
     subtract_output <- build_expr("-", time1, time2)
@@ -308,6 +322,34 @@ register_bindings_duration <- function() {
     }
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
+  })
+  register_binding("decimal_date", function(date) {
+    y <- build_expr("year", date)
+    start <- call_binding("make_datetime", year = y, tz = "UTC")
+    sofar <- call_binding("difftime", date, start, units = "secs")
+    total <- call_binding(
+      "if_else",
+      build_expr("is_leap_year", date),
+      Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
+      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
+    )
+    y + sofar$cast(int64()) / total
+  })
+  register_binding("date_decimal", function(decimal, tz = "UTC") {
+    y <- build_expr("floor", decimal)
+
+    start <- call_binding("make_datetime", year = y, tz = tz)
+    seconds <- call_binding(
+      "if_else",
+      build_expr("is_leap_year", start),
+      Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
+      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
+    )
+
+    fraction <- decimal - y
+    delta <- build_expr("floor", seconds * fraction)
+    delta <- delta$cast(int64())
+    start + delta$cast(duration("s"))
   })
 }
 
