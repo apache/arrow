@@ -36,15 +36,9 @@ over the network.
 Writing a Flight Service
 ========================
 
-Arrow Flight is a development framework to offer to us the building blocks
-to implement applications base on our needs.
-
-In this journey, you need to implement how do you are planning to expose
-your business operations in base of RPC Methods and Request Patterns
-provided by Flight.
-
-For Flight Server side operations you need to implement FlightProducer interface
-methods.
+Flight servers implement the `FlightProducer`_ interface. For convenience,
+they can subclass `NoOpFlightProducer`_ instead, which offers default
+implementations of all the RPC methods.
 
 .. code-block:: Java
 
@@ -53,10 +47,10 @@ methods.
         // Override methods or use NoOpFlightProducer for only methods needed
     }
 
-Also you need to specify where to listen for, let's combine producer and location
-to create and start the Flight Server. This will start the server, but won't block
-the rest of the program. Call `FlightServer.awaitTermination` to block until the
-server stops.
+To start a server, create a `Location`_ to specify where to listen, and then create
+a `FlightServer`_ with an instance of a producer. This will start the server, but
+won't block the rest of the program. Call ``FlightServer.awaitTermination``
+to block until the server stops.
 
 .. code-block:: Java
 
@@ -86,7 +80,7 @@ server stops.
 
     try(
         BufferAllocator allocator = new RootAllocator();
-        FlightServer tutorialFlightServer = FlightServer.builder(
+        FlightServer server = FlightServer.builder(
                 allocator,
                 location,
                 new TutorialFlightProducer()
@@ -128,7 +122,7 @@ To connect to a Flight service, call `FlightClient.builder` with a location.
 
     try(BufferAllocator allocator = new RootAllocator();
         FlightClient tutorialFlightClient = FlightClient.builder(allocator, location).build()){
-        // ... Consume operations exposed by Flight Server
+        // ... Consume operations exposed by Flight server
     } catch (Exception e) {
         e.printStackTrace();
     }
@@ -218,8 +212,8 @@ Custom Middleware
 =================
 
 Servers and clients support custom middleware (or interceptors) that are called on every
-request and can modify the request in a limited fashion. These can be implemented by implements
-`FlightServerMiddleware` and `FlightClientMiddleware` interface methods.
+request and can modify the request in a limited fashion. These can be implemented by implementing the
+`FlightServerMiddleware` and `FlightClientMiddleware` interfaces.
 
 Middleware are fairly limited, but they can add headers to a request/response.
 
