@@ -342,7 +342,7 @@ void CountModifiedComments(const Datum& d, int* good_count, int* bad_count) {
 }
 
 void VerifySupplier(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
-    int64_t kExpectedRows = static_cast<int64_t>(10000 * scale_factor);
+  int64_t kExpectedRows = static_cast<int64_t>(10000 * scale_factor);
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_suppkey;
@@ -379,7 +379,7 @@ TEST(TpchNode, Supplier) {
 }
 
 void VerifyPart(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
-    int64_t kExpectedRows = static_cast<int64_t>(200000 * scale_factor);
+  int64_t kExpectedRows = static_cast<int64_t>(200000 * scale_factor);
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_partkey;
@@ -414,7 +414,7 @@ TEST(TpchNode, Part) {
 }
 
 void VerifyPartSupp(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
-    const int64_t kExpectedRows = static_cast<int64_t>(800000 * scale_factor);
+  const int64_t kExpectedRows = static_cast<int64_t>(800000 * scale_factor);
   int64_t num_rows = 0;
 
   std::unordered_map<int32_t, int32_t> counts;
@@ -510,7 +510,8 @@ void VerifyLineitem(const std::vector<ExecBatch>& batches, double scale_factor =
   for (auto& batch : batches) {
     ValidateBatch(batch);
     CountInstances(&counts, batch[0]);
-    VerifyAllBetween(batch[1], /*min=*/1, /*max=*/static_cast<int64_t>(200000 * scale_factor));
+    VerifyAllBetween(batch[1], /*min=*/1,
+                     /*max=*/static_cast<int64_t>(200000 * scale_factor));
     VerifyAllBetween(batch[3], /*min=*/1, /*max=*/7);
     VerifyDecimalsBetween(batch[4], /*min=*/100, /*max=*/5000);
     VerifyDecimalsBetween(batch[6], /*min=*/0, /*max=*/10);
@@ -617,7 +618,8 @@ TEST(TpchNode, AllTables) {
   std::array<std::vector<ExecBatch>, kNumTables> batches;
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<TpchGen> gen, TpchGen::Make(plan.get(), kScaleFactor));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<TpchGen> gen,
+                       TpchGen::Make(plan.get(), kScaleFactor));
   for (int i = 0; i < kNumTables; i++) {
     ASSERT_OK(AddTableAndSinkToPlan(*plan, *gen, gens[i], tables[i]));
   }
