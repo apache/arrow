@@ -300,7 +300,7 @@ test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
 
   # read_csv_arrow() on a connection may error because it can call
   # the stream's Read() method from another thread
-  # expect_identical(read_csv_arrow(file(tf)), read_csv_arrow(tf))
+  expect_identical(read_csv_arrow(file(tf)), read_csv_arrow(tf))
 })
 
 test_that("CSV reader works on files with non-UTF-8 encoding", {
