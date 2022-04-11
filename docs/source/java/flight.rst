@@ -47,6 +47,29 @@ implementations of all the RPC methods.
         // Override methods or use NoOpFlightProducer for only methods needed
     }
 
+Each RPC method always takes a `CallStatus` for common parameters. To indicate
+failure, raise an exception.
+
+.. code-block:: Java
+
+    // Server
+    @Override
+    public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
+        // ...
+        listener.onError(
+            CallStatus.UNAUTHENTICATED.withDescription(
+                "Custom UNAUTHENTICATED description message.").toRuntimeException());
+        // ...
+    }
+
+    // Client
+    try{
+        Iterable<FlightInfo> flightInfosBefore = flightClient.listFlights(Criteria.ALL);
+        // ...
+    } catch (FlightRuntimeException e){
+        // Catch UNAUTHENTICATED exception
+    }
+
 To start a server, create a `Location`_ to specify where to listen, and then create
 a `FlightServer`_ with an instance of a producer. This will start the server, but
 won't block the rest of the program. Call ``FlightServer.awaitTermination``
@@ -54,30 +77,12 @@ to block until the server stops.
 
 .. code-block:: Java
 
-    import org.apache.arrow.flight.Action;
-    import org.apache.arrow.flight.ActionType;
-    import org.apache.arrow.flight.Criteria;
-    import org.apache.arrow.flight.FlightDescriptor;
-    import org.apache.arrow.flight.FlightInfo;
-    import org.apache.arrow.flight.FlightProducer;
-    import org.apache.arrow.flight.FlightServer;
-    import org.apache.arrow.flight.FlightStream;
-    import org.apache.arrow.flight.Location;
-    import org.apache.arrow.flight.PutResult;
-    import org.apache.arrow.flight.Result;
-    import org.apache.arrow.flight.SchemaResult;
-    import org.apache.arrow.flight.Ticket;
-    import org.apache.arrow.memory.BufferAllocator;
-    import org.apache.arrow.memory.RootAllocator;
-    import org.apache.arrow.util.AutoCloseables;
-
     class TutorialFlightProducer implements FlightProducer {
         @Override
         // Override methods or use NoOpFlightProducer for only methods needed
     }
 
     Location location = Location.forGrpcInsecure("0.0.0.0", 0);
-
     try(
         BufferAllocator allocator = new RootAllocator();
         FlightServer server = FlightServer.builder(
@@ -86,18 +91,9 @@ to block until the server stops.
                 new TutorialFlightProducer()
         ).build();
     ){
-        tutorialFlightServer.start();
-        System.out.println("Server listening on port " + tutorialFlightServer.getPort());
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                System.out.println("\nExiting command...");
-                AutoCloseables.close(tutorialFlightServer, allocator);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }));
-        tutorialFlightServer.awaitTermination();
+        server.start();
+        System.out.println("Server listening on port " + server.getPort());
+        server.awaitTermination();
     } catch (Exception e) {
         e.printStackTrace();
     }
@@ -109,19 +105,14 @@ to block until the server stops.
 Using the Flight Client
 =======================
 
-To connect to a Flight service, call `FlightClient.builder` with a location.
+To connect to a Flight service, call `FlightClient`_ with a location.
 
 .. code-block:: Java
-
-    import org.apache.arrow.flight.FlightClient;
-    import org.apache.arrow.flight.Location;
-    import org.apache.arrow.memory.BufferAllocator;
-    import org.apache.arrow.memory.RootAllocator;
 
     Location location = Location.forGrpcInsecure("0.0.0.0", 58104);
 
     try(BufferAllocator allocator = new RootAllocator();
-        FlightClient tutorialFlightClient = FlightClient.builder(allocator, location).build()){
+        FlightClient client = FlightClient.builder(allocator, location).build()){
         // ... Consume operations exposed by Flight server
     } catch (Exception e) {
         e.printStackTrace();
@@ -135,17 +126,6 @@ clients to set a timeout on calls. Also, some objects returned by client RPC cal
 expose a cancel method which allows terminating a call early.
 
 .. code-block:: Java
-
-    import org.apache.arrow.flight.Action;
-    import org.apache.arrow.flight.CallOptions;
-    import org.apache.arrow.flight.FlightClient;
-    import org.apache.arrow.flight.Location;
-    import org.apache.arrow.flight.Result;
-    import org.apache.arrow.memory.BufferAllocator;
-    import org.apache.arrow.memory.RootAllocator;
-
-    import java.util.Iterator;
-    import java.util.concurrent.TimeUnit;
 
     Location location = Location.forGrpcInsecure("0.0.0.0", 58609);
 
@@ -166,21 +146,11 @@ break out of any processing the server is currently doing.
 
 .. code-block:: Java
 
-    import org.apache.arrow.flight.FlightClient;
-    import org.apache.arrow.flight.FlightDescriptor;
-    import org.apache.arrow.flight.FlightStream;
-    import org.apache.arrow.flight.Location;
-    import org.apache.arrow.flight.Ticket;
-    import org.apache.arrow.memory.BufferAllocator;
-    import org.apache.arrow.memory.RootAllocator;
-    import java.nio.charset.StandardCharsets;
-
     // Client
     Location location = Location.forGrpcInsecure("0.0.0.0", 58609);
     try(BufferAllocator allocator = new RootAllocator();
         FlightClient tutorialFlightClient = FlightClient.builder(allocator, location).build()){
-        try(FlightStream flightStream = tutorialFlightClient.getStream(new Ticket(
-                FlightDescriptor.path("profiles").getPath().get(0).getBytes(StandardCharsets.UTF_8)))) {
+        try(FlightStream flightStream = flightClient.getStream(new Ticket(new byte[]{}))) {
             // ...
             flightStream.cancel("tutorial-cancel", new Exception("Testing cancellation opion!"));
         }
@@ -199,12 +169,34 @@ break out of any processing the server is currently doing.
 Enabling TLS
 ============
 
-TLS can be enabled when setting up a server by providing a certificate and key pair to `FlightServer.builder.useTls`.
+TLS can be enabled when setting up a server by providing a
+certificate and key pair to `FlightServer.builder.useTls`.
 
 On the client side, use `FlightClient.builder.trustedCertificates`.
 
 Enabling Authentication
 =======================
+
+.. warning:: Authentication is insecure without enabling TLS.
+
+Handshake-based authentication can be enabled by implementing
+`ServerAuthHandler`. Authentication consists of two parts: on
+initial client connection, the server and client authentication
+implementations can perform any negotiation needed; then, on each RPC
+thereafter, the client provides a token. The server authentication
+handler validates the token and provides the identity of the
+client. This identity can be obtained from the
+`CallContext.peerIdentity`.
+
+.. code-block:: Java
+
+    // Client
+    FlightClient client = FlightClient.builder().build();
+    client.authenticateBasic("user", "password");
+    // Server
+    FlightServer server = FlightServer.builder().authHandler(new BasicServerAuthHandler(validator)).build();
+    // CallHeaders printed on the Flight Server:
+    Metadata(content-type=application/grpc,user-agent=grpc-java-netty/1.44.1,auth-token-bin=bXlfdG9rZW4,grpc-accept-encoding=gzip)
 
 
 
@@ -217,80 +209,8 @@ request and can modify the request in a limited fashion. These can be implemente
 
 Middleware are fairly limited, but they can add headers to a request/response.
 
-Example: Need to intercept Flight server headers at request and print values also for the response
-headers add a key-value and print values.
-
-.. code-block:: Java
-
-    import org.apache.arrow.flight.CallHeaders;
-    import org.apache.arrow.flight.CallInfo;
-    import org.apache.arrow.flight.CallStatus;
-    import org.apache.arrow.flight.FlightServer;
-    import org.apache.arrow.flight.FlightServerMiddleware;
-    import org.apache.arrow.flight.Location;
-    import org.apache.arrow.flight.RequestContext;
-    import org.apache.arrow.memory.RootAllocator;
-
-    import java.io.IOException;
-    import java.util.Collections;
-    import java.util.List;
-
-    class ServerMiddlewarePair<T extends FlightServerMiddleware> {
-        final FlightServerMiddleware.Key<T> key;
-        final FlightServerMiddleware.Factory<T> factory;
-        ServerMiddlewarePair(FlightServerMiddleware.Key<T> key, FlightServerMiddleware.Factory<T> factory) {
-            this.key = key;
-            this.factory = factory;
-        }
-    }
-    class HeadersAnalyzerServerMiddleware implements FlightServerMiddleware {
-        @Override
-        public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-            System.out.println("OUT Headers: onBeforeSendingHeaders");
-            outgoingHeaders.insert("new-key-response", "new-value-response");
-            System.out.println(outgoingHeaders);
-        }
-        @Override
-        public void onCallCompleted(CallStatus status) {
-        }
-        @Override
-        public void onCallErrored(Throwable err) {
-        }
-        class Factory implements FlightServerMiddleware.Factory<HeadersAnalyzerServerMiddleware> {
-            HeadersAnalyzerServerMiddleware instance = new HeadersAnalyzerServerMiddleware();
-            @Override
-            public HeadersAnalyzerServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders, RequestContext context) {
-                System.out.println("IN Headers: onCallStarted");
-                System.out.println(incomingHeaders);
-                return instance;
-            }
-        }
-    }
-    Location location = Location.forGrpcInsecure("0.0.0.0", 33333);
-    try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE)){
-        HeadersAnalyzerServerMiddleware headers = new HeadersAnalyzerServerMiddleware();
-        HeadersAnalyzerServerMiddleware.Factory factory = headers.new Factory();
-        final List<ServerMiddlewarePair<HeadersAnalyzerServerMiddleware>> middleware = Collections
-                .singletonList(new ServerMiddlewarePair<>(FlightServerMiddleware.Key.of("m"), factory));
-        final FlightServer.Builder builder = FlightServer.builder(
-                allocator, location, new CookbookProducer(allocator, location));
-        middleware.forEach(pair -> builder.middleware(pair.key, pair.factory));
-        try(FlightServer flightServer = builder.build()) {
-            try {
-                flightServer.start();
-            } catch (IOException e) {
-                System.exit(1);
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-Any request to Flight Server services should print these messages:
-
-.. code-block:: shell
-
-    IN Headers: onCallStarted
-    Metadata(content-type=application/grpc,user-agent=grpc-java-netty/1.44.1,grpc-accept-encoding=gzip)
-    OUT Headers: onBeforeSendingHeaders
-    Metadata(new-key-response=new-value-response)
+.. _`FlightClient`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/FlightClient.html
+.. _`FlightProducer`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/FlightProducer.html
+.. _`FlightServer`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/FlightServer.html
+.. _`NoOpFlightProducer`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/NoOpFlightProducer.html
+.. _`Location`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/Location.html
