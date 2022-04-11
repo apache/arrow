@@ -163,16 +163,16 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_castFLOAT8_varbinary",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{boolean(), int64()}, utf8(),
-                     kResultNullIfNull, "castVARCHAR_bool_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{boolean(), int64()},
+                     utf8(), kResultNullIfNull, "castVARCHAR_bool_int64",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{binary(), int64()}, utf8(),
-                     kResultNullIfNull, "castVARCHAR_binary_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{binary(), int64()},
+                     utf8(), kResultNullIfNull, "castVARCHAR_binary_int64",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{int32(), int64()}, utf8(),
@@ -183,20 +183,20 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_castVARCHAR_int64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{date64(), int64()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_castVARCHAR_date64_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{date64(), int64()},
+                     utf8(), kResultNullIfNull, "gdv_fn_castVARCHAR_date64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{float32(), int64()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_castVARCHAR_float32_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{float32(), int64()},
+                     utf8(), kResultNullIfNull, "gdv_fn_castVARCHAR_float32_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{float64(), int64()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_castVARCHAR_float64_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{float64(), int64()},
+                     utf8(), kResultNullIfNull, "gdv_fn_castVARCHAR_float64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{decimal128(), int64()}, utf8(),
-                     kResultNullIfNull, "castVARCHAR_decimal128_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{decimal128(), int64()},
+                     utf8(), kResultNullIfNull, "castVARCHAR_decimal128_int64",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("crc32", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
