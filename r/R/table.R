@@ -157,12 +157,11 @@ rbind.Table <- function(...) {
   schema <- tables[[1]]$schema
   unequal_schema_idx <- which.min(lapply(tables, function(x) x$schema == schema))
   if (unequal_schema_idx != 1) {
-    abort(paste0(
-      sprintf("Schema at index %i does not match the first schema\n", unequal_schema_idx),
-      "Schema 1:\n",
-      schema$ToString(),
-      sprintf("\nSchema %d:\n", unequal_schema_idx),
-      tables[[unequal_schema_idx]]$schema$ToString()
+    abort(c(
+      sprintf("Schema at index %i does not match the first schema", unequal_schema_idx),
+      i = paste0("Schema 1:\n", schema$ToString()),
+      i = paste0(sprintf("Schema %d:\n", unequal_schema_idx),
+                 tables[[unequal_schema_idx]]$schema$ToString())
     ))
   }
 
@@ -175,7 +174,7 @@ rbind.Table <- function(...) {
 }
 
 #' @export
-cbind.Table <- function(...) {
+cbind.Table <- function(..., call = caller_env()) {
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
@@ -202,7 +201,11 @@ cbind.Table <- function(...) {
           RecordBatch$create("{name}" := input)
         },
         error = function(err) {
-          abort(sprintf("Input ..%i cannot be converted to an Arrow Array: %s", name, err))
+          abort(
+            sprintf("Error occured when trying to convert input ..%s to an Arrow Array", name),
+            parent = err,
+            call = call
+          )
         }
       )
     }

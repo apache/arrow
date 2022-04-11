@@ -209,7 +209,7 @@ cbind_check_length <- function(target_length, length, idx) {
 }
 
 #' @export
-cbind.RecordBatch <- function(...) {
+cbind.RecordBatch <- function(..., call = caller_env()) {
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
@@ -227,13 +227,15 @@ cbind.RecordBatch <- function(...) {
     } else if (length(input) == 1) {
       RecordBatch$create("{name}" := repeat_value_as_array(input, num_rows))
     } else {
+      cbind_check_length(num_rows, length(input), i)
       tryCatch(
-        {
-          cbind_check_length(num_rows, length(input), i)
-          RecordBatch$create("{name}" := input)
-        },
+        RecordBatch$create("{name}" := input),
         error = function(err) {
-          abort(sprintf("Input ..%s cannot be converted to an Arrow Array: %s", name, err))
+          abort(
+            sprintf("Error occured when trying to convert input ..%s to an Arrow Array", name),
+            parent = err,
+            call = call
+          )
         }
       )
     }
