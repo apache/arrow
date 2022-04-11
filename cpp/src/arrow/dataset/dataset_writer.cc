@@ -328,7 +328,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
-    if (directory_.empty()) {
+    if (directory_.empty() || !write_options_.create_dir) {
       init_future_ = Future<>::MakeFinished();
     } else {
       if (write_options_.existing_data_behavior ==
@@ -355,9 +355,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
         std::move(directory), std::move(prefix), std::move(schema), write_options,
         writer_state);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
-    if (write_options.create_dir) {
-      dir_queue->PrepareDirectory();
-    }
+    dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
     // std::move required to make RTools 3.5 mingw compiler happy
     return std::move(dir_queue);
