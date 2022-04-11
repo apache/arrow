@@ -1305,6 +1305,56 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
   )
 })
 
+test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", {
+  example_d <- tibble(x = c(1:10, NA))
+  date_to_add <- ymd("2009-08-03", tz = "America/Chicago")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dseconds = dseconds(x),
+        dmilliseconds = dmilliseconds(x),
+        dmicroseconds = dmicroseconds(x),
+        dnanoseconds = dnanoseconds(x),
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dseconds = dseconds(x),
+        dmicroseconds = dmicroseconds(x),
+        new_date_1 = date_to_add + dseconds,
+        new_date_2 = date_to_add + dseconds - dmicroseconds,
+        new_duration = dseconds - dmicroseconds
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        r_obj_dseconds = dseconds(1),
+        r_obj_dmilliseconds = dmilliseconds(2),
+        r_obj_dmicroseconds = dmicroseconds(3),
+        r_obj_dnanoseconds = dnanoseconds(4)
+      ) %>%
+      collect(),
+    tibble(),
+    ignore_attr = TRUE
+  )
+
+  expect_error(
+    call_binding("dpicoseconds"),
+    "Duration in picoseconds not supported in Arrow"
+  )
+})
+
 test_that("make_difftime()", {
   test_df <- tibble(
     seconds = c(3, 4, 5, 6),
