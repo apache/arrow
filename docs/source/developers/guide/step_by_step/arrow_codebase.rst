@@ -102,9 +102,9 @@ C++ we must create the binding manually to use it in that implementation.
 	There is much you can learn by checking **Pull Requests**
 	and **unit tests** for similar issues.  
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Python
+   .. tab-item:: Python
 
       **Adding a fix in Python**
 
@@ -143,7 +143,7 @@ C++ we must create the binding manually to use it in that implementation.
       If you are adding a new future in Python you can look at
       the :ref:`tutorial <python_tutorial>` for ideas.
 
-   .. tab:: R
+   .. tab-item:: R
 
       **Philosophy behind R bindings**
 
