@@ -19,7 +19,7 @@
 Arrow Flight RPC
 ================
 
-Arrow Flight is an RPC framework for efficient transfer of Flight data
+Arrow Flight is an RPC framework for efficient transfer of Arrow data
 over the network.
 
 .. contents::
