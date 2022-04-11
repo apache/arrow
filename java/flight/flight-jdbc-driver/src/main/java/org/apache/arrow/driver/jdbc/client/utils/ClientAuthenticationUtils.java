@@ -115,7 +115,7 @@ public final class ClientAuthenticationUtils {
     return keyStore;
   }
 
-  private static String getOperatingSystem() {
+  static String getOperatingSystem() {
     return System.getProperty("os.name");
   }
 
@@ -158,10 +158,11 @@ public final class ClientAuthenticationUtils {
       keyStoreList.add(getKeyStoreInstance("KeychainStore"));
     } else {
       Path path = Paths.get(System.getProperty("java.home"), "lib", "security", "cacerts");
-      InputStream fileInputStream = Files.newInputStream(path);
-      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-      keyStore.load(fileInputStream, password.toCharArray());
-      keyStoreList.add(keyStore);
+      try (InputStream fileInputStream = Files.newInputStream(path)) {
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(fileInputStream, password.toCharArray());
+        keyStoreList.add(keyStore);
+      }
     }
 
     return getCertificatesInputStream(keyStoreList);
