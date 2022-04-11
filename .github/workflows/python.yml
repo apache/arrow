@@ -113,10 +113,10 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   build-example:
-    name: Python Minimal Build Example
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
-    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -128,16 +128,16 @@ jobs:
         include:
           - name: minimal-fedora-conda
             image: minimal-fedora-conda
-            title: Minimal Build Fedora Conda
+            title: Fedora Conda Minimal Build
           - name: minimal-fedora-venv
             image: minimal-fedora-venv
-            title: Minimal Build Fedora venv
+            title: Fedora venv Minimal Build
           - name: minimal-ubuntu-conda
             image: minimal-ubuntu-conda
-            title: Minimal Build Ubuntu Conda
+            title: Ubuntu Conda Minimal Build
           - name: minimal-ubuntu-venv
             image: minimal-ubuntu-venv
-            title: Minimal Build Ubuntu venv
+            title: Ubuntu venv Minimal Build
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2

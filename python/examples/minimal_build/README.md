@@ -40,6 +40,17 @@ docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_fedora_minimal /
 docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_fedora_minimal /io/build_conda.sh
 ```
 
+Alternatively you can use docker-compose to build and run using:
+```
+docker-compose build
+
+# With conda
+docker-compose run --rm minimal-fedora-conda
+
+# With pip
+docker-compose run --rm minimal-fedora-venv
+```
+
 ## Ubuntu 20.04
 
 First, build the Docker image using:
@@ -54,6 +65,17 @@ docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_ubuntu_minimal /
 
 # With conda
 docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_ubuntu_minimal /io/build_conda.sh
+```
+
+Alternatively you can use docker-compose to build and run using:
+```
+docker-compose build
+
+# With conda
+docker-compose run --rm minimal-ubuntu-conda
+
+# With pip
+docker-compose run --rm minimal-ubuntu-venv
 ```
 
 ## Building on Fedora - Podman and SELinux
