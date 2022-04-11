@@ -137,7 +137,7 @@ module ValuesDictionaryArrayTests
     assert_equal(values, target.values)
   end
 
-  def test_tring
+  def test_string
     values = [
       "Ruby",
       nil,
