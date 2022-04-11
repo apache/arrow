@@ -551,9 +551,9 @@ test_that("Table supports cbind", {
     arrow_table(c = 1:10)
   )
   expected <- arrow_table(cbind(
-    data.frame(a = 1:10, b = "x"),
-    data.frame(a = 11:20, b = "y"),
-    data.frame(c = 1:10)
+    tibble::tibble(a = 1:10, b = "x"),
+    tibble::tibble(a = 11:20, b = "y"),
+    tibble::tibble(c = 1:10)
   ))
   expect_equal(actual, expected, ignore_attr = TRUE)
 
