@@ -25,6 +25,7 @@ import textwrap
 import tempfile
 import threading
 import time
+from venv import create
 
 import numpy as np
 import pytest
@@ -4330,6 +4331,55 @@ def test_write_dataset_s3(s3_example_simple):
     # check roundtrip
     result = ds.dataset(
         "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
+
+
+_minio_put_only_policy = """{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": [
+                "arn:aws:s3:::*"
+            ]
+        }
+    ]
+}"""
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_write_dataset_s3_put_only(s3_server, limited_s3_user):
+    from pyarrow.fs import S3FileSystem
+
+    # write dataset with s3 filesystem
+    limited_s3_user(_minio_put_only_policy)
+    host, port, _, _ = s3_server['connection']
+    fs = S3FileSystem(
+        access_key='limited',
+        secret_key='limited123',
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http'
+    )
+    # fs.create_dir('existing-bucket/test')
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
+    )
+    # writing with filesystem object with create_dir flag set to false
+    ds.write_dataset(
+        table, "'existing-bucket/test/", filesystem=fs,
+        format="feather", create_dir=False
+    )
+    # check roundtrip
+    result = ds.dataset(
+        "'existing-bucket/test/", filesystem=fs, format="ipc",
     ).to_table()
     assert result.equals(table)
 

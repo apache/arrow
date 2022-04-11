@@ -753,7 +753,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
                   max_partitions=None, max_open_files=None,
                   max_rows_per_file=None, min_rows_per_group=None,
                   max_rows_per_group=None, file_visitor=None,
-                  existing_data_behavior='error'):
+                  existing_data_behavior='error', create_dir=True):
     """
     Write a dataset to a given format and partitioning.
 
@@ -928,5 +928,5 @@ Table/RecordBatch, or iterable of RecordBatch
         scanner, base_dir, basename_template, filesystem, partitioning,
         file_options, max_partitions, file_visitor, existing_data_behavior,
         max_open_files, max_rows_per_file,
-        min_rows_per_group, max_rows_per_group
+        min_rows_per_group, max_rows_per_group, create_dir
     )
