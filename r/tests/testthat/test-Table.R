@@ -564,10 +564,14 @@ test_that("Table supports cbind", {
   )
 
   # Handles data.frame
-  expect_equal(
-    cbind(arrow_table(a = 1:2), data.frame(b = 4:5)),
-    arrow_table(a = 1:2, b = 4:5)
-  )
+  if (getRversion() >= "4.0.0") {
+    # Prior to R 4.0, cbind would short-circuit to the data.frame implementation
+    # if **any** of the arguments are a data.frame.
+    expect_equal(
+      cbind(arrow_table(a = 1:2), data.frame(b = 4:5)),
+      arrow_table(a = 1:2, b = 4:5)
+    )
+  }
 
   # Handle factors
   expect_equal(

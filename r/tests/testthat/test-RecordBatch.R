@@ -549,11 +549,16 @@ test_that("RecordBatch supports cbind", {
     record_batch(a = 1:2, b = 4:5)
   )
 
-  # Handles data.frames
-  expect_equal(
-    cbind(record_batch(a = 1:2), data.frame(b = 4:5)),
-    record_batch(a = 1:2, b = 4:5)
-  )
+  # Handles data.frames on R 4.0 or greater
+  if (getRversion() >= "4.0.0") {
+    # Prior to R 4.0, cbind would short-circuit to the data.frame implementation
+    # if **any** of the arguments are a data.frame.
+    expect_equal(
+      cbind(record_batch(a = 1:2), data.frame(b = 4:5)),
+      record_batch(a = 1:2, b = 4:5)
+    )
+  }
+
 
   # Handles base factors
   expect_equal(
