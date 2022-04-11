@@ -511,7 +511,7 @@ void VerifyLineitem(const std::vector<ExecBatch>& batches, double scale_factor =
     ValidateBatch(batch);
     CountInstances(&counts, batch[0]);
     VerifyAllBetween(batch[1], /*min=*/1,
-                     /*max=*/static_cast<int64_t>(200000 * scale_factor));
+                     /*max=*/static_cast<int32_t>(200000 * scale_factor));
     VerifyAllBetween(batch[3], /*min=*/1, /*max=*/7);
     VerifyDecimalsBetween(batch[4], /*min=*/100, /*max=*/5000);
     VerifyDecimalsBetween(batch[6], /*min=*/0, /*max=*/10);
