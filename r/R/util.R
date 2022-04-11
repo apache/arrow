@@ -130,12 +130,12 @@ handle_parquet_io_error <- function(e, format, call) {
   if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
     # If length(format) > 1, that means it is (almost certainly) the default/not specified value
     # so let the user know that they should specify the actual (not parquet) format
-    abort(c(
+    msg <- c(
       msg,
       i = "Did you mean to specify a 'format' other than the default (parquet)?"
-    ), call = call)
+    )
   }
-  abort(conditionMessage(e), call = call)
+  abort(msg, call = call)
 }
 
 is_writable_table <- function(x) {
@@ -202,14 +202,14 @@ handle_csv_read_error <- function(e, schema, call) {
   msg <- conditionMessage(e)
 
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
-    abort(c(
+    msg <- c(
       msg,
       i = paste(
         "If you have supplied a schema and your data contains a header",
         "row, you should supply the argument `skip = 1` to prevent the",
         "header being read in as data."
       )
-    ), call = call)
+    )
   }
-  abort(conditionMessage(e), call = call)
+  abort(msg, call = call)
 }
