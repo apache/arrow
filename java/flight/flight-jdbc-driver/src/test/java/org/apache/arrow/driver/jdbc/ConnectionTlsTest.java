@@ -288,7 +288,7 @@ public class ConnectionTlsTest {
 
     final Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=true&useSystemTrustStore=false&%s=%s&%s=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&ssl=true&useSystemTrustStore=false&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -362,7 +362,7 @@ public class ConnectionTlsTest {
 
   /**
    * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
-   * just a connection url and using 0 and 1 as useTls values.
+   * just a connection url and using 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -374,7 +374,7 @@ public class ConnectionTlsTest {
 
     final Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=1&useSystemTrustStore=0&%s=%s&%s=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&ssl=1&useSystemTrustStore=0&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -388,7 +388,7 @@ public class ConnectionTlsTest {
 
   /**
    * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
-   * a connection url and properties with String K-V pairs and using 0 and 1 as useTls values.
+   * a connection url and properties with String K-V pairs and using 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -416,7 +416,7 @@ public class ConnectionTlsTest {
 
   /**
    * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
-   * a connection url and properties with Object K-V pairs and using 0 and 1 as useTls values.
+   * a connection url and properties with Object K-V pairs and using 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */

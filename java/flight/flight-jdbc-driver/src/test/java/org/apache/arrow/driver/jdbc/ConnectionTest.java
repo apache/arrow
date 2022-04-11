@@ -91,7 +91,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put("useTls", false);
+    properties.put("ssl", false);
 
     try (Connection connection = DriverManager.getConnection(
         "jdbc:arrow-flight://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
@@ -154,6 +154,8 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
+    properties.put(ArrowFlightConnectionProperty.SSL.camelName(),
+        false);
     final String invalidUrl = "jdbc:arrow-flight://" + FLIGHT_SERVER_TEST_RULE.getHost() +
         ":" + 65537;
 
@@ -190,6 +192,8 @@ public class ConnectionTest {
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
         FLIGHT_SERVER_TEST_RULE.getPort());
+    properties.put(ArrowFlightConnectionProperty.SSL.camelName(),
+        false);
     try (Connection connection = DriverManager
         .getConnection("jdbc:arrow-flight://localhost:32010", properties)) {
       assert connection.isValid(300);
@@ -209,10 +213,12 @@ public class ConnectionTest {
     final Properties properties = new Properties();
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
-    properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
-        FLIGHT_SERVER_TEST_RULE.getPort());
     properties.put(ArrowFlightConnectionProperty.USER.camelName(),
         "invalidUser");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
+        FLIGHT_SERVER_TEST_RULE.getPort());
+    properties.put(ArrowFlightConnectionProperty.SSL.camelName(),
+        false);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         "invalidPassword");
 
@@ -235,7 +241,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=false",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&ssl=false",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest));
@@ -302,7 +308,7 @@ public class ConnectionTest {
 
   /**
    * Check if an non-encrypted connection can be established successfully when connecting through
-   * the DriverManager using just a connection url and using 0 and 1 as useTls values.
+   * the DriverManager using just a connection url and using 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -314,7 +320,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=0",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&ssl=0",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest));
@@ -325,7 +331,7 @@ public class ConnectionTest {
   /**
    * Check if an non-encrypted connection can be established successfully when connecting through
    * the DriverManager using a connection url and properties with String K-V pairs and using
-   * 0 and 1 as useTls values.
+   * 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -354,7 +360,7 @@ public class ConnectionTest {
   /**
    * Check if an non-encrypted connection can be established successfully when connecting through
    * the DriverManager using a connection url and properties with Object K-V pairs and using
-   * 0 and 1 as useTls values.
+   * 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -394,7 +400,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&threadPoolSize=1&useTls=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&threadPoolSize=1&ssl=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -406,7 +412,7 @@ public class ConnectionTest {
   /**
    * Check if an non-encrypted connection can be established successfully when connecting through
    * the DriverManager using a connection url and properties with String K-V pairs and using
-   * 0 and 1 as useTls values.
+   * 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -422,7 +428,7 @@ public class ConnectionTest {
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
     properties.setProperty(ArrowFlightConnectionProperty.THREAD_POOL_SIZE.camelName(), "1");
-    properties.put("useTls", false);
+    properties.put("ssl", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -436,7 +442,7 @@ public class ConnectionTest {
   /**
    * Check if an non-encrypted connection can be established successfully when connecting through
    * the DriverManager using a connection url and properties with Object K-V pairs and using
-   * 0 and 1 as useTls values.
+   * 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -452,7 +458,7 @@ public class ConnectionTest {
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
     properties.put(ArrowFlightConnectionProperty.THREAD_POOL_SIZE.camelName(), 1);
-    properties.put("useTls", false);
+    properties.put("ssl", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -477,7 +483,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&ssl=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -489,7 +495,7 @@ public class ConnectionTest {
   /**
    * Check if an non-encrypted connection can be established successfully when connecting through
    * the DriverManager using a connection url and properties with String K-V pairs and using
-   * 0 and 1 as useTls values.
+   * 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -504,7 +510,7 @@ public class ConnectionTest {
         userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put("useTls", false);
+    properties.put("ssl", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -518,7 +524,7 @@ public class ConnectionTest {
   /**
    * Check if an non-encrypted connection can be established successfully when connecting through
    * the DriverManager using a connection url and properties with Object K-V pairs and using
-   * 0 and 1 as useTls values.
+   * 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -533,7 +539,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put("useTls", false);
+    properties.put("ssl", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
