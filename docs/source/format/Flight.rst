@@ -209,6 +209,29 @@ well, in which case any `authentication method supported by gRPC
 
 .. _Mutual TLS (mTLS): https://grpc.io/docs/guides/auth/#supported-auth-mechanisms
 
+Transport Implementations
+=========================
+
+Flight is primarily defined in terms of its Protobuf and gRPC
+specification below, but Arrow implementations may also support
+alternative transports (see :ref:`status-flight-rpc`). In that case,
+implementations should use the following URI schemes for the given
+transport implemenatations:
+
++----------------------------+----------------------------+
+| Transport                  | URI Scheme                 |
++============================+============================+
+| gRPC (plaintext)           | grpc: or grpc+tcp:         |
++----------------------------+----------------------------+
+| gRPC (TLS)                 | grpc+tls:                  |
++----------------------------+----------------------------+
+| gRPC (Unix domain socket)  | grpc+unix:                 |
++----------------------------+----------------------------+
+| UCX_ (plaintext)           | ucx:                       |
++----------------------------+----------------------------+
+
+.. _UCX: https://openucx.org/
+
 Error Handling
 ==============
 
