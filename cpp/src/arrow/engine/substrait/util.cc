@@ -31,28 +31,26 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsum
       : producer_(MakeProducer(generator, std::move(backpressure))) {}
 
   Status Consume(compute::ExecBatch batch) override {
-  // Consume a batch of data
-  bool did_push = producer_.Push(batch);
-  if (!did_push) return Status::ExecutionError("Producer closed already");
-  return Status::OK();
-}
+    // Consume a batch of data
+    bool did_push = producer_.Push(batch);
+    if (!did_push) return Status::ExecutionError("Producer closed already");
+    return Status::OK();
+  }
 
-  Status Init(const std::shared_ptr<Schema>& schema) override {
-  return Status::OK();
-}
+  Status Init(const std::shared_ptr<Schema>& schema) override { return Status::OK(); }
 
   static arrow::PushGenerator<arrow::util::optional<compute::ExecBatch>>::Producer
   MakeProducer(AsyncGenerator<arrow::util::optional<compute::ExecBatch>>* out_gen,
                arrow::util::BackpressureOptions backpressure);
 
-  Future<> Finish() override{
-  producer_.Push(IterationEnd<arrow::util::optional<compute::ExecBatch>>());
-  if (producer_.Close()) {
-    return Future<>::MakeFinished();
+  Future<> Finish() override {
+    producer_.Push(IterationEnd<arrow::util::optional<compute::ExecBatch>>());
+    if (producer_.Close()) {
+      return Future<>::MakeFinished();
+    }
+    return Future<>::MakeFinished(
+        Status::ExecutionError("Error occurred in closing the batch producer"));
   }
-  return Future<>::MakeFinished(
-      Status::ExecutionError("Error occurred in closing the batch producer"));
-}
 
  private:
   PushGenerator<arrow::util::optional<compute::ExecBatch>>::Producer producer_;
@@ -132,7 +130,7 @@ Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
   compute::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
+                                    ::arrow::internal::GetCpuThreadPool());
   arrow::engine::SubstraitExecutor executor(substrait_buffer, &sink_gen, plan,
                                             exec_context);
   RETURN_NOT_OK(executor.Init());

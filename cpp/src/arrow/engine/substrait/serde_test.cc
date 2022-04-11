@@ -799,5 +799,13 @@ TEST(Substrait, GetRecordBatchReader) {
   EXPECT_GT(table->num_rows(), 0);
 }
 
+TEST(Substrait, InvalidPlan) {
+  std::string substrait_json = R"({
+    "relations": [
+    ]
+  })";
+  ASSERT_RAISES(Invalid, engine::GetRecordBatchReader(substrait_json));
+}
+
 }  // namespace engine
 }  // namespace arrow

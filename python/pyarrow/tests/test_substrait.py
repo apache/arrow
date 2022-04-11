@@ -18,6 +18,7 @@
 import os
 import pathlib
 from pyarrow.lib import tobytes
+from pyarrow.lib import ArrowInvalid
 import pyarrow.parquet as pq
 import pytest
 
@@ -102,3 +103,15 @@ def test_run_query_in_bytes():
     expected_tb = pq.read_table(filename)
 
     assert expected_tb.num_rows == res_tb.num_rows
+
+
+def test_invalid_plan():
+    query = """
+    {
+        "relations": [
+        ]
+    }
+    """
+    exec_message = "ExecPlan has no node"
+    with pytest.raises(ArrowInvalid, match=exec_message):
+        run_query(tobytes(query))

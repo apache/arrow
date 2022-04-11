@@ -39,7 +39,8 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchRea
 
 /// \brief Get Substrait Buffer from a Substrait JSON plan.
 /// This is a helper method for Python tests.
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> GetSubstraitBufferFromJSON(std::string& substrait_json);
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> GetSubstraitBufferFromJSON(
+    std::string& substrait_json);
 
 }  // namespace engine
 
