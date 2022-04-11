@@ -303,5 +303,20 @@ as_arrow_table.RecordBatch <- function(x, ..., schema = NULL) {
 #' @rdname as_arrow_table
 #' @export
 as_arrow_table.data.frame <- function(x, ..., schema = NULL) {
-  Table$create(x, schema = schema)
+  arrays <- lapply(names(x), function(col) {
+    tryCatch(
+      as_chunked_array(x[[col]], type = schema[[col]]$type),
+      error = function(e) {
+        abort(
+          c("Error converting columns to ChunkedArray",
+            "i" = glue::glue("Problem column: `{col}`")
+          ),
+          parent = e
+        )
+      }
+    )
+  })
+  names(arrays) <- names(x)
+
+  Table__from_dots(arrays, NULL, option_use_threads())
 }

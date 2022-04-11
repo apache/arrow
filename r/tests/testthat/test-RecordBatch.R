@@ -820,19 +820,18 @@ test_that("as_record_batch() works for data.frame()", {
   batch <- record_batch(col1 = 1L, col2 = "two")
   tbl <- data.frame(col1 = 1L, col2 = "two")
 
-  # metadata prevents expect_equal from working out of the box
-  tbl_as_batch <- as_record_batch(tbl)
-  tbl_as_batch$metadata <- NULL
-  expect_equal(tbl_as_batch, batch)
-
-  tbl_as_batch <- as_record_batch(
-    tbl,
-    schema = schema(col1 = float64(), col2 = string())
-  )
-  tbl_as_batch$metadata <- NULL
-
+  expect_equal(as_record_batch(tbl), batch)
   expect_equal(
-    tbl_as_batch,
+    as_record_batch(
+      tbl,
+      schema = schema(col1 = float64(), col2 = string())
+    ),
     record_batch(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+
+  expect_snapshot_error(
+    as_record_batch(
+      structure(list(x = environment()), class = "data.frame")
+    )
   )
 })

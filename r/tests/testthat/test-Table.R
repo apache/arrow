@@ -713,20 +713,19 @@ test_that("as_arrow_table() works for data.frame()", {
   table <- arrow_table(col1 = 1L, col2 = "two")
   tbl <- data.frame(col1 = 1L, col2 = "two")
 
-  # metadata prevents expect_equal from working out of the box
-  tbl_as_table <- as_arrow_table(tbl)
-  tbl_as_table$metadata <- NULL
-  expect_equal(tbl_as_table, table)
-
-  tbl_as_table <- as_arrow_table(
-    tbl,
-    schema = schema(col1 = float64(), col2 = string())
-  )
-  tbl_as_table$metadata <- NULL
-
+  expect_equal(as_arrow_table(tbl), table)
   expect_equal(
-    tbl_as_table,
+    as_arrow_table(
+      tbl,
+      schema = schema(col1 = float64(), col2 = string())
+    ),
     arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+
+  expect_snapshot_error(
+    as_arrow_table(
+      structure(list(x = environment()), class = "data.frame")
+    )
   )
 })
 
