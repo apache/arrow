@@ -410,3 +410,30 @@ def test_nullary_functions():
 
     res = pc.call_function("random_func", [])
     assert res.as_py() >= 0 and res.as_py() <= 10
+
+
+def test_output_type():
+    def add_one(array):
+        ar = pc.call_function("add", [array, 1])
+        ar = ar.cast(pa.int32())
+        return ar
+
+    func_name = "py_add_to_scalar"
+    in_types = {"array": InputType.array(pa.int64())}
+    out_type = pa.int64()
+    doc = {
+        "summary": "add function scalar",
+        "description": "add function"
+    }
+    register_scalar_function(func_name, doc,
+                             in_types, out_type, add_one)
+
+    func = pc.get_function(func_name)
+
+    assert func.name == func_name
+
+    expected_expr = "Expected output type, int64," \
+        + " but function returned type int32"
+
+    with pytest.raises(ValueError, match=expected_expr):
+        pc.call_function(func_name, [pa.array([20, 30])])

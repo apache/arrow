@@ -28,7 +28,8 @@ namespace arrow {
 
 namespace py {
 
-Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function, Datum* out) {
+Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
+                       const compute::OutputType& exp_out_type, Datum* out) {
   int num_args = static_cast<int64_t>(batch.values.size());
   PyObject* arg_tuple = PyTuple_New(num_args);
   // wrap exec_batch objects into Python objects based on the datum type
@@ -59,9 +60,21 @@ Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function, Datu
   }
   // wrapping the output for expected output type
   if (is_scalar(result)) {
-    return unwrap_scalar(result).Value(out);
+    ARROW_ASSIGN_OR_RAISE(auto val, unwrap_scalar(result));
+    if (!exp_out_type.type()->Equals(val->type)) {
+      return Status::Invalid("Expected output type, ", exp_out_type.type()->name(),
+                             ", but function returned type ", val->type->name());
+    }
+    *out = Datum(val);
+    return Status::OK();
   } else if (is_array(result)) {
-    return unwrap_array(result).Value(out);
+    ARROW_ASSIGN_OR_RAISE(auto val, unwrap_array(result));
+    if (!exp_out_type.type()->Equals(val->type())) {
+      return Status::Invalid("Expected output type, ", exp_out_type.type()->name(),
+                             ", but function returned type ", val->type()->name());
+    }
+    *out = Datum(val);
+    return Status::OK();
   } else {
     return Status::Invalid("Not supported output type");
   }
@@ -79,13 +92,15 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
   }
   auto doc = options->doc();
   auto arity = options->arity();
+  auto exp_out_type = options->output_type();
   scalar_func_ =
       std::make_shared<compute::ScalarFunction>(options->name(), arity, std::move(doc));
   auto func = function_.obj();
-  auto exec = [func](compute::KernelContext* ctx, const compute::ExecBatch& batch,
-                     Datum* out) -> Status {
+  auto exec = [func, exp_out_type](compute::KernelContext* ctx,
+                                   const compute::ExecBatch& batch,
+                                   Datum* out) -> Status {
     PyAcquireGIL lock;
-    RETURN_NOT_OK(ExecuteFunction(batch, func, out));
+    RETURN_NOT_OK(ExecuteFunction(batch, func, exp_out_type, out));
     return Status::OK();
   };
 
