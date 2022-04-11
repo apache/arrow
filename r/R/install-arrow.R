@@ -340,19 +340,19 @@ reload_arrow <- function() {
   version_lines <- lines[seq.int(1, dep_array_start_idx - 1, by = 1)]
   version_info <- ..install_parse_version_lines(version_lines)
 
-  # nolint start
-  failed_to_parse <- anyNA(orig_lines) ||
-    length(orig_lines) > 1000 ||
-    length(lines) == 0 ||
-    length(dep_array_start_idx) != 1 ||
-    dep_array_start_idx <= 1 ||
-    dep_array_start_idx >= length(lines) - 3 ||
-    lines[length(lines)] != ")" ||
-    length(dep_array_lines) == 0 ||
+  failed_to_parse <- c(
+    anyNA(orig_lines),
+    length(orig_lines) > 1000,
+    length(lines) == 0,
+    length(dep_array_start_idx) != 1,
+    dep_array_start_idx <= 1,
+    dep_array_start_idx >= length(lines) - 3,
+    lines[length(lines)] != ")",
+    length(dep_array_lines) == 0,
     anyNA(version_info)
-  # nolint end
+  )
 
-  if (failed_to_parse) {
+  if (any(failed_to_parse)) {
     stop(
       "Failed to parse 3rd party dependency file. It's possible the function ",
       "is not reading the correct file or the file formatting was not what ",
