@@ -2814,11 +2814,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // feather.cpp
-std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(const std::shared_ptr<arrow::ipc::feather::Reader>& reader, SEXP columns);
+std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(const std::shared_ptr<arrow::ipc::feather::Reader>& reader, cpp11::sexp columns);
 extern "C" SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
-	arrow::r::Input<SEXP>::type columns(columns_sexp);
+	arrow::r::Input<cpp11::sexp>::type columns(columns_sexp);
 	return cpp11::as_sexp(ipc___feather___Reader__Read(reader, columns));
 END_CPP11
 }
