@@ -1755,13 +1755,13 @@ class CumulativeSumOptions(_CumulativeSumOptions):
 
     Parameters
     ----------
-    start : Scalar (optional, default 0)
+    start : Scalar (optional, default 0.0)
         Starting value for sum computation
     skip_nulls : bool (optional, default False)
         When false, propagates the first null/NaN encountered
     """
 
-    def __init__(self, start=0, skip_nulls=False):
+    def __init__(self, start=0.0, skip_nulls=False):
         self._set_options(start, skip_nulls)
 
 
