@@ -58,8 +58,6 @@
 #' Scalar$create(404)
 #' # If you pass a vector into Scalar$create, you get a list containing your items
 #' Scalar$create(c(1, 2, 3))
-#' # If you pass a data.frame with multiple columns into Scalar$create, you get the first row of the data.frame
-#' Scalar$create(mtcars)
 #'
 #' # Comparisons
 #' my_scalar <- Scalar$create(99)
