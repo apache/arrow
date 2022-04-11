@@ -34,7 +34,6 @@ import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -44,6 +43,7 @@ import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 
 /**
@@ -106,7 +106,8 @@ public final class ClientAuthenticationUtils {
     return factory.getCredentialCallOption();
   }
 
-  private static KeyStore getKeyStoreInstance(String instance)
+  @VisibleForTesting
+  static KeyStore getKeyStoreInstance(String instance)
       throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
     KeyStore keyStore = KeyStore.getInstance(instance);
     keyStore.load(null, null);
@@ -166,7 +167,8 @@ public final class ClientAuthenticationUtils {
     return getCertificatesInputStream(keyStoreList);
   }
 
-  private static void getCertificatesInputStream(KeyStore keyStore, JcaPEMWriter pemWriter)
+  @VisibleForTesting
+  static void getCertificatesInputStream(KeyStore keyStore, JcaPEMWriter pemWriter)
       throws IOException, KeyStoreException {
     Enumeration<String> aliases = keyStore.aliases();
     while (aliases.hasMoreElements()) {
@@ -178,16 +180,17 @@ public final class ClientAuthenticationUtils {
     pemWriter.flush();
   }
 
-  private static InputStream getCertificatesInputStream(Collection<KeyStore> keyStores)
+  @VisibleForTesting
+  static InputStream getCertificatesInputStream(Collection<KeyStore> keyStores)
       throws IOException, KeyStoreException {
     try (final StringWriter writer = new StringWriter();
          final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
 
-    for (KeyStore keyStore : keyStores) {
-      getCertificatesInputStream(keyStore, pemWriter);
-    }
+      for (KeyStore keyStore : keyStores) {
+        getCertificatesInputStream(keyStore, pemWriter);
+      }
 
-    return new ByteArrayInputStream(
+      return new ByteArrayInputStream(
         writer.toString().getBytes(StandardCharsets.UTF_8));
     }
   }
