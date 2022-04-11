@@ -541,15 +541,17 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         }
         clientBuilder.location(location);
 
-        if (disableCertificateVerification) {
-          clientBuilder.verifyServer(false);
-        } else {
-          if (useSystemTrustStore) {
-            clientBuilder.trustedCertificates(
-                ClientAuthenticationUtils.getCertificateInputStreamFromSystem(trustStorePassword));
-          } else if (trustStorePath != null) {
-            clientBuilder.trustedCertificates(
-                ClientAuthenticationUtils.getCertificateStream(trustStorePath, trustStorePassword));
+        if (useTls) {
+          if (disableCertificateVerification) {
+            clientBuilder.verifyServer(false);
+          } else {
+            if (useSystemTrustStore) {
+              clientBuilder.trustedCertificates(
+                  ClientAuthenticationUtils.getCertificateInputStreamFromSystem(trustStorePassword));
+            } else if (trustStorePath != null) {
+              clientBuilder.trustedCertificates(
+                  ClientAuthenticationUtils.getCertificateStream(trustStorePath, trustStorePassword));
+            }
           }
         }
 
