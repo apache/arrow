@@ -196,11 +196,11 @@ test_that("as_record_batch_reader() works for Scanner", {
   batch <- record_batch(a = 1, b = "two")
   scanner <- Scanner$create(batch)
   reader <- as_record_batch_reader(scanner)
-  expect_identical(reader$read_next_batch(), batch)
+  expect_equal(reader$read_next_batch(), batch)
 })
 
 test_that("as_record_batch_reader() default method calls Scanner$create()", {
   batch <- record_batch(a = 1, b = "two")
   reader <- as_record_batch_reader(batch)
-  expect_identical(reader$read_next_batch(), batch)
+  expect_equal(reader$read_next_batch(), batch)
 })
