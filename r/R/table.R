@@ -174,7 +174,8 @@ rbind.Table <- function(...) {
 }
 
 #' @export
-cbind.Table <- function(..., call = caller_env()) {
+cbind.Table <- function(...) {
+  call <- caller_env()
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
@@ -184,25 +185,23 @@ cbind.Table <- function(..., call = caller_env()) {
     name <- ifelse(name == "", paste0("X", as.character(i)), name)
 
     if (inherits(input, "Table")) {
-      cbind_check_length(num_rows, input$num_rows, i)
+      cbind_check_length(num_rows, input$num_rows, i, call)
       input
     } else if (inherits(input, "RecordBatch")) {
-      cbind_check_length(num_rows, input$num_rows, i)
+      cbind_check_length(num_rows, input$num_rows, i, call)
       Table$create(input)
     } else if (inherits(input, "data.frame")) {
-      cbind_check_length(num_rows, nrow(input), i)
+      cbind_check_length(num_rows, nrow(input), i, call)
       Table$create(input)
     } else if (length(input) == 1) {
       Table$create("{name}" := repeat_value_as_array(input, num_rows))
     } else {
+      cbind_check_length(num_rows, length(input), i, call)
       tryCatch(
-        {
-          cbind_check_length(num_rows, length(input), i)
-          RecordBatch$create("{name}" := input)
-        },
+        RecordBatch$create("{name}" := input),
         error = function(err) {
           abort(
-            sprintf("Error occured when trying to convert input ..%s to an Arrow Array", name),
+            sprintf("Error occurred when trying to convert input ..%s to an Arrow Array", name),
             parent = err,
             call = call
           )

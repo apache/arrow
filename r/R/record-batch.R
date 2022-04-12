@@ -195,21 +195,19 @@ rbind.RecordBatch <- function(...) {
   abort("Use `Table$create()` to combine record batches")
 }
 
-cbind_check_length <- function(target_length, length, idx) {
+cbind_check_length <- function(target_length, length, idx, call = caller_env()) {
   if (length != target_length) {
     abort(
-      sprintf(
-        "Non-scalar inputs must have an equal number of rows. ..1 has %d, ..%d has %d",
-        target_length,
-        idx,
-        length
-      )
+      c("Non-scalar inputs must have an equal number of rows.",
+        i = sprintf("..1 has %d, ..%d has %d", target_length, idx, length)),
+      call = call
     )
   }
 }
 
 #' @export
-cbind.RecordBatch <- function(..., call = caller_env()) {
+cbind.RecordBatch <- function(...) {
+  call <- caller_env()
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
@@ -219,20 +217,20 @@ cbind.RecordBatch <- function(..., call = caller_env()) {
     name <- ifelse(name == "", paste0("X", as.character(i)), name)
 
     if (inherits(input, "RecordBatch")) {
-      cbind_check_length(num_rows, input$num_rows, i)
+      cbind_check_length(num_rows, input$num_rows, i, call)
       input
     } else if (inherits(input, "data.frame")) {
-      cbind_check_length(num_rows, nrow(input), i)
+      cbind_check_length(num_rows, nrow(input), i, call)
       RecordBatch$create(input)
     } else if (length(input) == 1) {
       RecordBatch$create("{name}" := repeat_value_as_array(input, num_rows))
     } else {
-      cbind_check_length(num_rows, length(input), i)
+      cbind_check_length(num_rows, length(input), i, call)
       tryCatch(
         RecordBatch$create("{name}" := input),
         error = function(err) {
           abort(
-            sprintf("Error occured when trying to convert input ..%s to an Arrow Array", name),
+            sprintf("Error occurred when trying to convert input ..%s to an Arrow Array", name),
             parent = err,
             call = call
           )
