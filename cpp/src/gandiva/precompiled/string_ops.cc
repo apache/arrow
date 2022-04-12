@@ -2872,10 +2872,9 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 //        l → 4
 //        m, n → 5
 //        r → 6
-//    3. If two or more letters with the same number are adjacent in the original name
-//    (before step 1), only retain the first letter; also two letters with the same number
-//    separated by 'h' or 'w' are coded as a single number, whereas such letters separated
-//    by a vowel are coded twice. This rule also applies to the first letter.
+//    3. If two or more letters with the same number were adjacent in the original name
+//    (before step 1), or adjacent except for any intervening h and w, then omit all but
+//    the first.
 //    4. If the string have too few letters in the word that you can't assign three
 //    numbers, append with zeros until there are three numbers. If you have four or more
 //    numbers, retain only the first three.
@@ -2910,7 +2909,8 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
     }
   }
 
-  for (int i = start_idx, l = in_len; i < l; i++) {
+  soundex[0] = '\0';
+  for (int i = start_idx; i < in_len; i++) {
     if (isalpha(in[i]) > 0) {
       c = toupper(in[i]) - 65;
       if (mappings[c] != soundex[si - 1]) {
@@ -2920,12 +2920,14 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
     }
   }
 
-  for (int i = 1; i < si; i++) {
-    // If the saved letter's digit is the same as the resulting first digit, remove the
-    // digit.
-    if (i == 1 && soundex[i] == mappings[ret[0] - 65]) {
-      i++;
-    }
+  int i = 1;
+  // If the saved letter's digit is the same as the resulting first digit, remove the
+  // digit.
+  if (soundex[i] == mappings[ret[0] - 65]) {
+    i++;
+  }
+
+  for (; i < si; i++) {
     if (soundex[i] != '0') {
       ret[ret_len] = soundex[i];
       ret_len++;

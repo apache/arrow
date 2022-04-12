@@ -2390,6 +2390,12 @@ TEST(TestStringOps, TestSoundex) {
   int32_t out_len = 0;
   const char* out;
 
+  out = soundex_utf8(ctx_ptr, "robert", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+
+  out = soundex_utf8(ctx_ptr, "r-O-b-E-r-T", 11, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+
   out = soundex_utf8(ctx_ptr, "Robert", 6, &out_len);
   EXPECT_EQ(std::string(out, out_len), "R163");
 
