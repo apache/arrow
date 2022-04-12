@@ -664,15 +664,21 @@ struct Nanosecond {
 
 template <typename Duration>
 struct IsDaylightSavings {
-  explicit IsDaylightSavings(const FunctionOptions* options, const time_zone* tz)
+  explicit IsDaylightSavings(const FunctionOptions* options, const ArrowTimeZone* tz)
       : tz_(tz) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    return tz_->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+    if (tz_->index() == 0) {
+      auto tz = tz_->get<time_zone, 0>();
+      return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+    } else {
+      auto tz = tz_->get<OffsetZone, 1>();
+      return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+    }
   }
 
-  const time_zone* tz_;
+  const ArrowTimeZone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -1166,7 +1172,7 @@ Result<std::locale> GetLocale(const std::string& locale) {
 template <typename Duration, typename InType>
 struct Strftime {
   const StrftimeOptions& options;
-  const time_zone* tz;
+  const ArrowTimeZone* tz;
   const std::locale locale;
 
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
@@ -1187,8 +1193,7 @@ struct Strftime {
             options.format);
       }
     }
-
-    ARROW_ASSIGN_OR_RAISE(const time_zone* tz,
+    ARROW_ASSIGN_OR_RAISE(const ArrowTimeZone* tz,
                           LocateZone(timezone.empty() ? "UTC" : timezone));
 
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));
@@ -1354,25 +1359,42 @@ Result<TypeHolder> ResolveLocalTimestampOutput(KernelContext* ctx,
 
 template <typename Duration>
 struct AssumeTimezone {
-  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const time_zone* tz)
+  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const ArrowTimeZone* tz)
       : options(*options), tz_(tz) {}
 
   template <typename T, typename Arg0>
-  T get_local_time(Arg0 arg, const time_zone* tz) const {
-    return static_cast<T>(zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}))
-                              .get_sys_time()
-                              .time_since_epoch()
-                              .count());
+  T get_local_time(Arg0 arg, const ArrowTimeZone* tz) const {
+    if (tz->index() == 0) {
+      return static_cast<T>(zoned_time<Duration>(tz->get<time_zone, 0>(), local_time<Duration>(Duration{arg}))
+                                .get_sys_time()
+                                .time_since_epoch()
+                                .count());
+    } else {
+      return static_cast<T>(zoned_time<Duration, const OffsetZone*>(tz->get<OffsetZone, 1>(), local_time<Duration>(Duration{arg}))
+                                .get_sys_time()
+                                .time_since_epoch()
+                                .count());
+    }
   }
 
   template <typename T, typename Arg0>
   T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
-                   const time_zone* tz) const {
-    return static_cast<T>(
-        zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}), choose)
-            .get_sys_time()
-            .time_since_epoch()
-            .count());
+                   const ArrowTimeZone* tz) const {
+    if (tz->index() == 0) {
+      return static_cast<T>(zoned_time<Duration>(tz->get<time_zone, 0>(),
+                                                 local_time<Duration>(Duration{arg}),
+                                                 choose)
+                                .get_sys_time()
+                                .time_since_epoch()
+                                .count());
+    } else {
+      return static_cast<T>(
+          zoned_time<Duration, const OffsetZone*>(
+              tz->get<OffsetZone, 1>(), local_time<Duration>(Duration{arg}), choose)
+              .get_sys_time()
+              .time_since_epoch()
+              .count());
+    }
   }
 
   template <typename T, typename Arg0>
@@ -1413,7 +1435,7 @@ struct AssumeTimezone {
     return 0;
   }
   AssumeTimezoneOptions options;
-  const time_zone* tz_;
+  const ArrowTimeZone* tz_;
 };
 
 // ----------------------------------------------------------------------
