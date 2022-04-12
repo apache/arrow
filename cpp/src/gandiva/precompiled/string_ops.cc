@@ -1407,6 +1407,10 @@ FORCE_INLINE
 const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
                                     gdv_int32* out_len) {
   *out_len = len;
+  // handle empty string case
+  if(len == 0) {
+    return "";
+  }
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
