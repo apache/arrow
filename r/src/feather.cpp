@@ -62,11 +62,10 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
     }
   }
 
-  std::thread* thread_ptr;
-  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
-    auto fut = arrow::Future<std::shared_ptr<arrow::Table>>::Make();
+  const auto& io_context = arrow::io::default_io_context();
 
-    thread_ptr = new std::thread([&] {
+  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
+    return DeferNotOk(io_context.executor()->Submit([&]() {
       std::shared_ptr<arrow::Table> table;
       arrow::Status read_result;
       if (use_names) {
@@ -76,17 +75,12 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
       }
 
       if (read_result.ok()) {
-        fut.MarkFinished(table);
+        return arrow::Result<std::shared_ptr<arrow::Table>>(table);
       } else {
-        fut.MarkFinished(read_result);
+        return arrow::Result<std::shared_ptr<arrow::Table>>(read_result);
       }
-    });
-
-    return fut;
+    }));
   });
-
-  thread_ptr->join();
-  delete thread_ptr;
 
   return ValueOrStop(result);
 }
@@ -94,19 +88,12 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  std::thread* thread_ptr;
+  const auto& io_context = arrow::io::default_io_context();
   auto result = RunWithCapturedR<std::shared_ptr<arrow::ipc::feather::Reader>>([&]() {
-    auto fut = arrow::Future<std::shared_ptr<arrow::ipc::feather::Reader>>::Make();
-
-    thread_ptr = new std::thread(
-        [&] { fut.MarkFinished(arrow::ipc::feather::Reader::Open(stream)); });
-
-    return fut;
+    return DeferNotOk(io_context.executor()->Submit([&]() {
+      return arrow::ipc::feather::Reader::Open(stream);
+    }));
   });
-
-  thread_ptr->join();
-  delete thread_ptr;
-
   return ValueOrStop(result);
 }
 
