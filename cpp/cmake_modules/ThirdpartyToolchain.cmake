@@ -2116,6 +2116,8 @@ macro(build_xsimd)
                       CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
 
   set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
+  # The include directory must exist before it is referenced by a target.
+  file(MAKE_DIRECTORY "${XSIMD_INCLUDE_DIR}")
 
   add_dependencies(toolchain xsimd_ep)
   add_dependencies(toolchain-tests xsimd_ep)
