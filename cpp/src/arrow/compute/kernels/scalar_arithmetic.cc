@@ -23,6 +23,7 @@
 
 #include "arrow/compare.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
@@ -1206,64 +1207,49 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     std::unique_ptr<State> state;
-    if (auto options = static_cast<const OptionsType*>(args.options)) {
-      state = ::arrow::internal::make_unique<State>(*options);
-    } else {
+    auto options = static_cast<const OptionsType*>(args.options);
+    if (!options) {
       return Status::Invalid(
           "Attempted to initialize KernelState from null FunctionOptions");
     }
 
-    auto options = Get(*state);
-    const auto& type = *args.inputs[0].type;
-    if (!options.multiple || !options.multiple->is_valid) {
+    const auto& multiple = options->multiple;
+    if (!multiple || !multiple->is_valid) {
       return Status::Invalid("Rounding multiple must be non-null and valid");
     }
-    if (is_floating(type.id())) {
-      switch (options.multiple->type->id()) {
-        case Type::FLOAT: {
-          if (UnboxScalar<FloatType>::Unbox(*options.multiple) < 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
+
+    // NOTE: The positive value check can be simplified by using a comparison kernel.
+    bool is_negative = false;
+    switch (multiple->type->id()) {
+        case Type::FLOAT:
+          is_negative = UnboxScalar<FloatType>::Unbox(*multiple) <= 0;
           break;
-        }
-        case Type::DOUBLE: {
-          if (UnboxScalar<DoubleType>::Unbox(*options.multiple) < 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
+        case Type::DOUBLE:
+          is_negative = UnboxScalar<DoubleType>::Unbox(*multiple) <= 0;
           break;
-        }
-        case Type::HALF_FLOAT:
-          return Status::NotImplemented("Half-float values are not supported");
+        case Type::DECIMAL128:
+          is_negative = UnboxScalar<Decimal128Type>::Unbox(*multiple) <= 0;
+          break;
+        case Type::DECIMAL256:
+          is_negative = UnboxScalar<Decimal256Type>::Unbox(*multiple) <= 0;
+          break;
         default:
-          return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                                 *options.multiple->type);
-      }
-    } else {
-      DCHECK(is_decimal(type.id()));
-      if (!type.Equals(*options.multiple->type)) {
-        return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                               *options.multiple->type);
-      }
-      switch (options.multiple->type->id()) {
-        case Type::DECIMAL128: {
-          if (UnboxScalar<Decimal128Type>::Unbox(*options.multiple) <= 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
           break;
-        }
-        case Type::DECIMAL256: {
-          if (UnboxScalar<Decimal256Type>::Unbox(*options.multiple) <= 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        default:
-          // This shouldn't happen
-          return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                                 *options.multiple->type);
-      }
+    };
+
+    if (is_negative) {
+      return Status::Invalid("Rounding multiple must be positive");
     }
-    return std::move(state);
+
+    // Ensure `multiple` option matches input type
+    const auto& type = args.inputs[0].type;
+    if (!multiple->type->Equals(type)) {
+      ARROW_ASSIGN_OR_RAISE(auto casted_multiple, Cast(Datum(multiple), type, CastOptions::Safe(), ctx->exec_context()));
+      auto new_options = OptionsType(casted_multiple.scalar(), options->round_mode);
+      return ::arrow::internal::make_unique<State>(new_options);
+    }
+
+    return ::arrow::internal::make_unique<State>(*options);
   }
 };
 
@@ -1398,20 +1384,20 @@ struct RoundToMultiple {
   CType multiple;
 
   explicit RoundToMultiple(const State& state, const DataType& out_ty) {
-    const auto& options = state.options;
-    DCHECK(options.multiple);
-    DCHECK(options.multiple->is_valid);
-    DCHECK(is_floating(options.multiple->type->id()));
-    switch (options.multiple->type->id()) {
-      case Type::FLOAT:
-        multiple = static_cast<CType>(UnboxScalar<FloatType>::Unbox(*options.multiple));
-        break;
-      case Type::DOUBLE:
-        multiple = static_cast<CType>(UnboxScalar<DoubleType>::Unbox(*options.multiple));
-        break;
-      default:
-        DCHECK(false);
-    }
+    // const auto& options = state.options;
+    // DCHECK(options.multiple);
+    // DCHECK(options.multiple->is_valid);
+    // DCHECK(is_floating(options.multiple->type->id()));
+    // switch (options.multiple->type->id()) {
+    //   case Type::FLOAT:
+    //     multiple = static_cast<CType>(UnboxScalar<FloatType>::Unbox(*options.multiple));
+    //     break;
+    //   case Type::DOUBLE:
+    //     multiple = static_cast<CType>(UnboxScalar<DoubleType>::Unbox(*options.multiple));
+    //     break;
+    //   default:
+    //     DCHECK(false);
+    // }
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
@@ -1455,9 +1441,9 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
   explicit RoundToMultiple(const State& state, const DataType& out_ty)
       : ty(checked_cast<const ArrowType&>(out_ty)) {
     const auto& options = state.options;
-    DCHECK(options.multiple);
-    DCHECK(options.multiple->is_valid);
-    DCHECK(options.multiple->type->Equals(out_ty));
+    // DCHECK(options.multiple);
+    // DCHECK(options.multiple->is_valid);
+    // DCHECK(options.multiple->type->Equals(out_ty));
     multiple = UnboxScalar<ArrowType>::Unbox(*options.multiple);
     half_multiple = multiple;
     half_multiple /= 2;
