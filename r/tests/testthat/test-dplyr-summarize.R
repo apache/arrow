@@ -18,6 +18,7 @@
 skip_if(on_old_windows())
 
 withr::local_options(list(arrow.summarise.sort = TRUE))
+old_options <- options(rlib_warning_verbosity = "verbose")
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
@@ -299,8 +300,6 @@ test_that("median()", {
   # Use old testthat behavior here so we don't have to assert the same warning
   # over and over
   local_edition(2)
-  # warn always, not just once
-  rlang::local_options(rlib_warning_verbosity = "verbose")
 
   # with groups
   compare_dplyr_binding(
@@ -319,9 +318,6 @@ test_that("median()", {
     tbl,
     warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
-  # silence warnings
-  rlang::local_options(rlib_warning_verbosity = "quiet")
-
   # without groups, with na.rm = TRUE
   compare_dplyr_binding(
     .input %>%
@@ -330,7 +326,8 @@ test_that("median()", {
         med_int_narmt = as.double(median(int, TRUE))
       ) %>%
       collect(),
-    tbl
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
   # without groups, with na.rm = FALSE (the default)
   compare_dplyr_binding(
@@ -342,7 +339,8 @@ test_that("median()", {
         med_int_narmf = as.double(median(int, na.rm = FALSE))
       ) %>%
       collect(),
-    tbl
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
   local_edition(3)
 })
@@ -371,9 +369,6 @@ test_that("quantile()", {
   # below are enclosed in as.double() to work around this known difference.
 
   local_edition(2)
-  # warn always, not just once
-  rlang::local_options(rlib_warning_verbosity = "verbose")
-
   # with groups
   expect_warning(
     expect_equal(
@@ -398,38 +393,44 @@ test_that("quantile()", {
     "quantile() currently returns an approximate quantile in Arrow",
     fixed = TRUE
   )
-  # silence warnings
-  rlang::local_options(rlib_warning_verbosity = "quiet")
 
   # without groups
-  expect_equal(
-    tbl %>%
-      summarize(
-        q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
-        q_int = as.double(
-          quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
-        )
-      ),
-    Table$create(tbl) %>%
-      summarize(
-        q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
-        q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
-      ) %>%
-      collect()
+  expect_warning(
+    expect_equal(
+      tbl %>%
+        summarize(
+          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+          q_int = as.double(
+            quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+          )
+        ),
+      Table$create(tbl) %>%
+        summarize(
+          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
+          q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
+        ) %>%
+        collect()
+    ),
+    "quantile() currently returns an approximate quantile in Arrow",
+    fixed = TRUE
   )
 
   # with missing values and na.rm = FALSE
-  expect_equal(
-    tibble(
-      q_dbl = NA_real_,
-      q_int = NA_real_
+  expect_warning(
+    expect_equal(
+      tibble(
+        q_dbl = NA_real_,
+        q_int = NA_real_
+      ),
+      Table$create(tbl) %>%
+        summarize(
+          q_dbl = quantile(dbl, probs = 0.5, na.rm = FALSE),
+          q_int = as.double(quantile(int, probs = 0.5, na.rm = FALSE))
+        ) %>%
+        collect()
     ),
-    Table$create(tbl) %>%
-      summarize(
-        q_dbl = quantile(dbl, probs = 0.5, na.rm = FALSE),
-        q_int = as.double(quantile(int, probs = 0.5, na.rm = FALSE))
-      ) %>%
-      collect()
+    "quantile() currently returns an approximate quantile in Arrow",
+    fixed = TRUE
   )
   local_edition(3)
 
@@ -982,3 +983,6 @@ test_that("summarise() can handle scalars and literal values", {
     tibble(y = 2L)
   )
 })
+
+
+options(old_options)
