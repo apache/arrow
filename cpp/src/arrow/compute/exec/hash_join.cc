@@ -669,6 +669,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     Status ApplyBloomFiltersToBatch(size_t thread_index, ExecBatch &batch)
     {
+        if(batch.length == 0)
+            return Status::OK();
         size_t bit_vector_bytes = (batch.length + 7) / 8;
         std::vector<uint8_t> selected(bit_vector_bytes);
         std::vector<uint32_t> hashes(batch.length);
@@ -739,7 +741,6 @@ class HashJoinBasicImpl : public HashJoinImpl {
         }
         ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(key_columns)));
 
-        bloom_filter_builder_->RunInitTask(task_id);
         util::TempVectorHolder<uint32_t> hash_holder(&temp_stacks_[thread_index], util::MiniBatch::kMiniBatchLength);
         uint32_t *hashes = hash_holder.mutable_data();
         for(int64_t i = 0; i < key_batch.length; i += util::MiniBatch::kMiniBatchLength)
@@ -1184,9 +1185,6 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   std::vector<ExecBatch> left_batches_;
   bool has_hash_table_;
-  // This mutex has to be reentrant because in the case of single-threaded execution, if we push
-  // a Bloom filter to ourselves, we'll be grabbing this mutex twice. This would be a deadlock with
-  // a non-reentrant mutex
   std::mutex left_batches_mutex_;
 
   size_t right_input_row_count_; // Sum of the lengths of ExecBatches in right_batches_
