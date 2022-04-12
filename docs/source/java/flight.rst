@@ -122,7 +122,7 @@ To connect to a Flight service, create a `FlightClient`_ with a location.
 Cancellation and Timeouts
 =========================
 
-When making a call, clients can optionally provide `CallOptions`. This allows
+When making a call, clients can optionally provide ``CallOptions``. This allows
 clients to set a timeout on calls. Also, some objects returned by client RPC calls
 expose a cancel method which allows terminating a call early.
 
