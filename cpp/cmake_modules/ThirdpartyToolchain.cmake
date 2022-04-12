@@ -2077,6 +2077,8 @@ macro(build_rapidjson)
                       CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
 
   set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
+  # The include directory must exist before it is referenced by a target.
+  file(MAKE_DIRECTORY "${RAPIDJSON_INCLUDE_DIR}")
 
   add_dependencies(toolchain rapidjson_ep)
   add_dependencies(toolchain-tests rapidjson_ep)
