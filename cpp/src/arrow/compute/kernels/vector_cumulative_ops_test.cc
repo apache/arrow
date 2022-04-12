@@ -164,15 +164,13 @@ TYPED_TEST(TestCumulativeSum, NoStartNoSkipNoNulls) {
 
 TYPED_TEST(TestCumulativeSum, NoStartNoSkipHasNulls) {
   CumulativeSumOptions options = this->generate_options();
-  auto one_null = "[null]";
-  auto three_null = "[null, null, null]";
+  auto three_nulls = "[null, null, null]";
   auto values = "[1, 2, null, 4, null, 6]";
   auto expected = "[1, 3, null, null, null, null]";
   std::vector<std::string> chunked_values = {"[1, 2, null]", "[4, null, 6]"};
   std::vector<std::string> chunked_expected = {"[1, 3, null, null, null, null]"};
 
-  this->Assert(one_null, one_null, options);
-  this->Assert(three_null, three_null, options);
+  this->Assert(three_nulls, three_nulls, options);
   this->Assert(values, expected, options);
   this->Assert(chunked_values, chunked_expected, options);
 }
@@ -192,15 +190,13 @@ TYPED_TEST(TestCumulativeSum, NoStartDoSkipNoNulls) {
 
 TYPED_TEST(TestCumulativeSum, NoStartDoSkipHasNulls) {
   CumulativeSumOptions options = this->generate_options(0, true);
-  auto one_null = "[null]";
-  auto three_null = "[null, null, null]";
+  auto three_nulls = "[null, null, null]";
   auto values = "[1, 2, null, 4, null, 6]";
   auto expected = "[1, 3, null, 7, null, 13]";
   std::vector<std::string> chunked_values = {"[1, 2, null]", "[4, null, 6]"};
   std::vector<std::string> chunked_expected = {"[1, 3, null, 7, null, 13]"};
 
-  this->Assert(one_null, one_null, options);
-  this->Assert(three_null, three_null, options);
+  this->Assert(three_nulls, three_nulls, options);
   this->Assert(values, expected, options);
   this->Assert(chunked_values, chunked_expected, options);
 }
@@ -220,15 +216,13 @@ TYPED_TEST(TestCumulativeSum, HasStartNoSkipNoNulls) {
 
 TYPED_TEST(TestCumulativeSum, HasStartNoSkipHasNulls) {
   CumulativeSumOptions options = this->generate_options(10);
-  auto one_null = "[null]";
-  auto three_null = "[null, null, null]";
+  auto three_nulls = "[null, null, null]";
   auto values = "[1, 2, null, 4, null, 6]";
   auto expected = "[11, 13, null, null, null, null]";
   std::vector<std::string> chunked_values = {"[1, 2, null]", "[4, null, 6]"};
   std::vector<std::string> chunked_expected = {"[11, 13, null, null, null, null]"};
 
-  this->Assert(one_null, one_null, options);
-  this->Assert(three_null, three_null, options);
+  this->Assert(three_nulls, three_nulls, options);
   this->Assert(values, expected, options);
   this->Assert(chunked_values, chunked_expected, options);
 }
@@ -248,15 +242,13 @@ TYPED_TEST(TestCumulativeSum, HasStartDoSkipNoNulls) {
 
 TYPED_TEST(TestCumulativeSum, HasStartDoSkipHasNulls) {
   CumulativeSumOptions options = this->generate_options(10, true);
-  auto one_null = "[null]";
-  auto three_null = "[null, null, null]";
+  auto three_nulls = "[null, null, null]";
   auto values = "[1, 2, null, 4, null, 6]";
   auto expected = "[11, 13, null, 17, null, 23]";
   std::vector<std::string> chunked_values = {"[1, 2, null]", "[4, null, 6]"};
   std::vector<std::string> chunked_expected = {"[11, 13, null, 17, null, 23]"};
 
-  this->Assert(one_null, one_null, options);
-  this->Assert(three_null, three_null, options);
+  this->Assert(three_nulls, three_nulls, options);
   this->Assert(values, expected, options);
   this->Assert(chunked_values, chunked_expected, options);
 }

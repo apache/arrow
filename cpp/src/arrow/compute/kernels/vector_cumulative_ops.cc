@@ -34,7 +34,8 @@ template <typename OptionsType>
 struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
   using State = CumulativeOptionsWrapper<OptionsType>;
 
-  explicit CumulativeOptionsWrapper(OptionsType options) : OptionsWrapper<OptionsType>(std::move(options)) {}
+  explicit CumulativeOptionsWrapper(OptionsType options)
+      : OptionsWrapper<OptionsType>(std::move(options)) {}
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
@@ -51,7 +52,9 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
 
     // Ensure `start` option matches input type
     if (!start->type->Equals(args.inputs[0].type)) {
-      ARROW_ASSIGN_OR_RAISE(auto casted_start, Cast(Datum(start), args.inputs[0].type));
+      ARROW_ASSIGN_OR_RAISE(auto casted_start,
+                            Cast(Datum(start), args.inputs[0].type, CastOptions::Safe(),
+                                 ctx->exec_context()));
       auto new_options = OptionsType(casted_start.scalar(), options->skip_nulls);
       return ::arrow::internal::make_unique<State>(new_options);
     }

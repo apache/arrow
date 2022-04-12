@@ -191,8 +191,8 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 /// \brief Options for cumulative sum function
 class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
- explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false,
-                               bool check_overflow = false);
+  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false,
+                                bool check_overflow = false);
   explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
                                 bool check_overflow = false);
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
