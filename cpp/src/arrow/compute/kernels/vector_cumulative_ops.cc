@@ -29,6 +29,35 @@
 namespace arrow {
 namespace compute {
 namespace internal {
+namespace {
+template <typename OptionsType>
+struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
+  using State = CumulativeOptionsWrapper<OptionsType>;
+
+  explicit CumulativeOptionsWrapper(OptionsType options) : OptionsWrapper<OptionsType>(std::move(options)) {}
+
+  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
+    auto options = static_cast<const OptionsType*>(args.options);
+    if (!options) {
+      return Status::Invalid(
+          "Attempted to initialize KernelState from null FunctionOptions");
+    }
+
+    const auto& start = options->start;
+    if (!start || !start->is_valid) {
+      return Status::Invalid("Cumulative `start` option must be non-null and valid");
+    }
+
+    // Ensure `start` option matches input type
+    if (!start->type->Equals(args.inputs[0].type)) {
+      ARROW_ASSIGN_OR_RAISE(auto casted_start, Cast(Datum(start), args.inputs[0].type));
+      auto new_options = OptionsType(casted_start.scalar(), options->skip_nulls);
+      return ::arrow::internal::make_unique<State>(new_options);
+    }
+    return ::arrow::internal::make_unique<State>(*options);
+  }
+};
 
 // The driver kernel for all cumulative compute functions. Op is a compute kernel
 // representing any binary associative operation (add, product, min, max, etc.) and
@@ -41,14 +70,9 @@ struct CumulativeGeneric {
   using ArgValue = typename GetViewType<ArgType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = OptionsWrapper<OptionsType>::Get(ctx);
+    const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
+    auto start = UnboxScalar<OutType>::Unbox(*(options.start));
     auto skip_nulls = options.skip_nulls;
-
-    auto out_type = batch.GetDescriptors()[0].type;
-    ARROW_ASSIGN_OR_RAISE(
-        auto cast_value,
-        Cast(Datum(options.start), out_type, CastOptions::Safe(), ctx->exec_context()));
-    auto start = UnboxScalar<OutType>::Unbox(*cast_value.scalar());
 
     int64_t base_output_offset = 0;
     bool encountered_null = false;
@@ -153,6 +177,7 @@ const FunctionDoc cumulative_sum_checked_doc{
      "variant that doesn't fail on overflow, use function \"cumulative_sum\"."),
     {"values"},
     "CumulativeSumOptions"};
+}  // namespace
 
 template <typename Op, typename OptionsType>
 void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string func_name,
@@ -171,7 +196,7 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
     kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
-    kernel.init = OptionsWrapper<OptionsType>::Init;
+    kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
 
