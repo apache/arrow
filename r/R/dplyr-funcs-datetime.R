@@ -350,6 +350,8 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
   build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
 
+# this is a helper function used for creating a difftime / duration objects from
+# several of the accepted pieces (second, minute, hour, day, week)
 duration_from_chunks <- function(chunks) {
   accepted_chunks <- c("second", "minute", "hour", "day", "week")
   matched_chunks <- accepted_chunks[pmatch(names(chunks), accepted_chunks, duplicates.ok = TRUE)]
