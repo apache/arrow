@@ -51,6 +51,7 @@ Suggests:
     hms,
     knitr,
     lubridate,
+    pkgbuild (>= 1.3.0),
     pkgload,
     reticulate,
     rmarkdown,
