@@ -243,7 +243,7 @@ cdef class InputType(_Weakrefable):
         >>> import pyarrow as pa
         >>> from pyarrow.compute import InputType
         >>> in_type = InputType.scalar(pa.int32())
-        <pyarrow._compute.InputType object at 0x1029fdcb0>
+        scalar[int32]
         """
         cdef:
             shared_ptr[CDataType] c_data_type
@@ -279,6 +279,9 @@ cdef class InputType(_Weakrefable):
         c_data_type = pyarrow_unwrap_data_type(data_type)
         c_input_type = CInputType.Array(c_data_type)
         return wrap_input_type(c_input_type)
+
+    def __repr__(self):
+        return frombytes(self.input_type.ToString())
 
 
 cdef class Function(_Weakrefable):
@@ -2464,7 +2467,6 @@ def register_scalar_function(func_name, function_doc, in_types,
     """
     cdef:
         c_string c_func_name
-        CArity* c_arity_ptr
         CArity c_arity
         CFunctionDoc c_func_doc
         CInputType in_tmp
@@ -2481,7 +2483,7 @@ def register_scalar_function(func_name, function_doc, in_types,
     if callable(function):
         c_function = <PyObject*>function
     else:
-        raise ValueError("Object must be a callable")
+        raise TypeError("Object must be a callable")
 
     func_spec = inspect.getfullargspec(function)
     num_args = -1
@@ -2501,30 +2503,17 @@ def register_scalar_function(func_name, function_doc, in_types,
                 "in_types must be a dictionary of InputType")
 
     if func_spec.varargs:
-        if num_args < 0:
-            raise ValueError("Number of arguments must be >= 0")
         c_arity = CArity.VarArgs(num_args)
     else:
-        if num_args < 0:
-            raise ValueError("Number of arguments must be >= 0")
-        if num_args == 0:
-            c_arity = CArity.Nullary()
-        elif num_args == 1:
-            c_arity = CArity.Unary()
-        elif num_args == 2:
-            c_arity = CArity.Binary()
-        elif num_args == 3:
-            c_arity = CArity.Ternary()
-        elif num_args > 3:
-            c_arity_ptr = new CArity(num_args, False)
-            c_arity = deref(c_arity_ptr)
+        c_arity = CArity(num_args, False)
 
     c_func_doc = _make_function_doc(function_doc)
 
     if out_type:
         c_type = pyarrow_unwrap_data_type(out_type)
     else:
-        raise ValueError("Output value type must be defined")
+        raise TypeError(
+            f"out_type must be a DataType, not {out_type!r}")
 
     c_out_type = new COutputType(c_type)
     # Note: The VectorUDF, TableUDF and AggregatorUDFs will be defined
@@ -2533,4 +2522,4 @@ def register_scalar_function(func_name, function_doc, in_types,
     c_options = new CScalarUdfOptions(c_func_name, c_arity, c_func_doc,
                                       c_in_types, deref(c_out_type))
     c_sc_builder = new CScalarUdfBuilder()
-    check_status(c_sc_builder.MakeFunction(c_function, c_options))
+    check_status(c_sc_builder.MakeFunction(c_function, deref(c_options)))

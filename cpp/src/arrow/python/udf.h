@@ -85,7 +85,7 @@ class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
  public:
   ScalarUdfBuilder() : UdfBuilder() {}
 
-  Status MakeFunction(PyObject* function, ScalarUdfOptions* options);
+  Status MakeFunction(PyObject* function, const ScalarUdfOptions& options);
 
  private:
   OwnedRefNoGIL function_;

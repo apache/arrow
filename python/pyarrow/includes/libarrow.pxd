@@ -1860,6 +1860,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         @staticmethod
         CInputType Scalar(shared_ptr[CDataType] type)
 
+        c_string ToString()
+
     cdef cppclass COutputType" arrow::compute::OutputType":
         COutputType(shared_ptr[CDataType] type)
 
@@ -2698,7 +2700,6 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
 
 cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
     cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions":
-
         CScalarUdfOptions(c_string func_name, CArity arity, CFunctionDoc func_doc,
                           vector[CInputType] in_types, COutputType out_type)
 
@@ -2707,4 +2708,4 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
 
     cdef cppclass CScalarUdfBuilder" arrow::py::ScalarUdfBuilder"(CUdfBuilder):
         CScalarUdfBuilder()
-        CStatus MakeFunction(PyObject* function, CScalarUdfOptions* options)
+        CStatus MakeFunction(PyObject* function, const CScalarUdfOptions& options)

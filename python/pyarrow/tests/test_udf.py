@@ -54,12 +54,12 @@ varargs_doc = {"summary": "z=ax+by+c",
                }
 
 
-def varargs_function(*args):
-    a, x, b, y, c = args
-    ax = pc.call_function("multiply", [a, x])
-    by = pc.call_function("multiply", [b, y])
-    ax_by = pc.call_function("add", [ax, by])
-    return pc.call_function("add", [ax_by, c])
+def varargs_function(*values):
+    base_val = values[:2]
+    res = pc.call_function("add", base_val)
+    for other_val in values[2:]:
+        res = pc.call_function("add", [res, other_val])
+    return res
 
 
 def test_scalar_udf_function_with_scalar_valued_functions():
@@ -136,10 +136,11 @@ def test_scalar_udf_function_with_scalar_valued_functions():
     ]
 
     expected_outputs = [
-        pa.scalar(11, pa.int64()),  # 10 + 1
-        pa.scalar(20, pa.int64()),  # 10 * 2
-        pa.scalar(25, pa.int64()),  # 10 * 2 + 5
-        pa.scalar(85, pa.int64()),  # (2 * 10) + (3 * 20) + 5
+        unary_function(function_inputs[0][0]),
+        binary_function(function_inputs[1][0], function_inputs[1][1]),
+        ternary_function(function_inputs[2][0], function_inputs[2][1],
+                         function_inputs[2][2]),
+        varargs_function(*function_inputs[3])
     ]
 
     for name, \
@@ -240,11 +241,11 @@ def test_scalar_udf_with_array_data_functions():
     ]
 
     expected_outputs = [
-        pa.array([11, 21], pa.int64()),  # [10 + 1, 20 + 1]
-        pa.array([20, 80], pa.int64()),  # [10 * 2, 20 * 4]
-        pa.array([25, 90], pa.int64()),  # [(10 * 2) + 5, (20 * 4) + 10]
-        # [(2 * 10) + (3 * 20) + 5, (3 * 20) + (7 * 30) + 10]
-        pa.array([85, 280], pa.int64())
+        unary_function(function_inputs[0][0]),
+        binary_function(function_inputs[1][0], function_inputs[1][1]),
+        ternary_function(function_inputs[2][0], function_inputs[2][1],
+                         function_inputs[2][2]),
+        varargs_function(*function_inputs[3])
     ]
 
     for name, \
@@ -287,12 +288,13 @@ def test_udf_input():
                                  out_type, unary_scalar_function)
 
     # validate function
-    with pytest.raises(ValueError, match="Object must be a callable"):
+    with pytest.raises(TypeError, match="Object must be a callable"):
         register_scalar_function("none_function", doc, in_types,
                                  out_type, None)
 
     # validate output type
-    with pytest.raises(ValueError, match="Output value type must be defined"):
+    expected_expr = "out_type must be a DataType, not None"
+    with pytest.raises(TypeError, match=expected_expr):
         register_scalar_function("output_function", doc, in_types,
                                  None, unary_scalar_function)
 
@@ -389,7 +391,7 @@ def test_non_uniform_input_udfs():
     res = pc.call_function("multi_type_udf",
                            [pa.scalar(10), pa.array([1, 2, 3]), pa.scalar(20)])
 
-    assert pc.sum(pc.equal(res, pa.array([30, 60, 90]))).as_py() == 3
+    assert res == pa.array([30, 60, 90])
 
 
 def test_nullary_functions():

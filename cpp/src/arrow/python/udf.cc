@@ -86,7 +86,8 @@ Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
   return Status::OK();
 }
 
-Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* options) {
+Status ScalarUdfBuilder::MakeFunction(PyObject* function,
+                                      const ScalarUdfOptions& options) {
   if (function == nullptr) {
     return Status::Invalid("Python function cannot be null");
   }
@@ -95,11 +96,11 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
   if (!PyCallable_Check(function_.obj())) {
     return Status::TypeError("Expected a callable Python object.");
   }
-  auto doc = options->doc();
-  auto arity = options->arity();
-  auto exp_out_type = options->output_type();
+  auto doc = options.doc();
+  auto arity = options.arity();
+  auto exp_out_type = options.output_type();
   scalar_func_ =
-      std::make_shared<compute::ScalarFunction>(options->name(), arity, std::move(doc));
+      std::make_shared<compute::ScalarFunction>(options.name(), arity, std::move(doc));
   auto func = function_.obj();
   auto exec = [func, exp_out_type](compute::KernelContext* ctx,
                                    const compute::ExecBatch& batch,
@@ -110,7 +111,7 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function, ScalarUdfOptions* opti
   };
 
   compute::ScalarKernel kernel(
-      compute::KernelSignature::Make(options->input_types(), options->output_type(),
+      compute::KernelSignature::Make(options.input_types(), options.output_type(),
                                      arity.is_varargs),
       exec);
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
