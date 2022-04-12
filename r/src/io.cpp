@@ -272,10 +272,8 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
     arrow::BufferBuilder builder;
     RETURN_NOT_OK(builder.Reserve(nbytes));
 
-    arrow::Result<int64_t> result;
-    RETURN_NOT_OK(result = ReadBase(nbytes, builder.mutable_data()));
-
-    builder.UnsafeAdvance(result.ValueOrDie());
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, ReadBase(nbytes, builder.mutable_data()));
+    builder.UnsafeAdvance(bytes_read);
     return builder.Finish();
   }
 
