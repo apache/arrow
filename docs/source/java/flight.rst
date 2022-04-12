@@ -181,20 +181,18 @@ Enabling Authentication
 .. warning:: Authentication is insecure without enabling TLS.
 
 Handshake-based authentication can be enabled by implementing
-on the client side through authenticates against the Flight service
-``FlightClient.authenticate``, or by authenticates with a username
-and password through ``FlightClient.authenticateBasic`` and
-``FlightClient.authenticateBasicToken``. And on the server side
-through ``FlightServer.Builder().authHandler`` or by
-``FlightServer.Builder().headerAuthenticator``.
+Handlers on the client and server side (i.e.: ``ServerAuthHandler``).
+There are two options available user/password and token.
 
-Authentication consists of two parts: on initial client connection
-(handshake method), the server and client authentication
+Authentication consists of two parts: on
+initial client connection, the server and client authentication
 implementations can perform any negotiation needed; then, on each RPC
-thereafter, the client provides a token. The server authentication
+thereafter, the client provides a token. The client set an ID result
+of user/password through ``CallHeaders`` / ``Metadata`` these IDs is
+recovered by the server side to do validation. The server authentication
 handler validates the token and provides the identity of the
 client. This identity can be obtained from the
-``CallContext.peerIdentity``.
+`CallContext.peerIdentity`.
 
 Custom Middleware
 =================
