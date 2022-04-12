@@ -47,14 +47,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
     EVENT(span_, "InputReceived");
 
     ARROW_ASSIGN_OR_RAISE(bool queued, QueueBatchIfNeeded(thread_index, side, batch));
-    if (queued)
-    {
+    if (queued) {
       return Status::OK();
-    }
-    else
-    {
-        ARROW_DCHECK(side == 0);
-        return ProbeBatch(thread_index, batch);
+    } else {
+      ARROW_DCHECK(side == 0);
+      return ProbeBatch(thread_index, batch);
     }
   }
 
@@ -124,10 +121,10 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     dict_probe_.Init(num_threads_);
 
+
     pushdown_target_ = pushdown_target;
     column_map_ = std::move(column_map);
-    if(pushdown_target_)
-        pushdown_target_->ExpectBloomFilter();
+    if (pushdown_target_) pushdown_target_->ExpectBloomFilter();
 
     right_input_row_count_ = 0;
     has_hash_table_ = false;
@@ -135,18 +132,18 @@ class HashJoinBasicImpl : public HashJoinImpl {
     cancelled_ = false;
     right_side_finished_ = false;
     left_side_finished_ = false;
-    bloom_filters_ready_ = pushdown_target_ == nullptr; // If we're not pushing the Bloom filter anywhere, the filter is ready
+    bloom_filters_ready_ =
+        pushdown_target_ ==
+        nullptr;  // If we're not pushing the Bloom filter anywhere, the filter is ready
     left_queue_bloom_finished_ = false;
     left_queue_probe_finished_ = false;
 
     scheduler_ = TaskScheduler::Make();
-    if(pushdown_target_)
-    {
-        bloom_filter_ = std::make_shared<BlockedBloomFilter>();
-        bloom_filter_builder_ = BloomFilterBuilder::Make(
-            use_sync_execution
-            ? BloomFilterBuildStrategy::SINGLE_THREADED
-            : BloomFilterBuildStrategy::PARALLEL);
+    if (pushdown_target_) {
+      bloom_filter_ = std::make_shared<BlockedBloomFilter>();
+      bloom_filter_builder_ = BloomFilterBuilder::Make(
+          use_sync_execution ? BloomFilterBuildStrategy::SINGLE_THREADED
+                             : BloomFilterBuildStrategy::PARALLEL);
     }
 
     RegisterBuildBloomFilter();
@@ -170,36 +167,29 @@ class HashJoinBasicImpl : public HashJoinImpl {
     scheduler_->Abort(std::move(pos_abort_callback));
   }
 
-  Status PushBloomFilter(
-      size_t thread_index,
-      std::shared_ptr<BlockedBloomFilter> filter,
-      std::vector<int> column_map) override
+  Status PushBloomFilter(size_t thread_index, std::shared_ptr<BlockedBloomFilter> filter,
+                         std::vector<int> column_map) override {
+    bool proceed;
     {
-        bool proceed;
-        {
-            std::lock_guard<std::mutex> lock_bloom(bloom_filters_mutex_);
-            pushed_bloom_filters_.emplace_back(std::move(filter));
-            bloom_filter_column_maps_.emplace_back(std::move(column_map));
-            proceed = pushed_bloom_filters_.size() == num_expected_bloom_filters_;
-            ARROW_DCHECK(pushed_bloom_filters_.size() <= num_expected_bloom_filters_);
-        }
-        if(proceed)
-        {
-            size_t num_batches;
-            {
-                std::lock_guard<std::mutex> lock(left_batches_mutex_);
-                num_batches = left_batches_.size();
-                bloom_filters_ready_ = true;
-            }
-            RETURN_NOT_OK(BloomFilterQueuedBatches(thread_index, num_batches));
-        }
-        return Status::OK();
+      std::lock_guard<std::mutex> lock_bloom(bloom_filters_mutex_);
+      pushed_bloom_filters_.emplace_back(std::move(filter));
+      bloom_filter_column_maps_.emplace_back(std::move(column_map));
+      proceed = pushed_bloom_filters_.size() == num_expected_bloom_filters_;
+      ARROW_DCHECK(pushed_bloom_filters_.size() <= num_expected_bloom_filters_);
     }
-    
-    void ExpectBloomFilter() override
-    {
-        num_expected_bloom_filters_ += 1;
+    if (proceed) {
+      size_t num_batches;
+      {
+        std::lock_guard<std::mutex> lock(left_batches_mutex_);
+        num_batches = left_batches_.size();
+        bloom_filters_ready_ = true;
+      }
+      RETURN_NOT_OK(BloomFilterQueuedBatches(thread_index, num_batches));
     }
+    return Status::OK();
+  }
+
+  void ExpectBloomFilter() override { num_expected_bloom_filters_ += 1; }
 
  private:
   void InitEncoder(int side, HashJoinProjection projection_handle, RowEncoder* encoder) {
@@ -667,98 +657,77 @@ class HashJoinBasicImpl : public HashJoinImpl {
     return Status::OK();
   }
 
-    Status ApplyBloomFiltersToBatch(size_t thread_index, ExecBatch &batch)
-    {
-        if(batch.length == 0)
-            return Status::OK();
-        size_t bit_vector_bytes = (batch.length + 7) / 8;
-        std::vector<uint8_t> selected(bit_vector_bytes);
-        std::vector<uint32_t> hashes(batch.length);
-        std::vector<uint8_t> bv(bit_vector_bytes);
+  Status ApplyBloomFiltersToBatch(size_t thread_index, ExecBatch& batch) {
+    if (batch.length == 0) return Status::OK();
+    size_t bit_vector_bytes = (batch.length + 7) / 8;
+    std::vector<uint8_t> selected(bit_vector_bytes);
+    std::vector<uint32_t> hashes(batch.length);
+    std::vector<uint8_t> bv(bit_vector_bytes);
 
-        // Start with full selection for the current minibatch
-        memset(selected.data(), 0xff, bit_vector_bytes);
-        for(size_t ifilter = 0; ifilter < pushed_bloom_filters_.size(); ifilter++)
-        {
-            std::vector<Datum> keys(bloom_filter_column_maps_[ifilter].size());
-            for(size_t i = 0; i < keys.size(); i++)
-            {
-                int input_idx = bloom_filter_column_maps_[ifilter][i];
-                keys[i] = batch[input_idx];
-            }
-            ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(keys)));
-            Hashing32::HashBatch(
-                key_batch,
-                hashes.data(),
-                ctx_->cpu_info()->hardware_flags(),
-                &temp_stacks_[thread_index],
-                0,
-                key_batch.length);
+    // Start with full selection for the current minibatch
+    memset(selected.data(), 0xff, bit_vector_bytes);
+    for (size_t ifilter = 0; ifilter < pushed_bloom_filters_.size(); ifilter++) {
+      std::vector<Datum> keys(bloom_filter_column_maps_[ifilter].size());
+      for (size_t i = 0; i < keys.size(); i++) {
+        int input_idx = bloom_filter_column_maps_[ifilter][i];
+        keys[i] = batch[input_idx];
+      }
+      ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(keys)));
+      Hashing32::HashBatch(key_batch, hashes.data(), ctx_->cpu_info()->hardware_flags(),
+                           &temp_stacks_[thread_index], 0, key_batch.length);
 
-            pushed_bloom_filters_[ifilter]->Find(
-                ctx_->cpu_info()->hardware_flags(),
-                key_batch.length,
-                hashes.data(),
-                bv.data());
-            arrow::internal::BitmapAnd(bv.data(), 0, selected.data(), 0, key_batch.length, 0, selected.data());
-        }
-        auto selected_buffer = std::make_shared<Buffer>(selected.data(), bit_vector_bytes);
-        ArrayData selected_arraydata(
-            boolean(),
-            batch.length,
-            { nullptr, std::move(selected_buffer) });
-        Datum selected_datum(selected_arraydata);
-        FilterOptions options;
-        size_t first_nonscalar = batch.values.size();
-        for(size_t i = 0; i < batch.values.size(); i++)
-        {
-            if(!batch.values[i].is_scalar())
-            {
-                ARROW_ASSIGN_OR_RAISE(batch.values[i], Filter(batch.values[i], selected_datum, options, ctx_));
-                first_nonscalar = std::min(first_nonscalar, i);
-                ARROW_DCHECK_EQ(batch.values[i].length(), batch.values[first_nonscalar].length());
-            }
-        }
-        // If they're all Scalar, then the length of the batch is the number of set bits
-        if(first_nonscalar == batch.values.size())
-            batch.length = arrow::internal::CountSetBits(selected.data(), 0, batch.length);
-        else
-            batch.length = batch.values[first_nonscalar].length();
-        return Status::OK();
+      pushed_bloom_filters_[ifilter]->Find(ctx_->cpu_info()->hardware_flags(),
+                                           key_batch.length, hashes.data(), bv.data());
+      arrow::internal::BitmapAnd(bv.data(), 0, selected.data(), 0, key_batch.length, 0,
+                                 selected.data());
     }
+    auto selected_buffer = std::make_shared<Buffer>(selected.data(), bit_vector_bytes);
+    ArrayData selected_arraydata(boolean(), batch.length,
+                                 {nullptr, std::move(selected_buffer)});
+    Datum selected_datum(selected_arraydata);
+    FilterOptions options;
+    size_t first_nonscalar = batch.values.size();
+    for (size_t i = 0; i < batch.values.size(); i++) {
+      if (!batch.values[i].is_scalar()) {
+        ARROW_ASSIGN_OR_RAISE(batch.values[i],
+                              Filter(batch.values[i], selected_datum, options, ctx_));
+        first_nonscalar = std::min(first_nonscalar, i);
+        ARROW_DCHECK_EQ(batch.values[i].length(), batch.values[first_nonscalar].length());
+      }
+    }
+    // If they're all Scalar, then the length of the batch is the number of set bits
+    if (first_nonscalar == batch.values.size())
+      batch.length = arrow::internal::CountSetBits(selected.data(), 0, batch.length);
+    else
+      batch.length = batch.values[first_nonscalar].length();
+    return Status::OK();
+  }
 
   int64_t BuildHashTable_num_tasks() { return 1; }
 
-    Status BuildBloomFilter_exec_task(size_t thread_index, int64_t task_id)
-    {
-        const ExecBatch &input_batch = right_batches_[task_id];
-        SchemaProjectionMap key_to_in = schema_mgr_->proj_maps[1].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
-        std::vector<Datum> key_columns(key_to_in.num_cols);
-        for(size_t i = 0; i < key_columns.size(); i++)
-        {
-            int input_idx = key_to_in.get(i);
-            key_columns[i] = input_batch[input_idx];
-        }
-        ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(key_columns)));
-
-        util::TempVectorHolder<uint32_t> hash_holder(&temp_stacks_[thread_index], util::MiniBatch::kMiniBatchLength);
-        uint32_t *hashes = hash_holder.mutable_data();
-        for(int64_t i = 0; i < key_batch.length; i += util::MiniBatch::kMiniBatchLength)
-        {
-            int64_t length = std::min(
-                static_cast<int64_t>(key_batch.length - i),
-                static_cast<int64_t>(util::MiniBatch::kMiniBatchLength));
-            Hashing32::HashBatch(
-                key_batch,
-                hashes,
-                ctx_->cpu_info()->hardware_flags(),
-                &temp_stacks_[thread_index],
-                i,
-                length);
-            RETURN_NOT_OK(bloom_filter_builder_->PushNextBatch(thread_index, length, hashes));
-        }
-        return Status::OK();
+  Status BuildBloomFilter_exec_task(size_t thread_index, int64_t task_id) {
+    const ExecBatch& input_batch = right_batches_[task_id];
+    SchemaProjectionMap key_to_in =
+        schema_mgr_->proj_maps[1].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
+    std::vector<Datum> key_columns(key_to_in.num_cols);
+    for (size_t i = 0; i < key_columns.size(); i++) {
+      int input_idx = key_to_in.get(i);
+      key_columns[i] = input_batch[input_idx];
     }
+    ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(key_columns)));
+
+    util::TempVectorHolder<uint32_t> hash_holder(&temp_stacks_[thread_index],
+                                                 util::MiniBatch::kMiniBatchLength);
+    uint32_t* hashes = hash_holder.mutable_data();
+    for (int64_t i = 0; i < key_batch.length; i += util::MiniBatch::kMiniBatchLength) {
+      int64_t length = std::min(static_cast<int64_t>(key_batch.length - i),
+                                static_cast<int64_t>(util::MiniBatch::kMiniBatchLength));
+      Hashing32::HashBatch(key_batch, hashes, ctx_->cpu_info()->hardware_flags(),
+                           &temp_stacks_[thread_index], i, length);
+      RETURN_NOT_OK(bloom_filter_builder_->PushNextBatch(thread_index, length, hashes));
+    }
+    return Status::OK();
+  }
 
   Status BuildHashTable_exec_task(size_t thread_index, int64_t /*task_id*/) {
     const std::vector<ExecBatch>& batches = right_batches_;
@@ -805,18 +774,13 @@ class HashJoinBasicImpl : public HashJoinImpl {
     return Status::OK();
   }
 
-    Status BuildBloomFilter_on_finished(size_t thread_index)
-    {
-        if(cancelled_)
-            return Status::Cancelled("Hash join cancelled");
-        ARROW_DCHECK(pushdown_target_);
-        RETURN_NOT_OK(
-            pushdown_target_->PushBloomFilter(
-            thread_index,
-            std::move(bloom_filter_),
-            std::move(column_map_)));
-        return BuildHashTable(thread_index);
-    }
+  Status BuildBloomFilter_on_finished(size_t thread_index) {
+    if (cancelled_) return Status::Cancelled("Hash join cancelled");
+    ARROW_DCHECK(pushdown_target_);
+    RETURN_NOT_OK(pushdown_target_->PushBloomFilter(
+        thread_index, std::move(bloom_filter_), std::move(column_map_)));
+    return BuildHashTable(thread_index);
+  }
 
   Status BuildHashTable_on_finished(size_t thread_index) {
     if (cancelled_) {
@@ -827,12 +791,12 @@ class HashJoinBasicImpl : public HashJoinImpl {
     {
       std::lock_guard<std::mutex> lock(left_batches_mutex_);
       std::lock_guard<std::mutex> lock_finish(finished_mutex_);
-      left_queue_bloom_finished_ = left_queue_bloom_finished_ || num_expected_bloom_filters_ == 0;
+      left_queue_bloom_finished_ =
+          left_queue_bloom_finished_ || num_expected_bloom_filters_ == 0;
       proceed = !has_hash_table_ && left_queue_bloom_finished_;
       has_hash_table_ = true;
     }
-    if(proceed)
-        RETURN_NOT_OK(ProbeQueuedBatches(thread_index));
+    if (proceed) RETURN_NOT_OK(ProbeQueuedBatches(thread_index));
 
     right_batches_.clear();
     return Status::OK();
@@ -860,17 +824,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   Status BuildBloomFilter(size_t thread_index) {
     RETURN_NOT_OK(bloom_filter_builder_->Begin(
-                      num_threads_,
-                      ctx_->cpu_info()->hardware_flags(),
-                      ctx_->memory_pool(),
-                      right_input_row_count_,
-                      right_batches_.size(),
-                      bloom_filter_.get()));
+        num_threads_, ctx_->cpu_info()->hardware_flags(), ctx_->memory_pool(),
+        right_input_row_count_, right_batches_.size(), bloom_filter_.get()));
 
-    return scheduler_->StartTaskGroup(
-        thread_index,
-        task_group_bloom_,
-        right_batches_.size());
+    return scheduler_->StartTaskGroup(thread_index, task_group_bloom_,
+                                      right_batches_.size());
   }
 
   Status BuildHashTable(size_t thread_index) {
@@ -878,38 +836,33 @@ class HashJoinBasicImpl : public HashJoinImpl {
                                       BuildHashTable_num_tasks());
   }
 
-    Status BloomFilterQueuedBatches_exec_task(size_t thread_index, int64_t task_id)
+  Status BloomFilterQueuedBatches_exec_task(size_t thread_index, int64_t task_id) {
+    if (cancelled_) return Status::Cancelled("Hash join cancelled");
+    ExecBatch batch;
     {
-        if(cancelled_)
-            return Status::Cancelled("Hash join cancelled");
-        ExecBatch batch;
-        {
-            std::lock_guard<std::mutex> lock(left_batches_mutex_);
-            batch = std::move(left_batches_[task_id]);
-            ARROW_DCHECK(!batch.values.empty());
-        }
-        RETURN_NOT_OK(ApplyBloomFiltersToBatch(thread_index, batch));
-        {
-            std::lock_guard<std::mutex> lock(left_batches_mutex_);
-            left_batches_[task_id] = std::move(batch);
-        }
-        return Status::OK();
+      std::lock_guard<std::mutex> lock(left_batches_mutex_);
+      batch = std::move(left_batches_[task_id]);
+      ARROW_DCHECK(!batch.values.empty());
     }
+    RETURN_NOT_OK(ApplyBloomFiltersToBatch(thread_index, batch));
+    {
+      std::lock_guard<std::mutex> lock(left_batches_mutex_);
+      left_batches_[task_id] = std::move(batch);
+    }
+    return Status::OK();
+  }
 
-    Status BloomFilterQueuedBatches_on_finished(size_t thread_index)
+  Status BloomFilterQueuedBatches_on_finished(size_t thread_index) {
+    if (cancelled_) return Status::Cancelled("Hash join cancelled");
+    bool proceed;
     {
-        if(cancelled_)
-            return Status::Cancelled("Hash join cancelled");
-        bool proceed;
-        {
-            std::lock_guard<std::mutex> lock(finished_mutex_);
-            proceed = !left_queue_bloom_finished_ && has_hash_table_;
-            left_queue_bloom_finished_ = true;
-        }
-        if(proceed)
-            return ProbeQueuedBatches(thread_index);
-        return Status::OK();
+      std::lock_guard<std::mutex> lock(finished_mutex_);
+      proceed = !left_queue_bloom_finished_ && has_hash_table_;
+      left_queue_bloom_finished_ = true;
     }
+    if (proceed) return ProbeQueuedBatches(thread_index);
+    return Status::OK();
+  }
 
   void RegisterBloomFilterQueuedBatches() {
     task_group_bloom_filter_queued_ = scheduler_->RegisterTaskGroup(
@@ -922,7 +875,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   Status BloomFilterQueuedBatches(size_t thread_index, size_t num_batches) {
-      return scheduler_->StartTaskGroup(thread_index, task_group_bloom_filter_queued_, num_batches);
+    return scheduler_->StartTaskGroup(thread_index, task_group_bloom_filter_queued_,
+                                      num_batches);
   }
 
   int64_t ProbeQueuedBatches_num_tasks() {
@@ -960,7 +914,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   void RegisterProbeQueuedBatches() {
     task_group_queued_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
-            return ProbeQueuedBatches_exec_task(thread_index, task_id);
+          return ProbeQueuedBatches_exec_task(thread_index, task_id);
         },
         [this](size_t thread_index) -> Status {
           return ProbeQueuedBatches_on_finished(thread_index);
@@ -1052,27 +1006,25 @@ class HashJoinBasicImpl : public HashJoinImpl {
                                       ScanHashTable_num_tasks());
   }
 
-  Result<bool> QueueBatchIfNeeded(size_t thread_index, int side, ExecBatch &batch) {
+  Result<bool> QueueBatchIfNeeded(size_t thread_index, int side, ExecBatch& batch) {
     if (side == 0) {
-        // We don't want to do the filtering while holding the lock, since that can get
-        // expensive. 
-        bool needs_filtering;
-        {
-            std::lock_guard<std::mutex> lock(left_batches_mutex_);
-            bloom_filters_ready_ = bloom_filters_ready_ || num_expected_bloom_filters_ == 0;
-            needs_filtering = bloom_filters_ready_ && num_expected_bloom_filters_ != 0;
-        }
-        if(needs_filtering)
-            RETURN_NOT_OK(ApplyBloomFiltersToBatch(thread_index, batch));
+      // We don't want to do the filtering while holding the lock, since that can get
+      // expensive.
+      bool needs_filtering;
+      {
+        std::lock_guard<std::mutex> lock(left_batches_mutex_);
+        bloom_filters_ready_ = bloom_filters_ready_ || num_expected_bloom_filters_ == 0;
+        needs_filtering = bloom_filters_ready_ && num_expected_bloom_filters_ != 0;
+      }
+      if (needs_filtering) RETURN_NOT_OK(ApplyBloomFiltersToBatch(thread_index, batch));
 
-        bool queued;
-        {
-            std::lock_guard<std::mutex> lock(left_batches_mutex_);
-            queued = !bloom_filters_ready_ || !has_hash_table_;
-            if(queued)
-                left_batches_.emplace_back(std::move(batch));
-        }
-        return queued;
+      bool queued;
+      {
+        std::lock_guard<std::mutex> lock(left_batches_mutex_);
+        queued = !bloom_filters_ready_ || !has_hash_table_;
+        if (queued) left_batches_.emplace_back(std::move(batch));
+      }
+      return queued;
     } else {
       std::lock_guard<std::mutex> lock(right_batches_mutex_);
       right_input_row_count_ += batch.length;
@@ -1081,17 +1033,13 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
   }
 
-    Status OnRightSideFinished(size_t thread_index)
-    {
-        if(pushdown_target_ == nullptr)
-        {
-            return BuildHashTable(thread_index);
-        }
-        else
-        {
-            return BuildBloomFilter(thread_index);
-        }
+  Status OnRightSideFinished(size_t thread_index) {
+    if (pushdown_target_ == nullptr) {
+      return BuildHashTable(thread_index);
+    } else {
+      return BuildBloomFilter(thread_index);
     }
+  }
 
   Status OnLeftSideAndQueueFinished(size_t thread_index) {
     return ScanHashTable(thread_index);
@@ -1167,8 +1115,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     std::vector<uint8_t> has_match;
   };
   std::vector<ThreadLocalState> local_states_;
-  std::vector<util::TempVectorStack> temp_stacks_; // One per thread, but initialized earlier than ThreadLocalState
-
+  std::vector<util::TempVectorStack>
+      temp_stacks_;  // One per thread, but initialized earlier than ThreadLocalState
 
   // Shared runtime state
   //
@@ -1187,7 +1135,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   bool has_hash_table_;
   std::mutex left_batches_mutex_;
 
-  size_t right_input_row_count_; // Sum of the lengths of ExecBatches in right_batches_
+  size_t right_input_row_count_;  // Sum of the lengths of ExecBatches in right_batches_
   std::vector<ExecBatch> right_batches_;
   std::mutex right_batches_mutex_;
 
@@ -1196,11 +1144,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
   std::unique_ptr<BloomFilterBuilder> bloom_filter_builder_;
   std::shared_ptr<BlockedBloomFilter> bloom_filter_;
   std::vector<int> column_map_;
-  std::vector< std::shared_ptr<BlockedBloomFilter> > pushed_bloom_filters_;
-  std::vector< std::vector<int> > bloom_filter_column_maps_;
+  std::vector<std::shared_ptr<BlockedBloomFilter>> pushed_bloom_filters_;
+  std::vector<std::vector<int>> bloom_filter_column_maps_;
   std::mutex bloom_filters_mutex_;
   size_t num_expected_bloom_filters_;
-  HashJoinImpl *pushdown_target_;
+  HashJoinImpl* pushdown_target_;
 
   std::atomic<int64_t> num_batches_produced_;
   bool cancelled_;

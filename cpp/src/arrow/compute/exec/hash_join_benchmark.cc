@@ -129,20 +129,20 @@ class JoinBenchmark {
 
     join_ = *HashJoinImpl::MakeBasic();
 
-    HashJoinImpl *bloom_filter_pushdown_target = nullptr;
+    HashJoinImpl* bloom_filter_pushdown_target = nullptr;
     std::vector<int> key_input_map;
 
     bool bloom_filter_does_not_apply_to_join =
         settings.join_type == JoinType::LEFT_ANTI ||
         settings.join_type == JoinType::LEFT_OUTER ||
         settings.join_type == JoinType::FULL_OUTER;
-    if(settings.bloom_filter && !bloom_filter_does_not_apply_to_join)
-    {
-        bloom_filter_pushdown_target = join_.get();
-        SchemaProjectionMap probe_key_to_input = schema_mgr_->proj_maps[0].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
-        int num_keys = probe_key_to_input.num_cols;
-        for(int i = 0; i < num_keys; i++)
-            key_input_map.push_back(probe_key_to_input.get(i));
+    if (settings.bloom_filter && !bloom_filter_does_not_apply_to_join) {
+      bloom_filter_pushdown_target = join_.get();
+      SchemaProjectionMap probe_key_to_input = schema_mgr_->proj_maps[0].map(
+          HashJoinProjection::KEY, HashJoinProjection::INPUT);
+      int num_keys = probe_key_to_input.num_cols;
+      for (int i = 0; i < num_keys; i++)
+        key_input_map.push_back(probe_key_to_input.get(i));
     }
 
     omp_set_num_threads(settings.num_threads);
@@ -155,7 +155,8 @@ class JoinBenchmark {
     DCHECK_OK(join_->Init(
         ctx_.get(), settings.join_type, !is_parallel, settings.num_threads,
         schema_mgr_.get(), std::move(key_cmp), std::move(filter), [](ExecBatch) {},
-        [](int64_t x) {}, schedule_callback, bloom_filter_pushdown_target, std::move(key_input_map)));
+        [](int64_t x) {}, schedule_callback, bloom_filter_pushdown_target,
+        std::move(key_input_map)));
   }
 
   void RunJoin() {
@@ -288,15 +289,14 @@ static void BM_HashJoinBasic_NullPercentage(benchmark::State& st) {
   HashJoinBasicBenchmarkImpl(st, settings);
 }
 
-static void BM_HashJoinBasic_BloomFilter(benchmark::State &st, bool bloom_filter)
-{
-    BenchmarkSettings settings;
-    settings.bloom_filter = bloom_filter;
-    settings.selectivity = static_cast<double>(st.range(0)) / 100.0;
-    settings.num_build_batches = static_cast<int>(st.range(1));
-    settings.num_probe_batches = settings.num_build_batches;
-    
-    HashJoinBasicBenchmarkImpl(st, settings);
+static void BM_HashJoinBasic_BloomFilter(benchmark::State& st, bool bloom_filter) {
+  BenchmarkSettings settings;
+  settings.bloom_filter = bloom_filter;
+  settings.selectivity = static_cast<double>(st.range(0)) / 100.0;
+  settings.num_build_batches = static_cast<int>(st.range(1));
+  settings.num_probe_batches = settings.num_build_batches;
+
+  HashJoinBasicBenchmarkImpl(st, settings);
 }
 #endif
 

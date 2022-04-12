@@ -109,13 +109,11 @@ class HashJoinImpl {
                       OutputBatchCallback output_batch_callback,
                       FinishedCallback finished_callback,
                       TaskScheduler::ScheduleImpl schedule_task_callback,
-                      HashJoinImpl *pushdown_target,
-                      std::vector<int> column_map) = 0;
+                      HashJoinImpl* pushdown_target, std::vector<int> column_map) = 0;
   virtual void ExpectBloomFilter() = 0;
-  virtual Status PushBloomFilter(
-      size_t thread_index,
-      std::shared_ptr<BlockedBloomFilter> filter,
-      std::vector<int> column_map) = 0;
+  virtual Status PushBloomFilter(size_t thread_index,
+                                 std::shared_ptr<BlockedBloomFilter> filter,
+                                 std::vector<int> column_map) = 0;
   virtual Status InputReceived(size_t thread_index, int side, ExecBatch batch) = 0;
   virtual Status InputFinished(size_t thread_index, int side) = 0;
   virtual void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) = 0;
