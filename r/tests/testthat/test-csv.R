@@ -295,11 +295,17 @@ test_that("more informative error when reading a CSV with headers and schema", {
 test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
   tf <- tempfile()
   on.exit(unlink(tf))
-  write_csv_arrow(tibble::tibble(x = 1:5), file(tf))
-  expect_identical(read_csv_arrow(tf), tibble::tibble(x = 1:5))
 
-  # read_csv_arrow() on a connection may error because it can call
-  # the stream's Read() method from another thread
+  # make this big enough that we might expose concurrency problems,
+  # but not so big that it slows down the tests
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_csv_arrow(test_tbl, file(tf))
+  expect_identical(read_csv_arrow(tf), test_tbl)
   expect_identical(read_csv_arrow(file(tf)), read_csv_arrow(tf))
 })
 

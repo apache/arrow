@@ -200,12 +200,20 @@ test_that("Maps are preserved when writing/reading from Parquet", {
 })
 
 test_that("read_parquet() and write_parquet() accept connection objects", {
-  expect_identical(read_parquet(file(pq_file)), read_parquet(pq_file))
-
   tf <- tempfile()
   on.exit(unlink(tf))
-  write_parquet(tibble::tibble(x = 1:5), file(tf))
-  expect_identical(read_parquet(tf), tibble::tibble(x = 1:5))
+
+  # make this big enough that we might expose concurrency problems,
+  # but not so big that it slows down the tests
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_parquet(test_tbl, file(tf))
+  expect_identical(read_parquet(tf), test_tbl)
+  expect_identical(read_parquet(file(tf)), read_parquet(tf))
 })
 
 test_that("write_parquet() to stream", {
