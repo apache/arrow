@@ -207,7 +207,7 @@ cbind_check_length <- function(target_length, length, idx, call = caller_env()) 
 
 #' @export
 cbind.RecordBatch <- function(...) {
-  call <- caller_env()
+  call <- sys.call()
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 

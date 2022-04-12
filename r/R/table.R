@@ -175,7 +175,7 @@ rbind.Table <- function(...) {
 
 #' @export
 cbind.Table <- function(...) {
-  call <- caller_env()
+  call <- sys.call()
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
