@@ -223,11 +223,10 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::OK();
     }
 
-    auto result =
-        SafeCallIntoRVoid([&]() { cpp11::package("base")["close"](connection_sexp_); });
-
     closed_ = true;
-    return result;
+
+    return SafeCallIntoRVoid(
+        [&]() { cpp11::package("base")["close"](connection_sexp_); });
   }
 
   arrow::Result<int64_t> Tell() const {
@@ -235,8 +234,10 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    cpp11::sexp result = cpp11::package("base")["seek"](connection_sexp_);
-    return cpp11::as_cpp<int64_t>(result);
+    return SafeCallIntoR<int64_t>([&]() {
+      cpp11::sexp result = cpp11::package("base")["seek"](connection_sexp_);
+      return cpp11::as_cpp<int64_t>(result);
+    });
   }
 
   bool closed() const { return closed_; }
@@ -355,7 +356,7 @@ class RConnectionRandomAccessFile : public arrow::io::RandomAccessFile,
 
     auto status = Seek(initial_pos);
     if (!status.ok()) {
-      cpp11::stop("Seek() reutrned an error");
+      cpp11::stop("Seek() returned an error");
     }
   }
 

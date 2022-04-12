@@ -86,7 +86,7 @@ MainRThread& GetMainRThread();
 // a SEXP (use cpp11::as_cpp<T> to convert it to a C++ type inside
 // `fun`).
 template <typename T>
-arrow::Future<T> SafeCallIntoRAsync(std::function<T(void)> fun) {
+arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun) {
   MainRThread& main_r_thread = GetMainRThread();
   if (main_r_thread.IsMainThread()) {
     // If we're on the main thread, run the task immediately and let
@@ -104,7 +104,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<T(void)> fun) {
       }
 
       try {
-        return arrow::Result<T>(fun());
+        return fun();
       } catch (cpp11::unwind_exception& e) {
         GetMainRThread().SetError(e.token);
         return arrow::Result<T>(arrow::Status::UnknownError("R code execution error"));
