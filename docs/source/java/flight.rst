@@ -188,9 +188,6 @@ handler then provides a token that will be attached to future calls.
 
 The client send data to be validated through ``ClientAuthHandler.authenticate``
 The server validate data received through ``ServerAuthHandler.authenticate``.
-After validations, the client and server use a key value to pass/read the token
-through ``Auth-Token-bin``, then the server use ``ServerAuthInterceptor``
-to validate token received from.
 
 Custom Middleware
 =================
