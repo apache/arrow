@@ -19,8 +19,14 @@
 test_that("read_ipc_stream() and write_ipc_stream() accept connection objects", {
   tf <- tempfile()
   on.exit(unlink(tf))
-  write_ipc_stream(tibble::tibble(x = 1:5), file(tf))
-  expect_identical(read_ipc_stream(tf), tibble::tibble(x = 1:5))
 
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_ipc_stream(test_tbl, file(tf))
+  expect_identical(read_ipc_stream(tf), test_tbl)
   expect_identical(read_ipc_stream(file(tf)), read_ipc_stream(tf))
 })
