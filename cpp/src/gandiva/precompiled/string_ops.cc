@@ -540,7 +540,7 @@ gdv_boolean compare_lower_strings(const char* base_str, gdv_int32 base_str_len,
 FORCE_INLINE
 gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len) {
   if (data_len <= 0) {
-    gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
+    gdv_fn_context_set_error_msg(context, "Invalid value for boolean with negative length.");
     return false;
   }
 
@@ -569,7 +569,9 @@ gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
     if (compare_lower_strings("false", 5, trimmed_data, trimmed_len)) return false;
   }
   // if no 'true', 'false', '0' or '1' value is found, set an error
-  gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
+  // gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
+  gdv_fn_context_set_error_msg(context, data);
+
   return false;
 }
 
