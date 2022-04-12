@@ -2652,7 +2652,8 @@ def test_expression_serialization():
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
                  pc.field('i64') > 5, pc.field('i64') == 5,
-                 pc.field('i64') == 7, pc.field('i64').is_null()]
+                 pc.field('i64') == 7, pc.field('i64').is_null(),
+                 pc.field(('foo', 'bar')) == 'value']
     for expr in all_exprs:
         assert isinstance(expr, pc.Expression)
         restored = pickle.loads(pickle.dumps(expr))
@@ -2666,6 +2667,7 @@ def test_expression_construction():
     false = pc.scalar(False)
     string = pc.scalar("string")
     field = pc.field("field")
+    nested_field = pc.field(("nested", "field"))
 
     zero | one == string
     ~true == false
@@ -2673,6 +2675,7 @@ def test_expression_construction():
         field.cast(typ) == true
 
     field.isin([1, 2])
+    nested_field.isin(["foo", "bar"])
 
     with pytest.raises(TypeError):
         field.isin(1)
