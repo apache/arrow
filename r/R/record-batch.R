@@ -211,10 +211,13 @@ cbind.RecordBatch <- function(...) {
   inputs <- list(...)
   num_rows <- inputs[[1]]$num_rows
 
+  # These names are only used for scalar or arrays
+  arg_names <- if (is.null(names(inputs))) character(length(inputs)) else names(inputs)
+  arg_names <- make.names(arg_names, unique = TRUE)
+
   batches <- map(seq_along(inputs), function(i) {
     input <- inputs[[i]]
-    name <- names(inputs)[i]
-    name <- ifelse(name == "", paste0("X", as.character(i)), name)
+    name <- arg_names[i]
 
     if (inherits(input, "RecordBatch")) {
       cbind_check_length(num_rows, input$num_rows, i, call)

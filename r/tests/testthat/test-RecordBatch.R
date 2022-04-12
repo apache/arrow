@@ -572,10 +572,14 @@ test_that("RecordBatch supports cbind", {
     record_batch(a = 1:2, b = rep(1L, 2))
   )
 
-  # Handles unnamed arrays
+  # Handles unnamed arrays, even in cases where no named arguments are passed
   expect_equal(
     cbind(record_batch(a = 1:2), b = 3:4, 5:6),
-    record_batch(a = 1:2, b = 3:4, X3 = 5:6)
+    record_batch(a = 1:2, b = 3:4, X.1 = 5:6)
+  )
+  expect_equal(
+    cbind(record_batch(a = 1:2), 3:4, 5:6),
+    record_batch(a = 1:2, X.1 = 3:4, X.2 = 5:6)
   )
 })
 
