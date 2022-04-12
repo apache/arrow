@@ -223,14 +223,11 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::OK();
     }
 
-    auto result = SafeCallIntoR<bool>([&]() {
-      cpp11::package("base")["close"](connection_sexp_);
-      return true;
-    });
+    auto result =
+        SafeCallIntoRVoid([&]() { cpp11::package("base")["close"](connection_sexp_); });
 
-    RETURN_NOT_OK(result);
     closed_ = true;
-    return arrow::Status::OK();
+    return result;
   }
 
   arrow::Result<int64_t> Tell() const {
@@ -282,16 +279,13 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    auto result = SafeCallIntoR<bool>([&]() {
+    return SafeCallIntoRVoid([&]() {
       cpp11::writable::raws data_raw(nbytes);
       memcpy(cpp11::safe[RAW](data_raw), data, nbytes);
 
       cpp11::function write_bin = cpp11::package("base")["writeBin"];
       write_bin(data_raw, connection_sexp_);
-      return true;
     });
-
-    return result.status();
   }
 
   arrow::Status SeekBase(int64_t pos) {
@@ -299,12 +293,9 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    auto result = SafeCallIntoR<bool>([&]() {
+    return SafeCallIntoRVoid([&]() {
       cpp11::package("base")["seek"](connection_sexp_, cpp11::as_sexp<double>(pos));
-      return true;
     });
-
-    return result.status();
   }
 
  private:

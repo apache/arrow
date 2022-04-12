@@ -122,6 +122,14 @@ arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
   return future.result();
 }
 
+static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun) {
+  arrow::Future<bool> future = SafeCallIntoRAsync<bool>([&fun]() {
+    fun();
+    return true;
+  });
+  return future.status();
+}
+
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
   if (GetMainRThread().Executor() != nullptr) {
