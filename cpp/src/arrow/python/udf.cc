@@ -49,7 +49,7 @@ Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
       }
       default:
         return Status::NotImplemented(
-            "User-defined-functions are not supported to the datum kind ",
+            "User-defined-functions are not supported for the datum kind ",
             batch[arg_id].kind());
     }
   }

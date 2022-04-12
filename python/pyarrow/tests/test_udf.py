@@ -297,8 +297,8 @@ def test_udf_input():
                                  None, unary_scalar_function)
 
     # validate input type
-    expected_expr = r'Input types must be an'
-    with pytest.raises(ValueError, match=expected_expr):
+    expected_expr = r'in_types must be a dictionary of InputType'
+    with pytest.raises(TypeError, match=expected_expr):
         register_scalar_function("input_function", doc, None,
                                  out_type, unary_scalar_function)
 

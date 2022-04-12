@@ -24,6 +24,7 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 import inspect
+from typing import Dict
 
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
@@ -33,8 +34,6 @@ import pyarrow.lib as lib
 from libcpp cimport bool as c_bool
 
 import numpy as np
-
-from typing import Dict
 
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
@@ -215,8 +214,7 @@ cdef wrap_input_type(const CInputType c_input_type):
 
 cdef class InputType(_Weakrefable):
     """
-    An interface for defining input-types for streaming execution engine
-    applications. 
+    An input type specification for a user-defined function.
     """
 
     def __init__(self):
@@ -230,10 +228,10 @@ cdef class InputType(_Weakrefable):
     def scalar(data_type):
         """
         Create a scalar input type of the given data type.
-        Input data to a function is defined with a InputType
-        of Scalar. Here the accepted argument to the function
-        must be of type defined as `data_type` and it must be
-        a scalar value.  
+
+        Arguments to a UDF have both a data type and a shape,
+        either array or scalar. A scalar InputType means that
+        this argument must be passed a Scalar.  
 
         Parameter
         ---------
@@ -258,6 +256,10 @@ cdef class InputType(_Weakrefable):
     def array(data_type):
         """
         Create an array input type of the given data type.
+
+        Arguments to a UDF have both a data type and a shape,
+        either array or scalar. An array InputType means that
+        this argument must be passed an Array.
 
         Parameter
         ---------
@@ -2395,7 +2397,14 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
 def register_scalar_function(func_name, function_doc, in_types,
                              out_type, function):
     """
-    Register a user-defined-function.
+    Register a user-defined scalar function. 
+
+    A scalar function is a function that executes elementwise
+    operations on arrays or scalars, and therefore whose results
+    generally do not depend on the order of the values in the
+    arguments. Accepts and returns arrays that are all of the
+    same size. These functions roughly correspond to the functions
+    used in SQL expressions.
 
     Parameters
     ----------
@@ -2406,18 +2415,21 @@ def register_scalar_function(func_name, function_doc, in_types,
         and "description" (str).
     in_types : Dict[str, InputType]
         Dictionary containing items with input type name, InputType
-        objects which defines the input types for the function.
-        When defining a list of InputType for a varargs function,
-        the list only needs to contain the number of elements equal
-        to the num_args (which is the miniumu required arguments). 
+        objects which defines the arguments to the function.
+        The number of arguments specified here determines the
+        function arity.
     out_type : DataType
         Output type of the function.
     function : callable
-        User-defined-function
-        function includes arguments equal to the number
-        of input_types defined. The return type of the 
-        function is of the type defined as output_type. 
-        The output should be an Array or a Scalar.
+        A callable implementing the user-defined function.
+        It must take arguments equal to the number of
+        in_types defined. It must return an Array or Scalar
+        matching the out_type. It must return a Scalar if
+        all arguments are scalar, else it must return an array.
+
+        To define a varargs function, pass a callable that takes
+        varargs. The last in_type will be the type of the all
+        varargs arguments.
 
     Example
     -------
@@ -2479,13 +2491,14 @@ def register_scalar_function(func_name, function_doc, in_types,
                 in_tmp = (<InputType> in_type).input_type
                 c_in_types.push_back(in_tmp)
             else:
-                raise ValueError("Expected an object of type InputType")
+                raise TypeError(
+                    f"in_types must be a list of InputType, found {type(in_type)}")
         function_doc["arg_names"] = in_types.keys()
         num_args = len(in_types)
     else:
         if num_args == -1:
-            raise ValueError(
-                "Input types must be an empty list or a List[InputType]")
+            raise TypeError(
+                "in_types must be a dictionary of InputType")
 
     if func_spec.varargs:
         if num_args < 0:
