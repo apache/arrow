@@ -2395,19 +2395,22 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
 
 FORCE_INLINE
 void concat_word(char* out_buf, int* out_idx, const char* in_buf, int in_len,
-                 bool in_validity, const char* separator, int separator_len) {
+                 bool in_validity, const char* separator, int separator_len,
+                 bool* seenAnyValidInput) {
   if (!in_validity) {
+    *seenAnyValidInput = false;
     return;
   }
 
   // input is valid
-  if (*out_idx != 0) {
+  if (*seenAnyValidInput || *out_idx > 0) {
     // copy the separator and update *out_idx
     memcpy(out_buf + *out_idx, separator, separator_len);
     *out_idx += separator_len;
   }
   // copy the input and update *out_idx
   memcpy(out_buf + *out_idx, in_buf, in_len);
+  *seenAnyValidInput = true;
   *out_idx += in_len;
 }
 
@@ -2441,9 +2444,12 @@ const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
 
   char* tmp = out;
   int out_idx = 0;
+  bool seenAnyValidInput = false;
 
-  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len);
+  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
+              &seenAnyValidInput);
 
   *out_valid = true;
   *out_len = out_idx;
@@ -2482,10 +2488,14 @@ const char* concat_ws_utf8_utf8_utf8(
 
   char* tmp = out;
   int out_idx = 0;
+  bool seenAnyValidInput = false;
 
-  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len);
+  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
+              &seenAnyValidInput);
 
   *out_valid = true;
   *out_len = out_idx;
@@ -2529,10 +2539,16 @@ const char* concat_ws_utf8_utf8_utf8_utf8(
 
   char* tmp = out;
   int out_idx = 0;
-  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word4, word4_len, word4_validity, separator, separator_len);
+  bool seenAnyValidInput = false;
+
+  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word4, word4_len, word4_validity, separator, separator_len,
+              &seenAnyValidInput);
 
   *out_valid = true;
   *out_len = out_idx;
@@ -2580,11 +2596,18 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(
 
   char* tmp = out;
   int out_idx = 0;
-  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word4, word4_len, word4_validity, separator, separator_len);
-  concat_word(tmp, &out_idx, word5, word5_len, word5_validity, separator, separator_len);
+  bool seenAnyValidInput = false;
+
+  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word4, word4_len, word4_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word5, word5_len, word5_validity, separator, separator_len,
+              &seenAnyValidInput);
 
   *out_valid = true;
   *out_len = out_idx;
