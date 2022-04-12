@@ -181,18 +181,16 @@ Enabling Authentication
 .. warning:: Authentication is insecure without enabling TLS.
 
 Handshake-based authentication can be enabled by implementing
-Handlers on the client and server side (i.e.: ``ServerAuthHandler``).
-There are two options available user/password and token.
-
-Authentication consists of two parts: on
+``ServerAuthHandler``. Authentication consists of two parts: on
 initial client connection, the server and client authentication
 implementations can perform any negotiation needed; then, on each RPC
-thereafter, the client provides a token. The client set an ID result
-of user/password through ``CallHeaders`` / ``Metadata`` these IDs is
-recovered by the server side to do validation. The server authentication
-handler validates the token and provides the identity of the
-client. This identity can be obtained from the
-``CallContext.peerIdentity``.
+thereafter, the client provides a token.
+
+The client send data to be validated through ``ClientAuthHandler.authenticate``
+The server validate data received through ``ServerAuthHandler.authenticate``.
+After validations, the client and server use a key value to pass/read the token
+through ``Auth-Token-bin``, then the server use ``ServerAuthInterceptor``
+to validate token received from.
 
 Custom Middleware
 =================
