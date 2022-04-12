@@ -350,6 +350,8 @@ register_bindings_duration <- function() {
     delta <- build_expr("floor", seconds * fraction)
     delta <- delta$cast(int64())
     start + delta$cast(duration("s"))
+    })
+  }
   register_binding("dseconds", function(x = 1) {
     dseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
     build_expr("cast", dseconds_int64, options = list(to_type = duration(unit = "s")))
