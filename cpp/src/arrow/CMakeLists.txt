@@ -625,7 +625,8 @@ if(ARROW_TESTING)
                 arrow_shared
                 GTest::gtest
                 STATIC_LINK_LIBS
-                arrow_static)
+                arrow_static
+                GTest::gtest)
 
   add_custom_target(arrow_testing)
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})

@@ -1056,9 +1056,6 @@ if(ARROW_WITH_SNAPPY)
     get_target_property(SNAPPY_LIB Snappy::snappy IMPORTED_LOCATION)
     string(APPEND ARROW_PC_LIBS_PRIVATE " ${SNAPPY_LIB}")
   endif()
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(SNAPPY_INCLUDE_DIRS Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${SNAPPY_INCLUDE_DIRS})
 endif()
 
 # ----------------------------------------------------------------------
@@ -1122,10 +1119,6 @@ endmacro()
 
 if(ARROW_WITH_BROTLI)
   resolve_dependency(Brotli PC_PACKAGE_NAMES libbrotlidec libbrotlienc)
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(BROTLI_INCLUDE_DIR Brotli::brotlicommon
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
@@ -1242,9 +1235,6 @@ endmacro()
 
 if(ARROW_USE_GLOG)
   resolve_dependency(GLOG PC_PACKAGE_NAMES libglog)
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(GLOG_INCLUDE_DIR glog::glog INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${GLOG_INCLUDE_DIR})
 endif()
 
 # ----------------------------------------------------------------------
@@ -1321,8 +1311,6 @@ if(ARROW_NEED_GFLAGS)
                      ${ARROW_GFLAGS_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
-  # TODO: Don't use global includes but rather target_include_directories
-  include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
 
   if(NOT TARGET ${GFLAGS_LIBRARIES})
     if(TARGET gflags-shared)
@@ -1423,8 +1411,6 @@ if(ARROW_WITH_THRIFT)
                        PC_PACKAGE_NAMES
                        thrift)
   endif()
-  # TODO: Don't use global includes but rather target_include_directories
-  include_directories(SYSTEM ${THRIFT_INCLUDE_DIR})
 
   string(REPLACE "." ";" VERSION_LIST ${THRIFT_VERSION})
   list(GET VERSION_LIST 0 THRIFT_VERSION_MAJOR)
@@ -1557,9 +1543,6 @@ if(ARROW_WITH_PROTOBUF)
   if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
     add_definitions(-DPROTOBUF_USE_DLLS)
   endif()
-
-  # TODO: Don't use global includes but rather target_include_directories
-  include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
 
   if(TARGET arrow::protobuf::libprotobuf)
     set(ARROW_PROTOBUF_LIBPROTOBUF arrow::protobuf::libprotobuf)
@@ -2003,10 +1986,6 @@ if(ARROW_TESTING)
     #     endif()
     #     set(CMAKE_REQUIRED_LIBRARIES)
   endif()
-
-  get_target_property(GTEST_INCLUDE_DIR GTest::gtest INTERFACE_INCLUDE_DIRECTORIES)
-  # TODO: Don't use global includes but rather target_include_directories
-  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
 endif()
 
 macro(build_benchmark)
@@ -2077,10 +2056,6 @@ if(ARROW_BUILD_BENCHMARKS)
                      ${BENCHMARK_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(BENCHMARK_INCLUDE_DIR benchmark::benchmark
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${BENCHMARK_INCLUDE_DIR})
 endif()
 
 macro(build_rapidjson)
@@ -2124,8 +2099,8 @@ if(ARROW_WITH_RAPIDJSON)
     set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
   endif()
 
-  # TODO: Don't use global includes but rather target_include_directories
-  include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+  add_library(rapidjson::rapidjson INTERFACE IMPORTED)
+  target_include_directories(rapidjson::rapidjson INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
 endif()
 
 macro(build_xsimd)
@@ -2152,8 +2127,9 @@ if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQ
                                              ))
   set(xsimd_SOURCE "BUNDLED")
   resolve_dependency(xsimd)
-  # TODO: Don't use global includes but rather target_include_directories
-  include_directories(SYSTEM ${XSIMD_INCLUDE_DIR})
+
+  add_library(xsimd INTERFACE IMPORTED)
+  target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
 endif()
 
 macro(build_zlib)
@@ -2195,10 +2171,6 @@ endmacro()
 
 if(ARROW_WITH_ZLIB)
   resolve_dependency(ZLIB PC_PACKAGE_NAMES zlib)
-
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${ZLIB_INCLUDE_DIR})
 endif()
 
 macro(build_lz4)
@@ -2253,10 +2225,6 @@ endmacro()
 
 if(ARROW_WITH_LZ4)
   resolve_dependency(Lz4 PC_PACKAGE_NAMES liblz4)
-
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${LZ4_INCLUDE_DIR})
 endif()
 
 macro(build_zstd)
@@ -2339,11 +2307,6 @@ if(ARROW_WITH_ZSTD)
       endif()
     endif()
   endif()
-
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
 endif()
 
 # ----------------------------------------------------------------------
@@ -2399,10 +2362,6 @@ if(ARROW_WITH_RE2)
     string(APPEND ARROW_PC_LIBS_PRIVATE " ${RE2_LIB}")
   endif()
   add_definitions(-DARROW_WITH_RE2)
-
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${RE2_INCLUDE_DIR})
 endif()
 
 macro(build_bzip2)
@@ -2514,22 +2473,7 @@ if(ARROW_WITH_UTF8PROC)
                      "2.2.0"
                      PC_PACKAGE_NAMES
                      libutf8proc)
-
   add_definitions(-DARROW_WITH_UTF8PROC)
-
-  # TODO: Don't use global definitions but rather
-  # target_compile_definitions or target_link_libraries
-  get_target_property(UTF8PROC_COMPILER_DEFINITIONS utf8proc::utf8proc
-                      INTERFACE_COMPILER_DEFINITIONS)
-  if(UTF8PROC_COMPILER_DEFINITIONS)
-    add_definitions(-D${UTF8PROC_COMPILER_DEFINITIONS})
-  endif()
-
-  # TODO: Don't use global includes but rather
-  # target_include_directories or target_link_libraries
-  get_target_property(UTF8PROC_INCLUDE_DIR utf8proc::utf8proc
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${UTF8PROC_INCLUDE_DIR})
 endif()
 
 macro(build_cares)
@@ -3450,9 +3394,6 @@ macro(build_grpc)
                      TRUE
                      PC_PACKAGE_NAMES
                      libcares)
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(c-ares_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${c-ares_INCLUDE_DIR})
 
   # First need Abseil
   resolve_dependency_absl()
@@ -3708,10 +3649,6 @@ if(ARROW_WITH_GRPC)
                      PC_PACKAGE_NAMES
                      grpc++)
 
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
-
   if(GRPC_VENDORED)
     set(GRPCPP_PP_INCLUDE TRUE)
     # Examples need to link to static Arrow if we're using static gRPC
@@ -3719,6 +3656,7 @@ if(ARROW_WITH_GRPC)
   else()
     # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
     # depending on the gRPC version.
+    get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
     if(EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
       set(GRPCPP_PP_INCLUDE TRUE)
     elseif(EXISTS "${GRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h")

@@ -808,6 +808,16 @@ if(ARROW_WITH_RE2)
   endif()
 endif()
 
+if(ARROW_WITH_RAPIDJSON)
+  list(APPEND ARROW_LINK_LIBS rapidjson::rapidjson)
+  list(APPEND ARROW_STATIC_LINK_LIBS rapidjson::rapidjson)
+endif()
+
+if(TARGET xsimd)
+  list(APPEND ARROW_LINK_LIBS xsimd)
+  list(APPEND ARROW_STATIC_LINK_LIBS xsimd)
+endif()
+
 add_custom_target(arrow_dependencies)
 add_custom_target(arrow_benchmark_dependencies)
 add_custom_target(arrow_test_dependencies)

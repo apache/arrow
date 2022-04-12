@@ -310,6 +310,17 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_PRIVATE_INCLUDES)
       target_include_directories(${LIB_NAME}_objlib PRIVATE ${ARG_PRIVATE_INCLUDES})
     endif()
+    foreach(LIB ${ARG_SHARED_LINK_LIBS} ${ARG_SHARED_PRIVATE_LINK_LIBS}
+                ${ARG_STATIC_LINK_LIBS})
+      if(TARGET ${LIB})
+        target_include_directories(${LIB_NAME}_objlib
+                                   PRIVATE "$<TARGET_PROPERTY:${LIB},INTERFACE_INCLUDE_DIRECTORIES>"
+        )
+        target_compile_definitions(${LIB_NAME}_objlib
+                                   PRIVATE "$<TARGET_PROPERTY:${LIB},INTERFACE_COMPILER_DEFINITIONS>"
+        )
+      endif()
+    endforeach()
   else()
     # Prepare arguments for separate compilation of static and shared libs below
     # TODO: add PCH directives
