@@ -21,6 +21,9 @@ groups:
 
 {############################# Packaging tasks ###############################}
 
+  conan:
+    - conan-*
+
   conda:
     - conda-*
 
@@ -53,6 +56,7 @@ groups:
     - almalinux-*
     - amazon-linux-*
     - centos-*
+    - conan-*
     - debian-*
     - java-jars
     - nuget
@@ -137,6 +141,7 @@ groups:
     - debian-*
     - ubuntu-*
     - centos-*
+    - conan-*
     - conda-*
     - java-jars
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
@@ -160,6 +165,7 @@ groups:
     - ubuntu-*
     - centos-*
     - conda-*
+    - conan-*
     - java-jars
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
@@ -181,7 +187,15 @@ tasks:
   #              e.g.:
   #     - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0-linux-64.tar.bz2
 
-{############################## Conda Linux ##################################}
+  ############################## Conan ##################################
+
+  conan-minimum:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: conan
+
+  ############################## Conda Linux ############################
 
   conda-clean:
     ci: azure
