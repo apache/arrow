@@ -146,7 +146,7 @@ reload_arrow <- function() {
 #' systems.
 #' @noRd
 run_download_script <- function(tools_dir, skip_download = FALSE) {
-  if (.Platform$OS.type == "windows")
+  if (.Platform$OS.type == "windows") {
     if (!requireNamespace("pkgbuild", quietly = TRUE)) {
       stop("pkgbuild is required on Windows")
     }

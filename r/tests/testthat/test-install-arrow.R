@@ -36,7 +36,8 @@ r_only({
   })
 
   test_that("Prep thirdparty download", {
-    tools_dir = tempdir()
+    skip_on_cran()
+    tools_dir <- tempdir()
     run_download_script(tools_dir, skip_download = TRUE)
   })
 })
