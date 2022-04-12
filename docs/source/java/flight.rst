@@ -192,7 +192,7 @@ of user/password through ``CallHeaders`` / ``Metadata`` these IDs is
 recovered by the server side to do validation. The server authentication
 handler validates the token and provides the identity of the
 client. This identity can be obtained from the
-`CallContext.peerIdentity`.
+``CallContext.peerIdentity``.
 
 Custom Middleware
 =================
