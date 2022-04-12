@@ -279,7 +279,7 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
 
     # Try to create a RandomAccessFile first because some readers need this
     # (e.g., feather, parquet) but fall back on an InputStream for the readers
-    # that don't.
+    # that don't (e.g., IPC, CSV)
     file <- tryCatch(
       MakeRConnectionRandomAccessFile(file),
       error = function(e) MakeRConnectionInputStream(file)
