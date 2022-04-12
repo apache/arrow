@@ -210,8 +210,13 @@ as_chunked_array.Array <- function(x, ..., type = NULL) {
   }
 }
 
-#' @rdname as_arrow_array
 #' @export
-as_chunked_array.default <- function(x, ..., type = NULL) {
+as_chunked_array.default <- function(x, ..., type = NULL, from_constructor = FALSE) {
+  # keeps chunked_array() from going in circles since it falls back on
+  # as_chunked_array()
+  if (from_constructor) {
+    stop("NotImplemented: Extend")
+  }
+
   chunked_array(as_arrow_array(x, ..., type = type))
 }

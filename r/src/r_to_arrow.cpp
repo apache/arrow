@@ -1237,9 +1237,24 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
       options.type, options, gc_memory_pool()));
 
-  StopIfNotOk(converter->Extend(x, options.size));
+  Status extend_result = converter->Extend(x, options.size);
+  if (extend_result.ok()) {
+    return ValueOrStop(converter->ToChunkedArray());
+  }
 
-  return ValueOrStop(converter->ToChunkedArray());
+  // If the converter api fails and type was NULL, use as_arrow_array
+  if (!type_inferred && extend_result.IsNotImplemented() && extend_result.message() == "Extend") {
+    cpp11::sexp as_chunked_array_result = cpp11::package("arrow")["as_chunked_array"](
+      x,
+      cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true)
+    );
+
+    return cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(as_chunked_array_result);
+  }
+
+  // Replicate the error that occurred before, since this is what Array$create()
+  // expects.
+  StopIfNotOk(Status::NotImplemented("Extend"));
 }
 
 std::shared_ptr<arrow::Array> vec_to_arrow_Array(
