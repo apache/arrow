@@ -21,7 +21,6 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -173,10 +172,7 @@ std::vector<FieldRef> FieldsInExpression(const Expression&);
 ARROW_EXPORT
 bool ExpressionHasFieldRefs(const Expression&);
 
-/// Known values of field references extracted from a guarantee.
-struct ARROW_EXPORT KnownFieldValues {
-  std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
-};
+struct ARROW_EXPORT KnownFieldValues;
 
 /// Assemble a mapping from field references to known values. This derives known values
 /// from "equal" and "is_null" Expressions referencing a field and a literal.

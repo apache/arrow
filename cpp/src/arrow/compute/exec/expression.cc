@@ -913,9 +913,9 @@ struct Inequality {
   const Datum& bound;
   bool nullable;
 
-  // Extract an Inequality if possible, derived from a
-  // from "less", "greater", "less_equal", and "greater_equal" expressions, possibly
-  // disjuncted with an "is_null" Expression.
+  // Extract an Inequality if possible, derived from "less",
+  // "greater", "less_equal", and "greater_equal" expressions,
+  // possibly disjuncted with an "is_null" Expression.
   // cmp(a, 2)
   // cmp(a, 2) or is_null(a)
   static util::optional<Inequality> ExtractOne(const Expression& guarantee) {

@@ -166,8 +166,14 @@ struct TrueUnlessNullOperator {
     // NullHandling::INTERSECTION with a single input means the execution engine
     // has already reused or allocated a null_bitmap which can be reused as the values
     // buffer.
-    // TODO: ensure this works with an all-valid input
-    out->buffers[1] = out->buffers[0];
+    if (out->buffers[0]) {
+      out->buffers[1] = out->buffers[0];
+    } else {
+      // But for all-valid inputs, the engine will skip allocating a
+      // buffer; we have to allocate one ourselves
+      ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->AllocateBitmap(arr.length));
+      std::memset(out->buffers[1]->mutable_data(), 0xFF, out->buffers[1]->size());
+    }
     return Status::OK();
   }
 };
@@ -320,7 +326,6 @@ const FunctionDoc is_null_doc(
      "True may also be emitted for NaN values by setting the `nan_is_null` flag."),
     {"values"}, "NullOptions");
 
-// TODO: naming consistency, can this fit in an existing function?
 const FunctionDoc true_unless_null_doc("Return true if non-null, else return null",
                                        ("For each input value, emit true iff the value\n"
                                         "is valid (non-null), otherwise emit null."),
@@ -349,7 +354,6 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
 
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
-
   DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
 }
 

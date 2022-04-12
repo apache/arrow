@@ -52,8 +52,8 @@ TEST_F(TestBooleanValidityKernels, TrueUnlessNull) {
   CheckScalarUnary("true_unless_null", type_singleton(), "[]", type_singleton(), "[]");
   CheckScalarUnary("true_unless_null", type_singleton(), "[null]", type_singleton(),
                    "[null]");
-  CheckScalarUnary("true_unless_null", type_singleton(), "[1]", type_singleton(),
-                   "[true]");
+  CheckScalarUnary("true_unless_null", type_singleton(), "[0, 1]", type_singleton(),
+                   "[true, true]");
   CheckScalarUnary("true_unless_null", type_singleton(), "[null, 1, 0, null]",
                    type_singleton(), "[null, true, true, null]");
 }
