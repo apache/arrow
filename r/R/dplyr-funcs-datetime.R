@@ -373,9 +373,7 @@ duration_from_chunks <- function(chunks) {
     "day" = 86400L,
     "week" = 604800L
   )
-  duration <- 0L
-  for (chunk in names(chunks)) {
-    duration <- duration + chunks[[chunk]] * chunk_duration[[chunk]]
-  }
-  duration
+  chunks_total <- purrr::imap(chunks, ~.x * chunk_duration[[.y]]) %>%
+    purrr::reduce(`+`)
+  chunks_total
   }
