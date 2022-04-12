@@ -26,6 +26,7 @@
 * date-time functionality:
   * `difftime` and `as.difftime()` 
   * `as.Date()` to convert to date
+* `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
 
 # arrow 7.0.0
 
