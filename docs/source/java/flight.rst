@@ -47,8 +47,9 @@ implementations of all the RPC methods.
         // Override methods or use NoOpFlightProducer for only methods needed
     }
 
-Each RPC method always takes a `CallStatus` for common parameters. To indicate
-failure, raise an exception.
+Each RPC method always takes a ``CallContext`` for common parameters. To indicate
+failure, pass an exception to the "listener" if present, or else raise an
+exception.
 
 .. code-block:: Java
 
@@ -105,7 +106,7 @@ to block until the server stops.
 Using the Flight Client
 =======================
 
-To connect to a Flight service, call `FlightClient`_ with a location.
+To connect to a Flight service, create a `FlightClient`_ with a location.
 
 .. code-block:: Java
 
@@ -141,8 +142,8 @@ expose a cancel method which allows terminating a call early.
     }
 
 On the server side, timeouts are transparent. For cancellation, the server needs to manually poll
-`setOnCancelHandler` or `isCancelled` to check if the client has cancelled the call, and if so,
-break out of any processing the server is currently doing.
+``setOnCancelHandler`` or ``isCancelled`` to check if the client has cancelled the call,
+and if so, break out of any processing the server is currently doing.
 
 .. code-block:: Java
 
@@ -152,7 +153,7 @@ break out of any processing the server is currently doing.
         FlightClient tutorialFlightClient = FlightClient.builder(allocator, location).build()){
         try(FlightStream flightStream = flightClient.getStream(new Ticket(new byte[]{}))) {
             // ...
-            flightStream.cancel("tutorial-cancel", new Exception("Testing cancellation opion!"));
+            flightStream.cancel("tutorial-cancel", new Exception("Testing cancellation option!"));
         }
     } catch (Exception e) {
         e.printStackTrace();
@@ -170,9 +171,9 @@ Enabling TLS
 ============
 
 TLS can be enabled when setting up a server by providing a
-certificate and key pair to `FlightServer.builder.useTls`.
+certificate and key pair to ``FlightServer.Builder.useTls``.
 
-On the client side, use `FlightClient.builder.trustedCertificates`.
+On the client side, use ``Location.forGrpcTls`` to create the Location for the client.
 
 Enabling Authentication
 =======================
@@ -180,13 +181,13 @@ Enabling Authentication
 .. warning:: Authentication is insecure without enabling TLS.
 
 Handshake-based authentication can be enabled by implementing
-`ServerAuthHandler`. Authentication consists of two parts: on
+``ServerAuthHandler``. Authentication consists of two parts: on
 initial client connection, the server and client authentication
 implementations can perform any negotiation needed; then, on each RPC
 thereafter, the client provides a token. The server authentication
 handler validates the token and provides the identity of the
 client. This identity can be obtained from the
-`CallContext.peerIdentity`.
+``CallContext.peerIdentity``.
 
 .. code-block:: Java
 
@@ -205,7 +206,7 @@ Custom Middleware
 
 Servers and clients support custom middleware (or interceptors) that are called on every
 request and can modify the request in a limited fashion. These can be implemented by implementing the
-`FlightServerMiddleware` and `FlightClientMiddleware` interfaces.
+``FlightServerMiddleware`` and ``FlightClientMiddleware`` interfaces.
 
 Middleware are fairly limited, but they can add headers to a request/response.
 
