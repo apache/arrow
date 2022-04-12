@@ -2398,19 +2398,18 @@ void concat_word(char* out_buf, int* out_idx, const char* in_buf, int in_len,
                  bool in_validity, const char* separator, int separator_len,
                  bool* seenAnyValidInput) {
   if (!in_validity) {
-    *seenAnyValidInput = false;
     return;
   }
 
   // input is valid
-  if (*seenAnyValidInput || *out_idx > 0) {
+  if (*seenAnyValidInput) {
     // copy the separator and update *out_idx
     memcpy(out_buf + *out_idx, separator, separator_len);
     *out_idx += separator_len;
   }
   // copy the input and update *out_idx
   memcpy(out_buf + *out_idx, in_buf, in_len);
-  *seenAnyValidInput = true;
+  *seenAnyValidInput = *seenAnyValidInput || in_validity;
   *out_idx += in_len;
 }
 

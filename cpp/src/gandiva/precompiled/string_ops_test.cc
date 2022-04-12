@@ -2018,6 +2018,12 @@ TEST(TestStringOps, TestConcatWs) {
   EXPECT_EQ(std::string(out, out_len), "hey#hello#wow");
   EXPECT_EQ(out_result, true);
 
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, "", 0, true, word2,
+                                 word2_len, false, word3, word3_len, true, &out_result,
+                                 &out_len);
+  EXPECT_EQ(std::string(out, out_len), "#wow");
+  EXPECT_EQ(out_result, true);
+
   out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, false, word1, word1_len,
                                  true, word2, word2_len, true, word3, word3_len, true,
                                  &out_result, &out_len);
