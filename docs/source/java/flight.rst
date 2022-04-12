@@ -181,25 +181,20 @@ Enabling Authentication
 .. warning:: Authentication is insecure without enabling TLS.
 
 Handshake-based authentication can be enabled by implementing
-``ServerAuthHandler``. Authentication consists of two parts: on
-initial client connection, the server and client authentication
+on the client side through authenticates against the Flight service
+``FlightClient.authenticate``, or by authenticates with a username
+and password through ``FlightClient.authenticateBasic`` and
+``FlightClient.authenticateBasicToken``. And on the server side
+through ``FlightServer.Builder().authHandler`` or by
+``FlightServer.Builder().headerAuthenticator``.
+
+Authentication consists of two parts: on initial client connection
+(handshake method), the server and client authentication
 implementations can perform any negotiation needed; then, on each RPC
 thereafter, the client provides a token. The server authentication
 handler validates the token and provides the identity of the
 client. This identity can be obtained from the
 ``CallContext.peerIdentity``.
-
-.. code-block:: Java
-
-    // Client
-    FlightClient client = FlightClient.builder().build();
-    client.authenticateBasic("user", "password");
-    // Server
-    FlightServer server = FlightServer.builder().authHandler(new BasicServerAuthHandler(validator)).build();
-    // CallHeaders printed on the Flight Server:
-    Metadata(content-type=application/grpc,user-agent=grpc-java-netty/1.44.1,auth-token-bin=bXlfdG9rZW4,grpc-accept-encoding=gzip)
-
-
 
 Custom Middleware
 =================
@@ -208,7 +203,10 @@ Servers and clients support custom middleware (or interceptors) that are called 
 request and can modify the request in a limited fashion. These can be implemented by implementing the
 ``FlightServerMiddleware`` and ``FlightClientMiddleware`` interfaces.
 
-Middleware are fairly limited, but they can add headers to a request/response.
+Middleware are fairly limited, but they can add headers to a
+request/response. On the server, they can inspect incoming headers and
+fail the request; hence, they can be used to implement custom
+authentication methods.
 
 .. _`FlightClient`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/FlightClient.html
 .. _`FlightProducer`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/FlightProducer.html
