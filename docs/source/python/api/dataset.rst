@@ -58,6 +58,7 @@ Classes
    PartitioningFactory
    DirectoryPartitioning
    HivePartitioning
+   FilenamePartitioning
    Dataset
    FileSystemDataset
    FileSystemFactoryOptions
@@ -65,5 +66,6 @@ Classes
    UnionDataset
    Fragment
    FragmentScanOptions
+   TaggedRecordBatch
    Scanner
    Expression

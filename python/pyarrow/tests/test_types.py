@@ -23,10 +23,12 @@ import sys
 
 import pickle
 import pytest
-import pytz
 import hypothesis as h
 import hypothesis.strategies as st
-import hypothesis.extra.pytz as tzst
+try:
+    import hypothesis.extra.pytz as tzst
+except ImportError:
+    tzst = None
 import weakref
 
 import numpy as np
@@ -290,17 +292,25 @@ def test_is_primitive():
 
 
 @pytest.mark.parametrize(('tz', 'expected'), [
-    (pytz.utc, 'UTC'),
-    (pytz.timezone('Europe/Paris'), 'Europe/Paris'),
-    # StaticTzInfo.tzname returns with '-09' so we need to infer the timezone's
-    # name from the tzinfo.zone attribute
-    (pytz.timezone('Etc/GMT-9'), 'Etc/GMT-9'),
-    (pytz.FixedOffset(180), '+03:00'),
     (datetime.timezone.utc, 'UTC'),
     (datetime.timezone(datetime.timedelta(hours=1, minutes=30)), '+01:30')
 ])
 def test_tzinfo_to_string(tz, expected):
     assert pa.lib.tzinfo_to_string(tz) == expected
+
+
+def test_pytz_tzinfo_to_string():
+    pytz = pytest.importorskip("pytz")
+
+    tz = [pytz.utc, pytz.timezone('Europe/Paris')]
+    expected = ['UTC', 'Europe/Paris']
+    assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
+
+    # StaticTzInfo.tzname returns with '-09' so we need to infer the timezone's
+    # name from the tzinfo.zone attribute
+    tz = [pytz.timezone('Etc/GMT-9'), pytz.FixedOffset(180)]
+    expected = ['Etc/GMT-9', '+03:00']
+    assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
 
 
 def test_dateutil_tzinfo_to_string():
@@ -336,8 +346,16 @@ def test_tzinfo_to_string_errors():
             pa.lib.tzinfo_to_string(tz)
 
 
-@h.given(tzst.timezones())
+if tzst:
+    timezones = tzst.timezones()
+else:
+    timezones = st.none()
+
+
+@h.given(timezones)
 def test_pytz_timezone_roundtrip(tz):
+    if tz is None:
+        pytest.skip('requires timezone not None')
     timezone_string = pa.lib.tzinfo_to_string(tz)
     timezone_tzinfo = pa.lib.string_to_tzinfo(timezone_string)
     assert timezone_tzinfo == tz
@@ -409,27 +427,41 @@ def test_convert_custom_tzinfo_objects_to_string():
             pa.lib.tzinfo_to_string(wrong)
 
 
-@pytest.mark.parametrize(('string', 'expected'), [
-    ('UTC', pytz.utc),
-    ('Europe/Paris', pytz.timezone('Europe/Paris')),
-    ('+03:00', pytz.FixedOffset(180)),
-    ('+01:30', pytz.FixedOffset(90)),
-    ('-02:00', pytz.FixedOffset(-120))
-])
-def test_string_to_tzinfo(string, expected):
-    result = pa.lib.string_to_tzinfo(string)
-    assert result == expected
+def test_string_to_tzinfo():
+    string = ['UTC', 'Europe/Paris', '+03:00', '+01:30', '-02:00']
+    try:
+        import pytz
+        expected = [pytz.utc, pytz.timezone('Europe/Paris'),
+                    pytz.FixedOffset(180), pytz.FixedOffset(90),
+                    pytz.FixedOffset(-120)]
+        result = [pa.lib.string_to_tzinfo(i) for i in string]
+        assert result == expected
+
+    except ImportError:
+        try:
+            import zoneinfo
+            expected = [zoneinfo.ZoneInfo(key='UTC'),
+                        zoneinfo.ZoneInfo(key='Europe/Paris'),
+                        datetime.timezone(datetime.timedelta(hours=3)),
+                        datetime.timezone(
+                            datetime.timedelta(hours=1, minutes=30)),
+                        datetime.timezone(-datetime.timedelta(hours=2))]
+            result = [pa.lib.string_to_tzinfo(i) for i in string]
+            assert result == expected
+
+        except ImportError:
+            pytest.skip('requires pytz or zoneinfo to be installed')
 
 
-@pytest.mark.parametrize('tz,name', [
-    (pytz.FixedOffset(90), '+01:30'),
-    (pytz.FixedOffset(-90), '-01:30'),
-    (pytz.utc, 'UTC'),
-    (pytz.timezone('America/New_York'), 'America/New_York')
-])
-def test_timezone_string_roundtrip(tz, name):
-    assert pa.lib.tzinfo_to_string(tz) == name
-    assert pa.lib.string_to_tzinfo(name) == tz
+def test_timezone_string_roundtrip_pytz():
+    pytz = pytest.importorskip("pytz")
+
+    tz = [pytz.FixedOffset(90), pytz.FixedOffset(-90),
+          pytz.utc, pytz.timezone('America/New_York')]
+    name = ['+01:30', '-01:30', 'UTC', 'America/New_York']
+
+    assert [pa.lib.tzinfo_to_string(i) for i in tz] == name
+    assert [pa.lib.string_to_tzinfo(i)for i in name] == tz
 
 
 def test_timestamp():

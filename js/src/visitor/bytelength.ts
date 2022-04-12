@@ -48,19 +48,46 @@ export interface GetByteLengthVisitor extends Visitor {
 
 /** @ignore */
 export class GetByteLengthVisitor extends Visitor {
-    public visitNull(____: Data<Null>, _: number) { return 0; }
-    public visitInt(data: Data<Int>, _: number) { return data.type.bitWidth / 8; }
-    public visitFloat(data: Data<Float>, _: number) { return data.type.ArrayType.BYTES_PER_ELEMENT; }
-    public visitBool(____: Data<Bool>, _: number) { return 1 / 8; }
-    public visitDecimal(____: Data<Decimal>, _: number) { return 16; }
-    public visitDate(data: Data<Date_>, _: number) { return (data.type.unit + 1) * 4; }
-    public visitTime(data: Data<Time>, _: number) { return data.type.bitWidth / 8; }
-    public visitTimestamp(data: Data<Timestamp>, _: number) { return data.type.unit === TimeUnit.SECOND ? 4 : 8; }
-    public visitInterval(data: Data<Interval>, _: number) { return (data.type.unit + 1) * 4; }
-    public visitStruct(data: Data<Struct>, _: number) { return this.visitMany(data.children, data.children.map(() => _)).reduce(sum, 0); }
-    public visitFixedSizeBinary(data: Data<FixedSizeBinary>, _: number) { return data.type.byteWidth; }
-    public visitMap(data: Data<Map_>, _: number) { return this.visitMany(data.children, data.children.map(() => _)).reduce(sum, 0); }
-    public visitDictionary(data: Data<Dictionary>, _: number) { return (data.type.indices.bitWidth / 8) + (data.dictionary?.getByteLength(data.values[_]) || 0); }
+    public visitNull(____: Data<Null>, _: number) {
+        return 0;
+    }
+    public visitInt(data: Data<Int>, _: number) {
+        return data.type.bitWidth / 8;
+    }
+    public visitFloat(data: Data<Float>, _: number) {
+        return data.type.ArrayType.BYTES_PER_ELEMENT;
+    }
+    public visitBool(____: Data<Bool>, _: number) {
+        return 1 / 8;
+    }
+    public visitDecimal(data: Data<Decimal>, _: number) {
+        return data.type.bitWidth / 8;
+    }
+    public visitDate(data: Data<Date_>, _: number) {
+        return (data.type.unit + 1) * 4;
+    }
+    public visitTime(data: Data<Time>, _: number) {
+        return data.type.bitWidth / 8;
+    }
+    public visitTimestamp(data: Data<Timestamp>, _: number) {
+        return data.type.unit === TimeUnit.SECOND ? 4 : 8;
+    }
+    public visitInterval(data: Data<Interval>, _: number) {
+        return (data.type.unit + 1) * 4;
+    }
+    public visitStruct(data: Data<Struct>, i: number) {
+        return data.children.reduce((total, child) => total + instance.visit(child, i), 0);
+    }
+    public visitFixedSizeBinary(data: Data<FixedSizeBinary>, _: number) {
+        return data.type.byteWidth;
+    }
+    public visitMap(data: Data<Map_>, i: number) {
+        // 4 + 4 for the indices
+        return 8 + data.children.reduce((total, child) => total + instance.visit(child, i), 0);
+    }
+    public visitDictionary(data: Data<Dictionary>, i: number) {
+        return (data.type.indices.bitWidth / 8) + (data.dictionary?.getByteLength(data.values[i]) || 0);
+    }
 }
 
 /** @ignore */

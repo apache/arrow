@@ -32,10 +32,13 @@ add_arrow_compute_test(hash_join_node_test
                        hash_join_node_test.cc
                        bloom_filter_test.cc
                        key_hash_test.cc)
+add_arrow_compute_test(tpch_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(util_test PREFIX "arrow-compute")
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
+
+add_arrow_benchmark(tpch_benchmark PREFIX "arrow-compute")
 
 if(ARROW_BUILD_OPENMP_BENCHMARKS)
   find_package(OpenMP REQUIRED)

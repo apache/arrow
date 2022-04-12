@@ -214,45 +214,53 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   return int8();
 }
 
-TimeUnit::type CommonTemporalResolution(const ValueDescr* begin, size_t count) {
-  TimeUnit::type finest_unit = TimeUnit::SECOND;
+bool CommonTemporalResolution(const ValueDescr* begin, size_t count,
+                              TimeUnit::type* finest_unit) {
+  bool is_time_unit = false;
+  *finest_unit = TimeUnit::SECOND;
   const ValueDescr* end = begin + count;
   for (auto it = begin; it != end; it++) {
     auto id = it->type->id();
     switch (id) {
       case Type::DATE32: {
         // Date32's unit is days, but the coarsest we have is seconds
+        is_time_unit = true;
         continue;
       }
       case Type::DATE64: {
-        finest_unit = std::max(finest_unit, TimeUnit::MILLI);
+        *finest_unit = std::max(*finest_unit, TimeUnit::MILLI);
+        is_time_unit = true;
         continue;
       }
       case Type::TIMESTAMP: {
         const auto& ty = checked_cast<const TimestampType&>(*it->type);
-        finest_unit = std::max(finest_unit, ty.unit());
+        *finest_unit = std::max(*finest_unit, ty.unit());
+        is_time_unit = true;
         continue;
       }
       case Type::DURATION: {
         const auto& ty = checked_cast<const DurationType&>(*it->type);
-        finest_unit = std::max(finest_unit, ty.unit());
+        *finest_unit = std::max(*finest_unit, ty.unit());
+        is_time_unit = true;
         continue;
       }
       case Type::TIME32: {
         const auto& ty = checked_cast<const Time32Type&>(*it->type);
-        finest_unit = std::max(finest_unit, ty.unit());
+        *finest_unit = std::max(*finest_unit, ty.unit());
+        is_time_unit = true;
         continue;
       }
       case Type::TIME64: {
         const auto& ty = checked_cast<const Time64Type&>(*it->type);
-        finest_unit = std::max(finest_unit, ty.unit());
+        *finest_unit = std::max(*finest_unit, ty.unit());
+        is_time_unit = true;
         continue;
       }
       default:
         continue;
     }
   }
-  return finest_unit;
+  return is_time_unit;
 }
 
 std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) {

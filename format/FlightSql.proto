@@ -120,7 +120,7 @@ enum SqlInfo {
   SQL_DDL_TABLE = 502;
 
   /*
-   * Retrieves a uint32 value representing the enu uint32 ordinal for the case sensitivity of catalog, table, schema and table names.
+   * Retrieves a int32 ordinal representing the case sensitivity of catalog, table, schema and table names.
    *
    * The possible values are listed in `arrow.flight.protocol.sql.SqlSupportedCaseSensitivity`.
    */
@@ -130,7 +130,7 @@ enum SqlInfo {
   SQL_IDENTIFIER_QUOTE_CHAR = 504;
 
   /*
-   * Retrieves a uint32 value representing the enu uint32 ordinal for the case sensitivity of quoted identifiers.
+   * Retrieves a int32 describing the case sensitivity of quoted identifiers.
    *
    * The possible values are listed in `arrow.flight.protocol.sql.SqlSupportedCaseSensitivity`.
    */
@@ -148,7 +148,7 @@ enum SqlInfo {
   /*
    * Retrieves the null ordering.
    *
-   * Returns a uint32 ordinal for the null ordering being used, as described in
+   * Returns a int32 ordinal for the null ordering being used, as described in
    * `arrow.flight.protocol.sql.SqlNullOrdering`.
    */
   SQL_NULL_ORDERING = 507;
@@ -334,7 +334,7 @@ enum SqlInfo {
   /*
    * Retrieves the support level for SQL OUTER JOINs.
    *
-   * Returns a uint3 uint32 ordinal for the SQL ordering being used, as described in
+   * Returns a int32 ordinal for the SQL ordering being used, as described in
    * `arrow.flight.protocol.sql.SqlOuterJoinsSupportLevel`.
    */
   SQL_OUTER_JOINS_SUPPORT_LEVEL = 528;
@@ -480,52 +480,52 @@ enum SqlInfo {
    */
   SQL_SUPPORTED_UNIONS = 540;
 
-  // Retrieves a uint32 value representing the maximum number of hex characters allowed in an inline binary literal.
+  // Retrieves a int64 value representing the maximum number of hex characters allowed in an inline binary literal.
   SQL_MAX_BINARY_LITERAL_LENGTH = 541;
 
-  // Retrieves a uint32 value representing the maximum number of characters allowed for a character literal.
+  // Retrieves a int64 value representing the maximum number of characters allowed for a character literal.
   SQL_MAX_CHAR_LITERAL_LENGTH = 542;
 
-  // Retrieves a uint32 value representing the maximum number of characters allowed for a column name.
+  // Retrieves a int64 value representing the maximum number of characters allowed for a column name.
   SQL_MAX_COLUMN_NAME_LENGTH = 543;
 
-  // Retrieves a uint32 value representing the the maximum number of columns allowed in a GROUP BY clause.
+  // Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
   SQL_MAX_COLUMNS_IN_GROUP_BY = 544;
 
-  // Retrieves a uint32 value representing the maximum number of columns allowed in an index.
+  // Retrieves a int64 value representing the maximum number of columns allowed in an index.
   SQL_MAX_COLUMNS_IN_INDEX = 545;
 
-  // Retrieves a uint32 value representing the maximum number of columns allowed in an ORDER BY clause.
+  // Retrieves a int64 value representing the maximum number of columns allowed in an ORDER BY clause.
   SQL_MAX_COLUMNS_IN_ORDER_BY = 546;
 
-  // Retrieves a uint32 value representing the maximum number of columns allowed in a SELECT list.
+  // Retrieves a int64 value representing the maximum number of columns allowed in a SELECT list.
   SQL_MAX_COLUMNS_IN_SELECT = 547;
 
-  // Retrieves a uint32 value representing the maximum number of columns allowed in a table.
+  // Retrieves a int64 value representing the maximum number of columns allowed in a table.
   SQL_MAX_COLUMNS_IN_TABLE = 548;
 
-  // Retrieves a uint32 value representing the maximum number of concurrent connections possible.
+  // Retrieves a int64 value representing the maximum number of concurrent connections possible.
   SQL_MAX_CONNECTIONS = 549;
 
-  // Retrieves a uint32 value the maximum number of characters allowed in a cursor name.
+  // Retrieves a int64 value the maximum number of characters allowed in a cursor name.
   SQL_MAX_CURSOR_NAME_LENGTH = 550;
 
   /*
-   * Retrieves a uint32 value representing the maximum number of bytes allowed for an index,
+   * Retrieves a int64 value representing the maximum number of bytes allowed for an index,
    * including all of the parts of the index.
    */
   SQL_MAX_INDEX_LENGTH = 551;
 
-  // Retrieves a uint32 value representing the maximum number of characters allowed in a schema name.
+  // Retrieves a int64 value representing the maximum number of characters allowed in a schema name.
   SQL_DB_SCHEMA_NAME_LENGTH = 552;
 
-  // Retrieves a uint32 value representing the maximum number of characters allowed in a procedure name.
+  // Retrieves a int64 value representing the maximum number of characters allowed in a procedure name.
   SQL_MAX_PROCEDURE_NAME_LENGTH = 553;
 
-  // Retrieves a uint32 value representing the maximum number of characters allowed in a catalog name.
+  // Retrieves a int64 value representing the maximum number of characters allowed in a catalog name.
   SQL_MAX_CATALOG_NAME_LENGTH = 554;
 
-  // Retrieves a uint32 value representing the maximum number of bytes allowed in a single row.
+  // Retrieves a int64 value representing the maximum number of bytes allowed in a single row.
   SQL_MAX_ROW_SIZE = 555;
 
   /*
@@ -541,28 +541,28 @@ enum SqlInfo {
   SQL_MAX_ROW_SIZE_INCLUDES_BLOBS = 556;
 
   /*
-   * Retrieves a uint32 value representing the maximum number of characters allowed for an SQL statement;
+   * Retrieves a int64 value representing the maximum number of characters allowed for an SQL statement;
    * a result of 0 (zero) means that there is no limit or the limit is not known.
    */
   SQL_MAX_STATEMENT_LENGTH = 557;
 
-  // Retrieves a uint32 value representing the maximum number of active statements that can be open at the same time.
+  // Retrieves a int64 value representing the maximum number of active statements that can be open at the same time.
   SQL_MAX_STATEMENTS = 558;
 
-  // Retrieves a uint32 value representing the maximum number of characters allowed in a table name.
+  // Retrieves a int64 value representing the maximum number of characters allowed in a table name.
   SQL_MAX_TABLE_NAME_LENGTH = 559;
 
-  // Retrieves a uint32 value representing the maximum number of tables allowed in a SELECT statement.
+  // Retrieves a int64 value representing the maximum number of tables allowed in a SELECT statement.
   SQL_MAX_TABLES_IN_SELECT = 560;
 
-  // Retrieves a uint32 value representing the maximum number of characters allowed in a user name.
+  // Retrieves a int64 value representing the maximum number of characters allowed in a user name.
   SQL_MAX_USERNAME_LENGTH = 561;
 
   /*
    * Retrieves this database's default transaction isolation level as described in
    * `arrow.flight.protocol.sql.SqlTransactionIsolationLevel`.
    *
-   * Returns a uint32 ordinal for the SQL transaction isolation level.
+   * Returns a int32 ordinal for the SQL transaction isolation level.
    */
   SQL_DEFAULT_TRANSACTION_ISOLATION = 562;
 
@@ -1520,7 +1520,7 @@ message CommandStatementUpdate {
 
 /*
  * Represents a SQL update query. Used in the command member of FlightDescriptor
- * for the the RPC call DoPut to cause the server to execute the included 
+ * for the the RPC call DoPut to cause the server to execute the included
  * prepared statement handle as an update.
  */
 message CommandPreparedStatementUpdate {
@@ -1533,12 +1533,12 @@ message CommandPreparedStatementUpdate {
 /*
  * Returned from the RPC call DoPut when a CommandStatementUpdate
  * CommandPreparedStatementUpdate was in the request, containing
- * results from the update. 
+ * results from the update.
  */
 message DoPutUpdateResult {
   option (experimental) = true;
 
-  // The number of records updated. A return value of -1 represents 
+  // The number of records updated. A return value of -1 represents
   // an unknown updated record count.
   int64 record_count = 1;
 }

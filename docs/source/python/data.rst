@@ -512,3 +512,27 @@ a new schema and cast the data to this schema:
 
 Metadata key and value pair are ``std::string`` objects in the C++ implementation
 and so they are bytes objects (``b'...'``) in Python.
+
+Record Batch Readers
+--------------------
+
+Many functions in PyArrow either return or take as an argument a :class:`RecordBatchReader`.
+It can be used like any iterable of record batches, but also provides their common
+schema without having to get any of the batches.::
+
+   >>> schema = pa.schema([('x', pa.int64())])
+   >>> def iter_record_batches():
+   ...    for i in range(2):
+   ...       yield pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], schema=schema)
+   >>> reader = pa.RecordBatchReader.from_batches(schema, iter_record_batches())
+   >>> print(reader.schema)
+   pyarrow.Schema
+   x: int64
+   >>> for batch in reader:
+   ...    print(batch)
+   pyarrow.RecordBatch
+   x: int64
+   pyarrow.RecordBatch
+   x: int64
+
+It can also be sent between languages using the :ref:`C stream interface <c-stream-interface>`.

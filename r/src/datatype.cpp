@@ -101,6 +101,8 @@ const char* r6_class_name<arrow::DataType>::get(
       return "StructType";
     case Type::DICTIONARY:
       return "DictionaryType";
+    case Type::EXTENSION:
+      return "ExtensionType";
 
     default:
       break;

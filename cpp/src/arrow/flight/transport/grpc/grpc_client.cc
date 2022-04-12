@@ -43,6 +43,7 @@
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client.h"
@@ -801,8 +802,8 @@ class GrpcClientImpl : public internal::ClientTransport {
     return Status::OK();
   }
 
-  Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
-                   std::unique_ptr<SchemaResult>* schema_result) override {
+  arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor) override {
     pb::FlightDescriptor pb_descriptor;
     pb::SchemaResult pb_response;
 
@@ -816,8 +817,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     std::string str;
     RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    schema_result->reset(new SchemaResult(str));
-    return Status::OK();
+    return arrow::internal::make_unique<SchemaResult>(std::move(str));
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
