@@ -313,7 +313,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     foreach(LIB ${ARG_SHARED_LINK_LIBS} ${ARG_SHARED_PRIVATE_LINK_LIBS}
                 ${ARG_STATIC_LINK_LIBS})
       if(TARGET ${LIB})
-        target_include_directories(${LIB_NAME}_objlib
+        target_include_directories(${LIB_NAME}_objlib SYSTEM
                                    PRIVATE "$<TARGET_PROPERTY:${LIB},INTERFACE_INCLUDE_DIRECTORIES>"
         )
         target_compile_definitions(${LIB_NAME}_objlib
