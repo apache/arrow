@@ -1739,7 +1739,6 @@ class PartitionNthOptions(_PartitionNthOptions):
 cdef class _CumulativeSumOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
         if not isinstance(start, Scalar):
-            # Is it a Python scalar?
             try:
                 start = lib.scalar(start)
             except Exception:
@@ -1755,13 +1754,13 @@ class CumulativeSumOptions(_CumulativeSumOptions):
 
     Parameters
     ----------
-    start : Scalar (optional, default 0.0)
+    start : Scalar, default 0.0
         Starting value for sum computation
-    skip_nulls : bool (optional, default False)
-        When false, propagates the first null/NaN encountered
+    skip_nulls : bool, default False
+        When false, propagates the first null encountered.
     """
 
-    def __init__(self, start=0.0, skip_nulls=False):
+    def __init__(self, start=0.0, *, skip_nulls=False):
         self._set_options(start, skip_nulls)
 
 
