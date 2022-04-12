@@ -164,9 +164,8 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
-  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
-    return table_reader->ReadAsync();
-  });
+  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>(
+      [&]() { return table_reader->ReadAsync(); });
 
   return ValueOrStop(result);
 }

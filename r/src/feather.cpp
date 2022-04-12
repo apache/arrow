@@ -90,9 +90,8 @@ std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
   const auto& io_context = arrow::io::default_io_context();
   auto result = RunWithCapturedR<std::shared_ptr<arrow::ipc::feather::Reader>>([&]() {
-    return DeferNotOk(io_context.executor()->Submit([&]() {
-      return arrow::ipc::feather::Reader::Open(stream);
-    }));
+    return DeferNotOk(io_context.executor()->Submit(
+        [&]() { return arrow::ipc::feather::Reader::Open(stream); }));
   });
   return ValueOrStop(result);
 }
