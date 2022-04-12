@@ -323,6 +323,37 @@ register_bindings_duration <- function() {
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
+  register_binding("dseconds", function(x = 1) {
+    if (!inherits(x, "Expression")) {
+      x <- Expression$scalar(x)
+    }
+    dseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
+    build_expr("cast", dseconds_int64, options = list(to_type = duration(unit = "s")))
+  })
+  register_binding("dmilliseconds", function(x = 1) {
+    if (!inherits(x, "Expression")) {
+      x <- Expression$scalar(x)
+    }
+    dmilliseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
+    build_expr("cast", dmilliseconds_int64, options = list(to_type = duration(unit = "ms")))
+  })
+  register_binding("dmicroseconds", function(x = 1) {
+    if (!inherits(x, "Expression")) {
+      x <- Expression$scalar(x)
+    }
+    dmicroseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
+    build_expr("cast", dmicroseconds_int64, options = list(to_type = duration(unit = "us")))
+  })
+  register_binding("dnanoseconds", function(x = 1) {
+    if (!inherits(x, "Expression")) {
+      x <- Expression$scalar(x)
+    }
+    dnanoseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
+    build_expr("cast", dnanoseconds_int64, options = list(to_type = duration(unit = "ns")))
+  })
+  register_binding("dpicoseconds", function(x = 1) {
+    abort("Duration in picoseconds not supported in Arrow.")
+  })
   register_binding("decimal_date", function(date) {
     y <- build_expr("year", date)
     start <- call_binding("make_datetime", year = y, tz = "UTC")
@@ -350,26 +381,6 @@ register_bindings_duration <- function() {
     delta <- build_expr("floor", seconds * fraction)
     delta <- delta$cast(int64())
     start + delta$cast(duration("s"))
-    })
-  }
-  register_binding("dseconds", function(x = 1) {
-    dseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
-    build_expr("cast", dseconds_int64, options = list(to_type = duration(unit = "s")))
-  })
-  register_binding("dmilliseconds", function(x = 1) {
-    dmilliseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
-    build_expr("cast", dmilliseconds_int64, options = list(to_type = duration(unit = "ms")))
-  })
-  register_binding("dmicroseconds", function(x = 1) {
-    dmicroseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
-    build_expr("cast", dmicroseconds_int64, options = list(to_type = duration(unit = "us")))
-  })
-  register_binding("dnanoseconds", function(x = 1) {
-    dnanoseconds_int64 <- Expression$create("cast", x, options = cast_options(to_type = int64()))
-    build_expr("cast", dnanoseconds_int64, options = list(to_type = duration(unit = "ns")))
-  })
-  register_binding("dpicoseconds", function(x = 1) {
-    arrow_not_supported("Duration in picoseconds.")
   })
 }
 
