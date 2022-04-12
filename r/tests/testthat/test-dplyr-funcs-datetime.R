@@ -693,7 +693,6 @@ test_that("extract yday from date", {
 })
 
 test_that("leap_year mirror lubridate", {
-
   compare_dplyr_binding(
     .input %>%
       mutate(x = leap_year(date)) %>%
@@ -721,7 +720,6 @@ test_that("leap_year mirror lubridate", {
       ))
     )
   )
-
 })
 
 test_that("am/pm mirror lubridate", {
@@ -741,10 +739,8 @@ test_that("am/pm mirror lubridate", {
         ),
         format = "%Y-%m-%d %H:%M:%S"
       )
-
     )
   )
-
 })
 
 test_that("extract tz", {
@@ -1149,7 +1145,7 @@ test_that("difftime works correctly", {
     .input %>%
       mutate(
         secs2 = difftime(
-          as.POSIXct("2022-03-07", tz = "Europe/Bucharest"),
+          as.POSIXct("2022-03-07", tz = "Pacific/Marquesas"),
           time1,
           units = "secs"
         )
@@ -1226,5 +1222,34 @@ test_that("as.difftime()", {
       arrow_table() %>%
       mutate(dbl_difftime = as.difftime(dbl, units = "secs")) %>%
       collect()
+  )
+})
+
+test_that("`decimal_date()` and `date_decimal()`", {
+  test_df <- tibble(
+    a = c(2007.38998954347, 1970.77732069883, 2020.96061799722,
+          2009.43465948477, 1975.71251467871, NA),
+    b = as.POSIXct(
+      c("2007-05-23 08:18:30", "1970-10-11 17:19:45", "2020-12-17 14:04:06",
+        "2009-06-08 15:37:01", "1975-09-18 01:37:42", NA)
+    ),
+    c = as.Date(
+      c("2007-05-23", "1970-10-11", "2020-12-17", "2009-06-08", "1975-09-18", NA)
+    )
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        decimal_date_from_POSIXct = decimal_date(b),
+        decimal_date_from_r_POSIXct_obj = decimal_date(as.POSIXct("2022-03-25 15:37:01")),
+        decimal_date_from_r_date_obj = decimal_date(ymd("2022-03-25")),
+        decimal_date_from_date = decimal_date(c),
+        date_from_decimal = date_decimal(a),
+        date_from_decimal_r_obj = date_decimal(2022.178)
+      ) %>%
+      collect(),
+    test_df,
+    ignore_attr = "tzone"
   )
 })
