@@ -277,9 +277,9 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
       open(file, "rb")
     }
 
-    # isSeekable() is not sufficient to check for seekability
-    # because we rely on seek(whence = "end") to get the size
-    # of the stream and a gzfile() is "seekable".
+    # Try to create a RandomAccessFile first because some readers need this
+    # (e.g., feather, parquet) but fall back on an InputStream for the readers
+    # that don't.
     file <- tryCatch(
       MakeRConnectionRandomAccessFile(file),
       error = function(e) MakeRConnectionInputStream(file)
