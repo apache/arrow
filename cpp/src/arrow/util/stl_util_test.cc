@@ -103,6 +103,15 @@ TEST(StlUtilTest, VectorFlatten) {
   ASSERT_EQ(expected, actual);
 }
 
+TEST(StlUtilTest, VectorFilter) {
+  std::vector<int> input{1, 2, 3, 4, 5, 6, 7, 8, 9}, excluded;
+  auto filtered = FilterVector(
+      input, [](int i) { return i % 3 == 0; }, &excluded);
+
+  EXPECT_THAT(filtered, ::testing::ElementsAre(3, 6, 9));
+  EXPECT_THAT(excluded, ::testing::ElementsAre(1, 2, 4, 5, 7, 8));
+}
+
 static std::string int_to_str(int val) { return std::to_string(val); }
 
 TEST(StlUtilTest, VectorMap) {

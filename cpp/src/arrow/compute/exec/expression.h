@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -93,7 +94,8 @@ class ARROW_EXPORT Expression {
   /// Return true if this expression is literal and entirely null.
   bool IsNullLiteral() const;
 
-  /// Return true if this expression could evaluate to true.
+  /// Return true if this expression could evaluate to true. Will return true for any
+  /// unbound, non-boolean, or unsimplified Expressions
   bool IsSatisfiable() const;
 
   // XXX someday
@@ -171,8 +173,13 @@ std::vector<FieldRef> FieldsInExpression(const Expression&);
 ARROW_EXPORT
 bool ExpressionHasFieldRefs(const Expression&);
 
-/// Assemble a mapping from field references to known values.
-struct ARROW_EXPORT KnownFieldValues;
+/// Known values of field references extracted from a guarantee.
+struct ARROW_EXPORT KnownFieldValues {
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
+};
+
+/// Assemble a mapping from field references to known values. This derives known values
+/// from "equal" and "is_null" Expressions referencing a field and a literal.
 ARROW_EXPORT
 Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate);
