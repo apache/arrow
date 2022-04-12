@@ -139,21 +139,16 @@ handle_parquet_io_error <- function(e, format, call) {
 }
 
 as_writable_table <- function(x, arg_name = "x") {
-  tryCatch({
-    # use original logic for bare data.frame/tibble to avoid a distruptive
-    # change
-    if (class(x)[1] %in% c("data.frame", "tbl_df", "grouped_df")) {
-      Table$create(x)
-    } else {
-      as_arrow_table(x)
-    }
-  }, arrow_no_method_as_arrow_table = function(e) {
-    msg <- glue::glue(
-      "`{arg_name}` must be coercible to an Arrow Table using as_arrow_table()"
-    )
+  tryCatch(
+    as_arrow_table(x),
+    arrow_no_method_as_arrow_table = function(e) {
+      msg <- glue::glue(
+        "`{arg_name}` must be coercible to an Arrow Table using as_arrow_table()"
+      )
 
-    abort(msg, parent = e)
-  })
+      abort(msg, parent = e)
+    }
+  )
 }
 
 #' Recycle scalar values in a list of arrays

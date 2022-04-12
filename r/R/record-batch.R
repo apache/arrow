@@ -295,20 +295,5 @@ as_record_batch.Table <- function(x, ..., schema = NULL) {
 #' @rdname as_record_batch
 #' @export
 as_record_batch.data.frame <- function(x, ..., schema = NULL) {
-  arrays <- lapply(names(x), function(col) {
-    tryCatch(
-      as_arrow_array(x[[col]], type = schema[[col]]$type),
-      error = function(e) {
-        abort(
-          c("Error converting columns to Array",
-            "i" = glue::glue("Problem column: `{col}`")
-          ),
-          parent = e
-        )
-      }
-    )
-  })
-  names(arrays) <- names(x)
-
-  RecordBatch__from_arrays(NULL, arrays)
+  RecordBatch$create(x, schema = schema)
 }

@@ -1250,11 +1250,10 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
     );
 
     return cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(as_chunked_array_result);
+  } else {
+    StopIfNotOk(extend_result);
+    cpp11::stop("NotImplemented: Extend");
   }
-
-  // Replicate the error that occurred before, since this is what Array$create()
-  // expects.
-  StopIfNotOk(Status::NotImplemented("Extend"));
 }
 
 std::shared_ptr<arrow::Array> vec_to_arrow_Array(
