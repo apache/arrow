@@ -326,6 +326,7 @@ func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker, mem
 	bodyCompress := md.Compression(nil)
 	if bodyCompress != nil {
 		codec = getDecompressor(bodyCompress.Codec())
+		defer codec.Close()
 	}
 
 	ctx := &arrayLoaderContext{
