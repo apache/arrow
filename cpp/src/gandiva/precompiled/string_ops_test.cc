@@ -275,7 +275,16 @@ TEST(TestStringOps, TestConvertUtf8) {
   const char* e_str = convert_fromUTF8_binary(
     ctx_ptr, e.data(), e_in_out_len, &e_in_out_len);
   EXPECT_EQ(std::string(e_str, e_in_out_len), "sub");
-  EXPECT_FALSE(ctx.has_error()); 
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string f("invalid length");
+  int f_in_out_len = -2;
+  const char* f_str = convert_fromUTF8_binary(
+    ctx_ptr, f.data(), f_in_out_len, &f_in_out_len);
+  EXPECT_EQ(std::string(f_str, f_in_out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+      ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
