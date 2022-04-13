@@ -24,6 +24,7 @@
 #include <random>
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/util/pcg_random.h"
 
 namespace arrow {
 namespace compute {
@@ -94,7 +95,7 @@ class PartitionLocks {
   /// \brief Initializes the control, must be called before use
   ///
   /// \param num_prtns Number of partitions to synchronize
-  void Init(int num_prtns);
+  void Init(size_t num_threads, int num_prtns);
   /// \brief Cleans up the control, it should not be used after this call
   void CleanUp();
   /// \brief Acquire a partition to work on one
@@ -109,15 +110,15 @@ class PartitionLocks {
   ///         without successfully acquiring a lock
   ///
   /// This method is thread safe
-  bool AcquirePartitionLock(int num_prtns, const int* prtns_to_try, bool limit_retries,
-                            int max_retries, int* locked_prtn_id,
+  bool AcquirePartitionLock(size_t thread_id, int num_prtns, const int* prtns_to_try,
+                            bool limit_retries, int max_retries, int* locked_prtn_id,
                             int* locked_prtn_id_pos);
   /// \brief Release a partition so that other threads can work on it
   void ReleasePartitionLock(int prtn_id);
 
  private:
   std::atomic<bool>* lock_ptr(int prtn_id);
-  int random_int(int num_values);
+  int random_int(size_t thread_id, int num_values);
 
   struct PartitionLock {
     static constexpr int kCacheLineBytes = 64;
@@ -126,9 +127,9 @@ class PartitionLocks {
   };
   int num_prtns_;
   std::unique_ptr<PartitionLock[]> locks_;
+  std::unique_ptr<arrow::random::pcg32_fast[]> rand_engines_;
 
   std::seed_seq rand_seed_;
-  std::mt19937 rand_engine_;
   std::uniform_int_distribution<uint64_t> rand_distribution_;
 };
 

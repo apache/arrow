@@ -51,7 +51,7 @@ static KeyEncoder::KeyColumnMetadata ColumnMetadataFromDataType(
 }
 
 static KeyEncoder::KeyColumnArray ColumnArrayFromArrayData(
-    const std::shared_ptr<ArrayData>& array_data, int start_row, int num_rows) {
+    const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows) {
   KeyEncoder::KeyColumnArray column_array = KeyEncoder::KeyColumnArray(
       ColumnMetadataFromDataType(array_data->type),
       array_data->offset + start_row + num_rows,
@@ -65,7 +65,7 @@ static KeyEncoder::KeyColumnArray ColumnArrayFromArrayData(
 }
 
 static void ColumnArraysFromExecBatch(
-    const ExecBatch& batch, int start_row, int num_rows,
+    const ExecBatch& batch, int64_t start_row, int64_t num_rows,
     std::vector<KeyEncoder::KeyColumnArray>& column_arrays) {
   int num_columns = static_cast<int>(batch.values.size());
   column_arrays.resize(num_columns);

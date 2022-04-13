@@ -311,21 +311,22 @@ Status BloomFilterBuilder_SingleThreaded::Begin(size_t /*num_threads*/,
 }
 
 Status BloomFilterBuilder_SingleThreaded::PushNextBatch(size_t /*thread_index*/,
-                                                        int num_rows,
+                                                        int64_t num_rows,
                                                         const uint32_t* hashes) {
   PushNextBatchImp(num_rows, hashes);
   return Status::OK();
 }
 
 Status BloomFilterBuilder_SingleThreaded::PushNextBatch(size_t /*thread_index*/,
-                                                        int num_rows,
+                                                        int64_t num_rows,
                                                         const uint64_t* hashes) {
   PushNextBatchImp(num_rows, hashes);
   return Status::OK();
 }
 
 template <typename T>
-void BloomFilterBuilder_SingleThreaded::PushNextBatchImp(int num_rows, const T* hashes) {
+void BloomFilterBuilder_SingleThreaded::PushNextBatchImp(int64_t num_rows,
+                                                         const T* hashes) {
   build_target_->Insert(hardware_flags_, num_rows, hashes);
 }
 
@@ -340,27 +341,27 @@ Status BloomFilterBuilder_Parallel::Begin(size_t num_threads, int64_t hardware_f
   log_num_prtns_ = std::min(kMaxLogNumPrtns, bit_util::Log2(num_threads));
 
   thread_local_states_.resize(num_threads);
-  prtn_locks_.Init(1 << log_num_prtns_);
+  prtn_locks_.Init(num_threads, 1 << log_num_prtns_);
 
   RETURN_NOT_OK(build_target->CreateEmpty(num_rows, pool));
 
   return Status::OK();
 }
 
-Status BloomFilterBuilder_Parallel::PushNextBatch(size_t thread_id, int num_rows,
+Status BloomFilterBuilder_Parallel::PushNextBatch(size_t thread_id, int64_t num_rows,
                                                   const uint32_t* hashes) {
   PushNextBatchImp(thread_id, num_rows, hashes);
   return Status::OK();
 }
 
-Status BloomFilterBuilder_Parallel::PushNextBatch(size_t thread_id, int num_rows,
+Status BloomFilterBuilder_Parallel::PushNextBatch(size_t thread_id, int64_t num_rows,
                                                   const uint64_t* hashes) {
   PushNextBatchImp(thread_id, num_rows, hashes);
   return Status::OK();
 }
 
 template <typename T>
-void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int num_rows,
+void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num_rows,
                                                    const T* hashes) {
   int num_prtns = 1 << log_num_prtns_;
   ThreadLocalState& local_state = thread_local_states_[thread_id];
@@ -393,7 +394,7 @@ void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int num_row
   while (num_unprocessed_partitions > 0) {
     int locked_prtn_id;
     int locked_prtn_id_pos;
-    prtn_locks_.AcquirePartitionLock(num_unprocessed_partitions,
+    prtn_locks_.AcquirePartitionLock(thread_id, num_unprocessed_partitions,
                                      unprocessed_partition_ids,
                                      /*limit_retries=*/false, /*max_retries=*/-1,
                                      &locked_prtn_id, &locked_prtn_id_pos);
