@@ -86,7 +86,7 @@ struct ChunkResolver {
 
  private:
   const std::vector<int64_t> offsets_;
-  mutable std::atomic<int64_t> cached_chunk_{0};
+  mutable std::atomic<int64_t> cached_chunk_;
 };
 
 }  // namespace internal

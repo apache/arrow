@@ -44,15 +44,13 @@ class MemoryPool;
 // ChunkedArray methods
 
 ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
-    : chunks_(std::move(chunks)), type_(std::move(type)) {
+    : chunks_(std::move(chunks)), type_(std::move(type)), length_(0), null_count_(0) {
   if (type_ == nullptr) {
     ARROW_CHECK_GT(chunks_.size(), 0)
         << "cannot construct ChunkedArray from empty vector and omitted type";
     type_ = chunks_[0]->type();
   }
 
-  length_ = 0;
-  null_count_ = 0;
   for (const auto& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
