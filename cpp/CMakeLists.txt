@@ -938,8 +938,9 @@ if(CMAKE_THREAD_LIBS_INIT)
 endif()
 
 if(WIN32)
-  # Winsock
-  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
+  add_library(arrow::winsock INTERFACE IMPORTED)
+  target_link_libraries(arrow::winsock INTERFACE "ws2_32.dll")
+  list(APPEND ARROW_SYSTEM_LINK_LIBS arrow::winsock)
 endif()
 
 if(NOT WIN32 AND NOT APPLE)
