@@ -1595,7 +1595,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
                                               obj, &out))
     elif isinstance(obj, ChunkedArray):
         with nogil:
-            check_status(libarrow.ConvertChunkedArrayToPandas(
+            check_status(libarrow_python.ConvertChunkedArrayToPandas(
                 c_options,
                 (<ChunkedArray> obj).sp_chunked_array,
                 obj, &out))
