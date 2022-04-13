@@ -603,7 +603,9 @@ def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
                       use_legacy_dataset=use_legacy_dataset)
 
     if use_legacy_dataset:
-        assert len(record) == 1
+        # DeprecationWarning: 'use_legacy_dataset=True'
+        # DeprecationWarning: 'ParquetDataset.common_metadata' attribute
+        assert len(record) == 2
     else:
         assert len(record) == 0
 
