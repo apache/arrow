@@ -44,7 +44,7 @@ func (l *List) Retain()              { l.Value.Retain() }
 func (l *List) value() interface{}   { return l.Value }
 func (l *List) GetList() arrow.Array { return l.Value }
 func (l *List) equals(rhs Scalar) bool {
-	return array.ArrayEqual(l.Value, rhs.(ListScalar).GetList())
+	return array.Equal(l.Value, rhs.(ListScalar).GetList())
 }
 func (l *List) Validate() (err error) {
 	if err = l.scalar.Validate(); err != nil {
