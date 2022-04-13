@@ -406,6 +406,23 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
 
 // Trivial
 
+class TestORCWriterTrivialNoWrite : public ::testing::Test {};
+TEST_F(TestORCWriterTrivialNoWrite, noWrite) {
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(kDefaultSmallMemStreamSize / 16));
+  auto write_options = adapters::orc::WriteOptions();
+#ifdef ARROW_WITH_SNAPPY
+  write_options.compression = Compression::SNAPPY;
+#else
+  write_options.compression = Compression::UNCOMPRESSED;
+#endif
+  write_options.file_version = adapters::orc::FileVersion(0, 11);
+  write_options.compression_block_size = 32768;
+  write_options.row_index_stride = 5000;
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
+  ARROW_EXPECT_OK(writer->Close());
+}
 class TestORCWriterTrivialNoConversion : public ::testing::Test {
  public:
   TestORCWriterTrivialNoConversion() {
