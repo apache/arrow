@@ -95,7 +95,7 @@ register_bindings_type_cast <- function() {
   register_binding("as_date", function(x,
                                        format = NULL,
                                        origin = "1970-01-01",
-                                       tz = "UTC") {
+                                       tz = NULL) {
     binding_as_date(
       x = x,
       format = format,
@@ -107,12 +107,22 @@ register_bindings_type_cast <- function() {
 
   register_binding("as_datetime", function(x,
                                            origin = "1970-01-01",
-                                           tz = "UTC") {
+                                           tz = "UTC",
+                                           format = NULL) {
     if (call_binding("is.numeric", x)) {
       delta <- call_binding("difftime", origin, "1970-01-01")
       delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
       x <- build_expr("cast", x, options = cast_options(to_type = int64()))
       x <- build_expr("+", x, delta)
+    }
+
+    if (call_binding("is.character", x) && !is.null(format)) {
+      # unit = 0L is the identifier for seconds in valid_time32_units
+      x <- build_expr(
+        "strptime",
+        x,
+        options = list(format = format, unit = 0L, error_is_null = TRUE)
+      )
     }
     output <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
     build_expr("assume_timezone", output, options = list(timezone = tz))
