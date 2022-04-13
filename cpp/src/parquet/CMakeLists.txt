@@ -105,7 +105,7 @@ endfunction()
 # TODO(wesm): Handling of ABI/SO version
 
 if(ARROW_BUILD_STATIC)
-  set(PARQUET_STATIC_LINK_LIBS arrow_static)
+  set(PARQUET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
 else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
