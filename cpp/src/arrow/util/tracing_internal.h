@@ -132,6 +132,16 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
                       ::arrow::internal::tracing::SpanOptionsWithParent(parent_span))}) \
               .span)
 
+#define START_COMPUTE_SPAN(target_span, ...) \
+  START_SPAN(target_span, __VA_ARGS__);      \
+  target_span.Get().span->SetAttribute(      \
+      "arrow.memory_pool_bytes", ::arrow::default_memory_pool()->bytes_allocated())
+
+#define START_COMPUTE_SPAN_WITH_PARENT(target_span, parent_span, ...) \
+  START_SPAN_WITH_PARENT(target_span, parent_span, __VA_ARGS__);      \
+  target_span.Get().span->SetAttribute(                               \
+      "arrow.memory_pool_bytes", ::arrow::default_memory_pool()->bytes_allocated())
+
 #define EVENT(target_span, ...) target_span.Get().span->AddEvent(__VA_ARGS__)
 
 #define MARK_SPAN(target_span, status) \
@@ -150,9 +160,6 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
         END_SPAN(target_span);                                                    \
         return st;                                                                \
       })
-
-#define GET_MEMORY_POOL_INFO \
-  { "memory_pool_bytes", default_memory_pool()->bytes_allocated() }
 
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)                                \
   generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator( \
@@ -180,11 +187,12 @@ class SpanImpl {};
 
 #define START_SPAN(target_span, ...)
 #define START_SPAN_WITH_PARENT(target_span, parent_span, ...)
+#define START_COMPUTE_SPAN(target_span, ...)
+#define START_COMPUTE_SPAN_WITH_PARENT(target_span, parent_span, ...)
 #define MARK_SPAN(target_span, status)
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
-#define GET_MEMORY_POOL_INFO
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
 #define WRAP_ASYNC_GENERATOR(generator)
 #define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name)

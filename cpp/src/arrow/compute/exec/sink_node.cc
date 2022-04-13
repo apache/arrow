@@ -76,11 +76,10 @@ class SinkNode : public ExecNode {
   const char* kind_name() const override { return "SinkNode"; }
 
   Status StartProducing() override {
-    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
-               {{"node.label", label()},
-                {"node.detail", ToString()},
-                {"node.kind", kind_name()},
-                GET_MEMORY_POOL_INFO});
+    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
+                       {{"node.label", label()},
+                        {"node.detail", ToString()},
+                        {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
 
@@ -107,9 +106,9 @@ class SinkNode : public ExecNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(
+    START_COMPUTE_SPAN_WITH_PARENT(
         span, span_, "InputReceived",
-        {{"node.label", label()}, {"batch.length", batch.length}, GET_MEMORY_POOL_INFO});
+        {{"node.label", label()}, {"batch.length", batch.length}});
 
     DCHECK_EQ(input, inputs_[0]);
 
@@ -176,11 +175,10 @@ class ConsumingSinkNode : public ExecNode {
   const char* kind_name() const override { return "ConsumingSinkNode"; }
 
   Status StartProducing() override {
-    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
-               {{"node.label", label()},
-                {"node.detail", ToString()},
-                {"node.kind", kind_name()},
-                GET_MEMORY_POOL_INFO});
+    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
+                       {{"node.label", label()},
+                        {"node.detail", ToString()},
+                        {"node.kind", kind_name()}});
     DCHECK_GT(inputs_.size(), 0);
     RETURN_NOT_OK(consumer_->Init(inputs_[0]->output_schema()));
     finished_ = Future<>::Make();
@@ -207,9 +205,9 @@ class ConsumingSinkNode : public ExecNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(
+    START_COMPUTE_SPAN_WITH_PARENT(
         span, span_, "InputReceived",
-        {{"node.label", label()}, {"batch.length", batch.length}, GET_MEMORY_POOL_INFO});
+        {{"node.label", label()}, {"batch.length", batch.length}});
 
     DCHECK_EQ(input, inputs_[0]);
 
@@ -358,9 +356,9 @@ struct OrderBySinkNode final : public SinkNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(
+    START_COMPUTE_SPAN_WITH_PARENT(
         span, span_, "InputReceived",
-        {{"node.label", label()}, {"batch.length", batch.length}, GET_MEMORY_POOL_INFO});
+        {{"node.label", label()}, {"batch.length", batch.length}});
 
     DCHECK_EQ(input, inputs_[0]);
 
@@ -397,8 +395,7 @@ struct OrderBySinkNode final : public SinkNode {
 
   void Finish() override {
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(span, span_, "Finish",
-                           {{"node.label", label()}, GET_MEMORY_POOL_INFO});
+    START_COMPUTE_SPAN_WITH_PARENT(span, span_, "Finish", {{"node.label", label()}});
     Status st = DoFinish();
     if (ErrorIfNotOk(st)) {
       producer_.Push(std::move(st));

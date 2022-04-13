@@ -719,5 +719,17 @@ TEST(SendSignal, ToThread) {
 #endif
 }
 
+TEST(Memory, GetRSS) {
+#if defined(_WIN32)
+  ASSERT_GT(GetCurrentRSS(), 0);
+#elif defined(__APPLE__)
+  ASSERT_GT(GetCurrentRSS(), 0);
+#elif defined(__linux__)
+  ASSERT_GT(GetCurrentRSS(), 0);
+#else
+  ASSERT_EQ(GetCurrentRSS(), 0);
+#endif
+}
+
 }  // namespace internal
 }  // namespace arrow

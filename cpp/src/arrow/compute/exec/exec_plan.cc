@@ -81,7 +81,7 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
-    START_SPAN(span_, "ExecPlan", {{"plan", ToString()}, GET_MEMORY_POOL_INFO});
+    START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
 #ifdef ARROW_WITH_OPENTELEMETRY
     if (HasMetadata()) {
       auto pairs = metadata().get()->sorted_pairs();
@@ -387,11 +387,9 @@ void MapNode::InputFinished(ExecNode* input, int total_batches) {
 }
 
 Status MapNode::StartProducing() {
-  START_SPAN(span_, std::string(kind_name()) + ":" + label(),
-             {{"node.label", label()},
-              {"node.detail", ToString()},
-              {"node.kind", kind_name()},
-              GET_MEMORY_POOL_INFO});
+  START_COMPUTE_SPAN(
+      span_, std::string(kind_name()) + ":" + label(),
+      {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
   finished_ = Future<>::Make();
   END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
   return Status::OK();

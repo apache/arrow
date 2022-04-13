@@ -97,7 +97,7 @@
 #include "arrow/util/logging.h"
 
 // For filename conversion
-#ifdef _WIN32
+#if defined(_WIN32)
 #include "arrow/util/utf8.h"
 #endif
 
@@ -105,22 +105,11 @@
 #include <psapi.h>
 #include <windows.h>
 
-#elif __unix__ || __unix || unix || (__APPLE__ && __MACH__)
-#include <sys/resource.h>
-
-#if __APPLE__ && __MACH__
+#elif __APPLE__
 #include <mach/mach.h>
 
-#elif (_AIX || __TOS__AIX__) || (__sun__ || __sun || sun && (_SVR4 || __svr4__))
-#include <procfs.h>
-
-#elif __linux__ || __linux || linux || __gnu_linux__
-#include <stdio.h>
-
-#endif
-
-#else
-#error "Cannot define getPeakRSS( ) or getCurrentRSS( ) for an unknown OS."
+#elif __linux__
+#include <fstream>
 #endif
 
 namespace arrow {
@@ -1891,38 +1880,40 @@ uint64_t GetOptionalThreadId() {
 
 // Returns the current resident set size (physical memory use) measured
 // in bytes, or zero if the value cannot be determined on this OS.
-// See: https://stackoverflow.com/a/14927379
 int64_t GetCurrentRSS() {
 #if defined(_WIN32)
   // Windows --------------------------------------------------
   PROCESS_MEMORY_COUNTERS info;
   GetProcessMemoryInfo(GetCurrentProcess(), &info, sizeof(info));
-  return (int64_t)info.WorkingSetSize;
+  return static_cast<int64_t>(info.WorkingSetSize);
 
-#elif defined(__APPLE__) && defined(__MACH__)
+#elif defined(__APPLE__)
   // OSX ------------------------------------------------------
   struct mach_task_basic_info info;
   mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
   if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
-      KERN_SUCCESS)
-    return (int64_t)0L;
-  return (int64_t)info.resident_size;
+      KERN_SUCCESS) {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value";
+    return 0;
+  }
+  return static_cast<int64_t>(info.resident_size);
 
-#elif defined(__linux__) || defined(__linux) || defined(linux) || defined(__gnu_linux__)
+#elif defined(__linux__)
   // Linux ----------------------------------------------------
   int64_t rss = 0L;
-  FILE* fp = NULL;
-  if ((fp = fopen("/proc/self/statm", "r")) == NULL) return (int64_t)0L;
-  if (fscanf(fp, "%*s%ld", &rss) != 1) {
-    fclose(fp);
-    return (int64_t)0L;
+
+  std::ifstream fp("/proc/self/statm");
+  if (fp) {
+    fp >> rss;
+    return rss * sysconf(_SC_PAGESIZE);
+  } else {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value from /proc/self/statm";
+    return 0;
   }
-  fclose(fp);
-  return (int64_t)rss * (int64_t)sysconf(_SC_PAGESIZE);
 
 #else
   // AIX, BSD, Solaris, and Unknown OS ------------------------
-  return (int64_t)0L;  // Unsupported.
+  return 0;  // Unsupported.
 #endif
 }
 
