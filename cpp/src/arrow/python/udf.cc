@@ -81,7 +81,7 @@ Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
     *out = Datum(val);
     return Status::OK();
   } else {
-    return Status::Invalid("Not supported output type");
+    return Status::Invalid("Not a supported output type");
   }
   return Status::OK();
 }

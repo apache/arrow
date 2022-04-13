@@ -205,7 +205,7 @@ class ARROW_EXPORT Function {
   const Arity& arity() const { return arity_; }
 
   /// \brief Return the function documentation
-  const FunctionDoc doc() const { return doc_; }
+  const FunctionDoc& doc() const { return doc_; }
 
   /// \brief Returns the number of registered kernels for this function.
   virtual int num_kernels() const = 0;

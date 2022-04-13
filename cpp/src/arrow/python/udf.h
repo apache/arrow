@@ -61,7 +61,7 @@ class ARROW_PYTHON_EXPORT ScalarUdfOptions {
 
   const compute::Arity& arity() const { return arity_; }
 
-  const compute::FunctionDoc doc() const { return func_doc_; }
+  const compute::FunctionDoc& doc() const { return func_doc_; }
 
   const std::vector<compute::InputType>& input_types() const { return in_types_; }
 
