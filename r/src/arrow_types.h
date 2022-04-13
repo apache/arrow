@@ -79,11 +79,29 @@ arrow::compute::ExecContext* gc_context();
 
 namespace arrow {
 
+class UnwindProtectDetail: public StatusDetail {
+public:
+  SEXP token;
+  UnwindProtectDetail(SEXP token): token(token) {}
+  virtual const char* type_id() const { return "UnwindProtectDetail"; };
+  virtual std::string ToString() const { return "R code execution error"; };
+};
+
+static inline Status StatusUnwindProtect(SEXP token) {
+  return Status::Invalid("R code execution error").WithDetail(std::make_shared<UnwindProtectDetail>(token));
+}
+
 static inline void StopIfNotOk(const Status& status) {
   if (!status.ok()) {
-    // ARROW-13039: be careful not to interpret our error message as a %-format string
-    std::string s = status.ToString();
-    cpp11::stop("%s", s.c_str());
+    auto detail = status.detail();
+    const UnwindProtectDetail* unwind_detail = dynamic_cast<const UnwindProtectDetail*>(detail.get());
+    if (unwind_detail) {
+      throw cpp11::unwind_exception(unwind_detail->token);
+    } else {
+      // ARROW-13039: be careful not to interpret our error message as a %-format string
+      std::string s = status.ToString();
+      cpp11::stop("%s", s.c_str());
+    }
   }
 }
 
