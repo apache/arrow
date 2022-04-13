@@ -142,8 +142,9 @@ as_writable_table <- function(x, arg_name = "x") {
   tryCatch(
     as_arrow_table(x),
     arrow_no_method_as_arrow_table = function(e) {
-      msg <- glue::glue(
-        "`{arg_name}` must be coercible to an Arrow Table using as_arrow_table()"
+      msg <- sprintf(
+        "`%s` must be coercible to an Arrow Table using as_arrow_table()",
+        arg_name
       )
 
       abort(msg, parent = e)

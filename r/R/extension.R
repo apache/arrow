@@ -180,11 +180,13 @@ ExtensionType <- R6Class("ExtensionType",
       } else if (inherits(extension_array, "ExtensionArray")) {
         extension_array$storage()$as_vector()
       } else {
-        classes <- paste(class(extension_array), collapse = " / ")
         abort(
           c(
             "`extension_array` must be a ChunkedArray or ExtensionArray",
-            i = glue::glue("Got object of type {classes}")
+            i = sprintf(
+              "Got object of type %s",
+              paste(class(extension_array), collapse = " / ")
+            )
           )
         )
       }

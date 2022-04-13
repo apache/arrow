@@ -273,9 +273,11 @@ as_arrow_table <- function(x, ..., schema = NULL) {
 as_arrow_table.default <- function(x, ...) {
   # throw a classed error here so that we can customize the error message
   # in as_writable_table()
-  classes <- paste(class(x), collapse = " / ")
   abort(
-    glue::glue("No method for `as_arrow_table()` for object of class {classes}"),
+    sprintf(
+      "No method for `as_arrow_table()` for object of class %s",
+      paste(class(x), collapse = " / ")
+    ),
     class = "arrow_no_method_as_arrow_table"
   )
 }
