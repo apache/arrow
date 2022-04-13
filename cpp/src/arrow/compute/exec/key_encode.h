@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/light_array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -29,8 +30,6 @@
 
 namespace arrow {
 namespace compute {
-
-class KeyColumnMetadata;
 
 /// Converts between key representation as a collection of arrays for
 /// individual columns and another representation as a single array of rows
@@ -47,27 +46,6 @@ class KeyEncoder {
     }
     int64_t hardware_flags;
     util::TempVectorStack* stack;
-  };
-
-  /// Description of a storage format of a single key column as needed
-  /// for the purpose of row encoding.
-  struct KeyColumnMetadata {
-    KeyColumnMetadata() = default;
-    KeyColumnMetadata(bool is_fixed_length_in, uint32_t fixed_length_in,
-                      bool is_null_type_in = false)
-        : is_fixed_length(is_fixed_length_in),
-          is_null_type(is_null_type_in),
-          fixed_length(fixed_length_in) {}
-    /// Is column storing a varying-length binary, using offsets array
-    /// to find a beginning of a value, or is it a fixed-length binary.
-    bool is_fixed_length;
-    /// Is column null type
-    bool is_null_type;
-    /// For a fixed-length binary column: number of bytes per value.
-    /// Zero has a special meaning, indicating a bit vector with one bit per value if it
-    /// isn't a null type column.
-    /// For a varying-length binary column: number of bytes per offset.
-    uint32_t fixed_length;
   };
 
   /// Description of a storage format for rows produced by encoder.
@@ -239,57 +217,6 @@ class KeyEncoder {
     // Mutable to allow lazy evaluation
     mutable int64_t num_rows_for_has_any_nulls_;
     mutable bool has_any_nulls_;
-  };
-
-  /// A lightweight description of an array representing one of key columns.
-  class KeyColumnArray {
-   public:
-    KeyColumnArray() = default;
-    /// Create as a mix of buffers according to the mask from two descriptions
-    /// (Nth bit is set to 0 if Nth buffer from the first input
-    /// should be used and is set to 1 otherwise).
-    /// Metadata is inherited from the first input.
-    KeyColumnArray(const KeyColumnMetadata& metadata, const KeyColumnArray& left,
-                   const KeyColumnArray& right, int buffer_id_to_replace);
-    /// Create for reading
-    KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
-                   const uint8_t* buffer0, const uint8_t* buffer1, const uint8_t* buffer2,
-                   int bit_offset0 = 0, int bit_offset1 = 0);
-    /// Create for writing
-    KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length, uint8_t* buffer0,
-                   uint8_t* buffer1, uint8_t* buffer2, int bit_offset0 = 0,
-                   int bit_offset1 = 0);
-    /// Create as a window view of original description that is offset
-    /// by a given number of rows.
-    /// The number of rows used in offset must be divisible by 8
-    /// in order to not split bit vectors within a single byte.
-    KeyColumnArray(const KeyColumnArray& from, int64_t start, int64_t length);
-    uint8_t* mutable_data(int i) {
-      ARROW_DCHECK(i >= 0 && i <= max_buffers_);
-      return mutable_buffers_[i];
-    }
-    const uint8_t* data(int i) const {
-      ARROW_DCHECK(i >= 0 && i <= max_buffers_);
-      return buffers_[i];
-    }
-    uint32_t* mutable_offsets() { return reinterpret_cast<uint32_t*>(mutable_data(1)); }
-    const uint32_t* offsets() const { return reinterpret_cast<const uint32_t*>(data(1)); }
-    const KeyColumnMetadata& metadata() const { return metadata_; }
-    int64_t length() const { return length_; }
-    int bit_offset(int i) const {
-      ARROW_DCHECK(i >= 0 && i < max_buffers_);
-      return bit_offset_[i];
-    }
-
-   private:
-    static constexpr int max_buffers_ = 3;
-    const uint8_t* buffers_[max_buffers_];
-    uint8_t* mutable_buffers_[max_buffers_];
-    KeyColumnMetadata metadata_;
-    int64_t length_;
-    // Starting bit offset within the first byte (between 0 and 7)
-    // to be used when accessing buffers that store bit vectors.
-    int bit_offset_[max_buffers_ - 1];
   };
 
   void Init(const std::vector<KeyColumnMetadata>& cols, KeyEncoderContext* ctx,
