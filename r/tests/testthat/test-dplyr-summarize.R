@@ -17,7 +17,11 @@
 
 skip_if(on_old_windows())
 
-withr::local_options(list(arrow.summarise.sort = TRUE, rlib_warning_verbosity = "verbose"))
+withr::local_options(list(
+  arrow.summarise.sort = TRUE,
+  rlib_warning_verbosity = "verbose",
+  dplyr.summarise.inform = FALSE
+))
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
@@ -290,56 +294,65 @@ test_that("Functions that take ... but we only accept a single arg", {
   expect_error(call_binding_agg("max", 1, 2), "Multiple arguments to max()")
 })
 
-test_that("median()", suppressWarnings({
+test_that("median()", {
   # When medians are integer-valued, stats::median() sometimes returns output of
   # type integer, whereas whereas the Arrow approx_median kernels always return
   # output of type float64. The calls to median(int, ...) in the tests below
   # are enclosed in as.double() to work around this known difference.
 
   # with groups
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        med_dbl = median(dbl),
-        med_int = as.double(median(int)),
-        med_dbl_narmf = median(dbl, FALSE),
-        med_int_narmf = as.double(median(int, na.rm = FALSE)),
-        med_dbl_narmt = median(dbl, na.rm = TRUE),
-        med_int_narmt = as.double(median(int, TRUE))
-      ) %>%
-      arrange(some_grouping) %>%
-      collect(),
-    tbl,
-    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  suppressWarnings(
+    compare_dplyr_binding(
+      .input %>%
+        group_by(some_grouping) %>%
+        summarize(
+          med_dbl = median(dbl),
+          med_int = as.double(median(int)),
+          med_dbl_narmf = median(dbl, FALSE),
+          med_int_narmf = as.double(median(int, na.rm = FALSE)),
+          med_dbl_narmt = median(dbl, na.rm = TRUE),
+          med_int_narmt = as.double(median(int, TRUE))
+        ) %>%
+        arrange(some_grouping) %>%
+        collect(),
+      tbl,
+      warning = "median\\(\\) currently returns an approximate median in Arrow"
+    ),
+    classes = "arrow.median.approximate"
   )
   # without groups, with na.rm = TRUE
-  compare_dplyr_binding(
-    .input %>%
-      summarize(
-        med_dbl_narmt = median(dbl, na.rm = TRUE),
-        med_int_narmt = as.double(median(int, TRUE))
-      ) %>%
-      collect(),
-    tbl,
-    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  suppressWarnings(
+    compare_dplyr_binding(
+      .input %>%
+        summarize(
+          med_dbl_narmt = median(dbl, na.rm = TRUE),
+          med_int_narmt = as.double(median(int, TRUE))
+        ) %>%
+        collect(),
+      tbl,
+      warning = "median\\(\\) currently returns an approximate median in Arrow"
+    ),
+    classes = "arrow.median.approximate"
   )
   # without groups, with na.rm = FALSE (the default)
-  compare_dplyr_binding(
-    .input %>%
-      summarize(
-        med_dbl = median(dbl),
-        med_int = as.double(median(int)),
-        med_dbl_narmf = median(dbl, FALSE),
-        med_int_narmf = as.double(median(int, na.rm = FALSE))
-      ) %>%
-      collect(),
-    tbl,
-    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  suppressWarnings(
+    compare_dplyr_binding(
+      .input %>%
+        summarize(
+          med_dbl = median(dbl),
+          med_int = as.double(median(int)),
+          med_dbl_narmf = median(dbl, FALSE),
+          med_int_narmf = as.double(median(int, na.rm = FALSE))
+        ) %>%
+        collect(),
+      tbl,
+      warning = "median\\(\\) currently returns an approximate median in Arrow"
+    ),
+    classes = "arrow.median.approximate"
   )
-}, classes = "arrow.median.approximate"))
+})
 
-test_that("quantile()", suppressWarnings({
+test_that("quantile()", {
   # The default method for stats::quantile() throws an error when na.rm = FALSE
   # and the input contains NA or NaN, whereas the Arrow tdigest kernels return
   # null in this situation. To work around this known difference, the tests
@@ -363,67 +376,76 @@ test_that("quantile()", suppressWarnings({
   # below are enclosed in as.double() to work around this known difference.
 
   # with groups
-  expect_warning(
-    expect_equal(
-      tbl %>%
-        group_by(some_grouping) %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
-          q_int = as.double(
-            quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
-          )
-        ) %>%
-        arrange(some_grouping),
-      Table$create(tbl) %>%
-        group_by(some_grouping) %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
-          q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
-        ) %>%
-        arrange(some_grouping) %>%
-        collect()
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tbl %>%
+          group_by(some_grouping) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+            q_int = as.double(
+              quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+            )
+          ) %>%
+          arrange(some_grouping),
+        Table$create(tbl) %>%
+          group_by(some_grouping) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
+          ) %>%
+          arrange(some_grouping) %>%
+          collect()
+      ),
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
     ),
-    "quantile() currently returns an approximate quantile in Arrow",
-    fixed = TRUE
+    classes = "arrow.quantile.approximate"
   )
 
   # without groups
-  expect_warning(
-    expect_equal(
-      tbl %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
-          q_int = as.double(
-            quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
-          )
-        ),
-      Table$create(tbl) %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
-          q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
-        ) %>%
-        collect()
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tbl %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+            q_int = as.double(
+              quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+            )
+          ),
+        Table$create(tbl) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
+          ) %>%
+          collect()
+      ),
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
     ),
-    "quantile() currently returns an approximate quantile in Arrow",
-    fixed = TRUE
+    classes = "arrow.quantile.approximate"
   )
 
   # with missing values and na.rm = FALSE
-  expect_warning(
-    expect_equal(
-      tibble(
-        q_dbl = NA_real_,
-        q_int = NA_real_
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tibble(
+          q_dbl = NA_real_,
+          q_int = NA_real_
+        ),
+        Table$create(tbl) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = FALSE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = FALSE))
+          ) %>%
+          collect()
       ),
-      Table$create(tbl) %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = FALSE),
-          q_int = as.double(quantile(int, probs = 0.5, na.rm = FALSE))
-        ) %>%
-        collect()
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
     ),
-    "quantile() currently returns an approximate quantile in Arrow",
-    fixed = TRUE
+    classes = "arrow.quantile.approximate"
   )
 
   # with a vector of 2+ probs
@@ -433,7 +455,7 @@ test_that("quantile()", suppressWarnings({
     "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
   )
-}, classes = "arrow.quantile.approximate"))
+})
 
 test_that("summarize() with min() and max()", {
   compare_dplyr_binding(
