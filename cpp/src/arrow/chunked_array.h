@@ -183,7 +183,7 @@ class ARROW_EXPORT ChunkedArray {
   int64_t null_count_;
 
  private:
-  std::unique_ptr<internal::ChunkResolver> chunk_resolver_;
+  internal::ChunkResolver chunk_resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 

@@ -44,7 +44,11 @@ class MemoryPool;
 // ChunkedArray methods
 
 ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
-    : chunks_(std::move(chunks)), type_(std::move(type)), length_(0), null_count_(0) {
+    : chunks_(std::move(chunks)),
+      type_(std::move(type)),
+      length_(0),
+      null_count_(0),
+      chunk_resolver_{chunks_} {
   if (type_ == nullptr) {
     ARROW_CHECK_GT(chunks_.size(), 0)
         << "cannot construct ChunkedArray from empty vector and omitted type";
@@ -55,8 +59,6 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
-
-  chunk_resolver_ = internal::make_unique<internal::ChunkResolver>(chunks_);
 }
 
 Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
@@ -148,7 +150,7 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
 }
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
-  const auto loc = chunk_resolver_->Resolve(index);
+  const auto loc = chunk_resolver_.Resolve(index);
   if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
     return Status::IndexError("index with value of ", index,
                               " is out-of-bounds for chunked array of length ", length_);
