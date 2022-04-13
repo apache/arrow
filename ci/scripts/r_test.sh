@@ -96,7 +96,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   }
 
   if (reticulate::py_module_available('pyarrow')) {
-      message('Running flight demo server for tests.'')
+      message('Running flight demo server for tests.')
       pid_flight <- sys::exec_background(
           'python',
           c(
