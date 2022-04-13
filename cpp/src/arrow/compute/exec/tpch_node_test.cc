@@ -47,6 +47,12 @@ static constexpr uint32_t kEndDate =
 
 using TableNodeFn = Result<ExecNode*> (TpchGen::*)(std::vector<std::string>);
 
+#ifdef THREAD_SANITIZER
+constexpr double kDefaultScaleFactor = 0.25;
+#else
+constexpr double kDefaultScaleFactor = 1.0;
+#endif
+
 Status AddTableAndSinkToPlan(ExecPlan& plan, TpchGen& gen,
                              AsyncGenerator<util::optional<ExecBatch>>& sink_gen,
                              TableNodeFn table) {
@@ -57,7 +63,7 @@ Status AddTableAndSinkToPlan(ExecPlan& plan, TpchGen& gen,
 }
 
 Result<std::vector<ExecBatch>> GenerateTable(TableNodeFn table,
-                                             double scale_factor = 1.0) {
+                                             double scale_factor = kDefaultScaleFactor) {
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<TpchGen> gen,
@@ -341,7 +347,8 @@ void CountModifiedComments(const Datum& d, int* good_count, int* bad_count) {
   }
 }
 
-void VerifySupplier(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
+void VerifySupplier(const std::vector<ExecBatch>& batches,
+                    double scale_factor = kDefaultScaleFactor) {
   int64_t kExpectedRows = static_cast<int64_t>(10000 * scale_factor);
   int64_t num_rows = 0;
 
@@ -378,7 +385,8 @@ TEST(TpchNode, Supplier) {
   VerifySupplier(res);
 }
 
-void VerifyPart(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
+void VerifyPart(const std::vector<ExecBatch>& batches,
+                double scale_factor = kDefaultScaleFactor) {
   int64_t kExpectedRows = static_cast<int64_t>(200000 * scale_factor);
   int64_t num_rows = 0;
 
@@ -413,7 +421,8 @@ TEST(TpchNode, Part) {
   VerifyPart(res);
 }
 
-void VerifyPartSupp(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
+void VerifyPartSupp(const std::vector<ExecBatch>& batches,
+                    double scale_factor = kDefaultScaleFactor) {
   const int64_t kExpectedRows = static_cast<int64_t>(800000 * scale_factor);
   int64_t num_rows = 0;
 
@@ -438,7 +447,8 @@ TEST(TpchNode, PartSupp) {
   VerifyPartSupp(res);
 }
 
-void VerifyCustomer(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
+void VerifyCustomer(const std::vector<ExecBatch>& batches,
+                    double scale_factor = kDefaultScaleFactor) {
   const int64_t kExpectedRows = static_cast<int64_t>(150000 * scale_factor);
   int64_t num_rows = 0;
 
@@ -467,7 +477,8 @@ TEST(TpchNode, Customer) {
   VerifyCustomer(res);
 }
 
-void VerifyOrders(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
+void VerifyOrders(const std::vector<ExecBatch>& batches,
+                  double scale_factor = kDefaultScaleFactor) {
   const int64_t kExpectedRows = static_cast<int64_t>(1500000 * scale_factor);
   int64_t num_rows = 0;
 
@@ -505,7 +516,8 @@ TEST(TpchNode, Orders) {
   VerifyOrders(res);
 }
 
-void VerifyLineitem(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
+void VerifyLineitem(const std::vector<ExecBatch>& batches,
+                    double scale_factor = kDefaultScaleFactor) {
   std::unordered_map<int32_t, int32_t> counts;
   for (auto& batch : batches) {
     ValidateBatch(batch);
@@ -552,7 +564,8 @@ TEST(TpchNode, Lineitem) {
   VerifyLineitem(res);
 }
 
-void VerifyNation(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
+void VerifyNation(const std::vector<ExecBatch>& batches,
+                  double scale_factor = kDefaultScaleFactor) {
   constexpr int64_t kExpectedRows = 25;
   int64_t num_rows = 0;
 
@@ -579,7 +592,8 @@ TEST(TpchNode, Nation) {
   VerifyNation(res);
 }
 
-void VerifyRegion(const std::vector<ExecBatch>& batches, double scale_factor = 1.0) {
+void VerifyRegion(const std::vector<ExecBatch>& batches,
+                  double scale_factor = kDefaultScaleFactor) {
   constexpr int64_t kExpectedRows = 5;
   int64_t num_rows = 0;
 
@@ -602,7 +616,11 @@ TEST(TpchNode, Region) {
 }
 
 TEST(TpchNode, AllTables) {
+#ifdef THREAD_SANITIZER
+  constexpr double kScaleFactor = 0.1;
+#else
   constexpr double kScaleFactor = 0.25;
+#endif
   constexpr int kNumTables = 8;
   std::array<TableNodeFn, kNumTables> tables = {
       &TpchGen::Supplier, &TpchGen::Part,     &TpchGen::PartSupp, &TpchGen::Customer,
