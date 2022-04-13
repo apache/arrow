@@ -4096,7 +4096,7 @@ macro(build_opentelemetry)
     # N.B. OTel targets and libraries don't follow any consistent naming scheme
     if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
       set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_span_exporter")
       set(_OPENTELEMETRY_STATIC_LIBRARY
