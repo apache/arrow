@@ -2409,7 +2409,7 @@ void concat_word(char* out_buf, int* out_idx, const char* in_buf, int in_len,
   }
   // copy the input and update *out_idx
   memcpy(out_buf + *out_idx, in_buf, in_len);
-  *seenAnyValidInput = *seenAnyValidInput || in_validity;
+  *seenAnyValidInput = true;
   *out_idx += in_len;
 }
 
