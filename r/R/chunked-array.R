@@ -212,8 +212,7 @@ as_chunked_array.Array <- function(x, ..., type = NULL) {
 
 #' @export
 as_chunked_array.default <- function(x, ..., type = NULL, from_constructor = FALSE) {
-  # keeps chunked_array() from going in circles since it falls back on
-  # as_chunked_array()
+  # keeps chunked_array() from going in circles
   if (from_constructor) {
     stop("NotImplemented: Extend")
   }
