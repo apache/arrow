@@ -106,7 +106,8 @@ endfunction()
 
 if(ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static
+                                       ${ARROW_STATIC_LINK_LIBS})
 else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()

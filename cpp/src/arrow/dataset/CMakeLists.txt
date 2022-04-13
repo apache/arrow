@@ -30,7 +30,7 @@ set(ARROW_DATASET_SRCS
     projector.cc
     scanner.cc)
 
-set(ARROW_DATASET_LINK_STATIC arrow_static)
+set(ARROW_DATASET_LINK_STATIC arrow_static ${ARROW_STATIC_LINK_LIBS})
 set(ARROW_DATASET_LINK_SHARED arrow_shared)
 
 if(ARROW_CSV)
