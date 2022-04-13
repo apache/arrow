@@ -391,7 +391,7 @@ binding_as_date <- function(x,
   } else if (call_binding("is.POSIXct", x)) {
     # base::as.Date() first converts to the desired timezone and then extracts
     # the date, which is why we need to go through timestamp() first
-    if (base || !missing(tz)) {
+    if (base || !is.null(tz)) {
       x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
     }
     # POSIXct is of type double -> we need this to prevent going down the
