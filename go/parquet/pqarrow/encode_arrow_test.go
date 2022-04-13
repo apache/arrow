@@ -908,7 +908,7 @@ func (ps *ParquetIOTestSuite) roundTripTable(expected arrow.Table, storeSchema b
 		ps.Equal(ex.Len(), tb.Len())
 		// only compare the non-null values
 		ps.NoErrorf(utils.VisitSetBitRuns(ex.NullBitmapBytes(), int64(ex.Data().Offset()), int64(ex.Len()), func(pos, length int64) error {
-			if !ps.True(array.ArraySliceEqual(ex, pos, pos+length, tb, pos, pos+length)) {
+			if !ps.True(array.SliceEqual(ex, pos, pos+length, tb, pos, pos+length)) {
 				return errors.New("failed")
 			}
 			return nil

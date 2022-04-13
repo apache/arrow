@@ -122,7 +122,7 @@ func arrayEqualList(left, right *List) bool {
 			defer l.Release()
 			r := right.newListValue(i)
 			defer r.Release()
-			return ArrayEqual(l, r)
+			return Equal(l, r)
 		}()
 		if !o {
 			return false

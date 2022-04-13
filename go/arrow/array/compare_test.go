@@ -63,7 +63,7 @@ func TestArraySliceEqual(t *testing.T) {
 			for i, col := range rec.Columns() {
 				t.Run(schema.Field(i).Name, func(t *testing.T) {
 					arr := col
-					if !array.ArraySliceEqual(
+					if !array.SliceEqual(
 						arr, 0, int64(arr.Len()),
 						arr, 0, int64(arr.Len()),
 					) {
@@ -75,7 +75,7 @@ func TestArraySliceEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArraySliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) && name != "nulls" {
+					if array.SliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) && name != "nulls" {
 						t.Fatalf("non-identical slices should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -92,7 +92,7 @@ func TestArrayApproxEqual(t *testing.T) {
 			for i, col := range rec.Columns() {
 				t.Run(schema.Field(i).Name, func(t *testing.T) {
 					arr := col
-					if !array.ArrayApproxEqual(arr, arr) {
+					if !array.ApproxEqual(arr, arr) {
 						t.Fatalf("identical arrays should compare equal:\narray=%v", arr)
 					}
 					sub1 := array.NewSlice(arr, 1, int64(arr.Len()))
@@ -101,7 +101,7 @@ func TestArrayApproxEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArrayApproxEqual(sub1, sub2) && name != "nulls" {
+					if array.ApproxEqual(sub1, sub2) && name != "nulls" {
 						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -295,7 +295,7 @@ func TestArrayApproxEqualFloats(t *testing.T) {
 			a2 := arrayOf(mem, tc.a2, nil)
 			defer a2.Release()
 
-			if got, want := array.ArrayApproxEqual(a1, a2, tc.opts...), tc.want; got != want {
+			if got, want := array.ApproxEqual(a1, a2, tc.opts...), tc.want; got != want {
 				t.Fatalf("invalid comparison: got=%v, want=%v\na1: %v\na2: %v\n", got, want, a1, a2)
 			}
 		})
