@@ -20,6 +20,8 @@ skip_if(on_old_windows())
 withr::local_options(list(
   arrow.summarise.sort = TRUE,
   rlib_warning_verbosity = "verbose",
+  # This prevents the warning in `summarize()` about having grouped output without 
+  # also specifying what to do with `.groups`
   dplyr.summarise.inform = FALSE
 ))
 
