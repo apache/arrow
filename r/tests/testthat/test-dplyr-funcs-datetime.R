@@ -1262,8 +1262,8 @@ test_that("make_difftime()", {
     days = c(6, 7, 8, 9),
     weeks = c(1, 3, 5, NA),
     number = 10:13
-     )
-  
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1324,3 +1324,5 @@ test_that("make_difftime()", {
         ) %>%
         collect()
     )
+  )
+})
