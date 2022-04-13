@@ -100,6 +100,9 @@ inline SimpleArena::SimpleArena(arrow::MemoryPool* pool, int64_t min_chunk_size)
 inline SimpleArena::~SimpleArena() { ReleaseChunks(false /*retain_first*/); }
 
 inline uint8_t* SimpleArena::Allocate(int64_t size) {
+  if (size == 0) {
+    return (uint8_t*)"";
+  }
   if (avail_bytes_ < size) {
     auto status = AllocateChunk(std::max(size, min_chunk_size_));
     if (!status.ok()) {
