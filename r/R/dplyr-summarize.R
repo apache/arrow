@@ -107,7 +107,8 @@ register_bindings_aggregate <- function() {
     warn(
       "quantile() currently returns an approximate quantile in Arrow",
       .frequency = "once",
-      .frequency_id = "arrow.quantile.approximate"
+      .frequency_id = "arrow.quantile.approximate",
+      class = "arrow.quantile.approximate"
     )
     list(
       fun = "tdigest",
@@ -121,7 +122,8 @@ register_bindings_aggregate <- function() {
     warn(
       "median() currently returns an approximate median in Arrow",
       .frequency = "once",
-      .frequency_id = "arrow.median.approximate"
+      .frequency_id = "arrow.median.approximate",
+      class = "arrow.median.approximate"
     )
     list(
       fun = "approximate_median",

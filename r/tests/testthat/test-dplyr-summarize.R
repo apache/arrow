@@ -17,8 +17,7 @@
 
 skip_if(on_old_windows())
 
-withr::local_options(list(arrow.summarise.sort = TRUE))
-old_options <- options(rlib_warning_verbosity = "verbose")
+withr::local_options(list(arrow.summarise.sort = TRUE, rlib_warning_verbosity = "verbose"))
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
@@ -291,15 +290,11 @@ test_that("Functions that take ... but we only accept a single arg", {
   expect_error(call_binding_agg("max", 1, 2), "Multiple arguments to max()")
 })
 
-test_that("median()", {
+test_that("median()", suppressWarnings({
   # When medians are integer-valued, stats::median() sometimes returns output of
   # type integer, whereas whereas the Arrow approx_median kernels always return
   # output of type float64. The calls to median(int, ...) in the tests below
   # are enclosed in as.double() to work around this known difference.
-
-  # Use old testthat behavior here so we don't have to assert the same warning
-  # over and over
-  local_edition(2)
 
   # with groups
   compare_dplyr_binding(
@@ -342,10 +337,9 @@ test_that("median()", {
     tbl,
     warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
-  local_edition(3)
-})
+}, classes = "arrow.median.approximate"))
 
-test_that("quantile()", {
+test_that("quantile()", suppressWarnings({
   # The default method for stats::quantile() throws an error when na.rm = FALSE
   # and the input contains NA or NaN, whereas the Arrow tdigest kernels return
   # null in this situation. To work around this known difference, the tests
@@ -368,7 +362,6 @@ test_that("quantile()", {
   # return output of type float64. The calls to quantile(int, ...) in the tests
   # below are enclosed in as.double() to work around this known difference.
 
-  local_edition(2)
   # with groups
   expect_warning(
     expect_equal(
@@ -432,7 +425,6 @@ test_that("quantile()", {
     "quantile() currently returns an approximate quantile in Arrow",
     fixed = TRUE
   )
-  local_edition(3)
 
   # with a vector of 2+ probs
   expect_warning(
@@ -441,7 +433,7 @@ test_that("quantile()", {
     "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
   )
-})
+}, classes = "arrow.quantile.approximate"))
 
 test_that("summarize() with min() and max()", {
   compare_dplyr_binding(
@@ -983,6 +975,3 @@ test_that("summarise() can handle scalars and literal values", {
     tibble(y = 2L)
   )
 })
-
-
-options(old_options)
