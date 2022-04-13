@@ -148,10 +148,6 @@ cdef class Dataset(_Weakrefable):
     can accelerate queries that only touch some partitions (files).
     """
 
-    cdef:
-        shared_ptr[CDataset] wrapped
-        CDataset* dataset
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -1255,6 +1251,7 @@ cdef class Partitioning(_Weakrefable):
         classes = {
             'directory': DirectoryPartitioning,
             'hive': HivePartitioning,
+            'filename': FilenamePartitioning,
         }
 
         class_ = classes.get(type_name, None)
@@ -1322,8 +1319,44 @@ cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
 
     return c_dictionaries
 
+cdef class KeyValuePartitioning(Partitioning):
 
-cdef class DirectoryPartitioning(Partitioning):
+    cdef:
+        CKeyValuePartitioning* keyvalue_partitioning
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+    cdef init(self, const shared_ptr[CPartitioning]& sp):
+        Partitioning.init(self, sp)
+        self.keyvalue_partitioning = <CKeyValuePartitioning*> sp.get()
+        self.wrapped = sp
+        self.partitioning = sp.get()
+
+    @property
+    def dictionaries(self):
+        """
+        The unique values for each partition field, if available.
+
+        Those values are only available if the Partitioning object was
+        created through dataset discovery from a PartitioningFactory, or
+        if the dictionaries were manually specified in the constructor.
+        If no dictionary field is available, this returns an empty list.
+        """
+        cdef vector[shared_ptr[CArray]] c_arrays
+        c_arrays = self.keyvalue_partitioning.dictionaries()
+        res = []
+        for arr in c_arrays:
+            if arr.get() == nullptr:
+                # Partitioning object has not been created through
+                # inspected Factory
+                res.append(None)
+            else:
+                res.append(pyarrow_wrap_array(arr))
+        return res
+
+
+cdef class DirectoryPartitioning(KeyValuePartitioning):
     """
     A Partitioning based on a specified Schema.
 
@@ -1352,7 +1385,7 @@ cdef class DirectoryPartitioning(Partitioning):
     Examples
     --------
     >>> from pyarrow.dataset import DirectoryPartitioning
-    >>> partition = DirectoryPartitioning(
+    >>> partitioning = DirectoryPartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
     >>> print(partitioning.parse("/2009/11"))
     ((year == 2009:int16) and (month == 11:int8))
@@ -1376,7 +1409,7 @@ cdef class DirectoryPartitioning(Partitioning):
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
-        Partitioning.init(self, sp)
+        KeyValuePartitioning.init(self, sp)
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
@@ -1442,29 +1475,8 @@ cdef class DirectoryPartitioning(Partitioning):
         return PartitioningFactory.wrap(
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
-    @property
-    def dictionaries(self):
-        """
-        The unique values for each partition field, if available.
 
-        Those values are only available if the Partitioning object was
-        created through dataset discovery from a PartitioningFactory, or
-        if the dictionaries were manually specified in the constructor.
-        If not available, this returns None.
-        """
-        cdef vector[shared_ptr[CArray]] c_arrays
-        c_arrays = self.directory_partitioning.dictionaries()
-        res = []
-        for arr in c_arrays:
-            if arr.get() == nullptr:
-                # Partitioning object has not been created through
-                # inspected Factory
-                return None
-            res.append(pyarrow_wrap_array(arr))
-        return res
-
-
-cdef class HivePartitioning(Partitioning):
+cdef class HivePartitioning(KeyValuePartitioning):
     """
     A Partitioning for "/$key=$value/" nested directories as found in
     Apache Hive.
@@ -1531,7 +1543,7 @@ cdef class HivePartitioning(Partitioning):
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
-        Partitioning.init(self, sp)
+        KeyValuePartitioning.init(self, sp)
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
@@ -1594,26 +1606,114 @@ cdef class HivePartitioning(Partitioning):
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))
 
-    @property
-    def dictionaries(self):
-        """
-        The unique values for each partition field, if available.
 
-        Those values are only available if the Partitioning object was
-        created through dataset discovery from a PartitioningFactory, or
-        if the dictionaries were manually specified in the constructor.
-        If not available, this returns None.
+cdef class FilenamePartitioning(KeyValuePartitioning):
+    """
+    A Partitioning based on a specified Schema.
+
+    The FilenamePartitioning expects one segment in the file name for each
+    field in the schema (all fields are required to be present) separated
+    by '_'. For example given schema<year:int16, month:int8> the name
+    "2009_11_" would be parsed to ("year"_ == 2009 and "month"_ == 11).
+
+    Parameters
+    ----------
+    schema : Schema
+        The schema that describes the partitions present in the file path.
+    dictionaries : dict[str, Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
+    segment_encoding : str, default "uri"
+        After splitting paths into segments, decode the segments. Valid
+        values are "uri" (URI-decode segments) and "none" (leave as-is).
+
+    Returns
+    -------
+    FilenamePartitioning
+
+    Examples
+    --------
+    >>> from pyarrow.dataset import FilenamePartitioning
+    >>> partitioning = FilenamePartitioning(
+    ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
+    >>> print(partitioning.parse("2009_11_"))
+    ((year == 2009:int16) and (month == 11:int8))
+    """
+
+    cdef:
+        CFilenamePartitioning* filename_partitioning
+
+    def __init__(self, Schema schema not None, dictionaries=None,
+                 segment_encoding="uri"):
+        cdef:
+            shared_ptr[CFilenamePartitioning] c_partitioning
+            CKeyValuePartitioningOptions c_options
+
+        c_options.segment_encoding = _get_segment_encoding(segment_encoding)
+        c_partitioning = make_shared[CFilenamePartitioning](
+            pyarrow_unwrap_schema(schema),
+            _partitioning_dictionaries(schema, dictionaries),
+            c_options,
+        )
+        self.init(<shared_ptr[CPartitioning]> c_partitioning)
+
+    cdef init(self, const shared_ptr[CPartitioning]& sp):
+        KeyValuePartitioning.init(self, sp)
+        self.filename_partitioning = <CFilenamePartitioning*> sp.get()
+
+    @staticmethod
+    def discover(field_names=None, infer_dictionary=False,
+                 schema=None, segment_encoding="uri"):
         """
-        cdef vector[shared_ptr[CArray]] c_arrays
-        c_arrays = self.hive_partitioning.dictionaries()
-        res = []
-        for arr in c_arrays:
-            if arr.get() == nullptr:
-                # Partitioning object has not been created through
-                # inspected Factory
-                return None
-            res.append(pyarrow_wrap_array(arr))
-        return res
+        Discover a FilenamePartitioning.
+
+        Parameters
+        ----------
+        field_names : list of str
+            The names to associate with the values from the subdirectory names.
+            If schema is given, will be populated from the schema.
+        infer_dictionary : bool, default False
+            When inferring a schema for partition fields, yield dictionary
+            encoded types instead of plain types. This can be more efficient
+            when materializing virtual columns, and Expressions parsed by the
+            finished Partitioning will include dictionaries of all unique
+            inspected values for each field.
+        schema : Schema, default None
+            Use this schema instead of inferring a schema from partition
+            values. Partition values will be validated against this schema
+            before accumulation into the Partitioning's dictionary.
+        segment_encoding : str, default "uri"
+            After splitting paths into segments, decode the segments. Valid
+            values are "uri" (URI-decode segments) and "none" (leave as-is).
+
+        Returns
+        -------
+        PartitioningFactory
+            To be used in the FileSystemFactoryOptions.
+        """
+        cdef:
+            CPartitioningFactoryOptions c_options
+            vector[c_string] c_field_names
+
+        if infer_dictionary:
+            c_options.infer_dictionary = True
+
+        if schema:
+            c_options.schema = pyarrow_unwrap_schema(schema)
+            c_field_names = [tobytes(f.name) for f in schema]
+        elif not field_names:
+            raise TypeError(
+                "Neither field_names nor schema was passed; "
+                "cannot infer field_names")
+        else:
+            c_field_names = [tobytes(s) for s in field_names]
+
+        c_options.segment_encoding = _get_segment_encoding(segment_encoding)
+
+        return PartitioningFactory.wrap(
+            CFilenamePartitioning.MakeFactory(c_field_names, c_options))
 
 
 cdef class DatasetFactory(_Weakrefable):
@@ -1946,8 +2046,10 @@ class TaggedRecordBatch(collections.namedtuple(
 
     Parameters
     ----------
-    record_batch : The record batch.
-    fragment : fragment of the record batch.
+    record_batch : RecordBatch
+        The record batch.
+    fragment : Fragment
+        Fragment of the record batch.
     """
 
 
@@ -2042,15 +2144,24 @@ cdef class Scanner(_Weakrefable):
     dataset : Dataset
         Dataset to scan.
     columns : list of str or dict, default None
-        The columns to project. This can be a list of column names to include
-        (order and duplicates will be preserved), or a dictionary with
-        {new_column_name: expression} values for more advanced projections.
+        The columns to project. This can be a list of column names to
+        include (order and duplicates will be preserved), or a dictionary
+        with {{new_column_name: expression}} values for more advanced
+        projections.
+
+        The list of columns or expressions may use the special fields
+        `__batch_index` (the index of the batch within the fragment), 
+        `__fragment_index` (the index of the fragment within the dataset), 
+        `__last_in_fragment` (whether the batch is last in fragment), and
+        `__filename` (the name of the source file or a description of the 
+        source fragment).
+
         The columns will be passed down to Datasets and corresponding data
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
-        By default all of the available columns are projected. Raises
-        an exception if any of the referenced column names does not exist
-        in the dataset's Schema.
+        By default all of the available columns are projected. 
+        Raises an exception if any of the referenced column names does 
+        not exist in the dataset's Schema.
     filter : Expression, default None
         Scan will return only the rows matching the filter.
         If possible the predicate will be pushed down to exploit the
@@ -2111,6 +2222,14 @@ cdef class Scanner(_Weakrefable):
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
             projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment), 
+            `__fragment_index` (the index of the fragment within the dataset), 
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the 
+            source fragment).
+
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -2181,6 +2300,14 @@ cdef class Scanner(_Weakrefable):
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
             projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment), 
+            `__fragment_index` (the index of the fragment within the dataset), 
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the 
+            source fragment).
+
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -2427,7 +2554,12 @@ cdef class Scanner(_Weakrefable):
         return GetResultValue(result)
 
     def to_reader(self):
-        """Consume this scanner as a RecordBatchReader."""
+        """Consume this scanner as a RecordBatchReader.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
         reader.reader = GetResultValue(self.scanner.ToRecordBatchReader())

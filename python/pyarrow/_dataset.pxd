@@ -42,6 +42,20 @@ cdef class DatasetFactory(_Weakrefable):
     cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil
 
 
+cdef class Dataset(_Weakrefable):
+
+    cdef:
+        shared_ptr[CDataset] wrapped
+        CDataset* dataset
+
+    cdef void init(self, const shared_ptr[CDataset]& sp)
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CDataset]& sp)
+
+    cdef shared_ptr[CDataset] unwrap(self) nogil
+
+
 cdef class FragmentScanOptions(_Weakrefable):
 
     cdef:

@@ -1781,17 +1781,16 @@ extern "C" SEXP _arrow_engine__internal__SubstraitFromJSON(SEXP substrait_json_s
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ENGINE)
-std::shared_ptr<arrow::Table> ExecPlan_run_substrait(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::Buffer>& serialized_plan, cpp11::strings out_names);
-extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp, SEXP out_names_sexp){
+std::shared_ptr<arrow::Table> ExecPlan_run_substrait(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::Buffer>& serialized_plan);
+extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type serialized_plan(serialized_plan_sexp);
-	arrow::r::Input<cpp11::strings>::type out_names(out_names_sexp);
-	return cpp11::as_sexp(ExecPlan_run_substrait(plan, serialized_plan, out_names));
+	return cpp11::as_sexp(ExecPlan_run_substrait(plan, serialized_plan));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp, SEXP out_names_sexp){
+extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp){
 	Rf_error("Cannot call ExecPlan_run_substrait(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -4165,6 +4164,147 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_compute___expr__type_id(SEXP x_sexp, SEXP schema_sexp){
 	Rf_error("Cannot call compute___expr__type_id(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::environment ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_class);
+extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_class_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type storage_type(storage_type_sexp);
+	arrow::r::Input<std::string>::type extension_name(extension_name_sexp);
+	arrow::r::Input<cpp11::raws>::type extension_metadata(extension_metadata_sexp);
+	arrow::r::Input<cpp11::environment>::type r6_class(r6_class_sexp);
+	return cpp11::as_sexp(ExtensionType__initialize(storage_type, extension_name, extension_metadata, r6_class));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_class_sexp){
+	Rf_error("Cannot call ExtensionType__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string ExtensionType__extension_name(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__extension_name(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__extension_name(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__extension_name(SEXP type_sexp){
+	Rf_error("Cannot call ExtensionType__extension_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::raws ExtensionType__Serialize(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__Serialize(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__Serialize(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__Serialize(SEXP type_sexp){
+	Rf_error("Cannot call ExtensionType__Serialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> ExtensionType__storage_type(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__storage_type(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__storage_type(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__storage_type(SEXP type_sexp){
+	Rf_error("Cannot call ExtensionType__storage_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> ExtensionType__MakeArray(const std::shared_ptr<arrow::ExtensionType>& type, const std::shared_ptr<arrow::ArrayData>& data);
+extern "C" SEXP _arrow_ExtensionType__MakeArray(SEXP type_sexp, SEXP data_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type data(data_sexp);
+	return cpp11::as_sexp(ExtensionType__MakeArray(type, data));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__MakeArray(SEXP type_sexp, SEXP data_sexp){
+	Rf_error("Cannot call ExtensionType__MakeArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::environment ExtensionType__r6_class(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__r6_class(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__r6_class(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__r6_class(SEXP type_sexp){
+	Rf_error("Cannot call ExtensionType__r6_class(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> ExtensionArray__storage(const std::shared_ptr<arrow::ExtensionArray>& array);
+extern "C" SEXP _arrow_ExtensionArray__storage(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionArray>&>::type array(array_sexp);
+	return cpp11::as_sexp(ExtensionArray__storage(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionArray__storage(SEXP array_sexp){
+	Rf_error("Cannot call ExtensionArray__storage(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void arrow__RegisterRExtensionType(const std::shared_ptr<arrow::DataType>& type);
+extern "C" SEXP _arrow_arrow__RegisterRExtensionType(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow__RegisterRExtensionType(type);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_arrow__RegisterRExtensionType(SEXP type_sexp){
+	Rf_error("Cannot call arrow__RegisterRExtensionType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void arrow__UnregisterRExtensionType(std::string type_name);
+extern "C" SEXP _arrow_arrow__UnregisterRExtensionType(SEXP type_name_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type type_name(type_name_sexp);
+	arrow__UnregisterRExtensionType(type_name);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_arrow__UnregisterRExtensionType(SEXP type_name_sexp){
+	Rf_error("Cannot call arrow__UnregisterRExtensionType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6823,6 +6963,37 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
+// safe-call-into-r-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void InitializeMainRThread();
+extern "C" SEXP _arrow_InitializeMainRThread(){
+BEGIN_CPP11
+	InitializeMainRThread();
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_InitializeMainRThread(){
+	Rf_error("Cannot call InitializeMainRThread(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// safe-call-into-r-impl.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::string opt);
+extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP r_fun_that_returns_a_string_sexp, SEXP opt_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::function>::type r_fun_that_returns_a_string(r_fun_that_returns_a_string_sexp);
+	arrow::r::Input<std::string>::type opt(opt_sexp);
+	return cpp11::as_sexp(TestSafeCallIntoR(r_fun_that_returns_a_string, opt));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP r_fun_that_returns_a_string_sexp, SEXP opt_sexp){
+	Rf_error("Cannot call TestSafeCallIntoR(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
@@ -7708,12 +7879,12 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
-		{ "_engine_available", (DL_FUNC)& _engine_available, 0 },
-		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
-		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-		{ "_json_available", (DL_FUNC)& _json_available, 0 },
+{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+{ "_engine_available", (DL_FUNC)& _engine_available, 0 },
+{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
+{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
@@ -7827,7 +7998,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_TableSourceNode", (DL_FUNC) &_arrow_ExecNode_TableSourceNode, 2}, 
 		{ "_arrow_engine__internal__SubstraitToJSON", (DL_FUNC) &_arrow_engine__internal__SubstraitToJSON, 1}, 
 		{ "_arrow_engine__internal__SubstraitFromJSON", (DL_FUNC) &_arrow_engine__internal__SubstraitFromJSON, 1}, 
-		{ "_arrow_ExecPlan_run_substrait", (DL_FUNC) &_arrow_ExecPlan_run_substrait, 3}, 
+		{ "_arrow_ExecPlan_run_substrait", (DL_FUNC) &_arrow_ExecPlan_run_substrait, 2}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
@@ -7981,6 +8152,15 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute___expr__ToString", (DL_FUNC) &_arrow_compute___expr__ToString, 1}, 
 		{ "_arrow_compute___expr__type", (DL_FUNC) &_arrow_compute___expr__type, 2}, 
 		{ "_arrow_compute___expr__type_id", (DL_FUNC) &_arrow_compute___expr__type_id, 2}, 
+		{ "_arrow_ExtensionType__initialize", (DL_FUNC) &_arrow_ExtensionType__initialize, 4}, 
+		{ "_arrow_ExtensionType__extension_name", (DL_FUNC) &_arrow_ExtensionType__extension_name, 1}, 
+		{ "_arrow_ExtensionType__Serialize", (DL_FUNC) &_arrow_ExtensionType__Serialize, 1}, 
+		{ "_arrow_ExtensionType__storage_type", (DL_FUNC) &_arrow_ExtensionType__storage_type, 1}, 
+		{ "_arrow_ExtensionType__MakeArray", (DL_FUNC) &_arrow_ExtensionType__MakeArray, 2}, 
+		{ "_arrow_ExtensionType__r6_class", (DL_FUNC) &_arrow_ExtensionType__r6_class, 1}, 
+		{ "_arrow_ExtensionArray__storage", (DL_FUNC) &_arrow_ExtensionArray__storage, 1}, 
+		{ "_arrow_arrow__RegisterRExtensionType", (DL_FUNC) &_arrow_arrow__RegisterRExtensionType, 1}, 
+		{ "_arrow_arrow__UnregisterRExtensionType", (DL_FUNC) &_arrow_arrow__UnregisterRExtensionType, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
 		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 
@@ -8147,6 +8327,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
+		{ "_arrow_InitializeMainRThread", (DL_FUNC) &_arrow_InitializeMainRThread, 0}, 
+		{ "_arrow_TestSafeCallIntoR", (DL_FUNC) &_arrow_TestSafeCallIntoR, 2}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 

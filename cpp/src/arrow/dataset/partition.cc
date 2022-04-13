@@ -61,6 +61,18 @@ Result<std::string> SafeUriUnescape(util::string_view encoded) {
   }
   return decoded;
 }
+
+// Remove parts of the path after the last filename partition
+// separator. For example, 12_a_part-0.parquet will become 12_a_
+std::string StripNonPrefix(const std::string& path) {
+  std::string v;
+  auto non_prefix_index = path.rfind(kFilenamePartitionSep);
+  if (non_prefix_index != std::string::npos) {
+    v = path.substr(0, non_prefix_index + 1);
+  }
+  return v;
+}
+
 }  // namespace
 
 std::shared_ptr<Partitioning> Partitioning::Default() {
@@ -74,7 +86,7 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
       return compute::literal(true);
     }
 
-    Result<std::string> Format(const compute::Expression& expr) const override {
+    Result<PartitionPathFormat> Format(const compute::Expression& expr) const override {
       return Status::NotImplemented("formatting paths from ", type_name(),
                                     " Partitioning");
     }
@@ -251,7 +263,8 @@ Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path)
   return and_(std::move(expressions));
 }
 
-Result<std::string> KeyValuePartitioning::Format(const compute::Expression& expr) const {
+Result<Partitioning::PartitionPathFormat> KeyValuePartitioning::Format(
+    const compute::Expression& expr) const {
   ScalarVector values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
@@ -292,19 +305,46 @@ Result<std::string> KeyValuePartitioning::Format(const compute::Expression& expr
   return FormatValues(values);
 }
 
-DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
-                                             ArrayVector dictionaries,
-                                             KeyValuePartitioningOptions options)
-    : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
-  util::InitializeUTF8();
+inline util::optional<int> NextValid(const ScalarVector& values, int first_null) {
+  auto it = std::find_if(values.begin() + first_null + 1, values.end(),
+                         [](const std::shared_ptr<Scalar>& v) { return v != nullptr; });
+
+  if (it == values.end()) {
+    return util::nullopt;
+  }
+
+  return static_cast<int>(it - values.begin());
 }
 
-Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
-    const std::string& path) const {
-  std::vector<Key> keys;
+Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
+    const ScalarVector& values) const {
+  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
+  for (int i = 0; i < schema_->num_fields(); ++i) {
+    if (values[i] != nullptr && values[i]->is_valid) {
+      segments[i] = values[i]->ToString();
+      continue;
+    }
+
+    if (auto illegal_index = NextValid(values, i)) {
+      // XXX maybe we should just ignore keys provided after the first absent one?
+      return Status::Invalid("No partition key for ", schema_->field(i)->name(),
+                             " but a key was provided subsequently for ",
+                             schema_->field(*illegal_index)->name(), ".");
+    }
+
+    // if all subsequent keys are absent we'll just print the available keys
+    break;
+  }
+  return segments;
+}
+
+Result<std::vector<KeyValuePartitioning::Key>>
+KeyValuePartitioning::ParsePartitionSegments(
+    const std::vector<std::string>& segments) const {
   int i = 0;
-  for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
+  std::vector<Key> keys;
+  for (auto&& segment : segments) {
     if (i >= schema_->num_fields()) break;
 
     switch (options_.segment_encoding) {
@@ -325,43 +365,50 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
                                       options_.segment_encoding);
     }
   }
-
   return keys;
 }
 
-inline util::optional<int> NextValid(const ScalarVector& values, int first_null) {
-  auto it = std::find_if(values.begin() + first_null + 1, values.end(),
-                         [](const std::shared_ptr<Scalar>& v) { return v != nullptr; });
-
-  if (it == values.end()) {
-    return util::nullopt;
-  }
-
-  return static_cast<int>(it - values.begin());
+DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
+                                             ArrayVector dictionaries,
+                                             KeyValuePartitioningOptions options)
+    : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
+  util::InitializeUTF8();
 }
 
-Result<std::string> DirectoryPartitioning::FormatValues(
+Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
+    const std::string& path) const {
+  std::vector<std::string> segments = fs::internal::SplitAbstractPath(path);
+  return ParsePartitionSegments(segments);
+}
+
+FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
+                                           ArrayVector dictionaries,
+                                           KeyValuePartitioningOptions options)
+    : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
+  util::InitializeUTF8();
+}
+
+Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
+    const std::string& path) const {
+  std::vector<std::string> segments =
+      fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+  return ParsePartitionSegments(segments);
+}
+
+Result<Partitioning::PartitionPathFormat> DirectoryPartitioning::FormatValues(
     const ScalarVector& values) const {
-  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
+  std::vector<std::string> segments;
+  ARROW_ASSIGN_OR_RAISE(segments, FormatPartitionSegments(values));
+  return PartitionPathFormat{fs::internal::JoinAbstractPath(std::move(segments)), ""};
+}
 
-  for (int i = 0; i < schema_->num_fields(); ++i) {
-    if (values[i] != nullptr && values[i]->is_valid) {
-      segments[i] = values[i]->ToString();
-      continue;
-    }
-
-    if (auto illegal_index = NextValid(values, i)) {
-      // XXX maybe we should just ignore keys provided after the first absent one?
-      return Status::Invalid("No partition key for ", schema_->field(i)->name(),
-                             " but a key was provided subsequently for ",
-                             schema_->field(*illegal_index)->name(), ".");
-    }
-
-    // if all subsequent keys are absent we'll just print the available keys
-    break;
-  }
-
-  return fs::internal::JoinAbstractPath(std::move(segments));
+Result<Partitioning::PartitionPathFormat> FilenamePartitioning::FormatValues(
+    const ScalarVector& values) const {
+  std::vector<std::string> segments;
+  ARROW_ASSIGN_OR_RAISE(segments, FormatPartitionSegments(values));
+  return Partitioning::PartitionPathFormat{
+      "", fs::internal::JoinAbstractPath(std::move(segments), kFilenamePartitionSep) +
+              kFilenamePartitionSep};
 }
 
 KeyValuePartitioningOptions PartitioningFactoryOptions::AsPartitioningOptions() const {
@@ -488,6 +535,33 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
                                                                utf8());
   }
 
+  Status InspectPartitionSegments(std::vector<std::string> segments,
+                                  const std::vector<std::string>& field_names) {
+    size_t field_index = 0;
+    for (auto&& segment : segments) {
+      if (field_index == field_names.size()) break;
+
+      switch (options_.segment_encoding) {
+        case SegmentEncoding::None: {
+          if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
+            return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
+          }
+          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
+          break;
+        }
+        case SegmentEncoding::Uri: {
+          ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
+          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
+          break;
+        }
+        default:
+          return Status::NotImplemented("Unknown segment encoding: ",
+                                        options_.segment_encoding);
+      }
+    }
+    return Status::OK();
+  }
+
   PartitioningFactoryOptions options_;
   ArrayVector dictionaries_;
   std::unordered_map<std::string, int> name_to_index_;
@@ -508,30 +582,10 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) override {
     for (auto path : paths) {
-      size_t field_index = 0;
-      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
-        if (field_index == field_names_.size()) break;
-
-        switch (options_.segment_encoding) {
-          case SegmentEncoding::None: {
-            if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
-              return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
-            }
-            RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
-            break;
-          }
-          case SegmentEncoding::Uri: {
-            ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
-            RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
-            break;
-          }
-          default:
-            return Status::NotImplemented("Unknown segment encoding: ",
-                                          options_.segment_encoding);
-        }
-      }
+      std::vector<std::string> segments;
+      segments = fs::internal::SplitAbstractPath(path);
+      RETURN_NOT_OK(InspectPartitionSegments(segments, field_names_));
     }
-
     return DoInspect();
   }
 
@@ -561,12 +615,66 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
   std::vector<std::string> field_names_;
 };
 
+class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
+ public:
+  FilenamePartitioningFactory(std::vector<std::string> field_names,
+                              PartitioningFactoryOptions options)
+      : KeyValuePartitioningFactory(options), field_names_(std::move(field_names)) {
+    Reset();
+    util::InitializeUTF8();
+  }
+
+  std::string type_name() const override { return "filename"; }
+
+  Result<std::shared_ptr<Schema>> Inspect(
+      const std::vector<std::string>& paths) override {
+    for (const auto& path : paths) {
+      std::vector<std::string> segments;
+      segments =
+          fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+      RETURN_NOT_OK(InspectPartitionSegments(segments, field_names_));
+    }
+    return DoInspect();
+  }
+
+  Result<std::shared_ptr<Partitioning>> Finish(
+      const std::shared_ptr<Schema>& schema) const override {
+    for (FieldRef ref : field_names_) {
+      // ensure all of field_names_ are present in schema
+      RETURN_NOT_OK(ref.FindOne(*schema).status());
+    }
+
+    // drop fields which aren't in field_names_
+    auto out_schema = SchemaFromColumnNames(schema, field_names_);
+
+    return std::make_shared<FilenamePartitioning>(std::move(out_schema), dictionaries_,
+                                                  options_.AsPartitioningOptions());
+  }
+
+ private:
+  void Reset() override {
+    KeyValuePartitioningFactory::Reset();
+
+    for (const auto& name : field_names_) {
+      GetOrInsertField(name);
+    }
+  }
+
+  std::vector<std::string> field_names_;
+};
+
 }  // namespace
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
     std::vector<std::string> field_names, PartitioningFactoryOptions options) {
   return std::shared_ptr<PartitioningFactory>(
       new DirectoryPartitioningFactory(std::move(field_names), options));
+}
+
+std::shared_ptr<PartitioningFactory> FilenamePartitioning::MakeFactory(
+    std::vector<std::string> field_names, PartitioningFactoryOptions options) {
+  return std::shared_ptr<PartitioningFactory>(
+      new FilenamePartitioningFactory(std::move(field_names), options));
 }
 
 Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
@@ -623,7 +731,8 @@ Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
   return keys;
 }
 
-Result<std::string> HivePartitioning::FormatValues(const ScalarVector& values) const {
+Result<Partitioning::PartitionPathFormat> HivePartitioning::FormatValues(
+    const ScalarVector& values) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
   for (int i = 0; i < schema_->num_fields(); ++i) {
@@ -640,7 +749,8 @@ Result<std::string> HivePartitioning::FormatValues(const ScalarVector& values) c
     }
   }
 
-  return fs::internal::JoinAbstractPath(std::move(segments));
+  return Partitioning::PartitionPathFormat{
+      fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
 
 class HivePartitioningFactory : public KeyValuePartitioningFactory {

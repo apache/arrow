@@ -90,6 +90,7 @@ jobs:
           ulimit -c unlimited
           archery docker run \
             -e ARROW_FLIGHT=ON \
+            -e ARROW_GCS=ON \
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
             ubuntu-ruby
@@ -110,6 +111,7 @@ jobs:
       ARROW_BUILD_TESTS: OFF
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_GLIB_GTK_DOC: true
       ARROW_GLIB_WERROR: true
       ARROW_HOME: /usr/local
@@ -188,6 +190,7 @@ jobs:
       ARROW_BUILD_TYPE: release
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /ucrt${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
