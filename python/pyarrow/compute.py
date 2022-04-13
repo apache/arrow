@@ -603,7 +603,7 @@ def field(*name_or_index):
 
     Parameters
     ----------
-    name_or_index : string, multiple strings, tuple or int
+    *name_or_index : string, multiple strings, tuple or int
         The name or index of the (possibly nested) field the expression
         references to.
 
