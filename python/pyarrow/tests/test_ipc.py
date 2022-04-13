@@ -552,8 +552,9 @@ def test_read_options():
 
     options.included_fields = [0, 1]
     assert options.included_fields == [0, 1]
-    options.included_fields = None
-    assert options.included_fields == []
+
+    with pytest.raises(TypeError):
+        options.included_fields = None
 
     options = pa.ipc.IpcReadOptions(
         use_threads=False, ensure_native_endian=False,
@@ -567,7 +568,11 @@ def test_read_options():
 def test_read_options_included_fields(stream_fixture):
     options1 = pa.ipc.IpcReadOptions()
     options2 = pa.ipc.IpcReadOptions(included_fields=[1])
-    stream_fixture.write_batches()
+    table = pa.Table.from_arrays([pa.array(['foo', 'bar', 'baz', 'qux']),
+                                 pa.array([1, 2, 3, 4])],
+                                 names=['a', 'b'])
+    with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
+        wr.write_table(table)
     source = stream_fixture.get_source()
 
     reader1 = pa.ipc.open_stream(source, options=options1)
@@ -580,7 +585,9 @@ def test_read_options_included_fields(stream_fixture):
     assert result1.num_columns == 2
     assert result2.num_columns == 1
 
-    assert result2[0] == result1[1]
+    expected = pa.Table.from_arrays([pa.array([1, 2, 3, 4])], names=["b"])
+    assert result2 == expected
+    assert result1 == table
 
 
 def test_dictionary_delta(format_fixture):
