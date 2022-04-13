@@ -781,6 +781,9 @@ write_batch_size : int, default None
     1024. ``write_batch_size`` is complementary to ``data_page_size``. If pages
     are exceeding the ``data_page_size`` due to large column values, lowering
     the batch size can help keep page sizes closer to the intended size.
+dictionary_pagesize_limit : int, default None
+    Specify the dictionary page size limit per row group. If None, use the
+    default 1MB.
 """
 
 _parquet_writer_example_doc = """\
@@ -871,6 +874,7 @@ Examples
                  use_compliant_nested_type=False,
                  encryption_properties=None,
                  write_batch_size=None,
+                 dictionary_pagesize_limit=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -925,6 +929,7 @@ Examples
             use_compliant_nested_type=use_compliant_nested_type,
             encryption_properties=encryption_properties,
             write_batch_size=write_batch_size,
+            dictionary_pagesize_limit=dictionary_pagesize_limit,
             **options)
         self.is_open = True
 
@@ -2820,6 +2825,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_compliant_nested_type=False,
                 encryption_properties=None,
                 write_batch_size=None,
+                dictionary_pagesize_limit=None,
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -2843,6 +2849,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_compliant_nested_type=use_compliant_nested_type,
                 encryption_properties=encryption_properties,
                 write_batch_size=write_batch_size,
+                dictionary_pagesize_limit=dictionary_pagesize_limit,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
