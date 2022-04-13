@@ -51,11 +51,9 @@ public class ArrowFlightStatement extends AvaticaStatement implements ArrowFligh
       return null;
     }
 
-    if (signature.columns.isEmpty()) {
-      final Schema resultSetSchema = preparedStatement.getDataSetSchema();
-      signature.columns.addAll(ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
-      setSignature(signature);
-    }
+    final Schema resultSetSchema = preparedStatement.getDataSetSchema();
+    signature.columns.addAll(ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
+    setSignature(signature);
 
     return preparedStatement.executeQuery();
   }
