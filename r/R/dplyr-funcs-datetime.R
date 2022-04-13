@@ -323,7 +323,7 @@ register_bindings_duration <- function() {
     } else if (length(chunks) == 0) {
       duration <- num
     } else {
-      duration <- num + duration_from_chunks(chunks)
+      abort("`make_difftime()` with both `num` and `...` not supported in Arrow")
     }
     duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
     duration$cast(duration("s"))

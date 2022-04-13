@@ -1206,7 +1206,8 @@ test_that("make_difftime()", {
           hour = hours,
           day = days,
           week = weeks,
-          units = "secs"),
+          units = "secs"
+        ),
         duration_from_num = make_difftime(
           num = number,
           units =  "secs"
@@ -1234,5 +1235,27 @@ test_that("make_difftime()", {
       collect(),
     test_df,
     warning = TRUE
+  )
+
+  # constructing a difftime from both `num` and parts passed through `...` while
+  # possible with the lubridate function (resulting in a concatenation of the 2
+  # resulting objects), it errors in a dplyr context
+  expect_error(
+    expect_warning(
+      test_df %>%
+        arrow_table() %>%
+        mutate(
+          duration_from_num_and_parts = make_difftime(
+            num = number,
+            second = seconds,
+            minute = minutes,
+            hour = hours,
+            day = days,
+            week = weeks,
+            units = "secs"
+          )
+        ) %>%
+        collect()
+    )
   )
 })
