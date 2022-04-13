@@ -219,18 +219,6 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
   # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
   set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} thrift::thrift)
-
-  # Although we don't link parquet_objlib against anything, we need it to depend
-  # on these libs as we may generate their headers via ExternalProject_Add
-  if(ARROW_BUILD_SHARED)
-    set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} ${PARQUET_SHARED_LINK_LIBS}
-                             ${PARQUET_SHARED_PRIVATE_LINK_LIBS})
-  endif()
-
-  if(ARROW_BUILD_STATIC)
-    set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} ${PARQUET_STATIC_LINK_LIBS})
-  endif()
-
 endif(NOT PARQUET_MINIMAL_DEPENDENCY)
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
@@ -249,8 +237,6 @@ add_arrow_lib(parquet
               "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
               OUTPUTS
               PARQUET_LIBRARIES
-              DEPENDENCIES
-              ${PARQUET_DEPENDENCIES}
               SHARED_LINK_FLAGS
               ${PARQUET_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
