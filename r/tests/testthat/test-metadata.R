@@ -152,6 +152,7 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
+
   expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
 })
 
@@ -182,7 +183,7 @@ test_that("haven types roundtrip via feather", {
 
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
-  expect_r6_class(rb$schema$posixlt$type, "StructType")
+  expect_r6_class(rb$schema$posixlt$type, "VctrsExtensionType")
   expect_identical(as.data.frame(rb), example_with_times)
 })
 
@@ -307,31 +308,6 @@ test_that("Dataset writing does handle other metadata", {
       select(a, b, c, d) %>%
       collect(),
     example_with_metadata
-  )
-})
-
-test_that("When we encounter SF cols, we warn", {
-  df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
-  class(df$x) <- c("sfc_MULTIPOLYGON", "sfc", "list")
-
-  expect_warning(
-    tab <- Table$create(df),
-    "One of the columns given appears to be an"
-  )
-
-  # but the table was read fine, just sans (row-level) metadata
-  r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
-  expect_null(r_metadata$columns$x$columns)
-
-  # But we can re-enable this / read data that has already been written with
-  # row-level metadata without a warning
-  withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE),
-    {
-      expect_warning(tab <- Table$create(df), NA)
-      expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
-      expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
-    }
   )
 })
 

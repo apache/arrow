@@ -257,6 +257,27 @@ as_arrow_array.ChunkedArray <- function(x, ..., type = NULL) {
 
 #' @rdname as_arrow_array
 #' @export
+as_arrow_array.vctrs_vctr <- function(x, ..., type = NULL) {
+  if (is.null(type)) {
+    vctrs_extension_array(x)
+  } else if (inherits(type, "VctrsExtensionType")) {
+    vctrs_extension_array(
+      x,
+      ptype = type$ptype(),
+      storage_type = type$storage_type()
+    )
+  } else {
+    NextMethod()
+  }
+}
+
+#' @export
+as_arrow_array.POSIXlt <- function(x, ..., type = NULL) {
+  as_arrow_array.vctrs_vctr(x, ..., type =)
+}
+
+
+#' @export
 as_arrow_array.default <- function(x, ..., type = NULL, from_constructor = FALSE) {
   if (from_constructor && is.null(type)) {
     abort(

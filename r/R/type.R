@@ -92,6 +92,16 @@ type.ArrowDatum <- function(x, ...) x$type
 #' @export
 type.Expression <- function(x, ...) x$type()
 
+#' @export
+type.vctrs_vctr <- function(x, ...) {
+  vctrs_extension_type(vctrs::vec_ptype(x))
+}
+
+#' @export
+type.POSIXlt <- function(x, ...) {
+  type.vctrs_vctr(x, .)
+}
+
 #----- metadata
 
 #' @title class arrow::FixedWidthType

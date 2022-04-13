@@ -2,9 +2,15 @@
 % Please edit documentation in R/chunked-array.R
 \name{as_chunked_array}
 \alias{as_chunked_array}
+\alias{as_chunked_array.ChunkedArray}
+\alias{as_chunked_array.Array}
 \title{Convert an object to an Arrow ChunkedArray}
 \usage{
 as_chunked_array(x, ..., type = NULL)
+
+\method{as_chunked_array}{ChunkedArray}(x, ..., type = NULL)
+
+\method{as_chunked_array}{Array}(x, ..., type = NULL)
 }
 \arguments{
 \item{x}{An object to convert to an Arrow Chunked Array}

@@ -190,7 +190,7 @@ as_chunked_array <- function(x, ..., type = NULL) {
   UseMethod("as_chunked_array")
 }
 
-#' @rdname as_arrow_array
+#' @rdname as_chunked_array
 #' @export
 as_chunked_array.ChunkedArray <- function(x, ..., type = NULL) {
   if (is.null(type)) {
@@ -200,7 +200,7 @@ as_chunked_array.ChunkedArray <- function(x, ..., type = NULL) {
   }
 }
 
-#' @rdname as_arrow_array
+#' @rdname as_chunked_array
 #' @export
 as_chunked_array.Array <- function(x, ..., type = NULL) {
   if (is.null(type)) {
@@ -208,12 +208,6 @@ as_chunked_array.Array <- function(x, ..., type = NULL) {
   } else {
     chunked_array(x$cast(type))
   }
-}
-
-#' @rdname as_arrow_array
-#' @export
-as_chunked_array.vctrs_vctr <- function(x, ..., type = NULL) {
-  chunked_array(vctrs_extension_array(x))
 }
 
 #' @export

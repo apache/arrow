@@ -34,6 +34,7 @@
 #include <arrow/util/logging.h>
 
 #include "./r_task_group.h"
+#include "./safe-call-into-r.h"
 
 namespace arrow {
 
@@ -85,59 +86,55 @@ enum RVectorType {
 // because TYPEOF() is not detailed enough
 // we can't use arrow types though as there is no 1-1 mapping
 RVectorType GetVectorType(SEXP x) {
-  // Some S3 objects we handle internally; for others, we return OTHER
-  // to let as_chunked_array() handle the implementation
-  if (Rf_isObject(x)) {
-    if (Rf_inherits(x, "factor")) {
-      return FACTOR;
-    } else if (Rf_inherits(x, "Date") && TYPEOF(x) == INTSXP) {
-      return DATE_INT;
-    } else if (Rf_inherits(x, "Date") && TYPEOF(x) == REALSXP) {
-      return DATE_DBL;
-    } else if (Rf_inherits(x, "integer64")) {
-      return INT64;
-    } else if (Rf_inherits(x, "POSIXct")) {
-      return POSIXCT;
-    } else if (Rf_inherits(x, "hms")) {
-      return TIME;
-    } else if (Rf_inherits(x, "difftime")) {
-      return DURATION;
-    } else if (Rf_inherits(x, "data.frame")) {
-      return DATAFRAME;
-    } else if (Rf_inherits(x, "POSIXlt")) {
-      return POSIXLT;
-    } else if (Rf_inherits(x, "arrow_binary")) {
-      return BINARY;
-    } else if (Rf_inherits(x, "arrow_large_binary")) {
-      return BINARY;
-    } else if (Rf_inherits(x, "arrow_fixed_size_binary")) {
-      return BINARY;
-    } else if (Rf_inherits(x, "AsIs")) {
-      // Fall through to TYPEOF() result
-    } else {
-      return OTHER;
-    }
-  }
-
   switch (TYPEOF(x)) {
     case LGLSXP:
       return BOOLEAN;
     case RAWSXP:
       return UINT8;
     case INTSXP:
+      if (Rf_inherits(x, "factor")) {
+        return FACTOR;
+      } else if (Rf_inherits(x, "Date")) {
+        return DATE_INT;
+      }
       return INT32;
     case STRSXP:
       return STRING;
     case CPLXSXP:
       return COMPLEX;
-    case REALSXP:
-      return FLOAT64;
-    case VECSXP:
+    case REALSXP: {
+      if (Rf_inherits(x, "Date")) {
+        return DATE_DBL;
+      } else if (Rf_inherits(x, "integer64")) {
+        return INT64;
+      } else if (Rf_inherits(x, "POSIXct")) {
+        return POSIXCT;
+      } else if (Rf_inherits(x, "hms")) {
+        return TIME;
+      } else if (Rf_inherits(x, "difftime")) {
+        return DURATION;
+      } else {
+        return FLOAT64;
+      }
+    }
+    case VECSXP: {
+      if (Rf_inherits(x, "data.frame")) {
+        return DATAFRAME;
+      }
+
+      if (Rf_inherits(x, "POSIXlt")) {
+        return POSIXLT;
+      }
+
+      if (Rf_inherits(x, "arrow_binary")) {
+        return BINARY;
+      }
+
       return LIST;
+    }
     default:
       break;
   }
-
   return OTHER;
 }
 
@@ -273,16 +270,10 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
 
 class RExtensionConverter : public RConverter {
 public:
+
+  // This is not run in parallel by default, so it's safe to call into R here
   Status Extend(SEXP values, int64_t size, int64_t offset = 0) {
-    objects_.push_back(values);
-    return Status::OK();
-  }
-
-  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
-    std::vector<std::shared_ptr<Array>> arrays;
-    arrays.reserve(objects_.size());
-
-    for (R_xlen_t i = 0; i < objects_.size(); i++) {
+    try {
       cpp11::sexp type_r6;
       if (options().strict) {
         type_r6 = cpp11::as_sexp(options().type);
@@ -291,18 +282,30 @@ public:
       }
 
       cpp11::sexp as_array_result = cpp11::package("arrow")["as_arrow_array"](
-          objects_[i],
-          cpp11::named_arg("type") = type_r6,
-          cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
+        values,
+        cpp11::named_arg("type") = type_r6,
+        cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
+
+      if (!Rf_inherits(as_array_result, "Array")) {
+        return Status::Invalid("as_arrow_array() did not return object of type Array");
+      }
 
       auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(as_array_result);
+      arrays_.push_back(std::move(array));
+      return Status::OK();
+    } catch (cpp11::unwind_exception& e) {
+      return StatusUnwindProtect(e.token);
     }
+  }
 
-    return std::make_shared<ChunkedArray>(std::move(arrays));
+  // This is sometimes run in parallel so we can't call into R
+  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
+    return std::make_shared<ChunkedArray>(std::move(arrays_));
   }
 
 private:
   cpp11::writable::list objects_;
+  std::vector<std::shared_ptr<Array>> arrays_;
 };
 
 template <typename T, typename Enable = void>
@@ -1467,14 +1470,25 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       }
 
       // if unsuccessful: use RConverter api
-      auto converter_result =
-          arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
-              options.type, options, gc_memory_pool());
-      if (!converter_result.ok()) {
-        status = converter_result.status();
-        break;
+      std::unique_ptr<arrow::r::RConverter> converter;
+      if (arrow::r::can_convert_native(x)) {
+        auto converter_result = arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+            options.type, options, gc_memory_pool());
+        if (converter_result.ok()) {
+          converter = std::move(converter_result.ValueUnsafe());
+        } else {
+          status = converter_result.status();
+          break;
+        }
+      } else {
+        converter = std::unique_ptr<arrow::r::RConverter>(new arrow::r::RExtensionConverter());
+        status = converter->Construct(options.type, options, gc_memory_pool());
+        if (!status.ok()) {
+          break;
+        }
       }
-      converters[j] = std::move(converter_result.ValueUnsafe());
+
+      converters[j] = std::move(converter);
     }
   }
 

@@ -126,7 +126,6 @@ static inline bool can_convert_native(SEXP x) {
     Rf_inherits(x, "hms") ||
     Rf_inherits(x, "difftime") ||
     Rf_inherits(x, "data.frame") ||
-    Rf_inherits(x, "POSIXlt") ||
     Rf_inherits(x, "arrow_binary") ||
     Rf_inherits(x, "arrow_large_binary") ||
     Rf_inherits(x, "arrow_fixed_size_binary") ||
