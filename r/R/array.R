@@ -257,7 +257,26 @@ as_arrow_array.ChunkedArray <- function(x, ..., type = NULL) {
 
 #' @rdname as_arrow_array
 #' @export
-as_arrow_array.default <- function(x, ..., type = NULL) {
+as_arrow_array.default <- function(x, ..., type = NULL, from_constructor = FALSE) {
+  if (from_constructor && is.null(type)) {
+    abort(
+      sprintf(
+        "Can't create Array from object of type %s",
+        paste(class(x), collapse = " / ")
+      ),
+      class = "arrow_no_method_as_arrow_array"
+    )
+  } else if (from_constructor) {
+    abort(
+      sprintf(
+        "Can't create Array<%s> from object of type %s",
+        format(type$code()),
+        paste(class(x), collapse = " / ")
+      ),
+      class = "arrow_no_method_as_arrow_array"
+    )
+  }
+
   Array$create(x, type = type)
 }
 

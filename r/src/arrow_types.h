@@ -99,6 +99,22 @@ class RTasks;
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
 bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
+static inline bool can_convert_native(SEXP x) {
+  return !Rf_isObject(x) ||
+    Rf_inherits(x, "factor") ||
+    Rf_inherits(x, "Date") ||
+    Rf_inherits(x, "integer64") ||
+    Rf_inherits(x, "POSIXct") ||
+    Rf_inherits(x, "hms") ||
+    Rf_inherits(x, "difftime") ||
+    Rf_inherits(x, "data.frame") ||
+    Rf_inherits(x, "POSIXlt") ||
+    Rf_inherits(x, "arrow_binary") ||
+    Rf_inherits(x, "arrow_large_binary") ||
+    Rf_inherits(x, "arrow_fixed_size_binary") ||
+    Rf_inherits(x, "vctrs_unspecified") ||
+    Rf_inherits(x, "AsIs");
+}
 
 Status count_fields(SEXP lst, int* out);
 

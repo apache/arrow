@@ -1048,6 +1048,25 @@ test_that("as_arrow_array() works for ChunkedArray", {
   )
 })
 
+test_that("as_arrow_array() default method errors for impossible cases", {
+  vec <- structure(list(), class = "class_not_supported")
+
+  # check errors simulating a call from C++
+  expect_snapshot_error(as_arrow_array(vec, from_constructor = TRUE))
+  expect_snapshot_error(
+    as_arrow_array(vec, type = float64(), from_constructor = TRUE)
+  )
+
+  # check that the errors propagate through Array$create()
+  type.class_not_supported <- function(x, ...) {
+    float64()
+  }
+
+  # slightly different error if type was specified
+  expect_snapshot_error(as_arrow_array(vec))
+  expect_snapshot_error(as_arrow_array(vec, type = float64()))
+})
+
 test_that("concat_arrays works", {
   concat_empty <- concat_arrays()
   expect_true(concat_empty$type == null())

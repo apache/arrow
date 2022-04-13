@@ -16,7 +16,7 @@ as_arrow_array(x, ..., type = NULL)
 
 \method{as_arrow_array}{ChunkedArray}(x, ..., type = NULL)
 
-\method{as_arrow_array}{default}(x, ..., type = NULL)
+\method{as_arrow_array}{default}(x, ..., type = NULL, from_constructor = FALSE)
 
 \method{as_chunked_array}{ChunkedArray}(x, ..., type = NULL)
 

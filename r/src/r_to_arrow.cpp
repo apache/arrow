@@ -271,6 +271,40 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
   }
 };
 
+class RExtensionConverter : public RConverter {
+public:
+  Status Extend(SEXP values, int64_t size, int64_t offset = 0) {
+    objects_.push_back(values);
+    return Status::OK();
+  }
+
+  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
+    std::vector<std::shared_ptr<Array>> arrays;
+    arrays.reserve(objects_.size());
+
+    for (R_xlen_t i = 0; i < objects_.size(); i++) {
+      cpp11::sexp type_r6;
+      if (options().strict) {
+        type_r6 = cpp11::as_sexp(options().type);
+      } else {
+        type_r6 = R_NilValue;
+      }
+
+      cpp11::sexp as_array_result = cpp11::package("arrow")["as_arrow_array"](
+          objects_[i],
+          cpp11::named_arg("type") = type_r6,
+          cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
+
+      auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(as_array_result);
+    }
+
+    return std::make_shared<ChunkedArray>(std::move(arrays));
+  }
+
+private:
+  cpp11::writable::list objects_;
+};
+
 template <typename T, typename Enable = void>
 class RPrimitiveConverter;
 
@@ -1238,26 +1272,17 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   }
 
   // otherwise go through the converter api
-  auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
-      options.type, options, gc_memory_pool()));
-
-  Status extend_result = converter->Extend(x, options.size);
-  if (extend_result.ok()) {
-    return ValueOrStop(converter->ToChunkedArray());
-  }
-
-  // If the converter api fails and type was NULL, use as_arrow_array
-  if (extend_result.IsNotImplemented() && extend_result.message() == "Extend") {
-    auto type_r6 = cpp11::as_sexp(options.type);
-    cpp11::sexp as_chunked_array_result = cpp11::package("arrow")["as_chunked_array"](
-        x, cpp11::named_arg("type") = type_r6,
-        cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
-
-    return cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(as_chunked_array_result);
+  std::unique_ptr<RConverter> converter;
+  if (can_convert_native(x)) {
+    converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
+        options.type, options, gc_memory_pool()));
   } else {
-    StopIfNotOk(extend_result);
-    cpp11::stop("NotImplemented: Extend");
+    converter = std::unique_ptr<RConverter>(new RExtensionConverter());
+    StopIfNotOk(converter->Construct(type, options, gc_memory_pool()));
   }
+
+  StopIfNotOk(converter->Extend(x, options.size));
+  return ValueOrStop(converter->ToChunkedArray());
 }
 
 std::shared_ptr<arrow::Array> vec_to_arrow_Array(

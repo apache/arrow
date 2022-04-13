@@ -4,7 +4,7 @@
 \alias{type}
 \title{infer the arrow Array type from an R vector}
 \usage{
-type(x)
+type(x, ...)
 }
 \arguments{
 \item{x}{an R vector}

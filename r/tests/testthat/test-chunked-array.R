@@ -548,7 +548,12 @@ test_that("as_chunked_array() works for Array", {
 })
 
 test_that("as_chunked_array() default method errors for impossible cases", {
-  # vec <- vctrs::new_vctr(character(), class = "custom_class")
+  vec <- structure(list(), class = "class_not_supported")
+  type.class_not_supported <- function(x, ...) {
+    float64()
+  }
 
-  # as_chunked_array(vec, type = float64())
+  # slightly different error if type was specified
+  expect_snapshot_error(as_chunked_array(vec))
+  expect_snapshot_error(as_chunked_array(vec, type = float64()))
 })
