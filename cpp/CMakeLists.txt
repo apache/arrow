@@ -850,8 +850,10 @@ if(((ARROW_FLIGHT
 endif()
 
 if(NOT MSVC_TOOLCHAIN)
-  list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
-  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
+  add_library(arrow::dl INTERFACE IMPORTED)
+  target_link_libraries(arrow::dl INTERFACE ${CMAKE_DL_LIBS})
+  list(APPEND ARROW_LINK_LIBS arrow::dl)
+  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS arrow::dl)
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN
@@ -877,8 +879,8 @@ set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static ${ARROW_LINK_L
 set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared ${ARROW_LINK_LIBS}
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 
-if(NOT MSVC)
-  set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})
+if(TARGET arrow::dl)
+  list(APPEND ARROW_TEST_SHARED_LINK_LIBS arrow::dl)
 endif()
 
 if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
