@@ -1671,9 +1671,8 @@ class TableSelecter : public TypeVisitor {
         : order(order),
           type(GetPhysicalType(chunked_array->type())),
           chunks(GetPhysicalChunks(*chunked_array, type)),
-          chunk_pointers(GetArrayPointers(chunks)),
           null_count(chunked_array->null_count()),
-          resolver(chunk_pointers) {}
+          resolver(GetArrayPointers(chunks)) {}
 
     using LocationType = int64_t;
 
@@ -1687,7 +1686,6 @@ class TableSelecter : public TypeVisitor {
     const SortOrder order;
     const std::shared_ptr<DataType> type;
     const ArrayVector chunks;
-    const std::vector<const Array*> chunk_pointers;
     const int64_t null_count;
     const ChunkedArrayResolver resolver;
   };

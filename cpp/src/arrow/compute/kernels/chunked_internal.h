@@ -63,6 +63,9 @@ struct ResolvedChunk<Array> {
 };
 
 struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
+  ChunkedArrayResolver(const ChunkedArrayResolver& other)
+      : ::arrow::internal::ChunkResolver(other.chunks_), chunks_(other.chunks_) {}
+
   explicit ChunkedArrayResolver(const std::vector<const Array*>& chunks)
       : ::arrow::internal::ChunkResolver(chunks), chunks_(chunks) {}
 

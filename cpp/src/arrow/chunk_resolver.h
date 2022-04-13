@@ -39,9 +39,6 @@ struct ChunkResolver {
 
   explicit ChunkResolver(const RecordBatchVector& batches);
 
-  ChunkResolver(const ChunkResolver& other)
-      : offsets_(other.offsets_), cached_chunk_(other.cached_chunk_.load()) {}
-
   ChunkResolver(ChunkResolver&& other)
       : offsets_(std::move(other.offsets_)), cached_chunk_(other.cached_chunk_.load()) {}
 
