@@ -95,25 +95,19 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     }
   }
 
-  if(reticulate::py_module_available('pyarrow')){
-    old_pp <- Sys.getenv('PYTHONPATH', unset = NA)
-    Sys.setenv(PYTHONPATH = './inst')
-
-    message('Running flight demo server for tests.')
-    pid_flight <- sys::exec_background(
-      'python', 
-      c(
-        '-c',
-        '__import__(\"demo_flight_server\").DemoFlightServer(port=8089).serve()'
-       )
+  if (reticulate::py_module_available('pyarrow')) {
+      message('Running flight demo server for tests.'')
+      pid_flight <- sys::exec_background(
+          'python',
+          c(
+              -c',
+              paste0(
+                  '__import__(\"sys\").path.append(\"./inst\"); ',
+                  '__import__(\"demo_flight_server\").DemoFlightServer(port=8089).serve()'
+              )
+          )
       )
-    on.exit(tools::pskill(pid_flight), add = TRUE)
-
-    if (is.na(old_pp)) {
-        Sys.unsetenv('PYTHONPATH')
-    } else {
-        Sys.setenv(PYTHONPATH = old_pp)
-    }   
+      on.exit(tools::pskill(pid_flight), add = TRUE)
   }
 
   run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')
