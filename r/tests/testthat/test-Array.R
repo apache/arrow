@@ -502,7 +502,7 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   expect_as_vector(a, df)
 
   df <- structure(
-    list(col = structure(list(structure(list(list(structure(1))), class = "inner")), class = "outer")),
+    list(col = list(list(list(1)))),
     class = "data.frame", row.names = c(NA, -1L)
   )
   a <- Array$create(df)

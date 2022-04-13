@@ -179,6 +179,40 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
     return arrow::r::altrep::vec_to_arrow_altrep_bypass(x)->type();
   }
 
+  if (Rf_isObject(x)) {
+    // Need a better way to do this...these are all the special-cased S3 classes
+    if (Rf_inherits(x, "factor")) {
+
+    } else if (Rf_inherits(x, "Date")) {
+
+    } else if (Rf_inherits(x, "integer64")) {
+
+    } else if (Rf_inherits(x, "POSIXct")) {
+
+    } else if (Rf_inherits(x, "hms")) {
+
+    } else if (Rf_inherits(x, "difftime")) {
+
+    } else if (Rf_inherits(x, "data.frame")) {
+
+    } else if (Rf_inherits(x, "POSIXlt")) {
+
+    } else if (Rf_inherits(x, "arrow_binary")) {
+
+    } else if (Rf_inherits(x, "arrow_large_binary")) {
+
+    } else if (Rf_inherits(x, "arrow_fixed_size_binary")) {
+
+    } else if (Rf_inherits(x, "vctrs_unspecified")) {
+
+    } else if (Rf_inherits(x, "AsIs")) {
+
+    } else {
+      cpp11::sexp type_result = cpp11::package("arrow")["type"](x, cpp11::named_arg("from_array_infer_type") = true);
+      return cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(type_result);
+    }
+  }
+
   switch (TYPEOF(x)) {
     case ENVSXP:
       return InferArrowTypeFromVector<ENVSXP>(x);

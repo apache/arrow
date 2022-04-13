@@ -85,55 +85,59 @@ enum RVectorType {
 // because TYPEOF() is not detailed enough
 // we can't use arrow types though as there is no 1-1 mapping
 RVectorType GetVectorType(SEXP x) {
+  // Some S3 objects we handle internally; for others, we return OTHER
+  // to let as_chunked_array() handle the implementation
+  if (Rf_isObject(x)) {
+    if (Rf_inherits(x, "factor")) {
+      return FACTOR;
+    } else if (Rf_inherits(x, "Date") && TYPEOF(x) == INTSXP) {
+      return DATE_INT;
+    } else if (Rf_inherits(x, "Date") && TYPEOF(x) == REALSXP) {
+      return DATE_DBL;
+    } else if (Rf_inherits(x, "integer64")) {
+      return INT64;
+    } else if (Rf_inherits(x, "POSIXct")) {
+      return POSIXCT;
+    } else if (Rf_inherits(x, "hms")) {
+      return TIME;
+    } else if (Rf_inherits(x, "difftime")) {
+      return DURATION;
+    } else if (Rf_inherits(x, "data.frame")) {
+      return DATAFRAME;
+    } else if (Rf_inherits(x, "POSIXlt")) {
+      return POSIXLT;
+    } else if (Rf_inherits(x, "arrow_binary")) {
+      return BINARY;
+    } else if (Rf_inherits(x, "arrow_large_binary")) {
+      return BINARY;
+    } else if (Rf_inherits(x, "arrow_fixed_size_binary")) {
+      return BINARY;
+    } else if (Rf_inherits(x, "AsIs")) {
+      // Fall through to TYPEOF() result
+    } else {
+      return OTHER;
+    }
+  }
+
   switch (TYPEOF(x)) {
     case LGLSXP:
       return BOOLEAN;
     case RAWSXP:
       return UINT8;
     case INTSXP:
-      if (Rf_inherits(x, "factor")) {
-        return FACTOR;
-      } else if (Rf_inherits(x, "Date")) {
-        return DATE_INT;
-      }
       return INT32;
     case STRSXP:
       return STRING;
     case CPLXSXP:
       return COMPLEX;
-    case REALSXP: {
-      if (Rf_inherits(x, "Date")) {
-        return DATE_DBL;
-      } else if (Rf_inherits(x, "integer64")) {
-        return INT64;
-      } else if (Rf_inherits(x, "POSIXct")) {
-        return POSIXCT;
-      } else if (Rf_inherits(x, "hms")) {
-        return TIME;
-      } else if (Rf_inherits(x, "difftime")) {
-        return DURATION;
-      } else {
-        return FLOAT64;
-      }
-    }
-    case VECSXP: {
-      if (Rf_inherits(x, "data.frame")) {
-        return DATAFRAME;
-      }
-
-      if (Rf_inherits(x, "POSIXlt")) {
-        return POSIXLT;
-      }
-
-      if (Rf_inherits(x, "arrow_binary")) {
-        return BINARY;
-      }
-
+    case REALSXP:
+      return FLOAT64;
+    case VECSXP:
       return LIST;
-    }
     default:
       break;
   }
+
   return OTHER;
 }
 
@@ -1243,10 +1247,11 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   }
 
   // If the converter api fails and type was NULL, use as_arrow_array
-  if (!type_inferred && extend_result.IsNotImplemented() &&
-      extend_result.message() == "Extend") {
+  if (extend_result.IsNotImplemented() && extend_result.message() == "Extend") {
+    auto type_r6 = cpp11::as_sexp(options.type);
     cpp11::sexp as_chunked_array_result = cpp11::package("arrow")["as_chunked_array"](
-        x, cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
+        x, cpp11::named_arg("type") = type_r6,
+        cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
 
     return cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(as_chunked_array_result);
   } else {

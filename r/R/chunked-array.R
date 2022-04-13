@@ -210,11 +210,33 @@ as_chunked_array.Array <- function(x, ..., type = NULL) {
   }
 }
 
+#' @rdname as_arrow_array
+#' @export
+as_chunked_array.vctrs_vctr <- function(x, ..., type = NULL) {
+  chunked_array(vctrs_extension_array(x))
+}
+
 #' @export
 as_chunked_array.default <- function(x, ..., type = NULL, from_constructor = FALSE) {
-  # keeps chunked_array() from going in circles
-  if (from_constructor) {
-    stop("NotImplemented: Extend")
+  # keeps chunked_array() from going in circles and provides a nice error
+  # message when creating an Array/ChunkedArray is not possible
+  if (from_constructor && is.null(type)) {
+    abort(
+      sprintf(
+        "Can't create ChunkedArray from object of type %s",
+        paste(class(x), collapse = " / ")
+      ),
+      class = "arrow_no_method_as_chunked_array"
+    )
+  } else if (from_constructor) {
+    abort(
+      sprintf(
+        "Can't create ChunkedArray<%s> from object of type %s",
+        format(type$code()),
+        paste(class(x), collapse = " / ")
+      ),
+      class = "arrow_no_method_as_chunked_array"
+    )
   }
 
   chunked_array(as_arrow_array(x, ..., type = type))

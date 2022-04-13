@@ -546,3 +546,9 @@ test_that("as_chunked_array() works for Array", {
     chunked_array(Array$create(1:6, type = float64()))
   )
 })
+
+test_that("as_chunked_array() default method errors for impossible cases", {
+  # vec <- vctrs::new_vctr(character(), class = "custom_class")
+
+  # as_chunked_array(vec, type = float64())
+})

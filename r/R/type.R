@@ -69,16 +69,28 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' type(mtcars)
 #' type(Sys.Date())
 #' @export
-type <- function(x) UseMethod("type")
+type <- function(x, ...) UseMethod("type")
 
 #' @export
-type.default <- function(x) Array__infer_type(x)
+type.default <- function(x, ..., from_array_infer_type = FALSE) {
+  if (from_array_infer_type) {
+    abort(
+      sprintf(
+        "Can't infer Arrow data type from object inheriting from %s",
+        paste(class(x), collapse = " / ")
+      ),
+      class = "arrow_no_method_type"
+    )
+  }
+
+  Array__infer_type(x)
+}
 
 #' @export
-type.ArrowDatum <- function(x) x$type
+type.ArrowDatum <- function(x, ...) x$type
 
 #' @export
-type.Expression <- function(x) x$type()
+type.Expression <- function(x, ...) x$type()
 
 #----- metadata
 

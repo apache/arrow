@@ -7,6 +7,7 @@
 \alias{as_arrow_array.default}
 \alias{as_chunked_array.ChunkedArray}
 \alias{as_chunked_array.Array}
+\alias{as_chunked_array.vctrs_vctr}
 \title{Convert an object to an Arrow Array}
 \usage{
 as_arrow_array(x, ..., type = NULL)
@@ -20,6 +21,8 @@ as_arrow_array(x, ..., type = NULL)
 \method{as_chunked_array}{ChunkedArray}(x, ..., type = NULL)
 
 \method{as_chunked_array}{Array}(x, ..., type = NULL)
+
+\method{as_chunked_array}{vctrs_vctr}(x, ..., type = NULL)
 }
 \arguments{
 \item{x}{An object to convert to an Arrow Array}
