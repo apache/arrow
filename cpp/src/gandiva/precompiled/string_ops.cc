@@ -571,8 +571,8 @@ gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
     if (compare_lower_strings("false", 5, trimmed_data, trimmed_len)) return false;
   }
   // if no 'true', 'false', '0' or '1' value is found, set an error
-  gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
-  // gdv_fn_context_set_error_msg(context, data);
+  //gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
+  gdv_fn_context_set_error_msg(context, data);
 
   return false;
 }
