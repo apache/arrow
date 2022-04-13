@@ -401,7 +401,9 @@ duration_from_chunks <- function(chunks) {
   if (any(is.na(matched_chunks))) {
     abort(
       paste0(
-        "Invalid `difftime` parts: ",
+        "named `difftime` units other than: ",
+        oxford_paste(accepted_chunks, quote_symbol = "`"),
+        " not supported in Arrow. \nInvalid `difftime` parts: ",
         oxford_paste(names(chunks[is.na(matched_chunks)]), quote_symbol = "`")
       )
     )

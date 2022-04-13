@@ -1294,6 +1294,19 @@ test_that("make_difftime()", {
     test_df
   )
 
+  # named difftime parts other than `second`, `minute`, `hour`, `day` and `week`
+  # are not supported
+  expect_error(
+    expect_warning(
+      test_df %>%
+        arrow_table() %>%
+        mutate(
+          err_difftime = make_difftime(month = 2)
+        ) %>%
+        collect()
+    )
+  )
+
   # units other than "secs" not supported since they are the only ones in common
   # between R and Arrow
   compare_dplyr_binding(
