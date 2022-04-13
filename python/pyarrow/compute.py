@@ -591,35 +591,52 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
-def field(name_or_index):
+def field(*name_or_index):
     """Reference a column of the dataset.
 
     Stores only the field's name. Type and other information is known only when
     the expression is bound to a dataset having an explicit scheme.
 
-    Nested references are allowed by passing a tuple of names.
-    For example ``('foo', 'bar')`` references the field named "bar" inside
-    the field named "foo".
+    Nested references are allowed by passing multiple names or a tuple of
+    names. For example ``('foo', 'bar')`` references the field named "bar"
+    inside the field named "foo".
 
     Parameters
     ----------
-    name_or_index : string, tuple or int
+    name_or_index : string, multiple strings, tuple or int
         The name or index of the (possibly nested) field the expression
         references to.
 
     Returns
     -------
     field_expr : Expression
+
+    Examples
+    --------
+    >>> import pyarrow.compute as pc
+    >>> pc.field("a")
+    <pyarrow.compute.Expression a>
+    >>> pc.field(1)
+    <pyarrow.compute.Expression FieldPath(1)>
+    >>> pc.field(("a", "b"))
+    <pyarrow.compute.Expression FieldRef.Nested(FieldRef.Name(a) ...
+    >>> pc.field("a", "b")
+    <pyarrow.compute.Expression FieldRef.Nested(FieldRef.Name(a) ...
     """
-    if isinstance(name_or_index, str) or isinstance(name_or_index, int):
-        return Expression._field(name_or_index)
-    elif isinstance(name_or_index, tuple):
-        return Expression._nested_field(name_or_index)
+    n = len(name_or_index)
+    if n == 1:
+        if isinstance(name_or_index[0], (str, int)):
+            return Expression._field(name_or_index[0])
+        elif isinstance(name_or_index[0], tuple):
+            return Expression._nested_field(name_or_index[0])
+        else:
+            raise TypeError(
+                "field reference should be str, multiple str, tuple or "
+                f"integer, got {type(name_or_index[0])}"
+            )
+    # In case of multiple strings not supplied in a tuple
     else:
-        raise TypeError(
-            "field reference should be str, tuple or integer, "
-            f"got {type(name_or_index)}"
-        )
+        return Expression._nested_field(name_or_index)
 
 
 def scalar(value):
