@@ -81,32 +81,30 @@ Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
     *out = Datum(val);
     return Status::OK();
   } else {
-    return Status::Invalid("Not a supported output type");
+    PyTypeObject* type = result->ob_type;
+    const char* tp_name = type->tp_name;
+    return Status::Invalid("Not a supported output type: ", tp_name);
   }
   return Status::OK();
 }
 
-Status ScalarUdfBuilder::MakeFunction(PyObject* function,
-                                      const ScalarUdfOptions& options) {
+Status RegisterScalarFunction(PyObject* function, const ScalarUdfOptions& options) {
   if (function == nullptr) {
     return Status::Invalid("Python function cannot be null");
   }
-  Py_INCREF(function);
-  function_.reset(function);
-  if (!PyCallable_Check(function_.obj())) {
+  if (!PyCallable_Check(function)) {
     return Status::TypeError("Expected a callable Python object.");
   }
   auto doc = options.doc();
   auto arity = options.arity();
   auto exp_out_type = options.output_type();
-  scalar_func_ =
+  auto scalar_func =
       std::make_shared<compute::ScalarFunction>(options.name(), arity, std::move(doc));
-  auto func = function_.obj();
-  auto exec = [func, exp_out_type](compute::KernelContext* ctx,
-                                   const compute::ExecBatch& batch,
-                                   Datum* out) -> Status {
+  auto exec = [function, exp_out_type](compute::KernelContext* ctx,
+                                       const compute::ExecBatch& batch,
+                                       Datum* out) -> Status {
     PyAcquireGIL lock;
-    RETURN_NOT_OK(ExecuteFunction(batch, func, exp_out_type, out));
+    RETURN_NOT_OK(ExecuteFunction(batch, function, exp_out_type, out));
     return Status::OK();
   };
 
@@ -116,9 +114,9 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function,
       exec);
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
-  RETURN_NOT_OK(scalar_func_->AddKernel(std::move(kernel)));
+  RETURN_NOT_OK(scalar_func->AddKernel(std::move(kernel)));
   auto registry = compute::GetFunctionRegistry();
-  RETURN_NOT_OK(registry->AddFunction(std::move(scalar_func_)));
+  RETURN_NOT_OK(registry->AddFunction(std::move(scalar_func)));
   return Status::OK();
 }
 

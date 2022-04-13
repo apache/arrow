@@ -2703,9 +2703,4 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
         CScalarUdfOptions(c_string func_name, CArity arity, CFunctionDoc func_doc,
                           vector[CInputType] in_types, COutputType out_type)
 
-    cdef cppclass CUdfBuilder" arrow::py::UdfBuilder":
-        CUdfBuilder()
-
-    cdef cppclass CScalarUdfBuilder" arrow::py::ScalarUdfBuilder"(CUdfBuilder):
-        CScalarUdfBuilder()
-        CStatus MakeFunction(PyObject* function, const CScalarUdfOptions& options)
+    CStatus RegisterScalarFunction(PyObject* function, const CScalarUdfOptions& options)

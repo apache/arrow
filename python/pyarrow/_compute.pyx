@@ -2417,10 +2417,11 @@ def register_scalar_function(func_name, function_doc, in_types,
         A dictionary object with keys "summary" (str),
         and "description" (str).
     in_types : Dict[str, InputType]
-        Dictionary containing items with input type name, InputType
+        Dictionary containing items with input label, InputType
         objects which defines the arguments to the function.
-        The number of arguments specified here determines the
-        function arity.
+        The input label is a str that will be used to generate
+        documentation for the function. The number of arguments
+        specified here determines the function arity.
     out_type : DataType
         Output type of the function.
     function : callable
@@ -2474,7 +2475,6 @@ def register_scalar_function(func_name, function_doc, in_types,
         PyObject* c_function
         shared_ptr[CDataType] c_type
         COutputType* c_out_type
-        CScalarUdfBuilder* c_sc_builder
         CStatus st
         CScalarUdfOptions* c_options
 
@@ -2489,12 +2489,8 @@ def register_scalar_function(func_name, function_doc, in_types,
     num_args = -1
     if isinstance(in_types, dict):
         for in_type in in_types.values():
-            if isinstance(in_type, InputType):
-                in_tmp = (<InputType> in_type).input_type
-                c_in_types.push_back(in_tmp)
-            else:
-                raise TypeError(
-                    f"in_types must be a list of InputType, found {type(in_type)}")
+            in_tmp = (<InputType> in_type).input_type
+            c_in_types.push_back(in_tmp)
         function_doc["arg_names"] = in_types.keys()
         num_args = len(in_types)
     else:
@@ -2521,5 +2517,5 @@ def register_scalar_function(func_name, function_doc, in_types,
     # moment.
     c_options = new CScalarUdfOptions(c_func_name, c_arity, c_func_doc,
                                       c_in_types, deref(c_out_type))
-    c_sc_builder = new CScalarUdfBuilder()
-    check_status(c_sc_builder.MakeFunction(c_function, deref(c_options)))
+
+    check_status(RegisterScalarFunction(c_function, deref(c_options)))

@@ -81,16 +81,9 @@ class ARROW_PYTHON_EXPORT UdfBuilder {
   UdfBuilder() {}
 };
 
-class ARROW_PYTHON_EXPORT ScalarUdfBuilder : public UdfBuilder {
- public:
-  ScalarUdfBuilder() : UdfBuilder() {}
-
-  Status MakeFunction(PyObject* function, const ScalarUdfOptions& options);
-
- private:
-  OwnedRefNoGIL function_;
-  std::shared_ptr<compute::ScalarFunction> scalar_func_;
-};
+/// \brief register a Scalar user-defined-function from Python
+Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* function,
+                                                  const ScalarUdfOptions& options);
 
 }  // namespace py
 

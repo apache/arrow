@@ -63,8 +63,7 @@ arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecBatch& batch,
                              arrow::Datum* out) {
   // temp = x + y; return temp + z
   ARROW_ASSIGN_OR_RAISE(auto temp, cp::CallFunction("add", {batch[0], batch[1]}));
-  ARROW_ASSIGN_OR_RAISE(*out, cp::CallFunction("add", {temp, batch[2]}));
-  return arrow::Status::OK();
+  return cp::CallFunction("add", {temp, batch[2]}).Value(out);
 }
 
 arrow::Status Execute() {
