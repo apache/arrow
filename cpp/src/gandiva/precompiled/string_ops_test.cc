@@ -421,16 +421,20 @@ TEST(TestStringOps, TestCastVarcharToBool) {
   EXPECT_EQ(castBIT_utf8(ctx_ptr, "FaLsE", 5), false);
   EXPECT_FALSE(ctx.has_error());
 
-//  EXPECT_EQ(castBIT_utf8(ctx_ptr, "test", 4), false);
-//  EXPECT_TRUE(ctx.has_error());
-//  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid value for boolean"));
-//  ctx.Reset();
+  //  EXPECT_EQ(castBIT_utf8(ctx_ptr, "test", 4), false);
+  //  EXPECT_TRUE(ctx.has_error());
+  //  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid value for boolean"));
+  //  ctx.Reset();
 
   EXPECT_EQ(castBIT_utf8(ctx_ptr, "asdf", 4), false);
   EXPECT_TRUE(ctx.has_error());
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("asdf"));
   ctx.Reset();
 
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "asdf", 0), false);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("asdf"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastVarchar) {
