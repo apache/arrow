@@ -4310,3 +4310,93 @@ def test_dataset_null_to_dictionary_cast(tempdir, dataset_reader):
     )
     table = dataset_reader.to_table(fsds)
     assert table.schema == schema
+
+
+@pytest.mark.dataset
+def test_dataset_join(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="parquet")
+    ds1 = ds.dataset(tempdir / "t1")
+
+    t2 = pa.table({
+        "colB": [99, 2, 1],
+        "col3": ["Z", "B", "A"]
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="parquet")
+    ds2 = ds.dataset(tempdir / "t2")
+
+    result = ds1.join(ds2, "colA", "colB")
+    assert result.to_table() == pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"],
+        "col3": ["A", "B", None]
+    })
+
+    result = ds1.join(ds2, "colA", "colB", join_type="full outer")
+    assert result.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6, 99],
+        "col2": ["a", "b", "f", None],
+        "col3": ["A", "B", None, "Z"]
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_unique_key(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="parquet")
+    ds1 = ds.dataset(tempdir / "t1")
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "col3": ["Z", "B", "A"]
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="parquet")
+    ds2 = ds.dataset(tempdir / "t2")
+
+    result = ds1.join(ds2, "colA")
+    assert result.to_table() == pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"],
+        "col3": ["A", "B", None]
+    })
+
+    result = ds1.join(ds2, "colA", join_type="full outer", right_suffix="_r")
+    assert result.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6, 99],
+        "col2": ["a", "b", "f", None],
+        "col3": ["A", "B", None, "Z"]
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_collisions(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "colVals": ["a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="parquet")
+    ds1 = ds.dataset(tempdir / "t1")
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"]
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="parquet")
+    ds2 = ds.dataset(tempdir / "t2")
+
+    result = ds1.join(ds2, "colA", join_type="full outer", right_suffix="_r")
+    assert result.to_table().sort_by("colA") == pa.table([
+        [1, 2, 6, 99],
+        [10, 20, 60, None],
+        ["a", "b", "f", None],
+        [10, 20, None, 99],
+        ["A", "B", None, "Z"],
+    ], names=["colA", "colB", "colVals", "colB_r", "colVals_r"])

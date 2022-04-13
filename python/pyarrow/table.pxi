@@ -4724,7 +4724,8 @@ cdef class Table(_PandasConvertible):
             right_keys = keys
         return _pc()._exec_plan._perform_join(join_type, self, keys, right_table, right_keys,
                                               left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys)
+                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
+                                              output_type=Table)
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
