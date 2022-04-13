@@ -805,6 +805,8 @@ test_that("nested structs can be created from scalars and existing data frames",
 test_that("`as.Date()` and `as_date()`", {
   test_df <- tibble::tibble(
     posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Pacific/Marquesas"),
+    dt_europe = ymd_hms("2010-08-03 00:50:50", tz = "Europe/London"),
+    dt_utc = ymd_hms("2010-08-03 00:50:50"),
     date_var = as.Date("2022-02-25"),
     difference_date = ymd_hms("2010-08-03 00:50:50", tz = "Pacific/Marquesas"),
     character_ymd_var = "2022-02-25 00:00:01",
@@ -820,12 +822,20 @@ test_that("`as.Date()` and `as_date()`", {
     .input %>%
       mutate(
         date_dv1 = as.Date(date_var),
+        date_pv1 = as.Date(posixct_var),
+        date_pv_tz1 = as.Date(posixct_var, tz = "Pacific/Marquesas"),
+        date_utc1 = as.Date(dt_utc),
+        date_europe1 = as.Date(dt_europe),
         date_char_ymd1 = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
         date_char_ydm1 = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
         date_int1 = as.Date(integer_var, origin = "1970-01-01"),
         date_int_origin1 = as.Date(integer_var, origin = "1970-01-03"),
         date_integerish1 = as.Date(integerish_var, origin = "1970-01-01"),
         date_dv2 = as_date(date_var),
+        date_pv2 = as_date(posixct_var),
+        date_pv_tz2 = as_date(posixct_var, tz = "Pacific/Marquesas"),
+        date_utc2 = as_date(dt_utc),
+        date_europe2 = as_date(dt_europe),
         date_char_ymd2 = as_date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
         date_char_ydm2 = as_date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
         date_int2 = as_date(integer_var, origin = "1970-01-01"),
@@ -883,27 +893,6 @@ test_that("`as.Date()` and `as_date()`", {
       collect()
   )
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_pv = as.Date(posixct_var),
-        date_pv_tz = as.Date(posixct_var, tz = "Pacific/Marquesas")
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_pv = as_date(posixct_var),
-        date_pv_tz = as_date(posixct_var, tz = "Pacific/Marquesas")
-      ) %>%
-      collect(),
-    test_df
-  )
-
   # difference between as.Date() and as_date():
   #`as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
   # to `as.Date()`
@@ -924,10 +913,23 @@ test_that("`as_datetime()`", {
   test_df <- tibble(
     date = as.Date(c("2022-03-22", "2021-07-30", NA)),
     char_date = c("2022-03-22", "2021-07-30 14:32:47", NA),
+    char_date_non_iso = c("2022-22-03 12:34:56", "2021-30-07 14:32:47", NA),
     int_date = c(10L, 25L, NA),
     integerish_date = c(10, 25, NA),
     double_date = c(10.1, 25.2, NA)
   )
+
+  test_df %>%
+    arrow_table() %>%
+    mutate(
+      ddate = as_datetime(date),
+      dchar_date_no_tz = as_datetime(char_date),
+      dchar_date_non_iso = as_datetime(char_date_non_iso, format = "%Y-%d-%m %H:%M:%S"),
+      dint_date = as_datetime(int_date, origin = "1970-01-02"),
+      dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
+      dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
+    ) %>%
+    collect()
 
   compare_dplyr_binding(
     .input %>%
