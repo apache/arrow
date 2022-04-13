@@ -24,7 +24,7 @@ import requests
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-import pyarrow.parquet_encryption as pe
+import pyarrow.parquet.encryption as pe
 
 
 class VaultClient(pe.KmsClient):
