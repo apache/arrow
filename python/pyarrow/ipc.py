@@ -40,8 +40,7 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
         Either an in-memory buffer, or a readable file object.
     options : pyarrow.ipc.IpcReadOptions
-        Options for IPC serialization.
-
+        Options for IPC deserialization.
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         Uses default memory pool if not specified.
