@@ -100,7 +100,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       pid_flight <- sys::exec_background(
           'python',
           c(
-              -c',
+              '-c',
               paste0(
                   '__import__(\"sys\").path.append(\"./inst\"); ',
                   '__import__(\"demo_flight_server\").DemoFlightServer(port=8089).serve()'
