@@ -161,7 +161,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
 
   static Status CheckHasUri(util::string_view uri, ExtensionSet* self);
   static void AddUri(std::pair<uint32_t, util::string_view> uri, ExtensionSet* self);
-  static void AddUri(util::string_view uri, ExtensionSet* self);
+  static void AddUri(Id id, ExtensionSet* self);
 
   /// Construct an ExtensionSet with explicit extension ids for efficient referencing
   /// during deserialization. Note that input vectors need not be densely packed; an empty

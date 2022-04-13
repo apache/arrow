@@ -71,14 +71,11 @@ void ExtensionSet::AddUri(std::pair<uint32_t, util::string_view> uri,
   self->uris_[uri.first] = uri.second;
 }
 
-void ExtensionSet::AddUri(util::string_view uri, ExtensionSet* self) {
-  auto it =
-      std::find_if(self->uris_.begin(), self->uris_.end(),
-                   [&uri](const std::pair<uint32_t, util::string_view>& anchor_uri_pair) {
-                     return anchor_uri_pair.second == uri;
-                   });
-  if (it != self->uris_.end()) return;
-  self->uris_[self->uris_.size()] = uri;
+void ExtensionSet::AddUri(Id id, ExtensionSet* self) {
+  if (self->functions_map_.find(id) != self->functions_map_.end() &&
+      self->types_map_.find(id) != self->types_map_.end())
+    return;
+  self->uris_[self->uris_.size()] = id.uri;
 }
 
 Result<ExtensionSet> ExtensionSet::Make(
@@ -152,7 +149,7 @@ Result<ExtensionSet::TypeRecord> ExtensionSet::DecodeType(uint32_t anchor) const
 
 Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
   if (auto rec = registry_->GetType(type)) {
-    AddUri(rec->id.uri, this);
+    AddUri(rec->id, this);
     auto it_success =
         types_map_.emplace(rec->id, static_cast<uint32_t>(types_map_.size()));
     if (it_success.second) {
@@ -173,7 +170,7 @@ Result<ExtensionSet::FunctionRecord> ExtensionSet::DecodeFunction(uint32_t ancho
 
 Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
   if (auto rec = registry_->GetFunction(function_name)) {
-    AddUri(rec->id.uri, this);
+    AddUri(rec->id, this);
     auto it_success =
         functions_map_.emplace(rec->id, static_cast<uint32_t>(functions_map_.size()));
     if (it_success.second) {
