@@ -2864,7 +2864,7 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 //
 // The soundex algorithm works with the following steps:
 //    1. Retain the first letter of the string and drop all other occurrences of a, e, i,
-//    o, u, y, h, w.
+//    o, u, y, h, w. (let's call them special letters)
 //    2. Replace consonants with digits as follows (after the first letter):
 //        b, f, p, v → 1
 //        c, g, j, k, q, s, x, z → 2
@@ -2873,8 +2873,8 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 //        m, n → 5
 //        r → 6
 //    3. If two or more letters with the same number were adjacent in the original name
-//    (before step 1), or adjacent except for any intervening h and w, then omit all but
-//    the first.
+//    (before step 1), or adjacent for any intervening from any special letters, then omit
+//    all but the first. This rule also applies to the first letter.
 //    4. If the string have too few letters in the word that you can't assign three
 //    numbers, append with zeros until there are three numbers. If you have four or more
 //    numbers, retain only the first three.
@@ -2903,6 +2903,7 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   int start_idx = 0;
   for (int i = 0; i < in_len; ++i) {
     if (isalpha(in[i]) > 0) {
+      // Retain the first letter
       ret[0] = toupper(in[i]);
       start_idx = i + 1;
       break;
@@ -2910,6 +2911,7 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   }
 
   soundex[0] = '\0';
+  // Replace consonants with digits and special letters with 0
   for (int i = start_idx; i < in_len; i++) {
     if (isalpha(in[i]) > 0) {
       c = toupper(in[i]) - 65;
@@ -2928,6 +2930,7 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   }
 
   for (; i < si; i++) {
+    // If it is a special letter, we ignore, because it has been dropped in first step
     if (soundex[i] != '0') {
       ret[ret_len] = soundex[i];
       ret_len++;
@@ -2935,6 +2938,7 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
     if (ret_len > 3) break;
   }
 
+  // If the return have too few numbers, append with zeros until there are three
   if (ret_len <= 3) {
     while (ret_len <= 3) {
       ret[ret_len] = '0';
