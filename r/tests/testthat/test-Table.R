@@ -711,7 +711,7 @@ test_that("as_arrow_table() works for RecordBatch", {
 
 test_that("as_arrow_table() works for data.frame()", {
   table <- arrow_table(col1 = 1L, col2 = "two")
-  tbl <- data.frame(col1 = 1L, col2 = "two")
+  tbl <- tibble::tibble(col1 = 1L, col2 = "two")
 
   # not equal because of metadata
   table2 <- as_arrow_table(tbl)

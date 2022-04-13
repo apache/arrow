@@ -818,7 +818,7 @@ test_that("as_record_batch() works for Table", {
 
 test_that("as_record_batch() works for data.frame()", {
   batch <- record_batch(col1 = 1L, col2 = "two")
-  tbl <- data.frame(col1 = 1L, col2 = "two")
+  tbl <- tibble::tibble(col1 = 1L, col2 = "two")
 
   # metadata prevents these from being equal
   batch2 <- as_record_batch(tbl)
