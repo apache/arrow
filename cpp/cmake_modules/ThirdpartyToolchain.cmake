@@ -2100,6 +2100,12 @@ if(ARROW_WITH_RAPIDJSON)
   if(RapidJSON_INCLUDE_DIR)
     set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
   endif()
+  if(WIN32 AND "${RAPIDJSON_INCLUDE_DIR}" MATCHES "^/")
+    # MSYS2
+    execute_process(COMMAND "cygpath" "--windows" "${RAPIDJSON_INCLUDE_DIR}"
+                    OUTPUT_VARIABLE RAPIDJSON_INCLUDE_DIR
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
 
   add_library(rapidjson::rapidjson INTERFACE IMPORTED)
   target_include_directories(rapidjson::rapidjson INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
