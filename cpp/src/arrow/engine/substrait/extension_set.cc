@@ -40,19 +40,6 @@ struct TypePtrHashEq {
   }
 };
 
-struct IdHashEq {
-  using Id = ExtensionSet::Id;
-
-  size_t operator()(Id id) const {
-    constexpr ::arrow::internal::StringViewHash hash = {};
-    auto out = static_cast<size_t>(hash(id.uri));
-    ::arrow::internal::hash_combine(out, hash(id.name));
-    return out;
-  }
-
-  bool operator()(Id l, Id r) const { return l.uri == r.uri && l.name == r.name; }
-};
-
 }  // namespace
 
 // A builder used when creating a Substrait plan from an Arrow execution plan.  In
@@ -82,6 +69,16 @@ void ExtensionSet::AddUri(std::pair<uint32_t, util::string_view> uri,
                    });
   if (it != self->uris_.end()) return;
   self->uris_[uri.first] = uri.second;
+}
+
+void ExtensionSet::AddUri(util::string_view uri, ExtensionSet* self) {
+  auto it =
+      std::find_if(self->uris_.begin(), self->uris_.end(),
+                   [&uri](const std::pair<uint32_t, util::string_view>& anchor_uri_pair) {
+                     return anchor_uri_pair.second == uri;
+                   });
+  if (it != self->uris_.end()) return;
+  self->uris_[self->uris_.size()] = uri;
 }
 
 Result<ExtensionSet> ExtensionSet::Make(
@@ -155,8 +152,13 @@ Result<ExtensionSet::TypeRecord> ExtensionSet::DecodeType(uint32_t anchor) const
 
 Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
   if (auto rec = registry_->GetType(type)) {
-    types_.push_back({(*rec).id, (*rec).type, (*rec).is_variation});
-    return types_.size();
+    AddUri(rec->id.uri, this);
+    auto it_success =
+        types_map_.emplace(rec->id, static_cast<uint32_t>(types_map_.size()));
+    if (it_success.second) {
+      types_.push_back({rec->id, rec->type, rec->is_variation});
+    }
+    return it_success.first->second;
   }
   return Status::KeyError("type ", type.ToString(), " not found in the registry");
 }
@@ -171,8 +173,13 @@ Result<ExtensionSet::FunctionRecord> ExtensionSet::DecodeFunction(uint32_t ancho
 
 Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
   if (auto rec = registry_->GetFunction(function_name)) {
-    functions_.push_back(FunctionRecord{rec->id, function_name});
-    return functions_.size();
+    AddUri(rec->id.uri, this);
+    auto it_success =
+        functions_map_.emplace(rec->id, static_cast<uint32_t>(functions_map_.size()));
+    if (it_success.second) {
+      functions_.push_back(FunctionRecord{rec->id, rec->function_name});
+    }
+    return it_success.first->second;
   }
   return Status::KeyError("function ", function_name, " not found in the registry");
 }

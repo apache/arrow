@@ -27,6 +27,9 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
+#include "arrow/util/hash_util.h"
+#include "arrow/util/hashing.h"
+
 namespace arrow {
 namespace engine {
 
@@ -54,6 +57,17 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
     util::string_view uri, name;
 
     bool empty() const { return uri.empty() && name.empty(); }
+  };
+
+  struct IdHashEq {
+    size_t operator()(Id id) const {
+      constexpr ::arrow::internal::StringViewHash hash = {};
+      auto out = static_cast<size_t>(hash(id.uri));
+      ::arrow::internal::hash_combine(out, hash(id.name));
+      return out;
+    }
+
+    bool operator()(Id l, Id r) const { return l.uri == r.uri && l.name == r.name; }
   };
 
   /// \brief A mapping between a Substrait ID and an arrow::DataType
@@ -128,6 +142,7 @@ ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
 class ARROW_ENGINE_EXPORT ExtensionSet {
  public:
   using Id = ExtensionIdRegistry::Id;
+  using IdHashEq = ExtensionIdRegistry::IdHashEq;
 
   struct FunctionRecord {
     Id id;
@@ -146,6 +161,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
 
   static Status CheckHasUri(util::string_view uri, ExtensionSet* self);
   static void AddUri(std::pair<uint32_t, util::string_view> uri, ExtensionSet* self);
+  static void AddUri(util::string_view uri, ExtensionSet* self);
 
   /// Construct an ExtensionSet with explicit extension ids for efficient referencing
   /// during deserialization. Note that input vectors need not be densely packed; an empty
@@ -232,8 +248,8 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// The subset of extension registry URIs referenced by this extension set
   std::unordered_map<uint32_t, util::string_view> uris_;
   std::vector<TypeRecord> types_;
-
   std::vector<FunctionRecord> functions_;
+  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_map_, functions_map_;
 };
 
 }  // namespace engine
