@@ -57,7 +57,7 @@ test_that <- function(what, code) {
 }
 
 # backport of 4.0.0 implementation
-suppressWarnings <- function (expr, classes = "warning") {
+suppressWarnings <- function(expr, classes = "warning") {
   if (getRversion() < "4.0.0") {
     withCallingHandlers(
       expr,
