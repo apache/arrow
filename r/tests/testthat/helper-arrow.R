@@ -60,7 +60,7 @@ test_that <- function(what, code) {
 suppressWarnings <- function (expr, classes = "warning") {
   withCallingHandlers(
     expr,
-    warning = function(w) if (inherits(w, classes)) tryInvokeRestart("muffleWarning")
+    warning = function(w) if (inherits(w, classes)) invokeRestart("muffleWarning")
   )
 }
 
