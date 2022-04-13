@@ -137,10 +137,9 @@ std::unique_ptr<sdktrace::SpanExporter> InitializeExporter() {
 }
 
 struct StorageSingleton : public Executor::Resource {
-  StorageSingleton() : storage_(otel::context::GetDefaultStorage()) {
-    otel::context::RuntimeContext::SetRuntimeContextStorage(storage_);
-  }
-  nostd::shared_ptr<otel::context::RuntimeContextStorage> storage_;
+  StorageSingleton()
+      : storage_(otel::context::RuntimeContext::GetConstRuntimeContextStorage()) {}
+  nostd::shared_ptr<const otel::context::RuntimeContextStorage> storage_;
 };
 
 std::shared_ptr<Executor::Resource> GetStorageSingleton() {

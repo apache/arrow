@@ -205,12 +205,12 @@ class ARROW_EXPORT Executor {
   /// \brief An interface to represent something with a custom destructor
   ///
   /// \see KeepAlive
-  class Resource {
+  class ARROW_EXPORT Resource {
    public:
     virtual ~Resource() = default;
   };
 
-  /// \brief Keeps a resource alive until all executor threads have terminated
+  /// \brief Keep a resource alive until all executor threads have terminated
   ///
   /// Executors may have static storage duration.  In particular, the CPU and I/O
   /// executors are currently implemented this way.  These threads may access other

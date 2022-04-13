@@ -424,19 +424,11 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
                              StopCallback&& stop_callback) {
   {
     ProtectAgainstFork();
-    std::lock_guard<std::mutex> lock(state_->mutex_);
-    if (state_->please_shutdown_) {
-      return Status::Invalid("operation forbidden during or after shutdown");
-    }
-    CollectFinishedWorkersUnlocked();
-    state_->tasks_queued_or_running_++;
-    if (static_cast<int>(state_->workers_.size()) < state_->tasks_queued_or_running_ &&
-        state_->desired_capacity_ > static_cast<int>(state_->workers_.size())) {
-      // We can still spin up more workers so spin up a new worker
-      LaunchWorkersUnlocked(/*threads=*/1);
-    }
 #ifdef ARROW_WITH_OPENTELEMETRY
     // Wrap the task to propagate a parent tracing span to it
+    // This task-wrapping needs to be done before we grab the mutex because the
+    // first call to OT (whatever that happens to be) will attempt to grab this mutex
+    // when calling KeepAlive to keep the OT infrastructure alive.
     struct {
       void operator()() {
         auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
@@ -448,6 +440,17 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
               ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
     task = std::move(wrapper);
 #endif
+    std::lock_guard<std::mutex> lock(state_->mutex_);
+    if (state_->please_shutdown_) {
+      return Status::Invalid("operation forbidden during or after shutdown");
+    }
+    CollectFinishedWorkersUnlocked();
+    state_->tasks_queued_or_running_++;
+    if (static_cast<int>(state_->workers_.size()) < state_->tasks_queued_or_running_ &&
+        state_->desired_capacity_ > static_cast<int>(state_->workers_.size())) {
+      // We can still spin up more workers so spin up a new worker
+      LaunchWorkersUnlocked(/*threads=*/1);
+    }
     state_->pending_tasks_.push_back(
         {std::move(task), std::move(stop_token), std::move(stop_callback)});
   }
