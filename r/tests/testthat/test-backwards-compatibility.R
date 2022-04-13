@@ -17,7 +17,7 @@
 
 # nolint start
 # To write a new version of a test file for a current version:
-# write_parquet(example_with_metadata, test_path("golden-files/data-arrow_2.0.0.parquet"))
+# write_parquet(old_example_with_metadata, test_path("golden-files/data-arrow_2.0.0.parquet"))
 
 # To write a new version of a test file for an old version, use docker(-compose)
 # to setup a linux distribution and use RStudio's public package manager binary
@@ -29,7 +29,7 @@
 # options(repos = "https://packagemanager.rstudio.com/all/__linux__/focal/latest")
 # remotes::install_version("arrow", version = "1.0.1")
 # # get example data into the global env
-# write_parquet(example_with_metadata, "arrow/r/tests/testthat/golden-files/data-arrow_1.0.1.parquet")
+# write_parquet(old_example_with_metadata, "arrow/r/tests/testthat/golden-files/data-arrow_1.0.1.parquet")
 # quit()/exit
 # nolint end
 
@@ -54,7 +54,7 @@ test_that("reading a known Parquet file to dataframe with 3.0.0", {
 
   df <- read_parquet(pq_file)
   # this is equivalent to `expect_identical()`
-  expect_identical_with_metadata(df, example_with_extra_metadata)
+  expect_identical_with_metadata(df, old_example_with_extra_metadata)
 })
 
 test_that("reading a known Parquet file to dataframe with 2.0.0", {
@@ -64,7 +64,7 @@ test_that("reading a known Parquet file to dataframe with 2.0.0", {
 
   df <- read_parquet(pq_file)
   # this is equivalent to `expect_identical()`
-  expect_identical_with_metadata(df, example_with_metadata)
+  expect_identical_with_metadata(df, old_example_with_metadata)
 })
 
 test_that("reading a known Parquet file to dataframe with 1.0.1", {
@@ -74,14 +74,14 @@ test_that("reading a known Parquet file to dataframe with 1.0.1", {
 
   df <- read_parquet(pq_file)
   # 1.0.1 didn't save top-level metadata, so we need to remove it.
-  expect_identical_with_metadata(df, example_with_metadata, top_level = FALSE)
+  expect_identical_with_metadata(df, old_example_with_metadata, top_level = FALSE)
 })
 
 for (comp in c("lz4", "uncompressed", "zstd")) {
   # nolint start
-  # write_feather(example_with_metadata, test_path("golden-files/data-arrow_2.0.0_lz4.feather"), compression = "lz4")
-  # write_feather(example_with_metadata, test_path("golden-files/data-arrow_2.0.0_uncompressed.feather"), compression = "uncompressed")
-  # write_feather(example_with_metadata, test_path("golden-files/data-arrow_2.0.0_zstd.feather"), compression = "zstd")
+  # write_feather(old_example_with_metadata, test_path("golden-files/data-arrow_2.0.0_lz4.feather"), compression = "lz4")
+  # write_feather(old_example_with_metadata, test_path("golden-files/data-arrow_2.0.0_uncompressed.feather"), compression = "uncompressed")
+  # write_feather(old_example_with_metadata, test_path("golden-files/data-arrow_2.0.0_zstd.feather"), compression = "zstd")
   # nolint end
   test_that("reading a known Feather file to dataframe with 2.0.0", {
     skip_if_not_available("parquet")
@@ -89,7 +89,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     feather_file <- test_path(paste0("golden-files/data-arrow_2.0.0_", comp, ".feather"))
 
     df <- read_feather(feather_file)
-    expect_identical_with_metadata(df, example_with_metadata)
+    expect_identical_with_metadata(df, old_example_with_metadata)
   })
 
   test_that("reading a known Feather file to dataframe with 1.0.1", {
@@ -99,7 +99,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
 
     df <- read_feather(feather_file)
     # 1.0.1 didn't save top-level metadata, so we need to remove it.
-    expect_identical_with_metadata(df, example_with_metadata, top_level = FALSE)
+    expect_identical_with_metadata(df, old_example_with_metadata, top_level = FALSE)
   })
 
   test_that("reading a known Feather file to dataframe with 0.17.0", {
@@ -112,9 +112,9 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     # not maintained and the embedded tibble's attributes are read in a wrong
     # order. Since this is prior to 1.0.0 punting on checking the attributes
     # though classes are always checked, so that must be removed before checking.
-    example_with_metadata_sans_special_class <- example_with_metadata
-    example_with_metadata_sans_special_class$a <- unclass(example_with_metadata_sans_special_class$a)
-    expect_equal(df, example_with_metadata_sans_special_class, ignore_attr = TRUE)
+    old_example_with_metadata_sans_special_class <- old_example_with_metadata
+    old_example_with_metadata_sans_special_class$a <- unclass(old_example_with_metadata_sans_special_class$a)
+    expect_equal(df, old_example_with_metadata_sans_special_class, ignore_attr = TRUE)
   })
 }
 

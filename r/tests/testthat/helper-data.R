@@ -25,8 +25,24 @@ example_data <- tibble::tibble(
   fct = factor(letters[c(1:4, NA, NA, 7:10)])
 )
 
-example_with_metadata <- tibble::tibble(
+old_example_with_metadata <- tibble::tibble(
   a = structure("one", class = "special_string"),
+  b = 2,
+  c = tibble::tibble(
+    c1 = structure("inner", extra_attr = "something"),
+    c2 = 4,
+    c3 = 50
+  ),
+  d = "four"
+)
+
+attr(old_example_with_metadata, "top_level") <- list(
+  field_one = 12,
+  field_two = "more stuff"
+)
+
+example_with_metadata <- tibble::tibble(
+  a = "one",
   b = 2,
   c = tibble::tibble(
     c1 = structure("inner", extra_attr = "something"),
@@ -120,9 +136,6 @@ make_string_of_size <- function(size = 1) {
   paste(rep(letters, length.out = 1000 * size), collapse = "")
 }
 
-example_with_extra_metadata <- example_with_metadata
-attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
-
 example_with_logical_factors <- tibble::tibble(
   starting_a_fight = factor(c(FALSE, TRUE, TRUE, TRUE)),
   consoling_a_child = factor(c(TRUE, FALSE, TRUE, TRUE)),
@@ -134,6 +147,12 @@ example_with_logical_factors <- tibble::tibble(
     "hey buddy"
   )
 )
+
+old_example_with_extra_metadata <- old_example_with_metadata
+attributes(old_example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
+
+example_with_extra_metadata <- example_with_metadata
+attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
 
 # The values in each column of this tibble are in ascending order. There are
 # some ties, so tests should use two or more columns to ensure deterministic
