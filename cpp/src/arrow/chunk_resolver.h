@@ -33,7 +33,13 @@ struct ChunkLocation {
 
 // An object that resolves an array chunk depending on the index
 struct ChunkResolver {
-  ChunkResolver(const ChunkResolver& chunks);
+  // TODO: This copy constructor is a hack and not semantically correct because this
+  // class contains a `std::atomic` member (non copyable/movable),
+  // but this explicit copy constructor allows compilation even if copies are performed
+  // such as in TableSorter/ResolveSortKey in vector_sort.cc.
+  ChunkResolver(const ChunkResolver& chunks) : offsets_{chunks.offsets_} {
+    cached_chunk_.store(chunks.cached_chunk_);
+  }
 
   explicit ChunkResolver(const ArrayVector& chunks);
 
