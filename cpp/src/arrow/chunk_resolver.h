@@ -88,7 +88,7 @@ struct ChunkResolver {
   }
 
  private:
-  // Collection of starting offsets used for binary search 
+  // Collection of starting offsets used for binary search
   std::vector<int64_t> offsets_;
 
   // Tracks the most recently used chunk index to allow fast
