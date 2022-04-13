@@ -401,6 +401,18 @@ def test_dataset(dataset, dataset_reader):
     assert sorted(result['group']) == [1, 1, 2, 2]
     assert sorted(result['key']) == ['xxx', 'xxx', 'yyy', 'yyy']
 
+    projection = {
+        'i64': ds.field('i64'),
+        'f64': ds.field('f64'),
+        "new": ds.field(('struct', 'b')) == '1',
+    }
+    result = dataset.to_table(use_threads=True, columns=projection).to_pydict()
+
+    assert result['i64'] == [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+    assert result['f64'] == [0.0, 1.0, 2.0, 3.0, 4.0, 0.0, 1.0, 2.0, 3.0, 4.0]
+    assert result['new'] == [False, True, False,
+                             False, True, False, True, False, False, True]
+
 
 @pytest.mark.parquet
 def test_scanner(dataset, dataset_reader):
