@@ -1421,6 +1421,78 @@ cdef class RecordBatch(_PandasConvertible):
     --------
     Do not call this class's constructor directly, use one of the
     ``RecordBatch.from_*`` functions instead.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+    >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+    >>> names = ["n_legs", "animals"]
+
+    Constructing a RecordBatch from arrays:
+
+    >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names)
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2         Parrot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
+    Constructing a RecordBatch from pandas DataFrame:
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022],
+    ...                    'month': [3, 5, 7, 9],
+    ...                    'day': [1, 5, 9, 13],
+    ...                    'n_legs': [2, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+    >>> pa.RecordBatch.from_pandas(df)
+    pyarrow.RecordBatch
+    year: int64
+    month: int64
+    day: int64
+    n_legs: int64
+    animals: string
+    >>> pa.RecordBatch.from_pandas(df).to_pandas()
+       year  month  day  n_legs        animals
+    0  2020      3    1       2       Flamingo
+    1  2022      5    5       4          Horse
+    2  2021      7    9       5  Brittle stars
+    3  2022      9   13     100      Centipede
+
+    Constructing a RecordBatch from pylist:
+
+    >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
+    ...           {'n_legs': 4, 'animals': 'Dog'}]
+    >>> pa.RecordBatch.from_pylist(pylist).to_pandas()
+       n_legs   animals
+    0       2  Flamingo
+    1       4       Dog
+
+    You can also construct a RecordBatch using :func:`pyarrow.record_batch`:
+
+    >>> pa.record_batch([n_legs, animals], names=names).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2         Parrot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
+    >>> pa.record_batch(df)
+    pyarrow.RecordBatch
+    year: int64
+    month: int64
+    day: int64
+    n_legs: int64
+    animals: string
     """
 
     def __cinit__(self):
@@ -1456,11 +1528,36 @@ cdef class RecordBatch(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> pydict = {'int': [1, 2], 'str': ['a', 'b']}
+        >>> n_legs = [2, 2, 4, 4, 5, 100]
+        >>> animals = ["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"]
+        >>> pydict = {'n_legs': n_legs, 'animals': animals}
+
+        Construct a RecordBatch from arrays:
+
         >>> pa.RecordBatch.from_pydict(pydict)
         pyarrow.RecordBatch
-        int: int64
-        str: string
+        n_legs: int64
+        animals: string
+        >>> pa.RecordBatch.from_pydict(pydict).to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       2         Parrot
+        2       4            Dog
+        3       4          Horse
+        4       5  Brittle stars
+        5     100      Centipede
+
+        Construct a RecordBatch with schema:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> pa.RecordBatch.from_pydict(pydict, schema=my_schema).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
         """
 
         return _from_pydict(cls=RecordBatch,
@@ -1490,17 +1587,25 @@ cdef class RecordBatch(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> pylist = [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
+        ...           {'n_legs': 4, 'animals': 'Dog'}]
         >>> pa.RecordBatch.from_pylist(pylist)
         pyarrow.RecordBatch
-        int: int64
-        str: string
-        >>> pa.RecordBatch.from_pylist(pylist)[0]
-        <pyarrow.lib.Int64Array object at ...>
-        [
-          1,
-          2
-        ]
+        n_legs: int64
+        animals: string
+        >>> pa.RecordBatch.from_pylist(pylist).to_pandas()
+           n_legs   animals
+        0       2  Flamingo
+        1       4       Dog
+
+        Construct a RecordBatch with metadata:
+
+        >>> my_metadata={"n_legs": "Number of legs per animal"}
+        >>> pa.RecordBatch.from_pylist(pylist, metadata=my_metadata).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
         """
 
         return _from_pylist(cls=RecordBatch,
@@ -1567,6 +1672,27 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         shallow_copy : RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+
+        Constructing a RecordBatch with schema and metadata:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> batch = pa.RecordBatch.from_arrays([n_legs], schema=my_schema)
+        >>> batch.schema
+        n_legs: int64
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+
+        Shallow copy of a RecordBatch with deleted schema metadata:
+
+        >>> batch.replace_schema_metadata().schema
+        n_legs: int64
         """
         cdef:
             shared_ptr[const CKeyValueMetadata] c_meta
@@ -1587,6 +1713,16 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.num_columns
+        2
         """
         return self.batch.num_columns()
 
@@ -1601,6 +1737,16 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.num_rows
+        6
         """
         return len(self)
 
@@ -1612,6 +1758,17 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         pyarrow.Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.schema
+        n_legs: int64
+        animals: string
         """
         if self._schema is None:
             self._schema = pyarrow_wrap_schema(self.batch.schema())
@@ -1630,6 +1787,18 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.field(0)
+        pyarrow.Field<n_legs: int64>
+        >>> batch.field(1)
+        pyarrow.Field<animals: string>
         """
         return self.schema.field(i)
 
@@ -1641,6 +1810,32 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         list of pyarrow.Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.columns
+        [<pyarrow.lib.Int64Array object at ...>
+        [
+          2,
+          2,
+          4,
+          4,
+          5,
+          100
+        ], <pyarrow.lib.StringArray object at ...>
+        [
+          "Flamingo",
+          "Parrot",
+          "Dog",
+          "Horse",
+          "Brittle stars",
+          "Centipede"
+        ]]
         """
         return [self.column(i) for i in range(self.num_columns)]
 
@@ -1678,6 +1873,24 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         column : pyarrow.Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.column(1)
+        <pyarrow.lib.StringArray object at ...>
+        [
+          "Flamingo",
+          "Parrot",
+          "Dog",
+          "Horse",
+          "Brittle stars",
+          "Centipede"
+        ]
         """
         return self._column(self._ensure_integer_index(i))
 
@@ -1714,6 +1927,16 @@ cdef class RecordBatch(_PandasConvertible):
 
         The dictionary of dictionary arrays will always be counted in their
         entirety even if the array only references a portion of the dictionary.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.nbytes
+        116
         """
         cdef:
             CResult[int64_t] c_res_buffer
@@ -1732,6 +1955,16 @@ cdef class RecordBatch(_PandasConvertible):
 
         If a buffer is referenced multiple times then it will
         only be counted once.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.get_total_buffer_size()
+        120
         """
         cdef:
             int64_t total_buffer_size
@@ -1773,6 +2006,16 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         serialized : Buffer
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.serialize()
+        <pyarrow.lib.Buffer object at ...>
         """
         cdef shared_ptr[CBuffer] buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
@@ -1798,6 +2041,34 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         sliced : RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       2         Parrot
+        2       4            Dog
+        3       4          Horse
+        4       5  Brittle stars
+        5     100      Centipede
+        >>> batch.slice(offset=3).to_pandas()
+           n_legs        animals
+        0       4          Horse
+        1       5  Brittle stars
+        2     100      Centipede
+        >>> batch.slice(length=2).to_pandas()
+           n_legs   animals
+        0       2  Flamingo
+        1       2    Parrot
+        >>> batch.slice(offset=3, length=1).to_pandas()
+           n_legs animals
+        0       4   Horse
         """
         cdef shared_ptr[CRecordBatch] result
 
@@ -1830,6 +2101,37 @@ cdef class RecordBatch(_PandasConvertible):
         filtered : RecordBatch
             A record batch of the same schema, with only the rows selected
             by the boolean mask.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       2         Parrot
+        2       4            Dog
+        3       4          Horse
+        4       5  Brittle stars
+        5     100      Centipede
+
+        Define a mask and select rows:
+
+        >>> mask=[True, True, False, True, False, None]
+        >>> batch.filter(mask).to_pandas()
+           n_legs   animals
+        0       2  Flamingo
+        1       2    Parrot
+        2       4     Horse
+        >>> batch.filter(mask, null_selection_behavior='emit_null').to_pandas()
+           n_legs   animals
+        0     2.0  Flamingo
+        1     2.0    Parrot
+        2     4.0     Horse
+        3     NaN      None
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -1847,6 +2149,26 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         are_equal : bool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch_0 = pa.record_batch([])
+        >>> batch_1 = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                       names=["n_legs", "animals"],
+        ...                                       metadata={"n_legs": "Number of legs per animal"})
+        >>> batch.equals(batch)
+        True
+        >>> batch.equals(batch_0)
+        False
+        >>> batch.equals(batch_1)
+        True
+        >>> batch.equals(batch_1, check_metadata=True)
+        False
         """
         cdef:
             CRecordBatch* this_batch = self.batch
@@ -1876,6 +2198,19 @@ cdef class RecordBatch(_PandasConvertible):
         -------
         taken : RecordBatch
             A record batch with the same schema, containing the taken rows.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.take([1,3,4]).to_pandas()
+           n_legs        animals
+        0       2         Parrot
+        1       4          Horse
+        2       5  Brittle stars
         """
         return _pc().take(self, indices)
 
@@ -1883,6 +2218,29 @@ cdef class RecordBatch(_PandasConvertible):
         """
         Remove missing values from a RecordBatch.
         See :func:`pyarrow.compute.drop_null` for full usage.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", None, "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.to_pandas()
+           n_legs    animals
+        0       2   Flamingo
+        1       2     Parrot
+        2       4        Dog
+        3       4      Horse
+        4       5       None
+        5     100  Centipede
+        >>> batch.drop_null().to_pandas()
+           n_legs    animals
+        0       2   Flamingo
+        1       2     Parrot
+        2       4        Dog
+        3       4      Horse
+        4     100  Centipede
         """
         return _pc().drop_null(self)
 
@@ -1893,6 +2251,16 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         dict
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.to_pydict()
+        {'n_legs': [2, 2, 4, 4, 5, 100], 'animals': ['Flamingo', 'Parrot', ..., 'Centipede']}
         """
         entries = []
         for i in range(self.batch.num_columns()):
@@ -1908,6 +2276,16 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         list
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.to_pylist()
+        [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 2, ...}, {'n_legs': 100, 'animals': 'Centipede'}]
         """
 
         pydict = self.to_pydict()
@@ -1951,6 +2329,44 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         pyarrow.RecordBatch
+
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022],
+        ...                    'month': [3, 5, 7, 9],
+        ...                    'day': [1, 5, 9, 13],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+
+        Convert pandas DataFrame to RecordBatch:
+
+        >>> import pyarrow as pa
+        >>> pa.RecordBatch.from_pandas(df)
+        pyarrow.RecordBatch
+        year: int64
+        month: int64
+        day: int64
+        n_legs: int64
+        animals: string
+
+        Convert pandas DataFrame to RecordBatch using schema:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> pa.RecordBatch.from_pandas(df, schema=my_schema)
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+
+        Convert pandas DataFrame to RecordBatch specifying columns:
+
+        >>> pa.RecordBatch.from_pandas(df, columns=["n_legs"])
+        pyarrow.RecordBatch
+        n_legs: int64
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
@@ -1984,6 +2400,48 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         pyarrow.RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> names = ["n_legs", "animals"]
+
+        Construct a RecordBartch from pyarrow Arrays using names:
+
+        >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names)
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names).to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       2         Parrot
+        2       4            Dog
+        3       4          Horse
+        4       5  Brittle stars
+        5     100      Centipede
+
+        Construct a RecordBartch from pyarrow Arrays using schema:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> pa.RecordBatch.from_arrays([n_legs, animals], schema=my_schema).to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       2         Parrot
+        2       4            Dog
+        3       4          Horse
+        4       5  Brittle stars
+        5     100      Centipede
+        >>> pa.RecordBatch.from_arrays([n_legs, animals], schema=my_schema).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
         """
         cdef:
             Array arr
@@ -2035,6 +2493,16 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         pyarrow.RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
+        ...                    {'year': 2022, 'n_legs': 4}])
+        >>> pa.RecordBatch.from_struct_array(struct).to_pandas()
+          animals  n_legs    year
+        0  Parrot       2     NaN
+        1    None       4  2022.0
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
@@ -4374,6 +4842,86 @@ def record_batch(data, names=None, schema=None, metadata=None):
     See Also
     --------
     RecordBatch.from_arrays, RecordBatch.from_pandas, table
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+    >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+    >>> names = ["n_legs", "animals"]
+
+    Creating a RecordBatch from a list of arrays with names:
+
+    >>> pa.record_batch([n_legs, animals], names=names)
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"]).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2         Parrot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
+    Creating a RecordBatch from a list of arrays with names and metadata:
+
+    >>> my_metadata={"n_legs": "How many legs does an animal have?"}
+    >>> pa.record_batch([n_legs, animals],
+    ...                  names=names,
+    ...                  metadata = my_metadata)
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    >>> pa.record_batch([n_legs, animals],
+    ...                  names=names,
+    ...                  metadata = my_metadata).schema
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'How many legs does an animal have?'
+
+    Creating a RecordBatch from a pandas DataFrame:
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022],
+    ...                    'month': [3, 5, 7, 9],
+    ...                    'day': [1, 5, 9, 13],
+    ...                    'n_legs': [2, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+    >>> pa.record_batch(df)
+    pyarrow.RecordBatch
+    year: int64
+    month: int64
+    day: int64
+    n_legs: int64
+    animals: string
+    >>> pa.record_batch(df).to_pandas()
+       year  month  day  n_legs        animals
+    0  2020      3    1       2       Flamingo
+    1  2022      5    5       4          Horse
+    2  2021      7    9       5  Brittle stars
+    3  2022      9   13     100      Centipede
+
+    Creating a RecordBatch from a pandas DataFrame with schema:
+
+    >>> my_schema = pa.schema([
+    ...     pa.field('n_legs', pa.int64()),
+    ...     pa.field('animals', pa.string())],
+    ...     metadata={"n_legs": "Number of legs per animal"})
+    >>> pa.record_batch(df, my_schema).schema
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+    pandas: ...
+    >>> pa.record_batch(df, my_schema).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       4          Horse
+    2       5  Brittle stars
+    3     100      Centipede
     """
     # accept schema as first argument for backwards compatibility / usability
     if isinstance(names, Schema) and schema is None:
