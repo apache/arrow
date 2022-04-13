@@ -944,8 +944,9 @@ if(WIN32)
 endif()
 
 if(NOT WIN32 AND NOT APPLE)
-  # Pass -lrt on Linux only
-  list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
+  add_library(arrow::rt INTERFACE IMPORTED)
+  target_link_libraries(arrow::rt INTERFACE "rt")
+  list(APPEND ARROW_SYSTEM_LINK_LIBS arrow::rt)
 endif()
 
 list(APPEND ARROW_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
