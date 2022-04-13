@@ -112,5 +112,5 @@ func arrayEqualFixedSizeBinary(left, right *FixedSizeBinary) bool {
 }
 
 var (
-	_ Interface = (*FixedSizeBinary)(nil)
+	_ arrow.Array = (*FixedSizeBinary)(nil)
 )

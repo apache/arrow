@@ -372,6 +372,6 @@ func (b *StructBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*Struct)(nil)
-	_ Builder   = (*StructBuilder)(nil)
+	_ arrow.Array = (*Struct)(nil)
+	_ Builder     = (*StructBuilder)(nil)
 )

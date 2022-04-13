@@ -26,34 +26,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/internal/debug"
 )
 
-// type aliases to preserve functionality and avoid breaking consumers
-// by the shift to arrow.Table, arrow.Column and arrow.Chunked over array each.
-type (
-	// Table aliases arrow.Table
-	//
-	// Deprecated: this alias will be removed in v8
-	Table = arrow.Table
-	// Column aliases arrow.Column
-	//
-	// Deprecated: this alias will be removed in v8
-	Column = arrow.Column
-	// Chunked aliases arrow.Chunked
-	//
-	// Deprecated: this alias will be removed in v8
-	Chunked = arrow.Chunked
-)
-
-var (
-	// NewColumn aliases the arrow.NewColumn function to avoid breaking consumers.
-	//
-	// Deprecated: this alias will be removed in v8
-	NewColumn = arrow.NewColumn
-	// NewChunked aliases the arrow.NewChunked function to avoid breaking consumers.
-	//
-	// Deprecated: this alias will be removed in v8
-	NewChunked = arrow.NewChunked
-)
-
 // NewColumnSlice returns a new zero-copy slice of the column with the indicated
 // indices i and j, corresponding to the column's array[i:j].
 // The returned column must be Release()'d after use.
@@ -72,7 +44,7 @@ func NewColumnSlice(col *arrow.Column, i, j int64) *arrow.Column {
 //
 // NewSlice panics if the slice is outside the valid range of the input array.
 // NewSlice panics if j < i.
-func NewChunkedSlice(a *arrow.Chunked, i, j int64) *Chunked {
+func NewChunkedSlice(a *arrow.Chunked, i, j int64) *arrow.Chunked {
 	if j > int64(a.Len()) || i > j || i > int64(a.Len()) {
 		panic("arrow/array: index out of range")
 	}
@@ -107,7 +79,7 @@ func NewChunkedSlice(a *arrow.Chunked, i, j int64) *Chunked {
 		}
 	}()
 
-	return NewChunked(a.DataType(), chunks)
+	return arrow.NewChunked(a.DataType(), chunks)
 }
 
 // simpleTable is a basic, non-lazy in-memory table.
@@ -115,7 +87,7 @@ type simpleTable struct {
 	refCount int64
 
 	rows int64
-	cols []Column
+	cols []arrow.Column
 
 	schema *arrow.Schema
 }
@@ -126,7 +98,7 @@ type simpleTable struct {
 //
 // NewTable panics if the columns and schema are inconsistent.
 // NewTable panics if rows is larger than the height of the columns.
-func NewTable(schema *arrow.Schema, cols []Column, rows int64) *simpleTable {
+func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) *simpleTable {
 	tbl := simpleTable{
 		refCount: 1,
 		rows:     rows,
@@ -159,11 +131,11 @@ func NewTable(schema *arrow.Schema, cols []Column, rows int64) *simpleTable {
 // NewTableFromRecords returns a new basic, non-lazy in-memory table.
 //
 // NewTableFromRecords panics if the records and schema are inconsistent.
-func NewTableFromRecords(schema *arrow.Schema, recs []Record) *simpleTable {
+func NewTableFromRecords(schema *arrow.Schema, recs []arrow.Record) *simpleTable {
 	arrs := make([]arrow.Array, len(recs))
-	cols := make([]Column, len(schema.Fields()))
+	cols := make([]arrow.Column, len(schema.Fields()))
 
-	defer func(cols []Column) {
+	defer func(cols []arrow.Column) {
 		for i := range cols {
 			cols[i].Release()
 		}
@@ -182,10 +154,10 @@ func NewTableFromRecords(schema *arrow.Schema, recs []Record) *simpleTable {
 	return NewTable(schema, cols, -1)
 }
 
-func (tbl *simpleTable) Schema() *arrow.Schema { return tbl.schema }
-func (tbl *simpleTable) NumRows() int64        { return tbl.rows }
-func (tbl *simpleTable) NumCols() int64        { return int64(len(tbl.cols)) }
-func (tbl *simpleTable) Column(i int) *Column  { return &tbl.cols[i] }
+func (tbl *simpleTable) Schema() *arrow.Schema      { return tbl.schema }
+func (tbl *simpleTable) NumRows() int64             { return tbl.rows }
+func (tbl *simpleTable) NumCols() int64             { return int64(len(tbl.cols)) }
+func (tbl *simpleTable) Column(i int) *arrow.Column { return &tbl.cols[i] }
 
 func (tbl *simpleTable) validate() {
 	if len(tbl.cols) != len(tbl.schema.Fields()) {
@@ -226,20 +198,20 @@ func (tbl *simpleTable) Release() {
 type TableReader struct {
 	refCount int64
 
-	tbl   Table
-	cur   int64  // current row
-	max   int64  // total number of rows
-	rec   Record // current Record
-	chksz int64  // chunk size
+	tbl   arrow.Table
+	cur   int64        // current row
+	max   int64        // total number of rows
+	rec   arrow.Record // current Record
+	chksz int64        // chunk size
 
-	chunks  []*Chunked
+	chunks  []*arrow.Chunked
 	slots   []int   // chunk indices
 	offsets []int64 // chunk offsets
 }
 
 // NewTableReader returns a new TableReader to iterate over the (possibly chunked) Table.
 // if chunkSize is <= 0, the biggest possible chunk will be selected.
-func NewTableReader(tbl Table, chunkSize int64) *TableReader {
+func NewTableReader(tbl arrow.Table, chunkSize int64) *TableReader {
 	ncols := tbl.NumCols()
 	tr := &TableReader{
 		refCount: 1,
@@ -247,7 +219,7 @@ func NewTableReader(tbl Table, chunkSize int64) *TableReader {
 		cur:      0,
 		max:      int64(tbl.NumRows()),
 		chksz:    chunkSize,
-		chunks:   make([]*Chunked, ncols),
+		chunks:   make([]*arrow.Chunked, ncols),
 		slots:    make([]int, ncols),
 		offsets:  make([]int64, ncols),
 	}
@@ -266,7 +238,7 @@ func NewTableReader(tbl Table, chunkSize int64) *TableReader {
 }
 
 func (tr *TableReader) Schema() *arrow.Schema { return tr.tbl.Schema() }
-func (tr *TableReader) Record() Record        { return tr.rec }
+func (tr *TableReader) Record() arrow.Record  { return tr.rec }
 
 func (tr *TableReader) Next() bool {
 	if tr.cur >= tr.max {
@@ -360,6 +332,6 @@ func imin64(a, b int64) int64 {
 }
 
 var (
-	_ Table        = (*simpleTable)(nil)
+	_ arrow.Table  = (*simpleTable)(nil)
 	_ RecordReader = (*TableReader)(nil)
 )

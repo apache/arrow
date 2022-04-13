@@ -25,7 +25,7 @@ import (
 )
 
 // RecordEqual reports whether the two provided records are equal.
-func RecordEqual(left, right Record) bool {
+func RecordEqual(left, right arrow.Record) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -45,7 +45,7 @@ func RecordEqual(left, right Record) bool {
 
 // RecordApproxEqual reports whether the two provided records are approximately equal.
 // For non-floating point columns, it is equivalent to RecordEqual.
-func RecordApproxEqual(left, right Record, opts ...EqualOption) bool {
+func RecordApproxEqual(left, right arrow.Record, opts ...EqualOption) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -68,7 +68,7 @@ func RecordApproxEqual(left, right Record, opts ...EqualOption) bool {
 // helper function to evaluate a function on two chunked object having possibly different
 // chunk layouts. the function passed in will be called for each corresponding slice of the
 // two chunked arrays and if the function returns false it will end the loop early.
-func chunkedBinaryApply(left, right *Chunked, fn func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool) {
+func chunkedBinaryApply(left, right *arrow.Chunked, fn func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool) {
 	var (
 		pos               int64
 		length            int64 = int64(left.Len())
@@ -105,7 +105,7 @@ func chunkedBinaryApply(left, right *Chunked, fn func(left arrow.Array, lbeg, le
 }
 
 // ChunkedEqual reports whether two chunked arrays are equal regardless of their chunkings
-func ChunkedEqual(left, right *Chunked) bool {
+func ChunkedEqual(left, right *arrow.Chunked) bool {
 	switch {
 	case left == right:
 		return true
@@ -128,7 +128,7 @@ func ChunkedEqual(left, right *Chunked) bool {
 
 // ChunkedApproxEqual reports whether two chunked arrays are approximately equal regardless of their chunkings
 // for non-floating point arrays, this is equivalent to ChunkedEqual
-func ChunkedApproxEqual(left, right *Chunked, opts ...EqualOption) bool {
+func ChunkedApproxEqual(left, right *arrow.Chunked, opts ...EqualOption) bool {
 	switch {
 	case left == right:
 		return true
@@ -150,7 +150,7 @@ func ChunkedApproxEqual(left, right *Chunked, opts ...EqualOption) bool {
 }
 
 // TableEqual returns if the two tables have the same data in the same schema
-func TableEqual(left, right Table) bool {
+func TableEqual(left, right arrow.Table) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -173,7 +173,7 @@ func TableEqual(left, right Table) bool {
 }
 
 // TableEqual returns if the two tables have the approximately equal data in the same schema
-func TableApproxEqual(left, right Table, opts ...EqualOption) bool {
+func TableApproxEqual(left, right arrow.Table, opts ...EqualOption) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false

@@ -342,6 +342,6 @@ func (b *ListBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*List)(nil)
-	_ Builder   = (*ListBuilder)(nil)
+	_ arrow.Array = (*List)(nil)
+	_ Builder     = (*ListBuilder)(nil)
 )

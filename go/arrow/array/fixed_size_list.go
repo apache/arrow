@@ -323,6 +323,6 @@ func (b *FixedSizeListBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*FixedSizeList)(nil)
-	_ Builder   = (*FixedSizeListBuilder)(nil)
+	_ arrow.Array = (*FixedSizeList)(nil)
+	_ Builder     = (*FixedSizeListBuilder)(nil)
 )

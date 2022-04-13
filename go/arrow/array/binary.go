@@ -148,5 +148,5 @@ func arrayEqualBinary(left, right *Binary) bool {
 }
 
 var (
-	_ Interface = (*Binary)(nil)
+	_ arrow.Array = (*Binary)(nil)
 )

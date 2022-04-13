@@ -563,7 +563,7 @@ func TestChunkedApproxEqual(t *testing.T) {
 	f3 := fb.NewFloat64Array()
 	defer f3.Release()
 
-	c1 := array.NewChunked(
+	c1 := arrow.NewChunked(
 		arrow.PrimitiveTypes.Float64,
 		[]arrow.Array{f1, f2, f3},
 	)
@@ -585,7 +585,7 @@ func TestChunkedApproxEqual(t *testing.T) {
 	f7 := fb.NewFloat64Array()
 	defer f7.Release()
 
-	c2 := array.NewChunked(
+	c2 := arrow.NewChunked(
 		arrow.PrimitiveTypes.Float64,
 		[]arrow.Array{f4, f5, f6, f7},
 	)

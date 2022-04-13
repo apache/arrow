@@ -30,7 +30,7 @@ func TestChunked(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	c1 := array.NewChunked(arrow.PrimitiveTypes.Int32, nil)
+	c1 := arrow.NewChunked(arrow.PrimitiveTypes.Int32, nil)
 	c1.Retain()
 	c1.Release()
 	if got, want := c1.Len(), 0; got != want {
@@ -59,7 +59,7 @@ func TestChunked(t *testing.T) {
 	f3 := fb.NewFloat64Array()
 	defer f3.Release()
 
-	c2 := array.NewChunked(
+	c2 := arrow.NewChunked(
 		arrow.PrimitiveTypes.Float64,
 		[]arrow.Array{f1, f2, f3},
 	)
@@ -128,7 +128,7 @@ func TestChunkedEqualDataType(t *testing.T) {
 	v2 := lb2.NewArray()
 	defer v2.Release()
 
-	c1 := array.NewChunked(arrow.ListOf(arrow.PrimitiveTypes.Int32), []arrow.Array{
+	c1 := arrow.NewChunked(arrow.ListOf(arrow.PrimitiveTypes.Int32), []arrow.Array{
 		v1, v2,
 	})
 	defer c1.Release()
@@ -162,7 +162,7 @@ func TestChunkedInvalid(t *testing.T) {
 		}
 	}()
 
-	c1 := array.NewChunked(arrow.PrimitiveTypes.Int32, []arrow.Array{
+	c1 := arrow.NewChunked(arrow.PrimitiveTypes.Int32, []arrow.Array{
 		f1, f2,
 	})
 	defer c1.Release()
@@ -187,7 +187,7 @@ func TestChunkedSliceInvalid(t *testing.T) {
 	f3 := fb.NewFloat64Array()
 	defer f3.Release()
 
-	c := array.NewChunked(
+	c := arrow.NewChunked(
 		arrow.PrimitiveTypes.Float64,
 		[]arrow.Array{f1, f2, f3},
 	)
@@ -228,13 +228,13 @@ func TestColumn(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		chunk  *array.Chunked
+		chunk  *arrow.Chunked
 		field  arrow.Field
 		err    error
 		slices []slice
 	}{
 		{
-			chunk: func() *array.Chunked {
+			chunk: func() *arrow.Chunked {
 				ib := array.NewInt32Builder(mem)
 				defer ib.Release()
 
@@ -246,7 +246,7 @@ func TestColumn(t *testing.T) {
 				i2 := ib.NewInt32Array()
 				defer i2.Release()
 
-				c := array.NewChunked(
+				c := arrow.NewChunked(
 					arrow.PrimitiveTypes.Int32,
 					[]arrow.Array{i1, i2},
 				)
@@ -264,7 +264,7 @@ func TestColumn(t *testing.T) {
 			},
 		},
 		{
-			chunk: func() *array.Chunked {
+			chunk: func() *arrow.Chunked {
 				fb := array.NewFloat64Builder(mem)
 				defer fb.Release()
 
@@ -280,7 +280,7 @@ func TestColumn(t *testing.T) {
 				f3 := fb.NewFloat64Array()
 				defer f3.Release()
 
-				c := array.NewChunked(
+				c := arrow.NewChunked(
 					arrow.PrimitiveTypes.Float64,
 					[]arrow.Array{f1, f2, f3},
 				)
@@ -298,7 +298,7 @@ func TestColumn(t *testing.T) {
 			},
 		},
 		{
-			chunk: func() *array.Chunked {
+			chunk: func() *arrow.Chunked {
 				fb := array.NewFloat64Builder(mem)
 				defer fb.Release()
 
@@ -306,7 +306,7 @@ func TestColumn(t *testing.T) {
 				f1 := fb.NewFloat64Array()
 				defer f1.Release()
 
-				c := array.NewChunked(
+				c := arrow.NewChunked(
 					arrow.PrimitiveTypes.Float64,
 					[]arrow.Array{f1},
 				)
@@ -340,7 +340,7 @@ func TestColumn(t *testing.T) {
 				}()
 			}
 
-			col := array.NewColumn(tc.field, tc.chunk)
+			col := arrow.NewColumn(tc.field, tc.chunk)
 			defer col.Release()
 
 			if got, want := col.Len(), tc.chunk.Len(); got != want {
@@ -400,8 +400,8 @@ func TestTable(t *testing.T) {
 		},
 		nil,
 	)
-	col1 := func() *array.Column {
-		chunk := func() *array.Chunked {
+	col1 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
 			ib := array.NewInt32Builder(mem)
 			defer ib.Release()
 
@@ -413,7 +413,7 @@ func TestTable(t *testing.T) {
 			i2 := ib.NewInt32Array()
 			defer i2.Release()
 
-			c := array.NewChunked(
+			c := arrow.NewChunked(
 				arrow.PrimitiveTypes.Int32,
 				[]arrow.Array{i1, i2},
 			)
@@ -421,12 +421,12 @@ func TestTable(t *testing.T) {
 		}()
 		defer chunk.Release()
 
-		return array.NewColumn(schema.Field(0), chunk)
+		return arrow.NewColumn(schema.Field(0), chunk)
 	}()
 	defer col1.Release()
 
-	col2 := func() *array.Column {
-		chunk := func() *array.Chunked {
+	col2 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
 			fb := array.NewFloat64Builder(mem)
 			defer fb.Release()
 
@@ -442,7 +442,7 @@ func TestTable(t *testing.T) {
 			f3 := fb.NewFloat64Array()
 			defer f3.Release()
 
-			c := array.NewChunked(
+			c := arrow.NewChunked(
 				arrow.PrimitiveTypes.Float64,
 				[]arrow.Array{f1, f2, f3},
 			)
@@ -450,11 +450,11 @@ func TestTable(t *testing.T) {
 		}()
 		defer chunk.Release()
 
-		return array.NewColumn(schema.Field(1), chunk)
+		return arrow.NewColumn(schema.Field(1), chunk)
 	}()
 	defer col2.Release()
 
-	cols := []array.Column{*col1, *col2}
+	cols := []arrow.Column{*col1, *col2}
 
 	tbl := array.NewTable(schema, cols, -1)
 	defer tbl.Release()
@@ -478,7 +478,7 @@ func TestTable(t *testing.T) {
 
 	for _, tc := range []struct {
 		schema *arrow.Schema
-		cols   []array.Column
+		cols   []arrow.Column
 		rows   int64
 		err    error
 	}{
@@ -629,8 +629,8 @@ func TestTableReader(t *testing.T) {
 		},
 		nil,
 	)
-	col1 := func() *array.Column {
-		chunk := func() *array.Chunked {
+	col1 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
 			ib := array.NewInt32Builder(mem)
 			defer ib.Release()
 
@@ -642,7 +642,7 @@ func TestTableReader(t *testing.T) {
 			i2 := ib.NewInt32Array()
 			defer i2.Release()
 
-			c := array.NewChunked(
+			c := arrow.NewChunked(
 				arrow.PrimitiveTypes.Int32,
 				[]arrow.Array{i1, i2},
 			)
@@ -650,12 +650,12 @@ func TestTableReader(t *testing.T) {
 		}()
 		defer chunk.Release()
 
-		return array.NewColumn(schema.Field(0), chunk)
+		return arrow.NewColumn(schema.Field(0), chunk)
 	}()
 	defer col1.Release()
 
-	col2 := func() *array.Column {
-		chunk := func() *array.Chunked {
+	col2 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
 			fb := array.NewFloat64Builder(mem)
 			defer fb.Release()
 
@@ -671,7 +671,7 @@ func TestTableReader(t *testing.T) {
 			f3 := fb.NewFloat64Array()
 			defer f3.Release()
 
-			c := array.NewChunked(
+			c := arrow.NewChunked(
 				arrow.PrimitiveTypes.Float64,
 				[]arrow.Array{f1, f2, f3},
 			)
@@ -679,11 +679,11 @@ func TestTableReader(t *testing.T) {
 		}()
 		defer chunk.Release()
 
-		return array.NewColumn(schema.Field(1), chunk)
+		return arrow.NewColumn(schema.Field(1), chunk)
 	}()
 	defer col2.Release()
 
-	cols := []array.Column{*col1, *col2}
+	cols := []arrow.Column{*col1, *col2}
 	tbl := array.NewTable(schema, cols, -1)
 	defer tbl.Release()
 
