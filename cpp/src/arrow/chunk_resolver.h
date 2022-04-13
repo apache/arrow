@@ -31,7 +31,7 @@ struct ChunkLocation {
   int64_t chunk_index, index_in_chunk;
 };
 
-// An object that resolves an array chunk depending on the index
+// An object that resolves an array chunk depending on a logical index
 struct ChunkResolver {
   explicit ChunkResolver(const ArrayVector& chunks);
 
@@ -88,7 +88,11 @@ struct ChunkResolver {
   }
 
  private:
+  // Collection of starting offsets used for binary search 
   std::vector<int64_t> offsets_;
+
+  // Tracks the most recently used chunk index to allow fast
+  // access for consecutive indices corresponding to the same chunk
   mutable std::atomic<int64_t> cached_chunk_;
 };
 
