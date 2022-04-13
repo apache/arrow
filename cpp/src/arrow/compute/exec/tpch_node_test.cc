@@ -47,11 +47,7 @@ static constexpr uint32_t kEndDate =
 
 using TableNodeFn = Result<ExecNode*> (TpchGen::*)(std::vector<std::string>);
 
-#ifdef THREAD_SANITIZER
-constexpr double kDefaultScaleFactor = 0.25;
-#else
-constexpr double kDefaultScaleFactor = 1.0;
-#endif
+constexpr double kDefaultScaleFactor = 0.1;
 
 Status AddTableAndSinkToPlan(ExecPlan& plan, TpchGen& gen,
                              AsyncGenerator<util::optional<ExecBatch>>& sink_gen,
@@ -375,7 +371,7 @@ void VerifySupplier(const std::vector<ExecBatch>& batches,
 }
 
 TEST(TpchNode, ScaleFactor) {
-  constexpr double kScaleFactor = 0.25;
+  constexpr double kScaleFactor = 0.01;
   ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier, kScaleFactor));
   VerifySupplier(res, kScaleFactor);
 }
@@ -616,11 +612,7 @@ TEST(TpchNode, Region) {
 }
 
 TEST(TpchNode, AllTables) {
-#ifdef THREAD_SANITIZER
-  constexpr double kScaleFactor = 0.1;
-#else
-  constexpr double kScaleFactor = 0.25;
-#endif
+  constexpr double kScaleFactor = 0.05;
   constexpr int kNumTables = 8;
   std::array<TableNodeFn, kNumTables> tables = {
       &TpchGen::Supplier, &TpchGen::Part,     &TpchGen::PartSupp, &TpchGen::Customer,
