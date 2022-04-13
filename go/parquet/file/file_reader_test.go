@@ -205,26 +205,6 @@ func (p *PageSerdeSuite) TestLargePageHeaders() {
 	p.CheckDataPageHeader(p.dataPageHdr, p.pageReader.Page())
 }
 
-func (p *PageSerdeSuite) TestFailLargePageHeaders() {
-	const (
-		statsSize      = 256 * 1024 // 256KB
-		nrows          = 1337       // dummy value
-		maxHeaderSize  = 512 * 1024 // 512 KB
-		smallerMaxSize = 128 * 1024 // 128KB
-	)
-	p.dataPageHdr.Statistics = getDummyStats(statsSize, false)
-	p.WriteDataPageHeader(maxHeaderSize, 0, 0)
-	pos, err := p.sink.Seek(0, io.SeekCurrent)
-	p.NoError(err)
-	p.GreaterOrEqual(maxHeaderSize, int(pos))
-
-	p.LessOrEqual(smallerMaxSize, int(pos))
-	p.InitSerializedPageReader(nrows, compress.Codecs.Uncompressed)
-	p.pageReader.SetMaxPageHeaderSize(smallerMaxSize)
-	p.NotPanics(func() { p.False(p.pageReader.Next()) })
-	p.Error(p.pageReader.Err())
-}
-
 func (p *PageSerdeSuite) TestCompression() {
 	codecs := []compress.Compression{
 		compress.Codecs.Snappy,

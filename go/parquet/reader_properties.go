@@ -61,7 +61,7 @@ func (r *ReaderProperties) Allocator() memory.Allocator { return r.alloc }
 //
 // If BufferedStreamEnabled is true, it creates an io.SectionReader, otherwise it will read the entire section
 // into a buffer in memory and return a bytes.NewReader for that buffer.
-func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (*bufio.Reader, error) {
+func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (io.Reader, error) {
 	if r.BufferedStreamEnabled {
 		return bufio.NewReaderSize(io.NewSectionReader(source, start, nbytes), int(r.BufferSize)), nil
 	}
@@ -75,5 +75,5 @@ func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (*
 		return nil, fmt.Errorf("parquet: tried reading %d bytes starting at position %d from file but only got %d", nbytes, start, n)
 	}
 
-	return bufio.NewReader(bytes.NewReader(data)), nil
+	return bytes.NewReader(data), nil
 }

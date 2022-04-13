@@ -223,8 +223,6 @@ func (m *MockPageReader) Err() error {
 func (m *MockPageReader) Reset(io.Reader, int64, compress.Compression, *file.CryptoContext) {
 }
 
-func (m *MockPageReader) SetMaxPageHeaderSize(int) {}
-
 func (m *MockPageReader) Page() file.Page {
 	return m.TestData().Get("pages").Data().([]file.Page)[m.curpage-1]
 }
