@@ -69,7 +69,6 @@ if (getRversion() < "4.0.0") {
     )
   }
 }
-}
 
 # Wrapper to run tests that only touch R code even when the C++ library isn't
 # available (so that at least some tests are run on those platforms)
