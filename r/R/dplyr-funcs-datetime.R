@@ -351,6 +351,9 @@ register_bindings_duration <- function() {
     delta <- delta$cast(int64())
     start + delta$cast(duration("s"))
   })
+}
+
+register_bindings_duration_helpers <- function() {
   register_binding("dminutes", function(x = 1) {
     if (!inherits(x, "Expression")) {
       x <- Expression$scalar(x)
