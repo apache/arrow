@@ -17,6 +17,7 @@
 package file_test
 
 import (
+	"bufio"
 	"bytes"
 	"math"
 	"reflect"
@@ -233,7 +234,7 @@ func (p *PrimitiveWriterTestSuite) SetupTest() {
 
 func (p *PrimitiveWriterTestSuite) buildReader(nrows int64, compression compress.Compression) file.ColumnChunkReader {
 	p.readbuffer = p.sink.Finish()
-	pagereader, _ := file.NewPageReader(bytes.NewReader(p.readbuffer.Bytes()), nrows, compression, mem, nil)
+	pagereader, _ := file.NewPageReader(bufio.NewReader(bytes.NewReader(p.readbuffer.Bytes())), nrows, compression, mem, nil)
 	return file.NewColumnReader(p.descr, pagereader, mem)
 }
 

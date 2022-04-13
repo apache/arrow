@@ -17,6 +17,7 @@
 package parquet
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -60,9 +61,9 @@ func (r *ReaderProperties) Allocator() memory.Allocator { return r.alloc }
 //
 // If BufferedStreamEnabled is true, it creates an io.SectionReader, otherwise it will read the entire section
 // into a buffer in memory and return a bytes.NewReader for that buffer.
-func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (io.ReadSeeker, error) {
+func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (*bufio.Reader, error) {
 	if r.BufferedStreamEnabled {
-		return io.NewSectionReader(source, start, nbytes), nil
+		return bufio.NewReaderSize(io.NewSectionReader(source, start, nbytes), int(r.BufferSize)), nil
 	}
 
 	data := make([]byte, nbytes)
@@ -74,5 +75,5 @@ func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (i
 		return nil, fmt.Errorf("parquet: tried reading %d bytes starting at position %d from file but only got %d", nbytes, start, n)
 	}
 
-	return bytes.NewReader(data), nil
+	return bufio.NewReader(bytes.NewReader(data)), nil
 }
