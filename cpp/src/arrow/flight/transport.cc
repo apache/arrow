@@ -21,6 +21,7 @@
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/transport_server.h"
+#include "arrow/flight/types.h"
 #include "arrow/ipc/message.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -72,9 +73,8 @@ Status ClientTransport::GetFlightInfo(const FlightCallOptions& options,
                                       std::unique_ptr<FlightInfo>* info) {
   return Status::NotImplemented("GetFlightInfo for this transport");
 }
-Status ClientTransport::GetSchema(const FlightCallOptions& options,
-                                  const FlightDescriptor& descriptor,
-                                  std::unique_ptr<SchemaResult>* schema_result) {
+arrow::Result<std::unique_ptr<SchemaResult>> ClientTransport::GetSchema(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetSchema for this transport");
 }
 Status ClientTransport::ListFlights(const FlightCallOptions& options,

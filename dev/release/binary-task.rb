@@ -1088,6 +1088,7 @@ class BinaryTask
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "impish", "main"],
+      ["ubuntu", "jammy", "main"],
     ]
   end
 

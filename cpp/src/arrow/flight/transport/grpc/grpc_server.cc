@@ -245,7 +245,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     while (true) {
       ProtoType pb_value;
       std::unique_ptr<UserType> value;
-      GRPC_RETURN_NOT_OK(iterator->Next(&value));
+      GRPC_RETURN_NOT_OK(iterator->Next().Value(&value));
       if (!value) {
         break;
       }
@@ -495,7 +495,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
     while (true) {
       std::unique_ptr<Result> result;
-      SERVICE_RETURN_NOT_OK(flight_context, results->Next(&result));
+      SERVICE_RETURN_NOT_OK(flight_context, results->Next().Value(&result));
       if (!result) {
         // No more results
         break;
@@ -587,9 +587,9 @@ class GrpcServerTransport : public internal::ServerTransport {
     }
 
     if (scheme == kSchemeGrpcTls) {
-      RETURN_NOT_OK(Location::ForGrpcTls(uri.host(), port, &location_));
+      ARROW_ASSIGN_OR_RAISE(location_, Location::ForGrpcTls(uri.host(), port));
     } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
-      RETURN_NOT_OK(Location::ForGrpcTcp(uri.host(), port, &location_));
+      ARROW_ASSIGN_OR_RAISE(location_, Location::ForGrpcTcp(uri.host(), port));
     }
     return Status::OK();
   }

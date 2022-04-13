@@ -1131,6 +1131,7 @@ class TableSorter {
     MergeNullsOnly(range_begin, range_middle, range_end, temp_indices, null_count);
   }
 
+  Status status_;
   ExecContext* ctx_;
   const Table& table_;
   const RecordBatchVector batches_;
@@ -1141,7 +1142,6 @@ class TableSorter {
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
   Comparator comparator_;
-  Status status_;
 };
 
 // ----------------------------------------------------------------------

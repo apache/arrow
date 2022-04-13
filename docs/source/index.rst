@@ -62,6 +62,7 @@ target environment.**
    :caption: Cookbooks
 
    C++ <https://arrow.apache.org/cookbook/cpp/>
+   Java <https://arrow.apache.org/cookbook/java/>
    Python <https://arrow.apache.org/cookbook/py/>
    R <https://arrow.apache.org/cookbook/r/>
 
@@ -89,7 +90,7 @@ target environment.**
    developers/contributing
    developers/bug_reports
    developers/guide/index
-   developers/advanced
+   developers/overview
    developers/reviewing
    developers/cpp/index
    developers/java/index

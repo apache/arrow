@@ -2218,8 +2218,11 @@ cdef class Expression(_Weakrefable):
         return Expression._call("is_in", [self], options)
 
     @staticmethod
-    def _field(str name not None):
-        return Expression.wrap(CMakeFieldExpression(tobytes(name)))
+    def _field(name_or_idx not None):
+        if isinstance(name_or_idx, str):
+            return Expression.wrap(CMakeFieldExpression(tobytes(name_or_idx)))
+        else:
+            return Expression.wrap(CMakeFieldExpressionByIndex(name_or_idx))
 
     @staticmethod
     def _scalar(value):

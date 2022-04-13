@@ -89,7 +89,7 @@ Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria) {
 // Location
 
 Status FromProto(const pb::Location& pb_location, Location* location) {
-  return Location::Parse(pb_location.uri(), location);
+  return Location::Parse(pb_location.uri()).Value(location);
 }
 
 Status ToProto(const Location& location, pb::Location* pb_location) {

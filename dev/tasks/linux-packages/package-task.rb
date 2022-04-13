@@ -292,6 +292,8 @@ class PackageTask
       # "ubuntu-focal-arm64",
       "ubuntu-impish",
       # "ubuntu-impish-arm64",
+      "ubuntu-jammy",
+      # "ubuntu-jammy-arm64",
     ]
   end
 
