@@ -252,3 +252,19 @@ test_that("type() gets the right type for Expression", {
   expect_equal(add_xy$type(), type(add_xy))
   expect_equal(type(add_xy), float64())
 })
+
+test_that("type() infers type for POSIXlt", {
+  posix_lt <- as.POSIXlt("2021-01-01 01:23:45", tz = "UTC")
+  expect_equal(
+    type(posix_lt),
+    vctrs_extension_type(posix_lt[integer(0)])
+  )
+})
+
+test_that("type() infers type for vctrs", {
+  vec <- vctrs::new_vctr(1:5, class = "special_integer")
+  expect_equal(
+    type(vec),
+    vctrs_extension_type(vec[integer(0)])
+  )
+})
