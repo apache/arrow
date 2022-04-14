@@ -323,6 +323,37 @@ register_bindings_duration <- function() {
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
+  register_binding("decimal_date", function(date) {
+    y <- build_expr("year", date)
+    start <- call_binding("make_datetime", year = y, tz = "UTC")
+    sofar <- call_binding("difftime", date, start, units = "secs")
+    total <- call_binding(
+      "if_else",
+      build_expr("is_leap_year", date),
+      Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
+      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
+    )
+    y + sofar$cast(int64()) / total
+  })
+  register_binding("date_decimal", function(decimal, tz = "UTC") {
+    y <- build_expr("floor", decimal)
+
+    start <- call_binding("make_datetime", year = y, tz = tz)
+    seconds <- call_binding(
+      "if_else",
+      build_expr("is_leap_year", start),
+      Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
+      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
+    )
+
+    fraction <- decimal - y
+    delta <- build_expr("floor", seconds * fraction)
+    delta <- delta$cast(int64())
+    start + delta$cast(duration("s"))
+  })
+}
+
+register_bindings_duration_helpers <- function() {
   register_binding("dseconds", function(x = 1) {
     if (!inherits(x, "Expression")) {
       x <- Expression$scalar(x)
@@ -353,34 +384,6 @@ register_bindings_duration <- function() {
   })
   register_binding("dpicoseconds", function(x = 1) {
     abort("Duration in picoseconds not supported in Arrow.")
-  })
-  register_binding("decimal_date", function(date) {
-    y <- build_expr("year", date)
-    start <- call_binding("make_datetime", year = y, tz = "UTC")
-    sofar <- call_binding("difftime", date, start, units = "secs")
-    total <- call_binding(
-      "if_else",
-      build_expr("is_leap_year", date),
-      Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
-      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
-    )
-    y + sofar$cast(int64()) / total
-  })
-  register_binding("date_decimal", function(decimal, tz = "UTC") {
-    y <- build_expr("floor", decimal)
-
-    start <- call_binding("make_datetime", year = y, tz = tz)
-    seconds <- call_binding(
-      "if_else",
-      build_expr("is_leap_year", start),
-      Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
-      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
-    )
-
-    fraction <- decimal - y
-    delta <- build_expr("floor", seconds * fraction)
-    delta <- delta$cast(int64())
-    start + delta$cast(duration("s"))
   })
 }
 
