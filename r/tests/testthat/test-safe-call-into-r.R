@@ -17,7 +17,7 @@
 
 # Note that TestSafeCallIntoR is defined in safe-call-into-r-impl.cpp
 
-skip_if_r_version("3.6")
+skip_if_r_version("3.4")
 
 test_that("SafeCallIntoR works from the main R thread", {
   skip_on_cran()
