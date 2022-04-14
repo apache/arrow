@@ -1215,34 +1215,48 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
       return Status::Invalid("Rounding multiple must be non-null and valid");
     }
 
-    // NOTE: The positive value check can be simplified by using a comparison kernel.
+    // Ensure `multiple` option matches input type
+    std::shared_ptr<Scalar> resolved_multiple;
+    const auto& to_type =
+        (!is_floating(multiple->type->id()) && !is_decimal(multiple->type->id()))
+            ? float64()
+            : args.inputs[0].type;
+    bool is_casted = false;
+    if (!multiple->type->Equals(to_type)) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto casted_multiple,
+          Cast(Datum(multiple), to_type, CastOptions::Safe(), ctx->exec_context()));
+      resolved_multiple = casted_multiple.scalar();
+      is_casted = true;
+    } else {
+      resolved_multiple = multiple;
+    }
+
+    // NOTE: The positive value check can be simplified by using the less-than kernel.
     bool is_negative = false;
-    switch (multiple->type->id()) {
-        case Type::FLOAT:
-          is_negative = UnboxScalar<FloatType>::Unbox(*multiple) < 0;
-          break;
-        case Type::DOUBLE:
-          is_negative = UnboxScalar<DoubleType>::Unbox(*multiple) < 0;
-          break;
-        case Type::DECIMAL128:
-          is_negative = UnboxScalar<Decimal128Type>::Unbox(*multiple) < 0;
-          break;
-        case Type::DECIMAL256:
-          is_negative = UnboxScalar<Decimal256Type>::Unbox(*multiple) < 0;
-          break;
-        default:
-          DCHECK(false);
+    switch (resolved_multiple->type->id()) {
+      case Type::FLOAT:
+        is_negative = UnboxScalar<FloatType>::Unbox(*resolved_multiple) < 0;
+        break;
+      case Type::DOUBLE:
+        is_negative = UnboxScalar<DoubleType>::Unbox(*resolved_multiple) < 0;
+        break;
+      case Type::DECIMAL128:
+        is_negative = UnboxScalar<Decimal128Type>::Unbox(*resolved_multiple) < 0;
+        break;
+      case Type::DECIMAL256:
+        is_negative = UnboxScalar<Decimal256Type>::Unbox(*resolved_multiple) < 0;
+        break;
+      default:
+        DCHECK(false);
     };
 
     if (is_negative) {
       return Status::Invalid("Rounding multiple must be nonnegative");
     }
 
-    // Ensure `multiple` option matches input type
-    const auto& type = args.inputs[0].type;
-    if (!multiple->type->Equals(type)) {
-      ARROW_ASSIGN_OR_RAISE(auto casted_multiple, Cast(Datum(multiple), type, CastOptions::Safe(), ctx->exec_context()));
-      auto new_options = OptionsType(casted_multiple.scalar(), options->round_mode);
+    if (is_casted) {
+      auto new_options = OptionsType(resolved_multiple, options->round_mode);
       return ::arrow::internal::make_unique<RoundOptionsWrapper>(new_options);
     }
 
@@ -1324,7 +1338,7 @@ struct Round<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
     if (pow >= ty.precision()) {
       *st = Status::Invalid("Rounding to ", ndigits,
                             " digits will not fit in precision of ", ty);
-      return arg;
+      return 0;
     } else if (pow < 0) {
       // no-op, copy output to input
       return arg;
@@ -1380,10 +1394,8 @@ struct RoundToMultiple {
 
   CType multiple;
 
-  explicit RoundToMultiple(const State& state, const DataType& out_ty) {
-    const auto& options = state.options;
-    multiple = UnboxScalar<ArrowType>::Unbox(*options.multiple);
-  }
+  explicit RoundToMultiple(const State& state, const DataType& out_ty)
+      : multiple(UnboxScalar<ArrowType>::Unbox(*state.options.multiple)) {}
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
@@ -1427,13 +1439,11 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
   bool has_halfway_point;
 
   explicit RoundToMultiple(const State& state, const DataType& out_ty)
-      : ty(checked_cast<const ArrowType&>(out_ty)) {
-    const auto& options = state.options;
-    multiple = UnboxScalar<ArrowType>::Unbox(*options.multiple);
-    half_multiple = multiple / 2;
-    neg_half_multiple = -half_multiple;
-    has_halfway_point = multiple.low_bits() % 2 == 0;
-  }
+      : ty(checked_cast<const ArrowType&>(out_ty)),
+        multiple(UnboxScalar<ArrowType>::Unbox(*state.options.multiple)),
+        half_multiple(multiple / 2),
+        neg_half_multiple(-half_multiple),
+        has_halfway_point(multiple.low_bits() % 2 == 0) {}
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
