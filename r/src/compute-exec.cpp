@@ -128,13 +128,13 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 // [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
     const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<arrow::dataset::Dataset>& dataset,
+    const std::shared_ptr<ds::Dataset>& dataset,
     const std::shared_ptr<compute::Expression>& filter,
     std::vector<std::string> materialized_field_names) {
   arrow::dataset::internal::Initialize();
 
   // TODO: pass in FragmentScanOptions
-  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  auto options = std::make_shared<ds::ScanOptions>();
 
   options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
 
@@ -155,7 +155,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
                       .Bind(*dataset->schema()));
 
   return MakeExecNodeOrStop("scan", plan.get(), {},
-                            arrow::dataset::ScanNodeOptions{dataset, options});
+                            ds::ScanNodeOptions{dataset, options});
 }
 
 // [[dataset::export]]
@@ -170,6 +170,8 @@ void ExecPlan_Write(const std::shared_ptr<compute::ExecPlan>& plan,
                     int max_partitions, uint32_t max_open_files,
                     uint64_t max_rows_per_file, uint64_t min_rows_per_group,
                     uint64_t max_rows_per_group) {
+  arrow::dataset::internal::Initialize();
+
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
   // and encapsulate this logic better
   ds::FileSystemDatasetWriteOptions opts;

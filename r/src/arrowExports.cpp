@@ -898,11 +898,11 @@ END_CPP11
 }
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::dataset::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, std::vector<std::string> materialized_field_names);
+std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, std::vector<std::string> materialized_field_names);
 extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::dataset::Dataset>&>::type dataset(dataset_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
 	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type filter(filter_sexp);
 	arrow::r::Input<std::vector<std::string>>::type materialized_field_names(materialized_field_names_sexp);
 	return cpp11::as_sexp(ExecNode_Scan(plan, dataset, filter, materialized_field_names));
