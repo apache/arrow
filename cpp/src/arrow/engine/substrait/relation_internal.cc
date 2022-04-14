@@ -225,6 +225,24 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       });
     }
 
+    case substrait::Rel::RelTypeCase::kJoin: {
+      const auto& join = rel.join();
+      RETURN_NOT_OK(CheckRelCommon(join));
+
+      if (!join.has_left()) {
+        return Status::Invalid("substrait::JoinRel with no left relation");
+      }
+
+      if (!join.has_right()) {
+        return Status::Invalid("substrait::JoinRel with no right relation");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto left, FromProto(join.left(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto right, FromProto(join.right(), ext_set));
+    
+      break;
+    }
+
     default:
       break;
   }
