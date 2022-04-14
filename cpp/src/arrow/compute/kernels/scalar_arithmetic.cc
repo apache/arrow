@@ -1437,7 +1437,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
-    if (multiple == T(0)) {
+    if (multiple == T{0}) {
       return 0;
     }
     std::pair<CType, CType> pair;

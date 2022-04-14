@@ -913,9 +913,14 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
             try:
                 multiple = lib.scalar(multiple)
             except Exception:
-                _raise_invalid_function_option(multiple, "`multiple` type for RoundToMultipleOptions", TypeError)
+                _raise_invalid_function_option(
+                    multiple, "`multiple` type for RoundToMultipleOptions",
+                    TypeError)
 
-        self.wrapped.reset(new CRoundToMultipleOptions(pyarrow_unwrap_scalar(multiple), unwrap_round_mode(round_mode)))
+        self.wrapped.reset(
+            new CRoundToMultipleOptions(
+                pyarrow_unwrap_scalar(multiple), unwrap_round_mode(round_mode))
+        )
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
