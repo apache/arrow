@@ -60,14 +60,14 @@ class PartitionSort {
   /// out_arr: [2, 5, 3, 5, 4, 7]
   /// prtn_ranges: [0, 1, 5, 6]
   template <class INPUT_PRTN_ID_FN, class OUTPUT_POS_FN>
-  static void Eval(int num_rows, int num_prtns, uint16_t* prtn_ranges,
+  static void Eval(int64_t num_rows, int num_prtns, uint16_t* prtn_ranges,
                    INPUT_PRTN_ID_FN prtn_id_impl, OUTPUT_POS_FN output_pos_impl) {
     ARROW_DCHECK(num_rows > 0 && num_rows <= (1 << 15));
     ARROW_DCHECK(num_prtns >= 1 && num_prtns <= (1 << 15));
 
     memset(prtn_ranges, 0, (num_prtns + 1) * sizeof(uint16_t));
 
-    for (int i = 0; i < num_rows; ++i) {
+    for (int64_t i = 0; i < num_rows; ++i) {
       int prtn_id = static_cast<int>(prtn_id_impl(i));
       ++prtn_ranges[prtn_id + 1];
     }
@@ -79,7 +79,7 @@ class PartitionSort {
       sum = sum_next;
     }
 
-    for (int i = 0; i < num_rows; ++i) {
+    for (int64_t i = 0; i < num_rows; ++i) {
       int prtn_id = static_cast<int>(prtn_id_impl(i));
       int pos = prtn_ranges[prtn_id + 1]++;
       output_pos_impl(i, pos);

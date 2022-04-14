@@ -115,10 +115,12 @@ int64_t BlockedBloomFilter::InsertImp_avx2(int64_t num_rows, const T* hashes) {
     }
     __m256i mask = mask_avx2(hash);
     __m256i block_id = block_id_avx2(hash);
+    std::atomic_thread_fence(std::memory_order_acquire);
     blocks_[_mm256_extract_epi64(block_id, 0)] |= _mm256_extract_epi64(mask, 0);
     blocks_[_mm256_extract_epi64(block_id, 1)] |= _mm256_extract_epi64(mask, 1);
     blocks_[_mm256_extract_epi64(block_id, 2)] |= _mm256_extract_epi64(mask, 2);
     blocks_[_mm256_extract_epi64(block_id, 3)] |= _mm256_extract_epi64(mask, 3);
+    std::atomic_thread_fence(std::memory_order_release);
   }
 
   return num_rows - (num_rows % unroll);

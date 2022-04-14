@@ -666,7 +666,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     // Start with full selection for the current minibatch
     memset(selected.data(), 0xff, bit_vector_bytes);
-    for (size_t ifilter = 0; ifilter < pushed_bloom_filters_.size(); ifilter++) {
+    for (size_t ifilter = 0; ifilter < num_expected_bloom_filters_; ifilter++) {
       std::vector<Datum> keys(bloom_filter_column_maps_[ifilter].size());
       for (size_t i = 0; i < keys.size(); i++) {
         int input_idx = bloom_filter_column_maps_[ifilter][i];

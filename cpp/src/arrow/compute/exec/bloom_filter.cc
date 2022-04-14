@@ -374,13 +374,13 @@ void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num
 
   PartitionSort::Eval(
       num_rows, num_prtns, partition_ranges,
-      [hashes, num_prtns](int row_id) {
+      [hashes, num_prtns](int64_t row_id) {
         constexpr int kLogBlocksKeptTogether = 7;
         constexpr int kPrtnIdBitOffset =
             BloomFilterMasks::kLogNumMasks + 6 + kLogBlocksKeptTogether;
         return (hashes[row_id] >> (kPrtnIdBitOffset)) & (num_prtns - 1);
       },
-      [hashes, partitioned_hashes](int row_id, int output_pos) {
+      [hashes, partitioned_hashes](int64_t row_id, int output_pos) {
         partitioned_hashes[output_pos] = hashes[row_id];
       });
 
