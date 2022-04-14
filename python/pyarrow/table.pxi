@@ -2606,7 +2606,7 @@ def table_to_blocks(options, Table table, categories, extension_columns):
     with nogil:
         check_status(
             libarrow_python.ConvertTableToPandas(c_options, move(c_table),
-                                          &result_obj)
+                                                 &result_obj)
         )
 
     return PyObject_to_object(result_obj)
