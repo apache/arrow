@@ -65,11 +65,5 @@ ChunkResolver::ChunkResolver(const std::vector<const Array*>& chunks)
 ChunkResolver::ChunkResolver(const RecordBatchVector& batches)
     : offsets_(MakeChunksOffsets(batches)), cached_chunk_(0) {}
 
-ChunkResolver& ChunkResolver::operator=(const ChunkResolver&& other) {
-  offsets_ = std::move(other.offsets_);
-  cached_chunk_.store(other.cached_chunk_.load());
-  return *this;
-}
-
 }  // namespace internal
 }  // namespace arrow

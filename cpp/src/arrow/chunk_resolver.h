@@ -42,7 +42,11 @@ struct ChunkResolver {
   ChunkResolver(ChunkResolver&& other)
       : offsets_(std::move(other.offsets_)), cached_chunk_(other.cached_chunk_.load()) {}
 
-  ChunkResolver& operator=(const ChunkResolver&& other);
+  ChunkResolver& operator=(ChunkResolver&& other) {
+    offsets_ = std::move(other.offsets_);
+    cached_chunk_.store(other.cached_chunk_.load());
+    return *this;
+  }
 
   /// \brief Return a ChunkLocation containing the chunk index and in-chunk value index of
   /// the chunked array at logical index
