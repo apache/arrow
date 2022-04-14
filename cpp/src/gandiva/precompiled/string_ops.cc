@@ -2933,17 +2933,19 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
 
   int i = 1;
   // If the saved letter's digit is the same as the resulting first digit, skip it
-  if (soundex[1] == mappings[ret[0] - 65]) {
-    i = 2;
-  }
-
-  for (; i < si; i++) {
-    // If it is a special letter, we ignore, because it has been dropped in first step
-    if (soundex[i] != '0') {
-      ret[ret_len] = soundex[i];
-      ret_len++;
+  if (si > 1) {
+    if (soundex[1] == mappings[ret[0] - 65]) {
+      i = 2;
     }
-    if (ret_len > 3) break;
+
+    for (; i < si; i++) {
+      // If it is a special letter, we ignore, because it has been dropped in first step
+      if (soundex[i] != '0') {
+        ret[ret_len] = soundex[i];
+        ret_len++;
+      }
+      if (ret_len > 3) break;
+    }
   }
 
   // If the return have too few numbers, append with zeros until there are three
