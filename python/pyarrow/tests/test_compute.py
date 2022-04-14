@@ -1573,6 +1573,10 @@ def test_round_to_multiple():
                            match="Rounding multiple must be positive"):
             pc.round_to_multiple(values, multiple=multiple)
 
+    for multiple in [object, 99999999999999999999999]:
+        with pytest.raises(TypeError, match="is not a valid multiple type"):
+            pc.round_to_multiple(values, multiple=multiple)
+
 
 def test_is_null():
     arr = pa.array([1, 2, 3, None])

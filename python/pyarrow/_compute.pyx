@@ -914,8 +914,8 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
                 multiple = lib.scalar(multiple)
             except Exception:
                 _raise_invalid_function_option(
-                    multiple, "`multiple` type for RoundToMultipleOptions",
-                    TypeError)
+                    multiple, "multiple type for RoundToMultipleOptions",
+                    exception_class=TypeError)
 
         self.wrapped.reset(
             new CRoundToMultipleOptions(
