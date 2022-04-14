@@ -25,7 +25,6 @@ import textwrap
 import tempfile
 import threading
 import time
-from venv import create
 
 import numpy as np
 import pytest

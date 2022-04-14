@@ -20,10 +20,6 @@ import gzip
 import os
 import pathlib
 import pickle
-import re
-import subprocess
-import sys
-import time
 
 import pytest
 import weakref
