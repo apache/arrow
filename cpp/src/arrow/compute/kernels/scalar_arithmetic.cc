@@ -32,6 +32,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
+#include "arrow/visit_scalar_inline.h"
 
 namespace arrow {
 
@@ -53,6 +54,29 @@ using applicator::ScalarUnaryNotNull;
 using applicator::ScalarUnaryNotNullStateful;
 
 namespace {
+
+// Convenience visitor to detect if a numeric Scalar is positive.
+struct IsPositiveVisitor {
+  bool result = false;
+
+  template <typename... Ts>
+  Status Visit(const NumericScalar<Ts...>& scalar) {
+    result = scalar.value > 0;
+    return Status::OK();
+  }
+  template <typename... Ts>
+  Status Visit(const DecimalScalar<Ts...>& scalar) {
+    result = scalar.value > 0;
+    return Status::OK();
+  }
+  Status Visit(const Scalar& scalar) { return Status::OK(); }
+};
+
+bool IsPositive(const Scalar& scalar) {
+  IsPositiveVisitor visitor{};
+  std::ignore = VisitScalarInline(scalar, &visitor);
+  return visitor.result;
+}
 
 // N.B. take care not to conflict with type_traits.h as that can cause surprises in a
 // unity build
@@ -1216,52 +1240,25 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
       return Status::Invalid("Rounding multiple must be non-null and valid");
     }
 
+    if (!IsPositive(*multiple)) {
+      return Status::Invalid("Rounding multiple must be positive");
+    }
+
     // Ensure the rounding multiple option matches the kernel's output type.
     // The output type is not available here so we use the following rule:
     // If `multiple` is neither a floating-point nor a decimal type, then
     // cast to float64, else cast to the kernel's input type.
-    std::shared_ptr<Scalar> resolved_multiple;
     const auto& to_type =
         (!is_floating(multiple->type->id()) && !is_decimal(multiple->type->id()))
             ? float64()
             : args.inputs[0].type;
-    bool is_casted = false;
     if (!multiple->type->Equals(to_type)) {
       ARROW_ASSIGN_OR_RAISE(
           auto casted_multiple,
           Cast(Datum(multiple), to_type, CastOptions::Safe(), ctx->exec_context()));
-      resolved_multiple = casted_multiple.scalar();
-      is_casted = true;
-    } else {
-      resolved_multiple = multiple;
-    }
 
-    // NOTE: The positive value check can be simplified by using a comparison kernel.
-    bool is_invalid = false;
-    switch (resolved_multiple->type->id()) {
-      case Type::FLOAT:
-        is_invalid = UnboxScalar<FloatType>::Unbox(*resolved_multiple) <= 0;
-        break;
-      case Type::DOUBLE:
-        is_invalid = UnboxScalar<DoubleType>::Unbox(*resolved_multiple) <= 0;
-        break;
-      case Type::DECIMAL128:
-        is_invalid = UnboxScalar<Decimal128Type>::Unbox(*resolved_multiple) <= 0;
-        break;
-      case Type::DECIMAL256:
-        is_invalid = UnboxScalar<Decimal256Type>::Unbox(*resolved_multiple) <= 0;
-        break;
-      default:
-        DCHECK(false);
-    };
-
-    if (is_invalid) {
-      return Status::Invalid("Rounding multiple must be positive");
-    }
-
-    // Create a new option object if the rounding multiple was casted.
-    if (is_casted) {
-      auto new_options = OptionsType(resolved_multiple, options->round_mode);
+      // Create a new option object if the rounding multiple was casted.
+      auto new_options = OptionsType(casted_multiple.scalar(), options->round_mode);
       return ::arrow::internal::make_unique<RoundOptionsWrapper>(new_options);
     }
 
