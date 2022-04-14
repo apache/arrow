@@ -59,6 +59,7 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' infer the arrow Array type from an R vector
 #'
 #' @param x an R vector
+#' @param ... Passed to S3 methods
 #'
 #' @return an arrow logical type
 #' @examplesIf arrow_available()

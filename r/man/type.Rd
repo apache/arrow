@@ -8,6 +8,8 @@ type(x, ...)
 }
 \arguments{
 \item{x}{an R vector}
+
+\item{...}{Passed to S3 methods}
 }
 \value{
 an arrow logical type
