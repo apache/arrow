@@ -1278,7 +1278,7 @@ cdef class Array(_PandasConvertible):
         -------
         value : Scalar (index) or Array (slice)
         """
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.length()))

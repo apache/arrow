@@ -222,7 +222,7 @@ cdef class ChunkedArray(_PandasConvertible):
         If buffers are shared between arrays then the shared
         portion will only be counted multiple times.
 
-        The dictionary of dictionary arrays will always be counted in their 
+        The dictionary of dictionary arrays will always be counted in their
         entirety even if the array only references a portion of the dictionary.
 
         Examples
@@ -285,19 +285,14 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         value : Scalar (index) or ChunkedArray (slice)
         """
+
         if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.chunked_array.length()))
 
-    cdef getitem(self, int64_t index):
-        cdef int j
-
-        for j in range(self.num_chunks):
-            if index < self.chunked_array.chunk(j).get().length():
-                return self.chunk(j)[index]
-            else:
-                index -= self.chunked_array.chunk(j).get().length()
+    cdef getitem(self, int64_t i):
+        return Scalar.wrap(GetResultValue(self.chunked_array.GetScalar(i)))
 
     def is_null(self, *, nan_is_null=False):
         """
@@ -1991,8 +1986,8 @@ cdef class RecordBatch(_PandasConvertible):
         """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
-        else:
-            return self.column(key)
+
+        return self.column(key)
 
     def serialize(self, memory_pool=None):
         """
@@ -2819,8 +2814,8 @@ cdef class Table(_PandasConvertible):
         """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
-        else:
-            return self.column(key)
+
+        return self.column(key)
 
     def slice(self, offset=0, length=None):
         """

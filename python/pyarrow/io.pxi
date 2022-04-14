@@ -1050,7 +1050,7 @@ cdef class Buffer(_Weakrefable):
             return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             if (key.step or 1) != 1:
                 raise IndexError('only slices with step 1 supported')
             return _normalize_slice(self, key)
