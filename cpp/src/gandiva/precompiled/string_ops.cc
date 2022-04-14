@@ -2910,6 +2910,13 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
     }
   }
 
+  // If ret[0] is not initialised, return one exception
+  if (start_idx == 0) {
+    gdv_fn_context_set_error_msg(ctx, "There are no valid values in this entry.");
+    *out_len = 0;
+    return "";
+  }
+
   soundex[0] = '\0';
   // Replace consonants with digits and special letters with 0
   for (int i = start_idx; i < in_len; i++) {
@@ -2923,10 +2930,9 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   }
 
   int i = 1;
-  // If the saved letter's digit is the same as the resulting first digit, remove the
-  // digit.
-  if (soundex[i] == mappings[ret[0] - 65]) {
-    i++;
+  // If the saved letter's digit is the same as the resulting first digit, skip it
+  if (soundex[1] == mappings[ret[0] - 65]) {
+    i = 2;
   }
 
   for (; i < si; i++) {
@@ -2945,6 +2951,7 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
       ret_len++;
     }
   }
+
   *out_len = 4;
   return ret;
 }

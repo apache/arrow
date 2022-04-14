@@ -2390,6 +2390,21 @@ TEST(TestStringOps, TestSoundex) {
   int32_t out_len = 0;
   const char* out;
 
+  out = soundex_utf8(ctx_ptr, "123456789", 9, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("There are no valid values in this entry."));
+  ctx.Reset();
+
+  out = soundex_utf8(ctx_ptr, "a", 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+
+  out = soundex_utf8(ctx_ptr, "123456789a", 10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+
+  out = soundex_utf8(ctx_ptr, "a123456789", 10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+
   out = soundex_utf8(ctx_ptr, "robert", 6, &out_len);
   EXPECT_EQ(std::string(out, out_len), "R163");
 
