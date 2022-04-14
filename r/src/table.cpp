@@ -193,7 +193,7 @@ SEXP arrow_attributes(SEXP x, bool only_top_level) {
   return att;
 }
 
-SEXP CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
+cpp11::writable::list CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
   // Preallocate for the lambda to fill in
   cpp11::writable::list metadata_columns(num_fields);
 
@@ -239,7 +239,18 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   }
 
   // recurse to get all columns metadata
-  metadata[1] = CollectColumnMetadata(lst, num_fields, has_metadata);
+  cpp11::writable::list metadata_columns = CollectColumnMetadata(lst, num_fields, has_metadata);
+
+  // Remove metadata for ExtensionType columns, because these have their own mechanism for
+  // preserving R type information
+  for (R_xlen_t i = 0; i < metadata_columns.size(); i++) {
+    if (schema->field(i)->type()->id() == Type::EXTENSION) {
+      metadata_columns[i] = R_NilValue;
+    }
+  }
+
+  // Assign to the output m etadata
+  metadata[1] = metadata_columns;
 
   if (has_metadata) {
     SEXP serialise_call =
