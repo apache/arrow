@@ -1225,17 +1225,17 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
           is_negative = UnboxScalar<DoubleType>::Unbox(*multiple) < 0;
           break;
         case Type::DECIMAL128:
-          is_negative = UnboxScalar<Decimal128Type>::Unbox(*multiple) <= 0;
+          is_negative = UnboxScalar<Decimal128Type>::Unbox(*multiple) < 0;
           break;
         case Type::DECIMAL256:
-          is_negative = UnboxScalar<Decimal256Type>::Unbox(*multiple) <= 0;
+          is_negative = UnboxScalar<Decimal256Type>::Unbox(*multiple) < 0;
           break;
         default:
-          break;
+          DCHECK(false);
     };
 
     if (is_negative) {
-      return Status::Invalid("Rounding multiple must be positive");
+      return Status::Invalid("Rounding multiple must be nonnegative");
     }
 
     // Ensure `multiple` option matches input type
@@ -1382,11 +1382,14 @@ struct RoundToMultiple {
 
   explicit RoundToMultiple(const State& state, const DataType& out_ty) {
     const auto& options = state.options;
-    multiple = static_cast<CType>(UnboxScalar<ArrowType>::Unbox(*options.multiple));
+    multiple = UnboxScalar<ArrowType>::Unbox(*options.multiple);
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    if (multiple == 0) {
+      return 0;
+    }
     // Do not process Inf or NaN because they will trigger the overflow error at end of
     // function.
     if (!std::isfinite(arg)) {
@@ -1434,6 +1437,9 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    if (multiple == T(0)) {
+      return 0;
+    }
     std::pair<CType, CType> pair;
     *st = arg.Divide(multiple).Value(&pair);
     if (!st->ok()) return arg;
@@ -1456,11 +1462,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
             // Do nothing
             break;
           case RoundMode::HALF_TOWARDS_INFINITY:
-            if (remainder.Sign() >= 0) {
-              pair.first += 1;
-            } else {
-              pair.first -= 1;
-            }
+            pair.first += remainder.Sign() >= 0 ? 1 : -1;
             break;
           case RoundMode::HALF_TO_EVEN:
             if (pair.first.low_bits() % 2 != 0) {
@@ -1500,11 +1502,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
           // Do nothing
           break;
         case RoundMode::TOWARDS_INFINITY:
-          if (remainder.Sign() >= 0) {
-            pair.first += 1;
-          } else {
-            pair.first -= 1;
-          }
+          pair.first += remainder.Sign() >= 0 ? 1 : -1;
           break;
         default:
           DCHECK(false);
