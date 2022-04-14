@@ -431,8 +431,8 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
 
 build_formats <- function(orders) {
   year_chars <- sprintf("%%%s", c("y", "Y"))
-  month_chars <- sprintf("%%%s",c("m", "B", "b"))
-  day_chars <- sprintf("%%%s",c("d"))
+  month_chars <- sprintf("%%%s", c("m", "B", "b"))
+  day_chars <- sprintf("%%%s", c("d"))
 
   outcome <- switch(
     orders,
