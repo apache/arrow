@@ -79,22 +79,24 @@ arrow::compute::ExecContext* gc_context();
 
 namespace arrow {
 
-class UnwindProtectDetail: public StatusDetail {
-public:
+class UnwindProtectDetail : public StatusDetail {
+ public:
   SEXP token;
-  UnwindProtectDetail(SEXP token): token(token) {}
+  UnwindProtectDetail(SEXP token) : token(token) {}
   virtual const char* type_id() const { return "UnwindProtectDetail"; };
   virtual std::string ToString() const { return "R code execution error"; };
 };
 
 static inline Status StatusUnwindProtect(SEXP token) {
-  return Status::Invalid("R code execution error").WithDetail(std::make_shared<UnwindProtectDetail>(token));
+  return Status::Invalid("R code execution error")
+      .WithDetail(std::make_shared<UnwindProtectDetail>(token));
 }
 
 static inline void StopIfNotOk(const Status& status) {
   if (!status.ok()) {
     auto detail = status.detail();
-    const UnwindProtectDetail* unwind_detail = dynamic_cast<const UnwindProtectDetail*>(detail.get());
+    const UnwindProtectDetail* unwind_detail =
+        dynamic_cast<const UnwindProtectDetail*>(detail.get());
     if (unwind_detail) {
       throw cpp11::unwind_exception(unwind_detail->token);
     } else {
@@ -118,19 +120,13 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
 bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 static inline bool can_convert_native(SEXP x) {
-  return !Rf_isObject(x) ||
-    Rf_inherits(x, "factor") ||
-    Rf_inherits(x, "Date") ||
-    Rf_inherits(x, "integer64") ||
-    Rf_inherits(x, "POSIXct") ||
-    Rf_inherits(x, "hms") ||
-    Rf_inherits(x, "difftime") ||
-    Rf_inherits(x, "data.frame") ||
-    Rf_inherits(x, "arrow_binary") ||
-    Rf_inherits(x, "arrow_large_binary") ||
-    Rf_inherits(x, "arrow_fixed_size_binary") ||
-    Rf_inherits(x, "vctrs_unspecified") ||
-    Rf_inherits(x, "AsIs");
+  return !Rf_isObject(x) || Rf_inherits(x, "factor") || Rf_inherits(x, "Date") ||
+         Rf_inherits(x, "integer64") || Rf_inherits(x, "POSIXct") ||
+         Rf_inherits(x, "hms") || Rf_inherits(x, "difftime") ||
+         Rf_inherits(x, "data.frame") || Rf_inherits(x, "arrow_binary") ||
+         Rf_inherits(x, "arrow_large_binary") ||
+         Rf_inherits(x, "arrow_fixed_size_binary") ||
+         Rf_inherits(x, "vctrs_unspecified") || Rf_inherits(x, "AsIs");
 }
 
 Status count_fields(SEXP lst, int* out);

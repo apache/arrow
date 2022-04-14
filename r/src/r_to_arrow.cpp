@@ -269,8 +269,7 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
 };
 
 class RExtensionConverter : public RConverter {
-public:
-
+ public:
   // This is not run in parallel by default, so it's safe to call into R here
   Status Extend(SEXP values, int64_t size, int64_t offset = 0) {
     try {
@@ -282,9 +281,8 @@ public:
       }
 
       cpp11::sexp as_array_result = cpp11::package("arrow")["as_arrow_array"](
-        values,
-        cpp11::named_arg("type") = type_r6,
-        cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
+          values, cpp11::named_arg("type") = type_r6,
+          cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
 
       if (!Rf_inherits(as_array_result, "Array")) {
         return Status::Invalid("as_arrow_array() did not return object of type Array");
@@ -303,7 +301,7 @@ public:
     return std::make_shared<ChunkedArray>(std::move(arrays_));
   }
 
-private:
+ private:
   cpp11::writable::list objects_;
   std::vector<std::shared_ptr<Array>> arrays_;
 };
@@ -1472,8 +1470,9 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       // if unsuccessful: use RConverter api
       std::unique_ptr<arrow::r::RConverter> converter;
       if (arrow::r::can_convert_native(x)) {
-        auto converter_result = arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
-            options.type, options, gc_memory_pool());
+        auto converter_result =
+            arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+                options.type, options, gc_memory_pool());
         if (converter_result.ok()) {
           converter = std::move(converter_result.ValueUnsafe());
         } else {
@@ -1481,7 +1480,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
           break;
         }
       } else {
-        converter = std::unique_ptr<arrow::r::RConverter>(new arrow::r::RExtensionConverter());
+        converter =
+            std::unique_ptr<arrow::r::RConverter>(new arrow::r::RExtensionConverter());
         status = converter->Construct(options.type, options, gc_memory_pool());
         if (!status.ok()) {
           break;

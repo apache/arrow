@@ -199,7 +199,8 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
         cpp11::stop("Cannot infer type from vector");
     }
   } else {
-    cpp11::sexp type_result = cpp11::package("arrow")["type"](x, cpp11::named_arg("from_array_infer_type") = true);
+    cpp11::sexp type_result = cpp11::package("arrow")["type"](
+        x, cpp11::named_arg("from_array_infer_type") = true);
     return cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(type_result);
   }
 }
