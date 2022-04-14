@@ -127,10 +127,7 @@ class PartitionLocks {
   };
   int num_prtns_;
   std::unique_ptr<PartitionLock[]> locks_;
-  std::unique_ptr<arrow::random::pcg32_fast[]> rand_engines_;
-
-  std::seed_seq rand_seed_;
-  std::uniform_int_distribution<uint64_t> rand_distribution_;
+  std::unique_ptr<arrow::random::pcg32_fast[]> rngs_;
 };
 
 }  // namespace compute

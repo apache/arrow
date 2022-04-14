@@ -22,9 +22,9 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "arrow/compute/exec/key_encode.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
-#include "key_encode.h"
 
 namespace arrow {
 namespace compute {

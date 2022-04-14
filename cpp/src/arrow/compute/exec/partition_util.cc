@@ -21,26 +21,25 @@
 namespace arrow {
 namespace compute {
 
-PartitionLocks::PartitionLocks()
-    : num_prtns_(0), locks_(nullptr), rand_engines_(nullptr) {}
+PartitionLocks::PartitionLocks() : num_prtns_(0), locks_(nullptr), rngs_(nullptr) {}
 
 PartitionLocks::~PartitionLocks() { CleanUp(); }
 
 void PartitionLocks::Init(size_t num_threads, int num_prtns) {
   num_prtns_ = num_prtns;
   locks_.reset(new PartitionLock[num_prtns]);
-  rand_engines_.reset(new arrow::random::pcg32_fast[num_threads]);
+  rngs_.reset(new arrow::random::pcg32_fast[num_threads]);
   for (int i = 0; i < num_prtns; ++i) {
     locks_[i].lock.store(false);
   }
   arrow::random::pcg32_fast seed_gen(0);
   std::uniform_int_distribution<uint32_t> seed_dist;
-  for (size_t i = 0; i < num_threads; i++) rand_engines_[i].seed(seed_dist(seed_gen));
+  for (size_t i = 0; i < num_threads; i++) rngs_[i].seed(seed_dist(seed_gen));
 }
 
 void PartitionLocks::CleanUp() {
   locks_.reset();
-  rand_engines_.reset();
+  rngs_.reset();
   num_prtns_ = 0;
 }
 
@@ -51,7 +50,7 @@ std::atomic<bool>* PartitionLocks::lock_ptr(int prtn_id) {
 }
 
 int PartitionLocks::random_int(size_t thread_id, int num_values) {
-  return rand_distribution_(rand_engines_[thread_id]) % num_values;
+  return std::uniform_int_distribution<int>{0, num_values - 1}(rngs_[thread_id]);
 }
 
 bool PartitionLocks::AcquirePartitionLock(size_t thread_id, int num_prtns_to_try,
