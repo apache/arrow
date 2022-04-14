@@ -54,21 +54,14 @@
 }
 
 #' @importFrom rlang trace_back
-apply_arrow_r_metadata <- function(x, r_metadata, restore_class_attr = NULL) {
+apply_arrow_r_metadata <- function(x, r_metadata) {
   tryCatch(
     expr = {
       columns_metadata <- r_metadata$columns
-      restore_class_attr <- is.null(r_metadata$arrow_version) ||
-        (r_metadata$arrow_version >= package_version("7.0.0.9000"))
-
       if (is.data.frame(x)) {
         if (length(names(x)) && !is.null(columns_metadata)) {
           for (name in intersect(names(columns_metadata), names(x))) {
-            x[[name]] <- apply_arrow_r_metadata(
-              x[[name]],
-              columns_metadata[[name]],
-              restore_class_attr = restore_class_attr
-            )
+            x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
           }
         }
       } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
@@ -97,32 +90,10 @@ apply_arrow_r_metadata <- function(x, r_metadata, restore_class_attr = NULL) {
         x
       }
 
-      # Restore the class attribute for metadata written before extension
-      # types were implemented or for columns that were wrapped in I()
-      saved_class <- r_metadata$attributes$class
-      if (any(c("data.frame", "AsIs") %in% saved_class) || restore_class_attr) {
-        class(x) <-saved_class %||% class(x)
-      }
-
-      # ...but warn if it's different than what was saved
-      if (!is.null(saved_class) && !identical(class(x), saved_class)) {
-        warn(
-          sprintf(
-            "Expected to restore object of class %s but got object of class %s",
-            paste(r_metadata$attributes$class, collapse = " / "),
-            paste(class(x), collapse = " / ")
-          )
-        )
-      }
-
       if (!is.null(r_metadata$attributes)) {
-        attr_names <- setdiff(names(r_metadata$attributes), "class")
-        attributes(x)[attr_names] <- r_metadata$attributes[attr_names]
-
-        # Make sure we can roundtrip a POSIXlt saved by versions before
-        # vctrs extension types were implemented
-        if (identical(r_metadata$attributes$class, c("POSIXlt", "POSIXlt"))) {
-          # We store POSIXlt as a StructArray, which was translated back to R
+        attributes(x)[names(r_metadata$attributes)] <- r_metadata$attributes
+        if (inherits(x, "POSIXlt")) {
+          # We store POSIXlt as a StructArray, which is translated back to R
           # as a data.frame, but while data frames have a row.names = c(NA, nrow(x))
           # attribute, POSIXlt does not, so since this is now no longer an object
           # of class data.frame, remove the extraneous attribute
@@ -188,10 +159,6 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     out <- if (length(att) || !all(map_lgl(columns, is.null))) {
       list(attributes = att, columns = columns)
     }
-
-    # keep a record of the arrow version that wrote the metadata
-    out[["version"]] <- as.character(packageVersion("arrow"))
-
     return(out)
   }
 
@@ -220,6 +187,18 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     if (all(map_lgl(columns, is.null))) {
       columns <- NULL
     }
+  } else if (inherits(x, c("sfc", "sf"))) {
+    # Check if there are any columns that look like sf columns, warn that we will
+    # not be saving this data for now (but only if arrow.preserve_row_level_metadata
+    # is set to FALSE)
+    warning(
+      "One of the columns given appears to be an `sfc` SF column. Due to their unique ",
+      "nature, these columns do not convert to Arrow well. We are working on ",
+      "better ways to do this, but in the interim we recommend converting any `sfc` ",
+      "columns to WKB (well-known binary) columns before using them with Arrow ",
+      "(for example, with `sf::st_as_binary(col)`).",
+      call. = FALSE
+    )
   }
 
   if (length(att) || !is.null(columns)) {
