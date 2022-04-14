@@ -16,6 +16,8 @@
 # under the License.
 
 skip_if(on_old_windows())
+# In 3.4 the lack of tzone attribute causes spurious failures
+skip_if_r_version("3.4.4")
 
 library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
