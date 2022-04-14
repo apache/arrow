@@ -1568,9 +1568,9 @@ def test_round_to_multiple():
         assert pc.round_to_multiple(values, multiple,
                                     "half_towards_infinity") == result
 
-    for multiple in [-2, pa.scalar(-10.4)]:
+    for multiple in [0, -2, pa.scalar(-10.4)]:
         with pytest.raises(pa.ArrowInvalid,
-                           match="multiple must be nonnegative"):
+                           match="Rounding multiple must be positive"):
             pc.round_to_multiple(values, multiple=multiple)
 
 
