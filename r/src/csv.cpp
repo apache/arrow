@@ -164,9 +164,11 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
-  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>(
-      [&]() { return table_reader->ReadAsync(); });
-
+  const auto& io_context = arrow::io::default_io_context();
+  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
+    return DeferNotOk(
+        io_context.executor()->Submit([&]() { return table_reader->Read(); }));
+  });
   return ValueOrStop(result);
 }
 
