@@ -723,10 +723,10 @@ TEST(SendSignal, ToThread) {
 class TestSecureZero : public ::testing::Test {
  public:
   void CheckSecureZero() {
-    const std::string copy = data;
-    const auto old_ptr = data.c_str();
-    const auto old_size = data.length();
-    SecureZero(&data);
+    const std::string copy = data_;
+    const auto old_ptr = data_.c_str();
+    const auto old_size = data_.length();
+    SecureZero(&data_);
     // Allocate new area without initializing it, to minimize the risk of
     // dereferencing an invalid address.
     std::string new_string;
@@ -738,23 +738,23 @@ class TestSecureZero : public ::testing::Test {
   }
 
  protected:
-  std::string data;
+  std::string data_;
 };
 
 TEST_F(TestSecureZero, SmallString) {
   // A small string may have its storage inside the string object itself
-  data = "123";
+  data_ = "123";
   CheckSecureZero();
 }
 
 TEST_F(TestSecureZero, LargeString) {
-  data.assign(200, 'x');
+  data_.assign(200, 'x');
   CheckSecureZero();
 }
 
 TEST_F(TestSecureZero, EmptyString) {
   // Shouldn't crash or misbehave
-  SecureZero(&data);
+  SecureZero(&data_);
 }
 
 }  // namespace internal
