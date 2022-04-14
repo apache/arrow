@@ -173,10 +173,15 @@ class EmailReport(Report):
         repo_url = self.job.queue.remote_url.strip('.git')
         return '{}/branches/all?query={}'.format(repo_url, query)
 
+    def branch_url(self, branch):
+        repo_url = self.job.queue.remote_url.strip('.git')
+        return '{}/tree/{}'.format(repo_url, branch)
+
     def listing(self, tasks):
         return '\n'.join(
             sorted(
-                self.TASK.format(name=task_name, url=self.url(task.branch))
+                self.TASK.format(
+                    name=task_name, url=self.branch_url(task.branch))
                 for task_name, task in tasks.items()
             )
         )
