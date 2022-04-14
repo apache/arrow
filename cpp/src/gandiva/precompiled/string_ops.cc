@@ -2879,19 +2879,21 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 //    numbers, append with zeros until there are three numbers. If you have four or more
 //    numbers, retain only the first three.
 FORCE_INLINE
-const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
-                         int32_t* out_len) {
+const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
+                         bool in_validity, bool* out_valid, int32_t* out_len) {
   if (in_len <= 0) {
+    *out_valid = true;
     *out_len = 0;
     return "";
   }
 
   // The soundex code is composed by one letter and three numbers
-  char* soundex = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, in_len));
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, 4));
+  char* soundex = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 4));
 
   if (soundex == nullptr || ret == nullptr) {
-    gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string");
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_valid = false;
     *out_len = 0;
     return "";
   }
@@ -2910,9 +2912,9 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
     }
   }
 
-  // If ret[0] is not initialised, return one exception
+  // If ret[0] is not initialised, return validity false
   if (start_idx == 0) {
-    gdv_fn_context_set_error_msg(ctx, "There are no valid values in this entry.");
+    *out_valid = false;
     *out_len = 0;
     return "";
   }
@@ -2951,7 +2953,7 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
       ret_len++;
     }
   }
-
+  *out_valid = true;
   *out_len = 4;
   return ret;
 }
