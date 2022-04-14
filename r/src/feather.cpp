@@ -81,10 +81,9 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
 
   if (!on_old_windows) {
     const auto& io_context = arrow::io::default_io_context();
-    auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
-      return DeferNotOk(io_context.executor()->Submit(read_table));
-    });
-  return ValueOrStop(result);
+    auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>(
+        [&]() { return DeferNotOk(io_context.executor()->Submit(read_table)); });
+    return ValueOrStop(result);
   } else {
     return ValueOrStop(read_table());
   }
