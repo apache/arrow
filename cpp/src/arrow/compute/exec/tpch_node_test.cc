@@ -370,12 +370,6 @@ void VerifySupplier(const std::vector<ExecBatch>& batches,
   ASSERT_EQ(bad_count, static_cast<int64_t>(5 * scale_factor));
 }
 
-TEST(TpchNode, ScaleFactor) {
-  constexpr double kScaleFactor = 0.01;
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier, kScaleFactor));
-  VerifySupplier(res, kScaleFactor);
-}
-
 TEST(TpchNode, Supplier) {
   ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier));
   VerifySupplier(res);
@@ -636,7 +630,7 @@ TEST(TpchNode, AllTables) {
 
   ASSERT_OK(plan->Validate());
   ASSERT_OK(plan->StartProducing());
-  plan->finished().Wait();
+  ASSERT_OK(plan->finished().status());
   for (int i = 0; i < kNumTables; i++) {
     auto fut = CollectAsyncGenerator(gens[i]);
     ASSERT_OK_AND_ASSIGN(auto maybe_batches, fut.MoveResult());
