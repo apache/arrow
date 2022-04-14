@@ -128,16 +128,16 @@ jobs:
         include:
           - name: minimal-fedora-conda
             image: minimal-fedora-conda
-            title: Fedora Conda Minimal Build
+            title: AMD64 Fedora Python Minimal Conda Build
           - name: minimal-fedora-venv
             image: minimal-fedora-venv
-            title: Fedora venv Minimal Build
+            title: AMD64 Fedora Python Minimal Venv Build
           - name: minimal-ubuntu-conda
             image: minimal-ubuntu-conda
-            title: Ubuntu Conda Minimal Build
+            title: AMD64 Ubuntu Python Minimal Conda Build
           - name: minimal-ubuntu-venv
             image: minimal-ubuntu-venv
-            title: Ubuntu venv Minimal Build
+            title: AMD64 Ubuntu Python Minimal Venv Build
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
