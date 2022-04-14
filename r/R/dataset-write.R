@@ -136,18 +136,49 @@ write_dataset <- function(dataset,
   if (inherits(dataset, "arrow_dplyr_query")) {
     # partitioning vars need to be in the `select` schema
     dataset <- ensure_group_vars(dataset)
-  } else if (inherits(dataset, "grouped_df")) {
-    force(partitioning)
-    # Drop the grouping metadata before writing; we've already consumed it
-    # now to construct `partitioning` and don't want it in the metadata$r
-    dataset <- dplyr::ungroup(dataset)
+  } else {
+    if (inherits(dataset, "grouped_df")) {
+      force(partitioning)
+      # Drop the grouping metadata before writing; we've already consumed it
+      # now to construct `partitioning` and don't want it in the metadata$r
+      dataset <- dplyr::ungroup(dataset)
+    }
+    dataset <- tryCatch(
+      as_adq(dataset),
+      error = function(e) {
+        supported <- c(
+          "Dataset", "RecordBatch", "Table", "arrow_dplyr_query", "data.frame"
+        )
+        stop(
+          "'dataset' must be a ",
+          oxford_paste(supported, "or", quote = FALSE),
+          ", not ",
+          deparse(class(dataset)),
+          call. = FALSE
+        )
+      }
+    )
   }
 
-  scanner <- Scanner$create(dataset)
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(dataset)
+  if (!is.null(final_node$sort %||% final_node$head %||% final_node$tail)) {
+    # Because sorting and topK are only handled in the SinkNode (or in R!),
+    # they wouldn't get picked up in the WriteNode. So let's Run this ExecPlan
+    # to capture those, and then create a new plan for writing
+    # TODO(ARROW-15681): do sorting in WriteNode in C++
+    dataset <- as_adq(plan$Run(final_node))
+    plan <- ExecPlan$create()
+    final_node <- plan$Build(dataset)
+  }
+
   if (!inherits(partitioning, "Partitioning")) {
-    partition_schema <- scanner$schema[partitioning]
+    partition_schema <- final_node$schema[partitioning]
     if (isTRUE(hive_style)) {
-      partitioning <- HivePartitioning$create(partition_schema, null_fallback = list(...)$null_fallback)
+      partitioning <- HivePartitioning$create(
+        partition_schema,
+        null_fallback = list(...)$null_fallback
+      )
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }
@@ -158,8 +189,10 @@ write_dataset <- function(dataset,
   }
 
   path_and_fs <- get_path_and_filesystem(path)
-  options <- FileWriteOptions$create(format, table = scanner, ...)
+  options <- FileWriteOptions$create(format, table = final_node$schema, ...)
 
+  # TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
+  # and encapsulate this logic better
   existing_data_behavior_opts <- c("delete_matching", "overwrite", "error")
   existing_data_behavior <- match(match.arg(existing_data_behavior), existing_data_behavior_opts) - 1L
 
@@ -168,9 +201,9 @@ write_dataset <- function(dataset,
   validate_positive_int_value(min_rows_per_group, "min_rows_per_group must be a positive, non-missing integer")
   validate_positive_int_value(max_rows_per_group, "max_rows_per_group must be a positive, non-missing integer")
 
-  dataset___Dataset__Write(
-    options, path_and_fs$fs, path_and_fs$path,
-    partitioning, basename_template, scanner,
+  plan$Write(
+    final_node, options, path_and_fs$fs, path_and_fs$path,
+    partitioning, basename_template,
     existing_data_behavior, max_partitions,
     max_open_files, max_rows_per_file,
     min_rows_per_group, max_rows_per_group

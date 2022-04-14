@@ -24,7 +24,12 @@ arrow_dplyr_query <- function(.data) {
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
   # like selected columns, filters, and group vars.
   # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
-  gv <- dplyr::group_vars(.data) %||% character()
+  gv <- tryCatch(
+    # If dplyr is not available, or if the input doesn't have a group_vars
+    # method, assume no group vars
+    dplyr::group_vars(.data) %||% character(),
+    error = function(e) character()
+  )
 
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)

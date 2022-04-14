@@ -244,6 +244,10 @@ ExecPlan <- R6Class("ExecPlan",
       }
       out
     },
+    Write = function(node, ...) {
+      # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
+      ExecPlan_Write(self, node, ...)
+    },
     Stop = function() ExecPlan_StopProducing(self)
   )
 )
