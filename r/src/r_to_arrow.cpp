@@ -273,22 +273,23 @@ class RExtensionConverter : public RConverter {
   // This is not run in parallel by default, so it's safe to call into R here
   Status Extend(SEXP values, int64_t size, int64_t offset = 0) {
     try {
-      cpp11::sexp type_r6;
-      if (options().strict) {
-        type_r6 = cpp11::as_sexp(options().type);
-      } else {
-        type_r6 = R_NilValue;
-      }
-
       cpp11::sexp as_array_result = cpp11::package("arrow")["as_arrow_array"](
-          values, cpp11::named_arg("type") = type_r6,
+          values, cpp11::named_arg("type") = cpp11::as_sexp(options().type),
           cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
 
+      // Check that the R method returned an Array
       if (!Rf_inherits(as_array_result, "Array")) {
         return Status::Invalid("as_arrow_array() did not return object of type Array");
       }
 
       auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(as_array_result);
+
+      // We need the type to be equal because the schema has already been finalized
+      if (!array->type()->Equals(options().type)) {
+        return Status::Invalid(
+            "as_arrow_array() returned an Array with an incorrect type");
+      }
+
       arrays_.push_back(std::move(array));
       return Status::OK();
     } catch (cpp11::unwind_exception& e) {
