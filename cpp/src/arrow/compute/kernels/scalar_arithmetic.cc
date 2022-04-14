@@ -1176,7 +1176,6 @@ struct RoundOptionsWrapper;
 template <>
 struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
   using OptionsType = RoundOptions;
-  using State = RoundOptionsWrapper<OptionsType>;
   double pow10;
 
   explicit RoundOptionsWrapper(OptionsType options) : OptionsWrapper(std::move(options)) {
@@ -1190,7 +1189,7 @@ struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<State>(*options);
+      return ::arrow::internal::make_unique<RoundOptionsWrapper>(*options);
     }
     return Status::Invalid(
         "Attempted to initialize KernelState from null FunctionOptions");
@@ -1201,12 +1200,10 @@ template <>
 struct RoundOptionsWrapper<RoundToMultipleOptions>
     : public OptionsWrapper<RoundToMultipleOptions> {
   using OptionsType = RoundToMultipleOptions;
-  using State = RoundOptionsWrapper<OptionsType>;
   using OptionsWrapper::OptionsWrapper;
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
-    std::unique_ptr<State> state;
     auto options = static_cast<const OptionsType*>(args.options);
     if (!options) {
       return Status::Invalid(
@@ -1222,10 +1219,10 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
     bool is_negative = false;
     switch (multiple->type->id()) {
         case Type::FLOAT:
-          is_negative = UnboxScalar<FloatType>::Unbox(*multiple) <= 0;
+          is_negative = UnboxScalar<FloatType>::Unbox(*multiple) < 0;
           break;
         case Type::DOUBLE:
-          is_negative = UnboxScalar<DoubleType>::Unbox(*multiple) <= 0;
+          is_negative = UnboxScalar<DoubleType>::Unbox(*multiple) < 0;
           break;
         case Type::DECIMAL128:
           is_negative = UnboxScalar<Decimal128Type>::Unbox(*multiple) <= 0;
@@ -1246,10 +1243,10 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
     if (!multiple->type->Equals(type)) {
       ARROW_ASSIGN_OR_RAISE(auto casted_multiple, Cast(Datum(multiple), type, CastOptions::Safe(), ctx->exec_context()));
       auto new_options = OptionsType(casted_multiple.scalar(), options->round_mode);
-      return ::arrow::internal::make_unique<State>(new_options);
+      return ::arrow::internal::make_unique<RoundOptionsWrapper>(new_options);
     }
 
-    return ::arrow::internal::make_unique<State>(*options);
+    return ::arrow::internal::make_unique<RoundOptionsWrapper>(*options);
   }
 };
 
