@@ -81,19 +81,19 @@ test_that("Table and ChunkedArray to Python", {
 })
 
 test_that("RecordBatch with metadata roundtrip", {
-  batch <- RecordBatch$create(example_with_times)
+  batch <- RecordBatch$create(example_with_metadata)
   pybatch <- reticulate::r_to_py(batch)
   expect_s3_class(pybatch, "pyarrow.lib.RecordBatch")
   expect_equal(reticulate::py_to_r(pybatch), batch)
-  expect_identical(as.data.frame(reticulate::py_to_r(pybatch)), example_with_times)
+  expect_identical(as.data.frame(reticulate::py_to_r(pybatch)), example_with_metadata)
 })
 
 test_that("Table with metadata roundtrip", {
-  tab <- Table$create(example_with_times)
+  tab <- Table$create(example_with_metadata)
   pytab <- reticulate::r_to_py(tab)
   expect_s3_class(pytab, "pyarrow.lib.Table")
   expect_equal(reticulate::py_to_r(pytab), tab)
-  expect_identical(as.data.frame(reticulate::py_to_r(pytab)), example_with_times)
+  expect_identical(as.data.frame(reticulate::py_to_r(pytab)), example_with_metadata)
 })
 
 test_that("DataType roundtrip", {
