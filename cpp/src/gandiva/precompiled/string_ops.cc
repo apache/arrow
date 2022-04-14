@@ -2436,6 +2436,7 @@ const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     *out_valid = false;
     return "";
@@ -2480,6 +2481,7 @@ const char* concat_ws_utf8_utf8_utf8(
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     *out_valid = false;
     return "";
