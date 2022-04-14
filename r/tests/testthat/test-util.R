@@ -22,7 +22,7 @@ test_that("as_writable_table() works for data.frame, RecordBatch, and Table", {
   batch <- record_batch(col1 = 1, col2 = "two")
   expect_equal(as_writable_table(batch), table)
 
-  tbl <- data.frame(col1 = 1, col2 = "two")
+  tbl <- tibble::tibble(col1 = 1, col2 = "two")
   # because of metadata
   table_from_tbl <- as_writable_table(tbl)
   table_from_tbl$metadata <- NULL
