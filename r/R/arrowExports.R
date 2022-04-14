@@ -1112,12 +1112,12 @@ ipc___feather___Reader__version <- function(reader) {
   .Call(`_arrow_ipc___feather___Reader__version`, reader)
 }
 
-ipc___feather___Reader__Read <- function(reader, columns) {
-  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns)
+ipc___feather___Reader__Read <- function(reader, columns, on_old_windows) {
+  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns, on_old_windows)
 }
 
-ipc___feather___Reader__Open <- function(stream) {
-  .Call(`_arrow_ipc___feather___Reader__Open`, stream)
+ipc___feather___Reader__Open <- function(stream, on_old_windows) {
+  .Call(`_arrow_ipc___feather___Reader__Open`, stream, on_old_windows)
 }
 
 ipc___feather___Reader__schema <- function(reader) {

@@ -51,7 +51,8 @@ int ipc___feather___Reader__version(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
-    const std::shared_ptr<arrow::ipc::feather::Reader>& reader, cpp11::sexp columns) {
+    const std::shared_ptr<arrow::ipc::feather::Reader>& reader, cpp11::sexp columns,
+    bool on_old_windows) {
   bool use_names = columns != R_NilValue;
   std::vector<std::string> names;
   if (use_names) {
@@ -62,38 +63,46 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
     }
   }
 
-  const auto& io_context = arrow::io::default_io_context();
+  auto read_table = [&]() {
+    std::shared_ptr<arrow::Table> table;
+    arrow::Status read_result;
+    if (use_names) {
+      read_result = reader->Read(names, &table);
+    } else {
+      read_result = reader->Read(&table);
+    }
 
-  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
-    return DeferNotOk(io_context.executor()->Submit([&]() {
-      std::shared_ptr<arrow::Table> table;
-      arrow::Status read_result;
-      if (use_names) {
-        read_result = reader->Read(names, &table);
-      } else {
-        read_result = reader->Read(&table);
-      }
+    if (read_result.ok()) {
+      return arrow::Result<std::shared_ptr<arrow::Table>>(table);
+    } else {
+      return arrow::Result<std::shared_ptr<arrow::Table>>(read_result);
+    }
+  };
 
-      if (read_result.ok()) {
-        return arrow::Result<std::shared_ptr<arrow::Table>>(table);
-      } else {
-        return arrow::Result<std::shared_ptr<arrow::Table>>(read_result);
-      }
-    }));
-  });
-
+  if (!on_old_windows) {
+    const auto& io_context = arrow::io::default_io_context();
+    auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
+      return DeferNotOk(io_context.executor()->Submit(read_table));
+    });
   return ValueOrStop(result);
+  } else {
+    return ValueOrStop(read_table());
+  }
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
-    const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  const auto& io_context = arrow::io::default_io_context();
-  auto result = RunWithCapturedR<std::shared_ptr<arrow::ipc::feather::Reader>>([&]() {
-    return DeferNotOk(io_context.executor()->Submit(
-        [&]() { return arrow::ipc::feather::Reader::Open(stream); }));
-  });
-  return ValueOrStop(result);
+    const std::shared_ptr<arrow::io::RandomAccessFile>& stream, bool on_old_windows) {
+  if (!on_old_windows) {
+    const auto& io_context = arrow::io::default_io_context();
+    auto result = RunWithCapturedR<std::shared_ptr<arrow::ipc::feather::Reader>>([&]() {
+      return DeferNotOk(io_context.executor()->Submit(
+          [&]() { return arrow::ipc::feather::Reader::Open(stream); }));
+    });
+    return ValueOrStop(result);
+  } else {
+    return ValueOrStop(arrow::ipc::feather::Reader::Open(stream));
+  }
 }
 
 // [[arrow::export]]
