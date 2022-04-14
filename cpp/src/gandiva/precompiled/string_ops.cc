@@ -2873,8 +2873,8 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 //        m, n → 5
 //        r → 6
 //    3. If two or more letters with the same number were adjacent in the original name
-//    (before step 1), or adjacent for any intervening from any special letters, then omit
-//    all but the first. This rule also applies to the first letter.
+//    (before step 1), then omit all but the first. This rule also applies to the first
+//    letter.
 //    4. If the string have too few letters in the word that you can't assign three
 //    numbers, append with zeros until there are three numbers. If you have four or more
 //    numbers, retain only the first three.
