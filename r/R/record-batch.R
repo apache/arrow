@@ -255,7 +255,7 @@ cbind.RecordBatch <- function(...) {
 #' @return A [RecordBatch]
 #' @export
 #'
-#' @examples
+#' @examplesIf arrow_available()
 #' as_record_batch(data.frame(col1 = 1, col2 = "two"))
 #'
 as_record_batch <- function(x, ..., schema = NULL) {
