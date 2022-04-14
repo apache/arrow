@@ -26,9 +26,9 @@ library(dplyr, warn.conflicts = FALSE)
 # TODO: consider reevaluating this workaround after ARROW-12980
 withr::local_timezone("UTC")
 
-if (tolower(Sys.info()[["sysname"]]) == "windows") {
-  withr::local_locale(LC_TIME = "C")
-}
+# if (tolower(Sys.info()[["sysname"]]) == "windows") {
+#   withr::local_locale(LC_TIME = "C")
+# }
 
 test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 
