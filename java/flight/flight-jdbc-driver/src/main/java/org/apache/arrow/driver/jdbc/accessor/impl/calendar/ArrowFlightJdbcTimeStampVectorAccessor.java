@@ -31,7 +31,6 @@ import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
-import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
@@ -85,32 +84,40 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
   @Override
   public Date getDate(Calendar calendar) {
-    final Long millis = getLocalDateTimeMillis();
+    Long millis = getLocalDateTimeMillis();
     if (millis == null) {
       return null;
     }
 
-    return new Date(DateTimeUtils.applyCalendarOffset(millis, calendar));
+    return new Date(applyCalendarOffset(calendar, millis));
   }
 
   @Override
   public Time getTime(Calendar calendar) {
-    final Long millis = getLocalDateTimeMillis();
+    Long millis = getLocalDateTimeMillis();
     if (millis == null) {
       return null;
     }
 
-    return new Time(DateTimeUtils.applyCalendarOffset(millis, calendar));
+    return new Time(applyCalendarOffset(calendar, millis));
   }
 
   @Override
   public Timestamp getTimestamp(Calendar calendar) {
-    final Long millis = getLocalDateTimeMillis();
+    Long millis = getLocalDateTimeMillis();
     if (millis == null) {
       return null;
     }
 
-    return new Timestamp(DateTimeUtils.applyCalendarOffset(millis, calendar));
+    return new Timestamp(applyCalendarOffset(calendar, millis));
+  }
+
+  private long applyCalendarOffset(final Calendar calendar, final long millis) {
+    if (calendar == null) {
+      return millis - Calendar.getInstance(TimeZone.getDefault()).getTimeZone().getOffset(millis);
+    }
+
+    return millis - calendar.getTimeZone().getOffset(millis) + this.timeZone.getOffset(millis);
   }
 
   protected static TimeUnit getTimeUnitForVector(TimeStampVector vector) {
