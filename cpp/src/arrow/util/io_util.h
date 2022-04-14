@@ -346,5 +346,10 @@ int64_t GetRandomSeed();
 ARROW_EXPORT
 uint64_t GetThreadId();
 
+ARROW_EXPORT
+void SecureZero(uint8_t* data, int64_t size);
+ARROW_EXPORT
+void SecureZero(std::string* data);
+
 }  // namespace internal
 }  // namespace arrow

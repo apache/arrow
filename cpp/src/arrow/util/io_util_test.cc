@@ -37,6 +37,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/windows_compatibility.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -717,6 +718,43 @@ TEST(SendSignal, ToThread) {
 
   ASSERT_EQ(signal_received.load(), SIGINT);
 #endif
+}
+
+class TestSecureZero : public ::testing::Test {
+ public:
+  void CheckSecureZero() {
+    const std::string copy = data;
+    const auto old_ptr = data.c_str();
+    const auto old_size = data.length();
+    SecureZero(&data);
+    // Allocate new area without initializing it, to minimize the risk of
+    // dereferencing an invalid address.
+    std::string new_string;
+    new_string.reserve(old_size);
+    // The old data should not be there anymore
+    for (auto c : util::string_view(old_ptr, old_size)) {
+      ASSERT_EQ(c, 0);
+    }
+  }
+
+ protected:
+  std::string data;
+};
+
+TEST_F(TestSecureZero, SmallString) {
+  // A small string may have its storage inside the string object itself
+  data = "123";
+  CheckSecureZero();
+}
+
+TEST_F(TestSecureZero, LargeString) {
+  data.assign(200, 'x');
+  CheckSecureZero();
+}
+
+TEST_F(TestSecureZero, EmptyString) {
+  // Shouldn't crash or misbehave
+  SecureZero(&data);
 }
 
 }  // namespace internal

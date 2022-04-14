@@ -31,15 +31,18 @@
 #define __EXTENSIONS__
 #endif
 
+// For memset_s
+#define __STDC_WANT_LIB_EXT1__ 1
+
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
 #include <array>
 #include <cerrno>
 #include <climits>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <iostream>
 #include <mutex>
 #include <random>
@@ -52,6 +55,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>  // IWYU pragma: keep
 
@@ -1865,6 +1869,32 @@ uint64_t GetThreadId() {
 uint64_t GetOptionalThreadId() {
   auto tid = GetThreadId();
   return (tid == 0) ? tid - 1 : tid;
+}
+
+void SecureZero(uint8_t* data, int64_t size) {
+  // Heavily borrowed from libb2's `secure_zero_memory` at
+  // https://github.com/BLAKE2/libb2/blob/master/src/blake2-impl.h
+  const auto n = static_cast<size_t>(size);
+#if defined(_WIN32) || defined(WIN32)
+  SecureZeroMemory(data, n);
+#elif defined(__STDC_LIB_EXT1__)
+  // prioritize first the general C11 call
+  memset_s(data, n, 0, n);
+#elif defined(__linux__)
+  explicit_bzero(data, n);
+#else
+  // Try to ensure that a true library call to memset() will be generated
+  // by the compiler.
+  static void *(*const volatile memset_v)(void *, int, size_t) = &memset;
+  memset_v(data, 0, n);
+  __asm__ __volatile__("" ::"r"(data) : "memory");
+#endif
+}
+
+void SecureZero(std::string* data) {
+  SecureZero(reinterpret_cast<uint8_t*>(data->data()),
+             static_cast<int64_t>(data->length()));
+  data->clear();
 }
 
 }  // namespace internal
