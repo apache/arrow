@@ -112,9 +112,9 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     # not maintained and the embedded tibble's attributes are read in a wrong
     # order. Since this is prior to 1.0.0 punting on checking the attributes
     # though classes are always checked, so that must be removed before checking.
-    old_example_with_metadata_sans_special_class <- old_example_with_metadata
-    old_example_with_metadata_sans_special_class$a <- unclass(old_example_with_metadata_sans_special_class$a)
-    expect_equal(df, old_example_with_metadata_sans_special_class, ignore_attr = TRUE)
+    example_with_metadata_sans_special_class <- old_example_with_metadata
+    example_with_metadata_sans_special_class$a <- unclass(example_with_metadata_sans_special_class$a)
+    expect_equal(df, example_with_metadata_sans_special_class, ignore_attr = TRUE)
   })
 }
 

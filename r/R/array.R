@@ -273,7 +273,7 @@ as_arrow_array.vctrs_vctr <- function(x, ..., type = NULL) {
 
 #' @export
 as_arrow_array.POSIXlt <- function(x, ..., type = NULL) {
-  as_arrow_array.vctrs_vctr(x, ..., type =)
+  as_arrow_array.vctrs_vctr(x, ..., type = type)
 }
 
 
