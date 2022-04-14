@@ -66,8 +66,6 @@ Expression cast(Expression argument, std::shared_ptr<DataType> to_type) {
               compute::CastOptions::Safe(std::move(to_type)));
 }
 
-Expression invert(Expression argument) { return call("invert", {std::move(argument)}); }
-
 Expression true_unless_null(Expression argument) {
   return call("true_unless_null", {std::move(argument)});
 }
@@ -416,9 +414,9 @@ TEST(Expression, IsSatisfiable) {
 
   // Special case invert(true_unless_null(x)): arises in simplification against a
   // guarantee with a nullable caveat.
-  EXPECT_FALSE(Bind(invert(true_unless_null(field_ref("i32")))).IsSatisfiable());
+  EXPECT_FALSE(Bind(not_(true_unless_null(field_ref("i32")))).IsSatisfiable());
   // NB: no effort to examine unbound expressions
-  EXPECT_TRUE(invert(true_unless_null(field_ref("i32"))).IsSatisfiable());
+  EXPECT_TRUE(not_(true_unless_null(field_ref("i32"))).IsSatisfiable());
 
   // When a top level conjunction contains an Expression which is not satisfiable
   // (guaranteed to evaluate to null or false), it can only evaluate to null or false.
@@ -1332,7 +1330,7 @@ TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
 
   Simplify{equal(field_ref("i32"), literal(3))}
       .WithGuarantee(i32_is_2_or_null)
-      .Expect(invert(
+      .Expect(not_(
           true_unless_null(field_ref("i32"))));  // not satisfiable, will drop row group
 }
 

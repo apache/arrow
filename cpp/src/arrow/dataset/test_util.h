@@ -853,6 +853,27 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     ASSERT_RAISES(Invalid,
                   ProjectionDescr::FromNames({"i32"}, *this->opts_->dataset_schema));
   }
+  void TestScanWithPushdownNulls() {
+    // Regression test for ARROW-15312
+    auto i64 = field("i64", int64());
+    this->SetSchema({i64});
+    this->SetFilter(is_null(field_ref("i64")));
+
+    auto rb = RecordBatchFromJSON(schema({i64}), R"([
+      [null],
+      [32]
+    ])");
+    ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({rb}));
+    auto source = this->GetFileSource(reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    int64_t row_count = 0;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, 1);
+  }
 
  protected:
   using FileFormatFixtureMixin<FormatHelper>::opts_;
