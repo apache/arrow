@@ -100,7 +100,7 @@ type.vctrs_vctr <- function(x, ...) {
 
 #' @export
 type.POSIXlt <- function(x, ...) {
-  type.vctrs_vctr(x, .)
+  type.vctrs_vctr(x, ...)
 }
 
 #----- metadata

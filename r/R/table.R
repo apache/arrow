@@ -261,7 +261,7 @@ arrow_table <- Table$create
 #' @return A [Table]
 #' @export
 #'
-#' @examples
+#' @examplesIf arrow_available()
 #' as_arrow_table(data.frame(col1 = 1, col2 = "two"))
 #'
 as_arrow_table <- function(x, ..., schema = NULL) {
