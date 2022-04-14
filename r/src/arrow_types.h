@@ -79,6 +79,13 @@ arrow::compute::ExecContext* gc_context();
 
 namespace arrow {
 
+// Most of the time we can safely call R code and assume that any evaluation
+// error will throw a cpp11::unwind_exception. There are other times (e.g.,
+// when using RTasks) that we need to wait for a background task to finish or
+// run cleanup code if execution fails. This class allows us to attach
+// the `token` required to reconstruct the cpp11::unwind_exception and throw it
+// when it is safe to do so. This is done automatically by StopIfNotOk(), which
+// checks for a .detail() inheriting from UnwindProtectDetail.
 class UnwindProtectDetail : public StatusDetail {
  public:
   SEXP token;
@@ -119,6 +126,10 @@ class RTasks;
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
 bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
+
+// These are the types of objects whose conversion to Arrow Arrays is handled
+// entirely in C++. Other types of objects are converted using the type() S3
+// generic and the as_arrow_array() S3 generic.
 static inline bool can_convert_native(SEXP x) {
   return !Rf_isObject(x) || Rf_inherits(x, "factor") || Rf_inherits(x, "Date") ||
          Rf_inherits(x, "integer64") || Rf_inherits(x, "POSIXct") ||

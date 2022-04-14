@@ -34,7 +34,6 @@
 #include <arrow/util/logging.h>
 
 #include "./r_task_group.h"
-#include "./safe-call-into-r.h"
 
 namespace arrow {
 
@@ -268,9 +267,14 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
   }
 };
 
+// A Converter that calls as_arrow_array(x, type = options.type)
 class RExtensionConverter : public RConverter {
  public:
-  // This is not run in parallel by default, so it's safe to call into R here
+  // This is not run in parallel by default, so it's safe to call into R here;
+  // however, it is not safe to throw an exception here because the caller
+  // might be waiting for other conversions to finish in the background. To
+  // avoid this, use StatusUnwindProtect() to communicate the error back to
+  // ValueOrStop() (which reconstructs the exception and re-throws it).
   Status Extend(SEXP values, int64_t size, int64_t offset = 0) {
     try {
       cpp11::sexp as_array_result = cpp11::package("arrow")["as_arrow_array"](
@@ -1273,7 +1277,9 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
     return std::make_shared<arrow::ChunkedArray>(vec_to_arrow__reuse_memory(x));
   }
 
-  // otherwise go through the converter api
+  // Otherwise go through the converter API. If we can handle this in C++
+  // we do so; otherwise we use the RExtensionConverter, which calls
+  // as_arrow_array().
   std::unique_ptr<RConverter> converter;
   if (can_convert_native(x)) {
     converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
@@ -1468,7 +1474,9 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
         continue;
       }
 
-      // if unsuccessful: use RConverter api
+      // Otherwise go through the converter API. If we can handle this in C++
+      // we do so; otherwise we use the RExtensionConverter, which calls
+      // as_arrow_array().
       std::unique_ptr<arrow::r::RConverter> converter;
       if (arrow::r::can_convert_native(x)) {
         auto converter_result =

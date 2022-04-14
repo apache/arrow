@@ -74,16 +74,21 @@ type <- function(x, ...) UseMethod("type")
 
 #' @export
 type.default <- function(x, ..., from_array_infer_type = FALSE) {
+  # If from_array_infer_type is TRUE, this is a call from C++ and there was
+  # no S3 method defined for this object.
   if (from_array_infer_type) {
     abort(
       sprintf(
         "Can't infer Arrow data type from object inheriting from %s",
         paste(class(x), collapse = " / ")
-      ),
-      class = "arrow_no_method_type"
+      )
     )
   }
 
+  # If from_array_infer_type is FALSE, this is a user calling type() from R
+  # and we to call into C++. If there is no built-in conversion for this
+  # object type, C++ will call back here with from_array_infer_type = TRUE
+  # to generate a nice error message.
   Array__infer_type(x)
 }
 

@@ -279,13 +279,14 @@ as_arrow_array.POSIXlt <- function(x, ..., type = NULL) {
 
 #' @export
 as_arrow_array.default <- function(x, ..., type = NULL, from_constructor = FALSE) {
+  # If from_constructor is TRUE, this is a call from C++ for which S3 dispatch
+  # failed to find a method for the object. If this is the case, we error.
   if (from_constructor && is.null(type)) {
     abort(
       sprintf(
         "Can't create Array from object of type %s",
         paste(class(x), collapse = " / ")
-      ),
-      class = "arrow_no_method_as_arrow_array"
+      )
     )
   } else if (from_constructor) {
     abort(
@@ -293,11 +294,13 @@ as_arrow_array.default <- function(x, ..., type = NULL, from_constructor = FALSE
         "Can't create Array<%s> from object of type %s",
         format(type$code()),
         paste(class(x), collapse = " / ")
-      ),
-      class = "arrow_no_method_as_arrow_array"
+      )
     )
   }
 
+  # If from_constructor is FALSE, we use the built-in logic exposed by
+  # Array$create(). If there is no built-in conversion, C++ will call back
+  # here with from_constructor = TRUE to generate a nice error message.
   Array$create(x, type = type)
 }
 

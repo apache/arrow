@@ -179,6 +179,8 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
     return arrow::r::altrep::vec_to_arrow_altrep_bypass(x)->type();
   }
 
+  // If we handle the conversion in C++ we do so here; otherwise we call
+  // the type() S3 generic to infer the type of the object.
   if (can_convert_native(x)) {
     switch (TYPEOF(x)) {
       case ENVSXP:
@@ -201,6 +203,10 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
   } else {
     cpp11::sexp type_result = cpp11::package("arrow")["type"](
         x, cpp11::named_arg("from_array_infer_type") = true);
+    if (!Rf_inherits(type_result, "DataType")) {
+      cpp11::stop("type() did not return an object of type DataType");
+    }
+
     return cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(type_result);
   }
 }

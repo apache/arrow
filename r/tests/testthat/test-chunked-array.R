@@ -546,14 +546,3 @@ test_that("as_chunked_array() works for Array", {
     chunked_array(Array$create(1:6, type = float64()))
   )
 })
-
-test_that("as_chunked_array() default method errors for impossible cases", {
-  vec <- structure(list(), class = "class_not_supported")
-  type.class_not_supported <- function(x, ...) {
-    float64()
-  }
-
-  # slightly different error if type was specified
-  expect_snapshot_error(as_chunked_array(vec))
-  expect_snapshot_error(as_chunked_array(vec, type = float64()))
-})
