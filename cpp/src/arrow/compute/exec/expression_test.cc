@@ -1316,6 +1316,10 @@ TEST(Expression, SimplifyWithValidityGuarantee) {
   Simplify{is_null(field_ref("i32"))}
       .WithGuarantee(is_valid(field_ref("i32")))
       .Expect(literal(false));
+
+  Simplify{true_unless_null(field_ref("i32"))}
+      .WithGuarantee(is_valid(field_ref("i32")))
+      .Expect(literal(true));
 }
 
 TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
@@ -1326,6 +1330,7 @@ TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
       .WithGuarantee(i32_is_2_or_null)
       .Expect(true_unless_null(field_ref("i32")));
 
+  // XXX: needs a rule for 'true_unless_null(x) || is_null(x)'
   // Simplify{i32_is_2_or_null}.WithGuarantee(i32_is_2_or_null).Expect(literal(true));
 
   Simplify{equal(field_ref("i32"), literal(3))}

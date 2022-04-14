@@ -967,6 +967,9 @@ struct Inequality {
     return util::nullopt;
   }
 
+  /// The given expression simplifies to `value` if the inequality
+  /// target is not nullable. Otherwise, it simplifies to either a
+  /// call to true_unless_null or !true_unless_null.
   Result<Expression> simplified_to(const Expression& bound_target, bool value) const {
     if (!nullable) return literal(value);
 
@@ -977,9 +980,6 @@ struct Inequality {
     // true_unless_null is cheap; it purely reuses the validity bitmap for the values
     // buffer. Inversion is less cheap but we expect that term never to be evaluated
     // since invert(true_unless_null(x)) is not satisfiable.
-    //
-    // XXX ensure that we fold true_unless_null(expr) to true if expr.IsNeverNull(),
-    // otherwise we may pay unnecessarily to materialize a buffer of `true`.
     Expression::Call call;
     call.function_name = "true_unless_null";
     call.arguments = {bound_target};
@@ -996,6 +996,7 @@ struct Inequality {
                             /*insert_implicit_casts=*/false, &exec_context);
   }
 
+  /// \brief Simplify the given expression given this inequality as a guarantee.
   Result<Expression> Simplify(Expression expr) {
     const auto& guarantee = *this;
 
@@ -1049,6 +1050,8 @@ struct Inequality {
   }
 };
 
+/// \brief Simplify an expression given a guarantee, if the guarantee
+///   is is_valid().
 Result<Expression> IsValidSimplification(Expression expr,
                                          const Expression::Call& guarantee) {
   if (guarantee.function_name != "is_valid") return expr;
@@ -1062,6 +1065,8 @@ Result<Expression> IsValidSimplification(Expression expr,
         if (call->arguments[0] != guarantee.arguments[0]) return expr;
 
         if (call->function_name == "is_valid") return literal(true);
+
+        if (call->function_name == "true_unless_null") return literal(true);
 
         if (call->function_name == "is_null") return literal(false);
 
