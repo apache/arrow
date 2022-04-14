@@ -169,13 +169,16 @@ class EmailReport(Report):
         self.recipient_email = recipient_email
         super().__init__(job)
 
+    @property
+    def repo_url(self):
+        url = self.job.queue.remote_url
+        return url[:-4] if url.endswith('.git') else url
+
     def url(self, query):
-        repo_url = self.job.queue.remote_url.strip('.git')
-        return '{}/branches/all?query={}'.format(repo_url, query)
+        return '{}/branches/all?query={}'.format(self.repo_url, query)
 
     def branch_url(self, branch):
-        repo_url = self.job.queue.remote_url.strip('.git')
-        return '{}/tree/{}'.format(repo_url, branch)
+        return '{}/tree/{}'.format(self.repo_url, branch)
 
     def listing(self, tasks):
         return '\n'.join(
