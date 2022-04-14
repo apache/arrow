@@ -86,6 +86,12 @@ class UcxCudaDataTest : public CudaDataTest {
 };
 ARROW_FLIGHT_TEST_CUDA_DATA(UcxCudaDataTest);
 
+class UcxErrorHandlingTest : public ErrorHandlingTest {
+ protected:
+  std::string transport() const override { return "ucx"; }
+};
+ARROW_FLIGHT_TEST_ERROR_HANDLING(UcxErrorHandlingTest);
+
 //------------------------------------------------------------
 // UCX internals tests
 
@@ -203,43 +209,6 @@ TEST(HeadersFrame, Parse) {
         HeadersFrame::Parse(std::move(buffer)));
   }
 }
-
-TEST(HeadersFrame, RoundTripStatus) {
-  for (const auto code : kStatusCodes) {
-    {
-      Status expected = code == StatusCode::OK ? Status() : Status(code, "foo");
-      ASSERT_OK_AND_ASSIGN(auto headers, HeadersFrame::Make(expected, {}));
-      Status status;
-      ASSERT_OK(headers.GetStatus(&status));
-      ASSERT_EQ(status, expected);
-    }
-
-    if (code == StatusCode::OK) continue;
-
-    // Attach a generic status detail
-    {
-      auto detail = std::make_shared<TestStatusDetail>();
-      Status original(code, "foo", detail);
-      Status expected(code, "foo",
-                      std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal,
-                                                           detail->ToString()));
-      ASSERT_OK_AND_ASSIGN(auto headers, HeadersFrame::Make(expected, {}));
-      Status status;
-      ASSERT_OK(headers.GetStatus(&status));
-      ASSERT_EQ(status, expected);
-    }
-
-    // Attach a Flight status detail
-    for (const auto flight_code : kFlightStatusCodes) {
-      Status expected(code, "foo",
-                      std::make_shared<FlightStatusDetail>(flight_code, "extra"));
-      ASSERT_OK_AND_ASSIGN(auto headers, HeadersFrame::Make(expected, {}));
-      Status status;
-      ASSERT_OK(headers.GetStatus(&status));
-      ASSERT_EQ(status, expected);
-    }
-  }
-}
 }  // namespace ucx
 }  // namespace transport
 
@@ -342,7 +311,9 @@ TEST_F(TestUcx, Errors) {
     Status expected(code, "Error message");
     server->set_error_status(expected);
     Status actual = client_->GetFlightInfo(descriptor).status();
-    ASSERT_EQ(actual, expected);
+    ASSERT_EQ(actual.code(), expected.code()) << actual.ToString();
+    ASSERT_THAT(actual.message(), ::testing::HasSubstr("Error message"))
+        << actual.ToString();
 
     // Attach a generic status detail
     {
@@ -352,7 +323,10 @@ TEST_F(TestUcx, Errors) {
                       std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal,
                                                            detail->ToString()));
       Status actual = client_->GetFlightInfo(descriptor).status();
-      ASSERT_EQ(actual, expected);
+      ASSERT_EQ(actual.code(), expected.code()) << actual.ToString();
+      ASSERT_THAT(actual.message(), ::testing::HasSubstr("foo")) << actual.ToString();
+      ASSERT_THAT(actual.message(), ::testing::HasSubstr("Custom status detail"))
+          << actual.ToString();
     }
 
     // Attach a Flight status detail
@@ -361,7 +335,9 @@ TEST_F(TestUcx, Errors) {
                       std::make_shared<FlightStatusDetail>(flight_code, "extra"));
       server->set_error_status(expected);
       Status actual = client_->GetFlightInfo(descriptor).status();
-      ASSERT_EQ(actual, expected);
+      ASSERT_EQ(actual.code(), expected.code()) << actual.ToString();
+      ASSERT_THAT(actual.message(), ::testing::HasSubstr("Error message"))
+          << actual.ToString();
     }
   }
 }

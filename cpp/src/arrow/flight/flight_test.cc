@@ -109,6 +109,12 @@ class GrpcCudaDataTest : public CudaDataTest {
 };
 ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
 
+class GrpcErrorHandlingTest : public ErrorHandlingTest {
+ protected:
+  std::string transport() const override { return "grpc"; }
+};
+ARROW_FLIGHT_TEST_ERROR_HANDLING(GrpcErrorHandlingTest);
+
 //------------------------------------------------------------
 // Ad-hoc gRPC-specific tests
 
