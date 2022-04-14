@@ -353,11 +353,11 @@ register_bindings_duration <- function() {
   })
 }
 
+make_duration <- function(x, unit) {
+  x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+  x$cast(duration(unit))
+}
 register_bindings_duration_helpers <- function() {
-  make_duration <- function(x, unit) {
-    x <- build_expr("cast", x, options = cast_options(to_type = int64()))
-    x$cast(duration(unit))
-  }
   register_binding("dseconds", function(x = 1) {
     make_duration(x, "s")
   })
