@@ -1078,9 +1078,6 @@ static std::vector<compute::Expression> PartitionExpressionsOf(
 void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
                                              std::vector<compute::Expression> expected) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
-  for (auto& expr : expected) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*dataset->schema()));
-  }
   // Ordering is not guaranteed.
   EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(fragment_it))),
               testing::UnorderedElementsAreArray(expected));
