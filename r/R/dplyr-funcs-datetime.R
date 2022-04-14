@@ -353,6 +353,31 @@ register_bindings_duration <- function() {
   })
 }
 
+make_duration <- function(x, unit) {
+  x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+  x$cast(duration(unit))
+}
+register_bindings_duration_helpers <- function() {
+  register_binding("dminutes", function(x = 1) {
+    make_duration(x * 60, "s")
+  })
+  register_binding("dhours", function(x = 1) {
+    make_duration(x * 3600, "s")
+  })
+  register_binding("ddays", function(x = 1) {
+    make_duration(x * 86400, "s")
+  })
+  register_binding("dweeks", function(x = 1) {
+    make_duration(x * 604800, "s")
+  })
+  register_binding("dmonths", function(x = 1) {
+    make_duration(x * 2629800, "s")
+  })
+  register_binding("dyears", function(x = 1) {
+    make_duration(x * 31557600, "s")
+  })
+}
+
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
   if (usetz) {
     format <- paste(format, "%Z")

@@ -1253,3 +1253,52 @@ test_that("`decimal_date()` and `date_decimal()`", {
     ignore_attr = "tzone"
   )
 })
+
+test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
+  example_d <- tibble(x = c(1:10, NA))
+  date_to_add <- ymd("2009-08-03", tz = "America/Chicago")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dminutes = dminutes(x),
+        dhours = dhours(x),
+        ddays = ddays(x),
+        dweeks = dweeks(x),
+        dmonths = dmonths(x),
+        dyears = dyears(x)
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dhours = dhours(x),
+        ddays = ddays(x),
+        new_date_1 = date_to_add + ddays,
+        new_date_2 = date_to_add + ddays - dhours(3),
+        new_duration = dhours - ddays
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        r_obj_dminutes = dminutes(1),
+        r_obj_dhours = dhours(2),
+        r_obj_ddays = ddays(3),
+        r_obj_dweeks = dweeks(4),
+        r_obj_dmonths = dmonths(5),
+        r_obj_dyears = dyears(6)
+      ) %>%
+      collect(),
+    tibble(),
+    ignore_attr = TRUE
+  )
+})
