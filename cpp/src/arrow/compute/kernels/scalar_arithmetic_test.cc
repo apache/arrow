@@ -2013,12 +2013,12 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleTowardsInfinity) {
     CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
                 "Rounded value 100.00 does not fit in precision", &options);
     options.multiple = std::make_shared<DoubleScalar>(1.0);
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")}, "scalar, not double",
-                &options);
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounded value 100.00 does not fit in precision", &options);
     options.multiple =
         std::make_shared<Decimal128Scalar>(Decimal128(0), decimal128(3, 0));
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")}, "scalar, not decimal128(3, 0)",
-                &options);
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounding multiple must be positive", &options);
     options.multiple = std::make_shared<Decimal128Scalar>(decimal128(3, 0));
     CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
                 "Rounding multiple must be non-null and valid", &options);

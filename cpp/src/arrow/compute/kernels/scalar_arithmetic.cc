@@ -1381,20 +1381,8 @@ struct RoundToMultiple {
   CType multiple;
 
   explicit RoundToMultiple(const State& state, const DataType& out_ty) {
-    // const auto& options = state.options;
-    // DCHECK(options.multiple);
-    // DCHECK(options.multiple->is_valid);
-    // DCHECK(is_floating(options.multiple->type->id()));
-    // switch (options.multiple->type->id()) {
-    //   case Type::FLOAT:
-    //     multiple = static_cast<CType>(UnboxScalar<FloatType>::Unbox(*options.multiple));
-    //     break;
-    //   case Type::DOUBLE:
-    //     multiple = static_cast<CType>(UnboxScalar<DoubleType>::Unbox(*options.multiple));
-    //     break;
-    //   default:
-    //     DCHECK(false);
-    // }
+    const auto& options = state.options;
+    multiple = static_cast<CType>(UnboxScalar<ArrowType>::Unbox(*options.multiple));
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
@@ -1438,12 +1426,8 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
   explicit RoundToMultiple(const State& state, const DataType& out_ty)
       : ty(checked_cast<const ArrowType&>(out_ty)) {
     const auto& options = state.options;
-    // DCHECK(options.multiple);
-    // DCHECK(options.multiple->is_valid);
-    // DCHECK(options.multiple->type->Equals(out_ty));
     multiple = UnboxScalar<ArrowType>::Unbox(*options.multiple);
-    half_multiple = multiple;
-    half_multiple /= 2;
+    half_multiple = multiple / 2;
     neg_half_multiple = -half_multiple;
     has_halfway_point = multiple.low_bits() % 2 == 0;
   }
