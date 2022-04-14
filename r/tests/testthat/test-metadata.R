@@ -63,6 +63,13 @@ test_that("R metadata is not stored for types that map to Arrow types (factor, D
   expect_null(Table$create(example_with_times[1:3])$metadata$r)
 })
 
+test_that("R metadata is not stored for ExtensionType columns", {
+  tab <- Table$create(
+    x = vctrs::new_vctr(1:5, class = "special_integer")
+  )
+  expect_null(tab$metadata$r)
+})
+
 test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixed_size_binary (ARROW-14140)", {
   raws <- charToRaw("bonjour")
 
