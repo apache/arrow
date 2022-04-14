@@ -34,7 +34,8 @@
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>30.1.1-jre</dep.guava.version>
     <dep.netty.version>4.1.72.Final</dep.netty.version>
-    <dep.jackson.version>2.11.4</dep.jackson.version>
+    <dep.jackson.version>2.13.2</dep.jackson.version>
+    <dep.jackson-bom.version>2.13.2.20220328</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.12.0</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
@@ -540,7 +541,7 @@
       <dependency>
         <groupId>com.fasterxml.jackson</groupId>
         <artifactId>jackson-bom</artifactId>
-        <version>${dep.jackson.version}</version>
+        <version>${dep.jackson-bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
