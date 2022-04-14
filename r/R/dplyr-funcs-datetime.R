@@ -432,7 +432,7 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
 build_formats <- function(orders) {
   year_chars <- sprintf("%%%s", c("y", "Y"))
   month_chars <- sprintf("%%%s", c("m", "B", "b"))
-  day_chars <- sprintf("%%%s", c("d"))
+  day_chars <- sprintf("%%%s", "d")
 
   outcome <- switch(
     orders,
@@ -445,10 +445,4 @@ build_formats <- function(orders) {
   )
   outcome$format <- paste(outcome$Var1, outcome$Var2, outcome$Var3, sep = "-")
   outcome$format
-}
-
-instert_at_position <- function(string, positions, replacement) {
-  if (positions < 0) {
-    pattern <- paste0("^(.{", nchar(string) - positions, "})(.*)$")
-  }
 }

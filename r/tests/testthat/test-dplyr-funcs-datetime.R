@@ -1286,6 +1286,7 @@ test_that("parse_date_time()", {
     )
   )
 
+  # TODO add unit tests and support for hms parts too
   compare_dplyr_binding(
     .input %>%
       mutate(
