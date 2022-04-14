@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -1215,7 +1216,10 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
       return Status::Invalid("Rounding multiple must be non-null and valid");
     }
 
-    // Ensure `multiple` option matches input type
+    // Ensure the rounding multiple option matches the kernel's output type.
+    // The output type is not available here so we use the following rule:
+    // If `multiple` is neither a floating-point nor a decimal type, then
+    // cast to float64, else cast to the kernel's input type.
     std::shared_ptr<Scalar> resolved_multiple;
     const auto& to_type =
         (!is_floating(multiple->type->id()) && !is_decimal(multiple->type->id()))
@@ -1232,7 +1236,7 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
       resolved_multiple = multiple;
     }
 
-    // NOTE: The positive value check can be simplified by using the less-than kernel.
+    // NOTE: The positive value check can be simplified by using a comparison kernel.
     bool is_negative = false;
     switch (resolved_multiple->type->id()) {
       case Type::FLOAT:
@@ -1255,6 +1259,7 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
       return Status::Invalid("Rounding multiple must be nonnegative");
     }
 
+    // Create a new option object if the rounding multiple was casted.
     if (is_casted) {
       auto new_options = OptionsType(resolved_multiple, options->round_mode);
       return ::arrow::internal::make_unique<RoundOptionsWrapper>(new_options);
@@ -1399,6 +1404,9 @@ struct RoundToMultiple {
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    // Return zeros if `multiple` option is zero.
+    // Ideally, this check would be performed once for the entire input data
+    // rather than on a per-element basis.
     if (multiple == 0) {
       return 0;
     }
@@ -1447,7 +1455,10 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
-    if (multiple == T{0}) {
+    // Return zeros if `multiple` option is zero.
+    // Ideally, this check would be performed once for the entire input data
+    // rather than on a per-element basis.
+    if (multiple == T(0)) {
       return 0;
     }
     std::pair<CType, CType> pair;
