@@ -1297,3 +1297,105 @@ test_that("parse_date_time()", {
     test_dates
   )
 })
+
+test_that("lubridate's fast_strptime", {
+  t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
+  t_string_y <- tibble(x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA))
+  t_string_2formats <- tibble(x = c("2018-10-07 19:04:05", "68-10-07 19:04:05"))
+  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = fast_strptime(x, format = "%Y-%m-%d %H:%M:%S", lt = FALSE)) %>%
+      collect(),
+    t_string,
+    # arrow does not preserve the `tzone` attribute
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y =
+               fast_strptime("68-10-07 19:04:05", format = "%y-%m-%d %H:%M:%S", lt = FALSE)
+      ) %>%
+      collect(),
+    t_string,
+    ignore_attr = TRUE
+  )
+
+  # fast_strptime()'s `cutoff_2000` argument is not supported, but its value is
+  # implicitly set to 68L both in base R and in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_short_year = fast_strptime(x, format = "%y-%m-%d %H:%M:%S", lt = FALSE)) %>%
+      collect(),
+    t_string_y,
+    # arrow does not preserve the `tzone` attribute
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_short_year =
+          fast_strptime(x, format = "%y-%m-%d %H:%M:%S", lt = FALSE, cutoff_2000 = 69L)
+      ) %>%
+      collect(),
+    t_string_y,
+    warning = TRUE
+  )
+
+  formats <- c("%Y-%m-%d %H:%M:%S", "%y-%m-%d %H:%M:%S")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_multi_formats =
+               fast_strptime(x, format = formats, lt = FALSE)) %>%
+      collect(),
+    t_string_2formats,
+    warning = TRUE
+  )
+})
+
+test_that("parse_date_time()", {
+  test_df <- tibble(
+    dates = c("09-01-17", "02-Sep-17")
+  )
+
+  test_dates <- tibble::tibble(
+    string_ymd = c(
+      "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
+      "2021 09   6", "21-09-07", "21/09/08", "21.09.9", "21,09,10",
+      "21:09:11", "2021 Sep 12", "2021 September 13", "21 Sep 14",
+      "21 September 15",
+      # not yet working for strings with no separators, like "20210917", "210918" or "2021Sep19
+      # no separators and %b or %B are even more complicated (and they work in
+      # lubridate). not to mention locale
+      NA
+    ),
+    string_dmy = c(
+      "1-09-2021", "2/09//2021", "03.09.2021", "04,09,2021", "5:::09:2021",
+      "6  09  2021", "07-09-21", "08/09/21", "9.09.21", "10,09,21", "11:09:21",
+      "12 Sep 2021", "13 September 2021", "14 Sep 21", "15 September 21",
+      # not yet working for strings with no separators, like "10092021", "100921",
+      NA
+    ),
+    string_mdy = c(
+      "09-01-2021", "09/2/2021", "09.3.2021", "09,04,2021", "09:05:2021",
+      "09 6 2021", "09-7-21", "09/08/21", "09.9.21", "09,10,21", "09:11:21",
+      "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21",
+      # not yet working for strings with no separators, like "09102021", "091021",
+      NA
+    )
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_ymd, orders = "ymd"),
+        parsed_date_dmy = parse_date_time(string_dmy, orders = "dmy"),
+        parsed_date_mdy = parse_date_time(string_mdy, orders = "mdy")
+      ) %>%
+      collect(),
+    test_dates
+  )
+})
