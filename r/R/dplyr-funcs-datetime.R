@@ -355,46 +355,28 @@ register_bindings_duration <- function() {
 
 register_bindings_duration_helpers <- function() {
   register_binding("dminutes", function(x = 1) {
-    if (!inherits(x, "Expression")) {
-      x <- Expression$scalar(x)
-    }
-    dmin_int64 <- Expression$create("cast", x * 60, options = cast_options(to_type = int64()))
-    build_expr("cast", dmin_int64, options = list(to_type = duration(unit = "s")))
+    x <- build_expr("cast", x * 60, options = cast_options(to_type = int64()))
+    x$cast(duration("s"))
   })
   register_binding("dhours", function(x = 1) {
-    if (!inherits(x, "Expression")) {
-      x <- Expression$scalar(x)
-    }
-    dhours_int64 <- Expression$create("cast", x * 3600, options = cast_options(to_type = int64()))
-    build_expr("cast", dhours_int64, options = list(to_type = duration(unit = "s")))
+    x <- build_expr("cast", x * 3600, options = cast_options(to_type = int64()))
+    x$cast(duration("s"))
   })
   register_binding("ddays", function(x = 1) {
-    if (!inherits(x, "Expression")) {
-      x <- Expression$scalar(x)
-    }
-    ddays_int64 <- Expression$create("cast", x * 86400, options = cast_options(to_type = int64()))
-    build_expr("cast", ddays_int64, options = list(to_type = duration(unit = "s")))
+    x <- build_expr("cast", x * 86400, options = cast_options(to_type = int64()))
+    x$cast(duration("s"))
   })
   register_binding("dweeks", function(x = 1) {
-    if (!inherits(x, "Expression")) {
-      x <- Expression$scalar(x)
-    }
-    dweeks_int64 <- Expression$create("cast", x * 604800, options = cast_options(to_type = int64()))
-    build_expr("cast", dweeks_int64, options = list(to_type = duration(unit = "s")))
+    x <- build_expr("cast", x * 604800, options = cast_options(to_type = int64()))
+    x$cast(duration("s"))
   })
   register_binding("dmonths", function(x = 1) {
-    if (!inherits(x, "Expression")) {
-      x <- Expression$scalar(x)
-    }
-    dmonths_int64 <- Expression$create("cast", x * 2629800, options = cast_options(to_type = int64()))
-    build_expr("cast", dmonths_int64, options = list(to_type = duration(unit = "s")))
+    x <- build_expr("cast", x * 2629800, options = cast_options(to_type = int64()))
+    x$cast(duration("s"))
   })
   register_binding("dyears", function(x = 1) {
-    if (!inherits(x, "Expression")) {
-      x <- Expression$scalar(x)
-    }
-    dyears_int64 <- Expression$create("cast", x * 31557600, options = cast_options(to_type = int64()))
-    build_expr("cast", dyears_int64, options = list(to_type = duration(unit = "s")))
+    x <- build_expr("cast", x * 31557600, options = cast_options(to_type = int64()))
+    x$cast(duration("s"))
   })
 }
 
