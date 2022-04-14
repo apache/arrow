@@ -89,6 +89,20 @@ Parquet Files
    write_table
    write_to_dataset
 
+Parquet Metadata
+~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: ../generated/
+
+   FileMetaData
+   RowGroupMetaData
+   ColumnChunkMetaData
+   ParquetLogicalType
+   Statistics
+   ParquetSchema
+   ColumnSchema
+
 Encrypted Parquet Files
 ~~~~~~~~~~~~~~~~~~~~~~~
 

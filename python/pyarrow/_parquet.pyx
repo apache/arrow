@@ -50,6 +50,7 @@ cimport cpython as cp
 
 
 cdef class Statistics(_Weakrefable):
+    """Statistics for a single column in a single row group"""
     def __cinit__(self):
         pass
 
@@ -165,6 +166,7 @@ cdef class Statistics(_Weakrefable):
 
 
 cdef class ParquetLogicalType(_Weakrefable):
+    """Logical type of parquet type"""
     cdef:
         shared_ptr[const CParquetLogicalType] type
 
@@ -246,6 +248,7 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
 
 
 cdef class ColumnChunkMetaData(_Weakrefable):
+    """Column metadata for a single row group"""
     def __cinit__(self):
         pass
 
@@ -385,6 +388,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
 
 cdef class RowGroupMetaData(_Weakrefable):
+    """Metadata for a single row group"""
     def __cinit__(self, FileMetaData parent, int index):
         if index < 0 or index >= parent.num_row_groups:
             raise IndexError('{0} out of bounds'.format(index))
@@ -458,6 +462,7 @@ def _reconstruct_filemetadata(Buffer serialized):
 
 
 cdef class FileMetaData(_Weakrefable):
+    """Parquet metadata for a single file"""
     def __cinit__(self):
         pass
 
@@ -485,6 +490,7 @@ cdef class FileMetaData(_Weakrefable):
                                  self.serialized_size)
 
     def to_dict(self):
+        """Get dictionary representation of metadata"""
         row_groups = []
         d = dict(
             created_by=self.created_by,
@@ -510,28 +516,49 @@ cdef class FileMetaData(_Weakrefable):
 
     @property
     def schema(self):
+        """:class:`ParquetSchema`: Schema of the file"""
         if self._schema is None:
             self._schema = ParquetSchema(self)
         return self._schema
 
     @property
     def serialized_size(self):
+        """Size of the original thrift encoded metadata footer
+        
+        Returns
+        -------
+        int
+        """
         return self._metadata.size()
 
     @property
     def num_columns(self):
+        """Number of columns in file
+        
+        Returns
+        -------
+        int
+        """
         return self._metadata.num_columns()
 
     @property
     def num_rows(self):
+        """Total number of rows in file
+        
+        Returns
+        -------
+        int
+        """
         return self._metadata.num_rows()
 
     @property
     def num_row_groups(self):
+        """int: Number of row groups in file"""
         return self._metadata.num_row_groups()
 
     @property
     def format_version(self):
+        """str: Parquet format version used in file"""
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
             return '1.0'
@@ -548,10 +575,14 @@ cdef class FileMetaData(_Weakrefable):
 
     @property
     def created_by(self):
+        """str: String describing source of the parquet file
+        
+        This includes library name and version number"""
         return frombytes(self._metadata.created_by())
 
     @property
     def metadata(self):
+        """dict[bytes, bytes] : Additional metadata as key value pairs"""
         cdef:
             unordered_map[c_string, c_string] metadata
             const CKeyValueMetadata* underlying_metadata
@@ -563,6 +594,17 @@ cdef class FileMetaData(_Weakrefable):
             return None
 
     def row_group(self, int i):
+        """Get metadata for row group at index i
+        
+        Parameters
+        ----------
+        i : int
+            row group index to get
+        
+        Returns
+        -------
+        row_group_metadata : RowGroupMetaData
+        """
         return RowGroupMetaData(self, i)
 
     def set_file_path(self, path):
@@ -624,6 +666,7 @@ cdef class FileMetaData(_Weakrefable):
 
 
 cdef class ParquetSchema(_Weakrefable):
+    """A Parquet schema"""
     def __cinit__(self, FileMetaData container):
         self.parent = container
         self.schema = container._metadata.schema()
@@ -686,6 +729,17 @@ cdef class ParquetSchema(_Weakrefable):
         return self.schema.Equals(deref(other.schema))
 
     def column(self, i):
+        """Return the schema for a single column
+        
+        Parameters
+        ----------
+        i : int
+            index of column in schema
+
+        Returns
+        -------
+        column_schema : ColumnSchema
+        """
         if i < 0 or i >= len(self):
             raise IndexError('{0} out of bounds'.format(i))
 
@@ -693,6 +747,7 @@ cdef class ParquetSchema(_Weakrefable):
 
 
 cdef class ColumnSchema(_Weakrefable):
+    """Schema for a single column"""
     cdef:
         int index
         ParquetSchema parent
