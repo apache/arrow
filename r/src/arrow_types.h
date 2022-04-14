@@ -82,9 +82,9 @@ namespace arrow {
 class UnwindProtectDetail : public StatusDetail {
  public:
   SEXP token;
-  UnwindProtectDetail(SEXP token) : token(token) {}
-  virtual const char* type_id() const { return "UnwindProtectDetail"; };
-  virtual std::string ToString() const { return "R code execution error"; };
+  explicit UnwindProtectDetail(SEXP token) : token(token) {}
+  virtual const char* type_id() const { return "UnwindProtectDetail"; }
+  virtual std::string ToString() const { return "R code execution error"; }
 };
 
 static inline Status StatusUnwindProtect(SEXP token) {
