@@ -76,11 +76,6 @@ class ARROW_PYTHON_EXPORT ScalarUdfOptions {
   compute::OutputType out_type_;
 };
 
-class ARROW_PYTHON_EXPORT UdfBuilder {
- public:
-  UdfBuilder() {}
-};
-
 /// \brief register a Scalar user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* function,
                                                   const ScalarUdfOptions& options);
