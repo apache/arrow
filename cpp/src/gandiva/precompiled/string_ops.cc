@@ -1406,11 +1406,6 @@ const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
 FORCE_INLINE
 const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
                                     gdv_int32* out_len) {
-  if (len < 0) {
-    gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");
-    *out_len = 0;
-    return "";
-  }
   *out_len = len;
   return bin_in;
 }
