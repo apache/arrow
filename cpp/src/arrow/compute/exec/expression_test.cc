@@ -254,8 +254,8 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal(3).ToString(), "3");
   EXPECT_EQ(literal("a").ToString(), "\"a\"");
   EXPECT_EQ(literal("a\nb").ToString(), "\"a\\nb\"");
-  EXPECT_EQ(literal(std::make_shared<BooleanScalar>()).ToString(), "null");
-  EXPECT_EQ(literal(std::make_shared<Int64Scalar>()).ToString(), "null");
+  EXPECT_EQ(literal(std::make_shared<BooleanScalar>()).ToString(), "null[bool]");
+  EXPECT_EQ(literal(std::make_shared<Int64Scalar>()).ToString(), "null[int64]");
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
@@ -862,6 +862,10 @@ TEST(Expression, FoldConstants) {
                          literal(2),
                      }),
                 literal(4));
+
+  // INTERSECTION null handling and null input -> null output
+  ExpectFoldsTo(call("equal", {field_ref("i32"), null_literal(int32())}),
+                null_literal(boolean()));
 
   // nested call against literals with one field_ref
   // (i32 - (2 * 3)) + 2 == (i32 - 6) + 2

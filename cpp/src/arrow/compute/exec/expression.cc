@@ -111,7 +111,7 @@ namespace {
 
 std::string PrintDatum(const Datum& datum) {
   if (datum.is_scalar()) {
-    if (!datum.scalar()->is_valid) return "null";
+    if (!datum.scalar()->is_valid) return "null[" + datum.type()->ToString() + "]";
 
     switch (datum.type()->id()) {
       case Type::STRING:
@@ -130,6 +130,8 @@ std::string PrintDatum(const Datum& datum) {
     }
 
     return datum.scalar()->ToString();
+  } else if (datum.is_array()) {
+    return "Array[" + datum.type()->ToString() + "]";
   }
   return datum.ToString();
 }
@@ -655,9 +657,17 @@ Result<Expression> FoldConstants(Expression expr) {
         if (GetNullHandling(*call) == compute::NullHandling::INTERSECTION) {
           // kernels which always produce intersected validity can be resolved
           // to null *now* if any of their inputs is a null literal
+          if (!call->descr.type) {
+            return Status::Invalid("Cannot fold constants for unbound expression ",
+                                   expr.ToString());
+          }
           for (const auto& argument : call->arguments) {
             if (argument.IsNullLiteral()) {
-              return argument;
+              if (argument.type()->Equals(*call->descr.type)) {
+                return argument;
+              } else {
+                return literal(MakeNullScalar(call->descr.type));
+              }
             }
           }
         }
