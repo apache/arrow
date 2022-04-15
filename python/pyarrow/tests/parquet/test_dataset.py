@@ -1304,7 +1304,8 @@ def _test_write_to_dataset_no_partitions(base_path,
     # Without partitions, append files to root_path
     n = 5
     for i in range(n):
-        pq.write_to_dataset(output_table, base_path, use_legacy_dataset=True,
+        pq.write_to_dataset(output_table, base_path,
+                            use_legacy_dataset=use_legacy_dataset,
                             filesystem=filesystem)
     output_files = [file for file in filesystem.ls(str(base_path))
                     if file.endswith(".parquet")]
@@ -1544,9 +1545,10 @@ def test_dataset_read_dictionary(tempdir, use_legacy_dataset):
     path = tempdir / "ARROW-3325-dataset"
     t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
     t2 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
-    # TODO pass use_legacy_dataset (need to fix unique names)
-    pq.write_to_dataset(t1, root_path=str(path), use_legacy_dataset=True)
-    pq.write_to_dataset(t2, root_path=str(path), use_legacy_dataset=True)
+    pq.write_to_dataset(t1, root_path=str(path),
+                        use_legacy_dataset=use_legacy_dataset)
+    pq.write_to_dataset(t2, root_path=str(path),
+                        use_legacy_dataset=use_legacy_dataset)
 
     result = pq.ParquetDataset(
         path, read_dictionary=['f0'],
@@ -1739,10 +1741,6 @@ def test_parquet_write_to_dataset_deprecated_properties(tempdir):
 def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'data.parquet'
-
-    with pytest.raises(ValueError, match="file_options"):
-        pq.write_to_dataset(table, path, use_legacy_dataset=True,
-                            file_options=True)
 
     with pytest.raises(ValueError, match="schema"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
