@@ -25,6 +25,7 @@ import textwrap
 import tempfile
 import threading
 import time
+from venv import create
 
 import numpy as np
 import pytest
@@ -35,8 +36,7 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler,
-                                limited_s3_user)
+                                FSProtocolClass, ProxyHandler)
 
 try:
     import pandas as pd
@@ -4355,7 +4355,7 @@ _minio_put_only_policy = """{
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_write_dataset_s3_put_only(s3_server):
+def test_write_dataset_s3_put_only(s3_server, limited_s3_user):
     from pyarrow.fs import S3FileSystem
 
     # write dataset with s3 filesystem
@@ -4382,6 +4382,12 @@ def test_write_dataset_s3_put_only(s3_server):
         "existing-bucket", filesystem=fs, format="ipc",
     ).to_table()
     assert result.equals(table)
+    
+    with pytest.raises(OSError, match="Access Denied"):
+        ds.write_dataset(
+            table, "existing-bucket", filesystem=fs,
+            format="feather", create_dir=True
+        )
 
 
 @pytest.mark.parquet

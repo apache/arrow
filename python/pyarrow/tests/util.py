@@ -436,14 +436,13 @@ def _configure_limited_user(tmpdir, address, access_key, secret_key, policy):
         # If mc is not found, skip these tests
         return False
 
-def limited_s3_user(request, s3_server):
+def limited_s3_user(s3_server):
     def _limited_s3_user(policy):
         if sys.platform == 'win32':
             # Can't rely on FileNotFound check because
             # there is sometimes an mc command on Windows
             # which is unrelated to the minio mc
             pytest.skip('The mc command is not installed on Windows')
-        request.config.pyarrow.requires('s3')
         tempdir = s3_server['tempdir']
         host, port, access_key, secret_key = s3_server['connection']
         address = '{}:{}'.format(host, port)
