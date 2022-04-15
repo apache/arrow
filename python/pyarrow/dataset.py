@@ -852,6 +852,8 @@ Table/RecordBatch, or iterable of RecordBatch
         dataset.  The first time each partition directory is encountered
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.
+    create_dir : bool, default True
+        Flag to restrict or allow creating directory while writing a dataset.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 

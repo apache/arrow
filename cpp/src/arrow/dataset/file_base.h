@@ -387,6 +387,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Controls what happens if an output directory already exists.
   ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;
 
+  /// Flag to restrict or allow creating directory for writing the dataset.
   bool create_dir = true;
 
   /// Callback to be invoked against all FileWriters before
