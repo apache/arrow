@@ -408,8 +408,9 @@ def test_dataset(dataset, dataset_reader):
     }
     result = dataset.to_table(use_threads=True, columns=projection).to_pydict()
 
-    assert result['i64'] == [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
-    assert result['f64'] == [0.0, 1.0, 2.0, 3.0, 4.0, 0.0, 1.0, 2.0, 3.0, 4.0]
+    assert sorted(result['i64']) == [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]
+    assert sorted(result['f64']) == [0.0, 0.0, 1.0,
+                                     1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0]
     assert result['new'] == [False, True, False,
                              False, True, False, True, False, False, True]
 
