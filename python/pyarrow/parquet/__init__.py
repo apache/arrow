@@ -2926,9 +2926,8 @@ def _mkdir_if_not_exists(fs, path):
 
 def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
-                     use_legacy_dataset=None, format=None,
-                     file_options=None, schema=None,
-                     partitioning=None, basename_template=None,
+                     use_legacy_dataset=None, file_options=None,
+                     schema=None, partitioning=None, basename_template=None,
                      use_threads=None, file_visitor=None, **kwargs):
     """Wrapper around parquet.write_dataset for writing a Table to
     Parquet format by partitions.
