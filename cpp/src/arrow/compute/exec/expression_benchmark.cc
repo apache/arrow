@@ -79,7 +79,7 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
       field("x", int64()),
   });
   ExecBatch input({Datum(ConstantArrayGenerator::Int64(rows_per_batch, 5))},
-                  /*length=*/1);
+                  /*length=*/rows_per_batch);
 
   ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
   for (auto _ : state) {
@@ -151,28 +151,32 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
 BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, complex_expression, complex_expression)
     ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
-    ->Range(10, 10000000)
+    ->Range(1000, 1000000)
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
-                       std::thread::hardware_concurrency());
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, simple_expression, simple_expression)
     ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
-    ->Range(10, 10000000)
+    ->Range(1000, 1000000)
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
-                       std::thread::hardware_concurrency());
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, zero_copy_expression,
                   zero_copy_expression)
     ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
-    ->Range(10, 10000000)
+    ->Range(1000, 1000000)
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
-                       std::thread::hardware_concurrency());
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, ref_only_expression,
                   ref_only_expression)
     ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
-    ->Range(10, 10000000)
+    ->Range(1000, 1000000)
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
-                       std::thread::hardware_concurrency());
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 }  // namespace compute
 }  // namespace arrow
