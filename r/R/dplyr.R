@@ -252,7 +252,9 @@ abandon_ship <- function(call, .data, msg) {
 query_on_dataset <- function(x) inherits(source_data(x), c("Dataset", "RecordBatchReader"))
 
 source_data <- function(x) {
-  if (is_collapsed(x)) {
+  if (!inherits(x, "arrow_dplyr_query")) {
+    x
+  } else if (is_collapsed(x)) {
     source_data(x$.data)
   } else {
     x$.data

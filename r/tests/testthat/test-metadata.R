@@ -293,6 +293,23 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   )
 })
 
+test_that("Dataset writing does handle other metadata", {
+  skip_if_not_available("dataset")
+  skip_if_not_available("parquet")
+
+  dst_dir <- make_temp_dir()
+  write_dataset(example_with_metadata, dst_dir, partitioning = "b")
+
+  ds <- open_dataset(dst_dir)
+  expect_equal(
+    ds %>%
+      # partitioning on b puts it last, so move it back
+      select(a, b, c, d) %>%
+      collect(),
+    example_with_metadata
+  )
+})
+
 test_that("When we encounter SF cols, we warn", {
   df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
   class(df$x) <- c("sfc_MULTIPOLYGON", "sfc", "list")
