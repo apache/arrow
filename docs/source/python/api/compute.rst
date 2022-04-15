@@ -48,9 +48,9 @@ Aggregations
 Cumulative Functions
 --------------------
 
-Cumulative functions are vector functions that perform a running total on its
-input and outputs an array containing the corresponding intermediate running values.
-By default these functions do not detect overflow. Most functions are also
+Cumulative functions are vector functions that perform a running total on their
+input and output an array containing the corresponding intermediate running values.
+By default these functions do not detect overflow. They are also
 available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
 
@@ -494,7 +494,6 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
-   cumulative_sum
    fill_null_backward
    fill_null_forward
    list_element

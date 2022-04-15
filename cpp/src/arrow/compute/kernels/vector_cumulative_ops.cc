@@ -66,7 +66,7 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
 // representing any binary associative operation (add, product, min, max, etc.) and
 // OptionsType the options type corresponding to Op. ArgType and OutType are the input
 // and output types, which will normally be the same (e.g. the cumulative sum of an array
-//  of Int64Type will result in an array of Int64Type).
+// of Int64Type will result in an array of Int64Type).
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct CumulativeGeneric {
   using OutValue = typename GetOutputType<OutType>::T;
@@ -124,7 +124,7 @@ struct CumulativeGeneric {
       ++curr;
     };
 
-    if (skip_nulls) {
+    if (skip_nulls || input.GetNullCount() == 0) {
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {

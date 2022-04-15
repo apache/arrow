@@ -1757,7 +1757,7 @@ class CumulativeSumOptions(_CumulativeSumOptions):
     start : Scalar, default 0.0
         Starting value for sum computation
     skip_nulls : bool, default False
-        When false, propagates the first null encountered.
+        When false, the first encountered null is propagated.
     """
 
     def __init__(self, start=0.0, *, skip_nulls=False):
