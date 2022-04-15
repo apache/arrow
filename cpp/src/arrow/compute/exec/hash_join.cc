@@ -100,7 +100,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     num_threads_ = num_threads;
     schema_mgr_ = schema_mgr;
     key_cmp_ = std::move(key_cmp);
-  filter_ = std::move(filter);
+    filter_ = std::move(filter);
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
     // TODO(ARROW-15732)
