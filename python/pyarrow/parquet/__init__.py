@@ -3162,7 +3162,7 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
 
 def read_metadata(where, memory_map=False, decryption_properties=None):
     """
-    Read FileMetadata from footer of a single Parquet file.
+    Read FileMetaData from footer of a single Parquet file.
 
     Parameters
     ----------
@@ -3174,7 +3174,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
 
     Returns
     -------
-    metadata : FileMetadata
+    metadata : FileMetaData
 
     Examples
     --------

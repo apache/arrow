@@ -98,7 +98,6 @@ Parquet Metadata
    FileMetaData
    RowGroupMetaData
    ColumnChunkMetaData
-   ParquetLogicalType
    Statistics
    ParquetSchema
    ColumnSchema
