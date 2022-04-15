@@ -2939,14 +2939,14 @@ def write_to_dataset(table, root_path, partition_cols=None,
     root_dir/
       group1=value1
         group2=value1
-          part-0.parquet
+          <uuid>.parquet
         group2=value2
-          part-0.parquet
+          <uuid>.parquet
       group1=valueN
         group2=value1
-          part-0.parquet
+          <uuid>.parquet
         group2=valueN
-          part-0.parquet
+          <uuid>.parquet
 
     Parameters
     ----------
@@ -3027,16 +3027,13 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
     >>> import pyarrow.parquet as pq
     >>> pq.write_to_dataset(table, root_path='dataset_name_3',
-    ...                     partition_cols=['year'],
-    ...                     use_legacy_dataset=False
-    ...                    )
+    ...                     partition_cols=['year'])
     >>> pq.ParquetDataset('dataset_name_3', use_legacy_dataset=False).files
     ['dataset_name_3/year=2019/part-0.parquet', ...
 
     Write a single Parquet file into the root folder:
 
-    >>> pq.write_to_dataset(table, root_path='dataset_name_4',
-    ...                     use_legacy_dataset=False)
+    >>> pq.write_to_dataset(table, root_path='dataset_name_4')
     >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
     ['dataset_name_4/part-0.parquet']
     """
