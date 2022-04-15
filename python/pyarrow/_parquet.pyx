@@ -175,7 +175,7 @@ cdef class Statistics(_Weakrefable):
 
     @property
     def converted_type(self):
-        """str: (legacy)"""
+        """str or None: legacy converted type"""
         raw_converted_type = self.statistics.get().descr().converted_type()
         return converted_type_name_from_enum(raw_converted_type)
 
@@ -872,7 +872,7 @@ cdef class ColumnSchema(_Weakrefable):
 
     @property
     def converted_type(self):
-        """str or None: (legacy)"""
+        """str or None: legacy converted type"""
         return converted_type_name_from_enum(self.descr.converted_type())
 
     # FIXED_LEN_BYTE_ARRAY attribute
