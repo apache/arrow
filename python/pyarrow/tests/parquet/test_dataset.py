@@ -1740,10 +1740,6 @@ def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'data.parquet'
 
-    with pytest.raises(ValueError, match="format"):
-        pq.write_to_dataset(table, path, use_legacy_dataset=True,
-                            format="ipc")
-
     with pytest.raises(ValueError, match="file_options"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
                             file_options=True)

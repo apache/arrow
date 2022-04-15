@@ -2970,12 +2970,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         removed in a future version). The legacy implementation still
         supports `partition_filename_cb` and `metadata_collector` keywords
         but is less efficient when using partition columns.
-    format : FileFormat or str
-        The format in which to write the dataset. Currently supported:
-        "parquet", "ipc"/"arrow"/"feather", and "csv". If a FileSystemDataset
-        is being written and `format` is not specified, it defaults to the
-        same format as the specified FileSystemDataset. When writing a
-        Table or RecordBatch, this keyword is required.
     file_options : pyarrow.dataset.FileWriteOptions, optional
         FileFormat specific write options, created using the
         ``FileFormat.make_write_options()`` function.
@@ -3103,8 +3097,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         "'use_legacy_dataset=False' while constructing the "
         "ParquetDataset."
     )
-    if format is not None:
-        raise ValueError(msg2.format("format"))
     if file_options is not None:
         raise ValueError(msg2.format("file_options"))
     if schema is not None:
