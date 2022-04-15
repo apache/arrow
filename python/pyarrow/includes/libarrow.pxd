@@ -2277,12 +2277,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CRoundTemporalOptions(int multiple, CCalendarUnit unit,
                               c_bool week_starts_monday,
                               c_bool ceil_is_strictly_greater,
-                              c_bool calendar_based_origin)
+                              c_bool calendar_based_origin,
+                              c_bool preserve_wall_time_order)
         int multiple
         CCalendarUnit unit
         c_bool week_starts_monday
         c_bool ceil_is_strictly_greater
         c_bool calendar_based_origin
+        c_bool preserve_wall_time_order
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
@@ -2449,22 +2451,22 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         uint32_t week_start
 
     cdef enum CAssumeTimezoneAmbiguous \
-            "arrow::compute::AmbiguousTime":
+            "arrow::compute::AssumeTimezoneOptions::Ambiguous":
         CAssumeTimezoneAmbiguous_AMBIGUOUS_RAISE \
-            "arrow::compute::AmbiguousTime::AMBIGUOUS_RAISE"
+            "arrow::compute::AssumeTimezoneOptions::AMBIGUOUS_RAISE"
         CAssumeTimezoneAmbiguous_AMBIGUOUS_EARLIEST \
-            "arrow::compute::AmbiguousTime::AMBIGUOUS_EARLIEST"
+            "arrow::compute::AssumeTimezoneOptions::AMBIGUOUS_EARLIEST"
         CAssumeTimezoneAmbiguous_AMBIGUOUS_LATEST \
-            "arrow::compute::AmbiguousTime::AMBIGUOUS_LATEST"
+            "arrow::compute::AssumeTimezoneOptions::AMBIGUOUS_LATEST"
 
     cdef enum CAssumeTimezoneNonexistent \
-            "arrow::compute::NonexistentTime":
+            "arrow::compute::AssumeTimezoneOptions::Nonexistent":
         CAssumeTimezoneNonexistent_NONEXISTENT_RAISE \
-            "arrow::compute::NonexistentTime::NONEXISTENT_RAISE"
+            "arrow::compute::AssumeTimezoneOptions::NONEXISTENT_RAISE"
         CAssumeTimezoneNonexistent_NONEXISTENT_EARLIEST \
-            "arrow::compute::NonexistentTime::NONEXISTENT_EARLIEST"
+            "arrow::compute::AssumeTimezoneOptions::NONEXISTENT_EARLIEST"
         CAssumeTimezoneNonexistent_NONEXISTENT_LATEST \
-            "arrow::compute::NonexistentTime::NONEXISTENT_LATEST"
+            "arrow::compute::AssumeTimezoneOptions::NONEXISTENT_LATEST"
 
     cdef cppclass CAssumeTimezoneOptions \
             "arrow::compute::AssumeTimezoneOptions"(CFunctionOptions):

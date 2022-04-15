@@ -394,14 +394,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "assume_timezone") {
     using Options = arrow::compute::AssumeTimezoneOptions;
-    enum Options::AmbiguousTime ambiguous = Options::AMBIGUOUS_RAISE;
-    enum Options::NonexistentTime nonexistent = Options::NONEXISTENT_RAISE;
+    enum Options::Ambiguous ambiguous = Options::AMBIGUOUS_RAISE;
+    enum Options::Nonexistent nonexistent = Options::NONEXISTENT_RAISE;
 
     if (!Rf_isNull(options["ambiguous"])) {
-      ambiguous = cpp11::as_cpp<enum Options::AmbiguousTime>(options["ambiguous"]);
+      ambiguous = cpp11::as_cpp<enum Options::Ambiguous>(options["ambiguous"]);
     }
     if (!Rf_isNull(options["nonexistent"])) {
-      nonexistent = cpp11::as_cpp<enum Options::NonexistentTime>(options["nonexistent"]);
+      nonexistent = cpp11::as_cpp<enum Options::Nonexistent>(options["nonexistent"]);
     }
 
     return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["timezone"]),

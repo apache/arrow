@@ -101,18 +101,19 @@ struct EnumTraits<compute::CompareOperator>
   }
 };
 template <>
-struct EnumTraits<compute::AmbiguousTime>
-    : BasicEnumTraits<compute::AmbiguousTime, compute::AmbiguousTime::AMBIGUOUS_RAISE,
-                      compute::AmbiguousTime::AMBIGUOUS_EARLIEST,
-                      compute::AmbiguousTime::AMBIGUOUS_LATEST> {
-  static std::string name() { return "AmbiguousTime"; }
-  static std::string value_name(compute::AmbiguousTime value) {
+struct EnumTraits<compute::AssumeTimezoneOptions::Ambiguous>
+    : BasicEnumTraits<compute::AssumeTimezoneOptions::Ambiguous,
+                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE,
+                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST,
+                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST> {
+  static std::string name() { return "AssumeTimezoneOptions::Ambiguous"; }
+  static std::string value_name(compute::AssumeTimezoneOptions::Ambiguous value) {
     switch (value) {
-      case compute::AmbiguousTime::AMBIGUOUS_RAISE:
+      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE:
         return "AMBIGUOUS_RAISE";
-      case compute::AmbiguousTime::AMBIGUOUS_EARLIEST:
+      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST:
         return "AMBIGUOUS_EARLIEST";
-      case compute::AmbiguousTime::AMBIGUOUS_LATEST:
+      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST:
         return "AMBIGUOUS_LATEST";
     }
     return "<INVALID>";
@@ -120,19 +121,19 @@ struct EnumTraits<compute::AmbiguousTime>
 };
 
 template <>
-struct EnumTraits<compute::NonexistentTime>
-    : BasicEnumTraits<compute::NonexistentTime,
-                      compute::NonexistentTime::NONEXISTENT_RAISE,
-                      compute::NonexistentTime::NONEXISTENT_EARLIEST,
-                      compute::NonexistentTime::NONEXISTENT_LATEST> {
-  static std::string name() { return "NonexistentTime"; }
-  static std::string value_name(compute::NonexistentTime value) {
+struct EnumTraits<compute::AssumeTimezoneOptions::Nonexistent>
+    : BasicEnumTraits<compute::AssumeTimezoneOptions::Nonexistent,
+                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE,
+                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST,
+                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST> {
+  static std::string name() { return "AssumeTimezoneOptions::Nonexistent"; }
+  static std::string value_name(compute::AssumeTimezoneOptions::Nonexistent value) {
     switch (value) {
-      case compute::NonexistentTime::NONEXISTENT_RAISE:
+      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE:
         return "NONEXISTENT_RAISE";
-      case compute::NonexistentTime::NONEXISTENT_EARLIEST:
+      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST:
         return "NONEXISTENT_EARLIEST";
-      case compute::NonexistentTime::NONEXISTENT_LATEST:
+      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST:
         return "NONEXISTENT_LATEST";
     }
     return "<INVALID>";
@@ -361,7 +362,9 @@ static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOpti
     DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday),
     DataMember("ceil_is_strictly_greater",
                &RoundTemporalOptions::ceil_is_strictly_greater),
-    DataMember("calendar_based_origin", &RoundTemporalOptions::calendar_based_origin));
+    DataMember("calendar_based_origin", &RoundTemporalOptions::calendar_based_origin),
+    DataMember("preserve_wall_time_order",
+               &RoundTemporalOptions::preserve_wall_time_order));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -411,9 +414,8 @@ ArithmeticOptions::ArithmeticOptions(bool check_overflow)
     : FunctionOptions(internal::kArithmeticOptionsType), check_overflow(check_overflow) {}
 constexpr char ArithmeticOptions::kTypeName[];
 
-AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone,
-                                             AmbiguousTime ambiguous,
-                                             NonexistentTime nonexistent)
+AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone, Ambiguous ambiguous,
+                                             Nonexistent nonexistent)
     : FunctionOptions(internal::kAssumeTimezoneOptionsType),
       timezone(std::move(timezone)),
       ambiguous(ambiguous),
@@ -544,13 +546,15 @@ constexpr char RoundBinaryOptions::kTypeName[];
 RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
                                            bool week_starts_monday,
                                            bool ceil_is_strictly_greater,
-                                           bool calendar_based_origin)
+                                           bool calendar_based_origin,
+                                           bool preserve_wall_time_order)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
       unit(unit),
       week_starts_monday(week_starts_monday),
       ceil_is_strictly_greater(ceil_is_strictly_greater),
-      calendar_based_origin(calendar_based_origin) {}
+      calendar_based_origin(calendar_based_origin),
+      preserve_wall_time_order(preserve_wall_time_order) {}
 constexpr char RoundTemporalOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
