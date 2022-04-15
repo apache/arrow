@@ -51,6 +51,7 @@ cimport cpython as cp
 
 cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group"""
+
     def __cinit__(self):
         pass
 
@@ -263,6 +264,7 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
 
 cdef class ColumnChunkMetaData(_Weakrefable):
     """Column metadata for a single row group"""
+
     def __cinit__(self):
         pass
 
@@ -371,7 +373,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     @property
     def compression(self):
         """str: type of compression used for column.
-        
+
         One of 'UNCOMPRESSED', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD', 
         or 'UNKNOWN'."""
         return compression_name_from_enum(self.metadata.compression())
@@ -379,7 +381,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     @property
     def encodings(self):
         """tuple of str: encodings used for column
-        
+
         One of 'PLAIN', 'BIT_PACKED', 'RLE', 'BYTE_STREAM_SPLIT', 'DELTA_BINARY_PACKED',
         'DELTA_BYTE_ARRAY'."""
         return tuple(map(encoding_name_from_enum, self.metadata.encodings()))
@@ -425,6 +427,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
 cdef class RowGroupMetaData(_Weakrefable):
     """Metadata for a single row group"""
+
     def __cinit__(self, FileMetaData parent, int index):
         if index < 0 or index >= parent.num_row_groups:
             raise IndexError('{0} out of bounds'.format(index))
@@ -502,6 +505,7 @@ def _reconstruct_filemetadata(Buffer serialized):
 
 cdef class FileMetaData(_Weakrefable):
     """Parquet metadata for a single file"""
+
     def __cinit__(self):
         pass
 
@@ -583,7 +587,7 @@ cdef class FileMetaData(_Weakrefable):
     @property
     def format_version(self):
         """str: Parquet format version used in file (such as '1.0', '2.4')
-        
+
         If version is missing or unparsable, will default to assuming '1.0'.
         """
         cdef ParquetVersion version = self._metadata.version()
@@ -603,7 +607,7 @@ cdef class FileMetaData(_Weakrefable):
     @property
     def created_by(self):
         """str: String describing source of the parquet file
-        
+
         This typically includes library name and version number. For example, Arrow 7.0's
         writer returns 'parquet-cpp-arrow version 7.0.0'."""
         return frombytes(self._metadata.created_by())
@@ -623,12 +627,12 @@ cdef class FileMetaData(_Weakrefable):
 
     def row_group(self, int i):
         """Get metadata for row group at index i
-        
+
         Parameters
         ----------
         i : int
             row group index to get
-        
+
         Returns
         -------
         row_group_metadata : RowGroupMetaData
@@ -695,6 +699,7 @@ cdef class FileMetaData(_Weakrefable):
 
 cdef class ParquetSchema(_Weakrefable):
     """A Parquet schema"""
+
     def __cinit__(self, FileMetaData container):
         self.parent = container
         self.schema = container._metadata.schema()
@@ -759,7 +764,7 @@ cdef class ParquetSchema(_Weakrefable):
 
     def column(self, i):
         """Return the schema for a single column
-        
+
         Parameters
         ----------
         i : int
