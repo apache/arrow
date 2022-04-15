@@ -2928,8 +2928,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
                      use_legacy_dataset=None, format=None,
                      file_options=None, schema=None,
-                     partitioning=None, use_threads=None,
-                     file_visitor=None, **kwargs):
+                     partitioning=None, basename_template=None,
+                     use_threads=None, file_visitor=None, **kwargs):
     """Wrapper around parquet.write_dataset for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -2982,6 +2982,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
         function or a list of field names. When providing a list of
         field names, you can use ``partitioning_flavor`` to drive which
         partitioning type should be used.
+    basename_template : str, optional
+        A template string used to generate basenames of written data files.
+        The token '{i}' will be replaced with an automatically incremented
+        integer. If not specified, it defaults to
+        "part-{i}." + format.default_extname
     file_visitor : function
         If set, this function will be called with a WrittenFile instance
         for each file created during the call.  This object will have both
@@ -3077,11 +3082,16 @@ def write_to_dataset(table, root_path, partition_cols=None,
             part_schema = table.select(partition_cols).schema
             partitioning = ds.partitioning(part_schema, flavor="hive")
 
+        if basename_template is None:
+            basename_template = guid() + '{i}.parquet'
+
         ds.write_dataset(
             table, root_path, filesystem=filesystem,
             format=parquet_format, file_options=write_options, schema=schema,
             partitioning=partitioning, use_threads=use_threads,
-            file_visitor=file_visitor)
+            file_visitor=file_visitor,
+            basename_template=basename_template,
+            existing_data_behavior='overwrite_or_ignore')
         return
 
     # warnings and errors when using legecy implementation
