@@ -570,7 +570,7 @@ dataset to be partitioned.  For example:
     part = ds.partitioning(
         pa.schema([("c", pa.int16())]), flavor="hive"
     )
-    ds.write_dataset(table, "sample_dataset", format="parquet", partitioning=part)
+    ds.write_dataset(table, "partitioned_dataset", format="parquet", partitioning=part)
 
 This will create two files.  Half our data will be in the dataset_root/c=1 directory and
 the other half will be in the dataset_root/c=2 directory.
@@ -701,7 +701,7 @@ into memory:
     new_part = ds.partitioning(
         pa.schema([("c", pa.int16())]), flavor=None
     )
-    input_dataset = ds.dataset("sample_dataset", partitioning=old_part)
+    input_dataset = ds.dataset("partitioned_dataset", partitioning=old_part)
     # A scanner can act as an iterator of record batches but you could also receive
     # data from the network (e.g. via flight), from your own scanning, or from any
     # other method that yields record batches.  In addition, you can pass a dataset
