@@ -202,7 +202,7 @@ write_dataset <- function(dataset,
   validate_positive_int_value(max_rows_per_group, "max_rows_per_group must be a positive, non-missing integer")
 
   plan$Write(
-    final_node, prepare_key_value_metadata(dataset$metadata), options, path_and_fs$fs, path_and_fs$path,
+    final_node, prepare_key_value_metadata(source_data(dataset$metadata)), options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,
     max_open_files, max_rows_per_file,
