@@ -159,17 +159,15 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 }
 
 // [[dataset::export]]
-void ExecPlan_Write(const std::shared_ptr<compute::ExecPlan>& plan,
-                    const std::shared_ptr<compute::ExecNode>& final_node,
-                    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
-                    const std::shared_ptr<fs::FileSystem>& filesystem,
-                    std::string base_dir,
-                    const std::shared_ptr<ds::Partitioning>& partitioning,
-                    std::string basename_template,
-                    arrow::dataset::ExistingDataBehavior existing_data_behavior,
-                    int max_partitions, uint32_t max_open_files,
-                    uint64_t max_rows_per_file, uint64_t min_rows_per_group,
-                    uint64_t max_rows_per_group) {
+void ExecPlan_Write(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::strings metadata,
+    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
+    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
+    const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
+    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions,
+    uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group,
+    uint64_t max_rows_per_group) {
   arrow::dataset::internal::Initialize();
 
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
@@ -187,8 +185,15 @@ void ExecPlan_Write(const std::shared_ptr<compute::ExecPlan>& plan,
   opts.min_rows_per_group = min_rows_per_group;
   opts.max_rows_per_group = max_rows_per_group;
 
+  // TODO: factor this out to a strings_to_KVM() helper
+  auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
+  auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
+
+  auto kv =
+      std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+
   MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()},
-                     ds::WriteNodeOptions{std::move(opts)});
+                     ds::WriteNodeOptions{std::move(opts), std::move(kv)});
 
   StopIfNotOk(plan->Validate());
   StopIfNotOk(plan->StartProducing());
