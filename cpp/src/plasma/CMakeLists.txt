@@ -52,8 +52,8 @@ set(PLASMA_STORE_SRCS
     store.cc
     thirdparty/ae/ae.c)
 
-set(PLASMA_LINK_LIBS arrow_shared)
-set(PLASMA_STATIC_LINK_LIBS arrow_static)
+set(PLASMA_LINK_LIBS arrow_shared arrow::flatbuffers)
+set(PLASMA_STATIC_LINK_LIBS arrow_static arrow::flatbuffers)
 
 if(ARROW_CUDA)
   list(INSERT PLASMA_LINK_LIBS 0 arrow_cuda_shared)

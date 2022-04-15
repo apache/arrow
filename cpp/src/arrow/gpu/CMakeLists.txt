@@ -39,7 +39,6 @@ else()
   # CUDAToolkit is only available in CMake >= 3.17
   find_package(CUDAToolkit REQUIRED)
   set(ARROW_CUDA_SHARED_LINK_LIBS CUDA::cuda_driver)
-  include_directories(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
 set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memory.cc)

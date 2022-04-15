@@ -260,8 +260,8 @@ endmacro()
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
-# Include vendored Flatbuffers
-include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
+add_library(arrow::flatbuffers INTERFACE IMPORTED)
+target_include_directories(arrow::flatbuffers INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
@@ -989,8 +989,6 @@ if(ARROW_BOOST_REQUIRED)
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIR}")
   message(STATUS "Boost libraries: ${ARROW_BOOST_LIBS}")
-
-  include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 endif()
 
 # ----------------------------------------------------------------------
@@ -1170,9 +1168,7 @@ if(ARROW_USE_OPENSSL)
   message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
 
-  list(APPEND ARROW_SYSTEM_DEPENDENCIES "OpenSSL")
-
-  include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+  list(APPEND ARROW_SYSTEM_DEPENDENCIES OpenSSL)
 else()
   message(STATUS "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
   )
@@ -1743,15 +1739,14 @@ if(ARROW_JEMALLOC)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.
-  include_directories(SYSTEM "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
+  set(JEMALLOC_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
+  file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
   add_library(jemalloc::jemalloc STATIC IMPORTED)
   set_target_properties(jemalloc::jemalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
                                    IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
+                                   INTERFACE_INCLUDE_DIRECTORIES "${JEMALLOC_INCLUDE_DIR}")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
@@ -1793,7 +1788,6 @@ if(ARROW_MIMALLOC)
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
-  include_directories(SYSTEM ${MIMALLOC_INCLUDE_DIR})
   file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
 
   add_library(mimalloc::mimalloc STATIC IMPORTED)
@@ -2434,7 +2428,6 @@ if(ARROW_WITH_BZ2)
                           PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
   endif()
-  include_directories(SYSTEM "${BZIP2_INCLUDE_DIR}")
 endif()
 
 macro(build_utf8proc)
@@ -3750,7 +3743,6 @@ if(ARROW_WITH_NLOHMANN_JSON)
   resolve_dependency(nlohmann_json)
   get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
                       INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${nlohmann_json_INCLUDE_DIR})
   message(STATUS "Found nlohmann_json headers: ${nlohmann_json_INCLUDE_DIR}")
 endif()
 
@@ -3880,9 +3872,6 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   resolve_dependency(google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${google_cloud_cpp_storage_INCLUDE_DIR})
-  get_target_property(absl_base_INCLUDE_DIR absl::base INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${absl_base_INCLUDE_DIR})
   message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
   )
 endif()
@@ -3904,9 +3893,10 @@ set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
 if(NOT EXISTS ${HDFS_H_PATH})
   message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
 endif()
-message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
+message(STATUS "Found hdfs.h at: ${HDFS_H_PATH}")
 
-include_directories(SYSTEM "${HADOOP_HOME}/include")
+add_library(arrow::hadoop INTERFACE IMPORTED)
+target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 
 # ----------------------------------------------------------------------
 # Apache ORC
@@ -3991,7 +3981,6 @@ endmacro()
 
 if(ARROW_ORC)
   resolve_dependency(ORC)
-  include_directories(SYSTEM ${ORC_INCLUDE_DIR})
   message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
   message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
@@ -4208,7 +4197,6 @@ if(ARROW_WITH_OPENTELEMETRY)
   resolve_dependency(opentelemetry-cpp)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${OPENTELEMETRY_INCLUDE_DIR})
   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
 endif()
 
@@ -4434,7 +4422,6 @@ if(ARROW_S3)
     endif()
   endif()
 
-  include_directories(SYSTEM ${AWSSDK_INCLUDE_DIR})
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
 

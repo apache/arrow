@@ -692,8 +692,8 @@ endif()
 #
 
 # Libraries to link statically with libarrow.so
-set(ARROW_LINK_LIBS)
-set(ARROW_STATIC_LINK_LIBS)
+set(ARROW_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_USE_OPENSSL)
