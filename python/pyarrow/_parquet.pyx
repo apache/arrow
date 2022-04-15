@@ -114,7 +114,6 @@ cdef class Statistics(_Weakrefable):
     @property
     def min_raw(self):
         """bool, int, float, or bytes: min value as physical type"""
-        # TODO: didn't Weston have some tip about scalars?
         if self.has_min_max:
             return _cast_statistic_raw_min(self.statistics.get())
         else:
@@ -336,8 +335,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def file_path(self):
-        """str or None: """
-        # TODO: When is this not None?
+        """str or None: optional file path if set"""
         return frombytes(self.metadata.file_path())
 
     @property
@@ -417,13 +415,11 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     @property
     def total_compressed_size(self):
         """int: compresssed size in bytes"""
-        # TODO
         return self.metadata.total_compressed_size()
 
     @property
     def total_uncompressed_size(self):
         """int: uncompressed size in bytes"""
-        # TODO
         return self.metadata.total_uncompressed_size()
 
 
@@ -872,7 +868,6 @@ cdef class ColumnSchema(_Weakrefable):
     @property
     def converted_type(self):
         """str or None: (legacy)"""
-        # TODO: is this still used?
         return converted_type_name_from_enum(self.descr.converted_type())
 
     # FIXED_LEN_BYTE_ARRAY attribute
