@@ -4356,6 +4356,11 @@ _minio_put_only_policy = """{
 @pytest.mark.parquet
 @pytest.mark.s3
 def test_write_dataset_s3_put_only(s3_server, limited_s3_user):
+    # [ARROW-15892] Testing the create_dir flag which will restrict 
+    # creating a new directory for writing a dataset. This is
+    # required while writing a dataset in s3 where we have very 
+    # limited permissions and thus we can directly write the dataset
+    # without creating a directory. 
     from pyarrow.fs import S3FileSystem
 
     # write dataset with s3 filesystem
