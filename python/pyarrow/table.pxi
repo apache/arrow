@@ -4967,8 +4967,8 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     --------
     Table.from_arrays, Table.from_pandas, Table.from_pydict
 
-    Example
-    -------
+    Examples
+    --------
     >>> import pyarrow as pa
     >>> n_legs = pa.array([2, 4, 5, 100])
     >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
