@@ -850,10 +850,8 @@ if(((ARROW_FLIGHT
 endif()
 
 if(NOT MSVC_TOOLCHAIN)
-  add_library(arrow::dl INTERFACE IMPORTED)
-  target_link_libraries(arrow::dl INTERFACE ${CMAKE_DL_LIBS})
-  list(APPEND ARROW_LINK_LIBS arrow::dl)
-  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS arrow::dl)
+  list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
+  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN
@@ -879,8 +877,8 @@ set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static ${ARROW_LINK_L
 set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared ${ARROW_LINK_LIBS}
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 
-if(TARGET arrow::dl)
-  list(APPEND ARROW_TEST_SHARED_LINK_LIBS arrow::dl)
+if(NOT MSVC)
+  set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})
 endif()
 
 if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
@@ -940,15 +938,13 @@ if(CMAKE_THREAD_LIBS_INIT)
 endif()
 
 if(WIN32)
-  add_library(arrow::winsock INTERFACE IMPORTED)
-  target_link_libraries(arrow::winsock INTERFACE "ws2_32.dll")
-  list(APPEND ARROW_SYSTEM_LINK_LIBS arrow::winsock)
+  # Winsock
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
 endif()
 
 if(NOT WIN32 AND NOT APPLE)
-  add_library(arrow::rt INTERFACE IMPORTED)
-  target_link_libraries(arrow::rt INTERFACE "rt")
-  list(APPEND ARROW_SYSTEM_LINK_LIBS arrow::rt)
+  # Pass -lrt on Linux only
+  list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
 endif()
 
 list(APPEND ARROW_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
