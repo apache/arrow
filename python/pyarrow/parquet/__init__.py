@@ -2926,8 +2926,8 @@ def _mkdir_if_not_exists(fs, path):
 
 def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
-                     use_legacy_dataset=None, file_options=None,
-                     schema=None, partitioning=None, basename_template=None,
+                     use_legacy_dataset=None, schema=None,
+                     partitioning=None, basename_template=None,
                      use_threads=None, file_visitor=None, **kwargs):
     """Wrapper around parquet.write_dataset for writing a Table to
     Parquet format by partitions.
@@ -2969,9 +2969,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         removed in a future version). The legacy implementation still
         supports `partition_filename_cb` and `metadata_collector` keywords
         but is less efficient when using partition columns.
-    file_options : pyarrow.dataset.FileWriteOptions, optional
-        FileFormat specific write options, created using the
-        ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
@@ -3103,8 +3100,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         "'use_legacy_dataset=False' while constructing the "
         "ParquetDataset."
     )
-    if file_options is not None:
-        raise ValueError(msg2.format("file_options"))
     if schema is not None:
         raise ValueError(msg2.format("schema"))
     if partitioning is not None:
