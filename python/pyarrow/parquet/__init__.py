@@ -2981,8 +2981,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     basename_template : str, optional
         A template string used to generate basenames of written data files.
         The token '{i}' will be replaced with an automatically incremented
-        integer. If not specified, it defaults to
-        "part-{i}." + format.default_extname
+        integer. If not specified, it defaults to "guid-{i}.parquet"
     file_visitor : function
         If set, this function will be called with a WrittenFile instance
         for each file created during the call.  This object will have both
@@ -3076,7 +3075,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             partitioning = ds.partitioning(part_schema, flavor="hive")
 
         if basename_template is None:
-            basename_template = guid() + '{i}.parquet'
+            basename_template = guid() + '-{i}.parquet'
 
         ds.write_dataset(
             table, root_path, filesystem=filesystem,
