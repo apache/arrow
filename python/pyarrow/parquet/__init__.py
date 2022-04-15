@@ -3110,10 +3110,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
     if partition_filename_cb is not None:
         warnings.warn(
             _DEPR_MSG.format("partition_filename_cb", " Specify "
-                "'use_legacy_dataset=False' while constructing "
-                "the ParquetDataset, and then use the "
-                "'basename_template' parameter instead. For usage "
-                "see `pyarrow.dataset.write_dataset`"),
+                             "'use_legacy_dataset=False' while constructing "
+                             "the ParquetDataset, and then use the "
+                             "'basename_template' parameter instead. For "
+                             "usage see `pyarrow.dataset.write_dataset`"),
             FutureWarning, stacklevel=2)
 
     fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)
