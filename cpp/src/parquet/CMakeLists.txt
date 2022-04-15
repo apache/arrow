@@ -112,7 +112,7 @@ else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(PARQUET_MIN_TEST_LIBS GTest::gtest_main GTest::gtest)
+set(PARQUET_MIN_TEST_LIBS GTest::gtest_main GTest::gtest ${ARROW_BOOST_LIBS})
 
 if(APPLE)
   set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
@@ -214,11 +214,12 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
 
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
-  set(PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
+  set(PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift ${ARROW_BOOST_LIBS})
 
   # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
-  set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} thrift::thrift)
+  set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} thrift::thrift
+                               ${ARROW_BOOST_LIBS})
 endif(NOT PARQUET_MINIMAL_DEPENDENCY)
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)

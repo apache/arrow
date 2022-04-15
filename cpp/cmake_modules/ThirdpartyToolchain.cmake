@@ -261,7 +261,8 @@ endmacro()
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
 add_library(arrow::flatbuffers INTERFACE IMPORTED)
-target_include_directories(arrow::flatbuffers INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
+target_include_directories(arrow::flatbuffers
+                           INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
@@ -770,6 +771,7 @@ macro(build_boost)
 
   # This is needed by the thrift_ep build
   set(BOOST_ROOT ${BOOST_PREFIX})
+  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
 
   if(ARROW_BOOST_REQUIRE_LIBRARY)
     set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
@@ -829,9 +831,17 @@ macro(build_boost)
     set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
                              ${BOOST_STATIC_FILESYSTEM_LIBRARY})
 
-    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+    add_thirdparty_lib(boost_system
+                       STATIC_LIB
+                       "${BOOST_STATIC_SYSTEM_LIBRARY}"
+                       INCLUDE_DIRECTORIES
+                       "${Boost_INCLUDE_DIR}")
 
-    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+    add_thirdparty_lib(boost_filesystem
+                       STATIC_LIB
+                       "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
+                       INCLUDE_DIRECTORIES
+                       "${Boost_INCLUDE_DIR}")
 
     externalproject_add(boost_ep
                         URL ${BOOST_SOURCE_URL}
@@ -852,8 +862,6 @@ macro(build_boost)
                         URL ${BOOST_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
   endif()
-  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
-  set(Boost_INCLUDE_DIRS "${Boost_INCLUDE_DIR}")
   add_dependencies(toolchain boost_ep)
   set(BOOST_VENDORED TRUE)
 endmacro()
@@ -1746,7 +1754,8 @@ if(ARROW_JEMALLOC)
   set_target_properties(jemalloc::jemalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
                                    IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${JEMALLOC_INCLUDE_DIR}")
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${JEMALLOC_INCLUDE_DIR}")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
