@@ -576,8 +576,7 @@ class HashJoinNode : public ExecNode {
                {{"node.label", label()},
                 {"node.detail", ToString()},
                 {"node.kind", kind_name()}});
-    finished_ = Future<>::Make();
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished(), this);
 
     bool use_sync_execution = !(plan_->exec_context()->executor());
     size_t num_threads = use_sync_execution ? 1 : thread_indexer_.Capacity();
@@ -609,11 +608,11 @@ class HashJoinNode : public ExecNode {
       for (auto&& input : inputs_) {
         input->StopProducing(this);
       }
-      impl_->Abort([this]() { finished_.MarkFinished(); });
+      impl_->Abort([this]() { ARROW_UNUSED(task_group_.End()); });
     }
   }
 
-  Future<> finished() override { return finished_; }
+  Future<> finished() override { return task_group_.OnFinished(); }
 
  private:
   void OutputBatchCallback(ExecBatch batch) {
@@ -624,14 +623,14 @@ class HashJoinNode : public ExecNode {
     bool expected = false;
     if (complete_.compare_exchange_strong(expected, true)) {
       outputs_[0]->InputFinished(this, static_cast<int>(total_num_batches));
-      finished_.MarkFinished();
+      ARROW_UNUSED(task_group_.End());
     }
   }
 
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
     auto executor = plan_->exec_context()->executor();
     if (executor) {
-      RETURN_NOT_OK(executor->Spawn([this, func] {
+      ARROW_ASSIGN_OR_RAISE(auto task_fut, executor->Submit([this, func] {
         size_t thread_index = thread_indexer_();
         Status status = func(thread_index);
         if (!status.ok()) {
@@ -640,6 +639,7 @@ class HashJoinNode : public ExecNode {
           return;
         }
       }));
+      return task_group_.AddTask(task_fut);
     } else {
       // We should not get here in serial execution mode
       ARROW_DCHECK(false);
@@ -656,6 +656,7 @@ class HashJoinNode : public ExecNode {
   ThreadIndexer thread_indexer_;
   std::unique_ptr<HashJoinSchema> schema_mgr_;
   std::unique_ptr<HashJoinImpl> impl_;
+  util::AsyncTaskGroup task_group_;
 };
 
 namespace internal {
