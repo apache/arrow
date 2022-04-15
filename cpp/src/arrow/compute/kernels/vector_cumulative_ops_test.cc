@@ -33,225 +33,151 @@
 namespace arrow {
 namespace compute {
 
-template <typename T, typename OptionsType>
 class TestCumulativeOp : public ::testing::Test {
- public:
-  using ArrowType = T;
-  using ScalarType = typename TypeTraits<T>::ScalarType;
-  using CType = typename TypeTraits<T>::CType;
-
  protected:
-  std::shared_ptr<DataType> type_singleton() { return default_type_instance<T>(); }
-
-  std::shared_ptr<Array> array(const std::string& values) {
-    return ArrayFromJSON(type_singleton(), values);
+  std::shared_ptr<Array> array(std::shared_ptr<DataType>& type,
+                               const std::string& values) {
+    return ArrayFromJSON(type, values);
   }
 
-  std::shared_ptr<ChunkedArray> chunked_array(const std::vector<std::string>& values) {
-    return ChunkedArrayFromJSON(type_singleton(), values);
+  std::shared_ptr<ChunkedArray> chunked_array(std::shared_ptr<DataType>& type,
+                                              const std::vector<std::string>& values) {
+    return ChunkedArrayFromJSON(type, values);
   }
 
-  template <typename V = T>
-  enable_if_t<!is_floating_type<V>::value, void> Assert(
-      const std::string func, const std::shared_ptr<Array>& input,
-      const std::shared_ptr<Array>& expected, const OptionsType& options) {
-    ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func, {Datum(input)}, &options));
-
-    AssertArraysEqual(*expected, *result.make_array(), false, EqualOptions::Defaults());
-  }
-
-  template <typename V = T>
-  enable_if_t<!is_floating_type<V>::value, void> Assert(
-      const std::string func, const std::shared_ptr<ChunkedArray>& input,
-      const std::shared_ptr<ChunkedArray>& expected, const OptionsType& options) {
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         CallFunction(func, {Datum(input)}, &options, nullptr));
-
-    ChunkedArray actual(result.chunks(), this->type_singleton());
-    AssertChunkedEqual(*expected, actual);
-  }
-
-  template <typename V = T>
-  enable_if_floating_point<V> Assert(const std::string func,
-                                     const std::shared_ptr<Array>& input,
-                                     const std::shared_ptr<Array>& expected,
-                                     const OptionsType& options) {
+  template <typename OptionsType>
+  void Assert(const std::string func, const std::shared_ptr<Array>& input,
+              const std::shared_ptr<Array>& expected, const OptionsType& options) {
     ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func, {Datum(input)}, &options));
 
     AssertArraysApproxEqual(*expected, *result.make_array(), false,
                             EqualOptions::Defaults());
   }
 
-  template <typename V = T>
-  enable_if_floating_point<V> Assert(const std::string func,
-                                     const std::shared_ptr<ChunkedArray>& input,
-                                     const std::shared_ptr<ChunkedArray>& expected,
-                                     const OptionsType& options) {
+  template <typename OptionsType>
+  void Assert(std::shared_ptr<DataType>& type, const std::string func,
+              const std::shared_ptr<ChunkedArray>& input,
+              const std::shared_ptr<ChunkedArray>& expected, const OptionsType& options) {
     ASSERT_OK_AND_ASSIGN(auto result,
                          CallFunction(func, {Datum(input)}, &options, nullptr));
 
-    ChunkedArray actual(result.chunks(), this->type_singleton());
+    ChunkedArray actual(result.chunks(), type);
     AssertChunkedApproxEquivalent(*expected, actual, EqualOptions::Defaults());
   }
 };
 
-template <typename T>
-class TestCumulativeSum : public TestCumulativeOp<T, CumulativeSumOptions> {
- public:
-  using OptionsType = CumulativeSumOptions;
-  using ArrowType = typename TestCumulativeOp<T, OptionsType>::ArrowType;
-  using ScalarType = typename TestCumulativeOp<T, OptionsType>::ScalarType;
-  using CType = typename TestCumulativeOp<T, OptionsType>::CType;
+struct CumulativeSumParam {
+  std::string start;
+  bool skip_nulls;
+  std::shared_ptr<DataType> type;
+  std::string json_arrays_input_no_nulls;
+  std::string json_arrays_expected_no_nulls;
+  std::string json_arrays_input_with_nulls;
+  std::string json_arrays_expected_with_nulls;
+  std::vector<std::string> json_chunked_arrays_input_no_nulls;
+  std::vector<std::string> json_chunked_arrays_expected_no_nulls;
+  std::vector<std::string> json_chunked_arrays_input_with_nulls;
+  std::vector<std::string> json_chunked_arrays_expected_with_nulls;
+};
 
+std::vector<CumulativeSumParam> GenerateCumulativeSumParams(
+    std::string start, bool skip_nulls, std::string json_arrays_input_no_nulls,
+    std::string json_arrays_expected_no_nulls, std::string json_arrays_input_with_nulls,
+    std::string json_arrays_expected_with_nulls,
+    std::vector<std::string> json_chunked_arrays_input_no_nulls,
+    std::vector<std::string> json_chunked_arrays_expected_no_nulls,
+    std::vector<std::string> json_chunked_arrays_input_with_nulls,
+    std::vector<std::string> json_chunked_arrays_expected_with_nulls) {
+  std::vector<CumulativeSumParam> param_vector;
+
+  for (auto ty : NumericTypes()) {
+    param_vector.push_back(
+        {start, skip_nulls, ty, json_arrays_input_no_nulls, json_arrays_expected_no_nulls,
+         json_arrays_input_with_nulls, json_arrays_expected_with_nulls,
+         json_chunked_arrays_input_no_nulls, json_chunked_arrays_expected_no_nulls,
+         json_chunked_arrays_input_with_nulls, json_chunked_arrays_expected_with_nulls});
+  }
+
+  return param_vector;
+}
+
+class TestCumulativeSum : public TestCumulativeOp,
+                          public testing::WithParamInterface<CumulativeSumParam> {
  protected:
-  template <typename U = T>
-  enable_if_parameter_free<U, OptionsType> generate_options(CType start = 0,
-                                                            bool skip_nulls = false,
-                                                            bool check_overflow = false) {
-    return OptionsType(std::make_shared<ScalarType>(start), skip_nulls, check_overflow);
+  CumulativeSumOptions generate_options(std::shared_ptr<DataType> type,
+                                        std::string start = "", bool skip_nulls = false,
+                                        bool check_overflow = false) {
+    return CumulativeSumOptions(ScalarFromJSON(type, start), skip_nulls, check_overflow);
   }
 
-  template <typename U = T>
-  enable_if_t<is_time_type<U>::value || is_timestamp_type<U>::value, OptionsType>
-  generate_options(CType start = 0, bool skip_nulls = false,
-                   bool check_overflow = false) {
-    TimeUnit::type unit;
-    switch (ArrowType::type_id) {
-      case Type::TIME64:
-        unit = TimeUnit::NANO;
-        break;
-      default:
-        unit = TimeUnit::SECOND;
-        break;
-    }
-    return OptionsType(std::make_shared<ScalarType>(start, unit), skip_nulls,
-                       check_overflow);
-  }
-
-  void Assert(const std::string& values, const std::string& expected,
-              const OptionsType& options) {
-    auto values_arr = TestCumulativeOp<T, OptionsType>::array(values);
-    auto expected_arr = TestCumulativeOp<T, OptionsType>::array(expected);
+  void Assert(std::shared_ptr<DataType> type, const std::string& values,
+              const std::string& expected, const CumulativeSumOptions& options) {
+    auto values_arr = TestCumulativeOp::array(type, values);
+    auto expected_arr = TestCumulativeOp::array(type, expected);
     auto func_name = options.check_overflow ? "cumulative_sum_checked" : "cumulative_sum";
-    TestCumulativeOp<T, OptionsType>::Assert(func_name, values_arr, expected_arr,
-                                             options);
+    TestCumulativeOp::Assert(func_name, values_arr, expected_arr, options);
   }
 
-  void Assert(const std::vector<std::string>& values,
-              const std::vector<std::string>& expected, const OptionsType& options) {
-    auto values_arr = TestCumulativeOp<T, OptionsType>::chunked_array(values);
-    auto expected_arr = TestCumulativeOp<T, OptionsType>::chunked_array(expected);
+  void Assert(std::shared_ptr<DataType> type, const std::vector<std::string>& values,
+              const std::vector<std::string>& expected,
+              const CumulativeSumOptions& options) {
+    auto values_arr = TestCumulativeOp::chunked_array(type, values);
+    auto expected_arr = TestCumulativeOp::chunked_array(type, expected);
     auto func_name = options.check_overflow ? "cumulative_sum_checked" : "cumulative_sum";
-    TestCumulativeOp<T, OptionsType>::Assert(func_name, values_arr, expected_arr,
-                                             options);
+    TestCumulativeOp::Assert(type, func_name, values_arr, expected_arr, options);
   }
 };
 
-TYPED_TEST_SUITE(TestCumulativeSum, NumericArrowTypes);
+TEST_P(TestCumulativeSum, CheckResult) {
+  const CumulativeSumParam param = GetParam();
+  CumulativeSumOptions options =
+      this->generate_options(param.type, param.start, param.skip_nulls);
 
-TYPED_TEST(TestCumulativeSum, NoStartNoSkipNoNulls) {
-  CumulativeSumOptions options = this->generate_options();
-  auto empty = "[]";
-  auto values = "[1, 2, 3, 4, 5, 6]";
-  auto expected = "[1, 3, 6, 10, 15, 21]";
-  std::vector<std::string> chunked_values = {"[1, 2, 3]", "[4, 5, 6]"};
-  std::vector<std::string> chunked_expected = {"[1, 3, 6, 10, 15, 21]"};
-
-  this->Assert(empty, empty, options);
-  this->Assert(values, expected, options);
-  this->Assert(chunked_values, chunked_expected, options);
+  std::vector<std::string> empty_chunked_array;
+  this->Assert(param.type, "[]", "[]", options);
+  this->Assert(param.type, empty_chunked_array, empty_chunked_array, options);
+  this->Assert(param.type, "[null, null, null]", "[null, null, null]", options);
+  this->Assert(param.type, param.json_arrays_input_no_nulls,
+               param.json_arrays_expected_no_nulls, options);
+  this->Assert(param.type, param.json_arrays_input_with_nulls,
+               param.json_arrays_expected_with_nulls, options);
+  this->Assert(param.type, param.json_chunked_arrays_input_no_nulls,
+               param.json_chunked_arrays_expected_no_nulls, options);
+  this->Assert(param.type, param.json_chunked_arrays_input_with_nulls,
+               param.json_chunked_arrays_expected_with_nulls, options);
 }
 
-TYPED_TEST(TestCumulativeSum, NoStartNoSkipHasNulls) {
-  CumulativeSumOptions options = this->generate_options();
-  auto three_nulls = "[null, null, null]";
-  auto values = "[1, 2, null, 4, null, 6]";
-  auto expected = "[1, 3, null, null, null, null]";
-  std::vector<std::string> chunked_values = {"[1, 2, null]", "[4, null, 6]"};
-  std::vector<std::string> chunked_expected = {"[1, 3, null, null, null, null]"};
+INSTANTIATE_TEST_SUITE_P(NoStartNoSkip, TestCumulativeSum,
+                         ::testing::ValuesIn(GenerateCumulativeSumParams(
+                             "0", false, "[1, 2, 3, 4, 5, 6]", "[1, 3, 6, 10, 15, 21]",
+                             "[1, 2, null, 4, null, 6]", "[1, 3, null, null, null, null]",
+                             {"[1, 2, 3]", "[4, 5, 6]"}, {"[1, 3, 6, 10, 15, 21]"},
+                             {"[1, 2, null]", "[4, null, 6]"},
+                             {"[1, 3, null, null, null, null]"})));
 
-  this->Assert(three_nulls, three_nulls, options);
-  this->Assert(values, expected, options);
-  this->Assert(chunked_values, chunked_expected, options);
-}
+INSTANTIATE_TEST_SUITE_P(NoStartDoSkip, TestCumulativeSum,
+                         ::testing::ValuesIn(GenerateCumulativeSumParams(
+                             "0", true, "[1, 2, 3, 4, 5, 6]", "[1, 3, 6, 10, 15, 21]",
+                             "[1, 2, null, 4, null, 6]", "[1, 3, null, 7, null, 13]",
+                             {"[1, 2, 3]", "[4, 5, 6]"}, {"[1, 3, 6, 10, 15, 21]"},
+                             {"[1, 2, null]", "[4, null, 6]"},
+                             {"[1, 3, null, 7, null, 13]"})));
 
-TYPED_TEST(TestCumulativeSum, NoStartDoSkipNoNulls) {
-  CumulativeSumOptions options = this->generate_options(0, true);
-  auto empty = "[]";
-  auto values = "[1, 2, 3, 4, 5, 6]";
-  auto expected = "[1, 3, 6, 10, 15, 21]";
-  std::vector<std::string> chunked_values = {"[1, 2, 3]", "[4, 5, 6]"};
-  std::vector<std::string> chunked_expected = {"[1, 3, 6, 10, 15, 21]"};
+INSTANTIATE_TEST_SUITE_P(
+    HasStartNoSkip, TestCumulativeSum,
+    ::testing::ValuesIn(GenerateCumulativeSumParams(
+        "10", false, "[1, 2, 3, 4, 5, 6]", "[11, 13, 16, 20, 25, 31]",
+        "[1, 2, null, 4, null, 6]", "[11, 13, null, null, null, null]",
+        {"[1, 2, 3]", "[4, 5, 6]"}, {"[11, 13, 16, 20, 25, 31]"},
+        {"[1, 2, null]", "[4, null, 6]"}, {"[11, 13, null, null, null, null]"})));
 
-  this->Assert(empty, empty, options);
-  this->Assert(values, expected, options);
-  this->Assert(chunked_values, chunked_expected, options);
-}
-
-TYPED_TEST(TestCumulativeSum, NoStartDoSkipHasNulls) {
-  CumulativeSumOptions options = this->generate_options(0, true);
-  auto three_nulls = "[null, null, null]";
-  auto values = "[1, 2, null, 4, null, 6]";
-  auto expected = "[1, 3, null, 7, null, 13]";
-  std::vector<std::string> chunked_values = {"[1, 2, null]", "[4, null, 6]"};
-  std::vector<std::string> chunked_expected = {"[1, 3, null, 7, null, 13]"};
-
-  this->Assert(three_nulls, three_nulls, options);
-  this->Assert(values, expected, options);
-  this->Assert(chunked_values, chunked_expected, options);
-}
-
-TYPED_TEST(TestCumulativeSum, HasStartNoSkipNoNulls) {
-  CumulativeSumOptions options = this->generate_options(10);
-  auto empty = "[]";
-  auto values = "[1, 2, 3, 4, 5, 6]";
-  auto expected = "[11, 13, 16, 20, 25, 31]";
-  std::vector<std::string> chunked_values = {"[1, 2, 3]", "[4, 5, 6]"};
-  std::vector<std::string> chunked_expected = {"[11, 13, 16, 20, 25, 31]"};
-
-  this->Assert(empty, empty, options);
-  this->Assert(values, expected, options);
-  this->Assert(chunked_values, chunked_expected, options);
-}
-
-TYPED_TEST(TestCumulativeSum, HasStartNoSkipHasNulls) {
-  CumulativeSumOptions options = this->generate_options(10);
-  auto three_nulls = "[null, null, null]";
-  auto values = "[1, 2, null, 4, null, 6]";
-  auto expected = "[11, 13, null, null, null, null]";
-  std::vector<std::string> chunked_values = {"[1, 2, null]", "[4, null, 6]"};
-  std::vector<std::string> chunked_expected = {"[11, 13, null, null, null, null]"};
-
-  this->Assert(three_nulls, three_nulls, options);
-  this->Assert(values, expected, options);
-  this->Assert(chunked_values, chunked_expected, options);
-}
-
-TYPED_TEST(TestCumulativeSum, HasStartDoSkipNoNulls) {
-  CumulativeSumOptions options = this->generate_options(10, true);
-  auto empty = "[]";
-  auto values = "[1, 2, 3, 4, 5, 6]";
-  auto expected = "[11, 13, 16, 20, 25, 31]";
-  std::vector<std::string> chunked_values = {"[1, 2, 3]", "[4, 5, 6]"};
-  std::vector<std::string> chunked_expected = {"[11, 13, 16, 20, 25, 31]"};
-
-  this->Assert(empty, empty, options);
-  this->Assert(values, expected, options);
-  this->Assert(chunked_values, chunked_expected, options);
-}
-
-TYPED_TEST(TestCumulativeSum, HasStartDoSkipHasNulls) {
-  CumulativeSumOptions options = this->generate_options(10, true);
-  auto three_nulls = "[null, null, null]";
-  auto values = "[1, 2, null, 4, null, 6]";
-  auto expected = "[11, 13, null, 17, null, 23]";
-  std::vector<std::string> chunked_values = {"[1, 2, null]", "[4, null, 6]"};
-  std::vector<std::string> chunked_expected = {"[11, 13, null, 17, null, 23]"};
-
-  this->Assert(three_nulls, three_nulls, options);
-  this->Assert(values, expected, options);
-  this->Assert(chunked_values, chunked_expected, options);
-}
+INSTANTIATE_TEST_SUITE_P(HasStartDoSkip, TestCumulativeSum,
+                         ::testing::ValuesIn(GenerateCumulativeSumParams(
+                             "10", true, "[1, 2, 3, 4, 5, 6]", "[11, 13, 16, 20, 25, 31]",
+                             "[1, 2, null, 4, null, 6]", "[11, 13, null, 17, null, 23]",
+                             {"[1, 2, 3]", "[4, 5, 6]"}, {"[11, 13, 16, 20, 25, 31]"},
+                             {"[1, 2, null]", "[4, null, 6]"},
+                             {"[11, 13, null, 17, null, 23]"})));
 
 }  // namespace compute
 }  // namespace arrow
