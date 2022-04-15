@@ -72,7 +72,7 @@ static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filt
 
 static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression expr) {
   const auto rows_per_batch = static_cast<int32_t>(state.range(0));
-  const auto num_batches = 10000000 / rows_per_batch;
+  const auto num_batches = 1000000 / rows_per_batch;
 
   ExecContext ctx;
   auto dataset_schema = schema({
