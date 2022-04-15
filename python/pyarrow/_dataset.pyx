@@ -1662,7 +1662,7 @@ cdef class FilenamePartitioning(KeyValuePartitioning):
     The FilenamePartitioning expects one segment in the file name for each
     field in the schema (all fields are required to be present) separated
     by '_'. For example given schema<year:int16, month:int8> the name
-    "2009_11_" would be parsed to ("year"_ == 2009 and "month"_ == 11).
+    ``"2009_11_"`` would be parsed to ("year" == 2009 and "month" == 11).
 
     Parameters
     ----------
