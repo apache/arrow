@@ -137,54 +137,6 @@ reload_arrow <- function() {
   }
 }
 
-#' Run download script
-#'
-#' @param tools_dir The `tools/` directory in the package.
-#' @param skip_download Skip doing the actual download?
-#' Note: we only need bash and wget here, not a full compiler suite.
-#' These will often be missing on Windows, but are typically present on other
-#' systems.
-#' @noRd
-run_download_script <- function(tools_dir, skip_download = FALSE) {
-  if (.Platform$OS.type == "windows") {
-    if (!requireNamespace("pkgbuild", quietly = TRUE)) {
-      stop("pkgbuild is required on Windows")
-    }
-    if (!pkgbuild::has_build_tools()) {
-      stop("This script requires bash and wget. Please install Rtools or run this in WSL.")
-    }
-    # Have build tools available for the rest of this function
-    pkgbuild::local_build_tools()
-  }
-  suppressWarnings(
-    is_wget_available <- system2(
-      "bash", c("-c", "'wget -V'"),
-      stdout = FALSE, stderr = FALSE
-    ) == 0
-  )
-  if (!is_wget_available) {
-    stop("Can't run wget - will not be able to download files")
-  }
-  bash_file <- file.path(tools_dir, "cpp/thirdparty/download_dependencies.sh")
-  if (!file.exists(bash_file)) {
-    stop("Can't find expected download_dependencies.sh file.")
-  }
-  # If you change this path, also need to edit nixlibs.R
-  download_dir <- file.path(tools_dir, "thirdparty_dependencies")
-  dir.create(download_dir)
-
-  if (!skip_download) {
-    message("Downloading files to ", download_dir)
-    download_successful <- system2("bash", c(bash_file, download_dir), stdout = FALSE) == 0
-  } else {
-    download_successful <- TRUE
-  }
-  if (!download_successful) {
-    stop("Failed to download thirdparty dependencies")
-  }
-  invisible(NULL)
-}
-
 
 #' Create a source bundle that includes all thirdparty dependencies
 #'
@@ -237,6 +189,13 @@ run_download_script <- function(tools_dir, skip_download = FALSE) {
 #' }
 #' @export
 create_package_with_all_dependencies <- function(dest_file = NULL, source_file = NULL) {
+  if (Sys.which("bash") == "") {
+    stop("
+    This function requires bash to be installed and available in your PATH.
+    If using RTools, it may be useful to run this code as:
+    pkgbuild::with_build_tools(create_package_with_all_dependencies())
+    ")
+  }
   if (is.null(source_file)) {
     pkg_download_dir <- tempfile()
     dir.create(pkg_download_dir)
@@ -256,9 +215,22 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   untar_dir <- tempfile()
   on.exit(unlink(untar_dir, recursive = TRUE), add = TRUE)
   utils::untar(source_file, exdir = untar_dir)
-
   tools_dir <- file.path(untar_dir, "arrow/tools")
-  run_download_script(tools_dir)
+  download_dependencies_sh <- file.path(tools_dir, "download_dependencies_R.sh")
+  # If you change this path, also need to edit nixlibs.R
+  download_dir <- file.path(tools_dir, "thirdparty_dependencies")
+  dir.create(download_dir)
+  download_script <- tempfile(fileext = ".R")
+  parse_versions_success <- system2(
+    "bash", c(download_dependencies_sh, download_dir),
+    stdout = download_script,
+    stderr = FALSE
+  ) == 0
+  if (!parse_versions_success) {
+    stop("Failed to parse versions.txt")
+  }
+  # `source` the download_script to use R to download all the dependency bundles
+  source(download_script)
 
   # Need to change directory to untar_dir so tar() will use relative paths. That
   # means we'll need a full, non-relative path for dest_file. (extra_flags="-C"

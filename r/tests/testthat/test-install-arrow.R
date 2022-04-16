@@ -34,10 +34,4 @@ r_only({
       expect_identical(arrow_repos(c(ours, other), nightly = TRUE), c(ours, other))
     })
   })
-
-  test_that("Prep thirdparty download", {
-    skip_on_cran()
-    tools_dir <- tempdir()
-    run_download_script(tools_dir, skip_download = TRUE)
-  })
 })
