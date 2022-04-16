@@ -1367,7 +1367,7 @@ void CudaDataTest::TestDoExchange() {
 // Test error handling
 
 namespace {
-constexpr std::initializer_list<StatusCode> kStatusCodes = {
+static const std::vector<StatusCode> kStatusCodes = {
     StatusCode::OutOfMemory,
     StatusCode::KeyError,
     StatusCode::TypeError,
@@ -1386,12 +1386,13 @@ constexpr std::initializer_list<StatusCode> kStatusCodes = {
     StatusCode::AlreadyExists,
 };
 
-constexpr std::initializer_list<FlightStatusCode> kFlightStatusCodes = {
+static const std::vector<FlightStatusCode> kFlightStatusCodes = {
     FlightStatusCode::Internal,     FlightStatusCode::TimedOut,
     FlightStatusCode::Cancelled,    FlightStatusCode::Unauthenticated,
     FlightStatusCode::Unauthorized, FlightStatusCode::Unavailable,
     FlightStatusCode::Failed,
 };
+
 arrow::Result<StatusCode> TryConvertStatusCode(int raw_code) {
   for (const auto status_code : kStatusCodes) {
     if (raw_code == static_cast<int>(status_code)) {
