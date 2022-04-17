@@ -25,6 +25,7 @@ import { instance as getBuilderConstructor } from './visitor/builderctor.js';
 import { ArrayDataType, BigIntArray, JavaScriptArrayDataType, TypedArray, TypedArrayDataType } from './interfaces.js';
 import { Table } from './table.js';
 import { RecordBatch } from './recordbatch.js';
+import { compareTypes } from './visitor/typecomparator.js';
 
 export function makeBuilder<T extends dtypes.DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): BuilderType<T, TNull> {
 
@@ -58,6 +59,7 @@ export function makeBuilder<T extends dtypes.DataType = any, TNull = any>(option
  * const vf64 = vectorFromArray([1, 2, 3]);
  * const vi8 = vectorFromArray([1, 2, 3], new Int8);
  * const vdict = vectorFromArray(['foo', 'bar']);
+ * const vstruct = vectorFromArray([{a: 'foo', b: 42}, {a: 'bar', b: 12}]);
  * ```
  */
 export function vectorFromArray(values: readonly (null | undefined)[], type?: dtypes.Null): Vector<dtypes.Null>;
@@ -95,33 +97,18 @@ export function vectorFromArray(init: any, type?: dtypes.DataType) {
  *
  * @param array A table of objects.
  */
-export function tableFromJSON<T extends Record<string, any>>(array: T[]): Table<{ [P in keyof T]: JavaScriptDataType<T[P]> }> {
-    const options = { type: inferStructType(array) };
-    const chunks = [...builderThroughIterable(options)(array)];
-    const vector = chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
+export function tableFromJSON<T extends Record<string, unknown>>(array: T[]): Table<{ [P in keyof T]: JavaScriptDataType<T[P]> }> {
+    const vector = vectorFromArray(array) as Vector<dtypes.Struct<any>>;
     const batch = new RecordBatch(new Schema(vector.type.children), vector.data[0]);
-
     return new Table(batch);
 }
 
 /** @ignore */
-function inferStructType(array: any[]) {
-    const names = new Set(array.flatMap((row) => Object.keys(row)));
-
-    const fields = [...names].map((name) => {
-        const type = inferType(array.map((row) => row[name]));
-        return new Field(name, type);
-    });
-    return new dtypes.Struct(fields);
-}
-
-/** @ignore */
+function inferType<T extends readonly unknown[]>(values: T): JavaScriptArrayDataType<T>;
 function inferType(value: readonly unknown[]): dtypes.DataType {
     if (value.length === 0) { return new dtypes.Null; }
     let nullsCount = 0;
-    // @ts-ignore
     let arraysCount = 0;
-    // @ts-ignore
     let objectsCount = 0;
     let numbersCount = 0;
     let stringsCount = 0;
@@ -159,8 +146,24 @@ function inferType(value: readonly unknown[]): dtypes.DataType {
         return new dtypes.Bool;
     } else if (datesCount + nullsCount === value.length) {
         return new dtypes.DateMillisecond;
+    } else if (arraysCount + nullsCount === value.length) {
+        const array = value as Array<unknown>[];
+        const childType = inferType(array[array.findIndex((ary) => ary != null)]);
+        if (array.every((ary) => ary == null || compareTypes(childType, inferType(ary)))) {
+            return new dtypes.List(new Field('', childType, true));
+        }
+    } else if (objectsCount + nullsCount === value.length) {
+        const fields = new Map<string, Field>();
+        for (const row of value as Record<string, unknown>[]) {
+            for (const key of Object.keys(row)) {
+                if (!fields.has(key) && row[key] != null) {
+                    // use the type inferred for the first instance of a found key
+                    fields.set(key, new Field(key, inferType([row[key]]), true));
+                }
+            }
+        }
+        return new dtypes.Struct([...fields.values()]);
     }
-    // TODO: add more types to infererence
 
     throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected');
 }
@@ -170,7 +173,6 @@ function inferType(value: readonly unknown[]): dtypes.DataType {
  * @see {@link builderThroughIterable}
  * @see {@link builderThroughAsyncIterable}
  */
-
 export interface IterableBuilderOptions<T extends dtypes.DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
     highWaterMark?: number;
     queueingStrategy?: 'bytes' | 'count';
