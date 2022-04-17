@@ -147,11 +147,8 @@ class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<Str
         const idx = row[kParent].type.children.findIndex((f) => f.name === key);
         if (idx !== -1) {
             setVisitor.visit(row[kParent].children[idx], row[kRowIndex], val);
-            // Cache key/val lookups
-            return Reflect.set(row, key, val);
-        } else if (Reflect.has(row, key)) {
-            return Reflect.set(row, key, val);
+            // Fall through so we cache key/val lookups
         }
-        return false;
+        return Reflect.set(row, key, val);
     }
 }

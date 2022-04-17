@@ -136,12 +136,9 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
         const idx = row[kKeys].indexOf(key);
         if (idx !== -1) {
             setVisitor.visit(Reflect.get(row, kVals), idx, val);
-            // Cache key/val lookups
-            return Reflect.set(row, key, val);
-        } else if (Reflect.has(row, key)) {
-            return Reflect.set(row, key, val);
+            // Fall through so we cache key/val lookups
         }
-        return false;
+        return Reflect.set(row, key, val);
     }
 }
 
