@@ -48,9 +48,9 @@ test_that("to_duckdb", {
       # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
       select(!fct) %>%
       arrange(int),
-    example_data %>%
-      select(!fct) %>%
-      arrange(int)
+      example_data %>%
+        select(!fct) %>%
+        arrange(int)
   )
 
   expect_identical(
@@ -159,7 +159,8 @@ test_that("to_arrow roundtrip, with dataset", {
       to_arrow() %>%
       filter(int > 5 & part > 1) %>%
       collect() %>%
-      arrange(part, int),
+      arrange(part, int) %>%
+      as.data.frame(),
     ds %>%
       select(-fct) %>%
       filter(int > 5 & part > 1) %>%
