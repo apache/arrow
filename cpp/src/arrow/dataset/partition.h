@@ -90,6 +90,26 @@ class ARROW_DS_EXPORT Partitioning {
   std::shared_ptr<Schema> schema_;
 };
 
+class ARROW_DS_EXPORT EmptyPartitioning : public Partitioning {
+public:
+  EmptyPartitioning() : Partitioning(::arrow::schema({})) {}
+
+  std::string type_name() const override { return "empty"; }
+
+  Result<compute::Expression> Parse(const std::string& path) const override {
+    return compute::literal(true);
+  }
+
+  Result<std::string> Format(const compute::Expression& expr) const override {
+    return "";
+  }
+
+  Result<PartitionedBatches> Partition(
+      const std::shared_ptr<RecordBatch>& batch) const override {
+    return PartitionedBatches{{batch}, {compute::literal(true)}};
+  }
+};
+
 /// \brief The encoding of partition segments.
 enum class SegmentEncoding : int8_t {
   /// No encoding.

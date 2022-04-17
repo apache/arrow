@@ -32,30 +32,6 @@
 namespace arrow {
 namespace engine {
 
-static std::shared_ptr<::arrow::dataset::Partitioning> EmptyPartitioning() {
-  class EmptyPartitioning : public ::arrow::dataset::Partitioning {
-   public:
-    EmptyPartitioning() : ::arrow::dataset::Partitioning(::arrow::schema({})) {}
-
-    std::string type_name() const override { return "empty"; }
-
-    Result<compute::Expression> Parse(const std::string& path) const override {
-      return compute::literal(true);
-    }
-
-    Result<std::string> Format(const compute::Expression& expr) const override {
-      return "";
-    }
-
-    Result<PartitionedBatches> Partition(
-        const std::shared_ptr<RecordBatch>& batch) const override {
-      return PartitionedBatches{{batch}, {compute::literal(true)}};
-    }
-  };
-
-  return std::make_shared<EmptyPartitioning>();
-}
-
 template <typename RelMessage>
 Status CheckRelCommon(const RelMessage& rel) {
   if (rel.has_common()) {
@@ -268,7 +244,7 @@ Result<compute::Declaration> FromProtoInternal(
 
       dataset::FileSystemDatasetWriteOptions write_options;
       write_options.filesystem = filesystem;
-      write_options.partitioning = EmptyPartitioning();
+      write_options.partitioning = std::make_shared<dataset::EmptyPartitioning>();
 
       for (const auto& item : write.local_files().items()) {
         if (item.path_type_case() !=
