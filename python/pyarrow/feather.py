@@ -151,13 +151,12 @@ def write_feather(df, dest, compression=None, compression_level=None,
             df = df.to_dense()
 
     if _pandas_api.is_data_frame(df):
-        """
-        Feather v1 creates a new column in the resultant Table to
-        store index information if index type is not RangeIndex
-        """
-        if version == 1 and type(df.index) is not _pandas_api.pd.RangeIndex:
+        # Feather v1 creates a new column in the resultant Table to
+        # store index information if index type is not RangeIndex
+
+        if version == 1:
             preserve_index = False
-        elif version == 1 or version == 2:
+        elif version == 2:
             preserve_index = None
         else:
             raise ValueError("Version value should either be 1 or 2")

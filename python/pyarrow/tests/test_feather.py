@@ -830,15 +830,10 @@ def test_feather_v017_experimental_compression_backward_compatibility(datadir):
 
 @pytest.mark.pandas
 def test_preserve_index_pandas(version):
-    data = {}
-    for i in range(4):
-        values = np.random.randint(0, 100, size=100)
-        data[i] = values
-
-    df = pd.DataFrame(data, index=data[0])
+    df = pd.DataFrame({'a': [1, 2, 3]}, index=['a', 'b', 'c'])
 
     if version == 1:
-        expected = df.reset_index(drop=True).rename(columns=str)
+        expected = df.rename(columns=str)
     else:
         expected = df
 
