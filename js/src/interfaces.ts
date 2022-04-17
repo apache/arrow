@@ -161,6 +161,9 @@ export type TypedArrayDataType<T extends TypedArray | BigIntArray> =
     never;
 
 /** @ignore */
+export type JavaScriptDataType<T> = JavaScriptArrayDataType<T[]>;
+
+/** @ignore */
 export type JavaScriptArrayDataType<T extends readonly unknown[]> =
     T extends readonly (null | undefined)[] ? type.Null :
     T extends readonly (null | undefined | boolean)[] ? type.Bool :

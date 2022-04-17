@@ -15,14 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from './schema.js';
+import { Field, Schema } from './schema.js';
 import * as dtypes from './type.js';
 import { Data, DataProps } from './data.js';
-import { BuilderType } from './interfaces.js';
+import { BuilderType, JavaScriptDataType } from './interfaces.js';
 import { Vector, makeVector } from './vector.js';
 import { Builder, BuilderOptions } from './builder.js';
 import { instance as getBuilderConstructor } from './visitor/builderctor.js';
 import { ArrayDataType, BigIntArray, JavaScriptArrayDataType, TypedArray, TypedArrayDataType } from './interfaces.js';
+import { Table } from './table.js';
+import { RecordBatch } from './recordbatch.js';
 
 export function makeBuilder<T extends dtypes.DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): BuilderType<T, TNull> {
 
@@ -86,6 +88,31 @@ export function vectorFromArray(init: any, type?: dtypes.DataType) {
         return vector.memoize();
     }
     return vector;
+}
+
+/**
+ * Creates a {@link Table} from an array of objects.
+ *
+ * @param array A table of objects.
+ */
+export function tableFromJSON<T extends Record<string, any>>(array: T[]): Table<{ [P in keyof T]: JavaScriptDataType<T[P]> }> {
+    const options = { type: inferStructType(array) };
+    const chunks = [...builderThroughIterable(options)(array)];
+    const vector = chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
+    const batch = new RecordBatch(new Schema(vector.type.children), vector.data[0]);
+
+    return new Table(batch);
+}
+
+/** @ignore */
+function inferStructType(array: any[]) {
+    const names = new Set(array.flatMap((row) => Object.keys(row)));
+
+    const fields = [...names].map((name) => {
+        const type = inferType(array.map((row) => row[name]));
+        return new Field(name, type);
+    });
+    return new dtypes.Struct(fields);
 }
 
 /** @ignore */
