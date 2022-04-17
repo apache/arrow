@@ -307,7 +307,7 @@ cdef class ParquetFileFragment(FileFragment):
             row_groups = None
         else:
             row_groups = [row_group.id for row_group in self.row_groups]
-            
+
         return self.format.make_fragment, (
             self.path if buffer is None else buffer,
             self.filesystem,
@@ -333,6 +333,7 @@ cdef class ParquetFileFragment(FileFragment):
     @property
     def metadata(self):
         self.ensure_complete_metadata()
+
         cdef FileMetaData metadata = FileMetaData()
         metadata.init(self.parquet_file_fragment.metadata())
         return metadata
