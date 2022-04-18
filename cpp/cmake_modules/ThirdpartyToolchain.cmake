@@ -861,6 +861,10 @@ macro(build_boost)
                         INSTALL_COMMAND ""
                         URL ${BOOST_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
+   add_library(Boost::system INTERFACE IMPORTED)
+   target_include_directories(Boost::system INTERFACE "${Boost_INCLUDE_DIR}")
+   add_library(Boost::filesystem INTERFACE IMPORTED)
+   target_include_directories(Boost::system INTERFACE "${Boost_INCLUDE_DIR}")
   endif()
   add_dependencies(toolchain boost_ep)
   set(BOOST_VENDORED TRUE)
@@ -1397,6 +1401,9 @@ macro(build_thrift)
   set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
+  if(BOOST_VENDORED)
+    target_link_libraries(thrift::thrift INTERFACE ${ARROW_BOOST_LIBS})
+  endif()
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
