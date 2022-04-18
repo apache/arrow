@@ -184,25 +184,34 @@ write_dataset <- function(dataset,
     }
   }
 
-  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
-    max_rows_per_group <- max_rows_per_file
-  }
-
   path_and_fs <- get_path_and_filesystem(path)
-  options <- FileWriteOptions$create(format, table = final_node$schema, ...)
+  output_schema <- final_node$schema
+  options <- FileWriteOptions$create(format, table = output_schema, ...)
 
   # TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
   # and encapsulate this logic better
   existing_data_behavior_opts <- c("delete_matching", "overwrite", "error")
   existing_data_behavior <- match(match.arg(existing_data_behavior), existing_data_behavior_opts) - 1L
 
-  validate_positive_int_value(max_partitions, "max_partitions must be a positive, non-missing integer")
-  validate_positive_int_value(max_open_files, "max_open_files must be a positive, non-missing integer")
-  validate_positive_int_value(min_rows_per_group, "min_rows_per_group must be a positive, non-missing integer")
-  validate_positive_int_value(max_rows_per_group, "max_rows_per_group must be a positive, non-missing integer")
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
 
+  validate_positive_int_value(max_partitions)
+  validate_positive_int_value(max_open_files)
+  validate_positive_int_value(min_rows_per_group)
+  validate_positive_int_value(max_rows_per_group)
+
+  new_r_meta <- get_r_metadata_from_old_schema(
+    output_schema,
+    source_data(dataset)$schema,
+    drop_attributes = has_aggregation(dataset)
+  )
+  if (!is.null(new_r_meta)) {
+    output_schema$r_metadata <- new_r_meta
+  }
   plan$Write(
-    final_node, prepare_key_value_metadata(source_data(dataset)$metadata),
+    final_node, prepare_key_value_metadata(output_schema$metadata),
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,
@@ -213,6 +222,6 @@ write_dataset <- function(dataset,
 
 validate_positive_int_value <- function(value, msg) {
   if (!is_integerish(value, n = 1) || is.na(value) || value < 0) {
-    abort(msg)
+    abort(paste(substitute(value), "must be a positive, non-missing integer"))
   }
 }
