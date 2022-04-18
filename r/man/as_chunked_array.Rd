@@ -25,7 +25,7 @@ A \link{ChunkedArray}.
 }
 \description{
 Whereas \code{\link[=chunked_array]{chunked_array()}} constructs a \link{ChunkedArray} from zero or more
-\link{Array}s, \code{as_chunked_array()} converts a single object to a
+\link{Array}s or R vectors, \code{as_chunked_array()} converts a single object to a
 \link{ChunkedArray}.
 }
 \examples{

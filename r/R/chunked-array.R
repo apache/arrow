@@ -174,7 +174,7 @@ chunked_array <- ChunkedArray$create
 #' Convert an object to an Arrow ChunkedArray
 #'
 #' Whereas [chunked_array()] constructs a [ChunkedArray] from zero or more
-#' [Array]s, `as_chunked_array()` converts a single object to a
+#' [Array]s or R vectors, `as_chunked_array()` converts a single object to a
 #' [ChunkedArray].
 #'
 #' @param x An object to convert to an Arrow Chunked Array
