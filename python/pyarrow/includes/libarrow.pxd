@@ -1968,8 +1968,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
-        CRoundToMultipleOptions(double multiple, CRoundMode round_mode)
-        double multiple
+        CRoundToMultipleOptions(shared_ptr[CScalar] multiple, CRoundMode round_mode)
+        shared_ptr[CScalar] multiple
         CRoundMode round_mode
 
     cdef enum CJoinNullHandlingBehavior \
