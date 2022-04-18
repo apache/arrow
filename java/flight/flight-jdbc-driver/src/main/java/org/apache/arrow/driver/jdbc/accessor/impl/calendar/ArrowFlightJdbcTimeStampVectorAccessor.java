@@ -24,8 +24,6 @@ import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdb
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -35,7 +33,6 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.util.DateUtility;
 
 /**
  * Accessor for the Arrow types extending from {@link TimeStampVector}.
@@ -45,15 +42,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
   private final TimeZone timeZone;
   private final Getter getter;
   private final TimeUnit timeUnit;
-  private final LongToLocalDateTime longToLocalDateTime;
   private final Holder holder;
-
-  /**
-   * Functional interface used to convert a number (in any time resolution) to LocalDateTime.
-   */
-  interface LongToLocalDateTime {
-    LocalDateTime fromLong(long value);
-  }
 
   /**
    * Instantiate a ArrowFlightJdbcTimeStampVectorAccessor for given vector.
@@ -67,7 +56,6 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
     this.timeZone = getTimeZoneForVector(vector);
     this.timeUnit = getTimeUnitForVector(vector);
-    this.longToLocalDateTime = getLongToLocalDateTimeForVector(vector, this.timeZone);
   }
 
   @Override
@@ -80,7 +68,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
     return this.getTimestamp(null);
   }
 
-  private LocalDateTime getLocalDateTime(Calendar calendar) {
+  private Long getLocalDateTimeMillis() {
     getter.get(getCurrentRow(), holder);
     this.wasNull = holder.isSet == 0;
     this.wasNullConsumer.setWasNull(this.wasNull);
@@ -88,47 +76,48 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
       return null;
     }
 
-    long value = holder.value;
+    final long value = holder.value;
+    final long millis = this.timeUnit.toMillis(value);
 
-    LocalDateTime localDateTime = this.longToLocalDateTime.fromLong(value);
-
-    if (calendar != null) {
-      TimeZone timeZone = calendar.getTimeZone();
-      long millis = this.timeUnit.toMillis(value);
-      localDateTime = localDateTime
-          .minus(timeZone.getOffset(millis) - this.timeZone.getOffset(millis), ChronoUnit.MILLIS);
-    }
-    return localDateTime;
+    return millis + this.timeZone.getOffset(millis);
   }
 
   @Override
   public Date getDate(Calendar calendar) {
-    LocalDateTime localDateTime = getLocalDateTime(calendar);
-    if (localDateTime == null) {
+    Long millis = getLocalDateTimeMillis();
+    if (millis == null) {
       return null;
     }
 
-    return new Date(Timestamp.valueOf(localDateTime).getTime());
+    return new Date(applyCalendarOffset(calendar, millis));
   }
 
   @Override
   public Time getTime(Calendar calendar) {
-    LocalDateTime localDateTime = getLocalDateTime(calendar);
-    if (localDateTime == null) {
+    Long millis = getLocalDateTimeMillis();
+    if (millis == null) {
       return null;
     }
 
-    return new Time(Timestamp.valueOf(localDateTime).getTime());
+    return new Time(applyCalendarOffset(calendar, millis));
   }
 
   @Override
   public Timestamp getTimestamp(Calendar calendar) {
-    LocalDateTime localDateTime = getLocalDateTime(calendar);
-    if (localDateTime == null) {
+    Long millis = getLocalDateTimeMillis();
+    if (millis == null) {
       return null;
     }
 
-    return Timestamp.valueOf(localDateTime);
+    return new Timestamp(applyCalendarOffset(calendar, millis));
+  }
+
+  private long applyCalendarOffset(final Calendar calendar, final long millis) {
+    if (calendar == null) {
+      return millis - Calendar.getInstance(TimeZone.getDefault()).getTimeZone().getOffset(millis);
+    }
+
+    return millis - calendar.getTimeZone().getOffset(millis) + this.timeZone.getOffset(millis);
   }
 
   protected static TimeUnit getTimeUnitForVector(TimeStampVector vector) {
@@ -144,28 +133,6 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
         return TimeUnit.MILLISECONDS;
       case SECOND:
         return TimeUnit.SECONDS;
-      default:
-        throw new UnsupportedOperationException("Invalid Arrow time unit");
-    }
-  }
-
-  protected static LongToLocalDateTime getLongToLocalDateTimeForVector(TimeStampVector vector,
-                                                                       TimeZone timeZone) {
-    String timeZoneID = timeZone.getID();
-
-    ArrowType.Timestamp arrowType =
-        (ArrowType.Timestamp) vector.getField().getFieldType().getType();
-
-    switch (arrowType.getUnit()) {
-      case NANOSECOND:
-        return nanoseconds -> DateUtility.getLocalDateTimeFromEpochNano(nanoseconds, timeZoneID);
-      case MICROSECOND:
-        return microseconds -> DateUtility.getLocalDateTimeFromEpochMicro(microseconds, timeZoneID);
-      case MILLISECOND:
-        return milliseconds -> DateUtility.getLocalDateTimeFromEpochMilli(milliseconds, timeZoneID);
-      case SECOND:
-        return seconds -> DateUtility.getLocalDateTimeFromEpochMilli(
-            TimeUnit.SECONDS.toMillis(seconds), timeZoneID);
       default:
         throw new UnsupportedOperationException("Invalid Arrow time unit");
     }
