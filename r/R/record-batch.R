@@ -280,16 +280,12 @@ as_record_batch.Table <- function(x, ..., schema = NULL) {
     return(batch$Take(rep_len(0, x$num_rows)))
   }
 
-  arrays_out <- vector(mode = "list", length = x$num_columns)
-  for (i in seq_len(x$num_columns)) {
-    arrays_out[[i]] <- as_arrow_array(
-      x$column(i - 1L),
-      type = schema[[i]]$type
-    )
+  arrays_out <- lapply(x$columns, as_arrow_array)
+  out <- RecordBatch$create(!!!arrays_out)
+  if (!is.null(schema)) {
+    out <- out$cast(schema)
   }
-  names(arrays_out) <- names(x)
-
-  record_batch(!!! arrays_out)
+  out
 }
 
 #' @rdname as_record_batch
