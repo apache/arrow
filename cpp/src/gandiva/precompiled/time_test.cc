@@ -241,6 +241,10 @@ TEST(TestTime, TestDateDiff) {
   EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 0);
 
   ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-01 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -1);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
   ts2 = StringToTimestamp("2019-07-31 00:00:00");
   EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -31);
 
