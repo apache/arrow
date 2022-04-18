@@ -385,34 +385,40 @@ def test_dataset(dataset, dataset_reader):
     assert len(table) == 10
 
     condition = ds.field('i64') == 1
-    result = dataset.to_table(use_threads=True, filter=condition).to_pydict()
+    result = dataset.to_table(use_threads=True, filter=condition)
+    # Don't rely on the scanning order
+    result = result.sort_by('group').to_pydict()
 
-    # don't rely on the scanning order
     assert result['i64'] == [1, 1]
     assert result['f64'] == [1., 1.]
     assert sorted(result['group']) == [1, 2]
     assert sorted(result['key']) == ['xxx', 'yyy']
 
+    # Filtering on a nested field ref
     condition = ds.field(('struct', 'b')) == '1'
-    result = dataset.to_table(use_threads=True, filter=condition).to_pydict()
+    result = dataset.to_table(use_threads=True, filter=condition)
+    result = result.sort_by('group').to_pydict()
 
     assert result['i64'] == [1, 4, 1, 4]
     assert result['f64'] == [1.0, 4.0, 1.0, 4.0]
-    assert sorted(result['group']) == [1, 1, 2, 2]
-    assert sorted(result['key']) == ['xxx', 'xxx', 'yyy', 'yyy']
+    assert result['group'] == [1, 1, 2, 2]
+    assert result['key'] == ['xxx', 'xxx', 'yyy', 'yyy']
 
+    # Projecting on a nested field ref expression
     projection = {
         'i64': ds.field('i64'),
         'f64': ds.field('f64'),
-        "new": ds.field(('struct', 'b')) == '1',
+        'new': ds.field(('struct', 'b')) == '1',
     }
-    result = dataset.to_table(use_threads=True, columns=projection).to_pydict()
+    result = dataset.to_table(use_threads=True, columns=projection)
+    result = result.sort_by('i64').to_pydict()
 
-    assert sorted(result['i64']) == [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]
-    assert sorted(result['f64']) == [0.0, 0.0, 1.0,
-                                     1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0]
-    assert result['new'] == [False, True, False,
-                             False, True, False, True, False, False, True]
+    assert list(result) == ['i64', 'f64', 'new']
+    assert result['i64'] == [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]
+    assert result['f64'] == [0.0, 0.0, 1.0, 1.0,
+                             2.0, 2.0, 3.0, 3.0, 4.0, 4.0]
+    assert result['new'] == [False, False, True, True, False, False,
+                             False, False, True, True]
 
 
 @pytest.mark.parquet
