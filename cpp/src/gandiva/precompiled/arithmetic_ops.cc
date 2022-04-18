@@ -240,6 +240,9 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
     return is_valid && OP in;                                      \
   }
 
+IS_TRUE_OR_FALSE_BOOL(istrue, boolean, +)
+IS_TRUE_OR_FALSE_BOOL(isfalse, boolean, !)
+
 #define IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(NAME, TYPE, OP)           \
   FORCE_INLINE                                                     \
   gdv_##TYPE NAME##_boolean(gdv_##TYPE in, gdv_boolean is_valid) { \
@@ -248,9 +251,6 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
 IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(isnottrue, boolean, !)
 IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(isnotfalse, boolean, +)
-
-IS_TRUE_OR_FALSE_BOOL(istrue, boolean, +)
-IS_TRUE_OR_FALSE_BOOL(isfalse, boolean, !)
 
 #define IS_TRUE_OR_FALSE_NUMERIC(NAME, TYPE, OP)                   \
   FORCE_INLINE                                                     \
