@@ -1016,6 +1016,12 @@ if(ARROW_BOOST_REQUIRED)
     unset(BUILD_SHARED_LIBS_KEEP)
   endif()
 
+  # For CMake < 3.15
+  if(NOT TARGET Boost::headers)
+    add_library(Boost::headers INTERFACE IMPORTED)
+    target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
+  endif()
+
   foreach(BOOST_LIBRARY Boost::headers Boost::filesystem Boost::system)
     if(NOT TARGET ${BOOST_LIBRARY})
       continue()
