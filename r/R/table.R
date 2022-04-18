@@ -177,47 +177,32 @@ rbind.Table <- function(...) {
 cbind.Table <- function(...) {
   call <- sys.call()
   inputs <- list(...)
-  num_rows <- inputs[[1]]$num_rows
+  arg_names <- if (is.null(names(inputs))) {
+    rep("", length(inputs))
+  } else {
+    names(inputs)
+  }
 
-  # These names are only used for scalar or arrays
-  arg_names <- if (is.null(names(inputs))) character(length(inputs)) else names(inputs)
-  arg_names <- make.names(arg_names, unique = TRUE)
+  cbind_check_length(inputs, call)
 
-  tables <- map(seq_along(inputs), function(i) {
+  columns <- flatten(map(seq_along(inputs), function(i) {
     input <- inputs[[i]]
     name <- arg_names[i]
 
-    if (inherits(input, "Table")) {
-      cbind_check_length(num_rows, input$num_rows, i, call)
-      input
-    } else if (inherits(input, "RecordBatch")) {
-      cbind_check_length(num_rows, input$num_rows, i, call)
-      Table$create(input)
+    if (inherits(input, "ArrowTabular")) {
+      set_names(input$columns, names(input))
     } else if (inherits(input, "data.frame")) {
-      cbind_check_length(num_rows, nrow(input), i, call)
-      Table$create(input)
-    } else if (length(input) == 1) {
-      Table$create("{name}" := repeat_value_as_array(input, num_rows))
+      as.list(input)
     } else {
-      cbind_check_length(num_rows, length(input), i, call)
-      tryCatch(
-        RecordBatch$create("{name}" := input),
-        error = function(err) {
-          abort(
-            sprintf("Error occurred when trying to convert input ..%s to an Arrow Array", name),
-            parent = err,
-            call = call
-          )
-        }
-      )
+      if (is.na(name) || name == "") {
+        abort("Vector and array arguments must have names",
+              i = sprintf("Argument ..%d is missing a name", i))
+      }
+      list2("{name}" := input)
     }
-  })
+  }))
 
-  fields <- flatten(map(tables, ~ .$schema$fields))
-  schema <- Schema$create(fields)
-  columns <- flatten(map(tables, ~ .$columns))
-
-  Table$create(!!!set_names(columns, names(schema)), schema = schema)
+  Table$create(!!! columns)
 }
 
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a

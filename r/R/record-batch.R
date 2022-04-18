@@ -195,11 +195,20 @@ rbind.RecordBatch <- function(...) {
   abort("Use `Table$create()` to combine record batches")
 }
 
-cbind_check_length <- function(target_length, length, idx, call = caller_env()) {
-  if (length != target_length) {
+cbind_check_length <- function(inputs, call = caller_env()) {
+  sizes <- map(inputs, function(input) {
+    # TODO: can we somehow implement vec_size for Arrow structures?
+    if (inherits(input, "ArrowTabular") || is.data.frame(input)) {
+      nrow(input)
+    } else {
+      length(input)
+    }
+  })
+  wrong_idx <- which.min(sizes == sizes[[1]] | sizes == 1)
+  if (wrong_idx != 1) {
     abort(
       c("Non-scalar inputs must have an equal number of rows.",
-        i = sprintf("..1 has %d, ..%d has %d", target_length, idx, length)),
+        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], wrong_idx, sizes[[wrong_idx]])),
       call = call
     )
   }
@@ -209,42 +218,30 @@ cbind_check_length <- function(target_length, length, idx, call = caller_env()) 
 cbind.RecordBatch <- function(...) {
   call <- sys.call()
   inputs <- list(...)
-  num_rows <- inputs[[1]]$num_rows
+  arg_names <- if (is.null(names(inputs))) {
+    rep("", length(inputs))
+  } else {
+    names(inputs)
+  }
 
-  # These names are only used for scalar or arrays
-  arg_names <- if (is.null(names(inputs))) character(length(inputs)) else names(inputs)
-  arg_names <- make.names(arg_names, unique = TRUE)
+  cbind_check_length(inputs, call)
 
-  batches <- map(seq_along(inputs), function(i) {
+  columns <- flatten(map(seq_along(inputs), function(i) {
     input <- inputs[[i]]
     name <- arg_names[i]
 
     if (inherits(input, "RecordBatch")) {
-      cbind_check_length(num_rows, input$num_rows, i, call)
-      input
+      set_names(input$columns, names(input))
     } else if (inherits(input, "data.frame")) {
-      cbind_check_length(num_rows, nrow(input), i, call)
-      RecordBatch$create(input)
-    } else if (length(input) == 1) {
-      RecordBatch$create("{name}" := repeat_value_as_array(input, num_rows))
+      as.list(input)
     } else {
-      cbind_check_length(num_rows, length(input), i, call)
-      tryCatch(
-        RecordBatch$create("{name}" := input),
-        error = function(err) {
-          abort(
-            sprintf("Error occurred when trying to convert input ..%s to an Arrow Array", name),
-            parent = err,
-            call = call
-          )
-        }
-      )
+      if (is.na(name) || name == "") {
+        abort("Vector and array arguments must have names",
+              i = sprintf("Argument ..%d is missing a name", i))
+      }
+      list2("{name}" := input)
     }
-  })
+  }))
 
-  fields <- flatten(map(batches, ~ .$schema$fields))
-  schema <- Schema$create(fields)
-  columns <- flatten(map(batches, ~ .$columns))
-
-  RecordBatch$create(!!!set_names(columns, names(schema)), schema = schema)
+  RecordBatch$create(!!! columns)
 }

@@ -585,14 +585,14 @@ test_that("Table supports cbind", {
     arrow_table(a = 1:2, b = c("x", "x"))
   )
 
-  # Handles unnamed arrays, even in cases where no named arguments are passed
-  expect_equal(
+  # Rejects unnamed arrays, even in cases where no named arguments are passed
+  expect_error(
     cbind(arrow_table(a = 1:2), b = 3:4, 5:6),
-    arrow_table(a = 1:2, b = 3:4, X.1 = 5:6)
+    regexp = "Vector and array arguments must have names"
   )
-  expect_equal(
+  expect_error(
     cbind(arrow_table(a = 1:2), 3:4, 5:6),
-    arrow_table(a = 1:2, X.1 = 3:4, X.2 = 5:6)
+    regexp = "Vector and array arguments must have names"
   )
 })
 
