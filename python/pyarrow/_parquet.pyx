@@ -231,10 +231,10 @@ cdef _cast_statistic_raw_max(CStatistics* statistics):
 
 cdef _cast_statistics(CStatistics* statistics):
     cdef:
-        shared_ptr[CScalar] min
-        shared_ptr[CScalar] max
-    StatisticsAsScalars(statistics[0], &min, &max)
-    return (pyarrow_wrap_scalar(min), pyarrow_wrap_scalar(max))
+        shared_ptr[CScalar] c_min
+        shared_ptr[CScalar] c_max
+    check_status(StatisticsAsScalars(statistics[0], &c_min, &c_max))
+    return (pyarrow_wrap_scalar(c_min), pyarrow_wrap_scalar(c_max))
 
 
 cdef _box_byte_array(ParquetByteArray val):
