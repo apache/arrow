@@ -361,6 +361,18 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   Expression filter;
 };
 
+
+class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
+ public:
+  AsofJoinNodeOptions(FieldRef time, std::vector<FieldRef> keys) :
+    time(std::move(time)), keys(std::move(keys)) {}
+
+  // time column
+  FieldRef time;
+  // keys used for the join. All tables must have the same join key.
+  std::vector<FieldRef> keys;
+};
+
 /// \brief Make a node which select top_k/bottom_k rows passed through it
 ///
 /// All batches pushed to this node will be accumulated, then selected, by the given

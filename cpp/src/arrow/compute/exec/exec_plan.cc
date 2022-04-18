@@ -531,6 +531,7 @@ void RegisterUnionNode(ExecFactoryRegistry*);
 void RegisterAggregateNode(ExecFactoryRegistry*);
 void RegisterSinkNode(ExecFactoryRegistry*);
 void RegisterHashJoinNode(ExecFactoryRegistry*);
+void RegisterAsofJoinNode(ExecFactoryRegistry*);
 
 }  // namespace internal
 

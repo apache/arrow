@@ -63,21 +63,73 @@ BatchesWithSchema GenerateBatchesFromString(
   return out_batches;
 }
 
-void RunNonEmptyTest() {
+void CheckRunOutput(const BatchesWithSchema& l_batches,
+                    const BatchesWithSchema& r_batches,
+                    const FieldRef time,
+                    const std::vector<FieldRef>& keys) {
+  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+                                                            default_memory_pool(), nullptr
+                                                            );
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+
+  AsofJoinNodeOptions join_options{time, keys};
+  Declaration join{"asofjoin", join_options};
+
+  join.inputs.emplace_back(
+                           Declaration{"source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false)}});
+  join.inputs.emplace_back(
+                           Declaration{"source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
+
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
+            .AddToPlan(plan.get()));
+
+  // ASSERT_FNISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+}
+
+void RunNonEmptyTest(bool exact_matches) {
   auto l_schema = schema(
                          {
-                          field("time", timestamp64(TimeUnit::NANO)),
+                          field("time", timestamp(TimeUnit::NANO)),
                           field("key", int32()),
                           field("l_v0", float32())
                          }
                          );
   auto r_schema = schema(
                          {
-                          field("time", timestamp64(TimeUnit::NANO)),
+                          field("time", timestamp(TimeUnit::NANO)),
                           field("key", int32()),
                           field("r_v0", float32())
                          }
                          );
+
+  BatchesWithSchema l_batches, r_batches, exp_batches;
+
+  l_batches = GenerateBatchesFromString(
+                                        l_schema,
+                                        {R"([["2020-01-01", 0, 1.0]])"}
+
+                                        );
+  r_batches = GenerateBatchesFromString(
+                                        l_schema,
+                                        {R"([["2020-01-01", 0, 2.0]])"}
+
+                                        );
+
+  CheckRunOutput(l_batches, r_batches, "time", /*keys=*/{{"key"}});
+}
+
+  class AsofJoinTest : public testing::TestWithParam<std::tuple<bool>> {};
+
+INSTANTIATE_TEST_SUITE_P(
+                         AsofJoinTest, AsofJoinTest,
+                         ::testing::Combine(
+                                            ::testing::Values(false, true)
+                                            ));
+
+TEST_P(AsofJoinTest, TestExactMatches) {
+  RunNonEmptyTest(std::get<0>(GetParam()));
 }
 
 }  // namespace compute
