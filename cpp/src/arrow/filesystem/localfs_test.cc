@@ -398,12 +398,6 @@ TYPED_TEST(TestLocalFS, FileMTime) {
   AssertDurationBetween(t2 - infos[1].mtime(), -kTimeSlack, kTimeSlack);
 }
 
-TYPED_TEST(TestLocalFS, DeleteDirContents) {
-  ASSERT_OK(this->fs_->DeleteDirContents("DoesNotExist", /*missing_dir_ok=*/true));
-  ASSERT_RAISES(IOError,
-                this->fs_->DeleteDirContents("DoesNotExist", /*missing_dir_ok=*/false));
-}
-
 // TODO Should we test backslash paths on Windows?
 // SubTreeFileSystem isn't compatible with them.
 
