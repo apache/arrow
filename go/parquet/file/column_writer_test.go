@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	arrutils "github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/compress"
 	"github.com/apache/arrow/go/v8/parquet/file"
@@ -233,7 +234,7 @@ func (p *PrimitiveWriterTestSuite) SetupTest() {
 
 func (p *PrimitiveWriterTestSuite) buildReader(nrows int64, compression compress.Compression) file.ColumnChunkReader {
 	p.readbuffer = p.sink.Finish()
-	pagereader, _ := file.NewPageReader(bytes.NewReader(p.readbuffer.Bytes()), nrows, compression, mem, nil)
+	pagereader, _ := file.NewPageReader(arrutils.NewBufferedReader(bytes.NewReader(p.readbuffer.Bytes()), p.readbuffer.Len()), nrows, compression, mem, nil)
 	return file.NewColumnReader(p.descr, pagereader, mem)
 }
 

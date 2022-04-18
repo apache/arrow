@@ -17,7 +17,6 @@
 package file_test
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"io"
@@ -25,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet/compress"
 	"github.com/apache/arrow/go/v8/parquet/file"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
@@ -102,7 +102,7 @@ func (p *PageSerdeSuite) SetupTest() {
 func (p *PageSerdeSuite) InitSerializedPageReader(nrows int64, codec compress.Compression) {
 	p.EndStream()
 
-	p.pageReader, _ = file.NewPageReader(bufio.NewReader(bytes.NewReader(p.buffer.Bytes())), nrows, codec, memory.DefaultAllocator, nil)
+	p.pageReader, _ = file.NewPageReader(utils.NewBufferedReader(bytes.NewReader(p.buffer.Bytes()), p.buffer.Len()), nrows, codec, memory.DefaultAllocator, nil)
 }
 
 func (p *PageSerdeSuite) WriteDataPageHeader(maxSerialized int, uncompressed, compressed int32) {
@@ -203,6 +203,26 @@ func (p *PageSerdeSuite) TestLargePageHeaders() {
 	p.InitSerializedPageReader(nrows, compress.Codecs.Uncompressed)
 	p.True(p.pageReader.Next())
 	p.CheckDataPageHeader(p.dataPageHdr, p.pageReader.Page())
+}
+
+func (p *PageSerdeSuite) TestFailLargePageHeaders() {
+	const (
+		statsSize      = 256 * 1024 // 256KB
+		nrows          = 1337       // dummy value
+		maxHeaderSize  = 512 * 1024 // 512 KB
+		smallerMaxSize = 128 * 1024 // 128KB
+	)
+	p.dataPageHdr.Statistics = getDummyStats(statsSize, false)
+	p.WriteDataPageHeader(maxHeaderSize, 0, 0)
+	pos, err := p.sink.Seek(0, io.SeekCurrent)
+	p.NoError(err)
+	p.GreaterOrEqual(maxHeaderSize, int(pos))
+
+	p.LessOrEqual(smallerMaxSize, int(pos))
+	p.InitSerializedPageReader(nrows, compress.Codecs.Uncompressed)
+	p.pageReader.SetMaxPageHeaderSize(smallerMaxSize)
+	p.NotPanics(func() { p.False(p.pageReader.Next()) })
+	p.Error(p.pageReader.Err())
 }
 
 func (p *PageSerdeSuite) TestCompression() {
