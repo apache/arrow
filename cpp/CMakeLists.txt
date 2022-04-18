@@ -696,6 +696,11 @@ set(ARROW_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
+if(TARGET Boost::headers)
+  list(APPEND ARROW_LINK_LIBS Boost::headers)
+  list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
+endif()
+
 if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
   list(APPEND ARROW_LINK_LIBS ${ARROW_OPENSSL_LIBS})
