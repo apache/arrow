@@ -715,9 +715,12 @@ std::vector<Expression> GuaranteeConjunctionMembers(
   return FlattenedAssociativeChain(guaranteed_true_predicate).fringe;
 }
 
-// equal(a, 2)
-// is_null(a)
-util::optional<std::pair<FieldRef, Datum>> ExtractKnownFieldValue(
+/// \brief Extract an equality from an expression.
+///
+/// Recognizes expressions of the form:
+/// equal(a, 2)
+/// is_null(a)
+util::optional<std::pair<FieldRef, Datum>> ExtractOneFieldValue(
     const Expression& guarantee) {
   auto call = guarantee.call();
   if (!call) return util::nullopt;
@@ -752,7 +755,7 @@ Status ExtractKnownFieldValues(std::vector<Expression>* conjunction_members,
   *conjunction_members = arrow::internal::FilterVector(
       std::move(*conjunction_members),
       [known_values](const Expression& guarantee) -> bool {
-        if (auto known_value = ExtractKnownFieldValue(guarantee)) {
+        if (auto known_value = ExtractOneFieldValue(guarantee)) {
           known_values->map.insert(std::move(*known_value));
           return false;
         }
