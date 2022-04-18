@@ -427,6 +427,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CFieldRef()
         CFieldRef(c_string name)
         CFieldRef(int index)
+        CFieldRef(vector[CFieldRef])
         const c_string* name() const
 
     cdef cppclass CFieldRefHash" arrow::FieldRef::Hash":
@@ -2402,7 +2403,7 @@ cdef extern from "arrow/compute/exec/expression.h" \
         "arrow::compute::literal"(shared_ptr[CScalar] value)
 
     cdef CExpression CMakeFieldExpression \
-        "arrow::compute::field_ref"(c_string name)
+        "arrow::compute::field_ref"(CFieldRef)
 
     cdef CExpression CMakeFieldExpressionByIndex \
         "arrow::compute::field_ref"(int idx)
