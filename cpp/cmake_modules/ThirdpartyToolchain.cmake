@@ -72,7 +72,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Substrait
     Thrift
-    Ucx
+    ucx
     utf8proc
     xsimd
     ZLIB
@@ -174,7 +174,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Ucx")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ucx")
     build_ucx()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
@@ -4607,34 +4607,29 @@ macro(build_ucx)
                                        "${UCX_SHARED_LIB_UCS}" "${UCX_SHARED_LIB_UCM}"
                       INSTALL_COMMAND ${MAKE} install)
 
+  # ucx cmake module sets UCX_INCLUDE_DIRS
+  set(UCX_INCLUDE_DIRS "${UCX_PREFIX}/include")
+
   add_library(ucx::ucp SHARED IMPORTED)
   set_target_properties(ucx::ucp PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCP}")
   add_library(ucx::uct SHARED IMPORTED)
   set_target_properties(ucx::uct PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCT}")
   add_library(ucx::ucs SHARED IMPORTED)
   set_target_properties(ucx::ucs PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCS}")
-  add_library(ucx::ucm SHARED IMPORTED)
-  set_target_properties(ucx::ucm PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCM}")
 
   add_dependencies(toolchain ucx_ep)
   add_dependencies(ucx::ucp ucx_ep)
   add_dependencies(ucx::uct ucx_ep)
   add_dependencies(ucx::ucs ucx_ep)
-  add_dependencies(ucx::ucm ucx_ep)
-
-  add_library(ucx::ucx INTERFACE IMPORTED)
-  set_property(TARGET ucx::ucx PROPERTY INTERFACE_INCLUDE_DIRECTORIES
-                                        "${UCX_PREFIX}/include")
-  set_property(TARGET ucx::ucx
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        ucx::ucp
-                        ucx::uct
-                        ucx::ucs
-                        ucx::ucm)
 endmacro()
 
 if(ARROW_WITH_UCX)
-  resolve_dependency(Ucx PC_PACKAGE_NAMES ucx)
+  resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
+  add_library(ucx::ucx INTERFACE IMPORTED)
+  set_property(TARGET ucx::ucx PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+                                        "${UCX_INCLUDE_DIRS}")
+  set_property(TARGET ucx::ucx PROPERTY INTERFACE_LINK_LIBRARIES ucx::ucp ucx::uct
+                                        ucx::ucs)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
