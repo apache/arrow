@@ -448,12 +448,12 @@ ExecNode_TableSourceNode <- function(plan, table) {
   .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
 }
 
-engine__internal__SubstraitToJSON <- function(serialized_plan) {
-  .Call(`_arrow_engine__internal__SubstraitToJSON`, serialized_plan)
+substrait__internal__SubstraitToJSON <- function(serialized_plan) {
+  .Call(`_arrow_substrait__internal__SubstraitToJSON`, serialized_plan)
 }
 
-engine__internal__SubstraitFromJSON <- function(substrait_json) {
-  .Call(`_arrow_engine__internal__SubstraitFromJSON`, substrait_json)
+substrait__internal__SubstraitFromJSON <- function(substrait_json) {
+  .Call(`_arrow_substrait__internal__SubstraitFromJSON`, substrait_json)
 }
 
 ExecPlan_run_substrait <- function(plan, serialized_plan) {

@@ -14,12 +14,25 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
+# This config sets the following variables in your project::
+#
+#   ArrowSubstrait_FOUND - true if Arrow Substrait found on the system
+#
+# This config sets the following targets in your project::
+#
+#   arrow_substrait_shared - for linked as shared library if shared library is built
+#   arrow_substrait_static - for linked as static library if static library is built
 
-libdir=@CMAKE_INSTALL_FULL_LIBDIR@
-includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+@PACKAGE_INIT@
 
-Name: Apache Arrow Engine
-Description: Apache Arrow's Query Engine.
-Version: @ARROW_VERSION@
-Requires: arrow
-Libs: -L${libdir} -larrow_engine
+include(CMakeFindDependencyMacro)
+find_dependency(Arrow)
+find_dependency(ArrowDataset)
+find_dependency(Parquet)
+
+# Load targets only once. If we load targets multiple times, CMake reports
+# already existent target error.
+if(NOT (TARGET arrow_substrait_shared OR TARGET arrow_substrait_static))
+  include("${CMAKE_CURRENT_LIST_DIR}/ArrowSubstraitTargets.cmake")
+endif()

@@ -1009,17 +1009,17 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ENGINE)
-std::string engine__internal__SubstraitToJSON(const std::shared_ptr<arrow::Buffer>& serialized_plan);
-extern "C" SEXP _arrow_engine__internal__SubstraitToJSON(SEXP serialized_plan_sexp){
+#if defined(ARROW_R_WITH_SUBSTRAIT)
+std::string substrait__internal__SubstraitToJSON(const std::shared_ptr<arrow::Buffer>& serialized_plan);
+extern "C" SEXP _arrow_substrait__internal__SubstraitToJSON(SEXP serialized_plan_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type serialized_plan(serialized_plan_sexp);
-	return cpp11::as_sexp(engine__internal__SubstraitToJSON(serialized_plan));
+	return cpp11::as_sexp(substrait__internal__SubstraitToJSON(serialized_plan));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_engine__internal__SubstraitToJSON(SEXP serialized_plan_sexp){
-	Rf_error("Cannot call engine__internal__SubstraitToJSON(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_substrait__internal__SubstraitToJSON(SEXP serialized_plan_sexp){
+	Rf_error("Cannot call substrait__internal__SubstraitToJSON(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
