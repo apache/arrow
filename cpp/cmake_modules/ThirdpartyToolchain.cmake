@@ -200,7 +200,7 @@ endmacro()
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
-  set(multi_value_args PC_PACKAGE_NAMES)
+  set(multi_value_args COMPONENTS PC_PACKAGE_NAMES)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -224,6 +224,9 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(ARG_USE_CONFIG)
     list(APPEND FIND_PACKAGE_ARGUMENTS CONFIG)
+  endif()
+  if(ARG_COMPONENTS)
+    list(APPEND FIND_PACKAGE_ARGUMENTS COMPONENTS ${ARG_COMPONENTS})
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${FIND_PACKAGE_ARGUMENTS})
@@ -1002,6 +1005,9 @@ if(ARROW_BOOST_REQUIRED)
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
+                     COMPONENTS
+                     system
+                     filesystem
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
