@@ -4513,6 +4513,53 @@ if(ARROW_S3)
   endif()
 endif()
 
+macro(build_azuresdk)
+  message(STATUS "Building Azure C++ SDK from source")
+
+  set(AZURESDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/azuresdk_ep-install")
+  set(AZURESDK_INCLUDE_DIR "${AZURESDK_PREFIX}/include")
+
+  set(AZURESDK_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DBUILD_TESTING=OFF
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_INSTALL_PREFIX=${AZURESDK_PREFIX}"
+      -DCMAKE_PREFIX_PATH=${AZURESDK_PREFIX})
+
+  file(MAKE_DIRECTORY ${AZURESDK_INCLUDE_DIR})
+
+  # Azure C++ SDK related libraries to link statically
+  set(_AZURESDK_LIBS
+      azure-core
+      azure-identity
+      azure-storage-blobs
+      azure-storage-common
+      azure-storage-files-datalake)
+  set(AZURESDK_LIBRARIES)
+  set(AZURESDK_LIBRARIES_CPP)
+  foreach(_AZURESDK_LIB ${_AZURESDK_LIBS})
+    string(TOUPPER ${_AZURESDK_LIB} _AZURESDK_LIB_UPPER)
+    string(REPLACE "-" "_" _AZURESDK_LIB_NAME_PREFIX ${_AZURESDK_LIB_UPPER})
+    list(APPEND AZURESDK_LIBRARIES_CPP "${_AZURESDK_LIB}-cpp")
+    set(_AZURESDK_TARGET_NAME Azure::${_AZURESDK_LIB})
+    list(APPEND AZURESDK_LIBRARIES ${_AZURESDK_TARGET_NAME})
+  endforeach()
+
+  set(AZURESDK_LINK_LIBRARIES ${AZURESDK_LIBRARIES})
+endmacro()
+
+if(ARROW_AZURE)
+  build_azuresdk()
+
+  foreach(AZURESDK_LIBRARY_CPP ${AZURESDK_LIBRARIES_CPP})
+    find_package(${AZURESDK_LIBRARY_CPP} CONFIG REQUIRED)
+  endforeach()
+
+  include_directories(SYSTEM ${AZURESDK_INCLUDE_DIR})
+  message(STATUS "Found AZURE SDK headers: ${AZURESDK_INCLUDE_DIR}")
+  message(STATUS "Found AZURE SDK libraries: ${AZURESDK_LINK_LIBRARIES}")
+endif()
+
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
 
 # Write out the package configurations.

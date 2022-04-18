@@ -46,6 +46,260 @@ if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   list(APPEND ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS "BOOST_USE_WINDOWS_H=1")
 endif()
 
+function(ADD_ARROW_LIB_AZURE LIB_NAME)
+  set(options)
+  set(one_value_args 
+      BUILD_SHARED
+      BUILD_STATIC)
+  set(multi_value_args
+      SOURCES
+      STATIC_LINK_LIBS
+      SHARED_LINK_LIBS
+      DEPENDENCIES
+      SHARED_PRIVATE_LINK_LIBS
+      OUTPUT_PATH)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(ARG_SOURCES)
+    set(SOURCES ${ARG_SOURCES})
+  else()
+    set(SOURCES "${LIB_NAME}.cc")
+  endif()
+
+  # Allow overriding ARROW_BUILD_SHARED and ARROW_BUILD_STATIC
+  if(DEFINED ARG_BUILD_SHARED)
+    set(BUILD_SHARED ${ARG_BUILD_SHARED})
+  else()
+    set(BUILD_SHARED ${ARROW_BUILD_SHARED})
+  endif()
+  if(DEFINED ARG_BUILD_STATIC)
+    set(BUILD_STATIC ${ARG_BUILD_STATIC})
+  else()
+    set(BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+  if(ARG_OUTPUT_PATH)
+    set(OUTPUT_PATH ${ARG_OUTPUT_PATH})
+  else()
+    set(OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY})
+  endif()
+
+  if(WIN32 OR (CMAKE_GENERATOR STREQUAL Xcode))
+    # We need to compile C++ separately for each library kind (shared and static)
+    # because of dllexport declarations on Windows.
+    # The Xcode generator doesn't reliably work with Xcode as target names are not
+    # guessed correctly.
+    set(USE_OBJLIB OFF)
+  else()
+    set(USE_OBJLIB ON)
+  endif()
+
+  if(USE_OBJLIB)
+    # Generate a single "objlib" from all C++ modules and link
+    # that "objlib" into each library kind, to avoid compiling twice
+    add_library(${LIB_NAME}_objlib OBJECT ${SOURCES})
+    # Necessary to make static linking into other shared libraries work properly
+    set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
+    set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
+  else()
+    set(LIB_DEPS ${ARG_SOURCES})
+  endif()
+
+  set(RUNTIME_INSTALL_DIR bin)
+
+  if(BUILD_SHARED)
+    add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
+
+    set_target_properties(${LIB_NAME}_shared
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
+                                      RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
+                                      PDB_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
+                                      OUTPUT_NAME ${LIB_NAME}
+                                      VERSION "${ARROW_FULL_SO_VERSION}"
+                                      SOVERSION "${ARROW_SO_VERSION}")
+
+    target_link_libraries(${LIB_NAME}_shared LINK_PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
+
+    install(TARGETS ${LIB_NAME}_shared
+            EXPORT ${LIB_NAME}_targets
+            RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            INCLUDES
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  endif()
+
+  if(BUILD_STATIC)
+    add_library(${LIB_NAME}_static SHARED ${LIB_DEPS})
+
+    if(MSVC_TOOLCHAIN)
+      set(LIB_NAME_STATIC ${LIB_NAME}_static)
+    else()
+      set(LIB_NAME_STATIC ${LIB_NAME})
+    endif()
+
+    if(ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
+    endif()
+
+    set_target_properties(${LIB_NAME}_static
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
+                                    OUTPUT_NAME ${LIB_NAME_STATIC})
+
+    install(TARGETS ${LIB_NAME}_static
+            EXPORT ${LIB_NAME}_targets
+            RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            INCLUDES
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    endif()
+endfunction()
+
+function(ADD_TEST_CASE_AZURE REL_TEST_NAME)
+  set(options NO_VALGRIND ENABLED)
+  set(one_value_args PRECOMPILED_HEADER_LIB)
+  set(multi_value_args
+      SOURCES
+      PRECOMPILED_HEADERS
+      STATIC_LINK_LIBS
+      EXTRA_LINK_LIBS
+      EXTRA_INCLUDES
+      EXTRA_DEPENDENCIES
+      LABELS
+      EXTRA_LABELS
+      TEST_ARGUMENTS
+      PREFIX)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(NO_TESTS AND NOT ARG_ENABLED)
+    return()
+  endif()
+  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(TEST_NAME "${ARG_PREFIX}-${TEST_NAME}")
+  endif()
+
+  if(ARG_SOURCES)
+    set(SOURCES ${ARG_SOURCES})
+  else()
+    set(SOURCES "${REL_TEST_NAME}.cc")
+  endif()
+
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
+
+  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
+  add_executable(${TEST_NAME} ${SOURCES})
+
+  # target_link_libraries(${TEST_NAME} PRIVATE azurefs_shared)
+  # With OSX and conda, we need to set the correct RPATH so that dependencies
+  # are found. The installed libraries with conda have an RPATH that matches
+  # for executables and libraries lying in $ENV{CONDA_PREFIX}/bin or
+  # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
+  # installed there.
+  if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
+    set_target_properties(${TEST_NAME}
+                          PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
+                                     INSTALL_RPATH_USE_LINK_PATH TRUE
+                                     INSTALL_RPATH
+                                     "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
+  endif()
+
+  if(ARG_STATIC_LINK_LIBS)
+    # Customize link libraries
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
+  else()
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS})
+  endif()
+
+  if(ARG_PRECOMPILED_HEADER_LIB)
+    reuse_precompiled_header_lib(${TEST_NAME} ${ARG_PRECOMPILED_HEADER_LIB})
+  endif()
+
+  if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
+    target_precompile_headers(${TEST_NAME} PRIVATE ${ARG_PRECOMPILED_HEADERS})
+  endif()
+
+  if(ARG_EXTRA_LINK_LIBS)
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
+  endif()
+
+  if(ARG_EXTRA_INCLUDES)
+    target_include_directories(${TEST_NAME} SYSTEM PUBLIC ${ARG_EXTRA_INCLUDES})
+  endif()
+
+  if(ARG_EXTRA_DEPENDENCIES)
+    add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
+  endif()
+
+  if(ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
+    add_test(${TEST_NAME}
+             bash
+             -c
+             "cd '${CMAKE_SOURCE_DIR}'; \
+               valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
+                 --num-callers=500 --leak-check=full --leak-check-heuristics=stdstring \
+                 --error-exitcode=1 ${TEST_PATH} ${ARG_TEST_ARGUMENTS}")
+  elseif(WIN32)
+    add_test(${TEST_NAME} ${TEST_PATH} ${ARG_TEST_ARGUMENTS})
+  else()
+    add_test(${TEST_NAME}
+             ${BUILD_SUPPORT_DIR}/run-test.sh
+             ${CMAKE_BINARY_DIR}
+             test
+             ${TEST_PATH}
+             ${ARG_TEST_ARGUMENTS})
+  endif()
+
+  # Add test as dependency of relevant targets
+  add_dependencies(all-tests ${TEST_NAME})
+  foreach(TARGET ${ARG_LABELS})
+    add_dependencies(${TARGET} ${TEST_NAME})
+  endforeach()
+
+  set(LABELS)
+  list(APPEND LABELS "unittest")
+  if(ARG_LABELS)
+    list(APPEND LABELS ${ARG_LABELS})
+  endif()
+  # EXTRA_LABELS don't create their own dependencies, they are only used
+  # to ease running certain test categories.
+  if(ARG_EXTRA_LABELS)
+    list(APPEND LABELS ${ARG_EXTRA_LABELS})
+  endif()
+
+  foreach(LABEL ${ARG_LABELS})
+    # ensure there is a cmake target which exercises tests with this LABEL
+    set(LABEL_TEST_NAME "test-${LABEL}")
+    if(NOT TARGET ${LABEL_TEST_NAME})
+      add_custom_target(${LABEL_TEST_NAME}
+                        ctest -L "${LABEL}" --output-on-failure
+                        USES_TERMINAL)
+    endif()
+    # ensure the test is (re)built before the LABEL test runs
+    add_dependencies(${LABEL_TEST_NAME} ${TEST_NAME})
+  endforeach()
+
+  set_property(TEST ${TEST_NAME}
+               APPEND
+               PROPERTY LABELS ${LABELS})
+endfunction()
+
 function(ADD_THIRDPARTY_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LIB STATIC_LIB)
