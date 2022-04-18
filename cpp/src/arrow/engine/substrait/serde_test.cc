@@ -776,7 +776,7 @@ Result<std::string> GetSubstraitJSON() {
           "local_files": {
             "items": [
               {
-                "uri_file": "file://FILENAME_PLACEHOLDER",
+                "uri_file": "FILENAME_PLACEHOLDER",
                 "format": "FILE_FORMAT_PARQUET"
               }
             ]
@@ -785,6 +785,11 @@ Result<std::string> GetSubstraitJSON() {
       }}
     ]
   })";
+#ifdef _WIN32
+  file_path = "file:///" + file_path;
+#else
+  file_path = "file://" + file_path;
+#endif
   std::cout << "File Path : >>>>" << file_path << std::endl;
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
