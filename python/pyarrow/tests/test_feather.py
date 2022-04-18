@@ -833,7 +833,7 @@ def test_preserve_index_pandas(version):
     df = pd.DataFrame({'a': [1, 2, 3]}, index=['a', 'b', 'c'])
 
     if version == 1:
-        expected = df.rename(columns=str)
+        expected = df.reset_index(drop=True).rename(columns=str)
     else:
         expected = df
 
