@@ -786,8 +786,10 @@ Result<std::string> GetSubstraitJSON() {
     ]
   })";
 #ifdef _WIN32
-  file_path = "file:/" + file_path;
+  // Path is supposed to start with "X:/..."
+  file_path = "file:///" + file_path;
 #else
+  // Path is supposed to start with "/..."
   file_path = "file://" + file_path;
 #endif
   std::cout << "File Path : >>>>" << file_path << std::endl;
