@@ -45,6 +45,14 @@
     </chapter>
   </part>
 
+  <part id="data">
+    <title>Data</title>
+    <chapter id="meta">
+      <title>Meta</title>
+      <xi:include href="xml/metadata.xml"/>
+    </chapter>
+  </part>
+
   <chapter id="object-tree">
     <title>Object Hierarchy</title>
     <xi:include href="xml/tree_index.sgml"/>
@@ -56,6 +64,10 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-8-0-0" role="8.0.0">
+    <title>Index of new symbols in 8.0.0</title>
+    <xi:include href="xml/api-index-8.0.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-6-0-0" role="6.0.0">
     <title>Index of new symbols in 6.0.0</title>
