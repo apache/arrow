@@ -848,10 +848,13 @@ endif()
 set(ARROW_TEST_LINK_TOOLCHAIN
     GTest::gtest_main
     GTest::gtest
-    GTest::gmock
-    Boost::headers
-    Boost::filesystem
-    Boost::system)
+    GTest::gmock)
+if(TARGET Boost::filesystem)
+  list(APPEND ARROW_TEST_LINK_TOOLCHAIN Boost::filesystem)
+endif()
+if(TARGET Boost::system)
+  list(APPEND ARROW_TEST_LINK_TOOLCHAIN Boost::system)
+endif()
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})

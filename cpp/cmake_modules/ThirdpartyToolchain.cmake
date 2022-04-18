@@ -838,6 +838,7 @@ macro(build_boost)
                        "${Boost_INCLUDE_DIR}")
     add_library(Boost::system INTERFACE IMPORTED)
     target_link_libraries(Boost::system INTERFACE boost_system_static)
+    target_include_directories(Boost::system INTERFACE "${Boost_INCLUDE_DIR}")
 
     add_thirdparty_lib(boost_filesystem
                        STATIC_LIB
@@ -846,6 +847,7 @@ macro(build_boost)
                        "${Boost_INCLUDE_DIR}")
     add_library(Boost::filesystem INTERFACE IMPORTED)
     target_link_libraries(Boost::filesystem INTERFACE boost_filesystem_static)
+    target_include_directories(Boost::filesystem INTERFACE "${Boost_INCLUDE_DIR}")
 
     externalproject_add(boost_ep
                         URL ${BOOST_SOURCE_URL}
