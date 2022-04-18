@@ -1376,11 +1376,17 @@ TEST(Expression, SerializationRoundTrips) {
 
   ExpectRoundTrips(field_ref("field"));
 
+  ExpectRoundTrips(field_ref(FieldRef("foo", "bar", "baz")));
+
   ExpectRoundTrips(greater(field_ref("a"), literal(0.25)));
 
   ExpectRoundTrips(
       or_({equal(field_ref("a"), literal(1)), not_equal(field_ref("b"), literal("hello")),
            equal(field_ref("b"), literal("foo bar"))}));
+
+  ExpectRoundTrips(or_({equal(field_ref(FieldRef("a", "b")), literal(1)),
+                        not_equal(field_ref("b"), literal("hello")),
+                        equal(field_ref(FieldRef("c", "d")), literal("foo bar"))}));
 
   ExpectRoundTrips(not_(field_ref("alpha")));
 

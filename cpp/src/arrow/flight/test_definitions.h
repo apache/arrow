@@ -255,5 +255,24 @@ class ARROW_FLIGHT_EXPORT CudaDataTest : public FlightTest {
   TEST_F(FIXTURE, TestDoPut) { TestDoPut(); }                                \
   TEST_F(FIXTURE, TestDoExchange) { TestDoExchange(); }
 
+/// \brief Tests of error handling.
+class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
+ public:
+  void SetUp() override;
+  void TearDown() override;
+
+  // Test methods
+  void TestGetFlightInfo();
+
+ private:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+#define ARROW_FLIGHT_TEST_ERROR_HANDLING(FIXTURE)                                 \
+  static_assert(std::is_base_of<ErrorHandlingTest, FIXTURE>::value,               \
+                ARROW_STRINGIFY(FIXTURE) " must inherit from ErrorHandlingTest"); \
+  TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }
+
 }  // namespace flight
 }  // namespace arrow

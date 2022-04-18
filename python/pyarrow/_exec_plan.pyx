@@ -28,9 +28,10 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
-from pyarrow.lib import tobytes, _pc
+from pyarrow.lib import tobytes
 from pyarrow._compute cimport Expression, _true
 from pyarrow._dataset cimport Dataset
+from pyarrow._dataset import InMemoryDataset
 
 Initialize()  # Initialise support for Datasets in ExecPlan
 
@@ -45,7 +46,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         The sources from which the ExecPlan should fetch data.
         In most cases this is only one, unless the first node of the
         plan is able to get data from multiple different sources.
-    output_type : Table or Dataset
+    output_type : Table or InMemoryDataset
         In which format the output should be provided.
     plan : vector[CDeclaration]
         The nodes of the plan that should be applied to the sources
@@ -147,10 +148,12 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     deref(c_exec_plan).StartProducing()
 
     # Convert output to the expected one.
+    c_out_table = GetResultValue(
+        CTable.FromRecordBatchReader(c_recordbatchreader.get()))
     if output_type == Table:
-        c_out_table = GetResultValue(
-            CTable.FromRecordBatchReader(c_recordbatchreader.get()))
         output = pyarrow_wrap_table(c_out_table)
+    elif output_type == InMemoryDataset:
+        output = InMemoryDataset(pyarrow_wrap_table(c_out_table))
     else:
         raise TypeError("Unsupported output type")
 
@@ -162,7 +165,8 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 def _perform_join(join_type, left_operand not None, left_keys,
                   right_operand not None, right_keys,
                   left_suffix=None, right_suffix=None,
-                  use_threads=True, coalesce_keys=False):
+                  use_threads=True, coalesce_keys=False,
+                  output_type=Table):
     """
     Perform join of two tables or datasets.
 
@@ -191,6 +195,8 @@ def _perform_join(join_type, left_operand not None, left_keys,
     coalesce_keys : bool, default False
         If the duplicated keys should be omitted from one of the sides
         in the join result.
+    output_type: Table or InMemoryDataset
+        The output type for the exec plan result.
 
     Returns
     -------
@@ -338,7 +344,7 @@ def _perform_join(join_type, left_operand not None, left_keys,
         )
 
     result_table = execplan([left_operand, right_operand],
-                            output_type=Table,
-                            plan=c_decl_plan)
+                            plan=c_decl_plan,
+                            output_type=output_type)
 
     return result_table

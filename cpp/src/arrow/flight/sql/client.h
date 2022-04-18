@@ -33,6 +33,8 @@ namespace sql {
 class PreparedStatement;
 
 /// \brief Flight client with Flight SQL semantics.
+///
+/// Wraps a Flight client to provide the Flight SQL RPC calls.
 class ARROW_EXPORT FlightSqlClient {
   friend class PreparedStatement;
 
@@ -199,18 +201,12 @@ class ARROW_EXPORT FlightSqlClient {
   }
 };
 
-/// \brief PreparedStatement class from flight sql.
+/// \brief A prepared statement that can be executed.
 class ARROW_EXPORT PreparedStatement {
-  FlightSqlClient* client_;
-  FlightCallOptions options_;
-  std::string handle_;
-  std::shared_ptr<Schema> dataset_schema_;
-  std::shared_ptr<Schema> parameter_schema_;
-  std::shared_ptr<RecordBatch> parameter_binding_;
-  bool is_closed_;
-
  public:
-  /// \brief Constructor for the PreparedStatement class.
+  /// \brief Create a new prepared statement. However, applications
+  /// should generally use FlightSqlClient::Prepare.
+  ///
   /// \param[in] client                Client object used to make the RPC requests.
   /// \param[in] handle                Handle for this prepared statement.
   /// \param[in] dataset_schema        Schema of the resulting dataset.
@@ -256,6 +252,15 @@ class ARROW_EXPORT PreparedStatement {
   /// \brief Check if the prepared statement is closed.
   /// \return The state of the prepared statement.
   bool IsClosed() const;
+
+ private:
+  FlightSqlClient* client_;
+  FlightCallOptions options_;
+  std::string handle_;
+  std::shared_ptr<Schema> dataset_schema_;
+  std::shared_ptr<Schema> parameter_schema_;
+  std::shared_ptr<RecordBatch> parameter_binding_;
+  bool is_closed_;
 };
 
 }  // namespace sql

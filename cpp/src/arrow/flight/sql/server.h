@@ -33,117 +33,149 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
+/// \defgroup flight-sql-protocol-messages Flight SQL Protocol Messages
+/// Simple struct wrappers for various protocol messages, used to
+/// avoid exposing Protobuf types in the API.
+/// @{
+
+/// \brief A SQL query.
 struct StatementQuery {
+  /// \brief The SQL query.
   std::string query;
 };
 
+/// \brief A SQL update query.
 struct StatementUpdate {
+  /// \brief The SQL query.
   std::string query;
 };
 
+/// \brief A request to execute a query.
 struct StatementQueryTicket {
+  /// \brief The server-generated opaque identifier for the query.
   std::string statement_handle;
 };
 
+/// \brief A prepared query statement.
 struct PreparedStatementQuery {
+  /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
+/// \brief A prepared update statement.
 struct PreparedStatementUpdate {
+  /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
+/// \brief A request to fetch server metadata.
 struct GetSqlInfo {
+  /// \brief A list of metadata IDs to fetch.
   std::vector<int32_t> info;
 };
 
+/// \brief A request to list database schemas.
 struct GetDbSchemas {
+  /// \brief An optional database catalog to filter on.
   util::optional<std::string> catalog;
+  /// \brief An optional database schema to filter on.
   util::optional<std::string> db_schema_filter_pattern;
 };
 
+/// \brief A request to list database tables.
 struct GetTables {
+  /// \brief An optional database catalog to filter on.
   util::optional<std::string> catalog;
+  /// \brief An optional database schema to filter on.
   util::optional<std::string> db_schema_filter_pattern;
+  /// \brief An optional table name to filter on.
   util::optional<std::string> table_name_filter_pattern;
+  /// \brief A list of table types to filter on.
   std::vector<std::string> table_types;
+  /// \brief Whether to include the Arrow schema in the response.
   bool include_schema;
 };
 
+/// \brief A request to get SQL data type information.
 struct GetXdbcTypeInfo {
+  /// \brief A specific SQL type ID to fetch information about.
   util::optional<int> data_type;
 };
 
+/// \brief A request to list primary keys of a table.
 struct GetPrimaryKeys {
+  /// \brief The given table.
   TableRef table_ref;
 };
 
+/// \brief A request to list foreign key columns referencing primary key
+///   columns of a table.
 struct GetExportedKeys {
+  /// \brief The given table.
   TableRef table_ref;
 };
 
+/// \brief A request to list foreign keys of a table.
 struct GetImportedKeys {
+  /// \brief The given table.
   TableRef table_ref;
 };
 
+/// \brief A request to list foreign key columns of a table that
+///   reference columns in a given parent table.
 struct GetCrossReference {
+  /// \brief The parent table (the one containing referenced columns).
   TableRef pk_table_ref;
+  /// \brief The foreign table (for which foreign key columns will be listed).
   TableRef fk_table_ref;
 };
 
+/// \brief A request to create a new prepared statement.
 struct ActionCreatePreparedStatementRequest {
+  /// \brief The SQL query.
   std::string query;
 };
 
+/// \brief A request to close a prepared statement.
 struct ActionClosePreparedStatementRequest {
+  /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
+/// \brief The result of creating a new prepared statement.
 struct ActionCreatePreparedStatementResult {
+  /// \brief The schema of the query results, if applicable.
   std::shared_ptr<Schema> dataset_schema;
+  /// \brief The schema of the query parameters, if applicable.
   std::shared_ptr<Schema> parameter_schema;
+  /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
-/// \brief A utility function to create a ticket (a opaque binary token that the server
-///        uses to identify this query) for a statement query.
-///        Intended for Flight SQL server implementations.
+/// @}
+
+/// \brief A utility function to create a ticket (a opaque binary
+/// token that the server uses to identify this query) for a statement
+/// query. Intended for Flight SQL server implementations.
+///
 /// \param[in] statement_handle      The statement handle that will originate the ticket.
 /// \return                          The parsed ticket as an string.
 arrow::Result<std::string> CreateStatementQueryTicket(
     const std::string& statement_handle);
 
+/// \brief The base class for Flight SQL servers.
+///
+/// Applications should subclass this class and override the virtual
+/// methods declared on this class.
 class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
  private:
   SqlInfoResultMap sql_info_id_to_result_;
 
  public:
-  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
-                       std::unique_ptr<FlightInfo>* info) override;
-
-  Status DoGet(const ServerCallContext& context, const Ticket& request,
-               std::unique_ptr<FlightDataStream>* stream) override;
-
-  Status DoPut(const ServerCallContext& context,
-               std::unique_ptr<FlightMessageReader> reader,
-               std::unique_ptr<FlightMetadataWriter> writer) override;
-
-  const ActionType kCreatePreparedStatementActionType =
-      ActionType{"CreatePreparedStatement",
-                 "Creates a reusable prepared statement resource on the server.\n"
-                 "Request Message: ActionCreatePreparedStatementRequest\n"
-                 "Response Message: ActionCreatePreparedStatementResult"};
-  const ActionType kClosePreparedStatementActionType =
-      ActionType{"ClosePreparedStatement",
-                 "Closes a reusable prepared statement resource on the server.\n"
-                 "Request Message: ActionClosePreparedStatementRequest\n"
-                 "Response Message: N/A"};
-
-  Status ListActions(const ServerCallContext& context,
-                     std::vector<ActionType>* actions) override;
-
-  Status DoAction(const ServerCallContext& context, const Action& action,
-                  std::unique_ptr<ResultStream>* result) override;
+  /// \name Flight SQL methods
+  /// Applications should override these methods to implement the
+  /// Flight SQL endpoints.
+  /// @{
 
   /// \brief Get a FlightInfo for executing a SQL query.
   /// \param[in] context      Per-call context.
@@ -408,10 +440,51 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
       const ServerCallContext& context, const PreparedStatementUpdate& command,
       FlightMessageReader* reader);
 
+  /// @}
+
+  /// \name Utility methods
+  /// @{
+
   /// \brief Register a new SqlInfo result, making it available when calling GetSqlInfo.
   /// \param[in] id the SqlInfo identifier.
   /// \param[in] result the result.
   void RegisterSqlInfo(int32_t id, const SqlInfoResult& result);
+
+  /// @}
+
+  /// \name Flight RPC handlers
+  /// Applications should not override these methods; they implement
+  /// the Flight SQL protocol.
+  /// @{
+
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* info) final;
+
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* stream) final;
+
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) final;
+
+  const ActionType kCreatePreparedStatementActionType =
+      ActionType{"CreatePreparedStatement",
+                 "Creates a reusable prepared statement resource on the server.\n"
+                 "Request Message: ActionCreatePreparedStatementRequest\n"
+                 "Response Message: ActionCreatePreparedStatementResult"};
+  const ActionType kClosePreparedStatementActionType =
+      ActionType{"ClosePreparedStatement",
+                 "Closes a reusable prepared statement resource on the server.\n"
+                 "Request Message: ActionClosePreparedStatementRequest\n"
+                 "Response Message: N/A"};
+
+  Status ListActions(const ServerCallContext& context,
+                     std::vector<ActionType>* actions) final;
+
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) final;
+
+  /// @}
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.

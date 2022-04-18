@@ -31,6 +31,15 @@ export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder
             default: return this.type.children.forEach((f, i) => children[i].set(index, value[f.name]));
         }
     }
+
+    /** @inheritdoc */
+    public setValid(index: number, valid: boolean) {
+        if (!super.setValid(index, valid)) {
+            this.children.forEach((child) => child.setValid(index, valid));
+        }
+        return valid;
+    }
+
     public addChild(child: Builder, name = `${this.numChildren}`) {
         const childIndex = this.children.push(child);
         this.type = new Struct([...this.type.children, new Field(name, child.type, true)]);

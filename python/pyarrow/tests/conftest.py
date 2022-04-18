@@ -145,7 +145,7 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.parquet_encryption  # noqa
+    import pyarrow.parquet.encryption  # noqa
     defaults['parquet_encryption'] = True
 except ImportError:
     pass

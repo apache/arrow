@@ -1068,6 +1068,42 @@ compute___expr__type_id <- function(x, schema) {
   .Call(`_arrow_compute___expr__type_id`, x, schema)
 }
 
+ExtensionType__initialize <- function(storage_type, extension_name, extension_metadata, r6_class) {
+  .Call(`_arrow_ExtensionType__initialize`, storage_type, extension_name, extension_metadata, r6_class)
+}
+
+ExtensionType__extension_name <- function(type) {
+  .Call(`_arrow_ExtensionType__extension_name`, type)
+}
+
+ExtensionType__Serialize <- function(type) {
+  .Call(`_arrow_ExtensionType__Serialize`, type)
+}
+
+ExtensionType__storage_type <- function(type) {
+  .Call(`_arrow_ExtensionType__storage_type`, type)
+}
+
+ExtensionType__MakeArray <- function(type, data) {
+  .Call(`_arrow_ExtensionType__MakeArray`, type, data)
+}
+
+ExtensionType__r6_class <- function(type) {
+  .Call(`_arrow_ExtensionType__r6_class`, type)
+}
+
+ExtensionArray__storage <- function(array) {
+  .Call(`_arrow_ExtensionArray__storage`, array)
+}
+
+arrow__RegisterRExtensionType <- function(type) {
+  invisible(.Call(`_arrow_arrow__RegisterRExtensionType`, type))
+}
+
+arrow__UnregisterRExtensionType <- function(type_name) {
+  invisible(.Call(`_arrow_arrow__UnregisterRExtensionType`, type_name))
+}
+
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level) {
   invisible(.Call(`_arrow_ipc___WriteFeather__Table`, stream, table, version, chunk_size, compression, compression_level))
 }

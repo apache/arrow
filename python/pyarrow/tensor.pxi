@@ -19,6 +19,17 @@
 cdef class Tensor(_Weakrefable):
     """
     A n-dimensional array a.k.a Tensor.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+    >>> pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+    <pyarrow.Tensor>
+    type: int32
+    shape: (2, 3)
+    strides: (12, 4)
     """
 
     def __init__(self):
@@ -47,6 +58,17 @@ strides: {0.strides}""".format(self)
             The source numpy array
         dim_names : list, optional
             Names of each dimension of the Tensor.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        <pyarrow.Tensor>
+        type: int32
+        shape: (2, 3)
+        strides: (12, 4)
         """
         cdef:
             vector[c_string] c_dim_names
@@ -63,6 +85,16 @@ strides: {0.strides}""".format(self)
     def to_numpy(self):
         """
         Convert arrow::Tensor to numpy.ndarray with zero copy
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.to_numpy()
+        array([[  2,   2,   4],
+               [  4,   5, 100]], dtype=int32)
         """
         cdef PyObject* out
 
@@ -77,6 +109,19 @@ strides: {0.strides}""".format(self)
         ----------
         other : Tensor
             The other tensor to compare for equality.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> y = np.array([[2, 2, 4], [4, 5, 10]], np.int32)
+        >>> tensor2 = pa.Tensor.from_numpy(y, dim_names=["a","b"])
+        >>> tensor.equals(tensor)
+        True
+        >>> tensor.equals(tensor2)
+        False
         """
         return self.tp.Equals(deref(other.tp))
 
@@ -87,35 +132,138 @@ strides: {0.strides}""".format(self)
             return NotImplemented
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.dim_name(0)
+        'dim1'
+        >>> tensor.dim_name(1)
+        'dim2'
+        """
         return frombytes(self.tp.dim_name(i))
 
     @property
     def dim_names(self):
+        """
+        Names of this tensor dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.dim_names
+        ['dim1', 'dim2']
+        """
         return [frombytes(x) for x in tuple(self.tp.dim_names())]
 
     @property
     def is_mutable(self):
+        """
+        Is this tensor mutable or immutable.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.is_mutable
+        True
+        """
         return self.tp.is_mutable()
 
     @property
     def is_contiguous(self):
+        """
+        Is this tensor contiguous in memory.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.is_contiguous
+        True
+        """
         return self.tp.is_contiguous()
 
     @property
     def ndim(self):
+        """
+        The dimension (n) of this tensor.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.ndim
+        2
+        """
         return self.tp.ndim()
 
     @property
     def size(self):
+        """
+        The size of this tensor.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.size
+        6
+        """
         return self.tp.size()
 
     @property
     def shape(self):
+        """
+        The shape of this tensor.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.shape
+        (2, 3)
+        """
         # Cython knows how to convert a vector[T] to a Python list
         return tuple(self.tp.shape())
 
     @property
     def strides(self):
+        """
+        Strides of this tensor.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> x = np.array([[2, 2, 4], [4, 5, 100]], np.int32)
+        >>> tensor = pa.Tensor.from_numpy(x, dim_names=["dim1","dim2"])
+        >>> tensor.strides
+        (12, 4)
+        """
         return tuple(self.tp.strides())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):

@@ -29,8 +29,10 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   # See query-engine.R for ExecPlan/Nodes
   tryCatch(
     tab <- do_exec_plan(x),
-    error = function(e) {
-      handle_csv_read_error(e, x$.data$schema)
+    # n = 4 because we want the error to show up as being from collect()
+    # and not handle_csv_read_error()
+    error = function(e, call = caller_env(n = 4)) {
+      handle_csv_read_error(e, x$.data$schema, call)
     }
   )
 

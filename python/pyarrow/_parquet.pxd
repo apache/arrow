@@ -410,6 +410,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* encoding(const c_string& path,
                               ParquetEncoding encoding)
             Builder* write_batch_size(int64_t batch_size)
+            Builder* dictionary_pagesize_limit(int64_t dictionary_pagesize_limit)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -553,7 +554,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     column_encoding=*,
     data_page_version=*,
     FileEncryptionProperties encryption_properties=*,
-    write_batch_size=*) except *
+    write_batch_size=*,
+    dictionary_pagesize_limit=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(

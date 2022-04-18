@@ -542,6 +542,12 @@ class Queue(Repo):
             latest = -1
         return latest
 
+    def _prefix_contains_date(self, prefix):
+        prefix_date_pattern = re.compile(r'[\w\/-]*-(\d+)-(\d+)-(\d+)')
+        match_prefix = prefix_date_pattern.match(prefix)
+        if match_prefix:
+            return match_prefix.group(0)[-10:]
+
     def _latest_prefix_date(self, prefix):
         pattern = re.compile(r'[\w\/-]*{}-(\d+)-(\d+)-(\d+)'.format(prefix))
         matches = list(filter(None, map(pattern.match, self.repo.branches)))
@@ -559,7 +565,8 @@ class Queue(Repo):
         return '{}-{}'.format(prefix, latest_id + 1)
 
     def latest_for_prefix(self, prefix):
-        if prefix.startswith("nightly"):
+        prefix_date = self._prefix_contains_date(prefix)
+        if prefix.startswith("nightly") and not prefix_date:
             latest_id = self._latest_prefix_date(prefix)
             if not latest_id:
                 raise RuntimeError(

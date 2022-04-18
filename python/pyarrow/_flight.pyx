@@ -31,7 +31,8 @@ from cython.operator cimport postincrement
 from libcpp cimport bool as c_bool
 
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowException, ArrowInvalid, SignalStopHandler
+from pyarrow.lib import (ArrowCancelled, ArrowException, ArrowInvalid,
+                         SignalStopHandler)
 from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
@@ -170,7 +171,7 @@ cdef class FlightTimedOutError(FlightError, ArrowException):
                                tobytes(str(self)), self.extra_info)
 
 
-cdef class FlightCancelledError(FlightError, ArrowException):
+cdef class FlightCancelledError(FlightError, ArrowCancelled):
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)),
                                self.extra_info)

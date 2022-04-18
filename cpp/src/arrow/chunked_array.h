@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -177,11 +178,12 @@ class ARROW_EXPORT ChunkedArray {
 
  protected:
   ArrayVector chunks_;
+  std::shared_ptr<DataType> type_;
   int64_t length_;
   int64_t null_count_;
-  std::shared_ptr<DataType> type_;
 
  private:
+  internal::ChunkResolver chunk_resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 

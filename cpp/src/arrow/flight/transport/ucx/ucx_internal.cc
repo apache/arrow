@@ -36,6 +36,9 @@ namespace flight {
 namespace transport {
 namespace ucx {
 
+using internal::TransportStatus;
+using internal::TransportStatusCode;
+
 // Defines to test different implementation strategies
 // Enable the CONTIG path for CPU-only data
 // #define ARROW_FLIGHT_UCX_SEND_CONTIG
@@ -222,17 +225,19 @@ arrow::Result<HeadersFrame> HeadersFrame::Make(
     const Status& status,
     const std::vector<std::pair<std::string, std::string>>& headers) {
   auto all_headers = headers;
+
+  TransportStatus transport_status = TransportStatus::FromStatus(status);
+  all_headers.emplace_back(kHeaderStatus,
+                           std::to_string(static_cast<int32_t>(transport_status.code)));
+  all_headers.emplace_back(kHeaderMessage, std::move(transport_status.message));
   all_headers.emplace_back(kHeaderStatusCode,
                            std::to_string(static_cast<int32_t>(status.code())));
   all_headers.emplace_back(kHeaderStatusMessage, status.message());
   if (status.detail()) {
+    all_headers.emplace_back(kHeaderStatusDetail, status.detail()->ToString());
     auto fsd = FlightStatusDetail::UnwrapStatus(status);
-    if (fsd) {
-      all_headers.emplace_back(kHeaderStatusDetailCode,
-                               std::to_string(static_cast<int32_t>(fsd->code())));
-      all_headers.emplace_back(kHeaderStatusDetail, fsd->extra_info());
-    } else {
-      all_headers.emplace_back(kHeaderStatusDetail, status.detail()->ToString());
+    if (fsd && !fsd->extra_info().empty()) {
+      all_headers.emplace_back(kHeaderStatusDetailBin, fsd->extra_info());
     }
   }
   return Make(all_headers);
@@ -246,118 +251,46 @@ arrow::Result<util::string_view> HeadersFrame::Get(const std::string& key) {
 }
 
 Status HeadersFrame::GetStatus(Status* out) {
+  static const std::string kUnknownMessage = "Server did not send status message header";
   util::string_view code_str, message_str;
-  auto status = Get(kHeaderStatusCode).Value(&code_str);
+  auto status = Get(kHeaderStatus).Value(&code_str);
   if (!status.ok()) {
     return Status::KeyError("Server did not send status code header ", kHeaderStatusCode);
   }
-
-  StatusCode status_code = StatusCode::OK;
-  auto code = std::strtol(code_str.data(), nullptr, /*base=*/10);
-  switch (code) {
-    case 0:
-      status_code = StatusCode::OK;
-      break;
-    case 1:
-      status_code = StatusCode::OutOfMemory;
-      break;
-    case 2:
-      status_code = StatusCode::KeyError;
-      break;
-    case 3:
-      status_code = StatusCode::TypeError;
-      break;
-    case 4:
-      status_code = StatusCode::Invalid;
-      break;
-    case 5:
-      status_code = StatusCode::IOError;
-      break;
-    case 6:
-      status_code = StatusCode::CapacityError;
-      break;
-    case 7:
-      status_code = StatusCode::IndexError;
-      break;
-    case 8:
-      status_code = StatusCode::Cancelled;
-      break;
-    case 9:
-      status_code = StatusCode::UnknownError;
-      break;
-    case 10:
-      status_code = StatusCode::NotImplemented;
-      break;
-    case 11:
-      status_code = StatusCode::SerializationError;
-      break;
-    case 13:
-      status_code = StatusCode::RError;
-      break;
-    case 40:
-      status_code = StatusCode::CodeGenError;
-      break;
-    case 41:
-      status_code = StatusCode::ExpressionValidationError;
-      break;
-    case 42:
-      status_code = StatusCode::ExecutionError;
-      break;
-    case 45:
-      status_code = StatusCode::AlreadyExists;
-      break;
-    default:
-      status_code = StatusCode::UnknownError;
-      break;
-  }
-  if (status_code == StatusCode::OK) {
+  if (code_str == "0") {  // == std::to_string(TransportStatusCode::kOk)
     *out = Status::OK();
     return Status::OK();
   }
 
-  status = Get(kHeaderStatusMessage).Value(&message_str);
-  if (!status.ok()) {
-    *out = Status(status_code, "Server did not send status message header", nullptr);
+  status = Get(kHeaderMessage).Value(&message_str);
+  if (!status.ok()) message_str = kUnknownMessage;
+
+  TransportStatus transport_status = TransportStatus::FromCodeStringAndMessage(
+      std::string(code_str), std::string(message_str));
+  if (transport_status.code == TransportStatusCode::kOk) {
+    *out = Status::OK();
     return Status::OK();
   }
+  *out = transport_status.ToStatus();
 
-  util::string_view detail_code_str, detail_str;
-  FlightStatusCode detail_code = FlightStatusCode::Internal;
-
-  if (Get(kHeaderStatusDetailCode).Value(&detail_code_str).ok()) {
-    auto detail_code_int = std::strtol(detail_code_str.data(), nullptr, /*base=*/10);
-    switch (detail_code_int) {
-      case 1:
-        detail_code = FlightStatusCode::TimedOut;
-        break;
-      case 2:
-        detail_code = FlightStatusCode::Cancelled;
-        break;
-      case 3:
-        detail_code = FlightStatusCode::Unauthenticated;
-        break;
-      case 4:
-        detail_code = FlightStatusCode::Unauthorized;
-        break;
-      case 5:
-        detail_code = FlightStatusCode::Unavailable;
-        break;
-      case 6:
-        detail_code = FlightStatusCode::Failed;
-        break;
-      case 0:
-      default:
-        detail_code = FlightStatusCode::Internal;
-        break;
-    }
+  util::string_view detail_str, bin_str;
+  util::optional<std::string> message, detail_message, detail_bin;
+  if (!Get(kHeaderStatusCode).Value(&code_str).ok()) {
+    // No Arrow status sent, go with the transport status
+    return Status::OK();
   }
-  ARROW_UNUSED(Get(kHeaderStatusDetail).Value(&detail_str));
-
-  std::shared_ptr<StatusDetail> detail = nullptr;
-  if (!detail_str.empty()) {
-    detail = std::make_shared<FlightStatusDetail>(detail_code, std::string(detail_str));
+  if (Get(kHeaderStatusMessage).Value(&message_str).ok()) {
+    message = std::string(message_str);
   }
-  *out = Status(status_code, std::string(message_str), std::move(detail));
+  if (Get(kHeaderStatusDetail).Value(&detail_str).ok()) {
+    detail_message = std::string(detail_str);
+  }
+  if (Get(kHeaderStatusDetailBin).Value(&bin_str).ok()) {
+    detail_bin = std::string(bin_str);
+  }
+  *out = internal::ReconstructStatus(std::string(code_str), *out, std::move(message),
+                                     std::move(detail_message), std::move(detail_bin),
+                                     FlightStatusDetail::UnwrapStatus(*out));
   return Status::OK();
 }
 
