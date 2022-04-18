@@ -56,21 +56,22 @@ DataType$import_from_c <- ImportType
 INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
 FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")
 
-#' infer the arrow Array type from an R vector
+#' Infer the arrow Array type from an R object
 #'
-#' @param x an R vector
+#' @param x an R object (usually a vector) to be converted to an [Array] or
+#'   [ChunkedArray].
 #' @param ... Passed to S3 methods
 #'
-#' @return an arrow logical type
+#' @return An arrow [data type][data-type]
 #' @examplesIf arrow_available()
-#' type(1:10)
-#' type(1L:10L)
-#' type(c(1, 1.5, 2))
-#' type(c("A", "B", "C"))
-#' type(mtcars)
-#' type(Sys.Date())
-#' type(as.POSIXlt(Sys.Date()))
-#' type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
+#' infer_type(1:10)
+#' infer_type(1L:10L)
+#' infer_type(c(1, 1.5, 2))
+#' infer_type(c("A", "B", "C"))
+#' infer_type(mtcars)
+#' infer_type(Sys.Date())
+#' infer_type(as.POSIXlt(Sys.Date()))
+#' infer_type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
 #' @export
 type <- function(x) infer_type(x)
 

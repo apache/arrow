@@ -3,32 +3,33 @@
 \name{type}
 \alias{type}
 \alias{infer_type}
-\title{infer the arrow Array type from an R vector}
+\title{Infer the arrow Array type from an R object}
 \usage{
 type(x)
 
 infer_type(x, ...)
 }
 \arguments{
-\item{x}{an R vector}
+\item{x}{an R object (usually a vector) to be converted to an \link{Array} or
+\link{ChunkedArray}.}
 
 \item{...}{Passed to S3 methods}
 }
 \value{
-an arrow logical type
+An arrow \link[=data-type]{data type}
 }
 \description{
-infer the arrow Array type from an R vector
+Infer the arrow Array type from an R object
 }
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-type(1:10)
-type(1L:10L)
-type(c(1, 1.5, 2))
-type(c("A", "B", "C"))
-type(mtcars)
-type(Sys.Date())
-type(as.POSIXlt(Sys.Date()))
-type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
+infer_type(1:10)
+infer_type(1L:10L)
+infer_type(c(1, 1.5, 2))
+infer_type(c("A", "B", "C"))
+infer_type(mtcars)
+infer_type(Sys.Date())
+infer_type(as.POSIXlt(Sys.Date()))
+infer_type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
 \dontshow{\}) # examplesIf}
 }
