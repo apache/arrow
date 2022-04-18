@@ -138,16 +138,16 @@ handle_parquet_io_error <- function(e, format, call) {
   abort(msg, call = call)
 }
 
-as_writable_table <- function(x, arg_name = "x") {
+as_writable_table <- function(x) {
+  call_for_error <- sys.call(1)
   tryCatch(
     as_arrow_table(x),
     arrow_no_method_as_arrow_table = function(e) {
-      msg <- sprintf(
-        "`%s` must be coercible to an Arrow Table using as_arrow_table()",
-        arg_name
+      abort(
+        "Object must be coercible to an Arrow Table using `as_arrow_table()`",
+        parent = e,
+        call = call_for_error
       )
-
-      abort(msg, parent = e)
     }
   )
 }

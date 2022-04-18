@@ -30,9 +30,12 @@ test_that("as_writable_table() works for data.frame, RecordBatch, and Table", {
 })
 
 test_that("as_writable_table() errors for invalid input", {
+  # check errors from a wrapper function (i.e., simulate write_*() functions)
+  wrapper_fun <- function(x) as_writable_table(x)
+
   # make sure we get the custom error message
-  expect_snapshot_error(as_writable_table("not a table", "arg_name"))
+  expect_snapshot_error(wrapper_fun("not a table"))
 
   # make sure other errors make it through
-  expect_snapshot_error(as_writable_table(data.frame(x = I(list(1, "a")))))
+  expect_snapshot_error(wrapper_fun(data.frame(x = I(list(1, "a")))))
 })
