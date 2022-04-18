@@ -181,7 +181,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
       long offset = timeZone.getOffset(result.getTime()) -
           timeZoneForVector.getOffset(result.getTime());
 
-      collector.checkThat(result.getTime(), is(getTimestampForVector(currentRow).getTime() - offset ));
+      collector.checkThat(result.getTime(), is(getTimestampForVector(currentRow).getTime() - offset));
       collector.checkThat(accessor.wasNull(), is(false));
     });
   }
