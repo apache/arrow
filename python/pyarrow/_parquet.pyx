@@ -38,6 +38,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Array, Schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_buffer,
                           pyarrow_wrap_batch,
+                          pyarrow_wrap_scalar,
                           NativeFile, get_reader, get_writer,
                           string_to_timeunit)
 
@@ -123,14 +124,16 @@ cdef class Statistics(_Weakrefable):
     @property
     def min(self):
         if self.has_min_max:
-            return _cast_statistic_min(self.statistics.get())
+            min_scalar, _ = _cast_statistics(self.statistics.get())
+            return min_scalar.as_py()
         else:
             return None
 
     @property
     def max(self):
         if self.has_min_max:
-            return _cast_statistic_max(self.statistics.get())
+            _, max_scalar = _cast_statistics(self.statistics.get())
+            return max_scalar.as_py()
         else:
             return None
 
@@ -226,61 +229,12 @@ cdef _cast_statistic_raw_max(CStatistics* statistics):
         return _box_flba((<CFLBAStatistics*> statistics).max(), type_length)
 
 
-cdef _cast_statistic_min(CStatistics* statistics):
-    min_raw = _cast_statistic_raw_min(statistics)
-    return _box_logical_type_value(min_raw, statistics.descr())
-
-
-cdef _cast_statistic_max(CStatistics* statistics):
-    max_raw = _cast_statistic_raw_max(statistics)
-    return _box_logical_type_value(max_raw, statistics.descr())
-
-
-cdef _box_logical_type_value(object value, const ColumnDescriptor* descr):
+cdef _cast_statistics(CStatistics* statistics):
     cdef:
-        const CParquetLogicalType* ltype = descr.logical_type().get()
-        ParquetTimeUnit time_unit
-        const CParquetIntType* itype
-        const CParquetTimestampType* ts_type
-
-    if ltype.type() == ParquetLogicalType_STRING:
-        return value.decode('utf8')
-    elif ltype.type() == ParquetLogicalType_TIME:
-        time_unit = (<const CParquetTimeType*> ltype).time_unit()
-        if time_unit == ParquetTimeUnit_MILLIS:
-            return _datetime_from_int(value, unit=TimeUnit_MILLI).time()
-        else:
-            return _datetime_from_int(value, unit=TimeUnit_MICRO).time()
-    elif ltype.type() == ParquetLogicalType_TIMESTAMP:
-        ts_type = <const CParquetTimestampType*> ltype
-        time_unit = ts_type.time_unit()
-        if ts_type.is_adjusted_to_utc():
-            import pytz
-            tzinfo = pytz.utc
-        else:
-            tzinfo = None
-        if time_unit == ParquetTimeUnit_MILLIS:
-            return _datetime_from_int(value, unit=TimeUnit_MILLI,
-                                      tzinfo=tzinfo)
-        elif time_unit == ParquetTimeUnit_MICROS:
-            return _datetime_from_int(value, unit=TimeUnit_MICRO,
-                                      tzinfo=tzinfo)
-        elif time_unit == ParquetTimeUnit_NANOS:
-            return _datetime_from_int(value, unit=TimeUnit_NANO,
-                                      tzinfo=tzinfo)
-        else:
-            raise ValueError("Unsupported time unit")
-    elif ltype.type() == ParquetLogicalType_INT:
-        itype = <const CParquetIntType*> ltype
-        if not itype.is_signed() and itype.bit_width() == 32:
-            return int(np.int32(value).view(np.uint32))
-        elif not itype.is_signed() and itype.bit_width() == 64:
-            return int(np.int64(value).view(np.uint64))
-        else:
-            return value
-    else:
-        # No logical boxing defined
-        return value
+        shared_ptr[CScalar] c_min
+        shared_ptr[CScalar] c_max
+    check_status(StatisticsAsScalars(statistics[0], &c_min, &c_max))
+    return (pyarrow_wrap_scalar(c_min), pyarrow_wrap_scalar(c_max))
 
 
 cdef _box_byte_array(ParquetByteArray val):
