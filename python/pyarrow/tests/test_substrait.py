@@ -22,15 +22,10 @@ from pyarrow.lib import ArrowInvalid
 import pyarrow.parquet as pq
 import pytest
 
-try:
-    from pyarrow import engine
-    from pyarrow.engine import (
-        run_query,
-        get_buffer_from_json,
-    )
-except ImportError:
-    engine = None
-
+from pyarrow.engine import (
+    run_query,
+    get_buffer_from_json,
+)
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not engine'
 pytestmark = pytest.mark.engine
