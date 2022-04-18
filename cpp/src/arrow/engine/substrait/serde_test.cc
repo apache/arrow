@@ -785,7 +785,7 @@ Result<std::string> GetSubstraitJSON() {
       }}
     ]
   })";
-
+  std::cout << "File Path : >>>>" << file_path << std::endl;
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
                          filename_placeholder.size(), file_path);
