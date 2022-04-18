@@ -236,6 +236,7 @@ cdef class InputType(_Weakrefable):
         Parameter
         ---------
         data_type: DataType
+            DataType represented by the InputType
 
         Examples
         --------
@@ -264,6 +265,7 @@ cdef class InputType(_Weakrefable):
         Parameter
         ---------
         data_type: DataType
+            DataType represented in the input type
 
         Examples
         --------
