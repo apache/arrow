@@ -260,6 +260,10 @@ if(ARROW_TESTING)
                 arrow_flight_static
                 arrow_testing_static
                 ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
+
+  foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
+  endforeach()
 endif()
 
 add_arrow_test(flight_internals_test
