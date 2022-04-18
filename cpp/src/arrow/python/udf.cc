@@ -30,10 +30,10 @@ namespace py {
 
 Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
                        const compute::OutputType& exp_out_type, Datum* out) {
-  int num_args = static_cast<int64_t>(batch.values.size());
+  size_t num_args = batch.values.size();
   PyObject* arg_tuple = PyTuple_New(num_args);
   // wrap exec_batch objects into Python objects based on the datum type
-  for (int arg_id = 0; arg_id < num_args; arg_id++) {
+  for (size_t arg_id = 0; arg_id < num_args; arg_id++) {
     switch (batch[arg_id].kind()) {
       case Datum::SCALAR: {
         auto c_data = batch[arg_id].scalar();

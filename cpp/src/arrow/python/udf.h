@@ -27,9 +27,6 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
-#include "arrow/datum.h"
-#include "arrow/util/cpu_info.h"
-#include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/pyarrow.h"

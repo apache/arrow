@@ -271,7 +271,7 @@ cdef class InputType(_Weakrefable):
         >>> import pyarrow as pa
         >>> from pyarrow.compute import InputType
         >>> in_type = InputType.array(pa.int32())
-        <pyarrow._compute.InputType object at 0x102ba4850>
+        array[int32]
         """
         cdef:
             shared_ptr[CDataType] c_data_type
@@ -2494,9 +2494,8 @@ def register_scalar_function(func_name, function_doc, in_types,
         function_doc["arg_names"] = in_types.keys()
         num_args = len(in_types)
     else:
-        if num_args == -1:
-            raise TypeError(
-                "in_types must be a dictionary of InputType")
+        raise TypeError(
+            "in_types must be a dictionary of InputType")
 
     if func_spec.varargs:
         c_arity = CArity.VarArgs(num_args)

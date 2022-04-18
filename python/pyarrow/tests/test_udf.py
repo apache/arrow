@@ -135,28 +135,18 @@ def test_scalar_udf_function_with_scalar_valued_functions():
         ],
     ]
 
-    expected_outputs = [
-        unary_function(function_inputs[0][0]),
-        binary_function(function_inputs[1][0], function_inputs[1][1]),
-        ternary_function(function_inputs[2][0], function_inputs[2][1],
-                         function_inputs[2][2]),
-        varargs_function(*function_inputs[3])
-    ]
-
     for name, \
         in_types, \
         out_type, \
         doc, \
         function, \
-        input, \
-        expected_output in zip(function_names,
-                               function_input_types,
-                               function_output_types,
-                               function_docs,
-                               functions,
-                               function_inputs,
-                               expected_outputs):
-
+        input in zip(function_names,
+                     function_input_types,
+                     function_output_types,
+                     function_docs,
+                     functions,
+                     function_inputs):
+        expected_output = function(*input)
         register_scalar_function(
             name, doc, in_types, out_type, function)
 
@@ -240,28 +230,18 @@ def test_scalar_udf_with_array_data_functions():
         ]
     ]
 
-    expected_outputs = [
-        unary_function(function_inputs[0][0]),
-        binary_function(function_inputs[1][0], function_inputs[1][1]),
-        ternary_function(function_inputs[2][0], function_inputs[2][1],
-                         function_inputs[2][2]),
-        varargs_function(*function_inputs[3])
-    ]
-
     for name, \
         in_types, \
         out_type, \
         doc, \
         function, \
-        input, \
-        expected_output in zip(function_names,
-                               function_input_types,
-                               function_output_types,
-                               function_docs,
-                               functions,
-                               function_inputs,
-                               expected_outputs):
-
+        input in zip(function_names,
+                     function_input_types,
+                     function_output_types,
+                     function_docs,
+                     functions,
+                     function_inputs):
+        expected_output = function(*input)
         register_scalar_function(
             name, doc, in_types, out_type, function)
 
