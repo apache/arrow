@@ -69,11 +69,17 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' type(c("A", "B", "C"))
 #' type(mtcars)
 #' type(Sys.Date())
+#' type(as.POSIXlt(Sys.Date()))
+#' type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
 #' @export
-type <- function(x, ...) UseMethod("type")
+type <- function(x) infer_type(x)
+
+#' @rdname type
+#' @export
+infer_type <- function(x, ...) UseMethod("infer_type")
 
 #' @export
-type.default <- function(x, ..., from_array_infer_type = FALSE) {
+infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
   # If from_array_infer_type is TRUE, this is a call from C++ and there was
   # no S3 method defined for this object.
   if (from_array_infer_type) {
@@ -93,19 +99,19 @@ type.default <- function(x, ..., from_array_infer_type = FALSE) {
 }
 
 #' @export
-type.ArrowDatum <- function(x, ...) x$type
+infer_type.ArrowDatum <- function(x, ...) x$type
 
 #' @export
-type.Expression <- function(x, ...) x$type()
+infer_type.Expression <- function(x, ...) x$type()
 
 #' @export
-type.vctrs_vctr <- function(x, ...) {
+infer_type.vctrs_vctr <- function(x, ...) {
   vctrs_extension_type(vctrs::vec_ptype(x))
 }
 
 #' @export
-type.POSIXlt <- function(x, ...) {
-  type.vctrs_vctr(x, ...)
+infer_type.POSIXlt <- function(x, ...) {
+  infer_type.vctrs_vctr(x, ...)
 }
 
 #----- metadata

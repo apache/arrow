@@ -2,9 +2,12 @@
 % Please edit documentation in R/type.R
 \name{type}
 \alias{type}
+\alias{infer_type}
 \title{infer the arrow Array type from an R vector}
 \usage{
-type(x, ...)
+type(x)
+
+infer_type(x, ...)
 }
 \arguments{
 \item{x}{an R vector}
@@ -25,5 +28,7 @@ type(c(1, 1.5, 2))
 type(c("A", "B", "C"))
 type(mtcars)
 type(Sys.Date())
+type(as.POSIXlt(Sys.Date()))
+type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
 \dontshow{\}) # examplesIf}
 }

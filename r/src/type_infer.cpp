@@ -201,7 +201,7 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
         cpp11::stop("Cannot infer type from vector");
     }
   } else {
-    cpp11::sexp type_result = cpp11::package("arrow")["type"](
+    cpp11::sexp type_result = cpp11::package("arrow")["infer_type"](
         x, cpp11::named_arg("from_array_infer_type") = true);
     if (!Rf_inherits(type_result, "DataType")) {
       cpp11::stop("type() did not return an object of type DataType");

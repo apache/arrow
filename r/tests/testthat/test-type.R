@@ -54,19 +54,19 @@ test_that("type() infers from R type", {
   )
 })
 
-test_that("type() default method errors for unknown classes", {
+test_that("infer_type() default method errors for unknown classes", {
   vec <- structure(list(), class = "class_not_supported")
 
   # check simulating a call from C++
-  expect_snapshot_error(type(vec, from_array_infer_type = TRUE))
+  expect_snapshot_error(infer_type(vec, from_array_infer_type = TRUE))
 
-  # also check the error when type() is called from Array__infer_type()
-  expect_snapshot_error(type(vec))
+  # also check the error when infer_type() is called from Array__infer_type()
+  expect_snapshot_error(infer_type(vec))
 })
 
-test_that("type() can infer struct types from data frames", {
+test_that("infer_type() can infer struct types from data frames", {
   df <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
-  expect_equal(type(df), struct(x = int32(), y = float64(), z = utf8()))
+  expect_equal(infer_type(df), struct(x = int32(), y = float64(), z = utf8()))
 })
 
 test_that("DataType$Equals", {
