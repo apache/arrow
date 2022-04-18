@@ -1397,7 +1397,12 @@ struct RoundToMultiple {
   CType multiple;
 
   explicit RoundToMultiple(const State& state, const DataType& out_ty)
-      : multiple(UnboxScalar<ArrowType>::Unbox(*state.options.multiple)) {}
+      : multiple(UnboxScalar<ArrowType>::Unbox(*state.options.multiple)) {
+    const auto& options = state.options;
+    DCHECK(options.multiple);
+    DCHECK(options.multiple->is_valid);
+    DCHECK(is_floating(options.multiple->type->id()));
+  }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
@@ -1442,7 +1447,12 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
         multiple(UnboxScalar<ArrowType>::Unbox(*state.options.multiple)),
         half_multiple(multiple / 2),
         neg_half_multiple(-half_multiple),
-        has_halfway_point(multiple.low_bits() % 2 == 0) {}
+        has_halfway_point(multiple.low_bits() % 2 == 0) {
+    const auto& options = state.options;
+    DCHECK(options.multiple);
+    DCHECK(options.multiple->is_valid);
+    DCHECK(options.multiple->type->Equals(out_ty));
+  }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
   enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
