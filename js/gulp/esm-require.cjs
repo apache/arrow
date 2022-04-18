@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const esm = require("esm");
+const esm = require('esm');
 
 const esmRequire = esm(module, {
     mode: `auto`,

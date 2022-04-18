@@ -589,7 +589,7 @@ TODO area must be filled with producer-specific deallocation code:
 
    static void ReleaseExportedArray(struct ArrowArray* array) {
      // This should not be called on already released array
-     assert(array->format != NULL);
+     assert(array->release != NULL);
 
      // Release children
      for (int64_t i = 0; i < array->n_children; ++i) {

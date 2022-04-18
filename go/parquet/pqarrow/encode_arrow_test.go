@@ -1352,3 +1352,41 @@ func (ps *ParquetIOTestSuite) TestArrowMapTypeRoundTrip() {
 
 	ps.roundTripTable(tbl, true)
 }
+
+func TestWriteTableMemoryAllocation(t *testing.T) {
+	allocator := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "f32", Type: arrow.PrimitiveTypes.Float32, Nullable: true},
+		{Name: "i32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "struct_i64_f64", Type: arrow.StructOf(
+			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64, Nullable: true})},
+		{Name: "arr_i64", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+	}, nil)
+
+	bld := array.NewRecordBuilder(allocator, sc)
+	bld.Field(0).(*array.Float32Builder).Append(1.0)
+	bld.Field(1).(*array.Int32Builder).Append(1)
+	sbld := bld.Field(2).(*array.StructBuilder)
+	sbld.Append(true)
+	sbld.FieldBuilder(0).(*array.Int64Builder).Append(1)
+	sbld.FieldBuilder(1).(*array.Float64Builder).Append(1.0)
+	abld := bld.Field(3).(*array.ListBuilder)
+	abld.Append(true)
+	abld.ValueBuilder().(*array.Int64Builder).Append(2)
+
+	rec := bld.NewRecord()
+	bld.Release()
+
+	var buf bytes.Buffer
+	wr, err := pqarrow.NewFileWriter(sc, &buf,
+		parquet.NewWriterProperties(parquet.WithCompression(compress.Codecs.Snappy)),
+		pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(allocator)))
+	require.NoError(t, err)
+
+	require.NoError(t, wr.Write(rec))
+	rec.Release()
+	wr.Close()
+
+	require.Zero(t, allocator.CurrentAlloc())
+}

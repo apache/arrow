@@ -281,8 +281,8 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
   # the group_by() prevents compute() from returning a Table...
   expect_s3_class(tab5, "arrow_dplyr_query")
 
-  # ... but $.data is a Table (InMemoryDataset)...
-  expect_r6_class(tab5$.data, "InMemoryDataset")
+  # ... but $.data is a Table...
+  expect_r6_class(tab5$.data, "Table")
   # ... and the mutate() was evaluated
   expect_true("negint" %in% names(tab5$.data))
 })

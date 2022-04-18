@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { targetDir, observableFromStreams } from "./util.js";
+import { targetDir, observableFromStreams } from './util.js';
 
-import del from "del";
-import gulp from "gulp";
-import mkdirp from "mkdirp";
-import gulpRename from "gulp-rename";
-import gulpReplace from "gulp-replace";
-import { memoizeTask } from "./memoize-task.js";
-import { ReplaySubject, forkJoin as ObservableForkJoin } from "rxjs";
-import { share } from "rxjs/operators";
-import util from "util";
-import stream from "stream";
+import del from 'del';
+import gulp from 'gulp';
+import mkdirp from 'mkdirp';
+import gulpRename from 'gulp-rename';
+import gulpReplace from 'gulp-replace';
+import { memoizeTask } from './memoize-task.js';
+import { ReplaySubject, forkJoin as ObservableForkJoin } from 'rxjs';
+import { share } from 'rxjs/operators';
+import util from 'util';
+import stream from 'stream';
 const pipeline = util.promisify(stream.pipeline);
 
 export const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {

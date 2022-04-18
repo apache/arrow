@@ -321,7 +321,7 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
       path = bucket;
     } else {
       if (path[0] != '/') {
-        return Status::Invalid("S3 URI should absolute, not relative");
+        return Status::Invalid("S3 URI should be absolute, not relative");
       }
       path = bucket + path;
     }
@@ -1702,6 +1702,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     S3Model::PutObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
+    req.SetBody(std::make_shared<std::stringstream>(""));
     return OutcomeToStatus(
         std::forward_as_tuple("When creating key '", key, "' in bucket '", bucket, "': "),
         client_->PutObject(req));

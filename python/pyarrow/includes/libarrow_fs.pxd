@@ -19,6 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport CTimePoint
 
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 

@@ -29,8 +29,10 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   # See query-engine.R for ExecPlan/Nodes
   tryCatch(
     tab <- do_exec_plan(x),
-    error = function(e) {
-      handle_csv_read_error(e, x$.data$schema)
+    # n = 4 because we want the error to show up as being from collect()
+    # and not handle_csv_read_error()
+    error = function(e, call = caller_env(n = 4)) {
+      handle_csv_read_error(e, x$.data$schema, call)
     }
   )
 
@@ -94,6 +96,23 @@ collapse.Dataset <- collapse.ArrowTabular <- collapse.RecordBatchReader <- funct
   arrow_dplyr_query(x)
 }
 
+# helper method to add suffix
+add_suffix <- function(fields, common_cols, suffix) {
+  # helper function which adds the suffixes to the
+  # selected column names
+  # for join relation the selected columns are the
+  # columns with same name in left and right relation
+  col_names <- names(fields)
+  new_col_names <- map(col_names, function(x) {
+    if (is.element(x, common_cols)) {
+      paste0(x, suffix)
+    } else {
+      x
+    }
+  })
+  set_names(fields, new_col_names)
+}
+
 implicit_schema <- function(.data) {
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
@@ -103,10 +122,20 @@ implicit_schema <- function(.data) {
     if (!is.null(.data$join) && !(.data$join$type %in% JoinType[1:4])) {
       # Add cols from right side, except for semi/anti joins
       right_cols <- .data$join$right_data$selected_columns
-      new_fields <- c(new_fields, map(
+      left_cols <- .data$selected_columns
+      right_fields <- map(
         right_cols[setdiff(names(right_cols), .data$join$by)],
         ~ .$type(.data$join$right_data$.data$schema)
-      ))
+      )
+      # get right table and left table column names excluding the join key
+      right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
+      left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
+      # find the common column names in left and right tables
+      common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+      # adding suffixes to the common columns in left and right tables
+      left_fields <- add_suffix(new_fields, common_cols, .data$join$suffix[[1]])
+      right_fields <- add_suffix(right_fields, common_cols, .data$join$suffix[[2]])
+      new_fields <- c(left_fields, right_fields)
     }
   } else {
     new_fields <- map(summarize_projection(.data), ~ .$type(old_schm))

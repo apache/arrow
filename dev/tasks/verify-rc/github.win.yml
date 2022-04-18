@@ -31,7 +31,7 @@ jobs:
     {% endif %}
 
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
       - uses: conda-incubator/setup-miniconda@v2
       - name: Install System Dependencies
@@ -42,4 +42,4 @@ jobs:
         shell: cmd
         run: |
           cd arrow
-          dev/release/{{ script }} {{ release|default("1.0.0") }} {{ rc|default("0") }}
+          dev/release/{{ script }} {{ release|default("") }} {{ rc|default("") }}

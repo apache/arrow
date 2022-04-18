@@ -149,6 +149,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
 
+  /// \brief Apply the TypeVisitor::Visit() method specialized to the data type
   Status Accept(TypeVisitor* visitor) const;
 
   /// \brief A string representation of the type, including any children
@@ -1613,6 +1614,11 @@ class ARROW_EXPORT FieldRef {
 
   /// Equivalent to a single index string of indices.
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
+
+  /// Construct a nested FieldRef.
+  FieldRef(std::vector<FieldRef> refs) {  // NOLINT runtime/explicit
+    Flatten(std::move(refs));
+  }
 
   /// Convenience constructor for nested FieldRefs: each argument will be used to
   /// construct a FieldRef

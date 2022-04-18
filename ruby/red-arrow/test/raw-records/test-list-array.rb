@@ -399,6 +399,45 @@ module RawRecordsListArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_month_interval
+    records = [
+      [[1, nil, 12]],
+      [nil],
+    ]
+    target = build(:month_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_day_time_interval
+    records = [
+      [
+        [
+          {day: 1, millisecond: 100},
+          nil,
+          {day: 2, millisecond: 300},
+        ]
+      ],
+      [nil],
+    ]
+    target = build(:day_time_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_month_day_nano_interval
+    records = [
+      [
+        [
+          {month: 1, day: 1, nanosecond: 100},
+          nil,
+          {month: 2, day: 3, nanosecond: 400},
+        ]
+      ],
+      [nil],
+    ]
+    target = build(:month_day_nano_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [

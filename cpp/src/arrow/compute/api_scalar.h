@@ -106,7 +106,8 @@ enum class CalendarUnit : int8_t {
 
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
-  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY);
+  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
+                                bool week_starts_monday = true);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -114,6 +115,8 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   int multiple;
   /// The unit used for rounding of time
   CalendarUnit unit;
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
@@ -264,12 +267,17 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
 
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
-  explicit StrptimeOptions(std::string format, TimeUnit::type unit);
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit,
+                           bool error_is_null = false);
   StrptimeOptions();
   static constexpr char const kTypeName[] = "StrptimeOptions";
 
+  /// The desired format string.
   std::string format;
+  /// The desired time resolution
   TimeUnit::type unit;
+  /// Return null on parsing errors if true or raise if false
+  bool error_is_null;
 };
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
@@ -737,6 +745,18 @@ Result<Datum> Log1p(const Datum& arg, ArithmeticOptions options = ArithmeticOpti
 ARROW_EXPORT
 Result<Datum> Logb(const Datum& arg, const Datum& base,
                    ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Get the square-root of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the square-root for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise square-root
+ARROW_EXPORT
+Result<Datum> Sqrt(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
                    ExecContext* ctx = NULLPTR);
 
 /// \brief Round to the nearest integer less than or equal in magnitude to the
@@ -1381,6 +1401,22 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 /// \since 6.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
+                                    ExecContext* ctx = NULLPTR);
+
+/// \brief Parse timestamps according to a format string
+///
+/// Return parsed timestamps according to the format string
+/// `StrptimeOptions::format` at time resolution `Strftime::unit`. Parse errors are
+/// raised depending on the `Strftime::error_is_null` setting.
+///
+/// \param[in] values input strings
+/// \param[in] options for setting format string, unit and error_is_null
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Strptime(const Datum& values, StrptimeOptions options,
                                     ExecContext* ctx = NULLPTR);
 
 /// \brief Converts timestamps from local timestamp without a timezone to a timestamp with

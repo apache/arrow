@@ -44,7 +44,7 @@
 # Ensure that all machines are sorting the same way
 invisible(Sys.setlocale("LC_COLLATE", "C"))
 
-features <- c("arrow", "dataset", "parquet", "s3", "json")
+features <- c("arrow", "dataset", "engine", "parquet", "s3", "json")
 
 suppressPackageStartupMessages({
   library(decor)
@@ -119,10 +119,10 @@ arrow_classes <- c(
 # This takes a cpp11 C wrapper and conditionally makes it available based on
 # a feature decoration
 ifdef_wrap <- function(cpp11_wrapped, name, sexp_signature, decoration) {
-  # if (identical(decoration, "arrow")) {
-  #   # Arrow is now required
-  #   return(cpp11_wrapped)
-  # }
+  if (identical(decoration, "arrow")) {
+    # Arrow is now required
+    return(cpp11_wrapped)
+  }
   glue('
 #if defined(ARROW_R_WITH_{toupper(decoration)})
 {cpp11_wrapped}
@@ -184,9 +184,9 @@ glue::glue_collapse(glue::glue('
 '
 static const R_CallMethodDef CallEntries[] = {
 ',
-glue::glue_collapse(glue::glue('
-\t\t{{ "_{features}_available", (DL_FUNC)& _{features}_available, 0 }},
-'), sep = '\n'),
+glue::glue_collapse(glue::glue(
+  '\t\t{{ "_{features}_available", (DL_FUNC)& _{features}_available, 0 }},',
+), sep = '\n'),
 glue::glue('\n
 {cpp_functions_registration}
 \t\t{{NULL, NULL, 0}}

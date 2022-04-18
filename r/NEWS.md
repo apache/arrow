@@ -19,11 +19,22 @@
 
 # arrow 7.0.0.9000
 
+* `read_csv_arrow()`'s readr-style type `T` is now mapped to `timestamp(unit = "ns")` instead of `timestamp(unit = "s")`.
+* `lubridate`:
+  * component extraction functions: `tz()` (timezone), `semester()` (semester), `dst()` (daylight savings time indicator), `date()` (extract date), `epiyear()` (epiyear), improvements to `month()`, which now works with integer inputs.
+  * Added `make_date()` & `make_datetime()` + `ISOdatetime()` & `ISOdate()` to create date-times from numeric representations. 
+  * Added `decimal_date()` and `date_decimal()`
+* date-time functionality:
+  * Added `difftime` and `as.difftime()` 
+  * Added `as.Date()` to convert to date
+* `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
+* Removed Solaris workarounds, libarrow is now required.
+
 # arrow 7.0.0
 
 ## Enhancements to dplyr and datasets
 
-* Additional `lubridate` features: `week()`, more of the `is.*()` functions, and the label argument to `month()` have been implemented.
+* Additional `{lubridate}` features: `week()`, more of the `is.*()` functions, and the label argument to `month()` have been implemented.
 * More complex expressions inside `summarize()`, such as `ifelse(n() > 1, mean(y), mean(z))`, are supported.
 * When adding columns in a dplyr pipeline, one can now use `tibble` and `data.frame` to create columns of tibbles or data.frames respectively (e.g. `... %>% mutate(df_col = tibble(a, b)) %>% ...`).
 * Dictionary columns (R `factor` type) are supported inside of `coalesce()`.
@@ -428,7 +439,7 @@ See `vignette("python", package = "arrow")` for details.
 ## Datasets
 
 * Dataset reading benefits from many speedups and fixes in the C++ library
-* Datasets have a `dim()` method, which sums rows across all files (#6635, @boshek)
+* Datasets have a `dim()` method, which sums rows across all files (ARROW-8118, @boshek)
 * Combine multiple datasets into a single queryable `UnionDataset` with the `c()` method
 * Dataset filtering now treats `NA` as `FALSE`, consistent with `dplyr::filter()`
 * Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types
@@ -452,8 +463,8 @@ See `vignette("python", package = "arrow")` for details.
 * `install_arrow()` now installs the latest release of `arrow`, including Linux dependencies, either for CRAN releases or for development builds (if `nightly = TRUE`)
 * Package installation on Linux no longer downloads C++ dependencies unless the `LIBARROW_DOWNLOAD` or `NOT_CRAN` environment variable is set
 * `write_feather()`, `write_arrow()` and `write_parquet()` now return their input,
-similar to the `write_*` functions in the `readr` package (#6387, @boshek)
-* Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (#6275, @michaelchirico)
+similar to the `write_*` functions in the `readr` package (ARROW-7796, @boshek)
+* Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (ARROW-7662, @michaelchirico)
 
 # arrow 0.16.0
 
@@ -485,12 +496,12 @@ See `vignette("install", package = "arrow")` for details.
 
 * `write_parquet()` now supports compression
 * `codec_is_available()` returns `TRUE` or `FALSE` whether the Arrow C++ library was built with support for a given compression library (e.g. gzip, lz4, snappy)
-* Windows builds now include support for zstd and lz4 compression (#5814, @gnguy)
+* Windows builds now include support for zstd and lz4 compression (ARROW-6960, @gnguy)
 
 ## Other fixes and improvements
 
 * Arrow null type is now supported
-* Factor types are now preserved in round trip through Parquet format (#6135, @yutannihilation)
+* Factor types are now preserved in round trip through Parquet format (ARROW-7045, @yutannihilation)
 * Reading an Arrow dictionary type coerces dictionary values to `character` (as R `factor` levels are required to be) instead of raising an error
 * Many improvements to Parquet function documentation (@karldw, @khughitt)
 

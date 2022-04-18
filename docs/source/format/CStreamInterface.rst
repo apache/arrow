@@ -154,6 +154,12 @@ Stream lifetime
 Lifetime of the C stream is managed using a release callback with similar
 usage as in the :ref:`C data interface <c-data-interface-released>`.
 
+Thread safety
+-------------
+
+The stream source is not assumed to be thread-safe.  Consumers wanting to
+call ``get_next`` from several threads should ensure those calls are
+serialized.
 
 C consumer example
 ==================

@@ -166,6 +166,7 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
         # them
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
                               dtype='datetime64[ms]'),
+        'timedelta': np.arange(0, size, dtype="timedelta64[s]"),
         'str': pd.Series([str(x) for x in range(size)]),
         'empty_str': [''] * size,
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],

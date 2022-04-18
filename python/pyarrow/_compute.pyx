@@ -313,6 +313,17 @@ cdef class Function(_Weakrefable):
              MemoryPool memory_pool=None):
         """
         Call the function on the given arguments.
+
+        Parameters
+        ----------
+        args : iterable
+            The arguments to pass to the function.  Accepted types depend
+            on the specific function.
+        options : FunctionOptions, optional
+            Options instance for executing this function.  This should have
+            the right concrete options type.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
         """
         cdef:
             const CFunctionOptions* c_options = NULL
@@ -867,10 +878,11 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-    def _set_options(self, multiple, unit):
+    def _set_options(self, multiple, unit, week_starts_monday):
         self.wrapped.reset(
             new CRoundTemporalOptions(
-                multiple, unwrap_round_temporal_unit(unit))
+                multiple, unwrap_round_temporal_unit(unit),
+                week_starts_monday)
         )
 
 
@@ -882,15 +894,17 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     ----------
     multiple : int, default 1
         Number of units to round to.
-    unit : str, default "second"
+    unit : str, default "day"
         The unit in which `multiple` is expressed.
         Accepted values are "year", "quarter", "month", "week", "day",
         "hour", "minute", "second", "millisecond", "microsecond",
         "nanosecond".
+    week_starts_monday : bool, default True
+        If True, weeks start on Monday; if False, on Sunday.
     """
 
-    def __init__(self, multiple=1, unit="second"):
-        self._set_options(multiple, unit)
+    def __init__(self, multiple=1, unit="day", week_starts_monday=True):
+        self._set_options(multiple, unit, week_starts_monday)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
@@ -1435,10 +1449,11 @@ cdef class _StrptimeOptions(FunctionOptions):
         "ns": TimeUnit_NANO,
     }
 
-    def _set_options(self, format, unit):
+    def _set_options(self, format, unit, error_is_null):
         try:
             self.wrapped.reset(
-                new CStrptimeOptions(tobytes(format), self._unit_map[unit])
+                new CStrptimeOptions(tobytes(format), self._unit_map[unit],
+                                     error_is_null)
             )
         except KeyError:
             _raise_invalid_function_option(unit, "time unit")
@@ -1455,10 +1470,12 @@ class StrptimeOptions(_StrptimeOptions):
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
+    error_is_null : boolean, default False
+        Return null on parsing errors if true or raise if false.
     """
 
-    def __init__(self, format, unit):
-        self._set_options(format, unit)
+    def __init__(self, format, unit, error_is_null=False):
+        self._set_options(format, unit, error_is_null)
 
 
 cdef class _StrftimeOptions(FunctionOptions):
@@ -1999,8 +2016,8 @@ cdef class Expression(_Weakrefable):
       ``|`` (logical or) and ``~`` (logical not).
       Note: python keywords ``and``, ``or`` and ``not`` cannot be used
       to combine expressions.
-    - Check whether the expression is contained in a list of values with
-      the ``pyarrow.compute.Expression.isin()`` member function.
+    - Create expression predicates using Expression methods such as
+      ``pyarrow.compute.Expression.isin()``.
 
     Examples
     --------
@@ -2124,21 +2141,76 @@ cdef class Expression(_Weakrefable):
         return Expression._call("divide_checked", [self, other])
 
     def is_valid(self):
-        """Checks whether the expression is not-null (valid)"""
+        """
+        Check whether the expression is not-null (valid).
+
+        This creates a new expression equivalent to calling the
+        `is_valid` compute function on this expression.
+
+        Returns
+        -------
+        is_valid : Expression
+        """
         return Expression._call("is_valid", [self])
 
     def is_null(self, bint nan_is_null=False):
-        """Checks whether the expression is null"""
+        """
+        Check whether the expression is null.
+
+        This creates a new expression equivalent to calling the
+        `is_null` compute function on this expression.
+
+        Parameters
+        ----------
+        nan_is_null : boolean, default False
+            Whether floating-point NaNs are considered null.
+
+        Returns
+        -------
+        is_null : Expression
+        """
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
 
     def cast(self, type, bint safe=True):
-        """Explicitly change the expression's data type"""
+        """
+        Explicitly set or change the expression's data type.
+
+        This creates a new expression equivalent to calling the
+        `cast` compute function on this expression.
+
+        Parameters
+        ----------
+        type : DataType
+            Type to cast array to.
+        safe : boolean, default True
+            Whether to check for conversion errors such as overflow.
+
+        Returns
+        -------
+        cast : Expression
+        """
         options = CastOptions.safe(ensure_type(type))
         return Expression._call("cast", [self], options)
 
     def isin(self, values):
-        """Checks whether the expression is contained in values"""
+        """
+        Check whether the expression is contained in values.
+
+        This creates a new expression equivalent to calling the
+        `is_in` compute function on this expression.
+
+        Parameters
+        ----------
+        values : Array or iterable
+            The values to check for.
+
+        Returns
+        -------
+        isin : Expression
+            A new expression that, when evaluated, checks whether
+            this expression's value is contained in `values`.
+        """
         if not isinstance(values, Array):
             values = lib.array(values)
 
@@ -2146,8 +2218,27 @@ cdef class Expression(_Weakrefable):
         return Expression._call("is_in", [self], options)
 
     @staticmethod
-    def _field(str name not None):
-        return Expression.wrap(CMakeFieldExpression(tobytes(name)))
+    def _field(name_or_idx not None):
+        cdef:
+            CFieldRef c_field
+
+        if isinstance(name_or_idx, int):
+            return Expression.wrap(CMakeFieldExpressionByIndex(name_or_idx))
+        else:
+            c_field = CFieldRef(<c_string> tobytes(name_or_idx))
+            return Expression.wrap(CMakeFieldExpression(c_field))
+
+    @staticmethod
+    def _nested_field(tuple names not None):
+        cdef:
+            vector[CFieldRef] nested
+
+        if len(names) == 0:
+            raise ValueError("nested field reference should be non-empty")
+        nested.reserve(len(names))
+        for name in names:
+            nested.push_back(CFieldRef(<c_string> tobytes(name)))
+        return Expression.wrap(CMakeFieldExpression(CFieldRef(move(nested))))
 
     @staticmethod
     def _scalar(value):

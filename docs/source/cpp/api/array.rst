@@ -78,3 +78,12 @@ Chunked Arrays
 .. doxygenclass:: arrow::ChunkedArray
    :project: arrow_cpp
    :members:
+
+
+Utilities
+=========
+
+.. doxygenclass:: arrow::ArrayVisitor
+   :project: arrow_cpp
+   :members:
+   :undoc-members:

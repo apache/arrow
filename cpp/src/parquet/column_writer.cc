@@ -1862,6 +1862,7 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
       WRITE_SERIALIZE_CASE(UINT32, UInt32Type, Int64Type)
       WRITE_SERIALIZE_CASE(UINT64, UInt64Type, Int64Type)
       WRITE_ZERO_COPY_CASE(TIME64, Time64Type, Int64Type)
+      WRITE_ZERO_COPY_CASE(DURATION, DurationType, Int64Type)
     default:
       ARROW_UNSUPPORTED();
   }

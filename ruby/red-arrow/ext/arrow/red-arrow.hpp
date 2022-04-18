@@ -47,6 +47,13 @@ namespace red_arrow {
   extern ID id_new;
   extern ID id_to_datetime;
 
+  namespace symbols {
+    extern VALUE day;
+    extern VALUE millisecond;
+    extern VALUE month;
+    extern VALUE nanosecond;
+  }
+
   VALUE array_values(VALUE obj);
   VALUE chunked_array_values(VALUE obj);
 

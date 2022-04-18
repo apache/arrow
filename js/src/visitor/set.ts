@@ -118,8 +118,8 @@ export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epo
 
 /** @ignore */
 export const setVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number, value: Uint8Array) => {
-    const { [index]: x, [index + 1]: y } = valueOffsets;
-    if (x != null && y != null) {
+    if (index + 1 < valueOffsets.length) {
+        const { [index]: x, [index + 1]: y } = valueOffsets;
         values.set(value.subarray(0, y - x), x);
     }
 };
@@ -230,7 +230,7 @@ const setList = <T extends List>(data: Data<T>, index: number, value: T['TValue'
 /** @ignore */
 const setMap = <T extends Map_>(data: Data<T>, index: number, value: T['TValue']) => {
     const values = data.children[0];
-    const valueOffsets = data.valueOffsets;
+    const { valueOffsets } = data;
     const set = instance.getVisitFn(values);
     let { [index]: idx, [index + 1]: end } = valueOffsets;
     const entries = value instanceof Map ? value.entries() : Object.entries(value);

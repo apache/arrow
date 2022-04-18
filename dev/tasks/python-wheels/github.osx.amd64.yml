@@ -90,7 +90,7 @@ jobs:
       - name: Build Wheel
         shell: bash
         run: |
-          $PYTHON -m virtualenv build-env
+          $PYTHON -m venv build-env
           source build-env/bin/activate
           pip install --upgrade pip wheel
           arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
@@ -98,7 +98,7 @@ jobs:
       - name: Test Wheel
         shell: bash
         run: |
-          $PYTHON -m virtualenv test-env
+          $PYTHON -m venv test-env
           source test-env/bin/activate
           pip install --upgrade pip wheel
           arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow

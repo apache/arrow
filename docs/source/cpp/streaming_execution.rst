@@ -322,6 +322,8 @@ This is the list of operations associated with the execution plan:
      - Options
    * - ``source``
      - :class:`arrow::compute::SourceNodeOptions`
+   * - ``table_source``
+     - :class:`arrow::compute::TableSourceNodeOptions`
    * - ``filter``
      - :class:`arrow::compute::FilterNodeOptions`
    * - ``project``
@@ -344,7 +346,8 @@ This is the list of operations associated with the execution plan:
      - :class:`arrow::dataset::WriteNodeOptions`
    * - ``union``
      - N/A
-
+   * - ``table_sink``
+     - :class:`arrow::compute::TableSinkNodeOptions`
 
 .. _stream_execution_source_docs:
 
@@ -393,6 +396,28 @@ Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<
   :language: cpp
   :start-after: (Doc section: Source Example)
   :end-before: (Doc section: Source Example)
+  :linenos:
+  :lineno-match:
+
+``table_source``
+----------------
+
+.. _stream_execution_table_source_docs:
+
+In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
+was used to input the data.  But when developing an application, if the data is already in memory
+as a table, it is much easier, and more performant to use :class:`arrow::compute::TableSourceNodeOptions`.
+Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. 
+The ``max_batch_size`` is to break up large record batches so that they can be processed in parallel.
+It is important to note that the table batches will not get merged to form larger batches when the source
+table has a smaller batch size. 
+
+Example of using ``table_source``
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Table Source Example)
+  :end-before: (Doc section: Table Source Example)
   :linenos:
   :lineno-match:
 
@@ -623,6 +648,25 @@ SelectK example:
   :lineno-match:
 
 .. _stream_execution_scan_docs:
+
+``table_sink``
+----------------
+
+.. _stream_execution_table_sink_docs:
+
+The ``table_sink`` node provides the ability to receive the output as an in-memory table. 
+This is simpler to use than the other sink nodes provided by the streaming execution engine
+but it only makes sense when the output fits comfortably in memory.
+The node is created using :class:`arrow::compute::TableSinkNodeOptions`.
+
+Example of using ``table_sink``
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Table Sink Example)
+  :end-before: (Doc section: Table Sink Example)
+  :linenos:
+  :lineno-match:
 
 ``scan``
 ---------

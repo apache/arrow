@@ -37,6 +37,9 @@ import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
 import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
+// @ts-ignore
+import type { vectorFromArray } from './factories.js';
+
 export interface Vector<T extends DataType = any> {
     ///
     // Virtual properties for the TypeScript compiler.

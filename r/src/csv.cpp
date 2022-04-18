@@ -202,4 +202,12 @@ void csv___WriteCSV__RecordBatch(
   StopIfNotOk(arrow::csv::WriteCSV(*record_batch, *write_options, stream.get()));
 }
 
+// [[arrow::export]]
+void csv___WriteCSV__RecordBatchReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader,
+    const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
+    const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  StopIfNotOk(arrow::csv::WriteCSV(reader, *write_options, stream.get()));
+}
+
 #endif

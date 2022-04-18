@@ -23,6 +23,14 @@ template:
   params:
     bootswatch: cosmo
     ganalytics: UA-107500873-1
+  opengraph:
+    image:
+      src: https://arrow.apache.org/img/arrow-logo_horizontal_black-txt_white-bg.png
+      alt: "Apache Arrow logo, displaying the triple chevron image adjacent to the text"
+    twitter:
+      creator: "@apachearrow"
+      site: "@apachearrow"
+      card: summary_large_image
 navbar:
   structure:
     left:
@@ -136,6 +144,8 @@ reference:
       - buffer
       - read_message
       - concat_arrays
+      - ExtensionArray
+      - vctrs_extension_array
   - title: Arrow data types and schema
     contents:
       - Schema
@@ -148,6 +158,9 @@ reference:
       - DataType
       - DictionaryType
       - FixedWidthType
+      - new_extension_type
+      - vctrs_extension_type
+      - ExtensionType
   - title: Flight
     contents:
       - load_flight_server

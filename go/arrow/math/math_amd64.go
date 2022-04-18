@@ -19,7 +19,7 @@
 package math
 
 import (
-	"github.com/apache/arrow/go/v8/arrow/internal/cpu"
+	"golang.org/x/sys/cpu"
 )
 
 func init() {

@@ -443,10 +443,10 @@ struct ScalarToProtoImpl {
     return Status::OK();
   }
 
-  template <typename ScalarWithBufferValue>
-  Status FromBuffer(void (substrait::Expression::Literal::*set)(std::string&&),
+  template <typename LiteralSetter, typename ScalarWithBufferValue>
+  Status FromBuffer(LiteralSetter&& set_lit,
                     const ScalarWithBufferValue& scalar_with_buffer) {
-    (lit_->*set)(scalar_with_buffer.value->ToString());
+    set_lit(lit_, scalar_with_buffer.value->ToString());
     return Status::OK();
   }
 
@@ -466,11 +466,18 @@ struct ScalarToProtoImpl {
   Status Visit(const FloatScalar& s) { return Primitive(&Lit::set_fp32, s); }
   Status Visit(const DoubleScalar& s) { return Primitive(&Lit::set_fp64, s); }
 
-  Status Visit(const StringScalar& s) { return FromBuffer(&Lit::set_string, s); }
-  Status Visit(const BinaryScalar& s) { return FromBuffer(&Lit::set_binary, s); }
+  Status Visit(const StringScalar& s) {
+    return FromBuffer([](Lit* lit, std::string&& s) { lit->set_string(std::move(s)); },
+                      s);
+  }
+  Status Visit(const BinaryScalar& s) {
+    return FromBuffer([](Lit* lit, std::string&& s) { lit->set_binary(std::move(s)); },
+                      s);
+  }
 
   Status Visit(const FixedSizeBinaryScalar& s) {
-    return FromBuffer(&Lit::set_fixed_binary, s);
+    return FromBuffer(
+        [](Lit* lit, std::string&& s) { lit->set_fixed_binary(std::move(s)); }, s);
   }
 
   Status Visit(const Date32Scalar& s) { return Primitive(&Lit::set_date, s); }
@@ -594,13 +601,14 @@ struct ScalarToProtoImpl {
 
   Status Visit(const ExtensionScalar& s) {
     if (UnwrapUuid(*s.type)) {
-      return FromBuffer(&Lit::set_uuid,
+      return FromBuffer([](Lit* lit, std::string&& s) { lit->set_uuid(std::move(s)); },
                         checked_cast<const FixedSizeBinaryScalar&>(*s.value));
     }
 
     if (UnwrapFixedChar(*s.type)) {
-      return FromBuffer(&Lit::set_fixed_char,
-                        checked_cast<const FixedSizeBinaryScalar&>(*s.value));
+      return FromBuffer(
+          [](Lit* lit, std::string&& s) { lit->set_fixed_char(std::move(s)); },
+          checked_cast<const FixedSizeBinaryScalar&>(*s.value));
     }
 
     if (auto length = UnwrapVarChar(*s.type)) {
@@ -857,7 +865,8 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
     // catch the special case of calls convertible to a ListElement
     if (arguments[0]->has_selection() &&
         arguments[0]->selection().has_direct_reference()) {
-      if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
+      if (arguments[1]->has_literal() && arguments[1]->literal().literal_type_case() ==
+                                             substrait::Expression_Literal::kI32) {
         return MakeListElementReference(std::move(arguments[0]),
                                         arguments[1]->literal().i32());
       }

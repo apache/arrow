@@ -355,17 +355,20 @@ class SlowFlightServer(FlightServerBase):
 class ErrorFlightServer(FlightServerBase):
     """A Flight server that uses all the Flight-specific errors."""
 
+    errors = {
+        "internal": flight.FlightInternalError,
+        "timedout": flight.FlightTimedOutError,
+        "cancel": flight.FlightCancelledError,
+        "unauthenticated": flight.FlightUnauthenticatedError,
+        "unauthorized": flight.FlightUnauthorizedError,
+        "notimplemented": NotImplementedError,
+        "invalid": pa.ArrowInvalid,
+        "key": KeyError,
+    }
+
     def do_action(self, context, action):
-        if action.type == "internal":
-            raise flight.FlightInternalError("foo")
-        elif action.type == "timedout":
-            raise flight.FlightTimedOutError("foo")
-        elif action.type == "cancel":
-            raise flight.FlightCancelledError("foo")
-        elif action.type == "unauthenticated":
-            raise flight.FlightUnauthenticatedError("foo")
-        elif action.type == "unauthorized":
-            raise flight.FlightUnauthorizedError("foo")
+        if action.type in self.errors:
+            raise self.errors[action.type]("foo")
         elif action.type == "protobuf":
             err_msg = b'this is an error message'
             raise flight.FlightUnauthorizedError("foo", err_msg)
@@ -1561,16 +1564,9 @@ def test_roundtrip_errors():
     with ErrorFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
 
-        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
-            list(client.do_action(flight.Action("internal", b"")))
-        with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
-            list(client.do_action(flight.Action("timedout", b"")))
-        with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
-            list(client.do_action(flight.Action("cancel", b"")))
-        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
-            list(client.do_action(flight.Action("unauthenticated", b"")))
-        with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
-            list(client.do_action(flight.Action("unauthorized", b"")))
+        for arg, exc_type in ErrorFlightServer.errors.items():
+            with pytest.raises(exc_type, match=".*foo.*"):
+                list(client.do_action(flight.Action(arg, b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
 

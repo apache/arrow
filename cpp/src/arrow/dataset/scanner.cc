@@ -35,10 +35,12 @@
 #include "arrow/dataset/plan.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/config.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -86,6 +88,87 @@ class ScannerRecordBatchReader : public RecordBatchReader {
   std::shared_ptr<Schema> schema_;
   TaggedRecordBatchIterator delegate_;
 };
+
+const FieldVector kAugmentedFields{
+    field("__fragment_index", int32()),
+    field("__batch_index", int32()),
+    field("__last_in_fragment", boolean()),
+    field("__filename", utf8()),
+};
+
+// Scan options has a number of options that we can infer from the dataset
+// schema if they are not specified.
+Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
+                            const std::shared_ptr<Schema>& dataset_schema) {
+  if (scan_options->dataset_schema == nullptr) {
+    scan_options->dataset_schema = dataset_schema;
+  }
+
+  if (!scan_options->filter.IsBound()) {
+    ARROW_ASSIGN_OR_RAISE(scan_options->filter,
+                          scan_options->filter.Bind(*dataset_schema));
+  }
+
+  if (!scan_options->projected_schema) {
+    // If the user specifies a projection expression we can maybe infer from
+    // that expression
+    if (scan_options->projection.IsBound()) {
+      if (auto call = scan_options->projection.call()) {
+        if (call->function_name != "make_struct") {
+          return Status::Invalid(
+              "Top level projection expression call must be make_struct");
+        }
+        FieldVector fields;
+        for (const auto& arg : call->arguments) {
+          if (auto field_ref = arg.field_ref()) {
+            if (field_ref->IsName()) {
+              fields.push_back(field(*field_ref->name(), arg.type()));
+              break;
+            }
+          }
+          // Either the expression for this field is not a field_ref or it is not a
+          // simple field_ref.  User must supply projected_schema
+          return Status::Invalid(
+              "No projected schema was supplied and we could not infer the projected "
+              "schema from the projection expression.");
+        }
+        scan_options->projected_schema = schema(fields);
+      }
+      // If the projection isn't a call we assume it's literal(true) or some
+      // invalid expression and just ignore it.  It will be replaced below
+    }
+
+    // If we couldn't infer it from the projection expression then just grab all
+    // fields from the dataset
+    if (!scan_options->projected_schema) {
+      ARROW_ASSIGN_OR_RAISE(auto projection_descr,
+                            ProjectionDescr::Default(*dataset_schema));
+      scan_options->projected_schema = std::move(projection_descr.schema);
+      scan_options->projection = projection_descr.expression;
+    }
+  }
+
+  if (scan_options->projection == compute::literal(true)) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto projection_descr,
+        ProjectionDescr::FromNames(scan_options->projected_schema->field_names(),
+                                   *dataset_schema));
+    scan_options->projection = projection_descr.expression;
+  }
+
+  if (!scan_options->projection.IsBound()) {
+    auto fields = dataset_schema->fields();
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(scan_options->projection,
+                          scan_options->projection.Bind(Schema(std::move(fields))));
+  }
+
+  return Status::OK();
+}
+
 }  // namespace
 
 namespace {
@@ -126,6 +209,18 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
 Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
     const Enumerated<std::shared_ptr<Fragment>>& fragment,
     const std::shared_ptr<ScanOptions>& options) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan(
+      "arrow::dataset::FragmentToBatches",
+      {
+          {"arrow.dataset.fragment", fragment.value->ToString()},
+          {"arrow.dataset.fragment.index", fragment.index},
+          {"arrow.dataset.fragment.last", fragment.last},
+          {"arrow.dataset.fragment.type_name", fragment.value->type_name()},
+      });
+  auto scope = tracer->WithActiveSpan(span);
+#endif
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, fragment.value->ScanBatchesAsync(options));
   ArrayVector columns;
   for (const auto& field : options->dataset_schema->fields()) {
@@ -134,6 +229,7 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
                           MakeArrayOfNull(field->type(), /*length=*/0, options->pool));
     columns.push_back(std::move(array));
   }
+  WRAP_ASYNC_GENERATOR(batch_gen);
   batch_gen = MakeDefaultIfEmptyGenerator(
       std::move(batch_gen),
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
@@ -150,17 +246,14 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
 Result<AsyncGenerator<EnumeratedRecordBatchGenerator>> FragmentsToBatches(
     FragmentGenerator fragment_gen, const std::shared_ptr<ScanOptions>& options) {
   auto enumerated_fragment_gen = MakeEnumeratedGenerator(std::move(fragment_gen));
-  return MakeMappedGenerator(std::move(enumerated_fragment_gen),
-                             [=](const Enumerated<std::shared_ptr<Fragment>>& fragment) {
-                               return FragmentToBatches(fragment, options);
-                             });
+  auto batch_gen_gen =
+      MakeMappedGenerator(std::move(enumerated_fragment_gen),
+                          [=](const Enumerated<std::shared_ptr<Fragment>>& fragment) {
+                            return FragmentToBatches(fragment, options);
+                          });
+  PROPAGATE_SPAN_TO_GENERATOR(std::move(batch_gen_gen));
+  return batch_gen_gen;
 }
-
-const FieldVector kAugmentedFields{
-    field("__fragment_index", int32()),
-    field("__batch_index", int32()),
-    field("__last_in_fragment", boolean()),
-};
 
 class OneShotFragment : public Fragment {
  public:
@@ -244,6 +337,8 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   if (!scan_options_->use_threads) {
     cpu_executor = nullptr;
   }
+
+  RETURN_NOT_OK(NormalizeScanOptions(scan_options_, dataset_->schema()));
 
   auto exec_context =
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
@@ -632,8 +727,12 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
   for (size_t i = 0; i < exprs.size(); ++i) {
     exprs[i] = compute::field_ref(names[i]);
   }
+  auto fields = dataset_schema.fields();
+  for (const auto& aug_field : kAugmentedFields) {
+    fields.push_back(aug_field);
+  }
   return ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
-                                          dataset_schema);
+                                          Schema(fields, dataset_schema.metadata()));
 }
 
 Result<ProjectionDescr> ProjectionDescr::Default(const Schema& dataset_schema) {
@@ -757,35 +856,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   const auto& backpressure_toggle = scan_node_options.backpressure_toggle;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
 
-  if (scan_options->dataset_schema == nullptr) {
-    scan_options->dataset_schema = dataset->schema();
-  }
-
-  if (!scan_options->filter.IsBound()) {
-    ARROW_ASSIGN_OR_RAISE(scan_options->filter,
-                          scan_options->filter.Bind(*dataset->schema()));
-  }
-
-  // If no projection schema is specified we will use a default projection.  In
-  // general we should not be able to get here if using the ScannerBuilder but
-  // it is possible to get here if scan_options is used directly.  To be cleaned up
-  // in ARROW-12311
-  if (!scan_options->projected_schema) {
-    ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                          ProjectionDescr::Default(*dataset->schema()));
-    scan_options->projected_schema = std::move(projection_descr.schema);
-    scan_options->projection = projection_descr.expression;
-  }
-
-  if (!scan_options->projection.IsBound()) {
-    auto fields = dataset->schema()->fields();
-    for (const auto& aug_field : kAugmentedFields) {
-      fields.push_back(aug_field);
-    }
-
-    ARROW_ASSIGN_OR_RAISE(scan_options->projection,
-                          scan_options->projection.Bind(Schema(std::move(fields))));
-  }
+  RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 
   // using a generator for speculative forward compatibility with async fragment discovery
   ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset->GetFragments(scan_options->filter));
@@ -829,6 +900,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         batch->values.emplace_back(partial.fragment.index);
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
+        batch->values.emplace_back(partial.fragment.value->ToString());
         return batch;
       });
 

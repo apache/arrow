@@ -38,6 +38,7 @@ set(ARROW_LIBRARY_PATH_SUFFIXES "@ARROW_LIBRARY_PATH_SUFFIXES@")
 set(ARROW_INCLUDE_PATH_SUFFIXES "@ARROW_INCLUDE_PATH_SUFFIXES@")
 set(ARROW_SYSTEM_DEPENDENCIES "@ARROW_SYSTEM_DEPENDENCIES@")
 set(ARROW_BUNDLED_STATIC_LIBS "@ARROW_BUNDLED_STATIC_LIBS@")
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS "@ARROW_STATIC_INSTALL_INTERFACE_LIBS@")
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowOptions.cmake")
 
@@ -79,11 +80,12 @@ if(NOT (TARGET arrow_shared OR TARGET arrow_static))
         PROPERTIES
           IMPORTED_LOCATION
           "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        )
-
+          INTERFACE_LINK_LIBRARIES
+          "${ARROW_STATIC_INSTALL_INTERFACE_LIBS}"
+      )
       get_property(arrow_static_interface_link_libraries
-                  TARGET arrow_static
-                  PROPERTY INTERFACE_LINK_LIBRARIES)
+                   TARGET arrow_static
+                   PROPERTY INTERFACE_LINK_LIBRARIES)
       set_target_properties(
         arrow_static PROPERTIES INTERFACE_LINK_LIBRARIES
         "${arrow_static_interface_link_libraries};arrow_bundled_dependencies")

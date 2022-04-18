@@ -15,10 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
+suppressPackageStartupMessages(library(lubridate))
 
 
 tbl <- example_data
@@ -99,6 +100,14 @@ test_that("explicit type conversions with as.*()", {
         dbl2dbl = as.double(dbl),
         dbl2int = as.integer(dbl),
         dbl2num = as.numeric(dbl),
+        rint2chr = as.character(1L),
+        rint2dbl = as.double(1),
+        rint2int = as.integer(1L),
+        rint2num = as.numeric(1.5),
+        rdbl2chr = as.character(1.5),
+        rdbl2dbl = as.double(1.5),
+        rdbl2int = as.integer(1.5),
+        rdbl2num = as.numeric(1.5)
       ) %>%
       collect(),
     tbl
@@ -109,7 +118,11 @@ test_that("explicit type conversions with as.*()", {
         chr2chr = as.character(chr),
         chr2dbl = as.double(chr),
         chr2int = as.integer(chr),
-        chr2num = as.numeric(chr)
+        chr2num = as.numeric(chr),
+        rchr2chr = as.character("string"),
+        rchr2dbl = as.double("1.5"),
+        rchr2int = as.integer("1"),
+        rchr2num = as.numeric("1.5")
       ) %>%
       collect(),
     tibble(chr = c("1", "2", "3"))
@@ -120,6 +133,9 @@ test_that("explicit type conversions with as.*()", {
         chr2i64 = as.integer64(chr),
         dbl2i64 = as.integer64(dbl),
         i642i64 = as.integer64(i64),
+        rchr2i64 = as.integer64("10000000000"),
+        rdbl2i64 = as.integer64(10000000000),
+        ri642i64 = as.integer64(as.integer64(1e10))
       ) %>%
       collect(),
     tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
@@ -129,7 +145,10 @@ test_that("explicit type conversions with as.*()", {
       transmute(
         chr2lgl = as.logical(chr),
         dbl2lgl = as.logical(dbl),
-        int2lgl = as.logical(int)
+        int2lgl = as.logical(int),
+        rchr2lgl = as.logical("TRUE"),
+        rdbl2lgl = as.logical(0),
+        rint2lgl = as.logical(1L)
       ) %>%
       collect(),
     tibble(
@@ -152,11 +171,24 @@ test_that("explicit type conversions with as.*()", {
         lgl2chr = as.character(lgl), # Arrow returns "true", "false" here ...
         lgl2dbl = as.double(lgl),
         lgl2int = as.integer(lgl),
-        lgl2lgl = as.logical(lgl)
+        lgl2lgl = as.logical(lgl),
+        rdbl2chr = as.character(1.5),
+        rdbl2dbl = as.double(1.5),
+        rdbl2int = as.integer(1.5),
+        rdbl2lgl = as.logical(1),
+        rint2chr = as.character(1L),
+        rint2dbl = as.double(1L),
+        rint2int = as.integer(1L),
+        rint2lgl = as.logical(1L),
+        rlgl2chr = as.character(TRUE), # Arrow returns "true", "false" here ...
+        rlgl2dbl = as.double(FALSE),
+        rlgl2int = as.integer(NA),
+        rlgl2lgl = as.logical(FALSE)
       ) %>%
       collect() %>%
       # need to use toupper() *after* collect() or else skip if utf8proc not available
-      mutate(lgl2chr = toupper(lgl2chr)), # ... but we need "TRUE", "FALSE"
+      mutate(lgl2chr = toupper(lgl2chr),
+             rlgl2chr = toupper(rlgl2chr)), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
       int = c(1L, 0L, NA_integer_),
@@ -766,5 +798,183 @@ test_that("nested structs can be created from scalars and existing data frames",
       ) %>%
       collect(),
     tibble(a = 1:2)
+  )
+
+  })
+
+test_that("as.Date() converts successfully from date, timestamp, integer, char and double", {
+  test_df <- tibble::tibble(
+    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
+    date_var = as.Date("2022-02-25"),
+    character_ymd_var = "2022-02-25 00:00:01",
+    character_ydm_var = "2022/25/02 00:00:01",
+    integer_var = 32L,
+    double_var = 34.56
+  )
+
+  # casting from POSIXct treated separately so we can skip on Windows
+  # TODO move the test for casting from POSIXct below once ARROW-13168 is done
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_dv = as.Date(date_var),
+        date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_int = as.Date(integer_var, origin = "1970-01-01")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # currently we do not support an origin different to "1970-01-01"
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  # we do not support multiple tryFormats
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var,
+                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
+      collect(),
+    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
+    fixed = TRUE
+  )
+
+  # we do not support as.Date() with double/ float
+  compare_dplyr_binding(
+     .input %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+      collect(),
+     test_df,
+     warning = TRUE
+  )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_pv = as.Date(posixct_var),
+        date_pv_tz = as.Date(posixct_var, tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("format date/time", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # In 3.4 the lack of tzone attribute causes spurious failures
+  skip_if_r_version("3.4.4")
+
+  times <- tibble(
+    datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
+    date = c(as.Date("2021-01-01"), NA)
+  )
+  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+  formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(date, format = formats_date)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats, tz = "Europe/Bucharest")) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats, tz = "EST", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(1),
+             y = format(13.7, nsmall = 3)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(start_date = format(as.POSIXct("2022-01-01 01:01:00"))) %>%
+      collect(),
+    times
+  )
+
+  withr::with_timezone(
+    "Pacific/Marquesas",
+    {
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            x = format(datetime, format = formats, tz = "EST"),
+            x_date = format(date, format = formats_date, tz = "EST")
+          ) %>%
+          collect(),
+        times
+      )
+
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            x = format(datetime, format = formats),
+            x_date = format(date, format = formats_date)
+          ) %>%
+          collect(),
+        times
+      )
+    }
+  )
+})
+
+test_that("format() for unsupported types returns the input as string", {
+  expect_equal(
+    example_data %>%
+      record_batch() %>%
+      mutate(x = format(int)) %>%
+      collect(),
+    example_data %>%
+      record_batch() %>%
+      mutate(x = as.character(int)) %>%
+      collect()
+  )
+  expect_equal(
+    example_data %>%
+      arrow_table() %>%
+      mutate(y = format(dbl)) %>%
+      collect(),
+    example_data %>%
+      arrow_table() %>%
+      mutate(y = as.character(dbl)) %>%
+      collect()
   )
 })

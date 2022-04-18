@@ -36,10 +36,9 @@ The Apache Arrow repository includes implementations for
 most of the libraries for which Arrow is available.
 
 Languages like GLib (``c_glib/``), C++ (``cpp/``), C# (``csharp/``),
-Go (``go/``), Java (``java/``), JavaScript (``js/``),
-Julia (``julia/``), MATLAB (``matlab/``), Python (``python/``),
-R (``r/``) and Ruby (``ruby/``) have their own subdirectories in
-the main folder as written here.
+Go (``go/``), Java (``java/``), JavaScript (``js/``), MATLAB
+(``matlab/``), Python (``python/``), R (``r/``) and Ruby (``ruby/``)
+have their own subdirectories in the main folder as written here.
 
 Rust has its own repository available `here <https://github.com/apache/arrow-rs>`_.
 
@@ -103,9 +102,9 @@ C++ we must create the binding manually to use it in that implementation.
 	There is much you can learn by checking **Pull Requests**
 	and **unit tests** for similar issues.  
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Python
+   .. tab-item:: Python
 
       **Adding a fix in Python**
 
@@ -144,7 +143,7 @@ C++ we must create the binding manually to use it in that implementation.
       If you are adding a new future in Python you can look at
       the :ref:`tutorial <python_tutorial>` for ideas.
 
-   .. tab:: R
+   .. tab-item:: R
 
       **Philosophy behind R bindings**
 

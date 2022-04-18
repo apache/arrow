@@ -48,9 +48,11 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   /// \param[in] length the number of nulls to append
   Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(CommitPendingData());
-    ARROW_RETURN_NOT_OK(Reserve(length));
-    memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
-    UnsafeSetNull(length);
+    if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(Reserve(length));
+      memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
+      UnsafeSetNull(length);
+    }
     return Status::OK();
   }
 
@@ -70,9 +72,11 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(CommitPendingData());
-    ARROW_RETURN_NOT_OK(Reserve(length));
-    memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
-    UnsafeSetNotNull(length);
+    if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(Reserve(length));
+      memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
+      UnsafeSetNotNull(length);
+    }
     return Status::OK();
   }
 

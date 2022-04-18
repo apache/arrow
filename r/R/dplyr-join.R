@@ -34,11 +34,11 @@ do_join <- function(x,
   x <- as_adq(x)
   y <- as_adq(y)
   by <- handle_join_by(by, x, y)
-
   x$join <- list(
     type = JoinType[[join_type]],
     right_data = y,
-    by = by
+    by = by,
+    suffix = suffix
   )
   collapse.arrow_dplyr_query(x)
 }

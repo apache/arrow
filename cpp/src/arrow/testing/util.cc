@@ -17,9 +17,11 @@
 
 #include "arrow/testing/util.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <random>
+#include <sstream>
 
 #ifdef _WIN32
 // clang-format off
@@ -37,6 +39,7 @@
 #include <unistd.h>      // IWYU pragma: keep
 #endif
 
+#include "arrow/config.h"
 #include "arrow/table.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -108,6 +111,25 @@ Status GetTestResourceRoot(std::string* out) {
   return Status::OK();
 }
 
+util::optional<std::string> GetTestTimezoneDatabaseRoot() {
+  const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
+  if (!c_root) {
+    return util::optional<std::string>();
+  }
+  return util::make_optional(std::string(c_root));
+}
+
+Status InitTestTimezoneDatabase() {
+  auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
+  // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
+  if (!maybe_tzdata.has_value()) return Status::OK();
+
+  auto tzdata_path = std::string(maybe_tzdata.value());
+  arrow::GlobalOptions options = {util::make_optional(tzdata_path)};
+  ARROW_RETURN_NOT_OK(arrow::Initialize(options));
+  return Status::OK();
+}
+
 int GetListenPort() {
   // Get a new available port number by binding a socket to an ephemeral port
   // and then closing it.  Since ephemeral port allocation tends to avoid
@@ -158,6 +180,29 @@ int GetListenPort() {
 #endif
 
   return port;
+}
+
+std::string GetListenAddress() {
+  // Using GetListenPort() alone may still suffer from race conditions,
+  // so this function maximizes the chances of finding an available address
+  // by using a different loopback address every time (there are 2**24 of them).
+  std::stringstream ss;
+#ifndef __APPLE__
+  static std::atomic<uint32_t> next_addr{1U};     // start at "127.0.0.1"
+  const uint32_t addr = next_addr++ & 0xffffffU;  // keep bottom 24 bits
+  // Format loopback IPv4 address
+  ss << "127";
+  for (int shift = 16; shift >= 0; shift -= 8) {
+    const auto byte = (addr >> shift) & 0xFFU;
+    ss << "." << byte;
+  }
+#else
+  // On MacOS, only 127.0.0.1 is a valid loopback address by default.
+  ss << "127.0.0.1";
+#endif
+  // Append port number
+  ss << ":" << GetListenPort();
+  return ss.str();
 }
 
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {

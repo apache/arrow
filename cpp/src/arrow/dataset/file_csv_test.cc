@@ -43,8 +43,7 @@ class CsvFormatHelper {
   using FormatType = CsvFileFormat;
   static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
     ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
-    std::shared_ptr<Table> table;
-    RETURN_NOT_OK(reader->ReadAll(&table));
+    ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
     auto options = csv::WriteOptions::Defaults();
     RETURN_NOT_OK(csv::WriteCSV(*table, options, sink.get()));
     return sink->Finish();

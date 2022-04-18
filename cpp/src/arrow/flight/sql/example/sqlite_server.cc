@@ -29,6 +29,7 @@
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/sql/example/sqlite_tables_schema_batch_reader.h"
+#include "arrow/flight/sql/example/sqlite_type_info.h"
 #include "arrow/flight/sql/server.h"
 
 namespace arrow {
@@ -88,9 +89,8 @@ std::string PrepareQueryForGetTables(const GetTables& command) {
 }
 
 Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt, FlightMessageReader* reader) {
-  FlightStreamChunk chunk;
   while (true) {
-    RETURN_NOT_OK(reader->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
     std::shared_ptr<RecordBatch>& record_batch = chunk.data;
     if (record_batch == nullptr) break;
 
@@ -212,6 +212,27 @@ std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
     return utf8();
   } else {
     throw std::invalid_argument("Invalid SQLite type: " + std::string(sqlite_type));
+  }
+}
+
+int32_t GetSqlTypeFromTypeName(const char* sqlite_type) {
+  if (sqlite_type == NULLPTR) {
+    // SQLite may not know the column type yet.
+    return SQLITE_NULL;
+  }
+
+  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
+    return SQLITE_INTEGER;
+  } else if (boost::iequals(sqlite_type, "REAL")) {
+    return SQLITE_FLOAT;
+  } else if (boost::iequals(sqlite_type, "BLOB")) {
+    return SQLITE_BLOB;
+  } else if (boost::iequals(sqlite_type, "TEXT") ||
+             boost::istarts_with(sqlite_type, "char") ||
+             boost::istarts_with(sqlite_type, "varchar")) {
+    return SQLITE_TEXT;
+  } else {
+    return SQLITE_NULL;
   }
 }
 
@@ -487,6 +508,22 @@ class SQLiteFlightSqlServer::Impl {
     return DoGetSQLiteQuery(db_, query, SqlSchema::GetTableTypesSchema());
   }
 
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command,
+      const FlightDescriptor& descriptor) {
+    return GetFlightInfoForCommand(descriptor, SqlSchema::GetXdbcTypeInfoSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command) {
+    const std::shared_ptr<RecordBatch>& type_info_result =
+        command.data_type.has_value() ? DoGetTypeInfoResult(command.data_type.value())
+                                      : DoGetTypeInfoResult();
+
+    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({type_info_result}));
+    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+  }
+
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPrimaryKeys(
       const ServerCallContext& context, const GetPrimaryKeys& command,
       const FlightDescriptor& descriptor) {
@@ -756,6 +793,19 @@ arrow::Result<std::unique_ptr<FlightInfo>> SQLiteFlightSqlServer::GetFlightInfoT
 arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetTableTypes(
     const ServerCallContext& context) {
   return impl_->DoGetTableTypes(context);
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>>
+SQLiteFlightSqlServer::GetFlightInfoXdbcTypeInfo(
+    const ServerCallContext& context, const arrow::flight::sql::GetXdbcTypeInfo& command,
+    const FlightDescriptor& descriptor) {
+  return impl_->GetFlightInfoTypeInfo(context, command, descriptor);
+}
+
+arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetXdbcTypeInfo(
+    const ServerCallContext& context,
+    const arrow::flight::sql::GetXdbcTypeInfo& command) {
+  return impl_->DoGetTypeInfo(context, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>>

@@ -23,7 +23,7 @@
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
-#' @importFrom rlang is_list call2
+#' @importFrom rlang is_list call2 is_empty as_function as_label
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -31,6 +31,11 @@
 
 #' @importFrom vctrs s3_register vec_size vec_cast vec_unique
 .onLoad <- function(...) {
+  if (arrow_available()) {
+    # Make sure C++ knows on which thread it is safe to call the R API
+    InitializeMainRThread()
+  }
+
   dplyr_methods <- paste0(
     "dplyr::",
     c(
@@ -38,7 +43,7 @@
       "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
       "arrange", "rename", "pull", "relocate", "compute", "collapse",
       "distinct", "left_join", "right_join", "inner_join", "full_join",
-      "semi_join", "anti_join", "count", "tally"
+      "semi_join", "anti_join", "count", "tally", "rename_with"
     )
   )
   for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {
@@ -65,6 +70,19 @@
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
+
+    # Try to set timezone database
+    if (requireNamespace("tzdb", quietly = TRUE)) {
+      tzdb::tzdb_initialize()
+      set_timezone_database(tzdb::tzdb_path("text"))
+    } else {
+      warning("The tzdb package is not installed. Timezones will not be available.")
+    }
+  }
+
+  if (arrow_available()) {
+    # register extension types that we use internally
+    reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
   }
 
   invisible()
@@ -89,7 +107,12 @@
       #
       # Let's print a message if some are off
       if (some_features_are_off(features)) {
-        packageStartupMessage("See arrow_info() for available features")
+        packageStartupMessage(
+          paste(
+            "Some features are not enabled in this build of Arrow.",
+            "Run `arrow_info()` for more information."
+          )
+        )
       }
     })
   }
@@ -125,10 +148,7 @@ arrow_available <- function() {
 #' @rdname arrow_available
 #' @export
 arrow_with_dataset <- function() {
-  is_32bit <- .Machine$sizeof.pointer < 8
-  is_old_r <- getRversion() < "4.0.0"
-  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-  if (is_32bit && is_old_r && is_windows) {
+  if (on_old_windows()) {
     # 32-bit rtools 3.5 does not properly implement the std::thread expectations
     # but we can't just disable ARROW_DATASET in that build,
     # so report it as "off" here.
@@ -137,6 +157,22 @@ arrow_with_dataset <- function() {
   tryCatch(.Call(`_dataset_available`), error = function(e) {
     return(FALSE)
   })
+}
+
+#' @rdname arrow_available
+#' @export
+arrow_with_engine <- function() {
+  tryCatch(.Call(`_engine_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
+on_old_windows <- function() {
+  is_32bit <- .Machine$sizeof.pointer < 8
+  is_old_r <- getRversion() < "4.0.0"
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+
+  is_32bit && is_old_r && is_windows
 }
 
 #' @rdname arrow_available
@@ -198,6 +234,7 @@ arrow_info <- function() {
     out <- c(out, list(
       capabilities = c(
         dataset = arrow_with_dataset(),
+        engine = arrow_with_engine(),
         parquet = arrow_with_parquet(),
         json = arrow_with_json(),
         s3 = arrow_with_s3(),
@@ -232,7 +269,7 @@ arrow_info <- function() {
 some_features_are_off <- function(features) {
   # `features` is a named logical vector (as in arrow_info()$capabilities)
   # Let's exclude some less relevant ones
-  blocklist <- c("lzo", "bz2", "brotli")
+  blocklist <- c("lzo", "bz2", "brotli", "engine")
   # Return TRUE if any of the other features are FALSE
   !all(features[setdiff(names(features), blocklist)])
 }

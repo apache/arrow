@@ -28,28 +28,7 @@ if(re2_FOUND)
   return()
 endif()
 
-find_package(PkgConfig QUIET)
-pkg_check_modules(RE2_PC re2)
-if(RE2_PC_FOUND)
-  set(RE2_INCLUDE_DIR "${RE2_PC_INCLUDEDIR}")
-
-  list(APPEND RE2_PC_LIBRARY_DIRS "${RE2_PC_LIBDIR}")
-  find_library(RE2_LIB re2
-               PATHS ${RE2_PC_LIBRARY_DIRS}
-               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
-               NO_DEFAULT_PATH)
-
-  # On Fedora, the reported prefix is wrong. As users likely run into this,
-  # workaround.
-  # https://bugzilla.redhat.com/show_bug.cgi?id=1652589
-  if(UNIX
-     AND NOT APPLE
-     AND NOT RE2_LIB)
-    if(RE2_PC_PREFIX STREQUAL "/usr/local")
-      find_library(RE2_LIB re2)
-    endif()
-  endif()
-elseif(RE2_ROOT)
+if(RE2_ROOT)
   find_library(RE2_LIB
                NAMES re2_static
                      re2
@@ -64,15 +43,38 @@ elseif(RE2_ROOT)
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(RE2_LIB
-               NAMES re2_static
-                     re2
-                     "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-                     "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
-               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-  find_path(RE2_INCLUDE_DIR
-            NAMES re2/re2.h
-            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_package(PkgConfig QUIET)
+  pkg_check_modules(RE2_PC re2)
+  if(RE2_PC_FOUND)
+    set(RE2_INCLUDE_DIR "${RE2_PC_INCLUDEDIR}")
+
+    list(APPEND RE2_PC_LIBRARY_DIRS "${RE2_PC_LIBDIR}")
+    find_library(RE2_LIB re2
+                 PATHS ${RE2_PC_LIBRARY_DIRS}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
+
+    # On Fedora, the reported prefix is wrong. As users likely run into this,
+    # workaround.
+    # https://bugzilla.redhat.com/show_bug.cgi?id=1652589
+    if(UNIX
+       AND NOT APPLE
+       AND NOT RE2_LIB)
+      if(RE2_PC_PREFIX STREQUAL "/usr/local")
+        find_library(RE2_LIB re2)
+      endif()
+    endif()
+  else()
+    find_library(RE2_LIB
+                 NAMES re2_static
+                       re2
+                       "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+                       "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+    find_path(RE2_INCLUDE_DIR
+              NAMES re2/re2.h
+              PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  endif()
 endif()
 
 find_package_handle_standard_args(re2Alt REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
