@@ -2003,6 +2003,12 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleTowardsInfinity) {
         &options);
     set_multiple(ty, 1);
     CheckScalar(func, {values}, values, &options);
+    set_multiple(decimal128(2, 0), 2);
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(ty,
+                      R"(["2.00", "2.00", "2.00", "-42.00", "-44.00", "-44.00", null])"),
+        &options);
     set_multiple(ty, 0);
     CheckRaises(func, {values}, "Rounding multiple must be positive", &options);
     options.multiple =
@@ -2066,6 +2072,14 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleHalfToOdd) {
                 ArrayFromJSON(ty, R"(["-0.48", "-0.48", "-0.24", "-0.24", "-0.24", "0.00",
                               "0.24", "0.24", "0.24", "0.48", "0.48", null])"),
                 &options);
+    set_multiple(decimal128(3, 1), 1);
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-0.40", "-0.40", "-0.30", "-0.10", "-0.10", "0.00", "0.10", "0.10",
+                      "0.30", "0.40", "0.40", null])"),
+        &options);
   }
   for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
     auto values = DecimalArrayFromJSON(
