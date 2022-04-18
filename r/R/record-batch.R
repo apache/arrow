@@ -281,10 +281,12 @@ as_record_batch.Table <- function(x, ..., schema = NULL) {
   }
 
   arrays_out <- lapply(x$columns, as_arrow_array)
-  out <- RecordBatch$create(!!!arrays_out)
+  names(arrays_out) <- names(x)
+  out <- RecordBatch__from_arrays(NULL, arrays_out)
   if (!is.null(schema)) {
     out <- out$cast(schema)
   }
+
   out
 }
 
