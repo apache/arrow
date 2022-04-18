@@ -99,7 +99,7 @@ set(SRC_FILES
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
-                                     ${GANDIVA_OPENSSL_LIBS} ${ARROW_BOOST_LIBS})
+                                     ${GANDIVA_OPENSSL_LIBS} Boost::headers)
 
 set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
 

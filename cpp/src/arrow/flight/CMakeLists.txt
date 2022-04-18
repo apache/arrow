@@ -250,8 +250,9 @@ if(ARROW_TESTING)
                 arrow_shared
                 arrow_flight_shared
                 arrow_testing_shared
-                ${BOOST_FILESYSTEM_LIBRARY}
-                ${BOOST_SYSTEM_LIBRARY}
+                Boost::headers
+                Boost::filesystem
+                Boost::system
                 GTest::gtest
                 ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
@@ -260,12 +261,6 @@ if(ARROW_TESTING)
                 arrow_testing_static
                 ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
 endif()
-
-foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET}
-                             PRIVATE ARROW_FLIGHT_EXPORTING
-                                     ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
-endforeach()
 
 add_arrow_test(flight_internals_test
                STATIC_LINK_LIBS

@@ -840,15 +840,6 @@ endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
-# boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
-if(((ARROW_FLIGHT
-     OR ARROW_S3
-     OR ARROW_GCS)
-    AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
-   ))
-  list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
-endif()
-
 if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
@@ -858,8 +849,9 @@ set(ARROW_TEST_LINK_TOOLCHAIN
     GTest::gtest_main
     GTest::gtest
     GTest::gmock
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY})
+    Boost::headers
+    Boost::filesystem
+    Boost::system)
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})

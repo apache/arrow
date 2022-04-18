@@ -836,12 +836,16 @@ macro(build_boost)
                        "${BOOST_STATIC_SYSTEM_LIBRARY}"
                        INCLUDE_DIRECTORIES
                        "${Boost_INCLUDE_DIR}")
+    add_library(Boost::system INTERFACE IMPORTED)
+    target_link_libraries(Boost::system INTERFACE boost_system_static)
 
     add_thirdparty_lib(boost_filesystem
                        STATIC_LIB
                        "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
                        INCLUDE_DIRECTORIES
                        "${Boost_INCLUDE_DIR}")
+    add_library(Boost::filesystem INTERFACE IMPORTED)
+    target_link_libraries(Boost::filesystem INTERFACE boost_filesystem_static)
 
     externalproject_add(boost_ep
                         URL ${BOOST_SOURCE_URL}
@@ -861,11 +865,16 @@ macro(build_boost)
                         INSTALL_COMMAND ""
                         URL ${BOOST_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
-    add_library(Boost::system INTERFACE IMPORTED)
-    target_include_directories(Boost::system INTERFACE "${Boost_INCLUDE_DIR}")
-    add_library(Boost::filesystem INTERFACE IMPORTED)
-    target_include_directories(Boost::system INTERFACE "${Boost_INCLUDE_DIR}")
   endif()
+  add_library(Boost::headers INTERFACE IMPORTED)
+  target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
+  add_dependencies(Boost::headers boost_ep)
+  add_library(Boost::disable_autolinking INTERFACE IMPORTED)
+  if(WIN32)
+    target_compile_definitions(Boost::disable_autolinking INTERFACE "BOOST_ALL_NO_LIB")
+  endif()
+  # This doesn't add BOOST_ALL_DYN_LINK because bundled Boost is a static library.
+  add_library(Boost::dynamic_linking INTERFACE IMPORTED)
   add_dependencies(toolchain boost_ep)
   set(BOOST_VENDORED TRUE)
 endmacro()
@@ -978,29 +987,48 @@ else()
 endif()
 
 if(ARROW_BOOST_REQUIRED)
+  if(ARROW_BOOST_USE_SHARED)
+    # Find shared Boost libraries.
+    set(Boost_USE_STATIC_LIBS OFF)
+    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS ON)
+  else()
+    # Find static boost headers and libs
+    # TODO Differentiate here between release and debug builds
+    set(Boost_USE_STATIC_LIBS ON)
+  endif()
   resolve_dependency(Boost
-                     HAVE_ALT
-                     TRUE
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
-
-  if(TARGET Boost::system)
-    set(BOOST_SYSTEM_LIBRARY Boost::system)
-    set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-  elseif(BoostAlt_FOUND)
-    set(BOOST_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY})
-    set(BOOST_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY})
-  else()
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  if(ARROW_BOOST_USE_SHARED)
+    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
+    unset(BUILD_SHARED_LIBS_KEEP)
   endif()
-  set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+
+  foreach(BOOST_LIBRARY Boost::headers Boost::filesystem Boost::system)
+    if(NOT TARGET ${BOOST_LIBRARY})
+      continue()
+    endif()
+    target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
+    if(ARROW_BOOST_USE_SHARED)
+      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
+    endif()
+  endforeach()
+
+  if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # boost/process/detail/windows/handle_workaround.hpp doesn't work
+    # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
+    # provide __kernel_entry without winternl.h.
+    #
+    # See also:
+    # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
+    target_compile_definitions(Boost::headers INTERFACE "BOOST_USE_WINDOWS_H=1")
+  endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIR}")
-  message(STATUS "Boost libraries: ${ARROW_BOOST_LIBS}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -1401,9 +1429,7 @@ macro(build_thrift)
   set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
-  if(BOOST_VENDORED)
-    target_link_libraries(thrift::thrift INTERFACE ${ARROW_BOOST_LIBS})
-  endif()
+  target_link_libraries(thrift::thrift INTERFACE Boost::headers)
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
