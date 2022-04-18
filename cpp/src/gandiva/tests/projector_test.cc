@@ -2851,7 +2851,7 @@ TEST_F(TestProjector, TestFindInSet) {
                           "MORE", "学路,学路,学路,123", "大b,,,b大", "大b,,学路,学,b大"},
                          {true, true, true, true, true, true, true});
   // expected output
-  auto exp_sum = MakeArrowArrayInt32({4, 4, 10, 1, 1, 4, 0},
+  auto exp_res = MakeArrowArrayInt32({4, 4, 10, 1, 1, 4, 0},
                                      {true, true, true, true, true, true, true});
 
   // prepare input record batch
@@ -2863,7 +2863,7 @@ TEST_F(TestProjector, TestFindInSet) {
   EXPECT_TRUE(status.ok());
 
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_res, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestNextDay) {
