@@ -521,28 +521,41 @@ test_that("Table$create() no recycling with tibbles", {
 test_that("Table supports rbind", {
   expect_error(
     rbind(
-      Table$create(a = 1:10, b = Scalar$create(5)),
-      Table$create(a = c("a", "b"), b = Scalar$create(5))
+      arrow_table(a = 1:10, b = Scalar$create(5)),
+      arrow_table(a = c("a", "b"), b = Scalar$create(5))
     ),
     regexp = "Schema at index 2 does not match the first schema"
   )
 
   tables <- list(
-    Table$create(a = 1:10, b = Scalar$create("x")),
-    Table$create(a = 2:42, b = Scalar$create("y")),
-    Table$create(a = 8:10, b = Scalar$create("z"))
+    arrow_table(a = 1:10, b = Scalar$create("x")),
+    arrow_table(a = 2:42, b = Scalar$create("y")),
+    arrow_table(a = 8:10, b = Scalar$create("z"))
   )
-  expected <- Table$create(do.call(rbind, lapply(tables, function(table) as.data.frame(table))))
+  expected <- Table$create(do.call(rbind, lapply(tables, as.data.frame)))
   actual <- do.call(rbind, tables)
   expect_equal(actual, expected, ignore_attr = TRUE)
+
+  # rbind with empty table produces identical table
+  expected <- arrow_table(a = 1:10, b = Scalar$create("x"))
+  expect_equal(
+    rbind(expected, arrow_table(a = integer(0), b = character(0))),
+    expected
+  )
+  # rbind() with one argument returns identical table
+  expect_equal(rbind(expected), expected)
 })
 
 test_that("Table supports cbind", {
   expect_snapshot_error(
     cbind(
-      arrow_table(a = 1:10, ),
+      arrow_table(a = 1:10),
       arrow_table(a = c("a", "b"))
     )
+  )
+  expect_error(
+    cbind(arrow_table(a = 1:10), arrow_table(b = character(0))),
+    regexp = "Non-scalar inputs must have an equal number of rows"
   )
 
   actual <- cbind(
@@ -557,10 +570,18 @@ test_that("Table supports cbind", {
   ))
   expect_equal(actual, expected, ignore_attr = TRUE)
 
-  # Handles Arrow arrays
+  # cbind() with one argument returns identical table
+  expected <- arrow_table(a = 1:10)
+  expect_equal(expected, cbind(expected))
+
+  # Handles Arrow arrays and chunked arrays
   expect_equal(
     cbind(arrow_table(a = 1:2), b = Array$create(4:5)),
     arrow_table(a = 1:2, b = 4:5)
+  )
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = chunked_array(4, 5)),
+    arrow_table(a = 1:2, b = chunked_array(4, 5))
   )
 
   # Handles data.frame
@@ -573,7 +594,7 @@ test_that("Table supports cbind", {
     )
   }
 
-  # Handle factors
+  # Handles factors
   expect_equal(
     cbind(arrow_table(a = 1:2), b = factor(c("a", "b"))),
     arrow_table(a = 1:2, b = factor(c("a", "b")))

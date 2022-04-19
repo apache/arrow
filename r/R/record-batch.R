@@ -228,6 +228,9 @@ cbind.RecordBatch <- function(...) {
       set_names(input$columns, names(input))
     } else if (inherits(input, "data.frame")) {
       as.list(input)
+    } else if (inherits(input, "Table") || inherits(input, "ChunkedArray")) {
+      abort("Cannot cbind a RecordBatch with Tables or ChunkedArrays",
+            i = "Hint: consider converting the record batch into a Table first")
     } else {
       if (name == "") {
         abort("Vector and array arguments must have names",

@@ -529,6 +529,10 @@ test_that("RecordBatch supports cbind", {
       record_batch(a = c("a", "b"))
     )
   )
+  expect_error(
+    cbind(record_batch(a = 1:10), record_batch(b = character(0))),
+    regexp = "Non-scalar inputs must have an equal number of rows"
+  )
 
   actual <- cbind(
     record_batch(a = c(1, 2), b = c("a", "b")),
@@ -542,6 +546,10 @@ test_that("RecordBatch supports cbind", {
     c = c(2, 3)
   )
   expect_equal(actual, expected)
+
+  # cbind() with one argument returns identical table
+  expected <- record_batch(a = 1:10)
+  expect_equal(expected, cbind(expected))
 
   # Handles arrays
   expect_equal(
@@ -558,7 +566,6 @@ test_that("RecordBatch supports cbind", {
       record_batch(a = 1:2, b = 4:5)
     )
   }
-
 
   # Handles base factors
   expect_equal(
@@ -580,6 +587,16 @@ test_that("RecordBatch supports cbind", {
   expect_error(
     cbind(record_batch(a = 1:2), 3:4, 5:6),
     regexp = "Vector and array arguments must have names"
+  )
+
+  # Rejects Table and ChunkedArray arguments
+  expect_error(
+    cbind(record_batch(a = 1:2), arrow_table(b = 3:4)),
+    regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
+  )
+  expect_error(
+    cbind(record_batch(a = 1:2), b = chunked_array(1, 2)),
+    regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
   )
 })
 
