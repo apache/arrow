@@ -53,16 +53,16 @@ cdef class GcsFileSystem(FileSystem):
         If true, will not attempt to look up credentials using standard GCP
         configuration methods.
     access_token : str, default None
-        GCP access token.  If provided temporary credentials will be fetched by
-        assuming this role. If specified an credential_token_expiration must be
-        specified with the token.
+        GCP access token.  If provided, temporary credentials will be fetched by
+        assuming this role; also, a `credential_token_expiration` must be
+        specified as well.
     target_service_account : str, default None
         An optional service account to try to impersonate when accessing GCS. This
-        requires the specified credential user/service_account has the necessary
+        requires the specified credential user or service account to have the necessary
         permissions.
     credential_token_expiration : datetime, default None
         Expiration for credential generated with an access token. Must be specified
-        if token is specified.
+        if `access_token` is specified.
     default_bucket_location : str, default 'US-CENTRAL1'
         GCP region to create buckets in.
     scheme : str, default 'https'
@@ -70,15 +70,15 @@ cdef class GcsFileSystem(FileSystem):
     endpoint_override : str, default None
         Override endpoint with a connect string such as "localhost:9000"
     default_metadata : mapping or pyarrow.KeyValueMetadata, default None
-        Default metadata for open_output_stream.  This will be ignored if
-        non-empty metadata is passed to open_output_stream.
+        Default metadata for `open_output_stream`.  This will be ignored if
+        non-empty metadata is passed to `open_output_stream`.
     """
 
     cdef:
         CGcsFileSystem* gcsfs
 
     def __init__(self, *, bint anonymous=False, access_token=None,
-                 target_service_account=None, credential_token_expiration=None,
+                 target_service_account=None, datetime credential_token_expiration=None,
                  default_bucket_location='US-CENTRAL1',
                  scheme=None,
                  endpoint_override=None,
@@ -94,9 +94,7 @@ cdef class GcsFileSystem(FileSystem):
                 'anonymous option is not compatible with target_service_account and '
                 'access_token please only specify only one.'
             )
-        elif ((access_token and credential_token_expiration is None) or
-              (not access_token and
-                  credential_token_expiration is not None)):
+        elif bool(access_token) != bool(credential_token_expiration):
             raise ValueError(
                 'access_token and credential_token_expiration must be '
                 'specified together'
@@ -141,12 +139,11 @@ cdef class GcsFileSystem(FileSystem):
         return cls(**kwargs)
 
     def _expiration_datetime_from_options(self):
-        cdef CGcsOptions opts = self.gcsfs.options()
-        expiration_ns = TimePoint_to_ns(opts.credentials.expiration())
+        expiration_ns = TimePoint_to_ns(
+            self.gcsfs.options().credentials.expiration())
         if expiration_ns == 0:
             return None
-        ns_per_sec = 1000000000.0
-        return datetime.fromtimestamp(expiration_ns / ns_per_sec)
+        return datetime.fromtimestamp(expiration_ns / 1e9)
 
     def __reduce__(self):
         cdef CGcsOptions opts = self.gcsfs.options()
