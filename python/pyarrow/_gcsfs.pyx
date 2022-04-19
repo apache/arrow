@@ -19,11 +19,11 @@
 
 from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
                           pyarrow_unwrap_metadata)
-from pyarrow.lib import frombytes, tobytes, KeyValueMetadata
+from pyarrow.lib import frombytes, tobytes, KeyValueMetadata, ensure_metadata
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
-from pyarrow._fs cimport FileSystem
+from pyarrow._fs cimport FileSystem, TimePoint_to_ns, PyDateTime_to_TimePoint
 from cython.operator cimport dereference as deref
 
 from datetime import datetime
@@ -78,7 +78,7 @@ cdef class GcsFileSystem(FileSystem):
         CGcsFileSystem* gcsfs
 
     def __init__(self, *, bint anonymous=False, access_token=None,
-                 target_service_account=None, datetime credential_token_expiration=None,
+                 target_service_account=None, credential_token_expiration=None,
                  default_bucket_location='US',
                  scheme=None,
                  endpoint_override=None,
@@ -103,6 +103,8 @@ cdef class GcsFileSystem(FileSystem):
         elif anonymous:
             options = CGcsOptions.Anonymous()
         elif access_token:
+            if not isinstance(credential_token_expiration, datetime):
+                raise ValueError("credential_token_expiration must be a datetime")
             options = CGcsOptions.FromAccessToken(
                 tobytes(access_token),
                 PyDateTime_to_TimePoint(<PyDateTime_DateTime*>credential_token_expiration))
