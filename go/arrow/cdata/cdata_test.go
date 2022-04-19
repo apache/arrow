@@ -24,6 +24,7 @@
 package cdata
 
 import (
+	"errors"
 	"io"
 	"runtime"
 	"testing"
