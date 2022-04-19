@@ -186,7 +186,7 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 		acked := pr.GetAppMetadata()
 		switch {
 		case len(acked) == 0:
-			return fmt.Errorf("expected metadata value: %s, but got nothing.", string(metadata))
+			return fmt.Errorf("expected metadata value: %s, but got nothing", string(metadata))
 		case !bytes.Equal(metadata, acked):
 			return fmt.Errorf("expected metadata value: %s, but got: %s", string(metadata), string(acked))
 		}

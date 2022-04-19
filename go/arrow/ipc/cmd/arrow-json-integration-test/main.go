@@ -70,8 +70,6 @@ func runCommand(jsonName, arrowName, mode string, verbose bool) error {
 	default:
 		return fmt.Errorf("unknown command %q", mode)
 	}
-
-	return nil
 }
 
 func cnvToJSON(arrowName, jsonName string, verbose bool) error {
@@ -201,7 +199,7 @@ func validate(arrowName, jsonName string, verbose bool) error {
 
 	if !arr.Schema().Equal(jrr.Schema()) {
 		if verbose {
-			log.Printf("JSON schema:\n%v\nArrow schema:\n%v\n", arr.Schema(), jrr.Schema())
+			log.Printf("JSON schema:\n%v\nArrow schema:\n%v", arr.Schema(), jrr.Schema())
 		}
 		return fmt.Errorf("schemas did not match")
 	}
@@ -216,7 +214,7 @@ func validate(arrowName, jsonName string, verbose bool) error {
 			return fmt.Errorf("could not read record %d from JSON file: %w", i, err)
 		}
 		if !array.RecordApproxEqual(jrec, arec) {
-			return fmt.Errorf("record batch %d did not match\nJSON:\n%v\nARROW:\n%v\n",
+			return fmt.Errorf("record batch %d did not match\nJSON:\n%v\nARROW:\n%v",
 				i, jrec, arec,
 			)
 		}
