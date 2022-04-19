@@ -64,7 +64,7 @@ export {
     Table, makeTable, tableFromArrays,
     Schema, Field,
     Visitor,
-    Vector, makeVector, vectorFromArray,
+    Vector, makeVector, vectorFromArray, tableFromJSON,
     ByteStream, AsyncByteStream, AsyncByteQueue,
     RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader,
     RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter,
