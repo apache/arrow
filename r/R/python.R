@@ -235,6 +235,67 @@ maybe_py_to_r <- function(x) {
   x
 }
 
+
+#' @export
+as_arrow_array.pyarrow.lib.Array <- function(x, ..., type = NULL) {
+  as_arrow_array(py_to_r.pyarrow.lib.Array(x), type = type)
+}
+
+#' @export
+as_chunked_array.pyarrow.lib.ChunkedArray <- function(x, ..., type = NULL) {
+  as_chunked_array(py_to_r.pyarrow.lib.ChunkedArray(x), type = type)
+}
+
+#' @export
+as_record_batch.pyarrow.lib.RecordBatch <- function(x, ..., schema = NULL) {
+  as_record_batch(py_to_r.pyarrow.lib.RecordBatch(x), schema = schema)
+}
+
+#' @export
+as_arrow_table.pyarrow.lib.RecordBatch <- function(x, ..., schema = NULL) {
+  as_arrow_table(py_to_r.pyarrow.lib.RecordBatch(x), schema = schema)
+}
+
+#' @export
+as_record_batch_reader.pyarrow.lib.RecordBatch <- function(x, ...) {
+  as_record_batch_reader(py_to_r.pyarrow.lib.RecordBatch(x))
+}
+
+#' @export
+as_record_batch.pyarrow.lib.Table <- function(x, ..., schema = NULL) {
+  as_record_batch(py_to_r.pyarrow.lib.Table(x), schema = schema)
+}
+
+#' @export
+as_arrow_table.pyarrow.lib.Table <- function(x, ..., schema = NULL) {
+  as_arrow_table(py_to_r.pyarrow.lib.Table(x), schema = schema)
+}
+
+#' @export
+as_record_batch_reader.pyarrow.lib.Table <- function(x, ...) {
+  as_record_batch_reader(py_to_r.pyarrow.lib.Table(x))
+}
+
+#' @export
+as_schema.pyarrow.lib.Schema <- function(x, ...) {
+  py_to_r.pyarrow.lib.Schema(x)
+}
+
+#' @export
+as_data_type.pyarrow.lib.Field <- function(x, ...) {
+  as_data_type(py_to_r.pyarrow.lib.Field(x))
+}
+
+#' @export
+as_data_type.pyarrow.lib.DataType <- function(x, ...) {
+  as_data_type(py_to_r.pyarrow.lib.DataType(x))
+}
+
+#' @export
+as_record_batch_reader.pyarrow.lib.RecordBatchReader <- function(x, ...) {
+  py_to_r.pyarrow.lib.RecordBatchReader(x)
+}
+
 #' Install pyarrow for use with reticulate
 #'
 #' `pyarrow` is the Python package for Apache Arrow. This function helps with
