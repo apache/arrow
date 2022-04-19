@@ -1031,6 +1031,15 @@ test_that("as_arrow_array() works for Array", {
   )
 })
 
+test_that("as_arrow_array() works for Array", {
+  scalar <- Scalar$create(TRUE)
+  expect_equal(as_arrow_array(scalar), Array$create(TRUE))
+  expect_equal(
+    as_arrow_array(scalar, type = int32()),
+    Array$create(1L)
+  )
+})
+
 test_that("as_arrow_array() works for ChunkedArray", {
   expect_equal(
     as_arrow_array(chunked_array(type = null())),
@@ -1099,9 +1108,9 @@ test_that("as_arrow_array() default method errors for impossible cases", {
   vec <- structure(list(), class = "class_not_supported")
 
   # check errors simulating a call from C++
-  expect_snapshot_error(as_arrow_array(vec, from_constructor = TRUE))
+  expect_snapshot_error(as_arrow_array(vec, from_vec_to_array = TRUE))
   expect_snapshot_error(
-    as_arrow_array(vec, type = float64(), from_constructor = TRUE)
+    as_arrow_array(vec, type = float64(), from_vec_to_array = TRUE)
   )
 
   # check that the errors propagate through Array$create()

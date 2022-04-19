@@ -239,6 +239,22 @@ as_arrow_array <- function(x, ..., type = NULL) {
   UseMethod("as_arrow_array")
 }
 
+#' @export
+as_arrow_array.default <- function(x, ..., type = NULL, from_vec_to_array = FALSE) {
+  # If from_vec_to_array is TRUE, this is a call from C++ for which S3 dispatch
+  # failed to find a method for the object. This call happens when creating
+  # Array, ChunkedArray, RecordBatch, and Table objects from data.frame
+  # if the internal C++ conversion (faster and can usually be parallelized)
+  # is not implemented. If the C++ call has reached this default method,
+  # we error. If from_vec_to_array is FALSE, we call vec_to_Array to use the
+  # internal C++ conversion.
+  if (from_vec_to_array) {
+    stop_cant_convert_array(x, type)
+  } else {
+    vec_to_Array(x, type)
+  }
+}
+
 #' @rdname as_arrow_array
 #' @export
 as_arrow_array.Array <- function(x, ..., type = NULL) {
@@ -247,6 +263,12 @@ as_arrow_array.Array <- function(x, ..., type = NULL) {
   } else {
     x$cast(type)
   }
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.Scalar <- function(x, ..., type = NULL) {
+  as_arrow_array(x$as_array(), ..., type = type)
 }
 
 #' @rdname as_arrow_array
@@ -299,20 +321,6 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
   } else {
     stop_cant_convert_array(x, type)
   }
-}
-
-#' @export
-as_arrow_array.default <- function(x, ..., type = NULL, from_constructor = FALSE) {
-  # If from_constructor is TRUE, this is a call from C++ for which S3 dispatch
-  # failed to find a method for the object. If this is the case, we error.
-  if (from_constructor) {
-    stop_cant_convert_array(x, type)
-  }
-
-  # If from_constructor is FALSE, we use the built-in logic exposed by
-  # Array$create(). If there is no built-in conversion, C++ will call back
-  # here with from_constructor = TRUE to generate a nice error message.
-  Array$create(x, type = type)
 }
 
 stop_cant_convert_array <- function(x, type) {

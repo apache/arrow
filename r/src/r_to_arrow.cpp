@@ -268,7 +268,7 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
 };
 
 // A Converter that calls as_arrow_array(x, type = options.type)
-class RExtensionConverter : public RConverter {
+class AsArrowArrayConverter : public RConverter {
  public:
   // This is not run in parallel by default, so it's safe to call into R here;
   // however, it is not safe to throw an exception here because the caller
@@ -279,7 +279,7 @@ class RExtensionConverter : public RConverter {
     try {
       cpp11::sexp as_array_result = cpp11::package("arrow")["as_arrow_array"](
           values, cpp11::named_arg("type") = cpp11::as_sexp(options().type),
-          cpp11::named_arg("from_constructor") = cpp11::as_sexp<bool>(true));
+          cpp11::named_arg("from_vec_to_array") = cpp11::as_sexp<bool>(true));
 
       // Check that the R method returned an Array
       if (!Rf_inherits(as_array_result, "Array")) {
@@ -1278,14 +1278,14 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   }
 
   // Otherwise go through the converter API. If we can handle this in C++
-  // we do so; otherwise we use the RExtensionConverter, which calls
+  // we do so; otherwise we use the AsArrowArrayConverter, which calls
   // as_arrow_array().
   std::unique_ptr<RConverter> converter;
   if (can_convert_native(x)) {
     converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
         options.type, options, gc_memory_pool()));
   } else {
-    converter = std::unique_ptr<RConverter>(new RExtensionConverter());
+    converter = std::unique_ptr<RConverter>(new AsArrowArrayConverter());
     StopIfNotOk(converter->Construct(type, options, gc_memory_pool()));
   }
 
@@ -1475,7 +1475,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       }
 
       // Otherwise go through the converter API. If we can handle this in C++
-      // we do so; otherwise we use the RExtensionConverter, which calls
+      // we do so; otherwise we use the AsArrowArrayConverter, which calls
       // as_arrow_array().
       std::unique_ptr<arrow::r::RConverter> converter;
       if (arrow::r::can_convert_native(x)) {
@@ -1490,7 +1490,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
         }
       } else {
         converter =
-            std::unique_ptr<arrow::r::RConverter>(new arrow::r::RExtensionConverter());
+            std::unique_ptr<arrow::r::RConverter>(new arrow::r::AsArrowArrayConverter());
         status = converter->Construct(options.type, options, gc_memory_pool());
         if (!status.ok()) {
           break;
