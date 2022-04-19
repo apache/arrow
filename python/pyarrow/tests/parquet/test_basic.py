@@ -81,6 +81,20 @@ def test_set_write_batch_size(use_legacy_dataset):
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
+def test_set_dictionary_pagesize_limit(use_legacy_dataset):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    _check_roundtrip(table, dictionary_pagesize_limit=1,
+                     data_page_size=10, version='2.4')
+
+    with pytest.raises(TypeError):
+        _check_roundtrip(table, dictionary_pagesize_limit="a",
+                         data_page_size=10, version='2.4')
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
 def test_chunked_table_write(use_legacy_dataset):
     # ARROW-232
     tables = []
@@ -603,7 +617,9 @@ def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
                       use_legacy_dataset=use_legacy_dataset)
 
     if use_legacy_dataset:
-        assert len(record) == 1
+        # DeprecationWarning: 'use_legacy_dataset=True'
+        # DeprecationWarning: 'ParquetDataset.common_metadata' attribute
+        assert len(record) == 2
     else:
         assert len(record) == 0
 

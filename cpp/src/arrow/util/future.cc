@@ -27,6 +27,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -242,6 +243,19 @@ class ConcreteFutureImpl : public FutureImpl {
   void AddCallback(Callback callback, CallbackOptions opts) {
     CheckOptions(opts);
     std::unique_lock<std::mutex> lock(mutex_);
+#ifdef ARROW_WITH_OPENTELEMETRY
+    struct SpanWrapper {
+      void operator()(const FutureImpl& impl) {
+        auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+        std::move(func)(impl);
+      }
+      Callback func;
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
+    };
+    SpanWrapper wrapper{std::move(callback),
+                        ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
+    callback = std::move(wrapper);
+#endif
     CallbackRecord callback_record{std::move(callback), opts};
     if (IsFutureFinished(state_)) {
       lock.unlock();

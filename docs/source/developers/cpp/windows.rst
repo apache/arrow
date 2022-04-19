@@ -362,6 +362,20 @@ suppress dllimport/dllexport marking of symbols. Projects that statically link
 against Arrow on Windows additionally need this definition. The Unix builds do
 not use the macro.
 
+In addition if using ``-DARROW_FLIGHT=ON``, ``ARROW_FLIGHT_STATIC`` needs to
+be defined.
+
+.. code-block:: cmake
+
+   project(MyExample)
+
+   find_package(Arrow REQUIRED)
+
+   add_executable(my_example my_example.cc)
+   target_link_libraries(my_example PRIVATE arrow_static arrow_flight_static)
+
+   target_compile_definitions(my_example PUBLIC ARROW_STATIC ARROW_FLIGHT_STATIC)
+
 Downloading the Timezone Database
 =================================
 

@@ -27,6 +27,8 @@ from collections.abc import Mapping
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport (MakeInvalidRowHandler,
+                                               PyInvalidRowCallback)
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,

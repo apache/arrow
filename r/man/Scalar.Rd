@@ -7,6 +7,24 @@
 \description{
 A \code{Scalar} holds a single value of an Arrow type.
 }
+\section{Factory}{
+
+The \code{Scalar$create()} factory method instantiates a \code{Scalar} and takes the following arguments:
+\itemize{
+\item \code{x}: an R vector, list, or \code{data.frame}
+\item \code{type}: an optional \link[=data-type]{data type} for \code{x}. If omitted, the type will be inferred from the data.
+}
+}
+
+\section{Usage}{
+\preformatted{a <- Scalar$create(x)
+length(a)
+
+print(a)
+a == a
+}
+}
+
 \section{Methods}{
 
 \itemize{

@@ -34,6 +34,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+#include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
@@ -415,8 +416,11 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
                             ::arrow::internal::GetCpuThreadPool(), row_group_readahead));
     return generator;
   };
-  return MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
-                            .Then(std::move(make_generator)));
+  auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
+                                      .Then(std::move(make_generator)));
+  WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
+      generator, "arrow::dataset::ParquetFileFormat::ScanBatchesAsync::Next");
+  return generator;
 }
 
 Future<util::optional<int64_t>> ParquetFileFormat::CountRows(

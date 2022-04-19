@@ -31,7 +31,8 @@ from cython.operator cimport postincrement
 from libcpp cimport bool as c_bool
 
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowException, ArrowInvalid, SignalStopHandler
+from pyarrow.lib import (ArrowCancelled, ArrowException, ArrowInvalid,
+                         SignalStopHandler)
 from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
@@ -170,7 +171,7 @@ cdef class FlightTimedOutError(FlightError, ArrowException):
                                tobytes(str(self)), self.extra_info)
 
 
-cdef class FlightCancelledError(FlightError, ArrowException):
+cdef class FlightCancelledError(FlightError, ArrowCancelled):
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)),
                                self.extra_info)
@@ -865,6 +866,10 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         """Convert this reader into a regular RecordBatchReader.
 
         This may fail if the schema cannot be read from the remote end.
+
+        Returns
+        -------
+        RecordBatchReader
         """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
@@ -873,7 +878,12 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
 
 cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader):
-    """The virtual base class for readers for Flight streams."""
+    """The base class for readers for Flight streams.
+
+    See Also
+    --------
+    FlightStreamReader
+    """
 
 
 cdef class FlightStreamReader(MetadataRecordBatchReader):
@@ -1136,8 +1146,8 @@ cdef class FlightClient(_Weakrefable):
                     pair[c_string, CIntStringVariant](tobytes(key), variant))
 
         with nogil:
-            check_flight_status(CFlightClient.Connect(c_location, c_options,
-                                                      &self.client))
+            check_flight_status(CFlightClient.Connect(c_location, c_options
+                                                      ).Value(&self.client))
 
     def wait_for_available(self, timeout=5):
         """Block until the server can be contacted.
@@ -1168,6 +1178,11 @@ cdef class FlightClient(_Weakrefable):
     def connect(cls, location, tls_root_certs=None, cert_chain=None,
                 private_key=None, override_hostname=None,
                 disable_server_verification=None):
+        """Connect to a Flight server.
+
+        .. deprecated:: 0.15.0
+            Use the ``FlightClient`` constructor or ``pyarrow.flight.connect`` function instead.
+        """
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient constructor or pyarrow.flight.connect "
                       "function instead")
@@ -1245,7 +1260,7 @@ cdef class FlightClient(_Weakrefable):
                 (<StopToken> stop_handler.stop_token).stop_token
             with nogil:
                 check_flight_status(
-                    self.client.get().ListActions(deref(c_options), &results))
+                    self.client.get().ListActions(deref(c_options)).Value(&results))
 
             result = []
             for action_type in results:
@@ -1286,7 +1301,7 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(
                 self.client.get().DoAction(
-                    deref(c_options), c_action, &results))
+                    deref(c_options), c_action).Value(&results))
 
         def _do_action_response():
             cdef:
@@ -1318,7 +1333,7 @@ cdef class FlightClient(_Weakrefable):
             with nogil:
                 check_flight_status(
                     self.client.get().ListFlights(deref(c_options),
-                                                  c_criteria, &listing))
+                                                  c_criteria).Value(&listing))
 
             while True:
                 result = FlightInfo.__new__(FlightInfo)
@@ -1339,7 +1354,7 @@ cdef class FlightClient(_Weakrefable):
 
         with nogil:
             check_flight_status(self.client.get().GetFlightInfo(
-                deref(c_options), c_descriptor, &result.info))
+                deref(c_options), c_descriptor).Value(&result.info))
 
         return result
 
@@ -1373,7 +1388,7 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(
                 self.client.get().DoGet(
-                    deref(c_options), ticket.ticket, &reader))
+                    deref(c_options), ticket.ticket).Value(&reader))
         result = FlightStreamReader()
         result.reader.reset(reader.release())
         return result
@@ -1389,23 +1404,21 @@ cdef class FlightClient(_Weakrefable):
         """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
-            unique_ptr[CFlightStreamWriter] writer
-            unique_ptr[CFlightMetadataReader] metadata_reader
+            CDoPutResult c_do_put_result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
             CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
-            FlightMetadataReader reader = FlightMetadataReader()
 
         with nogil:
             check_flight_status(self.client.get().DoPut(
                 deref(c_options),
                 c_descriptor,
-                c_schema,
-                &writer,
-                &reader.reader))
-        result = FlightStreamWriter()
-        result.writer.reset(writer.release())
-        return result, reader
+                c_schema).Value(&c_do_put_result))
+        py_writer = FlightStreamWriter()
+        py_writer.writer.reset(c_do_put_result.writer.release())
+        py_reader = FlightMetadataReader()
+        py_reader.reader.reset(c_do_put_result.reader.release())
+        return py_writer, py_reader
 
     def do_exchange(self, descriptor: FlightDescriptor,
                     options: FlightCallOptions = None):
@@ -1424,8 +1437,7 @@ cdef class FlightClient(_Weakrefable):
         reader : FlightStreamReader
         """
         cdef:
-            unique_ptr[CFlightStreamWriter] c_writer
-            unique_ptr[CFlightStreamReader] c_reader
+            CDoExchangeResult c_do_exchange_result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
             CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
@@ -1433,16 +1445,15 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(self.client.get().DoExchange(
                 deref(c_options),
-                c_descriptor,
-                &c_writer,
-                &c_reader))
+                c_descriptor).Value(&c_do_exchange_result))
         py_writer = FlightStreamWriter()
-        py_writer.writer.reset(c_writer.release())
+        py_writer.writer.reset(c_do_exchange_result.writer.release())
         py_reader = FlightStreamReader()
-        py_reader.reader.reset(c_reader.release())
+        py_reader.reader.reset(c_do_exchange_result.reader.release())
         return py_writer, py_reader
 
     def close(self):
+        """Close the client and disconnect."""
         check_flight_status(self.client.get().Close())
 
     def __del__(self):
@@ -1458,7 +1469,14 @@ cdef class FlightClient(_Weakrefable):
 
 
 cdef class FlightDataStream(_Weakrefable):
-    """Abstract base class for Flight data streams."""
+    """
+    Abstract base class for Flight data streams.
+
+    See Also
+    --------
+    RecordBatchStream
+    GeneratorStream
+    """
 
     cdef CFlightDataStream* to_stream(self) except *:
         """Create the C++ data stream for the backing Python object.
@@ -1470,7 +1488,12 @@ cdef class FlightDataStream(_Weakrefable):
 
 
 cdef class RecordBatchStream(FlightDataStream):
-    """A Flight data stream backed by RecordBatches."""
+    """A Flight data stream backed by RecordBatches.
+
+    The remainder of this DoGet request will be handled in C++,
+    without having to acquire the GIL.
+
+    """
     cdef:
         object data_source
         CIpcWriteOptions write_options
@@ -1481,7 +1504,9 @@ cdef class RecordBatchStream(FlightDataStream):
         Parameters
         ----------
         data_source : RecordBatchReader or Table
+            The data to stream to the client.
         options : pyarrow.ipc.IpcWriteOptions, optional
+            Optional IPC options to control how to write the data.
         """
         if (not isinstance(data_source, RecordBatchReader) and
                 not isinstance(data_source, lib.Table)):
@@ -1557,6 +1582,7 @@ cdef class ServerCallContext(_Weakrefable):
         return frombytes(self.context.peer(), safe=True)
 
     def is_cancelled(self):
+        """Check if the current RPC call has been canceled by the client."""
         return self.context.is_cancelled()
 
     def get_middleware(self, key):
@@ -2448,6 +2474,10 @@ cdef class _ServerMiddlewareWrapper(ServerMiddleware):
 cdef class FlightServerBase(_Weakrefable):
     """A Flight service definition.
 
+    To start the server, create an instance of this class with an
+    appropriate location. The server will be running as soon as the
+    instance is created; it is not required to call :meth:`serve`.
+
     Override methods to define your Flight service.
 
     Parameters
@@ -2560,32 +2590,169 @@ cdef class FlightServerBase(_Weakrefable):
         return self.server.get().port()
 
     def list_flights(self, context, criteria):
+        """List flights available on this service.
+
+        Applications should override this method to implement their
+        own behavior. The default method raises a NotImplementedError.
+
+        Parameters
+        ----------
+        context : ServerCallContext
+            Common contextual information.
+        criteria : bytes
+            Filter criteria provided by the client.
+
+        Returns
+        -------
+        iterator of FlightInfo
+
+        """
         raise NotImplementedError
 
     def get_flight_info(self, context, descriptor):
+        """Get information about a flight.
+
+        Applications should override this method to implement their
+        own behavior. The default method raises a NotImplementedError.
+
+        Parameters
+        ----------
+        context : ServerCallContext
+            Common contextual information.
+        descriptor : FlightDescriptor
+            The descriptor for the flight provided by the client.
+
+        Returns
+        -------
+        FlightInfo
+
+        """
         raise NotImplementedError
 
     def get_schema(self, context, descriptor):
+        """Get the schema of a flight.
+
+        Applications should override this method to implement their
+        own behavior. The default method raises a NotImplementedError.
+
+        Parameters
+        ----------
+        context : ServerCallContext
+            Common contextual information.
+        descriptor : FlightDescriptor
+            The descriptor for the flight provided by the client.
+
+        Returns
+        -------
+        Schema
+
+        """
         raise NotImplementedError
 
-    def do_put(self, context, descriptor, reader,
+    def do_put(self, context, descriptor, reader: MetadataRecordBatchReader,
                writer: FlightMetadataWriter):
+        """Write data to a flight.
+
+        Applications should override this method to implement their
+        own behavior. The default method raises a NotImplementedError.
+
+        Parameters
+        ----------
+        context : ServerCallContext
+            Common contextual information.
+        descriptor : FlightDescriptor
+            The descriptor for the flight provided by the client.
+        reader : MetadataRecordBatchReader
+            A reader for data uploaded by the client.
+        writer : FlightMetadataWriter
+            A writer to send responses to the client.
+
+        """
         raise NotImplementedError
 
     def do_get(self, context, ticket):
+        """Write data to a flight.
+
+        Applications should override this method to implement their
+        own behavior. The default method raises a NotImplementedError.
+
+        Parameters
+        ----------
+        context : ServerCallContext
+            Common contextual information.
+        ticket : Ticket
+            The ticket for the flight.
+
+        Returns
+        -------
+        FlightDataStream
+            A stream of data to send back to the client.
+
+        """
         raise NotImplementedError
 
     def do_exchange(self, context, descriptor, reader, writer):
+        """Write data to a flight.
+
+        Applications should override this method to implement their
+        own behavior. The default method raises a NotImplementedError.
+
+        Parameters
+        ----------
+        context : ServerCallContext
+            Common contextual information.
+        descriptor : FlightDescriptor
+            The descriptor for the flight provided by the client.
+        reader : MetadataRecordBatchReader
+            A reader for data uploaded by the client.
+        writer : MetadataRecordBatchWriter
+            A writer to send responses to the client.
+
+        """
         raise NotImplementedError
 
     def list_actions(self, context):
+        """List custom actions available on this server.
+
+        Applications should override this method to implement their
+        own behavior. The default method raises a NotImplementedError.
+
+        Parameters
+        ----------
+        context : ServerCallContext
+            Common contextual information.
+
+        Returns
+        -------
+        iterator of ActionType or tuple
+
+        """
         raise NotImplementedError
 
     def do_action(self, context, action):
+        """Execute a custom action.
+
+        This method should return an iterator, or it should be a
+        generator. Applications should override this method to
+        implement their own behavior. The default method raises a
+        NotImplementedError.
+
+        Parameters
+        ----------
+        context : ServerCallContext
+            Common contextual information.
+        action : Action
+            The action to execute.
+
+        Returns
+        -------
+        iterator of bytes
+
+        """
         raise NotImplementedError
 
     def serve(self):
-        """Start serving.
+        """Block until the server shuts down.
 
         This method only returns if shutdown() is called or a signal a
         received.
@@ -2596,6 +2763,11 @@ cdef class FlightServerBase(_Weakrefable):
             check_flight_status(self.server.get().ServeWithSignals())
 
     def run(self):
+        """Block until the server shuts down.
+
+        .. deprecated:: 0.15.0
+            Use the ``FlightServer.serve`` method instead
+        """
         warnings.warn("The 'FlightServer.run' method is deprecated, use "
                       "FlightServer.serve method instead")
         self.serve()

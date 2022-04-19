@@ -92,7 +92,7 @@ Parquet Files
 Encrypted Parquet Files
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-.. currentmodule:: pyarrow.parquet_encryption
+.. currentmodule:: pyarrow.parquet.encryption
 
 .. autosummary::
    :toctree: ../generated/

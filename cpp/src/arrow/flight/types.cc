@@ -67,6 +67,8 @@ std::string FlightStatusDetail::CodeAsString() const {
       return "Unauthorized";
     case FlightStatusCode::Unavailable:
       return "Unavailable";
+    case FlightStatusCode::Failed:
+      return "Failed";
     default:
       return "Unknown";
   }

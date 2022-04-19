@@ -56,6 +56,20 @@ test_that <- function(what, code) {
   })
 }
 
+# backport of 4.0.0 implementation
+if (getRversion() < "4.0.0") {
+  suppressWarnings <- function(expr, classes = "warning") {
+    withCallingHandlers(
+      expr,
+      warning = function(w) {
+        if (inherits(w, classes)) {
+          invokeRestart("muffleWarning")
+        }
+      }
+    )
+  }
+}
+
 # Wrapper to run tests that only touch R code even when the C++ library isn't
 # available (so that at least some tests are run on those platforms)
 r_only <- function(code) {

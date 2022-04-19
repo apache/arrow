@@ -30,10 +30,17 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
 
+#include "arrow/util/tracing_internal.h"
+
 namespace arrow {
 namespace internal {
 
 Executor::~Executor() = default;
+
+// By default we do nothing here.  Subclasses that expect to be allocated
+// with static storage duration should override this and ensure any threads respect the
+// lifetime of these resources.
+void Executor::KeepAlive(std::shared_ptr<Resource> resource) {}
 
 namespace {
 
@@ -70,6 +77,20 @@ SerialExecutor::~SerialExecutor() {
 
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  // Wrap the task to propagate a parent tracing span to it
+  struct SpanWrapper {
+    void operator()() {
+      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+      std::move(func)();
+    }
+    FnOnce<void()> func;
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
+  };
+  SpanWrapper wrapper{std::move(task),
+                      ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
+  task = std::move(wrapper);
+#endif
   // While the SerialExecutor runs tasks synchronously on its main thread,
   // SpawnReal may be called from external threads (e.g. when transferring back
   // from blocking I/O threads), so we need to keep the state alive *and* to
@@ -184,6 +205,8 @@ struct ThreadPool::State {
   // Are we shutting down?
   bool please_shutdown_ = false;
   bool quick_shutdown_ = false;
+
+  std::vector<std::shared_ptr<Resource>> kept_alive_resources_;
 };
 
 // The worker loop is an independent function so that it can keep running
@@ -401,6 +424,22 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
                              StopCallback&& stop_callback) {
   {
     ProtectAgainstFork();
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // Wrap the task to propagate a parent tracing span to it
+    // This task-wrapping needs to be done before we grab the mutex because the
+    // first call to OT (whatever that happens to be) will attempt to grab this mutex
+    // when calling KeepAlive to keep the OT infrastructure alive.
+    struct {
+      void operator()() {
+        auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
+        std::move(func)();
+      }
+      FnOnce<void()> func;
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
+    } wrapper{std::forward<FnOnce<void()>>(task),
+              ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
+    task = std::move(wrapper);
+#endif
     std::lock_guard<std::mutex> lock(state_->mutex_);
     if (state_->please_shutdown_) {
       return Status::Invalid("operation forbidden during or after shutdown");
@@ -417,6 +456,12 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
   }
   state_->cv_.notify_one();
   return Status::OK();
+}
+
+void ThreadPool::KeepAlive(std::shared_ptr<Executor::Resource> resource) {
+  // Seems unlikely but we might as well guard against concurrent calls to KeepAlive
+  std::lock_guard<std::mutex> lk(state_->mutex_);
+  state_->kept_alive_resources_.push_back(std::move(resource));
 }
 
 Result<std::shared_ptr<ThreadPool>> ThreadPool::Make(int threads) {

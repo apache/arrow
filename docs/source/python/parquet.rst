@@ -634,7 +634,7 @@ Reading an encrypted Parquet file:
 
 
 In order to create the encryption and decryption properties, a
-:class:`pyarrow.parquet_encryption.CryptoFactory` should be created and
+:class:`pyarrow.parquet.encryption.CryptoFactory` should be created and
 initialized with KMS Client details, as described below.
 
 
@@ -645,11 +645,11 @@ The master encryption keys should be kept and managed in a production-grade
 Key Management System (KMS), deployed in the user's organization. Using Parquet
 encryption requires implementation of a client class for the KMS server.
 Any KmsClient implementation should implement the informal interface
-defined by :class:`pyarrow.parquet_encryption.KmsClient` as following:
+defined by :class:`pyarrow.parquet.encryption.KmsClient` as following:
 
 .. code-block:: python
 
-   import pyarrow.parquet_encryption as pe
+   import pyarrow.parquet.encryption as pe
 
    class MyKmsClient(pe.KmsClient):
 
@@ -671,7 +671,7 @@ defined by :class:`pyarrow.parquet_encryption.KmsClient` as following:
 
 The concrete implementation will be loaded at runtime by a factory function
 provided by the user. This factory function will be used to initialize the
-:class:`pyarrow.parquet_encryption.CryptoFactory` for creating file encryption
+:class:`pyarrow.parquet.encryption.CryptoFactory` for creating file encryption
 and decryption properties.
 
 For example, in order to use the ``MyKmsClient`` defined above:
@@ -696,7 +696,7 @@ above.
 KMS connection configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Configuration of connection to KMS (:class:`pyarrow.parquet_encryption.KmsConnectionConfig`
+Configuration of connection to KMS (:class:`pyarrow.parquet.encryption.KmsConnectionConfig`
 used when creating file encryption and decryption properties) includes the
 following options:
 
@@ -709,7 +709,7 @@ following options:
 Encryption configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-:class:`pyarrow.parquet_encryption.EncryptionConfiguration` (used when
+:class:`pyarrow.parquet.encryption.EncryptionConfiguration` (used when
 creating file encryption properties) includes the following options:
 
 * ``footer_key``, the ID of the master key for footer encryption/signing.
@@ -754,7 +754,7 @@ An example encryption configuration:
 Decryption configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~
    
-:class:`pyarrow.parquet_encryption.DecryptionConfiguration` (used when creating
+:class:`pyarrow.parquet.encryption.DecryptionConfiguration` (used when creating
 file decryption properties) is optional and it includes the following options:
 
 * ``cache_lifetime``, the lifetime of cached entities (key encryption keys, local

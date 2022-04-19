@@ -19,12 +19,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/chunk_resolver.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/record_batch.h"
-#include "arrow/type.h"
 
 namespace arrow {
 namespace compute {
@@ -33,8 +33,8 @@ namespace internal {
 // The target chunk in a chunked array.
 template <typename ArrayType>
 struct ResolvedChunk {
-  using V = GetViewType<typename ArrayType::TypeClass>;
-  using LogicalValueType = typename V::T;
+  using ViewType = GetViewType<typename ArrayType::TypeClass>;
+  using LogicalValueType = typename ViewType::T;
 
   // The target array in chunked array.
   const ArrayType* array;
@@ -45,7 +45,7 @@ struct ResolvedChunk {
 
   bool IsNull() const { return array->IsNull(index); }
 
-  LogicalValueType Value() const { return V::LogicalValue(array->GetView(index)); }
+  LogicalValueType Value() const { return ViewType::LogicalValue(array->GetView(index)); }
 };
 
 // ResolvedChunk specialization for untyped arrays when all is needed is null lookup
@@ -61,97 +61,20 @@ struct ResolvedChunk<Array> {
   bool IsNull() const { return array->IsNull(index); }
 };
 
-struct ChunkLocation {
-  int64_t chunk_index, index_in_chunk;
-};
+struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
+  ChunkedArrayResolver(const ChunkedArrayResolver& other)
+      : ::arrow::internal::ChunkResolver(other.chunks_), chunks_(other.chunks_) {}
 
-// An object that resolves an array chunk depending on the index.
-struct ChunkResolver {
-  explicit ChunkResolver(std::vector<int64_t> lengths)
-      : num_chunks_(static_cast<int64_t>(lengths.size())),
-        offsets_(MakeEndOffsets(std::move(lengths))),
-        cached_chunk_(0) {}
-
-  ChunkLocation Resolve(int64_t index) const {
-    // It is common for the algorithms below to make consecutive accesses at
-    // a relatively small distance from each other, hence often falling in
-    // the same chunk.
-    // This is trivial when merging (assuming each side of the merge uses
-    // its own resolver), but also in the inner recursive invocations of
-    // partitioning.
-    const bool cache_hit =
-        (index >= offsets_[cached_chunk_] && index < offsets_[cached_chunk_ + 1]);
-    if (ARROW_PREDICT_TRUE(cache_hit)) {
-      return {cached_chunk_, index - offsets_[cached_chunk_]};
-    } else {
-      return ResolveMissBisect(index);
-    }
-  }
-
-  static ChunkResolver FromBatches(const RecordBatchVector& batches) {
-    std::vector<int64_t> lengths(batches.size());
-    std::transform(
-        batches.begin(), batches.end(), lengths.begin(),
-        [](const std::shared_ptr<RecordBatch>& batch) { return batch->num_rows(); });
-    return ChunkResolver(std::move(lengths));
-  }
-
- protected:
-  ChunkLocation ResolveMissBisect(int64_t index) const {
-    // Like std::upper_bound(), but hand-written as it can help the compiler.
-    const int64_t* raw_offsets = offsets_.data();
-    // Search [lo, lo + n)
-    int64_t lo = 0, n = num_chunks_;
-    while (n > 1) {
-      int64_t m = n >> 1;
-      int64_t mid = lo + m;
-      if (index >= raw_offsets[mid]) {
-        lo = mid;
-        n -= m;
-      } else {
-        n = m;
-      }
-    }
-    cached_chunk_ = lo;
-    return {lo, index - offsets_[lo]};
-  }
-
-  static std::vector<int64_t> MakeEndOffsets(std::vector<int64_t> lengths) {
-    int64_t offset = 0;
-    for (auto& v : lengths) {
-      const auto this_length = v;
-      v = offset;
-      offset += this_length;
-    }
-    lengths.push_back(offset);
-    return lengths;
-  }
-
-  int64_t num_chunks_;
-  std::vector<int64_t> offsets_;
-
-  mutable int64_t cached_chunk_;
-};
-
-struct ChunkedArrayResolver : protected ChunkResolver {
   explicit ChunkedArrayResolver(const std::vector<const Array*>& chunks)
-      : ChunkResolver(MakeLengths(chunks)), chunks_(chunks) {}
+      : ::arrow::internal::ChunkResolver(chunks), chunks_(chunks) {}
 
   template <typename ArrayType>
   ResolvedChunk<ArrayType> Resolve(int64_t index) const {
-    const auto loc = ChunkResolver::Resolve(index);
-    return ResolvedChunk<ArrayType>(
-        checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
+    const auto loc = ::arrow::internal::ChunkResolver::Resolve(index);
+    return {checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk};
   }
 
  protected:
-  static std::vector<int64_t> MakeLengths(const std::vector<const Array*>& chunks) {
-    std::vector<int64_t> lengths(chunks.size());
-    std::transform(chunks.begin(), chunks.end(), lengths.begin(),
-                   [](const Array* arr) { return arr->length(); });
-    return lengths;
-  }
-
   const std::vector<const Array*> chunks_;
 };
 

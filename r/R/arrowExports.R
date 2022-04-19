@@ -452,8 +452,8 @@ engine__internal__SubstraitFromJSON <- function(substrait_json) {
   .Call(`_arrow_engine__internal__SubstraitFromJSON`, substrait_json)
 }
 
-ExecPlan_run_substrait <- function(plan, serialized_plan, out_names) {
-  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan, out_names)
+ExecPlan_run_substrait <- function(plan, serialized_plan) {
+  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -1066,6 +1066,42 @@ compute___expr__type <- function(x, schema) {
 
 compute___expr__type_id <- function(x, schema) {
   .Call(`_arrow_compute___expr__type_id`, x, schema)
+}
+
+ExtensionType__initialize <- function(storage_type, extension_name, extension_metadata, r6_class) {
+  .Call(`_arrow_ExtensionType__initialize`, storage_type, extension_name, extension_metadata, r6_class)
+}
+
+ExtensionType__extension_name <- function(type) {
+  .Call(`_arrow_ExtensionType__extension_name`, type)
+}
+
+ExtensionType__Serialize <- function(type) {
+  .Call(`_arrow_ExtensionType__Serialize`, type)
+}
+
+ExtensionType__storage_type <- function(type) {
+  .Call(`_arrow_ExtensionType__storage_type`, type)
+}
+
+ExtensionType__MakeArray <- function(type, data) {
+  .Call(`_arrow_ExtensionType__MakeArray`, type, data)
+}
+
+ExtensionType__r6_class <- function(type) {
+  .Call(`_arrow_ExtensionType__r6_class`, type)
+}
+
+ExtensionArray__storage <- function(array) {
+  .Call(`_arrow_ExtensionArray__storage`, array)
+}
+
+arrow__RegisterRExtensionType <- function(type) {
+  invisible(.Call(`_arrow_arrow__RegisterRExtensionType`, type))
+}
+
+arrow__UnregisterRExtensionType <- function(type_name) {
+  invisible(.Call(`_arrow_arrow__UnregisterRExtensionType`, type_name))
 }
 
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level) {
@@ -1732,6 +1768,14 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
   .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
 }
 
+InitializeMainRThread <- function() {
+  invisible(.Call(`_arrow_InitializeMainRThread`))
+}
+
+TestSafeCallIntoR <- function(r_fun_that_returns_a_string, opt) {
+  .Call(`_arrow_TestSafeCallIntoR`, r_fun_that_returns_a_string, opt)
+}
+
 Array__GetScalar <- function(x, i) {
   .Call(`_arrow_Array__GetScalar`, x, i)
 }
@@ -1943,3 +1987,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

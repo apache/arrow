@@ -217,8 +217,10 @@ open_dataset <- function(sources,
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
-    error = function(e) {
-      handle_parquet_io_error(e, format)
+    # n = 4 because we want the error to show up as being from open_dataset()
+    # and not handle_parquet_io_error()
+    error = function(e, call = caller_env(n = 4)) {
+      handle_parquet_io_error(e, format, call)
     }
   )
 }

@@ -19,7 +19,7 @@
 # cython: language_level = 3
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
+from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
                                         CRandomAccessFile, COutputStream,
@@ -410,6 +410,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* encoding(const c_string& path,
                               ParquetEncoding encoding)
             Builder* write_batch_size(int64_t batch_size)
+            Builder* dictionary_pagesize_limit(int64_t dictionary_pagesize_limit)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -484,6 +485,10 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
 
+    CStatus StatisticsAsScalars(const CStatistics& Statistics,
+                                shared_ptr[CScalar]* min,
+                                shared_ptr[CScalar]* max)
+
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
     CStatus ToParquetSchema(
@@ -553,7 +558,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     column_encoding=*,
     data_page_version=*,
     FileEncryptionProperties encryption_properties=*,
-    write_batch_size=*) except *
+    write_batch_size=*,
+    dictionary_pagesize_limit=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(

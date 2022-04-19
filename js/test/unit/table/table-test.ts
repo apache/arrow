@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Int32, Float32, Float64, Int8, makeTable, tableFromArrays, Dictionary } from 'apache-arrow';
+import { Bool, Dictionary, Float32, Float64, Int32, Int8, makeTable, tableFromArrays, tableFromJSON } from 'apache-arrow';
 
 describe('makeTable()', () => {
     test(`creates a new Table from Typed Arrays`, () => {
@@ -47,10 +47,35 @@ describe('tableFromArrays()', () => {
             d: ['foo', 'bar'],
         });
 
+        expect(table.numRows).toBe(3);
+        expect(table.numCols).toBe(4);
+
         expect(table.getChild('a')!.type).toBeInstanceOf(Float32);
         expect(table.getChild('b')!.type).toBeInstanceOf(Int8);
         expect(table.getChild('c')!.type).toBeInstanceOf(Float64);
         expect(table.getChild('d')!.type).toBeInstanceOf(Dictionary);
         expect(table.getChild('e' as any)).toBeNull();
+    });
+});
+
+
+describe('tableFromJSON()', () => {
+    test(`creates table from array of objects`, () => {
+        const table = tableFromJSON([{
+            a: 42,
+            b: true,
+            c: 'foo',
+        }, {
+            a: 12,
+            b: false,
+            c: 'bar',
+        }]);
+
+        expect(table.numRows).toBe(2);
+        expect(table.numCols).toBe(3);
+
+        expect(table.getChild('a')!.type).toBeInstanceOf(Float64);
+        expect(table.getChild('b')!.type).toBeInstanceOf(Bool);
+        expect(table.getChild('c')!.type).toBeInstanceOf(Dictionary);
     });
 });

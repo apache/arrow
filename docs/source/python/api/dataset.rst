@@ -66,5 +66,6 @@ Classes
    UnionDataset
    Fragment
    FragmentScanOptions
+   TaggedRecordBatch
    Scanner
    Expression
