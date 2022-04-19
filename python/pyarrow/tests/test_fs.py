@@ -26,7 +26,7 @@ import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
-from pyarrow.tests.util import _filesystem_uri, ProxyHandler, limited_s3_user
+from pyarrow.tests.util import _filesystem_uri, ProxyHandler, _configure_s3_limited_user
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
@@ -431,7 +431,7 @@ def skip_fsspec_s3fs(fs):
 @pytest.mark.s3
 def test_s3fs_limited_permissions_create_bucket(s3_server):
     from pyarrow.fs import S3FileSystem
-    limited_s3_user(s3_server, _minio_limited_policy)
+    _configure_s3_limited_user(s3_server, _minio_limited_policy)
     host, port, _, _ = s3_server['connection']
 
     fs = S3FileSystem(

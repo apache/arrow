@@ -35,7 +35,7 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler, limited_s3_user)
+                                FSProtocolClass, ProxyHandler, _configure_s3_limited_user)
 
 try:
     import pandas as pd
@@ -4370,7 +4370,7 @@ def test_write_dataset_s3_put_only(s3_server):
         endpoint_override='{}:{}'.format(host, port),
         scheme='http'
     )
-    limited_s3_user(s3_server, _minio_put_only_policy)
+    _configure_s3_limited_user(s3_server, _minio_put_only_policy)
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
         pa.array(np.repeat(['a', 'b'], 10))],

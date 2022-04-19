@@ -396,7 +396,7 @@ def _run_mc_command(mcdir, *args):
         raise ChildProcessError("Could not run mc")
 
 
-def _configure_limited_user(tmpdir, address, access_key, secret_key, policy):
+def _configure_s3_limited_user(s3_server, policy):
     """
     Attempts to use the mc command to configure the minio server
     with a special user limited:limited123 which does not have
@@ -406,6 +406,16 @@ def _configure_limited_user(tmpdir, address, access_key, secret_key, policy):
     Arrow S3 operations should still work in such a configuration
     (e.g. see ARROW-13685)
     """
+    
+    if sys.platform == 'win32':
+        # Can't rely on FileNotFound check because
+        # there is sometimes an mc command on Windows
+        # which is unrelated to the minio mc
+        pytest.skip('The mc command is not installed on Windows')
+    tempdir = s3_server['tempdir']
+    host, port, access_key, secret_key = s3_server['connection']
+    address = '{}:{}'.format(host, port)
+
     try:
         if not _ensure_minio_component_version('mc', 2021):
             # mc version is too old for the capabilities we need
@@ -413,10 +423,10 @@ def _configure_limited_user(tmpdir, address, access_key, secret_key, policy):
         if not _ensure_minio_component_version('minio', 2021):
             # minio version is too old for the capabilities we need
             return False
-        mcdir = os.path.join(tmpdir, 'mc')
+        mcdir = os.path.join(tempdir, 'mc')
         if not os.path.exists(mcdir):
             os.mkdir(mcdir)
-        policy_path = os.path.join(tmpdir, 'limited-buckets-policy.json')
+        policy_path = os.path.join(tempdir, 'limited-buckets-policy.json')
         with open(policy_path, mode='w') as policy_file:
             policy_file.write(policy)
         # The s3_server fixture starts the minio process but
@@ -432,22 +442,8 @@ def _configure_limited_user(tmpdir, address, access_key, secret_key, policy):
         _run_mc_command(mcdir, 'admin', 'policy', 'set',
                         'myminio', 'no-create-buckets', 'user=limited')
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket')
-        return True
+
     except FileNotFoundError:
-        # If mc is not found, skip these tests
-        return False
-
-
-def limited_s3_user(s3_server, policy):
-    if sys.platform == 'win32':
-        # Can't rely on FileNotFound check because
-        # there is sometimes an mc command on Windows
-        # which is unrelated to the minio mc
-        pytest.skip('The mc command is not installed on Windows')
-    tempdir = s3_server['tempdir']
-    host, port, access_key, secret_key = s3_server['connection']
-    address = '{}:{}'.format(host, port)
-    if not _configure_limited_user(tempdir, address,
-                                   access_key, secret_key, policy):
         pytest.skip(
             'Could not locate mc command to configure limited user')
+
