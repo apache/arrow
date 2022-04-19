@@ -123,10 +123,8 @@ cdef class GcsFileSystem(FileSystem):
         if endpoint_override is not None:
             options.endpoint_override = tobytes(endpoint_override)
         if default_metadata is not None:
-            if not isinstance(default_metadata, KeyValueMetadata):
-                default_metadata = KeyValueMetadata(default_metadata)
             options.default_metadata = pyarrow_unwrap_metadata(
-                default_metadata)
+                ensure_metadata(default_metadata))
 
         with nogil:
             wrapped = GetResultValue(CGcsFileSystem.Make(options))
