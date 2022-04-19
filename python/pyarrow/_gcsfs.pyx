@@ -92,7 +92,7 @@ cdef class GcsFileSystem(FileSystem):
         if anonymous and (target_service_account or access_token):
             raise ValueError(
                 'anonymous option is not compatible with target_service_account and '
-                'access_token please only specify only one.'
+                'access_token'
             )
         elif bool(access_token) != bool(credential_token_expiration):
             raise ValueError(
