@@ -25,7 +25,7 @@ ARG manylinux
 ENV MANYLINUX_VERSION=${manylinux}
 
 # Install basic dependencies
-RUN yum install -y git flex curl autoconf zip wget
+RUN yum install -y git flex curl autoconf zip wget kernel-devel
 
 # Install CMake
 # AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
@@ -81,7 +81,7 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
-        --x-feature=parquet
+        --x-feature=parquet || cat  /opt/vcpkg/buildtrees/openssl/install-amd64-linux-static-release-rel-out.log
 
 ARG python=3.8
 ENV PYTHON_VERSION=${python}
