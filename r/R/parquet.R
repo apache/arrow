@@ -186,7 +186,7 @@ write_parquet <- function(x,
     x$schema,
     sink,
     properties = properties %||% ParquetWriterProperties$create(
-      x,
+      names(x),
       version = version,
       compression = compression,
       compression_level = compression_level,
@@ -307,33 +307,33 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
     set_version = function(version) {
       parquet___WriterProperties___Builder__version(self, make_valid_version(version))
     },
-    set_compression = function(table, compression) {
+    set_compression = function(column_names, compression) {
       compression <- compression_from_name(compression)
       assert_that(is.integer(compression))
       private$.set(
-        table, compression,
+        column_names, compression,
         parquet___ArrowWriterProperties___Builder__set_compressions
       )
     },
-    set_compression_level = function(table, compression_level) {
+    set_compression_level = function(column_names, compression_level) {
       # cast to integer but keep names
       compression_level <- set_names(as.integer(compression_level), names(compression_level))
       private$.set(
-        table, compression_level,
+        column_names, compression_level,
         parquet___ArrowWriterProperties___Builder__set_compression_levels
       )
     },
-    set_dictionary = function(table, use_dictionary) {
+    set_dictionary = function(column_names, use_dictionary) {
       assert_that(is.logical(use_dictionary))
       private$.set(
-        table, use_dictionary,
+        column_names, use_dictionary,
         parquet___ArrowWriterProperties___Builder__set_use_dictionary
       )
     },
-    set_write_statistics = function(table, write_statistics) {
+    set_write_statistics = function(column_names, write_statistics) {
       assert_that(is.logical(write_statistics))
       private$.set(
-        table, write_statistics,
+        column_names, write_statistics,
         parquet___ArrowWriterProperties___Builder__set_write_statistics
       )
     },
@@ -342,9 +342,8 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
     }
   ),
   private = list(
-    .set = function(table, value, FUN) {
+    .set = function(column_names, value, FUN) {
       msg <- paste0("unsupported ", substitute(value), "= specification")
-      column_names <- names(table)
       given_names <- names(value)
       if (is.null(given_names)) {
         if (length(value) %in% c(1L, length(column_names))) {
@@ -364,7 +363,7 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
   )
 )
 
-ParquetWriterProperties$create <- function(table,
+ParquetWriterProperties$create <- function(column_names,
                                            version = NULL,
                                            compression = default_parquet_compression(),
                                            compression_level = NULL,
@@ -377,16 +376,16 @@ ParquetWriterProperties$create <- function(table,
     builder$set_version(version)
   }
   if (!is.null(compression)) {
-    builder$set_compression(table, compression = compression)
+    builder$set_compression(column_names, compression = compression)
   }
   if (!is.null(compression_level)) {
-    builder$set_compression_level(table, compression_level = compression_level)
+    builder$set_compression_level(column_names, compression_level = compression_level)
   }
   if (!is.null(use_dictionary)) {
-    builder$set_dictionary(table, use_dictionary)
+    builder$set_dictionary(column_names, use_dictionary)
   }
   if (!is.null(write_statistics)) {
-    builder$set_write_statistics(table, write_statistics)
+    builder$set_write_statistics(column_names, write_statistics)
   }
   if (!is.null(data_page_size)) {
     builder$set_data_page_size(data_page_size)
@@ -600,10 +599,9 @@ ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads
   parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads))
 }
 
-calculate_chunk_size <- function(rows,  columns,
-  target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
-  max_chunks = getOption("arrow.parquet_max_chunks", 200)
-  ) {
+calculate_chunk_size <- function(rows, columns,
+                                 target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
+                                 max_chunks = getOption("arrow.parquet_max_chunks", 200)) {
 
   # Ensure is a float to prevent integer overflow issues
   num_cells <- as.numeric(rows) * as.numeric(columns)

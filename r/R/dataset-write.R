@@ -186,7 +186,11 @@ write_dataset <- function(dataset,
 
   path_and_fs <- get_path_and_filesystem(path)
   output_schema <- final_node$schema
-  options <- FileWriteOptions$create(format, table = output_schema, ...)
+  options <- FileWriteOptions$create(
+    format,
+    column_names = names(output_schema),
+    ...
+  )
 
   # TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
   # and encapsulate this logic better
