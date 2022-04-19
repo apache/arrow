@@ -197,9 +197,9 @@ rbind.RecordBatch <- function(...) {
 
 cbind_check_length <- function(inputs, call = caller_env()) {
   sizes <- map_int(inputs, NROW)
- ok_lengths <- sizes %in% c(head(sizes, 1), 1L)
+  ok_lengths <- sizes %in% c(head(sizes, 1), 1L)
   if (!all(ok_lengths)) {
-    first_bad_one <- which.min(!ok.lengths)
+    first_bad_one <- which.min(ok_lengths)
     abort(
       c("Non-scalar inputs must have an equal number of rows.",
         i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])),
@@ -229,7 +229,7 @@ cbind.RecordBatch <- function(...) {
     } else if (inherits(input, "data.frame")) {
       as.list(input)
     } else {
-      if (is.na(name) || name == "") {
+      if (name == "") {
         abort("Vector and array arguments must have names",
               i = sprintf("Argument ..%d is missing a name", i))
       }

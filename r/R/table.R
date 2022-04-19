@@ -194,7 +194,7 @@ cbind.Table <- function(...) {
     } else if (inherits(input, "data.frame")) {
       as.list(input)
     } else {
-      if (is.na(name) || name == "") {
+      if (name == "") {
         abort("Vector and array arguments must have names",
               i = sprintf("Argument ..%d is missing a name", i))
       }
