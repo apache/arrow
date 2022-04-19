@@ -484,14 +484,9 @@ class GcsFileSystem::Impl {
       submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
     }
 
-    if (!missing_dir_ok && !at_least_one_obj) {
-      // If any files were found the directory implicitly exists.  If none were
-      // found then we still have to consider a marker-only directory so we test
-      // for that.
-      ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(p));
-      if (file_info.type() == FileType::NotFound) {
-        return Status::IOError("No directory or any files matching path: ", p.full_path);
-      }
+    if (!missing_dir_ok && !at_least_one_obj && !dir) {
+      // No files were found and no directory marker exists
+      return Status::IOError("No such directory: ", p.full_path);
     }
 
     return AllFinished(submitted).status();
