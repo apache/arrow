@@ -35,7 +35,7 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler)
+                                FSProtocolClass, ProxyHandler, limited_s3_user)
 
 try:
     import pandas as pd
@@ -4354,7 +4354,7 @@ _minio_put_only_policy = """{
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_write_dataset_s3_put_only(s3_server, limited_s3_user):
+def test_write_dataset_s3_put_only(s3_server):
     # [ARROW-15892] Testing the create_dir flag which will restrict
     # creating a new directory for writing a dataset. This is
     # required while writing a dataset in s3 where we have very
@@ -4370,7 +4370,7 @@ def test_write_dataset_s3_put_only(s3_server, limited_s3_user):
         endpoint_override='{}:{}'.format(host, port),
         scheme='http'
     )
-    limited_s3_user(_minio_put_only_policy)
+    limited_s3_user(s3_server, _minio_put_only_policy)
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
         pa.array(np.repeat(['a', 'b'], 10))],
