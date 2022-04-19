@@ -2329,7 +2329,7 @@ struct SelectionKernelDescr {
   ArrayKernelExec exec;
 };
 
-void RegisterSelectionFunction(const std::string& name, const FunctionDoc doc,
+void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                VectorKernel base_kernel, InputType selection_type,
                                const std::vector<SelectionKernelDescr>& descrs,
                                const FunctionOptions* default_options,
@@ -2428,7 +2428,7 @@ Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out
 }
 
 std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
-                                                           const FunctionDoc doc) {
+                                                           FunctionDoc doc) {
   auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), doc);
 
   VectorKernel kernel;

@@ -39,7 +39,7 @@ namespace {
 
 template <template <typename> class Transformer>
 void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry,
-                                        const FunctionDoc doc) {
+                                        FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<Transformer>(ty);

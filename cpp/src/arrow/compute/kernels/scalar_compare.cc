@@ -240,8 +240,7 @@ struct VarArgsCompareFunction : ScalarFunction {
 };
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
-                                                    const FunctionDoc doc) {
+std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDoc doc) {
   auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
 
   DCHECK_OK(func->AddKernel(
@@ -313,7 +312,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
 
 std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
                                                     const ScalarFunction& func,
-                                                    const FunctionDoc doc) {
+                                                    FunctionDoc doc) {
   auto flipped_func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
@@ -691,8 +690,7 @@ Result<ValueDescr> ResolveMinOrMaxOutputType(KernelContext*,
 }
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
-                                                 const FunctionDoc doc) {
+std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc doc) {
   static auto default_element_wise_aggregate_options =
       ElementWiseAggregateOptions::Defaults();
 

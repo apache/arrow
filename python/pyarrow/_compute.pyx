@@ -2364,6 +2364,24 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
         deref(pyarrow_unwrap_schema(schema).get())))
 
 
+cdef class ScalarUdfContext:
+
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly"
+                        .format(self.__class__.__name__))
+
+    cdef void init(self, const CScalarUdfContext &context):
+        self.context = context
+
+    @property
+    def batch_length(self):
+        return self.context.batch_length
+
+    @property
+    def memory_pool(self):
+        return box_memory_pool(self.context.pool)
+
+
 cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     """
     Helper function to generate the FunctionDoc
@@ -2373,10 +2391,6 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     cdef:
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
-
-    if len(func_doc) <= 1:
-        raise ValueError(
-            "Function doc must contain a summary, a description and arg_names")
 
     if not "summary" in func_doc.keys():
         raise ValueError("Function doc must contain a summary")
@@ -2513,9 +2527,6 @@ def register_scalar_function(func_name, function_doc, in_types,
             f"out_type must be a DataType, not {out_type!r}")
 
     c_out_type = new COutputType(c_type)
-    # Note: The VectorUDF, TableUDF and AggregatorUDFs will be defined
-    # when they are implemented. Only ScalarUDFBuilder is supported at the
-    # moment.
     c_options = new CScalarUdfOptions(c_func_name, c_arity, c_func_doc,
                                       c_in_types, deref(c_out_type))
 

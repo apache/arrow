@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
@@ -36,9 +37,9 @@ namespace arrow {
 
 namespace py {
 
-/// TODO: TODO(ARROW-16041): UDF Options are not exposed to the Python
-/// users. This feature will be included when extending to provide advanced
-/// options for the users.
+// TODO: TODO(ARROW-16041): UDF Options are not exposed to the Python
+// users. This feature will be included when extending to provide advanced
+// options for the users.
 class ARROW_PYTHON_EXPORT ScalarUdfOptions {
  public:
   ScalarUdfOptions(const std::string func_name, const compute::Arity arity,
@@ -71,6 +72,11 @@ class ARROW_PYTHON_EXPORT ScalarUdfOptions {
   const compute::FunctionDoc func_doc_;
   std::vector<compute::InputType> in_types_;
   compute::OutputType out_type_;
+};
+
+struct ARROW_PYTHON_EXPORT ScalarUdfContext {
+  MemoryPool* pool;
+  int64_t batch_length;
 };
 
 /// \brief register a Scalar user-defined-function from Python

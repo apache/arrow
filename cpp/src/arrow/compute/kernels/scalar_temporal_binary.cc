@@ -326,7 +326,7 @@ struct BinaryTemporalFactory {
 
   template <typename... WithTypes>
   static std::shared_ptr<ScalarFunction> Make(
-      std::string name, OutputType out_type, const FunctionDoc doc,
+      std::string name, OutputType out_type, FunctionDoc doc,
       const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
     DCHECK_NE(sizeof...(WithTypes), 0);
     BinaryTemporalFactory self{

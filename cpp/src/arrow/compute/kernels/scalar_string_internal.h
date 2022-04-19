@@ -171,7 +171,7 @@ struct StringTransformExecWithState
 
 template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernel(
-    std::string name, FunctionRegistry* registry, const FunctionDoc doc,
+    std::string name, FunctionRegistry* registry, FunctionDoc doc,
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : StringTypes()) {
@@ -185,7 +185,7 @@ void MakeUnaryStringBatchKernel(
 
 template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernelWithState(
-    std::string name, FunctionRegistry* registry, const FunctionDoc doc,
+    std::string name, FunctionRegistry* registry, FunctionDoc doc,
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   {
@@ -271,7 +271,7 @@ struct StringPredicateFunctor {
 
 template <typename Predicate>
 void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
-                             const FunctionDoc doc) {
+                             FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<StringPredicateFunctor, Predicate>(ty);

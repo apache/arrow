@@ -28,6 +28,11 @@ cdef class InputType(_Weakrefable):
 
     cdef void init(self, const CInputType &input_type)
 
+cdef class ScalarUdfContext(_Weakrefable):
+    cdef:
+        CScalarUdfContext context
+
+    cdef void init(self, const CScalarUdfContext& context)
 
 cdef class FunctionOptions(_Weakrefable):
     cdef:

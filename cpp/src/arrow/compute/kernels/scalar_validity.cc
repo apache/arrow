@@ -222,8 +222,7 @@ Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   return Status::OK();
 }
 
-std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
-                                                     const FunctionDoc doc) {
+std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name, FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
@@ -241,8 +240,7 @@ std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
   return func;
 }
 
-std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
-                                                  const FunctionDoc doc) {
+std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name, FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
@@ -260,8 +258,7 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
   return func;
 }
 
-std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name,
-                                                  const FunctionDoc doc) {
+std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());

@@ -84,6 +84,12 @@ cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
         return memory_pool.pool
 
 
+cdef api object box_memory_pool(CMemoryPool *c_pool):
+    cdef MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    pool.init(c_pool)
+    return pool
+
+
 cdef class LoggingMemoryPool(MemoryPool):
     cdef:
         unique_ptr[CLoggingMemoryPool] logging_pool

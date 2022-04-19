@@ -455,7 +455,7 @@ struct KleeneAndNotOp {
 };
 
 void MakeFunction(const std::string& name, int arity, ArrayKernelExec exec,
-                  const FunctionDoc doc, FunctionRegistry* registry,
+                  FunctionDoc doc, FunctionRegistry* registry,
                   NullHandling::type null_handling = NullHandling::INTERSECTION) {
   auto func = std::make_shared<ScalarFunction>(name, Arity(arity), doc);
 

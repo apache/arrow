@@ -344,7 +344,7 @@ def test_function_doc_validation():
 
     # doc with empty dictionary
     func_doc = {}
-    expected_expr = r"Function doc must contain a summary,"
+    expected_expr = "Function doc must contain a summary"
     with pytest.raises(ValueError, match=expected_expr):
         register_scalar_function("empty_dictionary", func_doc, in_types,
                                  out_type, unary_scalar_function)

@@ -28,10 +28,16 @@ namespace arrow {
 
 namespace py {
 
-Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
-                       const compute::OutputType& exp_out_type, Datum* out) {
+Status ExecuteFunction(compute::KernelContext* ctx, const compute::ExecBatch& batch,
+                       PyObject* function, const compute::OutputType& exp_out_type,
+                       Datum* out) {
   size_t num_args = batch.values.size();
+  // ScalarUdfContext udf_context;
+  // udf_context.pool = ctx->memory_pool();
+  // udf_context.batch_length = num_args;
   PyObject* arg_tuple = PyTuple_New(num_args);
+  // PyObject* py_udf_ctx = wrap_udf_context(udf_context);
+  // PyTuple_SetItem(arg_tuple, 0, py_udf_ctx);
   // wrap exec_batch objects into Python objects based on the datum type
   for (size_t arg_id = 0; arg_id < num_args; arg_id++) {
     switch (batch[arg_id].kind()) {
@@ -63,7 +69,7 @@ Status ExecuteFunction(const compute::ExecBatch& batch, PyObject* function,
   if (result == nullptr) {
     return Status::ExecutionError("Output is null, but expected an array");
   }
-  // wrapping the output for expected output type
+  // unwrapping the output for expected output type
   if (is_scalar(result)) {
     ARROW_ASSIGN_OR_RAISE(auto val, unwrap_scalar(result));
     if (!exp_out_type.type()->Equals(val->type)) {
@@ -104,7 +110,7 @@ Status RegisterScalarFunction(PyObject* function, const ScalarUdfOptions& option
                                        const compute::ExecBatch& batch,
                                        Datum* out) -> Status {
     PyAcquireGIL lock;
-    RETURN_NOT_OK(ExecuteFunction(batch, function, exp_out_type, out));
+    RETURN_NOT_OK(ExecuteFunction(ctx, batch, function, exp_out_type, out));
     return Status::OK();
   };
 
