@@ -113,8 +113,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    *
    * @return whether to use TLS encryption.
    */
-  public boolean useTls() {
-    return ArrowFlightConnectionProperty.SSL.getBoolean(properties);
+  public boolean useEncryption() {
+    return ArrowFlightConnectionProperty.USE_ENCRYPTION.getBoolean(properties);
   }
 
   public boolean getDisableCertificateVerification() {
@@ -149,7 +149,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     PORT("port", null, Type.NUMBER, true),
     USER("user", null, Type.STRING, false),
     PASSWORD("password", null, Type.STRING, false),
-    SSL("ssl", true, Type.BOOLEAN, false),
+    USE_ENCRYPTION("useEncryption", true, Type.BOOLEAN, false),
     CERTIFICATE_VERIFICATION("disableCertificateVerification", false, Type.BOOLEAN, false),
     TRUST_STORE("trustStore", null, Type.STRING, false),
     TRUST_STORE_PASSWORD("trustStorePassword", null, Type.STRING, false),
