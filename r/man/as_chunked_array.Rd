@@ -18,7 +18,7 @@ as_chunked_array(x, ..., type = NULL)
 \item{...}{Passed to S3 methods}
 
 \item{type}{A \link[=data-type]{type} for the final Array. A value of \code{NULL}
-will default to the type guessed by \code{\link[=type]{type()}}.}
+will default to the type guessed by \code{\link[=infer_type]{infer_type()}}.}
 }
 \value{
 A \link{ChunkedArray}.

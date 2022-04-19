@@ -16,40 +16,40 @@
 # under the License.
 
 
-test_that("type() gets the right type for arrow::Array", {
+test_that("infer_type() gets the right type for arrow::Array", {
   a <- Array$create(1:10)
-  expect_equal(type(a), a$type)
+  expect_equal(infer_type(a), a$type)
 })
 
-test_that("type() gets the right type for ChunkedArray", {
+test_that("infer_type() gets the right type for ChunkedArray", {
   a <- chunked_array(1:10, 1:10)
-  expect_equal(type(a), a$type)
+  expect_equal(infer_type(a), a$type)
 })
 
-test_that("type() infers from R type", {
-  expect_equal(type(1:10), int32())
-  expect_equal(type(1), float64())
-  expect_equal(type(TRUE), boolean())
-  expect_equal(type(raw()), uint8())
-  expect_equal(type(""), utf8())
+test_that("infer_type() infers from R type", {
+  expect_equal(infer_type(1:10), int32())
+  expect_equal(infer_type(1), float64())
+  expect_equal(infer_type(TRUE), boolean())
+  expect_equal(infer_type(raw()), uint8())
+  expect_equal(infer_type(""), utf8())
   expect_equal(
-    type(example_data$fct),
+    infer_type(example_data$fct),
     dictionary(int8(), utf8(), FALSE)
   )
   expect_equal(
-    type(lubridate::ymd_hms("2019-02-14 13:55:05")),
+    infer_type(lubridate::ymd_hms("2019-02-14 13:55:05")),
     timestamp(TimeUnit$MICRO, "UTC")
   )
   expect_equal(
-    type(hms::hms(56, 34, 12)),
+    infer_type(hms::hms(56, 34, 12)),
     time32(unit = TimeUnit$SECOND)
   )
   expect_equal(
-    type(as.difftime(123, units = "days")),
+    infer_type(as.difftime(123, units = "days")),
     duration(unit = TimeUnit$SECOND)
   )
   expect_equal(
-    type(bit64::integer64()),
+    infer_type(bit64::integer64()),
     int64()
   )
 })
@@ -256,31 +256,31 @@ test_that("Type strings are correctly canonicalized", {
   )
 })
 
-test_that("type() gets the right type for Expression", {
+test_that("infer_type() gets the right type for Expression", {
   x <- Expression$scalar(32L)
   y <- Expression$scalar(10)
   add_xy <- Expression$create("add", x, y)
 
-  expect_equal(x$type(), type(x))
-  expect_equal(type(x), int32())
-  expect_equal(y$type(), type(y))
-  expect_equal(type(y), float64())
-  expect_equal(add_xy$type(), type(add_xy))
-  expect_equal(type(add_xy), float64())
+  expect_equal(x$type(), infer_type(x))
+  expect_equal(infer_type(x), int32())
+  expect_equal(y$type(), infer_type(y))
+  expect_equal(infer_type(y), float64())
+  expect_equal(add_xy$type(), infer_type(add_xy))
+  expect_equal(infer_type(add_xy), float64())
 })
 
-test_that("type() infers type for POSIXlt", {
+test_that("infer_type() infers type for POSIXlt", {
   posix_lt <- as.POSIXlt("2021-01-01 01:23:45", tz = "UTC")
   expect_equal(
-    type(posix_lt),
+    infer_type(posix_lt),
     vctrs_extension_type(posix_lt[integer(0)])
   )
 })
 
-test_that("type() infers type for vctrs", {
+test_that("infer_type() infers type for vctrs", {
   vec <- vctrs::new_vctr(1:5, class = "special_integer")
   expect_equal(
-    type(vec),
+    infer_type(vec),
     vctrs_extension_type(vec[integer(0)])
   )
 })

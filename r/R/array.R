@@ -227,7 +227,7 @@ Array$import_from_c <- ImportArray
 #' @param x An object to convert to an Arrow Array
 #' @param ... Passed to S3 methods
 #' @param type A [type][data-type] for the final Array. A value of `NULL`
-#'   will default to the type guessed by [type()].
+#'   will default to the type guessed by [infer_type()].
 #'
 #' @return An [Array].
 #' @export

@@ -7,7 +7,7 @@
 \usage{
 vctrs_extension_array(x, ptype = vctrs::vec_ptype(x), storage_type = NULL)
 
-vctrs_extension_type(ptype, storage_type = type(vctrs::vec_data(ptype)))
+vctrs_extension_type(ptype, storage_type = infer_type(vctrs::vec_data(ptype)))
 }
 \arguments{
 \item{x}{A vctr (i.e., \code{\link[vctrs:vec_assert]{vctrs::vec_is()}} returns \code{TRUE}).}

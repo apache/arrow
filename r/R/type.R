@@ -73,16 +73,23 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' infer_type(as.POSIXlt(Sys.Date()))
 #' infer_type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
 #' @export
-type <- function(x) infer_type(x)
-
-#' @rdname type
-#' @export
 infer_type <- function(x, ...) UseMethod("infer_type")
+
+#' @rdname infer_type
+#' @export
+type <- function(x) {
+  .Deprecated("infer_type")
+  infer_type(x)
+}
 
 #' @export
 infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
-  # If from_array_infer_type is TRUE, this is a call from C++ and there was
-  # no S3 method defined for this object.
+  # If from_array_infer_type is TRUE, this is a call from C++ for which S3
+  # dispatch failed to find a method for the object. This call happens when
+  # creating Array, ChunkedArray, RecordBatch, and Table objects from
+  # data.frame. If the C++ call has reached this default method,
+  # we error. If from_array_infer_type is FALSE, we call Array__infer_type
+  # to use the internal C++ type inference.
   if (from_array_infer_type) {
     abort(
       sprintf(
@@ -90,13 +97,9 @@ infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
         paste(class(x), collapse = " / ")
       )
     )
+  } else {
+    Array__infer_type(x)
   }
-
-  # If from_array_infer_type is FALSE, this is a user calling type() from R
-  # and we to call into C++. If there is no built-in conversion for this
-  # object type, C++ will call back here with from_array_infer_type = TRUE
-  # to generate a nice error message.
-  Array__infer_type(x)
 }
 
 #' @export
