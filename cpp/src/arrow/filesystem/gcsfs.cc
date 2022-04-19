@@ -754,6 +754,9 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
         "GCS URIs do not accept username except \"anonymous\".");
   }
   if (!uri.password().empty()) {
+    return Status::Invalid("GCS URIs do not accept password.");
+  }
+  if (!uri.password().empty()) {
     return Status::Invalid(
         "GCS URIs do not accept password.");
   }
