@@ -302,6 +302,13 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.total_uncompressed_size)
 
     def to_dict(self):
+        """Get dictionary represenation of statistics.
+        
+        Returns
+        -------
+        dict
+            Dictionary with a key for each attribute of this class.
+        """
         statistics = self.statistics.to_dict() if self.is_stats_set else None
         d = dict(
             file_offset=self.file_offset,
@@ -449,6 +456,18 @@ cdef class RowGroupMetaData(_Weakrefable):
         return self.metadata.Equals(deref(other.metadata))
 
     def column(self, int i):
+        """Get column metadata at given index.
+
+        Parameters
+        ----------
+        i : int
+            Index of column to get metadata for.
+        
+        Returns
+        -------
+        ColumnChunkMetaData
+            Metadata for column within this chunk.
+        """
         if i < 0 or i >= self.num_columns:
             raise IndexError('{0} out of bounds'.format(i))
         chunk = ColumnChunkMetaData()
@@ -556,6 +575,18 @@ cdef class FileMetaData(_Weakrefable):
             return NotImplemented
 
     def equals(self, FileMetaData other):
+        """
+        Return whether the two file metadata objects are equal.
+
+        Parameters
+        ----------
+        other : FileMetaData
+            Metadata to compare against.
+
+        Returns
+        -------
+        are_equal : bool
+        """
         return self._metadata.Equals(deref(other._metadata))
 
     @property
@@ -1025,6 +1056,10 @@ cdef ParquetCompression compression_from_name(name):
 
 
 cdef class ParquetReader(_Weakrefable):
+    """Low-level Parquet reader class
+    
+    See :class:`ParquetFile` for the high-level wrapper API.
+    """
     cdef:
         object source
         CMemoryPool* pool
@@ -1043,6 +1078,37 @@ cdef class ParquetReader(_Weakrefable):
              int buffer_size=0, bint pre_buffer=False,
              coerce_int96_timestamp_unit=None,
              FileDecryptionProperties decryption_properties=None):
+        """Open a Parquet file and initialize the reader.
+        
+        This method should be called prior to other methods.
+        
+        Parameters
+        ----------
+        source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
+            Readable source. For passing bytes or buffer-like file containing a
+            Parquet file, use pyarrow.BufferReader.
+        use_memory_map : bool, default False
+            If the source is a file path, use a memory map to read file, which can
+            improve performance in some environments.
+        read_dictionary : list
+            List of column names to read directly as DictionaryArray.
+        metadata : FileMetaData, default None
+            Use existing metadata object, rather than reading from file.
+        buffer_size : int, default 0
+            If positive, perform read buffering when deserializing individual
+            column chunks. Otherwise IO calls are unbuffered.
+        pre_buffer : bool, default False
+            Coalesce and issue file reads in parallel to improve performance on
+            high-latency filesystems (e.g. S3). If True, Arrow will use a
+            background I/O thread pool.
+        coerce_int96_timestamp_unit : str, default None.
+            Cast timestamps that are stored in INT96 format to a particular
+            resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
+            and therefore INT96 timestamps will be inferred as timestamps
+            in nanoseconds.
+        decryption_properties : FileDecryptionProperties, default None
+            File decryption properties for Parquet Modular Encryption.
+        """
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -1106,6 +1172,18 @@ cdef class ParquetReader(_Weakrefable):
 
     @property
     def column_paths(self):
+        """list of list of str: the nested field names in column path, for each column.
+        
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pyarrow.parquet as pq
+        >>> tab = pa.table({'x': [{'a': 1}], 'y': [[{'z': 2, 'w': 1}]]})
+        >>> pq.write_table(tab, 'test_nested.parquet')
+        >>> f = pq.ParquetFile('test_nested.parquet')
+        >>> f.reader.column_paths
+        [['x', 'a'], ['y', 'list', 'item', 'w'], ['y', 'list', 'item', 'z']]
+        """
         cdef:
             FileMetaData container = self.metadata
             const CFileMetaData* metadata = container._metadata
@@ -1122,10 +1200,12 @@ cdef class ParquetReader(_Weakrefable):
 
     @property
     def metadata(self):
+        """:class:`FileMetaData`: the Parquet file metadata."""
         return self._metadata
 
     @property
     def schema_arrow(self):
+        """:class:`Schema`: the Arrow schema equivalent to this files schema."""
         cdef shared_ptr[CSchema] out
         with nogil:
             check_status(self.reader.get().GetSchema(&out))
@@ -1133,16 +1213,50 @@ cdef class ParquetReader(_Weakrefable):
 
     @property
     def num_row_groups(self):
+        """int: Number of row groups in the file."""
         return self.reader.get().num_row_groups()
 
     def set_use_threads(self, bint use_threads):
+        """Set whether to use multiple threads to read Parquet files.
+        
+        Parameters
+        ----------
+        bool : use_threads
+            Whether to use multiple threads.
+        """
         self.reader.get().set_use_threads(use_threads)
 
     def set_batch_size(self, int64_t batch_size):
+        """Set the number of rows to read at a time from file.
+        
+        Parameters
+        ----------
+        int : batch_size
+            Number of rows to read per batch
+        """
         self.reader.get().set_batch_size(batch_size)
 
     def iter_batches(self, int64_t batch_size, row_groups, column_indices=None,
                      bint use_threads=True):
+        """Read streaming batches from a Parquet file.
+
+        Parameters
+        ----------
+        batch_size : int, default 64K
+            Maximum number of records to yield per batch. Batches may be
+            smaller if there aren't enough rows in the file.
+        row_groups : list of int
+            Only these row groups will be read from the file.
+        column_indices : list of int
+            If not None, only these columns will be read from the file.
+        use_threads : boolean, default True
+            Perform multi-threaded column reads.
+
+        Returns
+        -------
+        iterator of pyarrow.RecordBatch
+            Contents of each batch as a record batch
+        """"
         cdef:
             vector[int] c_row_groups
             vector[int] c_column_indices
@@ -1188,10 +1302,42 @@ cdef class ParquetReader(_Weakrefable):
 
     def read_row_group(self, int i, column_indices=None,
                        bint use_threads=True):
+        """Read a single row group from a Parquet file.
+
+        Parameters
+        ----------
+        i : int
+            Index of the individual row group that we want to read.
+        column_indices : list of int
+            If not None, only these columns will be read from the row group.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        
+        Returns
+        -------
+        pyarrow.table.Table
+            Content of the row group as a table (of columns)
+        """
         return self.read_row_groups([i], column_indices, use_threads)
 
     def read_row_groups(self, row_groups not None, column_indices=None,
                         bint use_threads=True):
+        """Read a multiple row groups from a Parquet file.
+
+        Parameters
+        ----------
+        row_groups : list of int
+            Only these row groups will be read from the file.
+        column_indices : list of int
+            If not None, only these columns will be read from the row group.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+
+        Returns
+        -------
+        pyarrow.table.Table
+            Content of the row groups as a table (of columns).
+        """
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_row_groups
@@ -1218,6 +1364,20 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_table(ctable)
 
     def read_all(self, column_indices=None, bint use_threads=True):
+        """Read a Table from Parquet format.
+
+        Parameters
+        ----------
+        column_indices : list of int
+            If not None, only these columns will be read from the file.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+
+        Returns
+        -------
+        pyarrow.table.Table
+            Content of the file as a table (of columns).
+        """
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
@@ -1239,6 +1399,24 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_table(ctable)
 
     def scan_contents(self, column_indices=None, batch_size=65536):
+        """Read contents of file for the given columns and batch size.
+
+        Notes
+        -----
+        This function's primary purpose is benchmarking.
+        The scan is executed on a single thread.
+
+        Parameters
+        ----------
+        column_indices : list of integers, default None
+            Select columns to read, if None scan all columns.
+        batch_size : int, default 64K
+            Number of rows to read at a time internally.
+
+        Returns
+        -------
+        num_rows : number of rows in file
+        """
         cdef:
             vector[int] c_column_indices
             int32_t c_batch_size
@@ -1286,6 +1464,17 @@ cdef class ParquetReader(_Weakrefable):
         return self._column_idx_map[tobytes(column_name)]
 
     def read_column(self, int column_index):
+        """Read a single column
+        
+        Parameters
+        ----------
+        column_index : int
+            Index of column, including over nested columns
+        
+        Returns
+        -------
+        ChunkedArray
+        """
         cdef shared_ptr[CChunkedArray] out
         with nogil:
             check_status(self.reader.get()

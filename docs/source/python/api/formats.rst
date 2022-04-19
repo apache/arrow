@@ -80,6 +80,7 @@ Parquet Files
 
    ParquetDataset
    ParquetFile
+   ParquetReader
    ParquetWriter
    read_table
    read_metadata
