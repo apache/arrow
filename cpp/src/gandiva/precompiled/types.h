@@ -116,16 +116,28 @@ gdv_int64 timestampaddYear_timestamp_int64(gdv_timestamp, gdv_int64);
 
 gdv_boolean isnull_day_time_interval(gdv_day_time_interval in, gdv_boolean is_valid);
 
-gdv_boolean istrue_boolean(gdv_boolean in);
-gdv_boolean isfalse_boolean(gdv_boolean in);
-gdv_boolean istrue_int32(gdv_int32 in);
-gdv_boolean istrue_int64(gdv_int64 in);
-gdv_boolean istrue_uint32(gdv_uint32 in);
-gdv_boolean istrue_uint64(gdv_uint64 in);
-gdv_boolean isfalse_int32(gdv_int32 in);
-gdv_boolean isfalse_int64(gdv_int64 in);
-gdv_boolean isfalse_uint32(gdv_uint32 in);
-gdv_boolean isfalse_uint64(gdv_uint64 in);
+gdv_boolean istrue_boolean(gdv_boolean in, gdv_boolean isvalid);
+gdv_boolean isfalse_boolean(gdv_boolean in, gdv_boolean isvalid);
+gdv_boolean istrue_int32(gdv_int32 in, gdv_boolean is_valid);
+gdv_boolean istrue_int64(gdv_int64 in, gdv_boolean is_valid);
+gdv_boolean istrue_uint32(gdv_uint32 in, gdv_boolean is_valid);
+gdv_boolean istrue_uint64(gdv_uint64 in, gdv_boolean is_valid);
+gdv_boolean isfalse_int32(gdv_int32 in, gdv_boolean is_valid);
+gdv_boolean isfalse_int64(gdv_int64 in, gdv_boolean is_valid);
+gdv_boolean isfalse_uint32(gdv_uint32 in, gdv_boolean is_valid);
+gdv_boolean isfalse_uint64(gdv_uint64 in, gdv_boolean is_valid);
+
+gdv_boolean isnottrue_boolean(gdv_boolean in, gdv_boolean isvalid);
+gdv_boolean isnotfalse_boolean(gdv_boolean in, gdv_boolean isvalid);
+
+gdv_boolean isnottrue_int32(gdv_int32 in, gdv_boolean is_valid);
+gdv_boolean isnottrue_int64(gdv_int64 in, gdv_boolean is_valid);
+gdv_boolean isnottrue_uint32(gdv_uint32 in, gdv_boolean is_valid);
+gdv_boolean isnottrue_uint64(gdv_uint64 in, gdv_boolean is_valid);
+gdv_boolean isnotfalse_int32(gdv_int32 in, gdv_boolean is_valid);
+gdv_boolean isnotfalse_int64(gdv_int64 in, gdv_boolean is_valid);
+gdv_boolean isnotfalse_uint32(gdv_uint32 in, gdv_boolean is_valid);
+gdv_boolean isnotfalse_uint64(gdv_uint64 in, gdv_boolean is_valid);
 
 gdv_int32 nvl_int32_int32(gdv_int32 in, gdv_boolean is_valid_in, gdv_int32 replace,
                           gdv_boolean is_valid_value);
