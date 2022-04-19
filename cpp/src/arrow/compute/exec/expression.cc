@@ -1059,7 +1059,7 @@ struct Inequality {
 
       if ((*cmp & guarantee.cmp) == 0) {
         // guarantee disjoint with filter, so all data will be excluded
-        // x > 1, x >= 1, x != 1 unsatisfiable if x == 1
+        // x > 1, x >= 1 unsatisfiable if x == 1
         return simplified_to(lhs, false);
       }
 
