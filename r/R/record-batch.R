@@ -230,7 +230,7 @@ cbind.RecordBatch <- function(...) {
       as.list(input)
     } else if (inherits(input, "Table") || inherits(input, "ChunkedArray")) {
       abort("Cannot cbind a RecordBatch with Tables or ChunkedArrays",
-            i = "Hint: consider converting the record batch into a Table first")
+            i = "Hint: consider converting the RecordBatch into a Table first")
     } else {
       if (name == "") {
         abort("Vector and array arguments must have names",

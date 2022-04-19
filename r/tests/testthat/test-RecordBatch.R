@@ -596,10 +596,14 @@ test_that("RecordBatch supports cbind", {
   )
 
   # Rejects Table and ChunkedArray arguments
-  expect_error(
-    cbind(record_batch(a = 1:2), arrow_table(b = 3:4)),
-    regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
-  )
+  if (getRversion() >= "4.0.0") {
+    # R 3.6 cbind dispatch rules cause cbind to fall back to default impl if
+    # there are multiple arguments with distinct cbind implementations
+    expect_error(
+      cbind(record_batch(a = 1:2), arrow_table(b = 3:4)),
+      regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
+    )
+  }
   expect_error(
     cbind(record_batch(a = 1:2), b = chunked_array(1, 2)),
     regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
