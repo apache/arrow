@@ -41,7 +41,7 @@ cdef class GcsFileSystem(FileSystem):
     Note: GCS buckets are special and the operations available on them may be
     limited or more expensive than expected compared to local file systems.
 
-    Note: When pickling a GcsFileSystem that uses default credential resolution
+    Note: When pickling a GcsFileSystem that uses default credentials, resolution
     credentials are not stored in the serialized data. Therefore, when unpickling
     it is assumed that the necessary credentials are in place for the target
     process.
