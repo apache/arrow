@@ -71,23 +71,9 @@ jobs:
           ARROW_DEPENDENCY_SOURCE: BUNDLED
         run: |
           cd arrow/r
-          export CC="$(which gcc-11)"
-          export CXX="$(which g++-11)"
-          export CXX11="$(which g++-11)"
-          ${CC} --version
-          ${CXX} --version
-          ${CXX11} --version
-          mkdir -p ~/.R/
-          echo "CC=$(which gcc-11)" >> ~/.R/Makevars
-          echo "CXX=$(which g++-11)" >> ~/.R/Makevars
-          echo "CXX11=$(which g++-11)" >> ~/.R/Makevars
-          R CMD config CC
-          R CMD config CXX11
           R CMD INSTALL . --install-tests
       - name: Run the tests
-        run: |
-          cd arrow/r
-          R -s -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", filter="parquet", reporter=MultiReporter$new(list(CheckReporter$new(), LocationReporter$new()))))'
+        run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
       - name: Dump test logs
         run: cat arrow-tests/testthat.Rout*
         if: always()
