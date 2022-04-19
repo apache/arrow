@@ -727,6 +727,18 @@ float castFLOAT4_utf8(int64_t context, const char* data, int32_t len);
 
 double castFLOAT8_utf8(int64_t context, const char* data, int32_t len);
 
+int64_t castBIGINT_int32(int32_t in);
+int32_t castINT_int64(int64_t in);
+
+float castFLOAT4_int32(int32_t in);
+float castFLOAT4_int64(int64_t in);
+
+double castFLOAT8_int32(int32_t in);
+double castFLOAT8_int64(int64_t in);
+
+double castFLOAT8_float32(float in);
+float castFLOAT4_float64(double in);
+
 int32_t castINT_float32(gdv_float32 value);
 
 int32_t castINT_float64(gdv_float64 value);
