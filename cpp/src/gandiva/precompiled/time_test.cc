@@ -223,6 +223,40 @@ TEST(TestTime, TestExtractTime) {
   EXPECT_EQ(extractSecond_time32(time_as_millis_in_day), 33);
 }
 
+TEST(TestTime, TestDateDiff) {
+  gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  gdv_timestamp ts2 = StringToTimestamp("2019-05-31 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 30);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-02-28 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 122);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-03-31 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 91);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-06-30 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 0);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-01 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -1);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-31 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -31);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-30 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -30);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-29 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -29);
+}
+
 TEST(TestTime, TestTimestampDiffMonth) {
   gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
   gdv_timestamp ts2 = StringToTimestamp("2019-05-31 00:00:00");

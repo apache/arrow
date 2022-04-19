@@ -185,6 +185,8 @@ gdv_int64 date_trunc_Year_date64(gdv_date64);
 gdv_int64 date_trunc_Decade_date64(gdv_date64);
 gdv_int64 date_trunc_Century_date64(gdv_date64);
 gdv_int64 date_trunc_Millennium_date64(gdv_date64);
+gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
+                                       gdv_timestamp end_millis);
 
 gdv_int64 date_trunc_Week_timestamp(gdv_timestamp);
 double months_between_timestamp_timestamp(gdv_uint64, gdv_uint64);

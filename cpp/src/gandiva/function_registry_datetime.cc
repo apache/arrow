@@ -156,6 +156,9 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
           NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
               NativeFunction::kCanReturnErrors),
 
+      NativeFunction("datediff", {}, DataTypeVector{timestamp(), timestamp()}, int32(),
+                     kResultNullIfNull, "datediff_timestamp_timestamp"),
+
       DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {}),
       BASE_NUMERIC_TYPES(TO_TIME_SAFE_NULL_IF_NULL, to_time, {}),
       BASE_NUMERIC_TYPES(TO_TIMESTAMP_SAFE_NULL_IF_NULL, to_timestamp, {})};
