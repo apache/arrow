@@ -265,7 +265,7 @@ cdef class InputType(_Weakrefable):
         Parameter
         ---------
         data_type : DataType
-            DataType represented in the input type
+            DataType represented by the input type
 
         Examples
         --------
@@ -2413,8 +2413,8 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     return f_doc
 
 
-def register_scalar_function(func_name, function_doc, in_types,
-                             out_type, function):
+def register_scalar_function(function, func_name, function_doc, in_types,
+                             out_type):
     """
     Register a user-defined scalar function. 
 
@@ -2427,6 +2427,16 @@ def register_scalar_function(func_name, function_doc, in_types,
 
     Parameters
     ----------
+    function : callable
+        A callable implementing the user-defined function.
+        It must take arguments equal to the number of
+        in_types defined. It must return an Array or Scalar
+        matching the out_type. It must return a Scalar if
+        all arguments are scalar, else it must return an array.
+
+        To define a varargs function, pass a callable that takes
+        varargs. The last in_type will be the type of the all
+        varargs arguments.
     func_name : str
         Name of the function. This name must be globally unique. 
     function_doc : dict
@@ -2440,23 +2450,11 @@ def register_scalar_function(func_name, function_doc, in_types,
         specified here determines the function arity.
     out_type : DataType
         Output type of the function.
-    function : callable
-        A callable implementing the user-defined function.
-        It must take arguments equal to the number of
-        in_types defined. It must return an Array or Scalar
-        matching the out_type. It must return a Scalar if
-        all arguments are scalar, else it must return an array.
-
-        To define a varargs function, pass a callable that takes
-        varargs. The last in_type will be the type of the all
-        varargs arguments.
 
     Example
     -------
 
     >>> import pyarrow.compute as pc
-    >>> from pyarrow.compute import register_scalar_function
-    >>> from pyarrow.compute import InputType
     >>> 
     >>> func_doc = {}
     >>> func_doc["summary"] = "simple udf"
@@ -2467,16 +2465,16 @@ def register_scalar_function(func_name, function_doc, in_types,
     ... 
     >>> 
     >>> func_name = "py_add_func"
-    >>> in_types = {"array": InputType.array(pa.int64())}
+    >>> in_types = {"array": pc.InputType.array(pa.int64())}
     >>> out_type = pa.int64()
-    >>> register_function(func_name, func_doc,
-    ...                   in_types, out_type, add_constant)
+    >>> pc.register_scalar_function(add_constant, func_name, func_doc,
+    ...                   in_types, out_type)
     >>> 
     >>> func = pc.get_function(func_name)
     >>> func.name
     'py_add_func'
-    >>> ans = pc.call_function(func_name, [pa.array([20])])
-    >>> ans
+    >>> answer = pc.call_function(func_name, [pa.array([20])])
+    >>> answer
     <pyarrow.lib.Int64Array object at 0x10c22e700>
     [
     21

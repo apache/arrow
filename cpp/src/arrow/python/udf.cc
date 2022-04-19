@@ -73,23 +73,22 @@ Status ExecuteFunction(compute::KernelContext* ctx, const compute::ExecBatch& ba
   if (is_scalar(result)) {
     ARROW_ASSIGN_OR_RAISE(auto val, unwrap_scalar(result));
     if (!exp_out_type.type()->Equals(val->type)) {
-      return Status::Invalid("Expected output type, ", exp_out_type.type()->name(),
-                             ", but function returned type ", val->type->name());
+      return Status::TypeError("Expected output type, ", exp_out_type.type()->ToString(),
+                               ", but function returned type ", val->type->ToString());
     }
     *out = Datum(val);
     return Status::OK();
   } else if (is_array(result)) {
     ARROW_ASSIGN_OR_RAISE(auto val, unwrap_array(result));
     if (!exp_out_type.type()->Equals(val->type())) {
-      return Status::Invalid("Expected output type, ", exp_out_type.type()->name(),
-                             ", but function returned type ", val->type()->name());
+      return Status::TypeError("Expected output type, ", exp_out_type.type()->ToString(),
+                               ", but function returned type ", val->type()->ToString());
     }
     *out = Datum(val);
     return Status::OK();
   } else {
-    PyTypeObject* type = result->ob_type;
-    const char* tp_name = type->tp_name;
-    return Status::Invalid("Not a supported output type: ", tp_name);
+    return Status::TypeError("Unexpected output type: ", Py_TYPE(result)->tp_name,
+                             " (expected Scalar or Array)");
   }
   return Status::OK();
 }
