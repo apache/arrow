@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/debug"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
@@ -165,7 +166,7 @@ func spacedExpand(buffer interface{}, nullCount int, validBits []byte, validBits
 	}
 
 	// read the bitmap in reverse grabbing runs of valid bits where possible.
-	rdr := utils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(numValues))
+	rdr := bitutils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(numValues))
 	for {
 		run := rdr.NextRun()
 		if run.Length == 0 {

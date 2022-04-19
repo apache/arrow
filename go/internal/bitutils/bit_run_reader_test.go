@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils_test
+package bitutils_test
 
 import (
 	"math/bits"
@@ -23,7 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
 	"github.com/apache/arrow/go/v8/arrow/endian"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,7 +38,7 @@ func init() {
 }
 
 func TestBitRunReaderZeroLength(t *testing.T) {
-	reader := utils.NewBitRunReader(nil, 0, 0)
+	reader := bitutils.NewBitRunReader(nil, 0, 0)
 	assert.Zero(t, reader.NextRun().Len)
 }
 
@@ -65,13 +65,13 @@ func TestBitRunReader(t *testing.T) {
 		bmvec    []int
 		offset   int64
 		len      int64
-		expected []utils.BitRun
+		expected []bitutils.BitRun
 	}{
 		{"normal operation",
 			[]int{5, 0, 7, 1, 3, 0, 25, 1, 21, 0, 26, 1, 130, 0, 65, 1},
 			[]int{1, 0, 1},
 			0, -1,
-			[]utils.BitRun{
+			[]bitutils.BitRun{
 				{1, true},
 				{1, false},
 				{1, true},
@@ -86,17 +86,17 @@ func TestBitRunReader(t *testing.T) {
 			},
 		},
 		{"truncated at word", []int{7, 1, 58, 0}, []int{}, 1, 63,
-			[]utils.BitRun{{6, true}, {57, false}},
+			[]bitutils.BitRun{{6, true}, {57, false}},
 		},
 		{"truncated within word multiple of 8 bits",
 			[]int{7, 1, 5, 0}, []int{}, 1, 7,
-			[]utils.BitRun{{6, true}, {1, false}},
+			[]bitutils.BitRun{{6, true}, {1, false}},
 		},
 		{"truncated within word", []int{37 + 40, 0, 23, 1}, []int{}, 37, 53,
-			[]utils.BitRun{{40, false}, {13, true}},
+			[]bitutils.BitRun{{40, false}, {13, true}},
 		},
 		{"truncated multiple words", []int{5, 0, 30, 1, 95, 0}, []int{1, 0, 1},
-			5, (3 + 5 + 30 + 95) - (5 + 3), []utils.BitRun{{3, false}, {30, true}, {92, false}},
+			5, (3 + 5 + 30 + 95) - (5 + 3), []bitutils.BitRun{{3, false}, {30, true}, {92, false}},
 		},
 	}
 
@@ -115,9 +115,9 @@ func TestBitRunReader(t *testing.T) {
 			if tt.len != -1 {
 				length = tt.len
 			}
-			reader := utils.NewBitRunReader(bitmap, tt.offset, length)
+			reader := bitutils.NewBitRunReader(bitmap, tt.offset, length)
 
-			results := make([]utils.BitRun, 0)
+			results := make([]bitutils.BitRun, 0)
 			for {
 				results = append(results, reader.NextRun())
 				if results[len(results)-1].Len == 0 {
@@ -136,9 +136,9 @@ func TestBitRunReaderAllFirstByteCombos(t *testing.T) {
 	for offset := int64(0); offset < 8; offset++ {
 		for x := int64(0); x < (1<<8)-1; x++ {
 			bits := int64(toLittleEndian(uint64(x)))
-			reader := utils.NewBitRunReader((*(*[8]byte)(unsafe.Pointer(&bits)))[:], offset, 8-offset)
+			reader := bitutils.NewBitRunReader((*(*[8]byte)(unsafe.Pointer(&bits)))[:], offset, 8-offset)
 
-			results := make([]utils.BitRun, 0)
+			results := make([]bitutils.BitRun, 0)
 			for {
 				results = append(results, reader.NextRun())
 				if results[len(results)-1].Len == 0 {

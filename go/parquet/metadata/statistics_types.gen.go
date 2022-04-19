@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	shared_utils "github.com/apache/arrow/go/v8/internal/utils"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -41,7 +42,7 @@ type Int32Statistics struct {
 	min int32
 	max int32
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewInt32Statistics constructs an appropriate stat object type using the
@@ -174,7 +175,7 @@ func (s *Int32Statistics) getMinMaxSpaced(values []int32, validBits []byte, vali
 	}
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -321,7 +322,7 @@ type Int64Statistics struct {
 	min int64
 	max int64
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewInt64Statistics constructs an appropriate stat object type using the
@@ -454,7 +455,7 @@ func (s *Int64Statistics) getMinMaxSpaced(values []int64, validBits []byte, vali
 	}
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -601,7 +602,7 @@ type Int96Statistics struct {
 	min parquet.Int96
 	max parquet.Int96
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewInt96Statistics constructs an appropriate stat object type using the
@@ -729,7 +730,7 @@ func (s *Int96Statistics) getMinMaxSpaced(values []parquet.Int96, validBits []by
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -873,7 +874,7 @@ type Float32Statistics struct {
 	min float32
 	max float32
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewFloat32Statistics constructs an appropriate stat object type using the
@@ -1008,7 +1009,7 @@ func (s *Float32Statistics) getMinMaxSpaced(values []float32, validBits []byte, 
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -1152,7 +1153,7 @@ type Float64Statistics struct {
 	min float64
 	max float64
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewFloat64Statistics constructs an appropriate stat object type using the
@@ -1287,7 +1288,7 @@ func (s *Float64Statistics) getMinMaxSpaced(values []float64, validBits []byte, 
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -1431,7 +1432,7 @@ type BooleanStatistics struct {
 	min bool
 	max bool
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewBooleanStatistics constructs an appropriate stat object type using the
@@ -1559,7 +1560,7 @@ func (s *BooleanStatistics) getMinMaxSpaced(values []bool, validBits []byte, val
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -1703,7 +1704,7 @@ type ByteArrayStatistics struct {
 	min parquet.ByteArray
 	max parquet.ByteArray
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewByteArrayStatistics constructs an appropriate stat object type using the
@@ -1832,7 +1833,7 @@ func (s *ByteArrayStatistics) getMinMaxSpaced(values []parquet.ByteArray, validB
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -1976,7 +1977,7 @@ type FixedLenByteArrayStatistics struct {
 	min parquet.FixedLenByteArray
 	max parquet.FixedLenByteArray
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewFixedLenByteArrayStatistics constructs an appropriate stat object type using the
@@ -2116,7 +2117,7 @@ func (s *FixedLenByteArrayStatistics) getMinMaxSpaced(values []parquet.FixedLenB
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}

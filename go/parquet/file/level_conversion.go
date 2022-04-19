@@ -22,6 +22,7 @@ import (
 	"math/bits"
 	"unsafe"
 
+	shared_utils "github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/bmi"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -143,7 +144,7 @@ func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info L
 
 	var batch []int16
 	for len(defLevels) > 0 {
-		batchSize := utils.MinInt(maxbatch, len(defLevels))
+		batchSize := shared_utils.MinInt(maxbatch, len(defLevels))
 		batch, defLevels = defLevels[:batchSize], defLevels[batchSize:]
 		definedBitmap := bmi.GreaterThanBitmap(batch, info.DefLevel-1)
 

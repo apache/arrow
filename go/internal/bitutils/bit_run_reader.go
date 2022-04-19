@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package bitutils
 
 import (
 	"encoding/binary"
@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/internal/utils"
 )
 
 // BitRun represents a run of bits with the same value of length Len
@@ -137,7 +138,7 @@ func (b *bitRunReader) loadWord(bitsRemaining int64) {
 
 		bitutil.SetBitTo(wordptr, int(bitsRemaining), bitutil.BitIsNotSet(wordptr, int(bitsRemaining-1)))
 		// reset the value to little endian for big endian architectures
-		b.word = ToLEUint64(b.word)
+		b.word = utils.ToLEUint64(b.word)
 	}
 
 	// Two cases:

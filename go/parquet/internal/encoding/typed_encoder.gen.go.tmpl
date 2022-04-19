@@ -23,6 +23,7 @@ import (
   "github.com/apache/arrow/go/v8/arrow"
   "github.com/apache/arrow/go/v8/parquet/internal/utils"
   shared_utils "github.com/apache/arrow/go/v8/internal/utils"
+  "github.com/apache/arrow/go/v8/internal/bitutils"
 )
 
 // fully typed encoder interfaces to enable writing against encoder/decoders
@@ -179,7 +180,7 @@ func (enc *Dict{{.Name}}Encoder) Put(in []{{.name}}) {
 // PutSpaced is the same as Put but for when the data being encoded has slots open for
 // null values, using the bitmap provided to skip values as needed.
 func (enc *Dict{{.Name}}Encoder) PutSpaced(in []{{.name}}, validBits []byte, validBitsOffset int64) {
-  utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+  bitutils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
     for i := int64(0); i < length; i++ {
       enc.dictEncoder.Put(in[i+pos])
     }
@@ -208,7 +209,7 @@ func (enc *DictInt96Encoder) Put(in []parquet.Int96) {
 
 // PutSpaced is like Put but assumes space for nulls
 func (enc *DictInt96Encoder) PutSpaced(in []parquet.Int96, validBits []byte, validBitsOffset int64) {
-  utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+  bitutils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
     enc.Put(in[pos : pos+length])
     return nil
   })
@@ -230,7 +231,7 @@ func (Dict{{.Name}}Decoder) Type() parquet.Type {
 // decoding using hte dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
-  vals := utils.MinInt(len(out), d.nvals)
+  vals := shared_utils.MinInt(len(out), d.nvals)
   decoded, err := d.decode(out[:vals])
   if err != nil {
     return decoded, err
@@ -245,7 +246,7 @@ func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *Dict{{.Name}}Decoder) DecodeSpaced(out []{{.name}}, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-  vals := utils.MinInt(len(out), d.nvals)
+  vals := shared_utils.MinInt(len(out), d.nvals)
   decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
   if err != nil {
     return decoded, err

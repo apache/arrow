@@ -19,9 +19,9 @@ package file
 import (
 	"fmt"
 
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet/metadata"
 	"golang.org/x/xerrors"
 )

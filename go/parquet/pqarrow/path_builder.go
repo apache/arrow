@@ -23,8 +23,8 @@ import (
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/array"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -116,7 +116,7 @@ func (n *nullableTerminalNode) run(rng elemRange, ctx *pathWriteCtx) iterResult 
 		present = (*(*[2]byte)(unsafe.Pointer(&n.defLevelIfPresent)))[:]
 		null    = (*(*[2]byte)(unsafe.Pointer(&n.defLevelIfNull)))[:]
 	)
-	rdr := utils.NewBitRunReader(n.bitmap, n.elemOffset+rng.start, elems)
+	rdr := bitutils.NewBitRunReader(n.bitmap, n.elemOffset+rng.start, elems)
 	for {
 		run := rdr.NextRun()
 		if run.Len == 0 {
@@ -244,7 +244,7 @@ type nullableNode struct {
 	repLevelIfNull int16
 	defLevelIfNull int16
 
-	validBitsReader utils.BitRunReader
+	validBitsReader bitutils.BitRunReader
 	newRange        bool
 }
 
@@ -255,7 +255,7 @@ func (n *nullableNode) clone() pathNode {
 
 func (n *nullableNode) run(rng, childRng *elemRange, ctx *pathWriteCtx) iterResult {
 	if n.newRange {
-		n.validBitsReader = utils.NewBitRunReader(n.bitmap, n.entryOffset+rng.start, rng.size())
+		n.validBitsReader = bitutils.NewBitRunReader(n.bitmap, n.entryOffset+rng.start, rng.size())
 	}
 	childRng.start = rng.start
 	run := n.validBitsReader.NextRun()

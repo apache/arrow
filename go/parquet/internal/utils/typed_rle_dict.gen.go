@@ -19,6 +19,8 @@
 package utils
 
 import (
+	"github.com/apache/arrow/go/v8/internal/bitutils"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"golang.org/x/xerrors"
 )
@@ -77,7 +79,7 @@ func (r *RleDecoder) getspacedInt32(dc DictionaryConverter, vals []int32, batchS
 	var indexbuffer [bufferSize]IndexType
 
 	// assume no bits to start
-	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
 	validRun := bitReader.NextRun()
 	for read < batchSize {
 		if validRun.Len == 0 {
@@ -127,8 +129,8 @@ func (r *RleDecoder) getspacedInt32(dc DictionaryConverter, vals []int32, batchS
 	return read, nil
 }
 
-func (r *RleDecoder) consumeLiteralsInt32(dc DictionaryConverter, vals []int32, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiteralsInt32(dc DictionaryConverter, vals []int32, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -146,7 +148,7 @@ func (r *RleDecoder) consumeLiteralsInt32(dc DictionaryConverter, vals []int32, 
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}
@@ -183,7 +185,7 @@ func (r *RleDecoder) GetBatchWithDictInt32(dc DictionaryConverter, vals []int32)
 			if !dc.IsValid(idx) {
 				return read, nil
 			}
-			batch := MinInt(remain, int(r.repCount))
+			batch := utils.MinInt(remain, int(r.repCount))
 			if err := dc.Fill(vals[:batch], idx); err != nil {
 				return read, err
 			}
@@ -191,7 +193,7 @@ func (r *RleDecoder) GetBatchWithDictInt32(dc DictionaryConverter, vals []int32)
 			read += batch
 			vals = vals[batch:]
 		case r.litCount > 0:
-			litbatch := MinInt(MinInt(remain, int(r.litCount)), 1024)
+			litbatch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), 1024)
 			buf := indexbuffer[:litbatch]
 			n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
 			if n != litbatch {
@@ -270,7 +272,7 @@ func (r *RleDecoder) getspacedInt64(dc DictionaryConverter, vals []int64, batchS
 	var indexbuffer [bufferSize]IndexType
 
 	// assume no bits to start
-	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
 	validRun := bitReader.NextRun()
 	for read < batchSize {
 		if validRun.Len == 0 {
@@ -320,8 +322,8 @@ func (r *RleDecoder) getspacedInt64(dc DictionaryConverter, vals []int64, batchS
 	return read, nil
 }
 
-func (r *RleDecoder) consumeLiteralsInt64(dc DictionaryConverter, vals []int64, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiteralsInt64(dc DictionaryConverter, vals []int64, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -339,7 +341,7 @@ func (r *RleDecoder) consumeLiteralsInt64(dc DictionaryConverter, vals []int64, 
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}
@@ -376,7 +378,7 @@ func (r *RleDecoder) GetBatchWithDictInt64(dc DictionaryConverter, vals []int64)
 			if !dc.IsValid(idx) {
 				return read, nil
 			}
-			batch := MinInt(remain, int(r.repCount))
+			batch := utils.MinInt(remain, int(r.repCount))
 			if err := dc.Fill(vals[:batch], idx); err != nil {
 				return read, err
 			}
@@ -384,7 +386,7 @@ func (r *RleDecoder) GetBatchWithDictInt64(dc DictionaryConverter, vals []int64)
 			read += batch
 			vals = vals[batch:]
 		case r.litCount > 0:
-			litbatch := MinInt(MinInt(remain, int(r.litCount)), 1024)
+			litbatch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), 1024)
 			buf := indexbuffer[:litbatch]
 			n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
 			if n != litbatch {
@@ -463,7 +465,7 @@ func (r *RleDecoder) getspacedInt96(dc DictionaryConverter, vals []parquet.Int96
 	var indexbuffer [bufferSize]IndexType
 
 	// assume no bits to start
-	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
 	validRun := bitReader.NextRun()
 	for read < batchSize {
 		if validRun.Len == 0 {
@@ -513,8 +515,8 @@ func (r *RleDecoder) getspacedInt96(dc DictionaryConverter, vals []parquet.Int96
 	return read, nil
 }
 
-func (r *RleDecoder) consumeLiteralsInt96(dc DictionaryConverter, vals []parquet.Int96, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiteralsInt96(dc DictionaryConverter, vals []parquet.Int96, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -532,7 +534,7 @@ func (r *RleDecoder) consumeLiteralsInt96(dc DictionaryConverter, vals []parquet
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}
@@ -569,7 +571,7 @@ func (r *RleDecoder) GetBatchWithDictInt96(dc DictionaryConverter, vals []parque
 			if !dc.IsValid(idx) {
 				return read, nil
 			}
-			batch := MinInt(remain, int(r.repCount))
+			batch := utils.MinInt(remain, int(r.repCount))
 			if err := dc.Fill(vals[:batch], idx); err != nil {
 				return read, err
 			}
@@ -577,7 +579,7 @@ func (r *RleDecoder) GetBatchWithDictInt96(dc DictionaryConverter, vals []parque
 			read += batch
 			vals = vals[batch:]
 		case r.litCount > 0:
-			litbatch := MinInt(MinInt(remain, int(r.litCount)), 1024)
+			litbatch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), 1024)
 			buf := indexbuffer[:litbatch]
 			n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
 			if n != litbatch {
@@ -656,7 +658,7 @@ func (r *RleDecoder) getspacedFloat32(dc DictionaryConverter, vals []float32, ba
 	var indexbuffer [bufferSize]IndexType
 
 	// assume no bits to start
-	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
 	validRun := bitReader.NextRun()
 	for read < batchSize {
 		if validRun.Len == 0 {
@@ -706,8 +708,8 @@ func (r *RleDecoder) getspacedFloat32(dc DictionaryConverter, vals []float32, ba
 	return read, nil
 }
 
-func (r *RleDecoder) consumeLiteralsFloat32(dc DictionaryConverter, vals []float32, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiteralsFloat32(dc DictionaryConverter, vals []float32, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -725,7 +727,7 @@ func (r *RleDecoder) consumeLiteralsFloat32(dc DictionaryConverter, vals []float
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}
@@ -762,7 +764,7 @@ func (r *RleDecoder) GetBatchWithDictFloat32(dc DictionaryConverter, vals []floa
 			if !dc.IsValid(idx) {
 				return read, nil
 			}
-			batch := MinInt(remain, int(r.repCount))
+			batch := utils.MinInt(remain, int(r.repCount))
 			if err := dc.Fill(vals[:batch], idx); err != nil {
 				return read, err
 			}
@@ -770,7 +772,7 @@ func (r *RleDecoder) GetBatchWithDictFloat32(dc DictionaryConverter, vals []floa
 			read += batch
 			vals = vals[batch:]
 		case r.litCount > 0:
-			litbatch := MinInt(MinInt(remain, int(r.litCount)), 1024)
+			litbatch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), 1024)
 			buf := indexbuffer[:litbatch]
 			n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
 			if n != litbatch {
@@ -849,7 +851,7 @@ func (r *RleDecoder) getspacedFloat64(dc DictionaryConverter, vals []float64, ba
 	var indexbuffer [bufferSize]IndexType
 
 	// assume no bits to start
-	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
 	validRun := bitReader.NextRun()
 	for read < batchSize {
 		if validRun.Len == 0 {
@@ -899,8 +901,8 @@ func (r *RleDecoder) getspacedFloat64(dc DictionaryConverter, vals []float64, ba
 	return read, nil
 }
 
-func (r *RleDecoder) consumeLiteralsFloat64(dc DictionaryConverter, vals []float64, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiteralsFloat64(dc DictionaryConverter, vals []float64, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -918,7 +920,7 @@ func (r *RleDecoder) consumeLiteralsFloat64(dc DictionaryConverter, vals []float
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}
@@ -955,7 +957,7 @@ func (r *RleDecoder) GetBatchWithDictFloat64(dc DictionaryConverter, vals []floa
 			if !dc.IsValid(idx) {
 				return read, nil
 			}
-			batch := MinInt(remain, int(r.repCount))
+			batch := utils.MinInt(remain, int(r.repCount))
 			if err := dc.Fill(vals[:batch], idx); err != nil {
 				return read, err
 			}
@@ -963,7 +965,7 @@ func (r *RleDecoder) GetBatchWithDictFloat64(dc DictionaryConverter, vals []floa
 			read += batch
 			vals = vals[batch:]
 		case r.litCount > 0:
-			litbatch := MinInt(MinInt(remain, int(r.litCount)), 1024)
+			litbatch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), 1024)
 			buf := indexbuffer[:litbatch]
 			n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
 			if n != litbatch {
@@ -1042,7 +1044,7 @@ func (r *RleDecoder) getspacedByteArray(dc DictionaryConverter, vals []parquet.B
 	var indexbuffer [bufferSize]IndexType
 
 	// assume no bits to start
-	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
 	validRun := bitReader.NextRun()
 	for read < batchSize {
 		if validRun.Len == 0 {
@@ -1092,8 +1094,8 @@ func (r *RleDecoder) getspacedByteArray(dc DictionaryConverter, vals []parquet.B
 	return read, nil
 }
 
-func (r *RleDecoder) consumeLiteralsByteArray(dc DictionaryConverter, vals []parquet.ByteArray, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiteralsByteArray(dc DictionaryConverter, vals []parquet.ByteArray, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -1111,7 +1113,7 @@ func (r *RleDecoder) consumeLiteralsByteArray(dc DictionaryConverter, vals []par
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}
@@ -1148,7 +1150,7 @@ func (r *RleDecoder) GetBatchWithDictByteArray(dc DictionaryConverter, vals []pa
 			if !dc.IsValid(idx) {
 				return read, nil
 			}
-			batch := MinInt(remain, int(r.repCount))
+			batch := utils.MinInt(remain, int(r.repCount))
 			if err := dc.Fill(vals[:batch], idx); err != nil {
 				return read, err
 			}
@@ -1156,7 +1158,7 @@ func (r *RleDecoder) GetBatchWithDictByteArray(dc DictionaryConverter, vals []pa
 			read += batch
 			vals = vals[batch:]
 		case r.litCount > 0:
-			litbatch := MinInt(MinInt(remain, int(r.litCount)), 1024)
+			litbatch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), 1024)
 			buf := indexbuffer[:litbatch]
 			n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
 			if n != litbatch {
@@ -1235,7 +1237,7 @@ func (r *RleDecoder) getspacedFixedLenByteArray(dc DictionaryConverter, vals []p
 	var indexbuffer [bufferSize]IndexType
 
 	// assume no bits to start
-	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
 	validRun := bitReader.NextRun()
 	for read < batchSize {
 		if validRun.Len == 0 {
@@ -1285,8 +1287,8 @@ func (r *RleDecoder) getspacedFixedLenByteArray(dc DictionaryConverter, vals []p
 	return read, nil
 }
 
-func (r *RleDecoder) consumeLiteralsFixedLenByteArray(dc DictionaryConverter, vals []parquet.FixedLenByteArray, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiteralsFixedLenByteArray(dc DictionaryConverter, vals []parquet.FixedLenByteArray, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -1304,7 +1306,7 @@ func (r *RleDecoder) consumeLiteralsFixedLenByteArray(dc DictionaryConverter, va
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}
@@ -1341,7 +1343,7 @@ func (r *RleDecoder) GetBatchWithDictFixedLenByteArray(dc DictionaryConverter, v
 			if !dc.IsValid(idx) {
 				return read, nil
 			}
-			batch := MinInt(remain, int(r.repCount))
+			batch := utils.MinInt(remain, int(r.repCount))
 			if err := dc.Fill(vals[:batch], idx); err != nil {
 				return read, err
 			}
@@ -1349,7 +1351,7 @@ func (r *RleDecoder) GetBatchWithDictFixedLenByteArray(dc DictionaryConverter, v
 			read += batch
 			vals = vals[batch:]
 		case r.litCount > 0:
-			litbatch := MinInt(MinInt(remain, int(r.litCount)), 1024)
+			litbatch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), 1024)
 			buf := indexbuffer[:litbatch]
 			n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
 			if n != litbatch {

@@ -22,10 +22,11 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/internal/utils"
 )
 
 func loadWord(byt []byte) uint64 {
-	return ToLEUint64(*(*uint64)(unsafe.Pointer(&byt[0])))
+	return utils.ToLEUint64(*(*uint64)(unsafe.Pointer(&byt[0])))
 }
 
 func shiftWord(current, next uint64, shift int64) uint64 {
@@ -79,7 +80,7 @@ func NewBitBlockCounter(bitmap []byte, startOffset, nbits int64) *BitBlockCounte
 // getBlockSlow is for returning a block of the requested size when there aren't
 // enough bits remaining to do a full word computation.
 func (b *BitBlockCounter) getBlockSlow(blockSize int64) BitBlockCount {
-	runlen := int16(Min(b.bitsRemaining, blockSize))
+	runlen := int16(utils.Min(b.bitsRemaining, blockSize))
 	popcnt := int16(bitutil.CountSetBits(b.bitmap, int(b.bitOffset), int(runlen)))
 	b.bitsRemaining -= int64(runlen)
 	b.bitmap = b.bitmap[runlen/8:]
@@ -200,7 +201,7 @@ func (obc *OptionalBitBlockCounter) NextBlock() BitBlockCount {
 		return block
 	}
 
-	blockSize := int16(Min(maxBlockSize, obc.len-obc.pos))
+	blockSize := int16(utils.Min(maxBlockSize, obc.len-obc.pos))
 	obc.pos += int64(blockSize)
 	// all values are non-null
 	return BitBlockCount{blockSize, blockSize}
@@ -215,7 +216,7 @@ func (obc *OptionalBitBlockCounter) NextWord() BitBlockCount {
 		obc.pos += int64(block.Len)
 		return block
 	}
-	blockSize := int16(Min(wordsize, obc.len-obc.pos))
+	blockSize := int16(utils.Min(wordsize, obc.len-obc.pos))
 	obc.pos += int64(blockSize)
 	// all values are non-null
 	return BitBlockCount{blockSize, blockSize}
