@@ -20,8 +20,6 @@ import pytest
 
 import pyarrow as pa
 from pyarrow import compute as pc
-from pyarrow.compute import register_scalar_function
-from pyarrow.compute import InputType
 
 
 unary_doc = {"summary": "add function",
@@ -72,23 +70,23 @@ def test_scalar_udf_function_with_scalar_valued_functions():
 
     function_input_types = [
         {
-            "scalar": InputType.scalar(pa.int64()),
+            "scalar": pc.InputType.scalar(pa.int64()),
         },
         {
-            "scalar1": InputType.scalar(pa.int64()),
-            "scalar2": InputType.scalar(pa.int64()),
+            "scalar1": pc.InputType.scalar(pa.int64()),
+            "scalar2": pc.InputType.scalar(pa.int64()),
         },
         {
-            "scalar1": InputType.scalar(pa.int64()),
-            "scalar2": InputType.scalar(pa.int64()),
-            "scalar3": InputType.scalar(pa.int64()),
+            "scalar1": pc.InputType.scalar(pa.int64()),
+            "scalar2": pc.InputType.scalar(pa.int64()),
+            "scalar3": pc.InputType.scalar(pa.int64()),
         },
         {
-            "scalar1": InputType.scalar(pa.int64()),
-            "scalar2": InputType.scalar(pa.int64()),
-            "scalar3": InputType.scalar(pa.int64()),
-            "scalar4": InputType.scalar(pa.int64()),
-            "scalar5": InputType.scalar(pa.int64()),
+            "scalar1": pc.InputType.scalar(pa.int64()),
+            "scalar2": pc.InputType.scalar(pa.int64()),
+            "scalar3": pc.InputType.scalar(pa.int64()),
+            "scalar4": pc.InputType.scalar(pa.int64()),
+            "scalar5": pc.InputType.scalar(pa.int64()),
         },
     ]
 
@@ -147,8 +145,8 @@ def test_scalar_udf_function_with_scalar_valued_functions():
                      functions,
                      function_inputs):
         expected_output = function(*input)
-        register_scalar_function(function,
-                                 name, doc, in_types, out_type)
+        pc.register_scalar_function(function,
+                                    name, doc, in_types, out_type)
 
         func = pc.get_function(name)
         assert func.name == name
@@ -167,23 +165,23 @@ def test_scalar_udf_with_array_data_functions():
 
     function_input_types = [
         {
-            "array": InputType.array(pa.int64()),
+            "array": pc.InputType.array(pa.int64()),
         },
         {
-            "array1": InputType.array(pa.int64()),
-            "array2": InputType.array(pa.int64()),
+            "array1": pc.InputType.array(pa.int64()),
+            "array2": pc.InputType.array(pa.int64()),
         },
         {
-            "array1": InputType.array(pa.int64()),
-            "array2": InputType.array(pa.int64()),
-            "array3": InputType.array(pa.int64()),
+            "array1": pc.InputType.array(pa.int64()),
+            "array2": pc.InputType.array(pa.int64()),
+            "array3": pc.InputType.array(pa.int64()),
         },
         {
-            "array1": InputType.array(pa.int64()),
-            "array2": InputType.array(pa.int64()),
-            "array3": InputType.array(pa.int64()),
-            "array4": InputType.array(pa.int64()),
-            "array5": InputType.array(pa.int64()),
+            "array1": pc.InputType.array(pa.int64()),
+            "array2": pc.InputType.array(pa.int64()),
+            "array3": pc.InputType.array(pa.int64()),
+            "array4": pc.InputType.array(pa.int64()),
+            "array5": pc.InputType.array(pa.int64()),
         },
     ]
 
@@ -242,8 +240,8 @@ def test_scalar_udf_with_array_data_functions():
                      functions,
                      function_inputs):
         expected_output = function(*input)
-        register_scalar_function(function,
-                                 name, doc, in_types, out_type)
+        pc.register_scalar_function(function,
+                                    name, doc, in_types, out_type)
 
         func = pc.get_function(name)
         assert func.name == name
@@ -261,30 +259,30 @@ def test_udf_input():
         "summary": "test udf input",
         "description": "parameters are validated"
     }
-    in_types = {"scalar": InputType.scalar(pa.int64())}
+    in_types = {"scalar": pc.InputType.scalar(pa.int64())}
     out_type = pa.int64()
     with pytest.raises(TypeError):
-        register_scalar_function(unary_scalar_function, None, doc, in_types,
-                                 out_type)
+        pc.register_scalar_function(unary_scalar_function, None, doc, in_types,
+                                    out_type)
 
     # validate function
     with pytest.raises(TypeError, match="Object must be a callable"):
-        register_scalar_function(None, "none_function", doc, in_types,
-                                 out_type)
+        pc.register_scalar_function(None, "none_function", doc, in_types,
+                                    out_type)
 
     # validate output type
     expected_expr = "DataType expected, got <class 'NoneType'>"
     with pytest.raises(TypeError, match=expected_expr):
-        register_scalar_function(unary_scalar_function,
-                                 "output_function", doc, in_types,
-                                 None)
+        pc.register_scalar_function(unary_scalar_function,
+                                    "output_function", doc, in_types,
+                                    None)
 
     # validate input type
     expected_expr = r'in_types must be a dictionary of InputType'
     with pytest.raises(TypeError, match=expected_expr):
-        register_scalar_function(unary_scalar_function,
-                                 "input_function", doc, None,
-                                 out_type)
+        pc.register_scalar_function(unary_scalar_function,
+                                    "input_function", doc, None,
+                                    out_type)
 
 
 def test_varargs_function_validation():
@@ -295,14 +293,14 @@ def test_varargs_function_validation():
             res = pc.call_function("add", [res, other_val])
         return res
 
-    in_types = {"array1": InputType.array(pa.int64()),
-                "array2": InputType.array(pa.int64())
+    in_types = {"array1": pc.InputType.array(pa.int64()),
+                "array2": pc.InputType.array(pa.int64())
                 }
     doc = {"summary": "n add function",
            "description": "add N number of arrays"
            }
-    register_scalar_function(n_add, "n_add", doc,
-                             in_types, pa.int64())
+    pc.register_scalar_function(n_add, "n_add", doc,
+                                in_types, pa.int64())
 
     func = pc.get_function("n_add")
 
@@ -319,7 +317,7 @@ def test_function_doc_validation():
         return pc.call_function("add", [scalar, 1])
 
     # validate arity
-    in_types = {"scalar": InputType.scalar(pa.int64())}
+    in_types = {"scalar": pc.InputType.scalar(pa.int64())}
     out_type = pa.int64()
 
     # doc with no summary
@@ -330,9 +328,9 @@ def test_function_doc_validation():
     expected_expr = "Function doc must contain a summary"
 
     with pytest.raises(ValueError, match=expected_expr):
-        register_scalar_function(unary_scalar_function, "no_summary",
-                                 func_doc, in_types,
-                                 out_type)
+        pc.register_scalar_function(unary_scalar_function, "no_summary",
+                                    func_doc, in_types,
+                                    out_type)
 
     # doc with no decription
     func_doc = {
@@ -342,17 +340,17 @@ def test_function_doc_validation():
     expected_expr = "Function doc must contain a description"
 
     with pytest.raises(ValueError, match=expected_expr):
-        register_scalar_function(unary_scalar_function, "no_desc",
-                                 func_doc, in_types,
-                                 out_type)
+        pc.register_scalar_function(unary_scalar_function, "no_desc",
+                                    func_doc, in_types,
+                                    out_type)
 
     # doc with empty dictionary
     func_doc = {}
     expected_expr = "Function doc must contain a summary"
     with pytest.raises(ValueError, match=expected_expr):
-        register_scalar_function(unary_scalar_function, "empty_dictionary",
-                                 func_doc, in_types,
-                                 out_type)
+        pc.register_scalar_function(unary_scalar_function, "empty_dictionary",
+                                    func_doc, in_types,
+                                    out_type)
 
 
 def test_non_uniform_input_udfs():
@@ -361,17 +359,18 @@ def test_non_uniform_input_udfs():
         coeff = pc.call_function("add", [scalar1, scalar2])
         return pc.call_function("multiply", [coeff, array1])
 
-    in_types = {"scalar1": InputType.scalar(pa.int64()),
-                "scalar2": InputType.array(pa.int64()),
-                "scalar3": InputType.scalar(pa.int64()),
+    in_types = {"scalar1": pc.InputType.scalar(pa.int64()),
+                "scalar2": pc.InputType.array(pa.int64()),
+                "scalar3": pc.InputType.scalar(pa.int64()),
                 }
     func_doc = {
         "summary": "multi type udf",
         "description": "desc"
     }
-    register_scalar_function(unary_scalar_function, "multi_type_udf", func_doc,
-                             in_types,
-                             pa.int64())
+    pc.register_scalar_function(unary_scalar_function, 
+                                "multi_type_udf", func_doc,
+                                in_types,
+                                pa.int64())
 
     res = pc.call_function("multi_type_udf",
                            [pa.scalar(10), pa.array([1, 2, 3]), pa.scalar(20)])
@@ -391,9 +390,9 @@ def test_nullary_functions():
         "description": "generates a random value"
     }
 
-    register_scalar_function(gen_random, "random_func", func_doc,
-                             {},
-                             pa.int64())
+    pc.register_scalar_function(gen_random, "random_func", func_doc,
+                                {},
+                                pa.int64())
 
     res = pc.call_function("random_func", [])
     assert res.as_py() >= 0 and res.as_py() <= 10
@@ -406,14 +405,14 @@ def test_output_datatype():
         return ar
 
     func_name = "py_add_to_scalar"
-    in_types = {"array": InputType.array(pa.int64())}
+    in_types = {"array": pc.InputType.array(pa.int64())}
     out_type = pa.int64()
     doc = {
         "summary": "add function scalar",
         "description": "add function"
     }
-    register_scalar_function(add_one, func_name, doc,
-                             in_types, out_type)
+    pc.register_scalar_function(add_one, func_name, doc,
+                                in_types, out_type)
 
     func = pc.get_function(func_name)
 
@@ -428,19 +427,17 @@ def test_output_datatype():
 
 def test_output_type():
     def add_one(array):
-        ar = pc.call_function("add", [array, 1])
-        ar = ar.cast(pa.int32())
-        return ar[0].as_py()
+        return 42
 
     func_name = "add_to_scalar_as_py"
-    in_types = {"array": InputType.array(pa.int64())}
+    in_types = {"array": pc.InputType.array(pa.int64())}
     out_type = pa.int64()
     doc = {
         "summary": "add function scalar",
         "description": "add function"
     }
-    register_scalar_function(add_one, func_name, doc,
-                             in_types, out_type)
+    pc.register_scalar_function(add_one, func_name, doc,
+                                in_types, out_type)
 
     func = pc.get_function(func_name)
 

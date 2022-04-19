@@ -28,6 +28,7 @@ namespace arrow {
 
 namespace py {
 
+
 Status ExecuteFunction(compute::KernelContext* ctx, const compute::ExecBatch& batch,
                        PyObject* function, const compute::OutputType& exp_out_type,
                        Datum* out) {

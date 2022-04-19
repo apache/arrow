@@ -29,6 +29,7 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
 
+from libc.stdlib cimport free
 from libcpp cimport bool as c_bool
 
 import inspect
@@ -2524,3 +2525,6 @@ def register_scalar_function(function, func_name, function_doc, in_types,
                                       c_in_types, deref(c_out_type))
 
     check_status(RegisterScalarFunction(c_function, deref(c_options)))
+
+    free(c_out_type)
+    free(c_options)
