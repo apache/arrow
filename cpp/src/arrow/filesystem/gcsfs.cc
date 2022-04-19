@@ -749,9 +749,13 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
 
   const std::string& username = uri.username();
   bool anonymous = username == "anonymous";
-  if (!uri.password().empty() || (!username.empty() && !anonymous)) {
+  if (!username.empty() && !anonymous) {
     return Status::Invalid(
-        "GCS does not accept username except \"anonymous\" or password.");
+        "GCS URIs do not accept username except \"anonymous\".");
+  }
+  if (!uri.password().empty()) {
+    return Status::Invalid(
+        "GCS URIs do not accept password.");
   }
   auto options = GcsOptions::Defaults();
   if (anonymous) {
