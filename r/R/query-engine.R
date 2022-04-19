@@ -237,7 +237,7 @@ ExecPlan <- R6Class("ExecPlan",
       # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
       ExecPlan_Write(self, node, ...)
     },
-    Stop = function() ExecPlan_StopProducing(self)
+    Stop = function() ExecPlan_StopProducing(self),
     HasMetadata = function() {
       ExecPlan_HasMetadata(self)
     },

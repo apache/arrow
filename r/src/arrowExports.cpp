@@ -869,6 +869,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<compute::ExecPlan> ExecPlan_create_with_metadata(bool use_threads, cpp11::strings metadata);
 extern "C" SEXP _arrow_ExecPlan_create_with_metadata(SEXP use_threads_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
