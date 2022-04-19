@@ -34,7 +34,7 @@ RecordBatchFileWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 RecordBatchStreamWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 
 export type {
-    TypeMap,
+    TypeMap, StructRowProxy,
     ReadableSource, WritableSink,
     ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions,
 } from './Arrow.js';

@@ -24,11 +24,11 @@ import { Struct, TypeMap } from '../type.js';
 /** @ignore */
 export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder<Struct<T>, TNull> {
     public setValue(index: number, value: Struct<T>['TValue']) {
-        const children = this.children;
+        const { children, type } = this;
         switch (Array.isArray(value) || value.constructor) {
-            case true: return this.type.children.forEach((_, i) => children[i].set(index, value[i]));
-            case Map: return this.type.children.forEach((f, i) => children[i].set(index, value.get(f.name)));
-            default: return this.type.children.forEach((f, i) => children[i].set(index, value[f.name]));
+            case true: return type.children.forEach((_, i) => children[i].set(index, value[i]));
+            case Map: return type.children.forEach((f, i) => children[i].set(index, value.get(f.name)));
+            default: return type.children.forEach((f, i) => children[i].set(index, value[f.name]));
         }
     }
 
