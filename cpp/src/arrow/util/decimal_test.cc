@@ -1514,6 +1514,10 @@ TEST(Decimal128Test, ReduceScaleAndRound) {
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(1, out);
 
+  result = Decimal128("0").ReduceScaleBy(1, true);
+  ASSERT_OK(result.ToInteger(&out));
+  ASSERT_EQ(0, out);
+
   result = Decimal128("-123789").ReduceScaleBy(2, true);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(-1238, out);
@@ -1982,6 +1986,9 @@ TEST(Decimal256Test, ReduceScaleAndRound) {
 
   result = Decimal256("5").ReduceScaleBy(1, true);
   ASSERT_EQ("1", result.ToIntegerString());
+
+  result = Decimal256("0").ReduceScaleBy(1, true);
+  ASSERT_EQ("0", result.ToIntegerString());
 
   result = Decimal256("-123789").ReduceScaleBy(2, true);
   ASSERT_EQ("-1238", result.ToIntegerString());
