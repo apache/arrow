@@ -78,7 +78,7 @@ cdef class Statistics(_Weakrefable):
 
     def to_dict(self):
         """Get dictionary represenation of statistics.
-        
+
         Returns
         -------
         dict
@@ -150,7 +150,7 @@ cdef class Statistics(_Weakrefable):
     @property
     def min(self):
         """Min value as logical type.
-        
+
         Returned as the Python equivalent of logical type, such as datetime.date
         for dates and decimal.Decimal for decimals."""
         if self.has_min_max:
@@ -162,7 +162,7 @@ cdef class Statistics(_Weakrefable):
     @property
     def max(self):
         """Max value as logical type.
-        
+
         Returned as the Python equivalent of logical type, such as datetime.date
         for dates and decimal.Decimal for decimals."""
         if self.has_min_max:
@@ -179,7 +179,7 @@ cdef class Statistics(_Weakrefable):
     @property
     def distinct_count(self):
         """int: Distinct number of values in chunk.
-        
+
         If this is not set, will return 0."""
         # This seems to be zero if not set. See: ARROW-11793
         return self.statistics.get().distinct_count()
@@ -226,7 +226,7 @@ cdef class ParquetLogicalType(_Weakrefable):
 
     def to_json(self):
         """Get a JSON string containing type and type parameters
-        
+
         Returns
         -------
         json : str
@@ -343,7 +343,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     def to_dict(self):
         """Get dictionary represenation of the column chunk metadata.
-        
+
         Returns
         -------
         dict
@@ -526,7 +526,7 @@ cdef class RowGroupMetaData(_Weakrefable):
         ----------
         i : int
             Index of column to get metadata for.
-        
+
         Returns
         -------
         ColumnChunkMetaData
@@ -549,7 +549,7 @@ cdef class RowGroupMetaData(_Weakrefable):
 
     def to_dict(self):
         """Get dictionary represenation of the row group metadata.
-        
+
         Returns
         -------
         dict
@@ -624,7 +624,7 @@ cdef class FileMetaData(_Weakrefable):
 
     def to_dict(self):
         """Get dictionary represenation of the file metadata.
-        
+
         Returns
         -------
         dict
@@ -1365,6 +1365,19 @@ cdef class ParquetReader(_Weakrefable):
         return c_num_rows
 
     def column_name_idx(self, column_name):
+        """
+        Find the index of a column by its name.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column; separation of nesting levels is done via ".".
+
+        Returns
+        -------
+        column_idx : int
+            Integer index of the column in the schema.
+        """
         cdef:
             FileMetaData container = self.metadata
             const CFileMetaData* metadata = container._metadata
