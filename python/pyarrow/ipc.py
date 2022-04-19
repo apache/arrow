@@ -97,10 +97,9 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
         the very end of the file data
     options : pyarrow.ipc.IpcReadOptions
         Options for IPC serialization.
-
         If None, default values will be used.
     memory_pool : MemoryPool, default None
-        Uses default memory pool if not specified.
+        If None, default memory pool is used.
     """
 
     def __init__(self, source, footer_offset=None, *, options=None,
@@ -171,10 +170,9 @@ def open_stream(source, *, options=None, memory_pool=None):
         Either an in-memory buffer, or a readable file object.
     options : pyarrow.ipc.IpcReadOptions
         Options for IPC serialization.
-
         If None, default values will be used.
     memory_pool : MemoryPool, default None
-        Uses default memory pool if not specified.
+        If None, default memory pool is used.
     Returns
     -------
     reader : RecordBatchStreamReader
@@ -208,10 +206,9 @@ def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
         the very end of the file data.
     options : pyarrow.ipc.IpcReadOptions
         Options for IPC serialization.
-
         If None, default values will be used.
     memory_pool : MemoryPool, default None
-        Uses default memory pool if not specified.
+        If None, default memory pool is used.
     Returns
     -------
     reader : RecordBatchFileReader
