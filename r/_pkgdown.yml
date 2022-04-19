@@ -156,7 +156,7 @@ reference:
     contents:
       - Schema
       - unify_schemas
-      - type
+      - infer_type
       - dictionary
       - Field
       - read_schema
