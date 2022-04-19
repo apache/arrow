@@ -25,30 +25,36 @@ namespace arrow {
 namespace compute {
 
 KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
-                               const uint8_t* buffer0, const uint8_t* buffer1,
-                               const uint8_t* buffer2, int bit_offset0, int bit_offset1) {
+                               const uint8_t* validity_buffer,
+                               const uint8_t* fixed_length_buffer,
+                               const uint8_t* var_length_buffer, int bit_offset_validity,
+                               int bit_offset_fixed) {
   static_assert(std::is_pod<KeyColumnArray>::value,
                 "This class was intended to be a POD type");
   metadata_ = metadata;
   length_ = length;
-  buffers_[0] = buffer0;
-  buffers_[1] = buffer1;
-  buffers_[2] = buffer2;
-  mutable_buffers_[0] = mutable_buffers_[1] = mutable_buffers_[2] = nullptr;
-  bit_offset_[0] = bit_offset0;
-  bit_offset_[1] = bit_offset1;
+  buffers_[kValidityBuffer] = validity_buffer;
+  buffers_[kFixedLengthBuffer] = fixed_length_buffer;
+  buffers_[kVariableLengthBuffer] = var_length_buffer;
+  mutable_buffers_[kValidityBuffer] = mutable_buffers_[kFixedLengthBuffer] =
+      mutable_buffers_[kVariableLengthBuffer] = nullptr;
+  bit_offset_[kValidityBuffer] = bit_offset_validity;
+  bit_offset_[kFixedLengthBuffer] = bit_offset_fixed;
 }
 
 KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
-                               uint8_t* buffer0, uint8_t* buffer1, uint8_t* buffer2,
-                               int bit_offset0, int bit_offset1) {
+                               uint8_t* validity_buffer, uint8_t* fixed_length_buffer,
+                               uint8_t* var_length_buffer, int bit_offset_validity,
+                               int bit_offset_fixed) {
   metadata_ = metadata;
   length_ = length;
-  buffers_[0] = mutable_buffers_[0] = buffer0;
-  buffers_[1] = mutable_buffers_[1] = buffer1;
-  buffers_[2] = mutable_buffers_[2] = buffer2;
-  bit_offset_[0] = bit_offset0;
-  bit_offset_[1] = bit_offset1;
+  buffers_[kValidityBuffer] = mutable_buffers_[kValidityBuffer] = validity_buffer;
+  buffers_[kFixedLengthBuffer] = mutable_buffers_[kFixedLengthBuffer] =
+      fixed_length_buffer;
+  buffers_[kVariableLengthBuffer] = mutable_buffers_[kVariableLengthBuffer] =
+      var_length_buffer;
+  bit_offset_[kValidityBuffer] = bit_offset_validity;
+  bit_offset_[kFixedLengthBuffer] = bit_offset_fixed;
 }
 
 KeyColumnArray KeyColumnArray::WithBufferFrom(const KeyColumnArray& other,

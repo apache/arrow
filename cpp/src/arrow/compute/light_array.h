@@ -75,15 +75,17 @@ class ARROW_EXPORT KeyColumnArray {
   /// This is a view only and does not take ownership of the buffers.  The lifetime
   /// of the buffers must exceed the lifetime of this view
   KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
-                 const uint8_t* buffer0, const uint8_t* buffer1, const uint8_t* buffer2,
-                 int bit_offset0 = 0, int bit_offset1 = 0);
+                 const uint8_t* validity_buffer, const uint8_t* fixed_length_buffer,
+                 const uint8_t* var_length_buffer, int bit_offset_validity = 0,
+                 int bit_offset_fixed = 0);
   /// \brief Create a mutable view from buffers
   ///
   /// This is a view only and does not take ownership of the buffers.  The lifetime
   /// of the buffers must exceed the lifetime of this view
-  KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length, uint8_t* buffer0,
-                 uint8_t* buffer1, uint8_t* buffer2, int bit_offset0 = 0,
-                 int bit_offset1 = 0);
+  KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
+                 uint8_t* validity_buffer, uint8_t* fixed_length_buffer,
+                 uint8_t* var_length_buffer, int bit_offset_validity = 0,
+                 int bit_offset_fixed = 0);
   /// \brief Create a sliced view of `this`
   ///
   /// The number of rows used in offset must be divisible by 8
@@ -119,14 +121,14 @@ class ARROW_EXPORT KeyColumnArray {
   /// Only valid if this is a view into a varbinary type
   uint32_t* mutable_offsets() {
     DCHECK(!metadata_.is_fixed_length);
-    return reinterpret_cast<uint32_t*>(mutable_data(1));
+    return reinterpret_cast<uint32_t*>(mutable_data(kFixedLengthBuffer));
   }
   /// \brief Return a read-only version of the offsets buffer
   ///
   /// Only valid if this is a view into a varbinary type
   const uint32_t* offsets() const {
     DCHECK(!metadata_.is_fixed_length);
-    return reinterpret_cast<const uint32_t*>(data(1));
+    return reinterpret_cast<const uint32_t*>(data(kFixedLengthBuffer));
   }
   /// \brief Return the type metadata
   const KeyColumnMetadata& metadata() const { return metadata_; }
