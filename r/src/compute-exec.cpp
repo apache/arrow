@@ -370,13 +370,13 @@ class AccumulatingConsumer : public compute::SinkNodeConsumer {
 // [[substrait::export]]
 std::string substrait__internal__SubstraitToJSON(
     const std::shared_ptr<arrow::Buffer>& serialized_plan) {
-  return ValueOrStop(arrow::substrait::internal::SubstraitToJSON("Plan", *serialized_plan));
+  return ValueOrStop(arrow::engine::internal::SubstraitToJSON("Plan", *serialized_plan));
 }
 
 // [[substrait::export]]
 std::shared_ptr<arrow::Buffer> substrait__internal__SubstraitFromJSON(
     std::string substrait_json) {
-  return ValueOrStop(arrow::substrait::internal::SubstraitFromJSON("Plan", substrait_json));
+  return ValueOrStop(arrow::engine::internal::SubstraitFromJSON("Plan", substrait_json));
 }
 
 // [[substrait::export]]
@@ -391,7 +391,7 @@ std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
   };
 
   arrow::Result<std::vector<compute::Declaration>> maybe_decls =
-      ValueOrStop(arrow::substrait::DeserializePlan(*serialized_plan, consumer_factory));
+      ValueOrStop(arrow::engine::DeserializePlan(*serialized_plan, consumer_factory));
   std::vector<compute::Declaration> decls = std::move(ValueOrStop(maybe_decls));
 
   // For now, the Substrait plan must include a 'read' that points to
