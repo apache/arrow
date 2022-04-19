@@ -414,7 +414,8 @@ def _configure_limited_user(tmpdir, address, access_key, secret_key, policy):
             # minio version is too old for the capabilities we need
             return False
         mcdir = os.path.join(tmpdir, 'mc')
-        os.mkdir(mcdir)
+        if not os.path.exists(mcdir):
+            os.mkdir(mcdir)
         policy_path = os.path.join(tmpdir, 'limited-buckets-policy.json')
         with open(policy_path, mode='w') as policy_file:
             policy_file.write(policy)
