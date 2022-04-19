@@ -76,13 +76,17 @@ mark_as_advanced(ARROW_SUBSTRAIT_IMPORT_LIB
 
 find_package_handle_standard_args(
   ArrowSubstrait
-  REQUIRED_VARS ARROW_SUBSTRAIT_INCLUDE_DIR ARROW_SUBSTRAIT_LIB_DIR ARROW_SUBSTRAIT_VERSION_MATCH
+  REQUIRED_VARS ARROW_SUBSTRAIT_INCLUDE_DIR ARROW_SUBSTRAIT_LIB_DIR
+                ARROW_SUBSTRAIT_VERSION_MATCH
   VERSION_VAR ARROW_SUBSTRAIT_VERSION)
 set(ARROW_SUBSTRAIT_FOUND ${ArrowSubstrait_FOUND})
 
 if(ArrowSubstrait_FOUND AND NOT ArrowSubstrait_FIND_QUIETLY)
   message(STATUS "Found the Arrow Substrait by ${ARROW_SUBSTRAIT_FIND_APPROACH}")
-  message(STATUS "Found the Arrow Substrait shared library: ${ARROW_SUBSTRAIT_SHARED_LIB}")
-  message(STATUS "Found the Arrow Substrait import library: ${ARROW_SUBSTRAIT_IMPORT_LIB}")
-  message(STATUS "Found the Arrow Substrait static library: ${ARROW_SUBSTRAIT_STATIC_LIB}")
+  message(STATUS "Found the Arrow Substrait shared library: ${ARROW_SUBSTRAIT_SHARED_LIB}"
+  )
+  message(STATUS "Found the Arrow Substrait import library: ${ARROW_SUBSTRAIT_IMPORT_LIB}"
+  )
+  message(STATUS "Found the Arrow Substrait static library: ${ARROW_SUBSTRAIT_STATIC_LIB}"
+  )
 endif()
