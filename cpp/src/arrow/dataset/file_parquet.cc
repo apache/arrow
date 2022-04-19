@@ -145,13 +145,11 @@ util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
         compute::greater_equal(field_expr, compute::literal(std::move(min)));
     auto upper_bound = compute::less_equal(field_expr, compute::literal(std::move(max)));
 
+    auto in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
     if (statistics->null_count() != 0) {
-      lower_bound = compute::or_(std::move(lower_bound), is_null(field_expr));
-      upper_bound = compute::or_(std::move(upper_bound), is_null(std::move(field_expr)));
-      return compute::and_(std::move(lower_bound), std::move(upper_bound));
+      return compute::or_(std::move(in_range), compute::is_null(field_expr));
     }
-    return compute::and_(compute::and_(std::move(lower_bound), std::move(upper_bound)),
-                         compute::is_valid(field_expr));
+    return in_range;
   }
 
   return util::nullopt;
