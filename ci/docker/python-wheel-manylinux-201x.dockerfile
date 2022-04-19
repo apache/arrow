@@ -81,7 +81,7 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
-        --x-feature=parquet || cat  /opt/vcpkg/buildtrees/openssl/install-amd64-linux-static-release-rel-out.log
+        --x-feature=parquet
 
 ARG python=3.8
 ENV PYTHON_VERSION=${python}
