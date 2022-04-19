@@ -1016,6 +1016,15 @@ struct Inequality {
     auto call = expr.call();
     if (!call) return expr;
 
+    if (call->function_name == "is_valid" || call->function_name == "is_null") {
+      if (guarantee.nullable) return expr;
+      const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+      if (!lhs.field_ref()) return expr;
+      if (*lhs.field_ref() != guarantee.target) return expr;
+
+      return call->function_name == "is_valid" ? literal(true) : literal(false);
+    }
+
     auto cmp = Comparison::Get(expr);
     if (!cmp) return expr;
 

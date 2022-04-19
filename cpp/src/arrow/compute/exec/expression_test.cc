@@ -1298,6 +1298,47 @@ TEST(Expression, SimplifyWithGuarantee) {
   Simplify{equal(field_ref("i32"), literal(7))}
       .WithGuarantee(not_(equal(field_ref("i32"), literal(7))))
       .Expect(equal(field_ref("i32"), literal(7)));
+
+  // In the absence of is_null(i32) we assume i32 is valid
+  Simplify{
+      is_null(field_ref("i32")),
+  }
+      .WithGuarantee(greater_equal(field_ref("i32"), literal(1)))
+      .Expect(false);
+
+  Simplify{
+      is_null(field_ref("i32")),
+  }
+      .WithGuarantee(
+          or_(greater_equal(field_ref("i32"), literal(1)), is_null(field_ref("i32"))))
+      .Expect(is_null(field_ref("i32")));
+
+  Simplify{
+      is_null(field_ref("i32")),
+  }
+      .WithGuarantee(
+          and_(greater_equal(field_ref("i32"), literal(1)), is_valid(field_ref("i32"))))
+      .Expect(false);
+
+  Simplify{
+      is_valid(field_ref("i32")),
+  }
+      .WithGuarantee(greater_equal(field_ref("i32"), literal(1)))
+      .Expect(true);
+
+  Simplify{
+      is_valid(field_ref("i32")),
+  }
+      .WithGuarantee(
+          or_(greater_equal(field_ref("i32"), literal(1)), is_null(field_ref("i32"))))
+      .Expect(is_valid(field_ref("i32")));
+
+  Simplify{
+      is_valid(field_ref("i32")),
+  }
+      .WithGuarantee(
+          and_(greater_equal(field_ref("i32"), literal(1)), is_valid(field_ref("i32"))))
+      .Expect(true);
 }
 
 TEST(Expression, SimplifyWithValidityGuarantee) {
