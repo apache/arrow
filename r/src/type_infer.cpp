@@ -180,8 +180,10 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
   }
 
   // If we handle the conversion in C++ we do so here; otherwise we call
-  // the type() S3 generic to infer the type of the object.
-  if (can_convert_native(x)) {
+  // the type() S3 generic to infer the type of the object. For data.frame,
+  // this code is sufficiently recursive such that it correctly calls into
+  // R to infer column types where can_convert_native() is false.
+  if (can_convert_native(x) || Rf_inherits(x, "data.frame")) {
     switch (TYPEOF(x)) {
       case ENVSXP:
         return InferArrowTypeFromVector<ENVSXP>(x);

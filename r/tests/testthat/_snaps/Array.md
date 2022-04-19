@@ -1,7 +1,6 @@
 # as_arrow_array() works for vctr_vctr types
 
     Can't create Array<float64()> from object of type custom_vctr / vctrs_vctr
-    i You might want to try casting manually with `Array$create(...)$cast(...)`.
 
 # as_arrow_array() default method errors for impossible cases
 

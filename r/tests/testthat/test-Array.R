@@ -1074,6 +1074,27 @@ test_that("as_arrow_array() works for vctr_vctr types", {
   expect_snapshot_error(as_arrow_array(vctr, type = float64()))
 })
 
+test_that("as_arrow_array() works for nested extension types", {
+  vctr <- vctrs::new_vctr(1:5, class = "custom_vctr")
+
+  nested <- tibble::tibble(x = vctr)
+  type <- infer_type(nested)
+
+  # with type = NULL
+  nested_array <- as_arrow_array(nested)
+  expect_identical(as.vector(nested_array), nested)
+
+  # with explicit type
+  expect_equal(as_arrow_array(nested, type = type), nested_array)
+
+  # with extension type
+  extension_array <- vctrs_extension_array(nested)
+  expect_equal(
+    as_arrow_array(nested, type = extension_array$type),
+    extension_array
+  )
+})
+
 test_that("as_arrow_array() default method errors for impossible cases", {
   vec <- structure(list(), class = "class_not_supported")
 

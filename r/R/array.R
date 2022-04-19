@@ -267,7 +267,7 @@ as_arrow_array.vctrs_vctr <- function(x, ..., type = NULL) {
       storage_type = type$storage_type()
     )
   } else {
-    NextMethod()
+    stop_cant_convert_array(x, type)
   }
 }
 
@@ -276,32 +276,64 @@ as_arrow_array.POSIXlt <- function(x, ..., type = NULL) {
   as_arrow_array.vctrs_vctr(x, ..., type = type)
 }
 
+#' @export
+as_arrow_array.data.frame <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+
+  if (inherits(type, "VctrsExtensionType")) {
+    storage <- as_arrow_array(x, type = type$storage_type())
+    new_extension_array(storage, type)
+  } else if (inherits(type, "StructType")) {
+    fields <- type$fields()
+    names <- map_chr(fields, "name")
+    types <- map(fields, "type")
+    arrays <- Map(as_arrow_array, x, types)
+    names(arrays) <- names
+
+    # ...because there isn't a StructArray$create() yet
+    batch <- record_batch(!!! arrays)
+    array_ptr <- allocate_arrow_array()
+    schema_ptr <- allocate_arrow_schema()
+    batch$export_to_c(array_ptr, schema_ptr)
+    Array$import_from_c(array_ptr, schema_ptr)
+  } else {
+    stop_cant_convert_array(x, type)
+  }
+}
 
 #' @export
 as_arrow_array.default <- function(x, ..., type = NULL, from_constructor = FALSE) {
   # If from_constructor is TRUE, this is a call from C++ for which S3 dispatch
   # failed to find a method for the object. If this is the case, we error.
-  if (from_constructor && is.null(type)) {
-    abort(
-      sprintf(
-        "Can't create Array from object of type %s",
-        paste(class(x), collapse = " / ")
-      )
-    )
-  } else if (from_constructor) {
-    abort(
-      sprintf(
-        "Can't create Array<%s> from object of type %s",
-        format(type$code()),
-        paste(class(x), collapse = " / ")
-      )
-    )
+  if (from_constructor) {
+    stop_cant_convert_array(x, type)
   }
 
   # If from_constructor is FALSE, we use the built-in logic exposed by
   # Array$create(). If there is no built-in conversion, C++ will call back
   # here with from_constructor = TRUE to generate a nice error message.
   Array$create(x, type = type)
+}
+
+stop_cant_convert_array <- function(x, type) {
+  if (is.null(type)) {
+    abort(
+      sprintf(
+        "Can't create Array from object of type %s",
+        paste(class(x), collapse = " / ")
+      ),
+      call = rlang::caller_env()
+    )
+  } else {
+    abort(
+      sprintf(
+        "Can't create Array<%s> from object of type %s",
+        format(type$code()),
+        paste(class(x), collapse = " / ")
+      ),
+      call = rlang::caller_env()
+    )
+  }
 }
 
 #' Concatenate zero or more Arrays

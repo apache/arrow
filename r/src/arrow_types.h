@@ -129,15 +129,29 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 
 // These are the types of objects whose conversion to Arrow Arrays is handled
 // entirely in C++. Other types of objects are converted using the type() S3
-// generic and the as_arrow_array() S3 generic.
+// generic and the as_arrow_array() S3 generic. For data.frame, we need to
+// recurse because the internal conversion logic can't accomodate calling
+// into R.
 static inline bool can_convert_native(SEXP x) {
-  return !Rf_isObject(x) || Rf_inherits(x, "factor") || Rf_inherits(x, "Date") ||
-         Rf_inherits(x, "integer64") || Rf_inherits(x, "POSIXct") ||
-         Rf_inherits(x, "hms") || Rf_inherits(x, "difftime") ||
-         Rf_inherits(x, "data.frame") || Rf_inherits(x, "arrow_binary") ||
-         Rf_inherits(x, "arrow_large_binary") ||
-         Rf_inherits(x, "arrow_fixed_size_binary") ||
-         Rf_inherits(x, "vctrs_unspecified") || Rf_inherits(x, "AsIs");
+  if (!Rf_isObject(x)) {
+    return true;
+  } else if (Rf_inherits(x, "data.frame")) {
+    for (R_xlen_t i = 0; i < Rf_xlength(x); i++) {
+      if (!can_convert_native(VECTOR_ELT(x, i))) {
+        return false;
+      }
+    }
+
+    return true;
+  } else {
+    return Rf_inherits(x, "factor") || Rf_inherits(x, "Date") ||
+           Rf_inherits(x, "integer64") || Rf_inherits(x, "POSIXct") ||
+           Rf_inherits(x, "hms") || Rf_inherits(x, "difftime") ||
+           Rf_inherits(x, "data.frame") || Rf_inherits(x, "arrow_binary") ||
+           Rf_inherits(x, "arrow_large_binary") ||
+           Rf_inherits(x, "arrow_fixed_size_binary") ||
+           Rf_inherits(x, "vctrs_unspecified") || Rf_inherits(x, "AsIs");
+  }
 }
 
 Status count_fields(SEXP lst, int* out);
