@@ -169,6 +169,9 @@ enum AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection* connection,
 ///
 /// Drivers are not required to support partitioning.
 ///
+/// Partitions are not ordered. If the result set is sorted,
+/// implementations should return a single partition.
+///
 /// @{
 
 /// \brief Construct a statement for a partition of a query. The
