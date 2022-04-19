@@ -203,10 +203,31 @@ test_that("as_record_batch_reader() works for Scanner", {
   expect_equal(reader$read_next_batch(), batch)
 })
 
-test_that("as_record_batch_reader() default method calls Scanner$create()", {
+test_that("as_record_batch_reader() works for Dataset", {
   skip_if_not_available("dataset")
 
+  dataset <- InMemoryDataset$create(arrow_table(a = 1, b = "two"))
+  reader <- as_record_batch_reader(dataset)
+  expect_equal(
+    reader$read_next_batch(),
+    record_batch(a = 1, b = "two")
+  )
+})
+
+test_that("as_record_batch_reader() works for Table", {
+  table <- arrow_table(a = 1, b = "two")
+  reader <- as_record_batch_reader(table)
+  expect_equal(reader$read_next_batch(), record_batch(a = 1, b = "two"))
+})
+
+test_that("as_record_batch_reader() works for RecordBatch", {
   batch <- record_batch(a = 1, b = "two")
   reader <- as_record_batch_reader(batch)
   expect_equal(reader$read_next_batch(), batch)
+})
+
+test_that("as_record_batch_reader() works for data.frame", {
+  df <- tibble::tibble(a = 1, b = "two")
+  reader <- as_record_batch_reader(df)
+  expect_equal(reader$read_next_batch(), record_batch(a = 1, b = "two"))
 })

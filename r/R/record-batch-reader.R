@@ -199,13 +199,37 @@ as_record_batch_reader.RecordBatchReader <- function(x, ...) {
   x
 }
 
-#' @rdname as_arrow_table
+#' @rdname as_record_batch_reader
 #' @export
-as_record_batch_reader.default <- function(x, ...) {
+as_record_batch_reader.Table <- function(x, ...) {
+  RecordBatchReader__from_Table(x)
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.RecordBatch <- function(x, ...) {
+  as_record_batch_reader(as_arrow_table(x))
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.data.frame <- function(x, ...) {
+  as_record_batch_reader(as_arrow_table(x))
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.Dataset <- function(x, ...) {
   Scanner$create(x)$ToRecordBatchReader()
 }
 
-#' @rdname as_arrow_table
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.arrow_dplyr_query <- function(x, ...) {
+  as_record_batch_reader(collect.arrow_dplyr_query(x, as_data_frame = FALSE))
+}
+
+#' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.Scanner <- function(x, ...) {
   x$ToRecordBatchReader()

@@ -3,11 +3,29 @@
 \name{as_record_batch_reader}
 \alias{as_record_batch_reader}
 \alias{as_record_batch_reader.RecordBatchReader}
+\alias{as_record_batch_reader.Table}
+\alias{as_record_batch_reader.RecordBatch}
+\alias{as_record_batch_reader.data.frame}
+\alias{as_record_batch_reader.Dataset}
+\alias{as_record_batch_reader.arrow_dplyr_query}
+\alias{as_record_batch_reader.Scanner}
 \title{Convert an object to an Arrow RecordBatchReader}
 \usage{
 as_record_batch_reader(x, ...)
 
 \method{as_record_batch_reader}{RecordBatchReader}(x, ...)
+
+\method{as_record_batch_reader}{Table}(x, ...)
+
+\method{as_record_batch_reader}{RecordBatch}(x, ...)
+
+\method{as_record_batch_reader}{data.frame}(x, ...)
+
+\method{as_record_batch_reader}{Dataset}(x, ...)
+
+\method{as_record_batch_reader}{arrow_dplyr_query}(x, ...)
+
+\method{as_record_batch_reader}{Scanner}(x, ...)
 }
 \arguments{
 \item{x}{An object to convert to a \link{RecordBatchReader}}

@@ -1760,6 +1760,10 @@ ipc___RecordBatchFileReader__batches <- function(reader) {
   .Call(`_arrow_ipc___RecordBatchFileReader__batches`, reader)
 }
 
+RecordBatchReader__from_Table <- function(table) {
+  .Call(`_arrow_RecordBatchReader__from_Table`, table)
+}
+
 ipc___RecordBatchWriter__WriteRecordBatch <- function(batch_writer, batch) {
   invisible(.Call(`_arrow_ipc___RecordBatchWriter__WriteRecordBatch`, batch_writer, batch))
 }

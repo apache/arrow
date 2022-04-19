@@ -4532,6 +4532,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ipc___RecordBatchFileReader__batches(reader));
 END_CPP11
 }
+// recordbatchreader.cpp
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_Table(const std::shared_ptr<arrow::Table>& table);
+extern "C" SEXP _arrow_RecordBatchReader__from_Table(SEXP table_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	return cpp11::as_sexp(RecordBatchReader__from_Table(table));
+END_CPP11
+}
 // recordbatchwriter.cpp
 void ipc___RecordBatchWriter__WriteRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer, const std::shared_ptr<arrow::RecordBatch>& batch);
 extern "C" SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writer_sexp, SEXP batch_sexp){
@@ -5569,6 +5577,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1}, 
 		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__batches, 1}, 
+		{ "_arrow_RecordBatchReader__from_Table", (DL_FUNC) &_arrow_RecordBatchReader__from_Table, 1}, 
 		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2}, 
 		{ "_arrow_ipc___RecordBatchWriter__WriteTable", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteTable, 2}, 
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 

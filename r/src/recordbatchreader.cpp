@@ -129,4 +129,10 @@ cpp11::list ipc___RecordBatchFileReader__batches(
   return arrow::r::to_r_list(res);
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_Table(
+    const std::shared_ptr<arrow::Table>& table) {
+  return std::make_shared<arrow::TableBatchReader>(table);
+}
+
 #endif
