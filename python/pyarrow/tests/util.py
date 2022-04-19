@@ -25,12 +25,12 @@ import gc
 import numpy as np
 import os
 import random
+import re
 import signal
 import socket
 import string
 import subprocess
 import sys
-import re
 import time
 
 import pytest
