@@ -757,10 +757,7 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
     return Status::Invalid(
         "GCS URIs do not accept password.");
   }
-  auto options = GcsOptions::Defaults();
-  if (anonymous) {
-    options = GcsOptions::Anonymous();
-  }
+  auto options = anonymous ? GcsOptions::Anonymous() : GcsOptions::Defaults();
 
   for (const auto& kv : options_map) {
     if (kv.first == "location") {
