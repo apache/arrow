@@ -21,14 +21,15 @@
 
 namespace gandiva {
 
-#define DATE_EXTRACTION_TRUNCATION_FNS(INNER, name)                                    \
-  DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}),       \
-      DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {"year"}),    \
-      DATE_TYPES(INNER, name##Quarter, {}), DATE_TYPES(INNER, name##Month, {"month"}), \
-      DATE_TYPES(INNER, name##Week, ({"weekofyear", "yearweek"})),                     \
-      DATE_TYPES(INNER, name##Day, ({"day", "dayofmonth"})),                           \
-      DATE_TYPES(INNER, name##Hour, {"hour"}),                                         \
-      DATE_TYPES(INNER, name##Minute, {"minute"}),                                     \
+#define DATE_EXTRACTION_TRUNCATION_FNS(INNER, name)                                 \
+  DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}),    \
+      DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {"year"}), \
+      DATE_TYPES(INNER, name##Quarter, ({"quarter"})),                              \
+      DATE_TYPES(INNER, name##Month, {"month"}),                                    \
+      DATE_TYPES(INNER, name##Week, ({"weekofyear", "yearweek"})),                  \
+      DATE_TYPES(INNER, name##Day, ({"day", "dayofmonth"})),                        \
+      DATE_TYPES(INNER, name##Hour, {"hour"}),                                      \
+      DATE_TYPES(INNER, name##Minute, {"minute"}),                                  \
       DATE_TYPES(INNER, name##Second, {"second"})
 
 #define TO_TIMESTAMP_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                       \
@@ -65,8 +66,8 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      kResultNullIfNull, "castTIMESTAMP_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castVARCHAR", {}, DataTypeVector{timestamp(), int64()}, utf8(),
-                     kResultNullIfNull, "castVARCHAR_timestamp_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{timestamp(), int64()},
+                     utf8(), kResultNullIfNull, "castVARCHAR_timestamp_int64",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8()}, date64(),
