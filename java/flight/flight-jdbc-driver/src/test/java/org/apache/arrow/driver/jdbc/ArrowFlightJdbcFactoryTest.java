@@ -78,7 +78,7 @@ public class ArrowFlightJdbcFactoryTest {
     properties.putAll(ImmutableMap.of(
         ArrowFlightConnectionProperty.HOST.camelName(), "localhost",
         ArrowFlightConnectionProperty.PORT.camelName(), 32010,
-        ArrowFlightConnectionProperty.SSL.camelName(), false));
+        ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), false));
 
     try (Connection connection = factory.newConnection(driver, constructor.newInstance(),
         "jdbc:arrow-flight://localhost:32010", properties)) {

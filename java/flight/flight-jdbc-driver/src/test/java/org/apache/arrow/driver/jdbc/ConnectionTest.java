@@ -91,7 +91,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put("ssl", false);
+    properties.put("useEncryption", false);
 
     try (Connection connection = DriverManager.getConnection(
         "jdbc:arrow-flight://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
@@ -154,7 +154,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put(ArrowFlightConnectionProperty.SSL.camelName(),
+    properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(),
         false);
     final String invalidUrl = "jdbc:arrow-flight://" + FLIGHT_SERVER_TEST_RULE.getHost() +
         ":" + 65537;
@@ -192,7 +192,7 @@ public class ConnectionTest {
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
         FLIGHT_SERVER_TEST_RULE.getPort());
-    properties.put(ArrowFlightConnectionProperty.SSL.camelName(),
+    properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(),
         false);
     try (Connection connection = DriverManager
         .getConnection("jdbc:arrow-flight://localhost:32010", properties)) {
@@ -217,7 +217,7 @@ public class ConnectionTest {
         "invalidUser");
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
         FLIGHT_SERVER_TEST_RULE.getPort());
-    properties.put(ArrowFlightConnectionProperty.SSL.camelName(),
+    properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(),
         false);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         "invalidPassword");
@@ -241,7 +241,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&ssl=false",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useEncryption=false",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest));
@@ -267,7 +267,7 @@ public class ConnectionTest {
         userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.setProperty(ArrowFlightConnectionProperty.SSL.camelName(), "false");
+    properties.setProperty(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), "false");
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -295,7 +295,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put(ArrowFlightConnectionProperty.SSL.camelName(), false);
+    properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -320,7 +320,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&ssl=0",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useEncryption=0",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest));
@@ -346,7 +346,7 @@ public class ConnectionTest {
         userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.setProperty(ArrowFlightConnectionProperty.SSL.camelName(), "0");
+    properties.setProperty(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), "0");
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -375,7 +375,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put(ArrowFlightConnectionProperty.SSL.camelName(), 0);
+    properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), 0);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -400,7 +400,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&threadPoolSize=1&ssl=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&threadPoolSize=1&useEncryption=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -428,7 +428,7 @@ public class ConnectionTest {
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
     properties.setProperty(ArrowFlightConnectionProperty.THREAD_POOL_SIZE.camelName(), "1");
-    properties.put("ssl", false);
+    properties.put("useEncryption", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -458,7 +458,7 @@ public class ConnectionTest {
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
     properties.put(ArrowFlightConnectionProperty.THREAD_POOL_SIZE.camelName(), 1);
-    properties.put("ssl", false);
+    properties.put("useEncryption", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -483,7 +483,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&ssl=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useEncryption=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -510,7 +510,7 @@ public class ConnectionTest {
         userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put("ssl", false);
+    properties.put("useEncryption", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(
@@ -539,7 +539,7 @@ public class ConnectionTest {
         userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         passTest);
-    properties.put("ssl", false);
+    properties.put("useEncryption", false);
 
     Connection connection = DriverManager.getConnection(
         String.format(

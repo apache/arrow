@@ -22,9 +22,9 @@ import static java.util.Arrays.asList;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT;
-import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.SSL;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.THREAD_POOL_SIZE;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER;
+import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USE_ENCRYPTION;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.util.List;
@@ -86,8 +86,8 @@ public final class ArrowFlightConnectionConfigImplTest {
             (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getUser},
         {PASSWORD, "password",
             (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPassword},
-        {SSL, RANDOM.nextBoolean(),
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::useTls},
+        {USE_ENCRYPTION, RANDOM.nextBoolean(),
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::useEncryption},
         {THREAD_POOL_SIZE,
             RANDOM.nextInt(getRuntime().availableProcessors()),
             (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::threadPoolSize},

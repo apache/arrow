@@ -115,7 +115,7 @@ public class ArrowFlightJdbcDriverTest {
              driver.connect("jdbc:arrow-flight://" +
                      dataSource.getConfig().getHost() + ":" +
                      dataSource.getConfig().getPort() + "?" +
-                     "ssl=false",
+                     "useEncryption=false",
         dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
       assert connection.isValid(300);
     }

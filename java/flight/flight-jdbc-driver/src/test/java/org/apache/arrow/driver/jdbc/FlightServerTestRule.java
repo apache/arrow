@@ -115,24 +115,24 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return ArrowFlightJdbcConnectionPoolDataSource.createNewDataSource(properties);
   }
 
-  public ArrowFlightJdbcConnectionPoolDataSource createConnectionPoolDataSource(boolean useTls) {
-    setUseTls(useTls);
+  public ArrowFlightJdbcConnectionPoolDataSource createConnectionPoolDataSource(boolean useEncryption) {
+    setUseEncryption(useEncryption);
     return ArrowFlightJdbcConnectionPoolDataSource.createNewDataSource(properties);
   }
 
-  public Connection getConnection(boolean useTls, String token) throws SQLException {
+  public Connection getConnection(boolean useEncryption, String token) throws SQLException {
     properties.put("token", token);
 
-    return getConnection(useTls);
+    return getConnection(useEncryption);
   }
 
-  public Connection getConnection(boolean useTls) throws SQLException {
-    setUseTls(useTls);
+  public Connection getConnection(boolean useEncryption) throws SQLException {
+    setUseEncryption(useEncryption);
     return this.createDataSource().getConnection();
   }
 
-  private void setUseTls(boolean useTls) {
-    properties.put("ssl", useTls);
+  private void setUseEncryption(boolean useEncryption) {
+    properties.put("useEncryption", useEncryption);
   }
 
   public MiddlewareCookie.Factory getMiddlewareCookieFactory() {
@@ -149,7 +149,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         .headerAuthenticator(authentication.authenticate())
         .middleware(FlightServerMiddleware.Key.of("KEY"), middlewareCookieFactory);
     if (certKeyPair != null) {
-      builder.useTls(certKeyPair.cert, certKeyPair.key);
+      builder.useEncryption(certKeyPair.cert, certKeyPair.key);
     }
     return builder.build();
   }
@@ -294,7 +294,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      * @param key       The private key to use.
      * @return the Builder.
      */
-    public Builder useTls(final File certChain, final File key) {
+    public Builder useEncryption(final File certChain, final File key) {
       certKeyPair = new CertKeyPair(certChain, key);
       return this;
     }

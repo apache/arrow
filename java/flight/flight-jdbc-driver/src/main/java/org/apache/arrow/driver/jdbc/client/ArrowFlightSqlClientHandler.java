@@ -345,7 +345,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private String trustStorePath;
     private String trustStorePassword;
     private String token;
-    private boolean useTls;
+    private boolean useEncryption;
     private boolean disableCertificateVerification;
     private boolean useSystemTrustStore;
     private BufferAllocator allocator;
@@ -419,11 +419,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     /**
      * Sets whether to use TLS encryption in this handler.
      *
-     * @param useTls whether to use TLS encryption.
+     * @param useEncryption whether to use TLS encryption.
      * @return this instance.
      */
-    public Builder withTlsEncryption(final boolean useTls) {
-      this.useTls = useTls;
+    public Builder withEncryption(final boolean useEncryption) {
+      this.useEncryption = useEncryption;
       return this;
     }
 
@@ -533,7 +533,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         withMiddlewareFactories(new ClientCookieMiddleware.Factory());
         middlewareFactories.forEach(clientBuilder::intercept);
         Location location;
-        if (useTls) {
+        if (useEncryption) {
           location = Location.forGrpcTls(host, port);
           clientBuilder.useTls();
         } else {
@@ -541,7 +541,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         }
         clientBuilder.location(location);
 
-        if (useTls) {
+        if (useEncryption) {
           if (disableCertificateVerification) {
             clientBuilder.verifyServer(false);
           } else {
