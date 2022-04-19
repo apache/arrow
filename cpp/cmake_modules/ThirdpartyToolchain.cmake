@@ -269,8 +269,8 @@ if(CMAKE_VERSION VERSION_LESS 3.11)
                         PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
                                    "${THIRDPARTY_DIR}/flatbuffers/include")
 else()
-  target_include_directories(arrow::flatbuffers INTERFACE
-                             "${THIRDPARTY_DIR}/flatbuffers/include")
+  target_include_directories(arrow::flatbuffers
+                             INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
 endif()
 
 # ----------------------------------------------------------------------
