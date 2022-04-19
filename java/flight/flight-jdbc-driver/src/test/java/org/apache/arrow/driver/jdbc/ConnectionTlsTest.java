@@ -293,10 +293,10 @@ public class ConnectionTlsTest {
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
-            BuiltInConnectionProperty.KEYSTORE.camelName(),
-            keyStorePath,
-            BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(),
-            keyStorePass));
+            ArrowFlightConnectionProperty.TRUST_STORE.camelName(),
+            trustStorePath,
+            ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(),
+            trustStorePass));
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }

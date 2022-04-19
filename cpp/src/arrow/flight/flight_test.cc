@@ -122,13 +122,11 @@ TEST(TestFlight, ConnectUri) {
   std::string uri = ss.str();
 
   std::unique_ptr<FlightClient> client;
-  Location location1;
-  Location location2;
-  ASSERT_OK(Location::Parse(uri, &location1));
-  ASSERT_OK(Location::Parse(uri, &location2));
-  ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location1));
   ASSERT_OK(client->Close());
-  ASSERT_OK(FlightClient::Connect(location2, &client));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location2));
   ASSERT_OK(client->Close());
 }
 
@@ -143,13 +141,11 @@ TEST(TestFlight, ConnectUriUnix) {
   std::string uri = ss.str();
 
   std::unique_ptr<FlightClient> client;
-  Location location1;
-  Location location2;
-  ASSERT_OK(Location::Parse(uri, &location1));
-  ASSERT_OK(Location::Parse(uri, &location2));
-  ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location1));
   ASSERT_OK(client->Close());
-  ASSERT_OK(FlightClient::Connect(location2, &client));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location2));
   ASSERT_OK(client->Close());
 }
 #endif
@@ -1009,9 +1005,8 @@ TEST_F(TestFlightClient, Close) {
   // Idempotent
   ASSERT_OK(client_->Close());
 
-  std::unique_ptr<FlightListing> listing;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("FlightClient is closed"),
-                                  client_->ListFlights(&listing));
+                                  client_->ListFlights());
 }
 
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {

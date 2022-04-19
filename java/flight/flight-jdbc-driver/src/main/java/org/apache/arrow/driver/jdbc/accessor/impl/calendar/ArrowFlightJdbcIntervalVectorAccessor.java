@@ -96,12 +96,12 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
   }
 
   @Override
-  public String getString() {
-    StringBuilder stringBuilder = stringBuilderGetter.get(getCurrentRow());
+  public String getString() throws SQLException {
+    Object object = getObject();
 
-    this.wasNull = stringBuilder == null;
+    this.wasNull = object == null;
     this.wasNullConsumer.setWasNull(this.wasNull);
-    if (stringBuilder == null) {
+    if (object == null) {
       return null;
     }
     if (vector instanceof IntervalDayVector) {

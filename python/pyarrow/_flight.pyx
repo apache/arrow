@@ -1452,6 +1452,7 @@ cdef class FlightClient(_Weakrefable):
         return py_writer, py_reader
 
     def close(self):
+        """Close the client and disconnect."""
         check_flight_status(self.client.get().Close())
 
     def __del__(self):

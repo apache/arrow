@@ -334,30 +334,20 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             const c_string& username,
             const c_string& password)
 
-        CStatus DoAction(CFlightCallOptions& options, CAction& action,
-                         unique_ptr[CResultStream]* results)
-        CStatus ListActions(CFlightCallOptions& options,
-                            vector[CActionType]* actions)
+        CResult[unique_ptr[CResultStream]] DoAction(CFlightCallOptions& options, CAction& action)
+        CResult[vector[CActionType]] ListActions(CFlightCallOptions& options)
 
-        CStatus ListFlights(CFlightCallOptions& options, CCriteria criteria,
-                            unique_ptr[CFlightListing]* listing)
-        CStatus GetFlightInfo(CFlightCallOptions& options,
-                              CFlightDescriptor& descriptor,
-                              unique_ptr[CFlightInfo]* info)
-        CStatus GetSchema(CFlightCallOptions& options,
-                          CFlightDescriptor& descriptor,
-                          unique_ptr[CSchemaResult]* result)
-        CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
-                      unique_ptr[CFlightStreamReader]* stream)
-        CStatus DoPut(CFlightCallOptions& options,
-                      CFlightDescriptor& descriptor,
-                      shared_ptr[CSchema]& schema,
-                      unique_ptr[CFlightStreamWriter]* stream,
-                      unique_ptr[CFlightMetadataReader]* reader)
-        CStatus DoExchange(CFlightCallOptions& options,
-                           CFlightDescriptor& descriptor,
-                           unique_ptr[CFlightStreamWriter]* writer,
-                           unique_ptr[CFlightStreamReader]* reader)
+        CResult[unique_ptr[CFlightListing]] ListFlights(CFlightCallOptions& options, CCriteria criteria)
+        CResult[unique_ptr[CFlightInfo]] GetFlightInfo(CFlightCallOptions& options,
+                                                       CFlightDescriptor& descriptor)
+        CResult[unique_ptr[CSchemaResult]] GetSchema(CFlightCallOptions& options,
+                                                     CFlightDescriptor& descriptor)
+        CResult[unique_ptr[CFlightStreamReader]] DoGet(CFlightCallOptions& options, CTicket& ticket)
+        CResult[CDoPutResult] DoPut(CFlightCallOptions& options,
+                                    CFlightDescriptor& descriptor,
+                                    shared_ptr[CSchema]& schema)
+        CResult[CDoExchangeResult] DoExchange(CFlightCallOptions& options,
+                                              CFlightDescriptor& descriptor)
         CStatus Close()
 
     cdef cppclass CFlightStatusCode" arrow::flight::FlightStatusCode":
