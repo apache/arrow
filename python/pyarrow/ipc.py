@@ -43,7 +43,7 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
         Options for IPC deserialization.
         If None, default values will be used.
     memory_pool : MemoryPool, default None
-        Uses default memory pool if not specified.
+        If None, default memory pool is used.
     """
 
     def __init__(self, source, *, options=None, memory_pool=None):
