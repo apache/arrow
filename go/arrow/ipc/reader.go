@@ -18,6 +18,7 @@ package ipc
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"sync/atomic"
@@ -165,7 +166,7 @@ func (r *Reader) next() bool {
 	msg, r.err = r.r.Message()
 	if r.err != nil {
 		r.done = true
-		if r.errors.Is(err, io.EOF) {
+		if errors.Is(r.err, io.EOF) {
 			r.err = nil
 		}
 		return false

@@ -23,8 +23,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v8/arrow"	
 )
 
 type Int8 struct {
