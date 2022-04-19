@@ -622,9 +622,11 @@ if(ARROW_TESTING)
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
+                arrow::flatbuffers
                 arrow_shared
                 GTest::gtest
                 STATIC_LINK_LIBS
+                arrow::flatbuffers
                 arrow_static
                 GTest::gtest)
 

@@ -851,6 +851,7 @@ if(NOT MSVC_TOOLCHAIN)
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN
+    arrow::flatbuffers
     GTest::gtest_main
     GTest::gtest
     GTest::gmock

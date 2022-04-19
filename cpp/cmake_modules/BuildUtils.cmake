@@ -257,7 +257,7 @@ function(ADD_ARROW_LIB LIB_NAME)
 
   if(WIN32
      OR (CMAKE_GENERATOR STREQUAL Xcode)
-     OR CMAKE_VERSION VERSION_LESS "3.12.0")
+     OR CMAKE_VERSION VERSION_LESS 3.12)
     # We need to compile C++ separately for each library kind (shared and static)
     # because of dllexport declarations on Windows.
     # The Xcode generator doesn't reliably work with Xcode as target names are not

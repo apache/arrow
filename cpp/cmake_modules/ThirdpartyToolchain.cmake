@@ -264,8 +264,14 @@ endmacro()
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
 add_library(arrow::flatbuffers INTERFACE IMPORTED)
-target_include_directories(arrow::flatbuffers
-                           INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
+if(CMAKE_VERSION VERSION_LESS 3.11)
+  set_target_properties(arrow::flatbuffers
+                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                   "${THIRDPARTY_DIR}/flatbuffers/include")
+else()
+  target_include_directoriebs(arrow::flatbuffers INTERFACE
+                              "${THIRDPARTY_DIR}/flatbuffers/include")
+endif()
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
@@ -840,8 +846,15 @@ macro(build_boost)
                        INCLUDE_DIRECTORIES
                        "${Boost_INCLUDE_DIR}")
     add_library(Boost::system INTERFACE IMPORTED)
-    target_link_libraries(Boost::system INTERFACE boost_system_static)
-    target_include_directories(Boost::system INTERFACE "${Boost_INCLUDE_DIR}")
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(Boost::system
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${Boost_INCLUDE_DIR}" INTERFACE_LINK_LIBRARIES
+                                                              boost_system_static)
+    else()
+      target_include_directories(Boost::system INTERFACE "${Boost_INCLUDE_DIR}")
+      target_link_libraries(Boost::system INTERFACE boost_system_static)
+    endif()
 
     add_thirdparty_lib(boost_filesystem
                        STATIC_LIB
@@ -849,8 +862,15 @@ macro(build_boost)
                        INCLUDE_DIRECTORIES
                        "${Boost_INCLUDE_DIR}")
     add_library(Boost::filesystem INTERFACE IMPORTED)
-    target_link_libraries(Boost::filesystem INTERFACE boost_filesystem_static)
-    target_include_directories(Boost::filesystem INTERFACE "${Boost_INCLUDE_DIR}")
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(Boost::filesystem
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${Boost_INCLUDE_DIR}" INTERFACE_LINK_LIBRARIES
+                                                              boost_filesystem_static)
+    else()
+      target_include_directories(Boost::filesystem INTERFACE "${Boost_INCLUDE_DIR}")
+      target_link_libraries(Boost::filesystem INTERFACE boost_filesystem_static)
+    endif()
 
     externalproject_add(boost_ep
                         URL ${BOOST_SOURCE_URL}
@@ -872,15 +892,26 @@ macro(build_boost)
                         URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
   endif()
   add_library(Boost::headers INTERFACE IMPORTED)
-  target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
-  add_dependencies(Boost::headers boost_ep)
-  add_library(Boost::disable_autolinking INTERFACE IMPORTED)
-  if(WIN32)
-    target_compile_definitions(Boost::disable_autolinking INTERFACE "BOOST_ALL_NO_LIB")
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(Boost::headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                    "${Boost_INCLUDE_DIR}")
+  else()
+    target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
   endif()
-  # This doesn't add BOOST_ALL_DYN_LINK because bundled Boost is a static library.
-  add_library(Boost::dynamic_linking INTERFACE IMPORTED)
-  add_dependencies(toolchain boost_ep)
+  add_dependencies(Boost::headers boost_ep)
+  # If Boost is found but one of system or filesystem components aren't found,
+  # Boost::disable_autolinking and Boost::dynamic_linking are already defined.
+  if(NOT TARGET Boost::disable_autolinking)
+    add_library(Boost::disable_autolinking INTERFACE IMPORTED)
+    if(WIN32)
+      target_compile_definitions(Boost::disable_autolinking INTERFACE "BOOST_ALL_NO_LIB")
+    endif()
+  endif()
+  if(NOT TARGET Boost::dynamic_linking)
+    # This doesn't add BOOST_ALL_DYN_LINK because bundled Boost is a static library.
+    add_library(Boost::dynamic_linking INTERFACE IMPORTED)
+    add_dependencies(toolchain boost_ep)
+  endif()
   set(BOOST_VENDORED TRUE)
 endmacro()
 
@@ -1019,16 +1050,31 @@ if(ARROW_BOOST_REQUIRED)
   # For CMake < 3.15
   if(NOT TARGET Boost::headers)
     add_library(Boost::headers INTERFACE IMPORTED)
-    target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(Boost::headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                      "${Boost_INCLUDE_DIR}")
+    else()
+      target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
+    endif()
   endif()
 
   foreach(BOOST_LIBRARY Boost::headers Boost::filesystem Boost::system)
     if(NOT TARGET ${BOOST_LIBRARY})
       continue()
     endif()
-    target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                        Boost::disable_autolinking)
+    else()
+      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
+    endif()
     if(ARROW_BOOST_USE_SHARED)
-      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
+      if(CMAKE_VERSION VERSION_LESS 3.11)
+        set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                          Boost::dynamic_linking)
+      else()
+        target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
+      endif()
     endif()
   endforeach()
 
@@ -1443,7 +1489,12 @@ macro(build_thrift)
   set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
-  target_link_libraries(thrift::thrift INTERFACE Boost::headers)
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                      Boost::headers)
+  else()
+    target_link_libraries(thrift::thrift INTERFACE Boost::headers)
+  endif()
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
@@ -2158,7 +2209,12 @@ if(ARROW_WITH_RAPIDJSON)
   endif()
 
   add_library(rapidjson::rapidjson INTERFACE IMPORTED)
-  target_include_directories(rapidjson::rapidjson INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(rapidjson::rapidjson PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                          "${RAPIDJSON_INCLUDE_DIR}")
+  else()
+    target_include_directories(rapidjson::rapidjson INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
+  endif()
 endif()
 
 macro(build_xsimd)
@@ -2189,7 +2245,12 @@ if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQ
   resolve_dependency(xsimd)
 
   add_library(xsimd INTERFACE IMPORTED)
-  target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                           "${XSIMD_INCLUDE_DIR}")
+  else()
+    target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+  endif()
 endif()
 
 macro(build_zlib)
@@ -3952,7 +4013,12 @@ endif()
 message(STATUS "Found hdfs.h at: ${HDFS_H_PATH}")
 
 add_library(arrow::hadoop INTERFACE IMPORTED)
-target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
+if(CMAKE_VERSION VERSION_LESS 3.11)
+  set_target_properties(arrow::hadoop PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                 "${HADOOP_HOME}/include")
+else()
+  target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
+endif()
 
 # ----------------------------------------------------------------------
 # Apache ORC
