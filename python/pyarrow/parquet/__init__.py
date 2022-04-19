@@ -37,6 +37,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema,
+                              ParquetLogicalType,
                               FileEncryptionProperties,
                               FileDecryptionProperties)
 from pyarrow.fs import (LocalFileSystem, FileSystem,

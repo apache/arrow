@@ -80,7 +80,6 @@ Parquet Files
 
    ParquetDataset
    ParquetFile
-   ParquetReader
    ParquetWriter
    read_table
    read_metadata
@@ -102,6 +101,7 @@ Parquet Metadata
    Statistics
    ParquetSchema
    ColumnSchema
+   ParquetLogicalType
 
 Encrypted Parquet Files
 ~~~~~~~~~~~~~~~~~~~~~~~
