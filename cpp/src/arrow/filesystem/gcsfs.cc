@@ -646,7 +646,7 @@ class GcsFileSystem::Impl {
     if (IsDirectory(meta) || (!full_path.empty() && full_path.back() == '/')) {
       if (normalize_directories) {
         auto normalized = std::string(internal::RemoveTrailingSlash(full_path));
-        return FileInfo(normalized, FileType::Directory);
+        return FileInfo(std::move(normalized), FileType::Directory);
       } else {
         return FileInfo(full_path, FileType::Directory);
       }
