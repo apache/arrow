@@ -63,6 +63,8 @@ TEST_F(TestBooleanValidityKernels, IsValidIsNullNullType) {
                    ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
   CheckScalarUnary("is_valid", std::make_shared<NullArray>(5),
                    ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
+  CheckScalarUnary("true_unless_null", std::make_shared<NullArray>(5),
+                   ArrayFromJSON(boolean(), "[null, null, null, null, null]"));
 }
 
 TEST_F(TestBooleanValidityKernels, ArrayIsValidBufferPassthruOptimization) {
