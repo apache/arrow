@@ -192,23 +192,17 @@ names.RecordBatch <- function(x) x$names()
 
 #' @export
 rbind.RecordBatch <- function(...) {
-  abort("Use `Table$create()` to combine record batches")
+  abort("Use `Table$create()` to combine RecordBatches into a Table")
 }
 
 cbind_check_length <- function(inputs, call = caller_env()) {
-  sizes <- map(inputs, function(input) {
-    # TODO: can we somehow implement vec_size for Arrow structures?
-    if (inherits(input, "ArrowTabular") || is.data.frame(input)) {
-      nrow(input)
-    } else {
-      length(input)
-    }
-  })
-  wrong_idx <- which.min(sizes == sizes[[1]] | sizes == 1)
-  if (wrong_idx != 1) {
+  sizes <- map_int(inputs, NROW)
+ ok_lengths <- sizes %in% c(head(sizes, 1), 1L)
+  if (!all(ok_lengths)) {
+    first_bad_one <- which.min(!ok.lengths)
     abort(
       c("Non-scalar inputs must have an equal number of rows.",
-        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], wrong_idx, sizes[[wrong_idx]])),
+        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])),
       call = call
     )
   }
