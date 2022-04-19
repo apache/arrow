@@ -21,10 +21,10 @@
 #include <algorithm>
 
 #include "arrow/buffer.h"
-#include "arrow/io/util_internal.h"
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/thread_pool.h"
@@ -36,7 +36,7 @@ namespace arrow {
 namespace fs {
 struct GcsCredentialsHolder {
   // Constructor needed for make_shared
-  GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials) 
+  GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials)
       : credentials(std::move(credentials)) {}
   std::shared_ptr<google::cloud::Credentials> credentials;
 };
