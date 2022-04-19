@@ -923,9 +923,13 @@ namespace {
 // An inequality comparison which a target Expression is known to satisfy. If nullable,
 // the target may evaluate to null in addition to values satisfying the comparison.
 struct Inequality {
+  // The inequality type
   Comparison::type cmp;
+  // The LHS of the inequality
   const FieldRef& target;
+  // The RHS of the inequality
   const Datum& bound;
+  // Whether target can be null
   bool nullable;
 
   // Extract an Inequality if possible, derived from "less",
@@ -1038,7 +1042,10 @@ struct Inequality {
     if (!lhs.field_ref()) return expr;
     if (*lhs.field_ref() != guarantee.target) return expr;
 
-    ARROW_ASSIGN_OR_RAISE(auto cmp_rhs_bound, Comparison::Execute(*rhs, guarantee.bound));
+    // Whether the RHS of the expression is EQUAL, LESS, or GREATER than the
+    // RHS of the guarantee. N.B. Comparison::type is a bitmask
+    ARROW_ASSIGN_OR_RAISE(const Comparison::type cmp_rhs_bound,
+                          Comparison::Execute(*rhs, guarantee.bound));
     DCHECK_NE(cmp_rhs_bound, Comparison::NA);
 
     if (cmp_rhs_bound == Comparison::EQUAL) {
@@ -1060,12 +1067,23 @@ struct Inequality {
     }
 
     if (guarantee.cmp & cmp_rhs_bound) {
-      // x > 1, x >= 1, x != 1 cannot use guarantee x >= 3
+      // We guarantee (x (?) N) and are trying to simplify (x (?) M).  We know
+      // either M < N or M > N (i.e. cmp_rhs_bound is either LESS or GREATER).
+
+      // If M > N, then if the guarantee is (x > N), (x >= N), or (x != N)
+      // (i.e. guarantee.cmp & cmp_rhs_bound), we cannot do anything with the
+      // guarantee, and bail out here.
+
+      // For example, take M = 5, N = 3. Then cmp_rhs_bound = GREATER.
+      // x > 3, x >= 3, x != 3 implies nothing about x < 5, x <= 5, x > 5,
+      // x >= 5, x != 5 and we bail out here.
+      // x < 3, x <= 3 could simplify (some of) those expressions.
       return expr;
     }
 
     if (*cmp & Comparison::GetFlipped(cmp_rhs_bound)) {
       // x > 1, x >= 1, x != 1 guaranteed by x >= 3
+      // (where `guarantee.cmp` is GREATER_EQUAL, `cmp_rhs_bound` is LESS)
       return simplified_to(lhs, true);
     } else {
       // x < 1, x <= 1, x == 1 unsatisfiable if x >= 3
@@ -1076,8 +1094,8 @@ struct Inequality {
 
 /// \brief Simplify an expression given a guarantee, if the guarantee
 ///   is is_valid().
-Result<Expression> IsValidSimplification(Expression expr,
-                                         const Expression::Call& guarantee) {
+Result<Expression> SimplifyIsValidGuarantee(Expression expr,
+                                            const Expression::Call& guarantee) {
   if (guarantee.function_name != "is_valid") return expr;
 
   return Modify(
@@ -1137,7 +1155,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
     if (guarantee.call()->function_name == "is_valid") {
       ARROW_ASSIGN_OR_RAISE(
           auto simplified,
-          IsValidSimplification(std::move(expr), *CallNotNull(guarantee)));
+          SimplifyIsValidGuarantee(std::move(expr), *CallNotNull(guarantee)));
 
       if (Identical(simplified, expr)) continue;
 
