@@ -34,9 +34,6 @@
 namespace arrow {
 namespace fs {
 struct GcsCredentialsHolder {
-  explicit GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> c)
-      : credentials(std::move(c)) {}
-
   std::shared_ptr<google::cloud::Credentials> credentials;
 };
 
@@ -331,13 +328,10 @@ class GcsFileSystem::Impl {
       return info;
     }
     // Not found case.  It could be this was written to GCS with a different
-    // "Directory" convention.  So it if there are is at least one objec that
+    // "Directory" convention, so if there is at least one object that
     // matches the prefix we assume it is a directory.
     std::string canonical = internal::EnsureTrailingSlash(path.object);
-    std::string end = canonical;
-    end.back() += 1;
-    auto list_result =
-        client_.ListObjects(path.bucket, gcs::Prefix(canonical), gcs::EndOffset(end));
+    auto list_result = client_.ListObjects(path.bucket, gcs::Prefix(canonical));
     if (list_result.begin() != list_result.end()) {
       // If there is at least one result it indicates this is a directory (at
       // least one object exists that starts with "path/"
