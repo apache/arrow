@@ -96,7 +96,7 @@ groups:
     - test-*kartothek*
     - test-*pandas*
     - test-*spark*
-    - test-*turbodbc*
+    # - test-*turbodbc*
 
   example:
     - example-*
