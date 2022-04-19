@@ -1476,8 +1476,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CIpcReadOptions" arrow::ipc::IpcReadOptions":
         int max_recursion_depth
         CMemoryPool* memory_pool
-        shared_ptr[unordered_set[int]] included_fields
+        vector[int] included_fields
         c_bool use_threads
+        c_bool ensure_native_endian
 
         @staticmethod
         CIpcReadOptions Defaults()
