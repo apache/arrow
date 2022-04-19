@@ -2974,10 +2974,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
         used determined by the number of available CPU cores.
     schema : Schema, optional
     partitioning : Partitioning or list[str], optional
-        The partitioning scheme specified with the ``pyarrow.dataset.partitioning()``
-        function or a list of field names. When providing a list of
-        field names, you can use ``partitioning_flavor`` to drive which
-        partitioning type should be used.
+        The partitioning scheme specified with the
+        ``pyarrow.dataset.partitioning()`` function or a list of field names.
+        When providing a list of field names, you can use
+        ``partitioning_flavor`` to drive which partitioning type should be
+        used.
     basename_template : str, optional
         A template string used to generate basenames of written data files.
         The token '{i}' will be replaced with an automatically incremented

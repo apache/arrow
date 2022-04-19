@@ -3047,8 +3047,7 @@ def _create_parquet_dataset_simple(root_path):
     for i in range(4):
         table = pa.table({'f1': [i] * 10, 'f2': np.random.randn(10)})
         pq.write_to_dataset(
-            table, str(root_path), use_legacy_dataset=True,
-            metadata_collector=metadata_collector
+            table, str(root_path), metadata_collector=metadata_collector
         )
 
     metadata_path = str(root_path / '_metadata')
