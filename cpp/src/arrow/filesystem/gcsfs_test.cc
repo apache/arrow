@@ -293,7 +293,7 @@ TEST(GcsFileSystem, OptionsCompare) {
 TEST(GcsFileSystem, OptionsAnonymous) {
   GcsOptions a = GcsOptions::Anonymous();
   EXPECT_THAT(a.credentials.holder(), NotNull());
-  EXPECT_THAT(a.credentials.anonymous(), true);
+  EXPECT_TRUE(a.credentials.anonymous());
   EXPECT_EQ(a.scheme, "http");
 }
 
@@ -575,6 +575,8 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {
+  // Adds detailed tests to handle cases of different edge cases
+  // with directory naming conventions (e.g. with and without slashes).
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
   ASSERT_OK_AND_ASSIGN(
@@ -584,6 +586,8 @@ TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {
   ASSERT_OK(output->Write(data.data(), data.size()));
   ASSERT_OK(output->Close());
 
+  // 0 is immediately after "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues.
   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(PreexistingBucketPath() +
                                                         "test-object-dir/some_other_dir0",
                                                     /*metadata=*/{}));

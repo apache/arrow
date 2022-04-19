@@ -452,7 +452,7 @@ class GcsFileSystem::Impl {
     // Note that the list of parents are sorted from deepest to most shallow, this is
     // convenient because as soon as we find a directory we can stop the iteration.
     for (auto const& d : missing_parents) {
-      auto o = CreateDirMarker(bucket, internal::EnsureTrailingSlash(d));
+      auto o = CreateDirMarker(bucket, d);
       if (o) {
         if (IsDirectory(*o)) continue;
         // This is probably a race condition, something created a file before we managed

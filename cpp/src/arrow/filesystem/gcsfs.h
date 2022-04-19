@@ -36,10 +36,10 @@ class GcsCredentials {
  public:
   bool Equals(const GcsCredentials& other) const;
   bool anonymous() const { return anonymous_; }
-  const std::string& access_token() { return access_token_; }
+  const std::string& access_token() const { return access_token_; }
   TimePoint expiration() const { return expiration_; }
-  const std::string& target_service_account() { return target_service_account_; }
-  const std::string& json_credentials() { return json_credentials_; }
+  const std::string& target_service_account() const { return target_service_account_; }
+  const std::string& json_credentials() const { return json_credentials_; }
   const std::shared_ptr<GcsCredentialsHolder>& holder() const { return holder_; }
 
  private:
