@@ -63,7 +63,7 @@ cdef class GcsFileSystem(FileSystem):
     credential_token_expiration : datetime, default None
         Expiration for credential generated with an access token. Must be specified
         if `access_token` is specified.
-    default_bucket_location : str, default 'US-CENTRAL1'
+    default_bucket_location : str, default 'US'
         GCP region to create buckets in.
     scheme : str, default 'https'
         GCS connection transport scheme.
@@ -79,7 +79,7 @@ cdef class GcsFileSystem(FileSystem):
 
     def __init__(self, *, bint anonymous=False, access_token=None,
                  target_service_account=None, datetime credential_token_expiration=None,
-                 default_bucket_location='US-CENTRAL1',
+                 default_bucket_location='US',
                  scheme=None,
                  endpoint_override=None,
                  default_metadata=None):
@@ -109,6 +109,9 @@ cdef class GcsFileSystem(FileSystem):
         else:
             options = CGcsOptions.Defaults()
 
+        # Target service account requires base credentials so
+        # it is not part of the if/else chain above which only
+        # handles base credentials.
         if target_service_account:
             options = CGcsOptions.FromImpersonatedServiceAccount(
                 options.credentials, tobytes(target_service_account))

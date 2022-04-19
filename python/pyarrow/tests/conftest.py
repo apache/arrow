@@ -185,7 +185,7 @@ def gcs_server():
     try:
         proc = subprocess.Popen(args, env=env)
     except OSError:
-        pytest.skip('`gcs test bench` command cannot be located')
+        pytest.skip('`gcs testbench` raised an error when executing')
     else:
         yield {
             'connection': ('localhost', port),

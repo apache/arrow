@@ -56,6 +56,8 @@ class GcsCredentials {
 
 /// Options for the GcsFileSystem implementation.
 struct ARROW_EXPORT GcsOptions {
+  // TODO(emkornfield): make this a shared ptr or use
+  // another mechanism to make GcsOptions GcsConstructible.
   GcsCredentials credentials;
 
   std::string endpoint_override;

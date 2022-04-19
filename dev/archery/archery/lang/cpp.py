@@ -52,11 +52,12 @@ class CppConfiguration:
                  # Components
                  with_compute=None, with_csv=None, with_cuda=None,
                  with_dataset=None, with_filesystem=None, with_flight=None,
-                 with_gandiva=None, with_hdfs=None, with_hiveserver2=None,
+                 with_gandiva=None, with_gcs=None, with_hdfs=None,
+                 with_hiveserver2=None,
                  with_ipc=True, with_json=None, with_jni=None,
                  with_mimalloc=None, with_jemalloc=None,
                  with_parquet=None, with_plasma=None, with_python=True,
-                 with_r=None, with_gcs=None, with_s3=None,
+                 with_r=None, with_s3=None,
                  # Compressions
                  with_brotli=None, with_bz2=None, with_lz4=None,
                  with_snappy=None, with_zlib=None, with_zstd=None,
@@ -95,6 +96,7 @@ class CppConfiguration:
         self.with_filesystem = with_filesystem
         self.with_flight = with_flight
         self.with_gandiva = with_gandiva
+        self.with_gcs = with_gcs
         self.with_hdfs = with_hdfs
         self.with_hiveserver2 = with_hiveserver2
         self.with_ipc = with_ipc
@@ -106,7 +108,6 @@ class CppConfiguration:
         self.with_plasma = with_plasma
         self.with_python = with_python
         self.with_r = with_r
-        self.with_gcs = with_gcs
         self.with_s3 = with_s3
 
         self.with_brotli = with_brotli

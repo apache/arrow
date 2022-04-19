@@ -21,6 +21,7 @@
 #include <algorithm>
 
 #include "arrow/buffer.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
@@ -34,6 +35,9 @@
 namespace arrow {
 namespace fs {
 struct GcsCredentialsHolder {
+  // Constructor needed for make_shared
+  GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials) 
+      : credentials(std::move(credentials)) {}
   std::shared_ptr<google::cloud::Credentials> credentials;
 };
 
@@ -168,9 +172,17 @@ class GcsInputStream : public arrow::io::InputStream {
 class GcsOutputStream : public arrow::io::OutputStream {
  public:
   explicit GcsOutputStream(gcs::ObjectWriteStream stream) : stream_(std::move(stream)) {}
-  ~GcsOutputStream() override = default;
+  ~GcsOutputStream() {
+    if (!closed_) {
+      // The common pattern is to close OutputStreams from destructor in arrow.
+      io::internal::CloseFromDestructor(this);
+    }
+  }
 
   Status Close() override {
+    if (closed_) {
+      return Status::Invalid("Already closed stream.");
+    }
     stream_.Close();
     closed_ = true;
     return internal::ToArrowStatus(stream_.last_status());
@@ -352,6 +364,7 @@ class GcsFileSystem::Impl {
         internal::Depth(p.object) + select.max_recursion + !p.object.empty();
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
     auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
+    // TODO(emkornfield): Add docs explaining or simplify.
     auto include_trailing = select.recursive ? gcs::IncludeTrailingDelimiter(false)
                                              : gcs::IncludeTrailingDelimiter(true);
     FileInfoVector result;
@@ -367,6 +380,8 @@ class GcsFileSystem::Impl {
       // Skip the directory itself from the results, and any result that is "too deep"
       // into the recursion.
       bool has_trailing_slash = !o->name().empty() && o->name().back() == '/';
+      // TODO(emkornfield): Add docs explaining or simplify o->name() comparison
+      // to both p.object and o.name()
       if (o->name() == canonical || o->name() == p.object ||
           internal::Depth(o->name()) > (max_depth + has_trailing_slash)) {
         continue;
@@ -640,6 +655,8 @@ class GcsFileSystem::Impl {
     return internal::ToArrowStatus(meta.status());
   }
 
+  // TODO(emkornfield): Add more comments on normalize_directories
+  // or simplify logic.
   static FileInfo ToFileInfo(const std::string& full_path,
                              const gcs::ObjectMetadata& meta,
                              bool normalize_directories = false) {
@@ -750,15 +767,13 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
   const std::string& username = uri.username();
   bool anonymous = username == "anonymous";
   if (!username.empty() && !anonymous) {
-    return Status::Invalid(
-        "GCS URIs do not accept username except \"anonymous\".");
+    return Status::Invalid("GCS URIs do not accept username except \"anonymous\".");
   }
   if (!uri.password().empty()) {
     return Status::Invalid("GCS URIs do not accept password.");
   }
   if (!uri.password().empty()) {
-    return Status::Invalid(
-        "GCS URIs do not accept password.");
+    return Status::Invalid("GCS URIs do not accept password.");
   }
   auto options = anonymous ? GcsOptions::Anonymous() : GcsOptions::Defaults();
 
