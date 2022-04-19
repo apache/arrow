@@ -301,7 +301,7 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   if (!o.endpoint_override.empty()) {
     options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
   }
-  if (o.credentials.holder() && (o.credentials.holder())->credentials) {
+  if (o.credentials.holder() && o.credentials.holder()->credentials) {
     options.set<google::cloud::UnifiedCredentialsOption>(
         o.credentials.holder()->credentials);
   }
