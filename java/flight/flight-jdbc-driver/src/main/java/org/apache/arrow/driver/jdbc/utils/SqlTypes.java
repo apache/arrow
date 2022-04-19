@@ -147,7 +147,6 @@ public class SqlTypes {
       case LargeList:
         return Types.ARRAY;
       case Struct:
-        return Types.STRUCT;
       case Duration:
       case Interval:
       case Map:
