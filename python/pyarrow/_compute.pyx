@@ -23,8 +23,6 @@ from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
 from collections import namedtuple
-import inspect
-from typing import Dict
 
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
@@ -33,6 +31,7 @@ import pyarrow.lib as lib
 
 from libcpp cimport bool as c_bool
 
+import inspect
 import numpy as np
 
 
@@ -2392,15 +2391,6 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
 
-    if not "summary" in func_doc.keys():
-        raise ValueError("Function doc must contain a summary")
-
-    if not "description" in func_doc.keys():
-        raise ValueError("Function doc must contain a description")
-
-    if not "arg_names" in func_doc.keys():
-        raise ValueError("Function doc must contain arg_names")
-
     f_doc.summary = tobytes(func_doc["summary"])
     f_doc.description = tobytes(func_doc["description"])
     for arg_name in func_doc["arg_names"]:
@@ -2432,7 +2422,7 @@ def register_scalar_function(function, func_name, function_doc, in_types,
         It must take arguments equal to the number of
         in_types defined. It must return an Array or Scalar
         matching the out_type. It must return a Scalar if
-        all arguments are scalar, else it must return an array.
+        all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
         varargs. The last in_type will be the type of the all
@@ -2443,11 +2433,12 @@ def register_scalar_function(function, func_name, function_doc, in_types,
         A dictionary object with keys "summary" (str),
         and "description" (str).
     in_types : Dict[str, InputType]
-        Dictionary containing items with input label, InputType
-        objects which defines the arguments to the function.
-        The input label is a str that will be used to generate
-        documentation for the function. The number of arguments
-        specified here determines the function arity.
+        Dictionary mapping function argument names to
+        their respective InputType specifications.
+        The argument names will be used to generate
+        documentation for the function. The number of
+        arguments specified here determines the function
+        arity.
     out_type : DataType
         Output type of the function.
 
@@ -2461,8 +2452,7 @@ def register_scalar_function(function, func_name, function_doc, in_types,
     >>> func_doc["description"] = "add a constant to a scalar"
     >>> 
     >>> def add_constant(array):
-    ...     return pc.call_function("add", [array, 1])
-    ... 
+    ...     return pc.add(array, 1)
     >>> 
     >>> func_name = "py_add_func"
     >>> in_types = {"array": pc.InputType.array(pa.int64())}
@@ -2516,13 +2506,18 @@ def register_scalar_function(function, func_name, function_doc, in_types,
     else:
         c_arity = CArity(num_args, False)
 
+    if not "summary" in function_doc.keys():
+        raise ValueError("Function doc must contain a summary")
+
+    if not "description" in function_doc.keys():
+        raise ValueError("Function doc must contain a description")
+
+    if not "arg_names" in function_doc.keys():
+        raise ValueError("Function doc must contain arg_names")
+
     c_func_doc = _make_function_doc(function_doc)
 
-    if out_type:
-        c_type = pyarrow_unwrap_data_type(out_type)
-    else:
-        raise TypeError(
-            f"out_type must be a DataType, not {out_type!r}")
+    c_type = pyarrow_unwrap_data_type(ensure_type(out_type))
 
     c_out_type = new COutputType(c_type)
     c_options = new CScalarUdfOptions(c_func_name, c_arity, c_func_doc,

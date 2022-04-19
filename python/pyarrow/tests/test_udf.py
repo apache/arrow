@@ -273,7 +273,7 @@ def test_udf_input():
                                  out_type)
 
     # validate output type
-    expected_expr = "out_type must be a DataType, not None"
+    expected_expr = "DataType expected, got <class 'NoneType'>"
     with pytest.raises(TypeError, match=expected_expr):
         register_scalar_function(unary_scalar_function,
                                  "output_function", doc, in_types,
