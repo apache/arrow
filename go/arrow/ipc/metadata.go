@@ -18,6 +18,7 @@ package ipc
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"sort"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
-	"golang.org/x/xerrors"
 )
 
 // Magic string identifying an Apache Arrow file.
@@ -87,7 +87,7 @@ func (blk fileBlock) NewMessage() (*Message, error) {
 	buf = make([]byte, blk.Meta)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read message metadata: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read message metadata: %w", err)
 	}
 
 	prefix := 0
@@ -106,7 +106,7 @@ func (blk fileBlock) NewMessage() (*Message, error) {
 	buf = make([]byte, blk.Body)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read message body: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read message body: %w", err)
 	}
 	body := memory.NewBufferBytes(buf)
 
@@ -128,7 +128,7 @@ func unitFromFB(unit flatbuf.TimeUnit) arrow.TimeUnit {
 	case flatbuf.TimeUnitNANOSECOND:
 		return arrow.Nanosecond
 	default:
-		panic(xerrors.Errorf("arrow/ipc: invalid flatbuf.TimeUnit(%d) value", unit))
+		panic(fmt.Errorf("arrow/ipc: invalid flatbuf.TimeUnit(%d) value", unit))
 	}
 }
 
@@ -143,7 +143,7 @@ func unitToFB(unit arrow.TimeUnit) flatbuf.TimeUnit {
 	case arrow.Nanosecond:
 		return flatbuf.TimeUnitNANOSECOND
 	default:
-		panic(xerrors.Errorf("arrow/ipc: invalid arrow.TimeUnit(%d) value", unit))
+		panic(fmt.Errorf("arrow/ipc: invalid arrow.TimeUnit(%d) value", unit))
 	}
 }
 
@@ -154,7 +154,7 @@ func initFB(t interface {
 }, f func(tbl *flatbuffers.Table) bool) {
 	tbl := t.Table()
 	if !f(&tbl) {
-		panic(xerrors.Errorf("arrow/ipc: could not initialize %T from flatbuffer", t))
+		panic(fmt.Errorf("arrow/ipc: could not initialize %T from flatbuffer", t))
 	}
 	t.Init(tbl.Bytes, tbl.Pos)
 }
@@ -180,18 +180,18 @@ func fieldFromFB(field *flatbuf.Field, memo *dictMemo) (arrow.Field, error) {
 		for i := range children {
 			var childFB flatbuf.Field
 			if !field.Children(&childFB, i) {
-				return o, xerrors.Errorf("arrow/ipc: could not load field child %d", i)
+				return o, fmt.Errorf("arrow/ipc: could not load field child %d", i)
 			}
 			child, err := fieldFromFB(&childFB, memo)
 			if err != nil {
-				return o, xerrors.Errorf("arrow/ipc: could not convert field child %d: %w", i, err)
+				return o, fmt.Errorf("arrow/ipc: could not convert field child %d: %w", i, err)
 			}
 			children[i] = child
 		}
 
 		o.Type, err = typeFromFB(field, children, &o.Metadata)
 		if err != nil {
-			return o, xerrors.Errorf("arrow/ipc: could not convert field type: %w", err)
+			return o, fmt.Errorf("arrow/ipc: could not convert field type: %w", err)
 		}
 	default:
 		panic("not implemented") // FIXME(sbinet)
@@ -397,7 +397,7 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		fv.meta[ExtensionMetadataKeyName] = string(dt.Serialize())
 
 	default:
-		err := xerrors.Errorf("arrow/ipc: invalid data type %v", dt)
+		err := fmt.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
 	}
 }
@@ -485,22 +485,22 @@ func fieldFromFBDict(field *flatbuf.Field) (arrow.Field, error) {
 	for i := range kids {
 		var kid flatbuf.Field
 		if !field.Children(&kid, i) {
-			return o, xerrors.Errorf("arrow/ipc: could not load field child %d", i)
+			return o, fmt.Errorf("arrow/ipc: could not load field child %d", i)
 		}
 		kids[i], err = fieldFromFB(&kid, &memo)
 		if err != nil {
-			return o, xerrors.Errorf("arrow/ipc: field from dict: %w", err)
+			return o, fmt.Errorf("arrow/ipc: field from dict: %w", err)
 		}
 	}
 
 	meta, err := metadataFromFB(field)
 	if err != nil {
-		return o, xerrors.Errorf("arrow/ipc: metadata for field from dict: %w", err)
+		return o, fmt.Errorf("arrow/ipc: metadata for field from dict: %w", err)
 	}
 
 	o.Type, err = typeFromFB(field, kids, &meta)
 	if err != nil {
-		return o, xerrors.Errorf("arrow/ipc: type for field from dict: %w", err)
+		return o, fmt.Errorf("arrow/ipc: type for field from dict: %w", err)
 	}
 
 	return o, nil
@@ -509,7 +509,7 @@ func fieldFromFBDict(field *flatbuf.Field) (arrow.Field, error) {
 func typeFromFB(field *flatbuf.Field, children []arrow.Field, md *arrow.Metadata) (arrow.DataType, error) {
 	var data flatbuffers.Table
 	if !field.Type(&data) {
-		return nil, xerrors.Errorf("arrow/ipc: could not load field type data")
+		return nil, fmt.Errorf("arrow/ipc: could not load field type data")
 	}
 
 	dt, err := concreteTypeFromFB(field.TypeType(), data, children)
@@ -573,7 +573,7 @@ func typeFromFB(field *flatbuf.Field, children []arrow.Field, md *arrow.Metadata
 func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arrow.Field) (arrow.DataType, error) {
 	switch typ {
 	case flatbuf.TypeNONE:
-		return nil, xerrors.Errorf("arrow/ipc: Type metadata cannot be none")
+		return nil, fmt.Errorf("arrow/ipc: Type metadata cannot be none")
 
 	case flatbuf.TypeNull:
 		return arrow.Null, nil
@@ -609,7 +609,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 
 	case flatbuf.TypeList:
 		if len(children) != 1 {
-			return nil, xerrors.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
+			return nil, fmt.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
 		dt := arrow.ListOfField(children[0])
 		return dt, nil
@@ -618,7 +618,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		var dt flatbuf.FixedSizeList
 		dt.Init(data.Bytes, data.Pos)
 		if len(children) != 1 {
-			return nil, xerrors.Errorf("arrow/ipc: FixedSizeList must have exactly 1 child field (got=%d)", len(children))
+			return nil, fmt.Errorf("arrow/ipc: FixedSizeList must have exactly 1 child field (got=%d)", len(children))
 		}
 		ret := arrow.FixedSizeListOfField(dt.ListSize(), children[0])
 		return ret, nil
@@ -653,16 +653,16 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 
 	case flatbuf.TypeMap:
 		if len(children) != 1 {
-			return nil, xerrors.Errorf("arrow/ipc: Map must have exactly 1 child field")
+			return nil, fmt.Errorf("arrow/ipc: Map must have exactly 1 child field")
 		}
 
 		if children[0].Nullable || children[0].Type.ID() != arrow.STRUCT || len(children[0].Type.(*arrow.StructType).Fields()) != 2 {
-			return nil, xerrors.Errorf("arrow/ipc: Map's key-item pairs must be non-nullable structs")
+			return nil, fmt.Errorf("arrow/ipc: Map's key-item pairs must be non-nullable structs")
 		}
 
 		pairType := children[0].Type.(*arrow.StructType)
 		if pairType.Field(0).Nullable {
-			return nil, xerrors.Errorf("arrow/ipc: Map's keys must be non-nullable")
+			return nil, fmt.Errorf("arrow/ipc: Map's keys must be non-nullable")
 		}
 
 		var dt flatbuf.Map
@@ -673,17 +673,17 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 
 	default:
 		// FIXME(sbinet): implement all the other types.
-		panic(xerrors.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
+		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
 	}
 }
 
 func intFromFB(data flatbuf.Int) (arrow.DataType, error) {
 	bw := data.BitWidth()
 	if bw > 64 {
-		return nil, xerrors.Errorf("arrow/ipc: integers with more than 64 bits not implemented (bits=%d)", bw)
+		return nil, fmt.Errorf("arrow/ipc: integers with more than 64 bits not implemented (bits=%d)", bw)
 	}
 	if bw < 8 {
-		return nil, xerrors.Errorf("arrow/ipc: integers with less than 8 bits not implemented (bits=%d)", bw)
+		return nil, fmt.Errorf("arrow/ipc: integers with less than 8 bits not implemented (bits=%d)", bw)
 	}
 
 	switch bw {
@@ -711,7 +711,7 @@ func intFromFB(data flatbuf.Int) (arrow.DataType, error) {
 		}
 		return arrow.PrimitiveTypes.Int64, nil
 	default:
-		return nil, xerrors.Errorf("arrow/ipc: integers not in cstdint are not implemented")
+		return nil, fmt.Errorf("arrow/ipc: integers not in cstdint are not implemented")
 	}
 }
 
@@ -731,7 +731,7 @@ func floatFromFB(data flatbuf.FloatingPoint) (arrow.DataType, error) {
 	case flatbuf.PrecisionDOUBLE:
 		return arrow.PrimitiveTypes.Float64, nil
 	default:
-		return nil, xerrors.Errorf("arrow/ipc: floating point type with %d precision not implemented", p)
+		return nil, fmt.Errorf("arrow/ipc: floating point type with %d precision not implemented", p)
 	}
 }
 
@@ -750,7 +750,7 @@ func floatToFB(b *flatbuffers.Builder, bw int32) flatbuffers.UOffsetT {
 		flatbuf.FloatingPointAddPrecision(b, flatbuf.PrecisionDOUBLE)
 		return flatbuf.FloatingPointEnd(b)
 	default:
-		panic(xerrors.Errorf("arrow/ipc: invalid floating point precision %d-bits", bw))
+		panic(fmt.Errorf("arrow/ipc: invalid floating point precision %d-bits", bw))
 	}
 }
 
@@ -770,7 +770,7 @@ func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {
 		case arrow.Second:
 			return arrow.FixedWidthTypes.Time32s, nil
 		default:
-			return nil, xerrors.Errorf("arrow/ipc: Time32 type with %v unit not implemented", unit)
+			return nil, fmt.Errorf("arrow/ipc: Time32 type with %v unit not implemented", unit)
 		}
 	case 64:
 		switch unit {
@@ -779,10 +779,10 @@ func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {
 		case arrow.Microsecond:
 			return arrow.FixedWidthTypes.Time64us, nil
 		default:
-			return nil, xerrors.Errorf("arrow/ipc: Time64 type with %v unit not implemented", unit)
+			return nil, fmt.Errorf("arrow/ipc: Time64 type with %v unit not implemented", unit)
 		}
 	default:
-		return nil, xerrors.Errorf("arrow/ipc: Time type with %d bitwidth not implemented", bw)
+		return nil, fmt.Errorf("arrow/ipc: Time type with %d bitwidth not implemented", bw)
 	}
 }
 
@@ -799,7 +799,7 @@ func dateFromFB(data flatbuf.Date) (arrow.DataType, error) {
 	case flatbuf.DateUnitMILLISECOND:
 		return arrow.FixedWidthTypes.Date64, nil
 	}
-	return nil, xerrors.Errorf("arrow/ipc: Date type with %d unit not implemented", data.Unit())
+	return nil, fmt.Errorf("arrow/ipc: Date type with %d unit not implemented", data.Unit())
 }
 
 func intervalFromFB(data flatbuf.Interval) (arrow.DataType, error) {
@@ -811,7 +811,7 @@ func intervalFromFB(data flatbuf.Interval) (arrow.DataType, error) {
 	case flatbuf.IntervalUnitMONTH_DAY_NANO:
 		return arrow.FixedWidthTypes.MonthDayNanoInterval, nil
 	}
-	return nil, xerrors.Errorf("arrow/ipc: Interval type with %d unit not implemented", data.Unit())
+	return nil, fmt.Errorf("arrow/ipc: Interval type with %d unit not implemented", data.Unit())
 }
 
 func durationFromFB(data flatbuf.Duration) (arrow.DataType, error) {
@@ -825,7 +825,7 @@ func durationFromFB(data flatbuf.Duration) (arrow.DataType, error) {
 	case flatbuf.TimeUnitNANOSECOND:
 		return arrow.FixedWidthTypes.Duration_ns, nil
 	}
-	return nil, xerrors.Errorf("arrow/ipc: Duration type with %d unit not implemented", data.Unit())
+	return nil, fmt.Errorf("arrow/ipc: Duration type with %d unit not implemented", data.Unit())
 }
 
 type customMetadataer interface {
@@ -842,7 +842,7 @@ func metadataFromFB(md customMetadataer) (arrow.Metadata, error) {
 	for i := range keys {
 		var kv flatbuf.KeyValue
 		if !md.CustomMetadata(&kv, i) {
-			return arrow.Metadata{}, xerrors.Errorf("arrow/ipc: could not read key-value %d from flatbuffer", i)
+			return arrow.Metadata{}, fmt.Errorf("arrow/ipc: could not read key-value %d from flatbuffer", i)
 		}
 		keys[i] = string(kv.Key())
 		vals[i] = string(kv.Value())
@@ -883,18 +883,18 @@ func schemaFromFB(schema *flatbuf.Schema, memo *dictMemo) (*arrow.Schema, error)
 	for i := range fields {
 		var field flatbuf.Field
 		if !schema.Fields(&field, i) {
-			return nil, xerrors.Errorf("arrow/ipc: could not read field %d from schema", i)
+			return nil, fmt.Errorf("arrow/ipc: could not read field %d from schema", i)
 		}
 
 		fields[i], err = fieldFromFB(&field, memo)
 		if err != nil {
-			return nil, xerrors.Errorf("arrow/ipc: could not convert field %d from flatbuf: %w", i, err)
+			return nil, fmt.Errorf("arrow/ipc: could not convert field %d from flatbuf: %w", i, err)
 		}
 	}
 
 	md, err := metadataFromFB(schema)
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not convert schema metadata from flatbuf: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not convert schema metadata from flatbuf: %w", err)
 	}
 
 	return arrow.NewSchema(fields, &md), nil
@@ -931,11 +931,11 @@ func dictTypesFromFB(schema *flatbuf.Schema) (dictTypeMap, error) {
 	for i := 0; i < schema.FieldsLength(); i++ {
 		var field flatbuf.Field
 		if !schema.Fields(&field, i) {
-			return nil, xerrors.Errorf("arrow/ipc: could not load field %d from schema", i)
+			return nil, fmt.Errorf("arrow/ipc: could not load field %d from schema", i)
 		}
 		fields, err = visitField(&field, fields)
 		if err != nil {
-			return nil, xerrors.Errorf("arrow/ipc: could not visit field %d from schema: %w", i, err)
+			return nil, fmt.Errorf("arrow/ipc: could not visit field %d from schema: %w", i, err)
 		}
 	}
 	return fields, err
@@ -951,7 +951,7 @@ func visitField(field *flatbuf.Field, dict dictTypeMap) (dictTypeMap, error) {
 		for i := 0; i < field.ChildrenLength(); i++ {
 			var child flatbuf.Field
 			if !field.Children(&child, i) {
-				return nil, xerrors.Errorf("arrow/ipc: could not visit child %d from field", i)
+				return nil, fmt.Errorf("arrow/ipc: could not visit child %d from field", i)
 			}
 			dict, err = visitField(&child, dict)
 			if err != nil {
@@ -963,7 +963,7 @@ func visitField(field *flatbuf.Field, dict dictTypeMap) (dictTypeMap, error) {
 		// construct the data type for the dictionary: no descendants can be dict-encoded.
 		dfield, err := fieldFromFBDict(field)
 		if err != nil {
-			return nil, xerrors.Errorf("arrow/ipc: could not create data type for dictionary: %w", err)
+			return nil, fmt.Errorf("arrow/ipc: could not create data type for dictionary: %w", err)
 		}
 		dict[meta.Id()] = dfield
 	}
@@ -1075,7 +1075,7 @@ func writeFieldNodes(b *flatbuffers.Builder, fields []fieldMetadata, start start
 	for i := len(fields) - 1; i >= 0; i-- {
 		field := fields[i]
 		if field.Offset != 0 {
-			panic(xerrors.Errorf("arrow/ipc: field metadata for IPC must have offset 0"))
+			panic(fmt.Errorf("arrow/ipc: field metadata for IPC must have offset 0"))
 		}
 		flatbuf.CreateFieldNode(b, field.Len, field.Nulls)
 	}
@@ -1118,7 +1118,7 @@ func writeMessage(msg *memory.Buffer, alignment int32, w io.Writer) (int, error)
 	binary.LittleEndian.PutUint32(tmp, kIPCContToken)
 	_, err = w.Write(tmp)
 	if err != nil {
-		return 0, xerrors.Errorf("arrow/ipc: could not write continuation bit indicator: %w", err)
+		return 0, fmt.Errorf("arrow/ipc: could not write continuation bit indicator: %w", err)
 	}
 
 	// the returned message size includes the length prefix, the flatbuffer, + padding
@@ -1129,13 +1129,13 @@ func writeMessage(msg *memory.Buffer, alignment int32, w io.Writer) (int, error)
 	binary.LittleEndian.PutUint32(tmp, uint32(sizeFB))
 	_, err = w.Write(tmp)
 	if err != nil {
-		return n, xerrors.Errorf("arrow/ipc: could not write message flatbuffer size prefix: %w", err)
+		return n, fmt.Errorf("arrow/ipc: could not write message flatbuffer size prefix: %w", err)
 	}
 
 	// write the flatbuffer
 	_, err = w.Write(msg.Bytes())
 	if err != nil {
-		return n, xerrors.Errorf("arrow/ipc: could not write message flatbuffer: %w", err)
+		return n, fmt.Errorf("arrow/ipc: could not write message flatbuffer: %w", err)
 	}
 
 	// write any padding
@@ -1143,7 +1143,7 @@ func writeMessage(msg *memory.Buffer, alignment int32, w io.Writer) (int, error)
 	if padding > 0 {
 		_, err = w.Write(paddingBytes[:padding])
 		if err != nil {
-			return n, xerrors.Errorf("arrow/ipc: could not write message padding bytes: %w", err)
+			return n, fmt.Errorf("arrow/ipc: could not write message padding bytes: %w", err)
 		}
 	}
 

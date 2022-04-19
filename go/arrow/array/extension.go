@@ -17,12 +17,12 @@
 package array
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/goccy/go-json"
-	"golang.org/x/xerrors"
 )
 
 // ExtensionArray is the interface that needs to be implemented to handle
@@ -72,7 +72,7 @@ func arrayApproxEqualExtension(l, r ExtensionArray, opt equalOption) bool {
 // Data buffers.
 func NewExtensionArrayWithStorage(dt arrow.ExtensionType, storage arrow.Array) arrow.Array {
 	if !arrow.TypeEqual(dt.StorageType(), storage.DataType()) {
-		panic(xerrors.Errorf("arrow/array: storage type %s for extension type %s, does not match expected type %s", storage.DataType(), dt.ExtensionName(), dt.StorageType()))
+		panic(fmt.Errorf("arrow/array: storage type %s for extension type %s, does not match expected type %s", storage.DataType(), dt.ExtensionName(), dt.StorageType()))
 	}
 
 	base := ExtensionArrayBase{}

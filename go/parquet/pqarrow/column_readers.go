@@ -18,6 +18,7 @@ package pqarrow
 
 import (
 	"encoding/binary"
+	"fmt"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -401,7 +402,7 @@ func (lr *listReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 		for x := 1; x < data.Len(); x++ {
 			size := offsetData[x] - offsetData[x-1]
 			if size != listSize {
-				return nil, xerrors.Errorf("expected all lists to be of size=%d, but index %d had size=%d", listSize, x, size)
+				return nil, fmt.Errorf("expected all lists to be of size=%d, but index %d had size=%d", listSize, x, size)
 			}
 		}
 		data.Buffers()[1] = nil
@@ -484,7 +485,7 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 			return nil, xerrors.New("time unit not supported")
 		}
 	default:
-		return nil, xerrors.Errorf("no support for reading columns of type: %s", valueType.Name())
+		return nil, fmt.Errorf("no support for reading columns of type: %s", valueType.Name())
 	}
 
 	defer data.Release()
@@ -711,7 +712,7 @@ func bigEndianToDecimal128(buf []byte) (decimal128.Num, error) {
 	)
 
 	if len(buf) < minDecimalBytes || len(buf) > maxDecimalBytes {
-		return decimal128.Num{}, xerrors.Errorf("length of byte array passed to bigEndianToDecimal128 was %d but must be between %d and %d",
+		return decimal128.Num{}, fmt.Errorf("length of byte array passed to bigEndianToDecimal128 was %d but must be between %d and %d",
 			len(buf), minDecimalBytes, maxDecimalBytes)
 	}
 
@@ -780,7 +781,7 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arro
 
 			rec := input.Value(i)
 			if len(rec) <= 0 {
-				return nil, xerrors.Errorf("invalud BYTEARRAY length for type: %s", dt)
+				return nil, fmt.Errorf("invalud BYTEARRAY length for type: %s", dt)
 			}
 			out[i], err = bigEndianToDecimal128(rec)
 			if err != nil {

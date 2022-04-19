@@ -17,6 +17,7 @@
 package file
 
 import (
+	"fmt"
 	"math"
 	"math/bits"
 	"unsafe"
@@ -210,7 +211,7 @@ func DefRepLevelsToListInfo(defLevels, repLevels []int16, info LevelInfo, out *V
 			}
 		} else {
 			if (wr != nil && int64(wr.Pos()) >= out.ReadUpperBound) || (offsetPos >= int(out.ReadUpperBound)) {
-				return xerrors.Errorf("definition levels exceeded upper bound: %d", out.ReadUpperBound)
+				return fmt.Errorf("definition levels exceeded upper bound: %d", out.ReadUpperBound)
 			}
 
 			// current_rep < list rep_level i.e. start of a list (ancestor empty lists

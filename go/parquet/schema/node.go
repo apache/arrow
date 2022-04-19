@@ -17,6 +17,8 @@
 package schema
 
 import (
+	"fmt"
+
 	"github.com/apache/arrow/go/v8/parquet"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 	"github.com/apache/thrift/lib/go/thrift"
@@ -160,10 +162,10 @@ func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logical
 			if logicalType.IsApplicable(physicalType, int32(typeLen)) {
 				n.convertedType, n.decimalMetaData = n.logicalType.ToConvertedType()
 			} else {
-				return nil, xerrors.Errorf("%s cannot be applied to primitive type %s", logicalType, physicalType)
+				return nil, fmt.Errorf("%s cannot be applied to primitive type %s", logicalType, physicalType)
 			}
 		} else {
-			return nil, xerrors.Errorf("nested logical type %s can not be applied to a non-group node", logicalType)
+			return nil, fmt.Errorf("nested logical type %s can not be applied to a non-group node", logicalType)
 		}
 	} else {
 		n.logicalType = NoLogicalType{}
@@ -171,7 +173,7 @@ func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logical
 	}
 
 	if !(n.logicalType != nil && !n.logicalType.IsNested() && n.logicalType.IsCompatible(n.convertedType, n.decimalMetaData)) {
-		return nil, xerrors.Errorf("invalid logical type %s", n.logicalType)
+		return nil, fmt.Errorf("invalid logical type %s", n.logicalType)
 	}
 
 	if n.physicalType == parquet.Types.FixedLenByteArray && n.typeLen <= 0 {
@@ -193,7 +195,7 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 	case ConvertedTypes.None:
 	case ConvertedTypes.UTF8, ConvertedTypes.JSON, ConvertedTypes.BSON:
 		if typ != parquet.Types.ByteArray {
-			return nil, xerrors.Errorf("parquet: %s can only annotate BYTE_LEN fields", typ)
+			return nil, fmt.Errorf("parquet: %s can only annotate BYTE_LEN fields", typ)
 		}
 	case ConvertedTypes.Decimal:
 		switch typ {
@@ -204,11 +206,11 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 
 		switch {
 		case precision <= 0:
-			return nil, xerrors.Errorf("parquet: invalid decimal precision: %d, must be between 1 and 38 inclusive", precision)
+			return nil, fmt.Errorf("parquet: invalid decimal precision: %d, must be between 1 and 38 inclusive", precision)
 		case scale < 0:
-			return nil, xerrors.Errorf("parquet: invalid decimal scale: %d, must be a number between 0 and precision inclusive", scale)
+			return nil, fmt.Errorf("parquet: invalid decimal scale: %d, must be a number between 0 and precision inclusive", scale)
 		case scale > precision:
-			return nil, xerrors.Errorf("parquet: invalid decimal scale %d, cannot be greater than precision: %d", scale, precision)
+			return nil, fmt.Errorf("parquet: invalid decimal scale %d, cannot be greater than precision: %d", scale, precision)
 		}
 		n.decimalMetaData.IsSet = true
 		n.decimalMetaData.Precision = int32(precision)
@@ -222,7 +224,7 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 		ConvertedTypes.Uint16,
 		ConvertedTypes.Uint32:
 		if typ != parquet.Types.Int32 {
-			return nil, xerrors.Errorf("parquet: %s can only annotate INT32", converted)
+			return nil, fmt.Errorf("parquet: %s can only annotate INT32", converted)
 		}
 	case ConvertedTypes.TimeMicros,
 		ConvertedTypes.TimestampMicros,
@@ -230,7 +232,7 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 		ConvertedTypes.Int64,
 		ConvertedTypes.Uint64:
 		if typ != parquet.Types.Int64 {
-			return nil, xerrors.Errorf("parquet: %s can only annotate INT64", converted)
+			return nil, fmt.Errorf("parquet: %s can only annotate INT64", converted)
 		}
 	case ConvertedTypes.Interval:
 		if typ != parquet.Types.FixedLenByteArray || typeLen != 12 {
@@ -242,12 +244,12 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 		}
 	case ConvertedTypes.NA:
 	default:
-		return nil, xerrors.Errorf("parquet: %s cannot be applied to a primitive type", converted.String())
+		return nil, fmt.Errorf("parquet: %s cannot be applied to a primitive type", converted.String())
 	}
 
 	n.logicalType = n.convertedType.ToLogicalType(n.decimalMetaData)
 	if !(n.logicalType != nil && !n.logicalType.IsNested() && n.logicalType.IsCompatible(n.convertedType, n.decimalMetaData)) {
-		return nil, xerrors.Errorf("invalid logical type %s", n.logicalType)
+		return nil, fmt.Errorf("invalid logical type %s", n.logicalType)
 	}
 
 	if n.physicalType == parquet.Types.FixedLenByteArray {
@@ -387,7 +389,7 @@ func NewGroupNodeConverted(name string, repetition parquet.Repetition, fields Fi
 	}
 	n.logicalType = n.convertedType.ToLogicalType(DecimalMetadata{})
 	if !(n.logicalType != nil && (n.logicalType.IsNested() || n.logicalType.IsNone()) && n.logicalType.IsCompatible(n.convertedType, DecimalMetadata{})) {
-		err = xerrors.Errorf("invalid logical type %s", n.logicalType.String())
+		err = fmt.Errorf("invalid logical type %s", n.logicalType.String())
 		return
 	}
 
@@ -411,7 +413,7 @@ func NewGroupNodeLogical(name string, repetition parquet.Repetition, fields Fiel
 		if logical.IsNested() {
 			n.convertedType, _ = logical.ToConvertedType()
 		} else {
-			err = xerrors.Errorf("logical type %s cannot be applied to group node", logical)
+			err = fmt.Errorf("logical type %s cannot be applied to group node", logical)
 			return
 		}
 	} else {
@@ -420,7 +422,7 @@ func NewGroupNodeLogical(name string, repetition parquet.Repetition, fields Fiel
 	}
 
 	if !(n.logicalType != nil && (n.logicalType.IsNested() || n.logicalType.IsNone()) && n.logicalType.IsCompatible(n.convertedType, DecimalMetadata{})) {
-		err = xerrors.Errorf("invalid logical type %s", n.logicalType)
+		err = fmt.Errorf("invalid logical type %s", n.logicalType)
 		return
 	}
 

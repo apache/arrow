@@ -19,6 +19,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math/bits"
 
@@ -225,7 +226,7 @@ func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffere
 		}
 		return int(nbytes), nil
 	default:
-		return 0, xerrors.Errorf("parquet: unknown encoding type for levels '%s'", encoding)
+		return 0, fmt.Errorf("parquet: unknown encoding type for levels '%s'", encoding)
 	}
 }
 

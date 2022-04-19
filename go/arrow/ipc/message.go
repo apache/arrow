@@ -25,7 +25,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/internal/debug"
 	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 // MetadataVersion represents the Arrow metadata version.
@@ -188,7 +187,7 @@ func (r *messageReader) Message() (*Message, error) {
 	var buf = make([]byte, 4)
 	_, err := io.ReadFull(r.r, buf)
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read continuation indicator: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read continuation indicator: %w", err)
 	}
 	var (
 		cid    = binary.LittleEndian.Uint32(buf)
@@ -201,7 +200,7 @@ func (r *messageReader) Message() (*Message, error) {
 	case kIPCContToken:
 		_, err = io.ReadFull(r.r, buf)
 		if err != nil {
-			return nil, xerrors.Errorf("arrow/ipc: could not read message length: %w", err)
+			return nil, fmt.Errorf("arrow/ipc: could not read message length: %w", err)
 		}
 		msgLen = int32(binary.LittleEndian.Uint32(buf))
 		if msgLen == 0 {
@@ -218,7 +217,7 @@ func (r *messageReader) Message() (*Message, error) {
 	buf = make([]byte, msgLen)
 	_, err = io.ReadFull(r.r, buf)
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read message metadata: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read message metadata: %w", err)
 	}
 
 	meta := flatbuf.GetRootAsMessage(buf, 0)
@@ -230,7 +229,7 @@ func (r *messageReader) Message() (*Message, error) {
 
 	_, err = io.ReadFull(r.r, body.Bytes())
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read message body: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read message body: %w", err)
 	}
 
 	if r.msg != nil {

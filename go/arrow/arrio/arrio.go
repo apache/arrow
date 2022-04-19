@@ -19,6 +19,7 @@
 package arrio
 
 import (
+	"errors"
 	"io"
 
 	"github.com/apache/arrow/go/v8/arrow"
@@ -53,7 +54,7 @@ func Copy(dst Writer, src Reader) (n int64, err error) {
 	for {
 		rec, err := src.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return n, nil
 			}
 			return n, err
@@ -73,7 +74,7 @@ func CopyN(dst Writer, src Reader, n int64) (written int64, err error) {
 	for ; written < n; written++ {
 		rec, err := src.Read()
 		if err != nil {
-			if err == io.EOF && written == n {
+			if errors.Is(err, io.EOF) && written == n {
 				return written, nil
 			}
 			return written, err

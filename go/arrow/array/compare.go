@@ -17,11 +17,11 @@
 package array
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/float16"
-	"golang.org/x/xerrors"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -304,7 +304,7 @@ func ArrayEqual(left, right arrow.Array) bool {
 		r := right.(ExtensionArray)
 		return arrayEqualExtension(l, r)
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
+		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
 }
 
@@ -511,7 +511,7 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 		r := right.(ExtensionArray)
 		return arrayApproxEqualExtension(l, r, opt)
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
+		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
 }
 

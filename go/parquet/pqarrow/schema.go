@@ -18,6 +18,7 @@ package pqarrow
 
 import (
 	"encoding/base64"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -64,7 +65,7 @@ func (sm *SchemaManifest) GetColumnField(index int) (*SchemaField, error) {
 	if field, ok := sm.ColIndexToField[index]; ok {
 		return field, nil
 	}
-	return nil, xerrors.Errorf("Column Index %d not found in schema manifest", index)
+	return nil, fmt.Errorf("Column Index %d not found in schema manifest", index)
 }
 
 // GetParent gets the parent field for a given field if it is a nested column, otherwise
@@ -101,13 +102,13 @@ func (sm *SchemaManifest) GetFieldIndices(indices []int) ([]int, error) {
 
 	for _, idx := range indices {
 		if idx < 0 || idx >= sm.descr.NumColumns() {
-			return nil, xerrors.Errorf("column index %d is not valid", idx)
+			return nil, fmt.Errorf("column index %d is not valid", idx)
 		}
 
 		fieldNode := sm.descr.ColumnRoot(idx)
 		fieldIdx := sm.descr.Root().FieldIndexByField(fieldNode)
 		if fieldIdx == -1 {
-			return nil, xerrors.Errorf("column index %d is not valid", idx)
+			return nil, fmt.Errorf("column index %d is not valid", idx)
 		}
 
 		if _, ok := added[fieldIdx]; !ok {
@@ -165,10 +166,10 @@ func getTimestampMeta(typ *arrow.TimestampType, props *parquet.WriterProperties,
 			switch target {
 			case arrow.Millisecond, arrow.Microsecond:
 			case arrow.Nanosecond, arrow.Second:
-				return physical, nil, xerrors.Errorf("parquet version %s files can only coerce arrow timestamps to millis or micros", props.Version())
+				return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis or micros", props.Version())
 			}
 		} else if target == arrow.Second {
-			return physical, nil, xerrors.Errorf("parquet version %s files can only coerce arrow timestampts to millis, micros or nanos", props.Version())
+			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestampts to millis, micros or nanos", props.Version())
 		}
 		return physical, logicalType, nil
 	}
@@ -228,7 +229,7 @@ func repFromNullable(isnullable bool) parquet.Repetition {
 
 func structToNode(typ *arrow.StructType, name string, nullable bool, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (schema.Node, error) {
 	if len(typ.Fields()) == 0 {
-		return nil, xerrors.Errorf("cannot write struct type '%s' with no children field to parquet. Consider adding a dummy child", name)
+		return nil, fmt.Errorf("cannot write struct type '%s' with no children field to parquet. Consider adding a dummy child", name)
 	}
 
 	children := make(schema.FieldList, 0, len(typ.Fields()))
@@ -720,7 +721,7 @@ func mapToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *sc
 
 	kvgroup := keyvalueNode.(*schema.GroupNode)
 	if kvgroup.NumFields() != 1 && kvgroup.NumFields() != 2 {
-		return xerrors.Errorf("keyvalue node group must have exactly 1 or 2 child elements, Found %d", kvgroup.NumFields())
+		return fmt.Errorf("keyvalue node group must have exactly 1 or 2 child elements, Found %d", kvgroup.NumFields())
 	}
 
 	keyNode := kvgroup.Field(0)

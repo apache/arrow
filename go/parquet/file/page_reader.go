@@ -18,6 +18,7 @@ package file
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"sync"
 
@@ -514,7 +515,7 @@ func (p *serializedPageReader) Next() bool {
 				return false
 			}
 			if len(data) != lenUncompressed {
-				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed dictionary page, got %d bytes", lenUncompressed, len(data))
+				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed dictionary page, got %d bytes", lenUncompressed, len(data))
 				return false
 			}
 
@@ -545,7 +546,7 @@ func (p *serializedPageReader) Next() bool {
 				return false
 			}
 			if len(data) != lenUncompressed {
-				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
+				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
 				return false
 			}
 
@@ -597,7 +598,7 @@ func (p *serializedPageReader) Next() bool {
 				data = p.buf.Bytes()
 			}
 			if len(data) != lenUncompressed {
-				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
+				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
 				return false
 			}
 

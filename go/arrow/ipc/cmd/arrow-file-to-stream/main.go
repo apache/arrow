@@ -17,7 +17,9 @@
 package main
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -25,7 +27,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/arrio"
 	"github.com/apache/arrow/go/v8/arrow/ipc"
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 func main() {
@@ -56,7 +57,7 @@ func processFile(w io.Writer, fname string) error {
 
 	rr, err := ipc.NewFileReader(r, ipc.WithAllocator(mem))
 	if err != nil {
-		if xerrors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return err
@@ -68,15 +69,15 @@ func processFile(w io.Writer, fname string) error {
 
 	n, err := arrio.Copy(ww, rr)
 	if err != nil {
-		return xerrors.Errorf("could not copy ARROW stream: %w", err)
+		return fmt.Errorf("could not copy ARROW stream: %w", err)
 	}
 	if got, want := n, int64(rr.NumRecords()); got != want {
-		return xerrors.Errorf("invalid number of records written (got=%d, want=%d)", got, want)
+		return fmt.Errorf("invalid number of records written (got=%d, want=%d)", got, want)
 	}
 
 	err = ww.Close()
 	if err != nil {
-		return xerrors.Errorf("could not close output ARROW stream: %w", err)
+		return fmt.Errorf("could not close output ARROW stream: %w", err)
 	}
 
 	return nil

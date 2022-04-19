@@ -73,7 +73,7 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatch(values []{{.name}}, defLevels, r
       case error:
         err = r
       default:
-        err = xerrors.Errorf("unknown error type: %s", r)
+        err = fmt.Errorf("unknown error type: %s", r)
       }
     }
   }()

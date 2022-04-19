@@ -26,10 +26,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 
 	"github.com/apache/arrow/go/v8/parquet"
-	"golang.org/x/xerrors"
 )
 
 // important constants for handling the aes encryption
@@ -97,10 +97,10 @@ func (a *aesEncryptor) SignedFooterEncrypt(w io.Writer, footer, key, aad, nonce 
 		panic(err)
 	}
 	if aead.NonceSize() != NonceLength {
-		panic(xerrors.Errorf("nonce size mismatch %d, %d", aead.NonceSize(), NonceLength))
+		panic(fmt.Errorf("nonce size mismatch %d, %d", aead.NonceSize(), NonceLength))
 	}
 	if aead.Overhead() != GcmTagLength {
-		panic(xerrors.Errorf("tagsize mismatch %d %d", aead.Overhead(), GcmTagLength))
+		panic(fmt.Errorf("tagsize mismatch %d %d", aead.Overhead(), GcmTagLength))
 	}
 
 	ciphertext := aead.Seal(nil, nonce, footer, aad)
@@ -131,10 +131,10 @@ func (a *aesEncryptor) Encrypt(w io.Writer, src, key, aad []byte) int {
 			panic(err)
 		}
 		if aead.NonceSize() != NonceLength {
-			panic(xerrors.Errorf("nonce size mismatch %d, %d", aead.NonceSize(), NonceLength))
+			panic(fmt.Errorf("nonce size mismatch %d, %d", aead.NonceSize(), NonceLength))
 		}
 		if aead.Overhead() != GcmTagLength {
-			panic(xerrors.Errorf("tagsize mismatch %d %d", aead.Overhead(), GcmTagLength))
+			panic(fmt.Errorf("tagsize mismatch %d %d", aead.Overhead(), GcmTagLength))
 		}
 
 		ciphertext := aead.Seal(nil, nonce, src, aad)
