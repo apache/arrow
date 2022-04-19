@@ -69,6 +69,22 @@ test_that("infer_type() can infer struct types from data frames", {
   expect_equal(infer_type(df), struct(x = int32(), y = float64(), z = utf8()))
 })
 
+test_that("infer_type() can infer type for vctr_vctr subclasses", {
+  vctr <- vctrs::new_vctr(1:5, class = "custom_vctr")
+  expect_equal(
+    infer_type(vctr),
+    vctrs_extension_type(vctrs::vec_ptype(vctr))
+  )
+})
+
+test_that("infer_type() can infer nested extension types", {
+  vctr <- vctrs::new_vctr(1:5, class = "custom_vctr")
+  expect_equal(
+    infer_type(tibble::tibble(x = vctr)),
+    struct(x = infer_type(vctr))
+  )
+})
+
 test_that("DataType$Equals", {
   a <- int32()
   b <- int32()

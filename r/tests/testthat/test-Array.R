@@ -1048,6 +1048,32 @@ test_that("as_arrow_array() works for ChunkedArray", {
   )
 })
 
+test_that("as_arrow_array() works for vctr_vctr types", {
+  vctr <- vctrs::new_vctr(1:5, class = "custom_vctr")
+  expect_equal(
+    as_arrow_array(vctr),
+    vctrs_extension_array(vctr)
+  )
+
+  # with explicit type
+  expect_equal(
+    as_arrow_array(
+      vctr,
+      type = vctrs_extension_type(
+        vctrs::vec_ptype(vctr),
+        storage_type = float64()
+      )
+    ),
+    vctrs_extension_array(
+      vctr,
+      storage_type = float64()
+    )
+  )
+
+  # with impossible type
+  expect_snapshot_error(as_arrow_array(vctr, type = float64()))
+})
+
 test_that("as_arrow_array() default method errors for impossible cases", {
   vec <- structure(list(), class = "class_not_supported")
 
