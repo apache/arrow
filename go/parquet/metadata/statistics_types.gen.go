@@ -19,6 +19,7 @@
 package metadata
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/apache/arrow/go/v8/arrow"

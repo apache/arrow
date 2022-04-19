@@ -19,6 +19,8 @@
 package file
 
 import (
+	"fmt"
+	
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"

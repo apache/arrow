@@ -21,6 +21,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 
 	"github.com/apache/arrow/go/v8/arrow"
