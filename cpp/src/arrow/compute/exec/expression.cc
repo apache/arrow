@@ -339,13 +339,15 @@ bool Expression::IsSatisfiable() const {
 
   auto call = CallNotNull(*this);
 
+  // invert(true_unless_null(x)) is always false or null by definition
+  // true_unless_null arises in simplification of inequalities below
   if (call->function_name == "invert") {
     if (auto nested_call = call->arguments[0].call()) {
       if (nested_call->function_name == "true_unless_null") return false;
     }
   }
 
-  if (call->function_name == "and_kleene") {
+  if (call->function_name == "and_kleene" || call->function_name == "and") {
     for (const Expression& arg : call->arguments) {
       if (!arg.IsSatisfiable()) return false;
     }

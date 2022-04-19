@@ -422,12 +422,19 @@ TEST(Expression, IsSatisfiable) {
   // (guaranteed to evaluate to null or false), it can only evaluate to null or false.
   // This special case arises when (for example) an absent column has made
   // one member of the conjunction always-null.
-  auto never_true = and_(literal(null), field_ref("bool"));
-  EXPECT_FALSE(Bind(never_true).IsSatisfiable());
-
-  // ... but it may appear in satisfiable filters if coalesced (for example, wrapped in
-  // fill_na)
-  EXPECT_TRUE(Bind(call("is_null", {never_true})).IsSatisfiable());
+  for (const auto& never_true : {
+           // N.B. this is "and_kleene"
+           and_(literal(false), field_ref("bool")),
+           and_(literal(null), field_ref("bool")),
+           call("and", {literal(false), field_ref("bool")}),
+           call("and", {literal(null), field_ref("bool")}),
+       }) {
+    ARROW_SCOPED_TRACE(never_true.ToString());
+    EXPECT_FALSE(Bind(never_true).IsSatisfiable());
+    // ... but it may appear in satisfiable filters if coalesced (for example, wrapped in
+    // fill_na)
+    EXPECT_TRUE(Bind(call("is_null", {never_true})).IsSatisfiable());
+  }
 }
 
 TEST(Expression, FieldsInExpression) {
