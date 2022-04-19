@@ -2487,4 +2487,41 @@ TEST_F(TestProjector, TestInstr) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestNextDay) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::date64());
+  auto field1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_next_day = field("nextday", arrow::date64());
+
+  // Build expression
+  auto next_day_exp =
+      TreeExprBuilder::MakeExpression("next_day", {field0, field1}, field_next_day);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {next_day_exp}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 2;
+  auto array0 = MakeArrowArrayDate64({1636366834000, 1636366834000}, {true, true});
+
+  auto array1 = MakeArrowArrayUtf8({"FRIDAY", "FRI"}, {true, true});
+  // expected output
+  auto exp = MakeArrowArrayDate64({1636675200000, 1636675200000}, {true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
 }  // namespace gandiva

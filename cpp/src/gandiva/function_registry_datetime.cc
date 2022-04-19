@@ -45,6 +45,8 @@ namespace gandiva {
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {"minute"}), \
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second, {"second"})
 
+#define NEXT_DAY_FNS(name) DATE_TYPES(NEXT_DAY_SAFE_NULL_IF_NULL, name, {})
+
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
       UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, day_time_interval),
@@ -57,6 +59,8 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch, {}),
 
       TIME_EXTRACTION_FNS(extract),
+
+      NEXT_DAY_FNS(next_day),
 
       NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",

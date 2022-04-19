@@ -241,6 +241,44 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
   return 52;
 }
 
+static const char* WEEK[] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
+                             "THURSDAY", "FRIDAY", "SATURDAY"};
+
+static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
+
+#define NEXT_DAY_FUNC(TYPE)                                                              \
+  FORCE_INLINE                                                                           \
+  gdv_date64 next_day_from_##TYPE(gdv_int64 context, gdv_##TYPE millis, const char* in,  \
+                                  int32_t in_len) {                                      \
+    EpochTimePoint tp(millis);                                                           \
+    const auto& dayWithoutHoursAndSec = tp.ClearTimeOfDay();                             \
+    const auto& presentDate = extractDow_timestamp(tp.MillisSinceEpoch());               \
+                                                                                         \
+    int dateSearch = 0;                                                                  \
+    for (int n = 0; n < 7; n++) {                                                        \
+      if (is_substr_utf8_utf8(WEEK[n], WEEK_LEN[n], in, in_len)) {                       \
+        dateSearch = n + 1;                                                              \
+        break;                                                                           \
+      }                                                                                  \
+    }                                                                                    \
+    if (dateSearch == 0) {                                                               \
+      gdv_fn_context_set_error_msg(context, "The weekday in this entry is invalid");     \
+      return 0;                                                                          \
+    }                                                                                    \
+                                                                                         \
+    int64_t distanceDay = dateSearch - presentDate;                                      \
+    if (distanceDay <= 0) {                                                              \
+      distanceDay = 7 + distanceDay;                                                     \
+    }                                                                                    \
+                                                                                         \
+    int64_t nextDate =                                                                   \
+        date_add_int64_timestamp(distanceDay, dayWithoutHoursAndSec.MillisSinceEpoch()); \
+                                                                                         \
+    return nextDate;                                                                     \
+  }
+
+DATE_TYPES(NEXT_DAY_FUNC)
+
 // Dec 29-31
 int getDecWeekOfYear(const EpochTimePoint& tp) {
   int next_jan1_wday = (tp.TmWday() + (31 - tp.TmMday()) + 1) % 7;
