@@ -20,7 +20,9 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.SQLException;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
+import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.Meta.StatementHandle;
@@ -48,6 +50,10 @@ public class ArrowFlightStatement extends AvaticaStatement implements ArrowFligh
     if (signature == null) {
       return null;
     }
+
+    final Schema resultSetSchema = preparedStatement.getDataSetSchema();
+    signature.columns.addAll(ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
+    setSignature(signature);
 
     return preparedStatement.executeQuery();
   }
