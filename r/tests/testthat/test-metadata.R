@@ -341,7 +341,7 @@ test_that("dplyr with metadata", {
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(z = nchar(a)) %>%
+      mutate(z = nchar(d)) %>%
       select(z, a) %>%
       collect(),
     example_with_metadata
@@ -350,7 +350,7 @@ test_that("dplyr with metadata", {
   # of grouping columns appear to come through
   compare_dplyr_binding(
     .input %>%
-      group_by(a) %>%
+      group_by(d) %>%
       summarize(n()) %>%
       collect(),
     example_with_metadata
@@ -359,7 +359,7 @@ test_that("dplyr with metadata", {
   # carry through
   compare_dplyr_binding(
     .input %>%
-      mutate(a = nchar(a)) %>%
+      mutate(a = b) %>%
       select(a) %>%
       collect(),
     example_with_metadata

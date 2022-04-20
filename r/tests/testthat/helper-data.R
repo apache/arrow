@@ -26,7 +26,7 @@ example_data <- tibble::tibble(
 )
 
 example_with_metadata <- tibble::tibble(
-  a = "one",
+  a = structure("one", class = "special_string"),
   b = 2,
   c = tibble::tibble(
     c1 = structure("inner", extra_attr = "something"),

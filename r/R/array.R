@@ -251,6 +251,12 @@ as_arrow_array.default <- function(x, ..., type = NULL, from_vec_to_array = FALS
   # we error. If from_vec_to_array is FALSE, we call vec_to_Array to use the
   # internal C++ conversion.
   if (from_vec_to_array) {
+    # Last ditch attempt: if vctrs::vec_is(x), we can use the vctrs
+    # extension type.
+    if (vctrs::vec_is(x)) {
+      return(as_arrow_array.vctrs_vctr(x, type = type))
+    }
+
     stop_cant_convert_array(x, type)
   } else {
     vec_to_Array(x, type)
