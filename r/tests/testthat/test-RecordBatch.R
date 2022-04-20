@@ -820,18 +820,13 @@ test_that("as_record_batch() works for data.frame()", {
   batch <- record_batch(col1 = 1L, col2 = "two")
   tbl <- tibble::tibble(col1 = 1L, col2 = "two")
 
-  # metadata prevents these from being equal
-  batch2 <- as_record_batch(tbl)
-  batch2$metadata <- NULL
-  expect_equal(batch2, batch)
+  expect_equal(as_record_batch(tbl), batch)
 
-  batch2 <- as_record_batch(
-    tbl,
-    schema = schema(col1 = float64(), col2 = string())
-  )
-  batch2$metadata <- NULL
   expect_equal(
-    batch2,
+    as_record_batch(
+      tbl,
+      schema = schema(col1 = float64(), col2 = string())
+    ),
     record_batch(col1 = Array$create(1, type = float64()), col2 = "two")
   )
 })

@@ -713,19 +713,13 @@ test_that("as_arrow_table() works for data.frame()", {
   table <- arrow_table(col1 = 1L, col2 = "two")
   tbl <- tibble::tibble(col1 = 1L, col2 = "two")
 
-  # not equal because of metadata
-  table2 <- as_arrow_table(tbl)
-  table2$metadata <- NULL
-  expect_equal(table2, table)
-
-  table2 <- as_arrow_table(
-    tbl,
-    schema = schema(col1 = float64(), col2 = string())
-  )
-  table2$metadata <- NULL
+  expect_equal(as_arrow_table(tbl), table)
 
   expect_equal(
-    table2,
+    as_arrow_table(
+      tbl,
+      schema = schema(col1 = float64(), col2 = string())
+    ),
     arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
   )
 })
