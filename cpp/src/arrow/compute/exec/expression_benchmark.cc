@@ -87,10 +87,11 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
       ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
   }
   state.counters["rows_per_second"] = benchmark::Counter(
-      state.iterations() * num_batches * rows_per_batch, benchmark::Counter::kIsRate);
+      static_cast<double>(state.iterations() * num_batches * rows_per_batch),
+      benchmark::Counter::kIsRate);
 
-  state.counters["batches_per_second"] =
-      benchmark::Counter(state.iterations() * num_batches, benchmark::Counter::kIsRate);
+  state.counters["batches_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
 auto to_int64 = compute::CastOptions::Safe(int64());
