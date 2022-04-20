@@ -301,8 +301,10 @@ build_libarrow <- function(src_dir, dst_dir) {
     # EXTRA_CMAKE_FLAGS will often be "", but it's convenient later to have it defined
     EXTRA_CMAKE_FLAGS = Sys.getenv("EXTRA_CMAKE_FLAGS"),
     # Make sure we build with the same compiler settings that R is using
-    CC = R_CMD_config("CC"),
-    CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
+    # but we remove ccache, since `ARROW_USE_CCACHE` does that for our dependencies, and
+    # having ccache here as well leads to compile errors
+    CC = gsub("^.*ccache", "", R_CMD_config("CC")),
+    CXX = paste(gsub("^.*ccache", "", R_CMD_config("CXX11")), R_CMD_config("CXX11STD")),
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )

@@ -46,24 +46,15 @@ fi
 R_BUILD_CCACHE=`echo $R_BUILD_CCACHE | tr '[:upper:]' '[:lower:]'`
 if [ "$R_BUILD_CCACHE" = "true" ]; then
   # install ccache
-  if [ "`which dnf`" ]; then
-    dnf install -y epel-release
-    dnf install -y ccache
-  elif [ "`which yum`" ]; then
-    yum install -y epel-release
-    yum install -y ccache
-  elif [ "`which zypper`" ]; then
-    zypper install -y ccache
-  else
-    apt-get update
-    apt-get install -y ccache
-  fi
+  $PACKAGE_MANAGER install -y epel-release || true
+  $PACKAGE_MANAGER install -y ccache
 
   mkdir -p ~/.R
   echo "VER=
 CCACHE=ccache
 CC=\$(CCACHE) gcc$(VER)
-CXX=\$(CCACHE) g++$(VER)" >> ~/.R/Makevars
+CXX=\$(CCACHE) g++$(VER)
+CXX11=\$(CCACHE) g++$(VER)" >> ~/.R/Makevars
 
   mkdir -p ~/.ccache/
   echo "max_size = 5.0G
