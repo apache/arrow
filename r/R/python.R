@@ -105,19 +105,25 @@ py_to_r.pyarrow.lib.ChunkedArray <- function(x, ...) {
 }
 
 r_to_py.Table <- function(x, convert = FALSE) {
-  # Import with convert = FALSE so that `_import_from_c` returns a Python object
-  pa <- reticulate::import("pyarrow", convert = FALSE)
-  out <- pa$Table$from_arrays(x$columns, schema = x$schema)
-  # But set the convert attribute on the return object to the requested value
+  # Going through RecordBatchReader maintains schema metadata (e.g.,
+  # extension types) more faithfully than column-wise construction.
+  py_rbr <- reticulate::r_to_py(as_record_batch_reader(x), convert = FALSE)
+  out <- py_rbr$read_all()
   assign("convert", convert, out)
   out
 }
 
 py_to_r.pyarrow.lib.Table <- function(x, ...) {
-  colnames <- maybe_py_to_r(x$column_names)
-  r_cols <- maybe_py_to_r(x$columns)
-  names(r_cols) <- colnames
-  Table$create(!!!r_cols, schema = maybe_py_to_r(x$schema))
+  # Going through RecordBatchReader maintains schema metadata (e.g.,
+  # extension types) more faithfully than column-wise construction.
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  py_rbr <- pa$lib$RecordBatchReader$from_batches(
+    x$schema,
+    x$to_batches()
+  )
+
+  r_rbr <- maybe_py_to_r(py_rbr)
+  r_rbr$read_table()
 }
 
 py_to_r.pyarrow.lib.Schema <- function(x, ...) {

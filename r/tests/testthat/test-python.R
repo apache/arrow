@@ -96,16 +96,30 @@ test_that("RecordBatch with metadata roundtrip", {
   batch <- RecordBatch$create(example_with_metadata)
   pybatch <- reticulate::r_to_py(batch)
   expect_s3_class(pybatch, "pyarrow.lib.RecordBatch")
-  expect_equal(reticulate::py_to_r(pybatch), batch)
-  expect_identical(as.data.frame(reticulate::py_to_r(pybatch)), example_with_metadata)
+
+  # Because batch$a is VctrsExtensionType, (which pyarrow doesn't know
+  # about) we don't quite have equality; however, we still have the
+  # ability to roundtrip preserving the extension type.
+  rbatch <- reticulate::py_to_r(pybatch)
+  expect_identical(rbatch$metadata, batch$metadata)
+  expect_equal(rbatch$a, batch$a)
+  expect_equal(rbatch[c("b", "c", "d")], batch[c("b", "c", "d")])
+  expect_identical(as.data.frame(rbatch), example_with_metadata)
 })
 
 test_that("Table with metadata roundtrip", {
   tab <- Table$create(example_with_metadata)
   pytab <- reticulate::r_to_py(tab)
   expect_s3_class(pytab, "pyarrow.lib.Table")
-  expect_equal(reticulate::py_to_r(pytab), tab)
-  expect_identical(as.data.frame(reticulate::py_to_r(pytab)), example_with_metadata)
+
+  # Because tab$a is VctrsExtensionType, (which pyarrow doesn't know
+  # about) we don't quite have equality; however, we still have the
+  # ability to roundtrip preserving the extension type.
+  rtab <- reticulate::py_to_r(pytab)
+  expect_identical(rtab$metadata, tab$metadata)
+  expect_equal(rtab$a, tab$a)
+  expect_equal(rtab[c("b", "c", "d")], tab[c("b", "c", "d")])
+  expect_identical(as.data.frame(rtab), example_with_metadata)
 })
 
 test_that("DataType roundtrip", {
