@@ -128,10 +128,12 @@ std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
 bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 
 // These are the types of objects whose conversion to Arrow Arrays is handled
-// entirely in C++. Other types of objects are converted using the type() S3
-// generic and the as_arrow_array() S3 generic. For data.frame, we need to
-// recurse because the internal conversion logic can't accomodate calling
-// into R.
+// entirely in C++. Other types of objects are converted using the
+// infer_type() S3 generic and the as_arrow_array() S3 generic.
+// For data.frame, we need to recurse because the internal conversion
+// can't accomodate calling into R. If the user specifies a target type
+// and that target type is an ExtensionType, we also can't convert
+// natively (but we check for this separately when it applies).
 static inline bool can_convert_native(SEXP x) {
   if (!Rf_isObject(x)) {
     return true;

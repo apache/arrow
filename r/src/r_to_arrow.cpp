@@ -1261,27 +1261,27 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
         cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
   }
 
-  // short circuit if `x` is an altrep vector that shells a chunked Array
-  auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
-  if (maybe.get()) {
-    return maybe;
-  }
-
   RConversionOptions options;
   options.strict = !type_inferred;
   options.type = type;
   options.size = vctrs::vec_size(x);
 
-  // maybe short circuit when zero-copy is possible
-  if (can_reuse_memory(x, options.type)) {
-    return std::make_shared<arrow::ChunkedArray>(vec_to_arrow__reuse_memory(x));
-  }
-
-  // Otherwise go through the converter API. If we can handle this in C++
-  // we do so; otherwise we use the AsArrowArrayConverter, which calls
-  // as_arrow_array().
+  // If we can handle this in C++ we do so; otherwise we use the
+  // AsArrowArrayConverter, which calls as_arrow_array().
   std::unique_ptr<RConverter> converter;
-  if (can_convert_native(x)) {
+  if (can_convert_native(x) && type->id() != Type::EXTENSION) {
+    // short circuit if `x` is an altrep vector that shells a chunked Array
+    auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
+    if (maybe.get()) {
+      return maybe;
+    }
+
+    // maybe short circuit when zero-copy is possible
+    if (can_reuse_memory(x, type)) {
+      return std::make_shared<arrow::ChunkedArray>(vec_to_arrow__reuse_memory(x));
+    }
+
+    // Otherwise go through the converter API.
     converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
         options.type, options, gc_memory_pool()));
   } else {
@@ -1469,16 +1469,17 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       options.type = schema->field(j)->type();
       options.size = vctrs::vec_size(x);
 
-      // first try to add a task to do a zero copy in parallel
-      if (arrow::r::vector_from_r_memory(x, options.type, columns, j, tasks)) {
-        continue;
-      }
-
-      // Otherwise go through the converter API. If we can handle this in C++
-      // we do so; otherwise we use the AsArrowArrayConverter, which calls
-      // as_arrow_array().
+      // If we can handle this in C++  we do so; otherwise we use the
+      // AsArrowArrayConverter, which calls as_arrow_array().
       std::unique_ptr<arrow::r::RConverter> converter;
-      if (arrow::r::can_convert_native(x)) {
+      if (arrow::r::can_convert_native(x) &&
+          options.type->id() != arrow::Type::EXTENSION) {
+        // first try to add a task to do a zero copy in parallel
+        if (arrow::r::vector_from_r_memory(x, options.type, columns, j, tasks)) {
+          continue;
+        }
+
+        // otherwise go through the Converter API
         auto converter_result =
             arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
                 options.type, options, gc_memory_pool());

@@ -1102,6 +1102,43 @@ test_that("as_arrow_array() works for nested extension types", {
     as_arrow_array(nested, type = extension_array$type),
     extension_array
   )
+
+  # with an extension type for the data.frame but no extension columns
+  nested_plain <- tibble::tibble(x = 1:5)
+  extension_array <- vctrs_extension_array(nested_plain)
+  expect_equal(
+    as_arrow_array(nested, type = extension_array$type),
+    extension_array
+  )
+})
+
+test_that("Array$create() calls as_arrow_array() for nested extension types", {
+  vctr <- vctrs::new_vctr(1:5, class = "custom_vctr")
+
+  nested <- tibble::tibble(x = vctr)
+  type <- infer_type(nested)
+
+  # with type = NULL
+  nested_array <- Array$create(nested)
+  expect_identical(as.vector(nested_array), nested)
+
+  # with explicit type
+  expect_equal(Array$create(nested, type = type), nested_array)
+
+  # with extension type
+  extension_array <- vctrs_extension_array(nested)
+  expect_equal(
+    Array$create(nested, type = extension_array$type),
+    extension_array
+  )
+
+  # with an extension type for the data.frame but no extension columns
+  nested_plain <- tibble::tibble(x = 1:5)
+  extension_array <- vctrs_extension_array(nested_plain)
+  expect_equal(
+    Array$create(nested, type = extension_array$type),
+    extension_array
+  )
 })
 
 test_that("as_arrow_array() default method errors", {

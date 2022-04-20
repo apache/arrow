@@ -300,8 +300,9 @@ as_arrow_array.POSIXlt <- function(x, ..., type = NULL) {
 }
 
 # data.frame conversion can happen in C++ when all the columns can be
-# converted in C++; however, when calling as_arrow_array(), this method will get
-# called regardless of whether or not this can or can't happen.
+# converted in C++ and when `type` is not an ExtensionType; however,
+# when calling as_arrow_array(), this method will get called regardless
+# of whether or not this can or can't happen.
 #' @export
 as_arrow_array.data.frame <- function(x, ..., type = NULL) {
   type <- type %||% infer_type(x)
