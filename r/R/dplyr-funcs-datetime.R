@@ -396,7 +396,7 @@ binding_as_date <- function(x,
     }
     # POSIXct is of type double -> we need this to prevent going down the
     # "double" branch
-    x <- x
+    x
 
     # cast from character
   } else if (call_binding("is.character", x)) {
