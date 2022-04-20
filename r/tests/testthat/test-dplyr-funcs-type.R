@@ -936,6 +936,7 @@ test_that("`as_datetime()`", {
       mutate(
         ddate = as_datetime(date),
         dchar_date_no_tz = as_datetime(char_date),
+        dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
         dint_date = as_datetime(int_date, origin = "1970-01-02"),
         dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
         dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
@@ -954,17 +955,6 @@ test_that("`as_datetime()`", {
       ) %>%
       collect(),
     regexp = "Float value 10.1 was truncated converting to int64"
-  )
-
-  # separate tz test so we can skip on Windows
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas")
-      ) %>%
-      collect(),
-    test_df
   )
 })
 
