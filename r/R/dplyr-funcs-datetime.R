@@ -351,7 +351,7 @@ register_bindings_duration <- function() {
     delta <- delta$cast(int64())
     start + delta$cast(duration("s"))
   })
-    register_binding("make_difftime", function(num = NULL,
+  register_binding("make_difftime", function(num = NULL,
                                              units = "secs",
                                              ...) {
     if (units != "secs") {
