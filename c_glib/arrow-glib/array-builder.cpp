@@ -3329,10 +3329,11 @@ garrow_string_array_builder_append_string(GArrowStringArrayBuilder *builder,
                                           const gchar *value,
                                           GError **error)
 {
-  return garrow_string_array_builder_append_string_len(builder,
-                                                       value,
-                                                       static_cast<gint32>(strlen(value)),
-                                                       error);
+  return garrow_string_array_builder_append_string_len(
+    builder,
+    value,
+    static_cast<gint32>(strlen(value)),
+    error);
 }
 
 /**
@@ -3356,8 +3357,7 @@ garrow_string_array_builder_append_string_len(GArrowStringArrayBuilder *builder,
     static_cast<arrow::StringBuilder *>(
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
-  auto status = arrow_builder->Append(value,
-                                      length);
+  auto status = arrow_builder->Append(value, length);
   return garrow_error_check(error,
                             status,
                             "[string-array-builder][append-string]");
