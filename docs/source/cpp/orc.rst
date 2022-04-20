@@ -91,10 +91,10 @@ Here are a list of ORC types and mapped Arrow types.
 * \(1) We do not support writing UNION types.
 
 * \(2) On the read side the ORC type is read as the first corresponding Arrow type in the table.
-  
+
 * \(3) On the read side the ORC TIMESTAMP type is read as the Arrow Timestamp type with
-  :type:`arrow::TimeUnit::NANO`. Also we currently don't support timezones.
-       
+  :cpp:enumerator:`arrow::TimeUnit::NANO`. Also we currently don't support timezones.
+
 
 Compression
 -----------
