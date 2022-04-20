@@ -404,18 +404,21 @@ binding_as_date <- function(x,
     # unit = 0L is the identifier for seconds in valid_time32_units
     x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
 
-    # cast from numeric
-  } else if (call_binding("is.numeric", x) &
-             (!call_binding("is.integer", x) | origin != "1970-01-01")) {
+    # cast from float/ double
+  } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
     # Arrow does not support direct casting from double to date32(), but for
     # integer-like values we can go via int32()
     # https://issues.apache.org/jira/browse/ARROW-15798
     # TODO revisit if arrow decides to support double -> date casting
     x <- build_expr("cast", x, options = cast_options(to_type = int32()))
+  }
+
+  if (origin != "1970-01-01") {
     delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
-    delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int64()))
-    delta_in_days <- (delta_in_sec / 86400L)$cast(int32())
+    delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int32()))
+    delta_in_days <- delta_in_sec / 86400L
     x <- build_expr("+", x, delta_in_days)
   }
+
   build_expr("cast", x, options = cast_options(to_type = date32()))
 }
