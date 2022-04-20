@@ -45,6 +45,7 @@
 #cmakedefine ARROW_IPC
 #cmakedefine ARROW_JSON
 
+#cmakedefine ARROW_GCS
 #cmakedefine ARROW_S3
 #cmakedefine ARROW_USE_NATIVE_INT128
 #cmakedefine ARROW_WITH_OPENTELEMETRY
