@@ -184,8 +184,8 @@ def gcs_server():
     proc = None
     try:
         proc = subprocess.Popen(args, env=env)
-    except OSError:
-        pytest.skip('`gcs testbench` raised an error when executing')
+    except OSError as e:
+        pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {
             'connection': ('localhost', port),
