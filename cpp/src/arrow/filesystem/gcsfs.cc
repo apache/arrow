@@ -381,9 +381,7 @@ class GcsFileSystem::Impl {
       // Skip the directory itself from the results, and any result that is "too deep"
       // into the recursion.
       bool has_trailing_slash = !o->name().empty() && o->name().back() == '/';
-      // TODO(emkornfield): Add docs explaining or simplify o->name() comparison
-      // to both p.object and o.name()
-      if (o->name() == canonical || o->name() == p.object ||
+      if (o->name() == canonical ||
           internal::Depth(o->name()) > (max_depth + has_trailing_slash)) {
         continue;
       }
@@ -656,8 +654,13 @@ class GcsFileSystem::Impl {
     return internal::ToArrowStatus(meta.status());
   }
 
-  // TODO(emkornfield): Add more comments on normalize_directories
-  // or simplify logic.
+  // The normalize_directories parameter is needed because
+  // how a directory is listed.  If a specific path is asked
+  // for with a trailing slash it is expected to have a trailing
+  // slash [1] but for recursive listings it is expected that
+  // directories have their path normalized [2].
+  // [1] https://github.com/apache/arrow/blob/3eaa7dd0e8b3dabc5438203331f05e3e6c011e37/python/pyarrow/tests/test_fs.py#L688
+  // [2] https://github.com/apache/arrow/blob/3eaa7dd0e8b3dabc5438203331f05e3e6c011e37/cpp/src/arrow/filesystem/test_util.cc#L767
   static FileInfo ToFileInfo(const std::string& full_path,
                              const gcs::ObjectMetadata& meta,
                              bool normalize_directories = false) {
