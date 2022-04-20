@@ -420,7 +420,6 @@ duration_from_chunks <- function(chunks) {
     "week" = 604800L
   )
   # transform the duration of each chunk in seconds and add everything together
-  chunks_total <- purrr::imap(chunks, ~.x * chunk_duration[[.y]]) %>%
-    purrr::reduce(`+`)
-  chunks_total
+  chunks_total <- purrr::imap(chunks, ~.x * chunk_duration[[.y]])
+  purrr::reduce(chunks_total, `+`)
   }
