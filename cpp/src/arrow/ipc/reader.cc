@@ -1296,11 +1296,13 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     }
 
     std::shared_ptr<io::internal::ReadRangeCache> cached_source;
-    if (coalesce && file_->supports_zero_copy()) {
+    if (coalesce && !file_->supports_zero_copy()) {
       if (!owned_file_) return Status::Invalid("Cannot coalesce without an owned file");
       // Since the user is asking for all fields then we can cache the entire
       // file (up to the footer)
-      return cached_source->Cache({{0, footer_offset_}});
+      cached_source = std::make_shared<io::internal::ReadRangeCache>(file_, io_context,
+                                                                     cache_options);
+      RETURN_NOT_OK(cached_source->Cache({{0, footer_offset_}}));
     }
     return WholeIpcFileRecordBatchGenerator(std::move(state), std::move(cached_source),
                                             io_context, executor);
