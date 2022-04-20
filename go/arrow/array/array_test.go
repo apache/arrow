@@ -124,12 +124,19 @@ func TestMakeFromData(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var b [4]*memory.Buffer
-			var n = 4
+			var (
+				b    [4]*memory.Buffer
+				n    = 4
+				data arrow.ArrayData
+			)
 			if test.size != 0 {
 				n = test.size
 			}
-			data := array.NewDataWithDictionary(test.d, 0, b[:n], test.child, 0, 0, test.dict)
+			if test.dict != nil {
+				data = array.NewDataWithDictionary(test.d, 0, b[:n], 0, 0, test.dict)
+			} else {
+				data = array.NewData(test.d, 0, b[:n], test.child, 0, 0)
+			}
 
 			if test.expPanic {
 				assert.PanicsWithValue(t, test.expError, func() {

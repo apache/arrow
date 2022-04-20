@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/bits"
 	"sync/atomic"
 	"unsafe"
 
@@ -265,9 +266,13 @@ func (d *Dictionary) GetValueIndex(i int) int {
 	case arrow.UINT16, arrow.INT16:
 		return int(arrow.Uint16Traits.CastFromBytes(indiceData)[d.data.offset+i])
 	case arrow.UINT32, arrow.INT32:
-		return int(arrow.Uint32Traits.CastFromBytes(indiceData)[d.data.offset+i])
+		idx := arrow.Uint32Traits.CastFromBytes(indiceData)[d.data.offset+i]
+		debug.Assert(bits.UintSize == 64 || idx <= math.MaxInt32, "arrow/dictionary: truncation of index value")
+		return int(idx)
 	case arrow.UINT64, arrow.INT64:
-		return int(arrow.Uint64Traits.CastFromBytes(indiceData)[d.data.offset+i])
+		idx := arrow.Uint64Traits.CastFromBytes(indiceData)[d.data.offset+i]
+		debug.Assert((bits.UintSize == 32 && idx <= math.MaxInt32) || (bits.UintSize == 64 && idx <= math.MaxInt64), "arrow/dictionary: truncation of index value")
+		return int(idx)
 	}
 	debug.Assert(false, "unreachable dictionary index")
 	return -1
