@@ -194,22 +194,30 @@ class EmailReport(Report):
         return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
 
     def subject(self):
+        failures = len(self.tasks_by_state.get("failure", []))
+        errors = len(self.tasks_by_state.get("error", []))
+        pending = len(self.tasks_by_state.get("pending", []))
         return (
-            "[NIGHTLY] Arrow Build Report for Job {}".format(self.job.branch)
+            f"[NIGHTLY] Arrow Build Report for Job {self.job.branch}: "
+            f"{failures+errors} failed, {pending} pending"
         )
+
+    @property
+    @functools.lru_cache(maxsize=1)
+    def tasks_by_state(self):
+        tasks_by_state = collections.defaultdict(dict)
+        for task_name, task in self.job.tasks.items():
+            state = task.status().combined_state
+            tasks_by_state[state][task_name] = task
+        return tasks_by_state
 
     def body(self):
         buffer = StringIO()
         buffer.write(self.header())
 
-        tasks_by_state = collections.defaultdict(dict)
-        for task_name, task in self.job.tasks.items():
-            state = task.status().combined_state
-            tasks_by_state[state][task_name] = task
-
         for state in ('failure', 'error', 'pending', 'success'):
-            if state in tasks_by_state:
-                tasks = tasks_by_state[state]
+            if state in self.tasks_by_state:
+                tasks = self.tasks_by_state[state]
                 buffer.write('\n')
                 buffer.write(self.STATUS_HEADERS[state])
                 buffer.write('\n')
