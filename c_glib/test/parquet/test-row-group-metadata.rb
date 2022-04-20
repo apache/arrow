@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestParquetFileMetadata < Test::Unit::TestCase
+class TestParquetRowGroupMetadata < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
@@ -41,12 +41,12 @@ class TestParquetFileMetadata < Test::Unit::TestCase
     writer.write_table(@table, chunk_size)
     writer.close
     reader = Parquet::ArrowFileReader.new(@file.path)
-    @metadata = reader.metadata
+    @metadata = reader.metadata.get_row_group(0)
   end
 
   test("#==") do
     reader = Parquet::ArrowFileReader.new(@file.path)
-    other_metadata = reader.metadata
+    other_metadata = reader.metadata.get_row_group(0)
     assert do
       @metadata == other_metadata
     end
@@ -56,37 +56,25 @@ class TestParquetFileMetadata < Test::Unit::TestCase
     assert_equal(3, @metadata.n_columns)
   end
 
-  test("#n_schema_elements") do
-    assert_equal(5, @metadata.n_schema_elements)
-  end
-
   test("#n_rows") do
-    assert_equal(2, @metadata.n_rows)
+    assert_equal(1, @metadata.n_rows)
   end
 
-  test("#n_row_groups") do
-    assert_equal(2, @metadata.n_row_groups)
-  end
-
-  sub_test_case("#get_row_group") do
-    test("out of range") do
-      message = "[parquet][file-metadata][get-row-group]: IOError: " +
-                "The file only has 2 row groups, " +
-                "requested metadata for row group: 2"
-      assert_raise(Arrow::Error::Io.new(message)) do
-        @metadata.get_row_group(2)
-      end
+  test("#total_size") do
+    assert do
+      @metadata.total_size > 0
     end
   end
 
-  test("#created_by") do
-    assert_equal("parquet-cpp-arrow version 1.0.0",
-                 @metadata.created_by.gsub(/ [\d.]+(?:-SNAPSHOT)?\z/, " 1.0.0"))
+  test("#total_compressed_size") do
+    assert do
+      @metadata.total_compressed_size > 0
+    end
   end
 
-  test("#size") do
+  test("#file_offset") do
     assert do
-      @metadata.size > 0
+      @metadata.file_offset > 0
     end
   end
 

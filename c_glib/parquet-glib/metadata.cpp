@@ -28,15 +28,199 @@ G_BEGIN_DECLS
  * @title: Metadata related classes
  * @include: parquet-glib/parquet-glib.h
  *
- * #GParquetFileMetadata is a class for file-level metadata.
+ * #GParquetRowGroupMetadata is a class for row group level metadata.
+ *
+ * #GParquetFileMetadata is a class for file level metadata.
  */
 
-typedef struct GParquetFileMetadataPrivate_ {
-  std::shared_ptr<parquet::FileMetaData> metadata;
-} GParquetFileMetadataPrivate;
+struct GParquetRowGroupMetadataPrivate {
+  parquet::RowGroupMetaData *metadata;
+};
 
 enum {
   PROP_METADATA = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GParquetRowGroupMetadata,
+                           gparquet_row_group_metadata,
+                           G_TYPE_OBJECT)
+
+#define GPARQUET_ROW_GROUP_METADATA_GET_PRIVATE(object)      \
+  static_cast<GParquetRowGroupMetadataPrivate *>(            \
+    gparquet_row_group_metadata_get_instance_private(        \
+      GPARQUET_ROW_GROUP_METADATA(object)))
+
+static void
+gparquet_row_group_metadata_finalize(GObject *object)
+{
+  auto priv = GPARQUET_ROW_GROUP_METADATA_GET_PRIVATE(object);
+  delete priv->metadata;
+  G_OBJECT_CLASS(gparquet_row_group_metadata_parent_class)->finalize(object);
+}
+
+static void
+gparquet_row_group_metadata_set_property(GObject *object,
+                                         guint prop_id,
+                                         const GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto priv = GPARQUET_ROW_GROUP_METADATA_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_METADATA:
+    priv->metadata =
+      static_cast<parquet::RowGroupMetaData *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gparquet_row_group_metadata_init(GParquetRowGroupMetadata *object)
+{
+}
+
+static void
+gparquet_row_group_metadata_class_init(GParquetRowGroupMetadataClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->finalize = gparquet_row_group_metadata_finalize;
+  gobject_class->set_property = gparquet_row_group_metadata_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("metadata", "Metadata",
+                              "The raw "
+                              "std::shared_ptr<parquet::RowGroupMetaData>",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_METADATA, spec);
+}
+
+/**
+ * gparquet_row_group_metadata_equal:
+ * @metadata: A #GParquetRowGroupMetadata.
+ * @other_metadata: A #GParquetRowGroupMetadata.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+gparquet_row_group_metadata_equal(GParquetRowGroupMetadata *metadata,
+                                  GParquetRowGroupMetadata *other_metadata)
+{
+  auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
+  auto parquet_other_metadata =
+    gparquet_row_group_metadata_get_raw(other_metadata);
+  return parquet_metadata->Equals(*parquet_other_metadata);
+}
+
+/**
+ * gparquet_row_group_metadata_get_n_columns:
+ * @metadata: A #GParquetRowGroupMetadata.
+ *
+ * Returns: The number of columns in this row group. The order must
+ *   match the parent's column ordering.
+ *
+ * Since: 8.0.0
+ */
+gint
+gparquet_row_group_metadata_get_n_columns(GParquetRowGroupMetadata *metadata)
+{
+  auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
+  return parquet_metadata->num_columns();
+}
+
+/**
+ * gparquet_row_group_metadata_get_n_rows:
+ * @metadata: A #GParquetRowGroupMetadata.
+ *
+ * Returns: The number of rows in this row group.
+ *
+ * Since: 8.0.0
+ */
+gint64
+gparquet_row_group_metadata_get_n_rows(GParquetRowGroupMetadata *metadata)
+{
+  auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
+  return parquet_metadata->num_rows();
+}
+
+/**
+ * gparquet_row_group_metadata_get_total_size:
+ * @metadata: A #GParquetRowGroupMetadata.
+ *
+ * Returns: Total byte size of all the uncompressed column data in
+ *   this row group.
+ *
+ * Since: 8.0.0
+ */
+gint64
+gparquet_row_group_metadata_get_total_size(GParquetRowGroupMetadata *metadata)
+{
+  auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
+  return parquet_metadata->total_byte_size();
+}
+
+/**
+ * gparquet_row_group_metadata_get_total_compressed_size:
+ * @metadata: A #GParquetRowGroupMetadata.
+ *
+ * Returns: Total byte size of all the compressed (and potentially
+ *   encrypted) column data in this row group.
+ *
+ * Since: 8.0.0
+ */
+gint64
+gparquet_row_group_metadata_get_total_compressed_size(
+  GParquetRowGroupMetadata *metadata)
+{
+  auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
+  return parquet_metadata->total_compressed_size();
+}
+
+/**
+ * gparquet_row_group_metadata_get_file_offset:
+ * @metadata: A #GParquetRowGroupMetadata.
+ *
+ * Returns: Byte offset from beginning of file to first page (data or
+ *   dictionary) in this row group.
+ *
+ *   The `file_offset` field that this method exposes is
+ *   optional. This method will return 0 if that field is not set to a
+ *   meaningful value.
+ *
+ * Since: 8.0.0
+ */
+gint64
+gparquet_row_group_metadata_get_file_offset(GParquetRowGroupMetadata *metadata)
+{
+  auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
+  return parquet_metadata->file_offset();
+}
+
+/**
+ * gparquet_row_group_metadata_can_decompress:
+ * @metadata: A #GParquetRowGroupMetadata.
+ *
+ * Returns: %TRUE if all of the row group's column chunks can be
+ *   decompressed, %FALSE otherwise.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+gparquet_row_group_metadata_can_decompress(GParquetRowGroupMetadata *metadata)
+{
+  auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
+  return parquet_metadata->can_decompress();
+}
+
+
+struct GParquetFileMetadataPrivate {
+  std::shared_ptr<parquet::FileMetaData> metadata;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetFileMetadata,
@@ -187,6 +371,37 @@ gparquet_file_metadata_get_n_row_groups(GParquetFileMetadata *metadata)
 }
 
 /**
+ * gparquet_file_metadata_get_row_group:
+ * @metadata: A #GParquetFileMetadata.
+ * @index: An index of the row group to retrieve.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): A #GParquetRowGroupMetadata
+ *   at @index on success, %NULL on error.
+ *
+ * Since: 8.0.0
+ */
+GParquetRowGroupMetadata *
+gparquet_file_metadata_get_row_group(GParquetFileMetadata *metadata,
+                                     gint index,
+                                     GError **error)
+{
+  auto parquet_metadata = gparquet_file_metadata_get_raw(metadata);
+  std::unique_ptr<parquet::RowGroupMetaData> parquet_row_group_metadata;
+  auto status = ([&] {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    parquet_row_group_metadata = parquet_metadata->RowGroup(index);
+    return arrow::Status::OK();
+    END_PARQUET_CATCH_EXCEPTIONS
+  })();
+  if (garrow::check(error, status, "[parquet][file-metadata][get-row-group]")) {
+    return gparquet_row_group_metadata_new_raw(parquet_row_group_metadata.release());
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * gparquet_file_metadata_get_created_by:
  * @metadata: A #GParquetFileMetadata.
  *
@@ -236,7 +451,27 @@ gparquet_file_metadata_can_decompress(GParquetFileMetadata *metadata)
   return parquet_metadata->can_decompress();
 }
 
+
 G_END_DECLS
+
+
+GParquetRowGroupMetadata *
+gparquet_row_group_metadata_new_raw(parquet::RowGroupMetaData *parquet_metadata)
+{
+  auto metadata =
+    GPARQUET_ROW_GROUP_METADATA(g_object_new(GPARQUET_TYPE_ROW_GROUP_METADATA,
+                                             "metadata", parquet_metadata,
+                                             NULL));
+  return metadata;
+}
+
+parquet::RowGroupMetaData *
+gparquet_row_group_metadata_get_raw(GParquetRowGroupMetadata *metadata)
+{
+  auto priv = GPARQUET_ROW_GROUP_METADATA_GET_PRIVATE(metadata);
+  return priv->metadata;
+}
+
 
 GParquetFileMetadata *
 gparquet_file_metadata_new_raw(
