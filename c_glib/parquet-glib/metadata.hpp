@@ -23,6 +23,11 @@
 
 #include <parquet-glib/metadata.h>
 
+GParquetRowGroupMetadata *
+gparquet_row_group_metadata_new_raw(parquet::RowGroupMetaData *parquet_metadata);
+parquet::RowGroupMetaData *
+gparquet_row_group_metadata_get_raw(GParquetRowGroupMetadata *metadata);
+
 GParquetFileMetadata *
 gparquet_file_metadata_new_raw(
   std::shared_ptr<parquet::FileMetaData> *parquet_metadata);
