@@ -885,7 +885,7 @@ test_that("`as.Date()` and `as_date()`", {
   )
 
   # we do not support as_date with double/ float (error surfaced from C++)
-  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
+  # TODO: revisit after https://issues.apache.org/jira/browse/ARROW-15798
   expect_error(
     test_df %>%
       arrow_table() %>%
