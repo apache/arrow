@@ -262,7 +262,11 @@ arrow_table <- Table$create
 #' @export
 #'
 #' @examples
+#' # use as_arrow_table() for a single object
 #' as_arrow_table(data.frame(col1 = 1, col2 = "two"))
+#'
+#' # use arrow_table() to create from columns
+#' arrow_table(col1 = 1, col2 = "two")
 #'
 as_arrow_table <- function(x, ..., schema = NULL) {
   UseMethod("as_arrow_table")

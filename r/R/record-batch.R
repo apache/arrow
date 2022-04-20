@@ -176,7 +176,7 @@ RecordBatch$import_from_c <- ImportRecordBatch
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname RecordBatch
-#' @examplesIf arrow_available()
+#' @examples
 #' batch <- record_batch(name = rownames(mtcars), mtcars)
 #' dim(batch)
 #' dim(head(batch))
@@ -255,8 +255,12 @@ cbind.RecordBatch <- function(...) {
 #' @return A [RecordBatch]
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
+#' # use as_record_batch() for a single object
 #' as_record_batch(data.frame(col1 = 1, col2 = "two"))
+#'
+#' # use record_batch() to create from columns
+#' record_batch(col1 = 1, col2 = "two")
 #'
 as_record_batch <- function(x, ..., schema = NULL) {
   UseMethod("as_record_batch")
@@ -282,7 +286,7 @@ as_record_batch.Table <- function(x, ..., schema = NULL) {
 
   arrays_out <- lapply(x$columns, as_arrow_array)
   names(arrays_out) <- names(x)
-  out <- RecordBatch__from_arrays(NULL, arrays_out)
+  out <- RecordBatch$create(!!! arrays_out)
   if (!is.null(schema)) {
     out <- out$cast(schema)
   }

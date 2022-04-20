@@ -31,7 +31,10 @@ Whereas \code{\link[=record_batch]{record_batch()}} constructs a \link{RecordBat
 \code{as_record_batch()} converts a single object to an Arrow \link{RecordBatch}.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+# use as_record_batch() for a single object
 as_record_batch(data.frame(col1 = 1, col2 = "two"))
-\dontshow{\}) # examplesIf}
+
+# use record_batch() to create from columns
+record_batch(col1 = 1, col2 = "two")
+
 }

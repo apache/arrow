@@ -34,6 +34,10 @@ Whereas \code{\link[=arrow_table]{arrow_table()}} constructs a table from one or
 \code{as_arrow_table()} converts a single object to an Arrow \link{Table}.
 }
 \examples{
+# use as_arrow_table() for a single object
 as_arrow_table(data.frame(col1 = 1, col2 = "two"))
+
+# use arrow_table() to create from columns
+arrow_table(col1 = 1, col2 = "two")
 
 }
