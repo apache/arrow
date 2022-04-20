@@ -1314,11 +1314,11 @@ test_that("make_difftime()", {
     weeks = c(1, 3, 5, NA),
     number = 10:13
   )
-  
-    compare_dplyr_binding(
+
+  compare_dplyr_binding(
     .input %>%
       mutate(
-          duration_from_parts = make_difftime(
+        duration_from_parts = make_difftime(
           second = seconds,
           minute = minutes,
           hour = hours,
@@ -1388,5 +1388,5 @@ test_that("make_difftime()", {
         ) %>%
         collect()
     )
-      )
+  )
 })
