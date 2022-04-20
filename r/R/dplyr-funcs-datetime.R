@@ -415,8 +415,8 @@ binding_as_date <- function(x,
 
   if (origin != "1970-01-01") {
     delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
-    delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int32()))
-    delta_in_days <- delta_in_sec / 86400L
+    delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int64()))
+    delta_in_days <- (delta_in_sec / 86400L)$cast(int32())
     x <- build_expr("+", x, delta_in_days)
   }
 
