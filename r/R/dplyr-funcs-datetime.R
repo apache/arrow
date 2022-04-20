@@ -353,23 +353,39 @@ register_bindings_duration <- function() {
   })
 }
 
+.helpers_function_map <- list(
+  "dminutes" = c(60, "s"),
+  "dhours" = c(3600, "s"),
+  "ddays" = c(86400, "s"),
+  "dweeks" = c(604800, "s"),
+  "dmonths" = c(2629800, "s"),
+  "ydyears" = c(31557600, "s"),
+  "dseconds" = c(1, "s"),
+  "dmilliseconds" = c(1, "ms"),
+  "dmicroseconds" = c(1, "us"),
+  "dnanoseconds" = c(1, "ns")
+)
 make_duration <- function(x, unit) {
   x <- build_expr("cast", x, options = cast_options(to_type = int64()))
   x$cast(duration(unit))
 }
 register_bindings_duration_helpers <- function() {
-  register_binding("dseconds", function(x = 1) {
-    make_duration(x, "s")
-  })
-  register_binding("dmilliseconds", function(x = 1) {
-    make_duration(x, "ms")
-  })
-  register_binding("dmicroseconds", function(x = 1) {
-    make_duration(x, "us")
-  })
-  register_binding("dnanoseconds", function(x = 1) {
-    make_duration(x, "ns")
-  })
+  duration_helpers_map_factory <- function(value, unit) {
+    force(value)
+    force(unit)
+    function(x = 1) make_duration(x * value, unit)
+  }
+
+  for (name in names(.helpers_function_map)){
+    register_binding(
+      name,
+      duration_helpers_map_factory(
+        .helpers_function_map[[name]][1],
+        .helpers_function_map[[name]][2]
+      )
+    )
+  }
+
   register_binding("dpicoseconds", function(x = 1) {
     abort("Duration in picoseconds not supported in Arrow.")
   })
@@ -402,46 +418,6 @@ register_bindings_difftime_constructors <- function() {
 
     duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
     duration$cast(duration("s"))
-  })
-}
-
-make_duration <- function(x, unit) {
-  x <- build_expr("cast", x, options = cast_options(to_type = int64()))
-  x$cast(duration(unit))
-}
-register_bindings_duration_helpers <- function() {
-  register_binding("dminutes", function(x = 1) {
-    make_duration(x * 60, "s")
-  })
-  register_binding("dhours", function(x = 1) {
-    make_duration(x * 3600, "s")
-  })
-  register_binding("ddays", function(x = 1) {
-    make_duration(x * 86400, "s")
-  })
-  register_binding("dweeks", function(x = 1) {
-    make_duration(x * 604800, "s")
-  })
-  register_binding("dmonths", function(x = 1) {
-    make_duration(x * 2629800, "s")
-  })
-  register_binding("dyears", function(x = 1) {
-    make_duration(x * 31557600, "s")
-  })
-  register_binding("dseconds", function(x = 1) {
-    make_duration(x, "s")
-  })
-  register_binding("dmilliseconds", function(x = 1) {
-    make_duration(x, "ms")
-  })
-  register_binding("dmicroseconds", function(x = 1) {
-    make_duration(x, "us")
-  })
-  register_binding("dnanoseconds", function(x = 1) {
-    make_duration(x, "ns")
-  })
-  register_binding("dpicoseconds", function(x = 1) {
-    abort("Duration in picoseconds not supported in Arrow.")
   })
 }
 
