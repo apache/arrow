@@ -623,10 +623,12 @@ if(ARROW_TESTING)
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
                 arrow::flatbuffers
+                rapidjson::rapidjson
                 arrow_shared
                 GTest::gtest
                 STATIC_LINK_LIBS
                 arrow::flatbuffers
+                rapidjson::rapidjson
                 arrow_static
                 GTest::gtest)
 
