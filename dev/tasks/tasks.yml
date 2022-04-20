@@ -1279,7 +1279,7 @@ tasks:
     template: r/github.linux.offline.build.yml
 
 
-  test-r-rhub-debian-gcc-release-ccache:
+  test-r-rhub-debian-gcc-release-custom-ccache:
     ci: azure
     template: r/azure.linux.yml
     params:
