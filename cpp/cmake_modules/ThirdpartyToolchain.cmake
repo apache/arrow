@@ -3827,7 +3827,6 @@ if(ARROW_WITH_GRPC)
     message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
     set(gRPC_SOURCE "${Protobuf_SOURCE}")
   endif()
-  build_absl_once()
   resolve_dependency(gRPC
                      HAVE_ALT
                      TRUE
