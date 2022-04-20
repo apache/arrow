@@ -2,7 +2,7 @@
 
     Can't create Array<float64()> from object of type custom_vctr / vctrs_vctr
 
-# as_arrow_array() default method errors for impossible cases
+# as_arrow_array() default method errors
 
     Use `concat_arrays()` or `ChunkedArray$create()` instead.
     i `concat_arrays()` creates a new Array by copying data.
@@ -14,7 +14,7 @@
 
 ---
 
-    Can't infer Arrow data type from object inheriting from class_not_supported
+    Can't create Array<float64()> from object of type class_not_supported
 
 ---
 

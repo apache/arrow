@@ -1104,7 +1104,7 @@ test_that("as_arrow_array() works for nested extension types", {
   )
 })
 
-test_that("as_arrow_array() default method errors for impossible cases", {
+test_that("as_arrow_array() default method errors", {
   vec <- structure(list(), class = "class_not_supported")
 
   # check errors simulating a call from C++
@@ -1113,14 +1113,11 @@ test_that("as_arrow_array() default method errors for impossible cases", {
     as_arrow_array(vec, type = float64(), from_vec_to_array = TRUE)
   )
 
-  # check that the errors propagate through Array$create()
-  type.class_not_supported <- function(x, ...) {
-    float64()
-  }
-
-  # slightly different error if type was specified
-  expect_snapshot_error(as_arrow_array(vec))
-  expect_snapshot_error(as_arrow_array(vec, type = float64()))
+  # check errors actually coming through C++
+  expect_snapshot_error(Array$create(vec, type = float64()))
+  expect_snapshot_error(
+    RecordBatch$create(col = vec, schema = schema(col = float64()))
+  )
 })
 
 test_that("concat_arrays works", {
