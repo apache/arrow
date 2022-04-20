@@ -36,7 +36,7 @@ namespace arrow {
 namespace fs {
 struct GcsCredentialsHolder {
   // Constructor needed for make_shared
-  GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials)
+  explicit GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials)
       : credentials(std::move(credentials)) {}
   std::shared_ptr<google::cloud::Credentials> credentials;
 };

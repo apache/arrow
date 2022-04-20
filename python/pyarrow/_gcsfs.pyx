@@ -104,7 +104,8 @@ cdef class GcsFileSystem(FileSystem):
             options = CGcsOptions.Anonymous()
         elif access_token:
             if not isinstance(credential_token_expiration, datetime):
-                raise ValueError("credential_token_expiration must be a datetime")
+                raise ValueError(
+                    "credential_token_expiration must be a datetime")
             options = CGcsOptions.FromAccessToken(
                 tobytes(access_token),
                 PyDateTime_to_TimePoint(<PyDateTime_DateTime*>credential_token_expiration))
