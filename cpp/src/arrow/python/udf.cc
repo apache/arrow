@@ -75,7 +75,7 @@ struct PythonUdf {
           auto datum = batch[arg_id];
           return Status::NotImplemented(
               "User-defined-functions are not supported for the datum kind ",
-              datum.ToString(datum.kind()));
+              datum.ToString(batch[arg_id].kind()));
       }
     }
     PyObject* result;
