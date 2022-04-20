@@ -19,6 +19,7 @@
 
 #include <google/cloud/storage/client.h>
 #include <algorithm>
+#include <chrono>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"
@@ -707,8 +708,11 @@ GcsOptions GcsOptions::Anonymous() {
 GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
                                        TimePoint expiration) {
   GcsOptions options{};
-  options.credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
-      google::cloud::MakeAccessTokenCredentials(access_token, expiration));
+  options.credentials.holder_ =
+      std::make_shared<GcsCredentialsHolder>(google::cloud::MakeAccessTokenCredentials(
+          access_token,
+          std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(
+              expiration)));
   options.credentials.access_token_ = access_token;
   options.credentials.expiration_ = expiration;
   options.scheme = "https";
