@@ -180,6 +180,9 @@ class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
   explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
 
   ~OwnedRefNoGIL() {
+    if (obj() == NULLPTR) {
+      return;
+    }
     PyAcquireGIL lock;
     reset();
   }

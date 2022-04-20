@@ -367,14 +367,13 @@ def test_non_uniform_input_udfs():
         "summary": "multi type udf",
         "description": "desc"
     }
-    pc.register_scalar_function(unary_scalar_function, 
+    pc.register_scalar_function(unary_scalar_function,
                                 "multi_type_udf", func_doc,
                                 in_types,
                                 pa.int64())
 
     res = pc.call_function("multi_type_udf",
                            [pa.scalar(10), pa.array([1, 2, 3]), pa.scalar(20)])
-
     assert res == pa.array([30, 60, 90])
 
 
