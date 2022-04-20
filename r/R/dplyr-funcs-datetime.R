@@ -353,28 +353,6 @@ register_bindings_duration <- function() {
   })
 }
 
-make_duration <- function(x, unit) {
-  x <- build_expr("cast", x, options = cast_options(to_type = int64()))
-  x$cast(duration(unit))
-}
-register_bindings_duration_helpers <- function() {
-  register_binding("dseconds", function(x = 1) {
-    make_duration(x, "s")
-  })
-  register_binding("dmilliseconds", function(x = 1) {
-    make_duration(x, "ms")
-  })
-  register_binding("dmicroseconds", function(x = 1) {
-    make_duration(x, "us")
-  })
-  register_binding("dnanoseconds", function(x = 1) {
-    make_duration(x, "ns")
-  })
-  register_binding("dpicoseconds", function(x = 1) {
-    abort("Duration in picoseconds not supported in Arrow.")
-  })
-}
-
 register_bindings_difftime_constructors <- function() {
   register_binding("make_difftime", function(num = NULL,
                                              units = "secs",
@@ -427,8 +405,6 @@ register_bindings_duration_helpers <- function() {
   })
   register_binding("dyears", function(x = 1) {
     make_duration(x * 31557600, "s")
-<<<<<<< HEAD
-=======
   })
   register_binding("dseconds", function(x = 1) {
     make_duration(x, "s")
@@ -444,7 +420,6 @@ register_bindings_duration_helpers <- function() {
   })
   register_binding("dpicoseconds", function(x = 1) {
     abort("Duration in picoseconds not supported in Arrow.")
->>>>>>> 3651fb81a (Correct two typos left from the conflict merge)
   })
 }
 
