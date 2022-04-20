@@ -85,12 +85,12 @@ struct DummyNode : ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {
+  void PauseProducing(ExecNode* output, int32_t counter) override {
     ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
     AssertIsOutput(output);
   }
 
-  void ResumeProducing(ExecNode* output) override {
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
     ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
     AssertIsOutput(output);
   }

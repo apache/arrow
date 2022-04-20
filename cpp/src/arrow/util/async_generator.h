@@ -825,33 +825,18 @@ class ReadaheadGenerator {
   std::shared_ptr<State> state_;
 };
 
-/// \brief An interface for adding backpressure support to the push generator
-///
-/// This is "best effort" because the generator should not block.  Instead some
-/// other mechanism should be responsible for identifying when backpressure limits
-/// are reached and pausing any producers
-template <typename T>
-class BestEffortBackpressureHandler {
- public:
-  virtual void RecordProduced(const T& item) = 0;
-  virtual void RecordConsumed(const T& item) = 0;
-};
-
 /// \brief A generator where the producer pushes items on a queue.
 ///
-/// Backpressure options optionally can be provided.  The generator itself
-/// cannot block and does not enforce backpressure.  Instead it will mark the given
-/// toggle closed when backpressure limits are encountered.  The producer should
-/// monitor the toggle and pause producing when it is closed.
+/// No back-pressure is applied, so this generator is mostly useful when
+/// producing the values is neither CPU- nor memory-expensive (e.g. fetching
+/// filesystem metadata).
 ///
 /// This generator is not async-reentrant.
 template <typename T>
 class PushGenerator {
   struct State {
-    explicit State(std::shared_ptr<BestEffortBackpressureHandler<T>> backpressure)
-        : backpressure(std::move(backpressure)) {}
+    State() {}
 
-    std::shared_ptr<BestEffortBackpressureHandler<T>> backpressure;
     util::Mutex mutex;
     std::deque<Result<T>> result_q;
     util::optional<Future<T>> consumer_fut;
@@ -886,9 +871,6 @@ class PushGenerator {
         lock.Unlock();  // unlock before potentially invoking a callback
         fut.MarkFinished(std::move(result));
       } else {
-        if (result.ok()) {
-          state->backpressure->RecordProduced(*result);
-        }
         state->result_q.push_back(std::move(result));
       }
       return true;
@@ -938,21 +920,16 @@ class PushGenerator {
     const std::weak_ptr<State> weak_state_;
   };
 
-  explicit PushGenerator(
-      std::shared_ptr<BestEffortBackpressureHandler<T>> backpressure = NULLPTR)
-      : state_(std::make_shared<State>(std::move(backpressure))) {}
+  PushGenerator() : state_(std::make_shared<State>()) {}
 
   /// Read an item from the queue
   Future<T> operator()() const {
     auto lock = state_->mutex.Lock();
     assert(!state_->consumer_fut.has_value());  // Non-reentrant
     if (!state_->result_q.empty()) {
-      Result<T> result = std::move(state_->result_q.front());
+      auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
       state_->result_q.pop_front();
-      if (result.ok()) {
-        state_->backpressure->RecordConsumed(*result);
-      }
-      return Future<T>::MakeFinished(std::move(result));
+      return fut;
     }
     if (state_->finished) {
       return AsyncGeneratorEnd<T>();
@@ -1975,50 +1952,6 @@ struct CancellableGenerator {
 template <typename T>
 AsyncGenerator<T> MakeCancellable(AsyncGenerator<T> source, StopToken stop_token) {
   return CancellableGenerator<T>{std::move(source), std::move(stop_token)};
-}
-
-template <typename T>
-struct PauseableGenerator {
- public:
-  PauseableGenerator(AsyncGenerator<T> source, std::shared_ptr<util::AsyncToggle> toggle)
-      : state_(std::make_shared<PauseableGeneratorState>(std::move(source),
-                                                         std::move(toggle))) {}
-
-  Future<T> operator()() { return (*state_)(); }
-
- private:
-  struct PauseableGeneratorState
-      : public std::enable_shared_from_this<PauseableGeneratorState> {
-    PauseableGeneratorState(AsyncGenerator<T> source,
-                            std::shared_ptr<util::AsyncToggle> toggle)
-        : source_(std::move(source)), toggle_(std::move(toggle)) {}
-
-    Future<T> operator()() {
-      std::shared_ptr<PauseableGeneratorState> self = this->shared_from_this();
-      return toggle_->WhenOpen().Then([self] {
-        util::Mutex::Guard guard = self->mutex_.Lock();
-        return self->source_();
-      });
-    }
-
-    AsyncGenerator<T> source_;
-    std::shared_ptr<util::AsyncToggle> toggle_;
-    util::Mutex mutex_;
-  };
-  std::shared_ptr<PauseableGeneratorState> state_;
-};
-
-/// \brief Allow an async generator to be paused
-///
-/// This generator is NOT async-reentrant and calling it in an async-reentrant fashion
-/// may lead to items getting reordered (and potentially truncated if the end token is
-/// reordered ahead of valid items)
-///
-/// This generator forwards async-reentrant pressure
-template <typename T>
-AsyncGenerator<T> MakePauseable(AsyncGenerator<T> source,
-                                std::shared_ptr<util::AsyncToggle> toggle) {
-  return PauseableGenerator<T>(std::move(source), std::move(toggle));
 }
 
 template <typename T>

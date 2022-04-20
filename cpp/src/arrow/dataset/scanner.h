@@ -50,16 +50,12 @@ namespace dataset {
 ///
 /// @{
 
-// Backpressure defaults to 1 << 6 so this means
-// the exec plan will keep about 1 << 23 rows in memory
-constexpr int64_t kDefaultBatchSize = 1 << 17;
+constexpr int64_t kDefaultBatchSize = 1 << 17;  // 128Ki rows
 // We generally recommend row groups sized at 1 << 20 so with
-// 4 fragments (and 2 row groups per fragment) we get 1 << 23
+// 4 fragments (and 4 row groups per fragment) we get 16Mi rows
 // rows in memory in the scanner
 constexpr int32_t kDefaultBatchReadahead = 4;
-constexpr int32_t kDefaultFragmentReadahead = 4;
-constexpr int32_t kDefaultBackpressureHigh = 64;
-constexpr int32_t kDefaultBackpressureLow = 32;
+constexpr int32_t kDefaultFragmentReadahead = 16;
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
@@ -406,18 +402,15 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// ordering for simple ExecPlans.
 class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
  public:
-  explicit ScanNodeOptions(
-      std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
-      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR,
-      bool require_sequenced_output = false)
+  explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
+                           std::shared_ptr<ScanOptions> scan_options,
+                           bool require_sequenced_output = false)
       : dataset(std::move(dataset)),
         scan_options(std::move(scan_options)),
-        backpressure_toggle(std::move(backpressure_toggle)),
         require_sequenced_output(require_sequenced_output) {}
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;
-  std::shared_ptr<util::AsyncToggle> backpressure_toggle;
   bool require_sequenced_output;
 };
 

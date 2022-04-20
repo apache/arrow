@@ -30,6 +30,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
@@ -346,8 +347,6 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
-  util::BackpressureOptions backpressure =
-      util::BackpressureOptions::Make(kDefaultBackpressureLow, kDefaultBackpressureHigh);
   auto exprs = scan_options_->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
                    scan_options_->projection.call()->options.get())
@@ -356,12 +355,13 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
           {
-              {"scan", ScanNodeOptions{dataset_, scan_options_, backpressure.toggle,
-                                       sequence_fragments}},
+              {"scan", ScanNodeOptions{dataset_, scan_options_, sequence_fragments}},
               {"filter", compute::FilterNodeOptions{scan_options_->filter}},
               {"augmented_project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"sink", compute::SinkNodeOptions{&sink_gen, std::move(backpressure)}},
+              {"sink",
+               compute::SinkNodeOptions{
+                   &sink_gen, compute::BackpressureOptions::DefaultBackpressure()}},
           })
           .AddToPlan(plan.get()));
 
@@ -853,7 +853,6 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   const auto& scan_node_options = checked_cast<const ScanNodeOptions&>(options);
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
-  const auto& backpressure_toggle = scan_node_options.backpressure_toggle;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
@@ -903,10 +902,6 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         batch->values.emplace_back(partial.fragment.value->ToString());
         return batch;
       });
-
-  if (backpressure_toggle) {
-    gen = MakePauseable(gen, backpressure_toggle);
-  }
 
   auto fields = scan_options->dataset_schema->fields();
   for (const auto& aug_field : kAugmentedFields) {

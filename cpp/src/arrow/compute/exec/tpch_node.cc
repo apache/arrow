@@ -3390,8 +3390,12 @@ class TpchNode : public ExecNode {
         });
   }
 
-  void PauseProducing(ExecNode* output) override {}
-  void ResumeProducing(ExecNode* output) override {}
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    // TODO(ARROW-16087)
+  }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    // TODO(ARROW-16087)
+  }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);

@@ -273,19 +273,19 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
   DatasetWritingSinkNodeConsumer(std::shared_ptr<const KeyValueMetadata> custom_metadata,
                                  std::unique_ptr<internal::DatasetWriter> dataset_writer,
-                                 FileSystemDatasetWriteOptions write_options,
-                                 std::shared_ptr<util::AsyncToggle> backpressure_toggle)
+                                 FileSystemDatasetWriteOptions write_options)
       : custom_metadata_(std::move(custom_metadata)),
         dataset_writer_(std::move(dataset_writer)),
-        write_options_(std::move(write_options)),
-        backpressure_toggle_(std::move(backpressure_toggle)) {}
+        write_options_(std::move(write_options)) {}
 
-  Status Init(const std::shared_ptr<Schema>& schema) override {
+  Status Init(const std::shared_ptr<Schema>& schema,
+              compute::BackpressureControl* backpressure_control) override {
     if (custom_metadata_) {
       schema_ = schema->WithMetadata(custom_metadata_);
     } else {
       schema_ = schema;
     }
+    backpressure_control_ = backpressure_control;
     return Status::OK();
   }
 
@@ -326,9 +326,12 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
       RETURN_NOT_OK(task_group_.AddTask([this, next_batch, destination] {
         Future<> has_room = dataset_writer_->WriteRecordBatch(
             next_batch, destination.directory, destination.prefix);
-        if (!has_room.is_finished() && backpressure_toggle_) {
-          backpressure_toggle_->Close();
-          return has_room.Then([this] { backpressure_toggle_->Open(); });
+        if (!has_room.is_finished()) {
+          // We don't have to worry about sequencing backpressure here since task_group_
+          // serves as our sequencer.  If batches continue to arrive after we pause they
+          // will queue up in task_group_ until we free up and call Resume
+          backpressure_control_->Pause();
+          return has_room.Then([this] { backpressure_control_->Resume(); });
         }
         return has_room;
       }));
@@ -339,9 +342,9 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   std::shared_ptr<const KeyValueMetadata> custom_metadata_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
-  std::shared_ptr<util::AsyncToggle> backpressure_toggle_;
   util::SerializedAsyncTaskGroup task_group_;
   std::shared_ptr<Schema> schema_ = nullptr;
+  compute::BackpressureControl* backpressure_control_;
 };
 
 }  // namespace
@@ -361,8 +364,6 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
                    scanner->options()->projection.call()->options.get())
                    ->field_names;
   std::shared_ptr<Dataset> dataset = scanner->dataset();
-  std::shared_ptr<util::AsyncToggle> backpressure_toggle =
-      std::make_shared<util::AsyncToggle>();
 
   // The projected_schema is currently used by pyarrow to preserve the custom metadata
   // when reading from a single input file.
@@ -371,12 +372,11 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
           {
-              {"scan", ScanNodeOptions{dataset, scanner->options(), backpressure_toggle}},
+              {"scan", ScanNodeOptions{dataset, scanner->options()}},
               {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
               {"project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"write",
-               WriteNodeOptions{write_options, custom_metadata, backpressure_toggle}},
+              {"write", WriteNodeOptions{write_options, custom_metadata}},
           })
           .AddToPlan(plan.get()));
 
@@ -397,15 +397,13 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
   const std::shared_ptr<const KeyValueMetadata>& custom_metadata =
       write_node_options.custom_metadata;
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
-  const std::shared_ptr<util::AsyncToggle>& backpressure_toggle =
-      write_node_options.backpressure_toggle;
 
   ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
                         internal::DatasetWriter::Make(write_options));
 
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
       std::make_shared<DatasetWritingSinkNodeConsumer>(
-          custom_metadata, std::move(dataset_writer), write_options, backpressure_toggle);
+          custom_metadata, std::move(dataset_writer), write_options);
 
   ARROW_ASSIGN_OR_RAISE(
       auto node,

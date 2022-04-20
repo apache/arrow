@@ -1062,11 +1062,12 @@ TEST_F(TestBackpressure, ScanBatchesUnordered) {
   EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
                        scanner->ScanBatchesUnorderedAsync());
   ASSERT_FINISHES_OK(gen());
+  constexpr int32_t kMaxBatchesRead = kDefaultFragmentReadahead * kDefaultBatchReadahead;
   // The exact numbers may be imprecise due to threading but we should pretty quickly read
   // up to our backpressure limit and a little above.  We should not be able to go too far
   // above.
-  BusyWait(30, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
-  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
+  BusyWait(30, [&] { return TotalBatchesRead() >= kMaxBatchesRead; });
+  ASSERT_GE(TotalBatchesRead(), kMaxBatchesRead);
   // Wait for the thread pool to idle.  By this point the scanner should have paused
   // itself This helps with timing on slower CI systems where there is only one core and
   // the scanner might keep that core until it has scanned all the batches which never
