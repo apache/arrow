@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestParquetRowGroupMetadata < Test::Unit::TestCase
+class TestParquetColumnChunkMetadata < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
@@ -41,33 +41,15 @@ class TestParquetRowGroupMetadata < Test::Unit::TestCase
     writer.write_table(@table, chunk_size)
     writer.close
     reader = Parquet::ArrowFileReader.new(@file.path)
-    @metadata = reader.metadata.get_row_group(0)
+    @metadata = reader.metadata.get_row_group(0).get_column_chunk(0)
   end
 
   test("#==") do
     reader = Parquet::ArrowFileReader.new(@file.path)
-    other_metadata = reader.metadata.get_row_group(0)
+    other_metadata = reader.metadata.get_row_group(0).get_column_chunk(0)
     assert do
       @metadata == other_metadata
     end
-  end
-
-  test("#n_columns") do
-    assert_equal(3, @metadata.n_columns)
-  end
-
-  sub_test_case("#get_column_chunk") do
-    test("out of range") do
-      message = "[parquet][row-group-metadata][get-column-chunk]: IOError: " +
-                "The file only has 3 columns, requested metadata for column: 3"
-      assert_raise(Arrow::Error::Io.new(message)) do
-        @metadata.get_column_chunk(3)
-      end
-    end
-  end
-
-  test("#n_rows") do
-    assert_equal(1, @metadata.n_rows)
   end
 
   test("#total_size") do

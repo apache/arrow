@@ -23,6 +23,41 @@
 
 G_BEGIN_DECLS
 
+#define GPARQUET_TYPE_COLUMN_CHUNK_METADATA     \
+  (gparquet_column_chunk_metadata_get_type())
+G_DECLARE_DERIVABLE_TYPE(GParquetColumnChunkMetadata,
+                         gparquet_column_chunk_metadata,
+                         GPARQUET,
+                         COLUMN_CHUNK_METADATA,
+                         GObject)
+struct _GParquetColumnChunkMetadataClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+gparquet_column_chunk_metadata_equal(
+  GParquetColumnChunkMetadata *metadata,
+  GParquetColumnChunkMetadata *other_metadata);
+GARROW_AVAILABLE_IN_8_0
+gint64
+gparquet_column_chunk_metadata_get_total_size(
+  GParquetColumnChunkMetadata *metadata);
+GARROW_AVAILABLE_IN_8_0
+gint64
+gparquet_column_chunk_metadata_get_total_compressed_size(
+  GParquetColumnChunkMetadata *metadata);
+GARROW_AVAILABLE_IN_8_0
+gint64
+gparquet_column_chunk_metadata_get_file_offset(
+  GParquetColumnChunkMetadata *metadata);
+GARROW_AVAILABLE_IN_8_0
+gboolean
+gparquet_column_chunk_metadata_can_decompress(
+  GParquetColumnChunkMetadata *metadata);
+
+
 #define GPARQUET_TYPE_ROW_GROUP_METADATA (gparquet_row_group_metadata_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetRowGroupMetadata,
                          gparquet_row_group_metadata,
@@ -41,6 +76,11 @@ gparquet_row_group_metadata_equal(GParquetRowGroupMetadata *metadata,
 GARROW_AVAILABLE_IN_8_0
 gint
 gparquet_row_group_metadata_get_n_columns(GParquetRowGroupMetadata *metadata);
+GARROW_AVAILABLE_IN_8_0
+GParquetColumnChunkMetadata *
+gparquet_row_group_metadata_get_column_chunk(GParquetRowGroupMetadata *metadata,
+                                             gint index,
+                                             GError **error);
 GARROW_AVAILABLE_IN_8_0
 gint64
 gparquet_row_group_metadata_get_n_rows(GParquetRowGroupMetadata *metadata);

@@ -23,6 +23,12 @@
 
 #include <parquet-glib/metadata.h>
 
+GParquetColumnChunkMetadata *
+gparquet_column_chunk_metadata_new_raw(
+  parquet::ColumnChunkMetaData *parquet_metadata);
+parquet::ColumnChunkMetaData *
+gparquet_column_chunk_metadata_get_raw(GParquetColumnChunkMetadata *metadata);
+
 GParquetRowGroupMetadata *
 gparquet_row_group_metadata_new_raw(parquet::RowGroupMetaData *parquet_metadata);
 parquet::RowGroupMetaData *
