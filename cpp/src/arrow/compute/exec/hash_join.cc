@@ -132,9 +132,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     cancelled_ = false;
     right_side_finished_ = false;
     left_side_finished_ = false;
-    bloom_filters_ready_ =
-        pushdown_target_ ==
-        nullptr;  // If we're not pushing the Bloom filter anywhere, the filter is ready
+    bloom_filters_ready_ = false;
     left_queue_bloom_finished_ = false;
     left_queue_probe_finished_ = false;
 
