@@ -26,7 +26,8 @@ import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
-from pyarrow.tests.util import _filesystem_uri, ProxyHandler, _configure_s3_limited_user
+from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
+                                _configure_s3_limited_user)
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,

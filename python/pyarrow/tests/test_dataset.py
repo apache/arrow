@@ -35,7 +35,8 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler, _configure_s3_limited_user)
+                                FSProtocolClass, ProxyHandler,
+                                _configure_s3_limited_user)
 
 try:
     import pandas as pd

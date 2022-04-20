@@ -406,7 +406,7 @@ def _configure_s3_limited_user(s3_server, policy):
     Arrow S3 operations should still work in such a configuration
     (e.g. see ARROW-13685)
     """
-    
+
     if sys.platform == 'win32':
         # Can't rely on FileNotFound check because
         # there is sometimes an mc command on Windows
@@ -446,4 +446,3 @@ def _configure_s3_limited_user(s3_server, policy):
     except FileNotFoundError:
         pytest.skip(
             'Could not locate mc command to configure limited user')
-

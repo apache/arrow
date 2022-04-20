@@ -853,7 +853,8 @@ Table/RecordBatch, or iterable of RecordBatch
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.
     create_dir : bool, default True
-        Flag to restrict or allow creating directory while writing a dataset.
+        If False, directories will not be created.  This can be useful for
+        filesystems that do not require directories.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
