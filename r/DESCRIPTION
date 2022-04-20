@@ -116,7 +116,7 @@ Collate:
     'filesystem.R'
     'flight.R'
     'install-arrow.R'
-    'ipc_stream.R'
+    'ipc-stream.R'
     'json.R'
     'memory-pool.R'
     'message.R'
