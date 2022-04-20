@@ -2566,4 +2566,5 @@ def register_scalar_function(func, func_name, function_doc, in_types,
     c_options = make_shared[CScalarUdfOptions](c_func_name, c_arity, c_func_doc,
                                                c_in_types, deref(c_out_type))
 
-    check_status(RegisterScalarFunction(c_function, <function[CallbackUdf]> &_scalar_udf_callback, deref(c_options)))
+    check_status(RegisterScalarFunction(c_function,
+     <function[CallbackUdf]> &_scalar_udf_callback, deref(c_options)))
