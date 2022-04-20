@@ -112,9 +112,9 @@ Status PyFileSystem::DeleteDir(const std::string& path) {
   });
 }
 
-Status PyFileSystem::DeleteDirContents(const std::string& path) {
+Status PyFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   return SafeCallIntoPython([&]() -> Status {
-    vtable_.delete_dir_contents(handler_.obj(), path);
+    vtable_.delete_dir_contents(handler_.obj(), path, missing_dir_ok);
     return CheckPyError();
   });
 }
