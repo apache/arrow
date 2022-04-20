@@ -354,16 +354,16 @@ register_bindings_duration <- function() {
 }
 
 .helpers_function_map <- list(
-  "dminutes" = c(60, "s"),
-  "dhours" = c(3600, "s"),
-  "ddays" = c(86400, "s"),
-  "dweeks" = c(604800, "s"),
-  "dmonths" = c(2629800, "s"),
-  "ydyears" = c(31557600, "s"),
-  "dseconds" = c(1, "s"),
-  "dmilliseconds" = c(1, "ms"),
-  "dmicroseconds" = c(1, "us"),
-  "dnanoseconds" = c(1, "ns")
+  "dminutes" = list(60, "s"),
+  "dhours" = list(3600, "s"),
+  "ddays" = list(86400, "s"),
+  "dweeks" = list(604800, "s"),
+  "dmonths" = list(2629800, "s"),
+  "dyears" = list(31557600, "s"),
+  "dseconds" = list(1, "s"),
+  "dmilliseconds" = list(1, "ms"),
+  "dmicroseconds" = list(1, "us"),
+  "dnanoseconds" = list(1, "ns")
 )
 make_duration <- function(x, unit) {
   x <- build_expr("cast", x, options = cast_options(to_type = int64()))
@@ -380,8 +380,8 @@ register_bindings_duration_helpers <- function() {
     register_binding(
       name,
       duration_helpers_map_factory(
-        .helpers_function_map[[name]][1],
-        .helpers_function_map[[name]][2]
+        .helpers_function_map[[name]][[1]],
+        .helpers_function_map[[name]][[2]]
       )
     )
   }
