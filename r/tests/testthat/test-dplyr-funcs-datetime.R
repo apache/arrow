@@ -1354,7 +1354,9 @@ test_that("make_difftime()", {
         mutate(
           err_difftime = make_difftime(month = 2)
         ) %>%
-        collect()
+        collect(),
+      paste0("named `difftime` units other than: `second`, `minute`, `hour`,",
+            " `day`, and `week` not supported in Arrow.")
     )
   )
 
@@ -1386,7 +1388,8 @@ test_that("make_difftime()", {
             units = "secs"
           )
         ) %>%
-        collect()
+        collect(),
+      "with both `num` and `...` not supported in Arrow"
     )
   )
 })
