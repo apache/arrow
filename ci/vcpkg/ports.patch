@@ -32,7 +32,6 @@ index 2d6bba4d..0ac47887 100644
      PATCHES
          patch-relocatable-rpath.patch
          fix-aws-root.patch
-         fix-openssl3.patch
 +        fix-find-crypto.patch
  )
 
