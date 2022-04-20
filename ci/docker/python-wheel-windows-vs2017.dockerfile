@@ -83,7 +83,7 @@ RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/
-RUN python -m pip install tzdata -r arrow/python/requirements-wheel-build.txt
+RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
 
 # ENV CLCACHE_DIR="C:\clcache"
 # ENV CLCACHE_COMPRESS=1
