@@ -22,6 +22,7 @@
 #include "gandiva/formatting_utils.h"
 #include "gandiva/gdv_function_stubs.h"
 #include "gandiva/hash_utils.h"
+#include "gandiva/in_holder.h"
 #include "gandiva/precompiled/types.h"
 
 extern "C" {
