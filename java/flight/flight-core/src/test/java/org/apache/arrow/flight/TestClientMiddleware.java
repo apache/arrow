@@ -246,9 +246,11 @@ public class TestClientMiddleware {
   }
 
   // Used to test that middleware can send and receive multi-valued text and binary headers.
+  @SuppressWarnings({"DoubleBraceInitialization"})
   static final Map<String, List<byte[]>> EXPECTED_BINARY_HEADERS = new HashMap<String, List<byte[]>>() {{
       put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
     }};
+  @SuppressWarnings({"DoubleBraceInitialization"})
   static final Map<String, List<String>> EXPECTED_TEXT_HEADERS = new HashMap<String, List<String>>() {{
       put("x-text", Arrays.asList("foo", "bar"));
     }};

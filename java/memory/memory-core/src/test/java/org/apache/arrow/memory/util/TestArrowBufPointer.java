@@ -111,6 +111,7 @@ public class TestArrowBufPointer {
   }
 
   @Test
+  @SuppressWarnings("ReturnValueIgnored")
   public void testReuseHashCode() {
     try (ArrowBuf buf = allocator.buffer(10)) {
       buf.setInt(0, 10);

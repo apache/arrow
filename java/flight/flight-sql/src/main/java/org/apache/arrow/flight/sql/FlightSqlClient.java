@@ -77,6 +77,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 /**
  * Flight client with Flight SQL semantics.
  */
+@SuppressWarnings({"ProtoBuilderReturnValueIgnored", "ReturnValueIgnored"})
 public class FlightSqlClient implements AutoCloseable {
   private final FlightClient client;
 

@@ -97,6 +97,7 @@ public class TestCallOptions {
     testHeaders(headers);
   }
 
+  @SuppressWarnings("ReturnValueIgnored")
   private void testHeaders(CallHeaders headers) {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
