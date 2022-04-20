@@ -163,10 +163,8 @@ class ARROW_EXPORT BlockedBloomFilter {
 
   inline void Insert(uint64_t hash) {
     uint64_t m = mask(hash);
-    std::atomic_thread_fence(std::memory_order_acquire);
     uint64_t& b = blocks_[block_id(hash)];
     b |= m;
-    std::atomic_thread_fence(std::memory_order_release);
   }
 
   void Insert(int64_t hardware_flags, int64_t num_rows, const uint32_t* hashes);
