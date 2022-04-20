@@ -121,19 +121,20 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 
 #if defined(ARROW_R_WITH_DATASET)
 
+#include <arrow/dataset/file_base.h>
 #include <arrow/dataset/plan.h>
 #include <arrow/dataset/scanner.h>
 
 // [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
     const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<arrow::dataset::Dataset>& dataset,
+    const std::shared_ptr<ds::Dataset>& dataset,
     const std::shared_ptr<compute::Expression>& filter,
     std::vector<std::string> materialized_field_names) {
   arrow::dataset::internal::Initialize();
 
   // TODO: pass in FragmentScanOptions
-  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  auto options = std::make_shared<ds::ScanOptions>();
 
   options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
 
@@ -154,7 +155,49 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
                       .Bind(*dataset->schema()));
 
   return MakeExecNodeOrStop("scan", plan.get(), {},
-                            arrow::dataset::ScanNodeOptions{dataset, options});
+                            ds::ScanNodeOptions{dataset, options});
+}
+
+// [[dataset::export]]
+void ExecPlan_Write(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::strings metadata,
+    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
+    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
+    const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
+    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions,
+    uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group,
+    uint64_t max_rows_per_group) {
+  arrow::dataset::internal::Initialize();
+
+  // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
+  // and encapsulate this logic better
+  ds::FileSystemDatasetWriteOptions opts;
+  opts.file_write_options = file_write_options;
+  opts.existing_data_behavior = existing_data_behavior;
+  opts.filesystem = filesystem;
+  opts.base_dir = base_dir;
+  opts.partitioning = partitioning;
+  opts.basename_template = basename_template;
+  opts.max_partitions = max_partitions;
+  opts.max_open_files = max_open_files;
+  opts.max_rows_per_file = max_rows_per_file;
+  opts.min_rows_per_group = min_rows_per_group;
+  opts.max_rows_per_group = max_rows_per_group;
+
+  // TODO: factor this out to a strings_to_KVM() helper
+  auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
+  auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
+
+  auto kv =
+      std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+
+  MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()},
+                     ds::WriteNodeOptions{std::move(opts), std::move(kv)});
+
+  StopIfNotOk(plan->Validate());
+  StopIfNotOk(plan->StartProducing());
+  StopIfNotOk(plan->finished().status());
 }
 
 #endif

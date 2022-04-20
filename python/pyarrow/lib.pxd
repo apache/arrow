@@ -23,6 +23,7 @@ from libcpp.cast cimport dynamic_cast
 from libcpp.memory cimport dynamic_pointer_cast
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport *
 
 
 cdef extern from "Python.h":
@@ -39,6 +40,10 @@ cdef class _Weakrefable:
 cdef class IpcWriteOptions(_Weakrefable):
     cdef:
         CIpcWriteOptions c_options
+
+cdef class IpcReadOptions(_Weakrefable):
+    cdef:
+        CIpcReadOptions c_options
 
 
 cdef class Message(_Weakrefable):

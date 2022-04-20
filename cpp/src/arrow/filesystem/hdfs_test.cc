@@ -235,6 +235,9 @@ TEST_F(TestHadoopFileSystem, DeleteDirContents) {
   ASSERT_OK(this->fs_->DeleteDirContents("AB"));
   AssertFileInfo(this->fs_.get(), "AB", FileType::Directory);
   ASSERT_OK(this->fs_->DeleteDir("AB"));
+
+  ASSERT_OK(this->fs_->DeleteDirContents("DoesNotExist", /*missing_dir_ok=*/true));
+  ASSERT_RAISES(IOError, this->fs_->DeleteDirContents("DoesNotExist"));
 }
 
 TEST_F(TestHadoopFileSystem, WriteReadFile) {

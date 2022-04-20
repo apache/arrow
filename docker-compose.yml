@@ -1168,6 +1168,7 @@ services:
     environment:
       <<: *ccache
       ARROW_R_CXXFLAGS: '-Werror'
+      ARROW_FLIGHT: 'ON'
       LIBARROW_BUILD: 'false'
       NOT_CRAN: 'true'
       ARROW_R_DEV: ${ARROW_R_DEV}

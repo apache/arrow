@@ -200,8 +200,10 @@ read_delim_arrow <- function(file,
 
   tryCatch(
     tab <- reader$Read(),
-    error = function(e) {
-      handle_csv_read_error(e, schema)
+    # n = 4 because we want the error to show up as being from read_delim_arrow()
+    # and not handle_csv_read_error()
+    error = function(e, call = caller_env(n = 4)) {
+      handle_csv_read_error(e, schema, call)
     }
   )
 

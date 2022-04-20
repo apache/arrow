@@ -16,4 +16,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-See the usage guide under the [documentation page](../../docs/source/developers/crossbow.rst)
+See the usage guide under the [documentation page](../../docs/source/developers/continuous_integration/crossbow.rst)

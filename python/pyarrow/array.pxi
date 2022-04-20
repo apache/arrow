@@ -753,9 +753,11 @@ cdef class _PandasConvertible(_Weakrefable):
 
         Examples
         --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+
         Convert a Table to pandas DataFrame:
 
-        >>> import pyarrow as pa
         >>> table = pa.table([
         ...    pa.array([2, 4, 5, 100]),
         ...    pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
@@ -767,6 +769,26 @@ cdef class _PandasConvertible(_Weakrefable):
         2       5  Brittle stars
         3     100      Centipede
         >>> isinstance(table.to_pandas(), pd.DataFrame)
+        True
+
+        Convert a RecordBatch to pandas DataFrame:
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.record_batch([n_legs, animals],
+        ...                         names=["n_legs", "animals"])
+        >>> batch
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        >>> batch.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       4          Horse
+        2       5  Brittle stars
+        3     100      Centipede
+        >>> isinstance(batch.to_pandas(), pd.DataFrame)
         True
 
         Convert a Chunked Array to pandas Series:
@@ -781,7 +803,6 @@ cdef class _PandasConvertible(_Weakrefable):
         4      5
         5    100
         dtype: int64
-        >>> import pandas as pd
         >>> isinstance(n_legs.to_pandas(), pd.Series)
         True
         """
@@ -1257,7 +1278,7 @@ cdef class Array(_PandasConvertible):
         -------
         value : Scalar (index) or Array (slice)
         """
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.length()))
@@ -1574,7 +1595,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
                                               obj, &out))
     elif isinstance(obj, ChunkedArray):
         with nogil:
-            check_status(libarrow.ConvertChunkedArrayToPandas(
+            check_status(libarrow_python.ConvertChunkedArrayToPandas(
                 c_options,
                 (<ChunkedArray> obj).sp_chunked_array,
                 obj, &out))

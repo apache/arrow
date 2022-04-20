@@ -66,12 +66,6 @@ dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-flight-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-gandiva-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-parquet-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-plasma-1.0.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-dev.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-dev.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.doc-base
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.links
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib800.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-glib-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-glib800.install
@@ -83,6 +77,7 @@ dev/tasks/linux-packages/apache-arrow/debian/libarrow-dataset-glib-doc.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-dataset-glib-doc.links
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-dataset-glib800.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-dataset800.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.doc-base
@@ -90,6 +85,11 @@ dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.links
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib800.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight800.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-dev.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.doc-base
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.links
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib800.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-flight-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-flight800.install
@@ -119,6 +119,7 @@ dev/tasks/linux-packages/apache-arrow/debian/libplasma800.install
 dev/tasks/linux-packages/apache-arrow/debian/patches/series
 dev/tasks/linux-packages/apache-arrow/debian/plasma-store-server.install
 dev/tasks/linux-packages/apache-arrow/debian/rules
+dev/tasks/linux-packages/apache-arrow/debian/shlibs.local
 dev/tasks/linux-packages/apache-arrow/debian/source/format
 dev/tasks/linux-packages/apache-arrow/debian/watch
 dev/tasks/requirements*.txt

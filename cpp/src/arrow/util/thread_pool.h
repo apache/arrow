@@ -202,6 +202,27 @@ class ARROW_EXPORT Executor {
   // Executor. Returns false if this Executor does not support this property.
   virtual bool OwnsThisThread() { return false; }
 
+  /// \brief An interface to represent something with a custom destructor
+  ///
+  /// \see KeepAlive
+  class ARROW_EXPORT Resource {
+   public:
+    virtual ~Resource() = default;
+  };
+
+  /// \brief Keep a resource alive until all executor threads have terminated
+  ///
+  /// Executors may have static storage duration.  In particular, the CPU and I/O
+  /// executors are currently implemented this way.  These threads may access other
+  /// objects with static storage duration such as the OpenTelemetry runtime context
+  /// the default memory pool, or other static executors.
+  ///
+  /// The order in which these objects are destroyed is difficult to control.  In order
+  /// to ensure those objects remain alive until all threads have finished those objects
+  /// should be wrapped in a Resource object and passed into this method.  The given
+  /// shared_ptr will be kept alive until all threads have finished their worker loops.
+  virtual void KeepAlive(std::shared_ptr<Resource> resource);
+
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
 
@@ -433,6 +454,8 @@ class ARROW_EXPORT ThreadPool : public Executor {
   //
   // This is useful for sequencing tests
   void WaitForIdle();
+
+  void KeepAlive(std::shared_ptr<Executor::Resource> resource) override;
 
   struct State;
 

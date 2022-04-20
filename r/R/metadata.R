@@ -133,7 +133,6 @@ remove_attributes <- function(x) {
 }
 
 arrow_attributes <- function(x, only_top_level = FALSE) {
-
   att <- attributes(x)
   removed_attributes <- remove_attributes(x)
 
@@ -207,4 +206,25 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   } else {
     NULL
   }
+}
+
+get_r_metadata_from_old_schema <- function(new_schema,
+                                           old_schema,
+                                           drop_attributes = FALSE) {
+  # TODO: do we care about other (non-R) metadata preservation?
+  # How would we know if it were meaningful?
+  r_meta <- old_schema$r_metadata
+  if (!is.null(r_meta)) {
+    # Filter r_metadata$columns on columns with name _and_ type match
+    common_names <- intersect(names(r_meta$columns), names(new_schema))
+    keep <- common_names[
+      map_lgl(common_names, ~ old_schema[[.]] == new_schema[[.]])
+    ]
+    r_meta$columns <- r_meta$columns[keep]
+    if (drop_attributes) {
+      # dplyr drops top-level attributes if you do summarize
+      r_meta$attributes <- NULL
+    }
+  }
+  r_meta
 }

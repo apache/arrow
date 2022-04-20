@@ -24,10 +24,13 @@
   * component extraction functions: `tz()` (timezone), `semester()` (semester), `dst()` (daylight savings time indicator), `date()` (extract date), `epiyear()` (epiyear), improvements to `month()`, which now works with integer inputs.
   * Added `make_date()` & `make_datetime()` + `ISOdatetime()` & `ISOdate()` to create date-times from numeric representations. 
   * Added `decimal_date()` and `date_decimal()`
+  * Added `make_difftime()` (duration constructor)
 * date-time functionality:
   * Added `as_date()` and `as_datetime()`
   * Added `difftime` and `as.difftime()` 
   * Added `as.Date()` to convert to date
+* `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
+* Removed Solaris workarounds, libarrow is now required.
 
 # arrow 7.0.0
 
