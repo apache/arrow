@@ -307,8 +307,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     # worry, `ARROW_USE_CCACHE=ON` by default, so if ccache
     # is found, it will be used by the libarrow build, and this does
     # not affect how R compiles the arrow bindings.
-    CC = gsub("^.*ccache", "", R_CMD_config("CC")),
-    CXX = paste(gsub("^.*ccache", "", R_CMD_config("CXX11")), R_CMD_config("CXX11STD")),
+    CC = sub("^.*ccache", "", R_CMD_config("CC")),
+    CXX = paste(sub("^.*ccache", "", R_CMD_config("CXX11")), R_CMD_config("CXX11STD")),
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )

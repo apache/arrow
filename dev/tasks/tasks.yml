@@ -1286,7 +1286,7 @@ tasks:
       r_org: rhub
       r_image: debian-gcc-release
       r_tag: latest
-      r_build_ccache: true
+      r_custom_ccache: true
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
