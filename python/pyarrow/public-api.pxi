@@ -20,8 +20,7 @@ from pyarrow.includes.libarrow cimport (CArray, CDataType, CField,
                                         CRecordBatch, CSchema,
                                         CTable, CTensor,
                                         CSparseCOOTensor, CSparseCSRMatrix,
-                                        CSparseCSCMatrix, CSparseCSFTensor,
-                                        CScalarUdfContext)
+                                        CSparseCSCMatrix, CSparseCSFTensor)
 
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.

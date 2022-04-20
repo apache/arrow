@@ -26,7 +26,7 @@ unary_doc = {"summary": "add function",
              "description": "test add function"}
 
 
-def unary_function(scalar1):
+def unary_function(ctx, scalar1):
     return pc.call_function("add", [scalar1, 1])
 
 
@@ -34,7 +34,7 @@ binary_doc = {"summary": "y=mx",
               "description": "find y from y = mx"}
 
 
-def binary_function(m, x):
+def binary_function(ctx, m, x):
     return pc.call_function("multiply", [m, x])
 
 
@@ -42,7 +42,7 @@ ternary_doc = {"summary": "y=mx+c",
                "description": "find y from y = mx + c"}
 
 
-def ternary_function(m, x, c):
+def ternary_function(ctx, m, x, c):
     mx = pc.call_function("multiply", [m, x])
     return pc.call_function("add", [mx, c])
 
@@ -52,7 +52,7 @@ varargs_doc = {"summary": "z=ax+by+c",
                }
 
 
-def varargs_function(*values):
+def varargs_function(ctx, *values):
     base_val = values[:2]
     res = pc.call_function("add", base_val)
     for other_val in values[2:]:
@@ -66,7 +66,7 @@ def check_scalar_function(name,
                           doc,
                           function,
                           input):
-    expected_output = function(*input)
+    expected_output = function(None, *input)
     pc.register_scalar_function(function,
                                 name, doc, in_types, out_type)
 
@@ -200,7 +200,7 @@ def test_scalar_udf_with_array_data_functions():
 
 
 def test_udf_input():
-    def unary_scalar_function(scalar):
+    def unary_scalar_function(ctx, scalar):
         return pc.call_function("add", [scalar, 1])
 
     # validate function name
@@ -235,7 +235,7 @@ def test_udf_input():
 
 
 def test_varargs_function_validation():
-    def n_add(*values):
+    def n_add(ctx, *values):
         base_val = values[:2]
         res = pc.call_function("add", base_val)
         for other_val in values[2:]:
@@ -262,7 +262,7 @@ def test_varargs_function_validation():
 
 def test_function_doc_validation():
 
-    def unary_scalar_function(scalar):
+    def unary_scalar_function(ctx, scalar):
         return pc.call_function("add", [scalar, 1])
 
     # validate arity
@@ -304,7 +304,7 @@ def test_function_doc_validation():
 
 def test_non_uniform_input_udfs():
 
-    def unary_scalar_function(scalar1, array1, scalar2):
+    def unary_scalar_function(ctx, scalar1, array1, scalar2):
         coeff = pc.call_function("add", [scalar1, scalar2])
         return pc.call_function("multiply", [coeff, array1])
 
@@ -328,7 +328,7 @@ def test_non_uniform_input_udfs():
 
 def test_nullary_functions():
 
-    def gen_random():
+    def gen_random(ctx):
         import random
         val = random.randint(0, 10)
         return pa.scalar(val)
@@ -347,7 +347,7 @@ def test_nullary_functions():
 
 
 def test_output_datatype():
-    def add_one(array):
+    def add_one(ctx, array):
         ar = pc.call_function("add", [array, 1])
         ar = ar.cast(pa.int32())
         return ar
@@ -374,7 +374,7 @@ def test_output_datatype():
 
 
 def test_output_value():
-    def add_one(array):
+    def add_one(ctx, array):
         ar = pc.call_function("add", [array, 1])
         ar = ar.cast(pa.int32())
         return ar
@@ -395,7 +395,7 @@ def test_output_value():
 
 
 def test_output_type():
-    def add_one(array):
+    def add_one(ctx, array):
         return 42
 
     func_name = "add_to_scalar_as_py"
@@ -419,7 +419,7 @@ def test_output_type():
 
 
 def test_input_type():
-    def add_one(array):
+    def add_one(ctx, array):
         return 42
 
     func_name = "test_input_type"
@@ -434,3 +434,25 @@ def test_input_type():
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(add_one, func_name, doc,
                                     in_types, out_type)
+
+
+def test_udf_context():
+
+    def random(context, one, two):
+        return pc.add(one, two, memory_pool=context.memory_pool)
+
+    in_types = {"one": pc.InputType.scalar(pa.int64()),
+                "two": pc.InputType.scalar(pa.int64())
+                }
+    func_doc = {
+        "summary": "test udf context",
+        "description": "udf context test"
+    }
+    pc.register_scalar_function(random,
+                                "test_udf_context", func_doc,
+                                in_types,
+                                pa.int64())
+
+    res = pc.call_function("test_udf_context", [pa.scalar(10), pa.scalar(20)])
+
+    assert res.as_py() == 30

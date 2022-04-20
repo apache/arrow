@@ -26,6 +26,7 @@ from collections import namedtuple
 
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
+from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
 
@@ -2370,16 +2371,16 @@ cdef class ScalarUdfContext:
         raise TypeError("Do not call {}'s constructor directly"
                         .format(self.__class__.__name__))
 
-    cdef void init(self, const CScalarUdfContext &context):
-        self.context = context
+    cdef void init(self, const CScalarUdfContext &c_context):
+        self.c_context = c_context
 
     @property
     def batch_length(self):
-        return self.context.batch_length
+        return self.c_context.batch_length
 
     @property
     def memory_pool(self):
-        return box_memory_pool(self.context.pool)
+        return box_memory_pool(self.c_context.pool)
 
 
 cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
@@ -2403,8 +2404,14 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     f_doc.options_required = False
     return f_doc
 
+cdef _scalar_udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
+    # Create Python context
+    cdef ScalarUdfContext context = ScalarUdfContext.__new__(ScalarUdfContext)
+    context.init(c_context)
+    return user_function(context, *inputs)
 
-def register_scalar_function(function, func_name, function_doc, in_types,
+
+def register_scalar_function(func, func_name, function_doc, in_types,
                              out_type):
     """
     Register a user-defined scalar function. 
@@ -2418,7 +2425,7 @@ def register_scalar_function(function, func_name, function_doc, in_types,
 
     Parameters
     ----------
-    function : callable
+    func : callable
         A callable implementing the user-defined function.
         It must take arguments equal to the number of
         in_types defined. It must return an Array or Scalar
@@ -2485,12 +2492,12 @@ def register_scalar_function(function, func_name, function_doc, in_types,
 
     c_func_name = tobytes(func_name)
 
-    if callable(function):
-        c_function = <PyObject*>function
+    if callable(func):
+        c_function = <PyObject*>func
     else:
         raise TypeError("Object must be a callable")
 
-    func_spec = inspect.getfullargspec(function)
+    func_spec = inspect.getfullargspec(func)
     num_args = -1
     if isinstance(in_types, dict):
         for in_type in in_types.values():
@@ -2527,4 +2534,4 @@ def register_scalar_function(function, func_name, function_doc, in_types,
     c_options = make_shared[CScalarUdfOptions](c_func_name, c_arity, c_func_doc,
                                                c_in_types, deref(c_out_type))
 
-    check_status(RegisterScalarFunction(c_function, deref(c_options)))
+    check_status(RegisterScalarFunction(c_function, <function[CallbackUdf]> &_scalar_udf_callback, deref(c_options)))

@@ -2699,6 +2699,8 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     int64_t TotalBufferSize(const CRecordBatch& record_batch)
     int64_t TotalBufferSize(const CTable& table)
 
+ctypedef PyObject* CallbackUdf(object user_function, const CScalarUdfContext& context, PyObject* inputs)
+
 cdef extern from "arrow/python/udf.h" namespace "arrow::py":
     cdef cppclass CScalarUdfContext" arrow::py::ScalarUdfContext":
         CMemoryPool *pool
@@ -2708,4 +2710,4 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
         CScalarUdfOptions(c_string func_name, CArity arity, CFunctionDoc func_doc,
                           vector[CInputType] in_types, COutputType out_type)
 
-    CStatus RegisterScalarFunction(PyObject* function, const CScalarUdfOptions& options)
+    CStatus RegisterScalarFunction(PyObject* function, function[CallbackUdf] wrapper, const CScalarUdfOptions& options)

@@ -83,6 +83,13 @@ struct ARROW_PYTHON_EXPORT ScalarUdfContext {
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* function,
                                                   const ScalarUdfOptions& options);
 
+using ScalarUdfWrapperCallback = std::function<PyObject*(
+    PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
+
+Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* user_function,
+                                                  ScalarUdfWrapperCallback wrapper,
+                                                  const ScalarUdfOptions& options);
+
 }  // namespace py
 
 }  // namespace arrow
