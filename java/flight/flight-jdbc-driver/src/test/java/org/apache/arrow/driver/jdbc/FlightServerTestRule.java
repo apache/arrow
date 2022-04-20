@@ -149,7 +149,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         .headerAuthenticator(authentication.authenticate())
         .middleware(FlightServerMiddleware.Key.of("KEY"), middlewareCookieFactory);
     if (certKeyPair != null) {
-      builder.useEncryption(certKeyPair.cert, certKeyPair.key);
+      builder.useTls(certKeyPair.cert, certKeyPair.key);
     }
     return builder.build();
   }
