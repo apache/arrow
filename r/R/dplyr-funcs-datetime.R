@@ -360,13 +360,21 @@ register_bindings_duration <- function() {
 
     chunks <- list(...)
 
-    if (is.null(num)) {
-      duration <- duration_from_chunks(chunks)
-    } else if (length(chunks) == 0) {
-      duration <- num
-    } else {
+    # lubridate concatenates durations passed via the `num` argument with those
+    # passed via `...` resulting in a vector of length 2 - which is virtually
+    # unusable in a dplyr pipeline. Arrow errors in this situation
+    if (!is.null(num) && length(chunks) > 0) {
       abort("`make_difftime()` with both `num` and `...` not supported in Arrow")
     }
+
+    if (!is.null(num)) {
+      # build duration from num if present
+      duration <- num
+    } else {
+      # build duration from chunks when nothing is passed via ...
+      duration <- duration_from_chunks(chunks)
+    }
+
     duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
     duration$cast(duration("s"))
   })
