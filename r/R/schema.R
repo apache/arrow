@@ -77,7 +77,7 @@
 #'
 #' @rdname Schema
 #' @name Schema
-#' @examplesIf arrow_available()
+#' @examples
 #' schema(a = int32(), b = float64())
 #'
 #' schema(
@@ -333,7 +333,7 @@ read_schema <- function(stream, ...) {
 #' @return A `Schema` with the union of fields contained in the inputs, or
 #'   `NULL` if any of `schemas` is `NULL`
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' a <- schema(b = double(), c = bool())
 #' z <- schema(b = double(), k = utf8())
 #' unify_schemas(a, z)
@@ -359,7 +359,7 @@ print.arrow_r_metadata <- function(x, ...) {
 #' @return A [Schema] object.
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' as_schema(schema(col1 = int32()))
 #'
 as_schema <- function(x, ...) {

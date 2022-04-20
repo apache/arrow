@@ -237,7 +237,7 @@ cbind.Table <- function(...) {
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname Table
-#' @examplesIf arrow_available()
+#' @examples
 #' tbl <- arrow_table(name = rownames(mtcars), mtcars)
 #' dim(tbl)
 #' dim(head(tbl))
@@ -261,7 +261,7 @@ arrow_table <- Table$create
 #' @return A [Table]
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' as_arrow_table(data.frame(col1 = 1, col2 = "two"))
 #'
 as_arrow_table <- function(x, ..., schema = NULL) {

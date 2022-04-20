@@ -55,7 +55,6 @@ within the array's internal data. This can be an expensive check, potentially \c
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Pass items into chunked_array as separate objects to create chunks
 class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
 class_scores$num_chunks
@@ -79,7 +78,6 @@ doubles$type
 a <- chunked_array(c(1, 2), 3)
 b <- chunked_array(c(4, 5), 6)
 c(a, b)
-\dontshow{\}) # examplesIf}
 }
 \seealso{
 \link{Array}

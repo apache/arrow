@@ -58,7 +58,7 @@
 #' @rdname ChunkedArray
 #' @name ChunkedArray
 #' @seealso [Array]
-#' @examplesIf arrow_available()
+#' @examples
 #' # Pass items into chunked_array as separate objects to create chunks
 #' class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
 #' class_scores$num_chunks
@@ -183,7 +183,7 @@ chunked_array <- ChunkedArray$create
 #' @return A [ChunkedArray].
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' as_chunked_array(1:5)
 #'
 as_chunked_array <- function(x, ..., type = NULL) {

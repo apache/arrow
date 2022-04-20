@@ -24,7 +24,6 @@ A \link{Schema} object.
 Convert an object to an Arrow DataType
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 as_schema(schema(col1 = int32()))
-\dontshow{\}) # examplesIf}
+
 }

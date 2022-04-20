@@ -34,7 +34,6 @@ Whereas \code{\link[=arrow_table]{arrow_table()}} constructs a table from one or
 \code{as_arrow_table()} converts a single object to an Arrow \link{Table}.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 as_arrow_table(data.frame(col1 = 1, col2 = "two"))
-\dontshow{\}) # examplesIf}
+
 }

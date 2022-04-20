@@ -29,7 +29,6 @@ Whereas \code{\link[=chunked_array]{chunked_array()}} constructs a \link{Chunked
 \link{ChunkedArray}.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 as_chunked_array(1:5)
-\dontshow{\}) # examplesIf}
+
 }

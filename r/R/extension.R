@@ -311,7 +311,7 @@ ExtensionType$create <- function(storage_type,
 #'      and `reregister_extension_type()` return `NULL`, invisibly.
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' # Create the R6 type whose methods control how Array objects are
 #' # converted to R objects, how equality between types is computed,
 #' # and how types are printed.
@@ -511,7 +511,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 #'     extension name "arrow.r.vctrs".
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' (array <- vctrs_extension_array(as.POSIXlt("2022-01-02 03:45", tz = "UTC")))
 #' array$type
 #' as.vector(array)

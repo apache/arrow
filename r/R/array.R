@@ -85,7 +85,7 @@
 #'
 #' @rdname array
 #' @name array
-#' @examplesIf arrow_available()
+#' @examples
 #' my_array <- Array$create(1:10)
 #' my_array$type
 #' my_array$cast(int8())
@@ -219,10 +219,9 @@ Array$import_from_c <- ImportArray
 
 #' Convert an object to an Arrow Array
 #'
-#' Whereas `Array$create()` constructs an [Array] from the built-in data types
-#' for which the Arrow package implements fast converters, `as_arrow_array()`
-#' provides a means by which other packages can define conversions to Arrow
-#' objects.
+#' The `as_arrow_array()` function is identical to `Array$create()` except
+#' that it is an S3 generic, which allows methods to be defined in other
+#' packages to convert objects to [Array].
 #'
 #' @param x An object to convert to an Arrow Array
 #' @param ... Passed to S3 methods
@@ -232,7 +231,7 @@ Array$import_from_c <- ImportArray
 #' @return An [Array].
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' as_arrow_array(1:5)
 #'
 as_arrow_array <- function(x, ..., type = NULL) {
@@ -358,7 +357,7 @@ stop_cant_convert_array <- function(x, type) {
 #' @return A single [Array]
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' concat_arrays(Array$create(1:3), Array$create(4:5))
 concat_arrays <- function(..., type = NULL) {
   dots <- lapply(list2(...), Array$create, type = type)

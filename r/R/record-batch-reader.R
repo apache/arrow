@@ -57,7 +57,7 @@
 #' @rdname RecordBatchReader
 #' @name RecordBatchReader
 #' @include arrow-package.R
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #'
@@ -185,7 +185,7 @@ RecordBatchFileReader$create <- function(file) {
 #' @return A [RecordBatchReader]
 #' @export
 #'
-#' @examplesIf arrow_available() && arrow_with_dataset()
+#' @examplesIf arrow_with_dataset()
 #' reader <- as_record_batch_reader(data.frame(col1 = 1, col2 = "two"))
 #' reader$read_next_batch()
 #'
@@ -226,6 +226,7 @@ as_record_batch_reader.Dataset <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.arrow_dplyr_query <- function(x, ...) {
+  # TODO(ARROW-15271): make ExecPlan return RBR
   as_record_batch_reader(collect.arrow_dplyr_query(x, as_data_frame = FALSE))
 }
 

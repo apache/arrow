@@ -30,13 +30,11 @@ will default to the type guessed by \code{\link[=infer_type]{infer_type()}}.}
 An \link{Array}.
 }
 \description{
-Whereas \code{Array$create()} constructs an \link{Array} from the built-in data types
-for which the Arrow package implements fast converters, \code{as_arrow_array()}
-provides a means by which other packages can define conversions to Arrow
-objects.
+The \code{as_arrow_array()} function is identical to \code{Array$create()} except
+that it is an S3 generic, which allows methods to be defined in other
+packages to convert objects to \link{Array}.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 as_arrow_array(1:5)
-\dontshow{\}) # examplesIf}
+
 }
