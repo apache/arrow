@@ -77,7 +77,8 @@ cdef class Statistics(_Weakrefable):
                                         self.converted_type)
 
     def to_dict(self):
-        """Get dictionary represenation of statistics.
+        """
+        Get dictionary represenation of statistics.
 
         Returns
         -------
@@ -118,22 +119,22 @@ cdef class Statistics(_Weakrefable):
 
     @property
     def has_min_max(self):
-        """bool: Whether min and max are present."""
+        """Whether min and max are present (bool)."""
         return self.statistics.get().HasMinMax()
 
     @property
     def has_null_count(self):
-        """bool: Whether null count is present."""
+        """Whether null count is present (bool)."""
         return self.statistics.get().HasNullCount()
 
     @property
     def has_distinct_count(self):
-        """bool: Whether distinct count is preset."""
+        """Whether distinct count is preset (bool)."""
         return self.statistics.get().HasDistinctCount()
 
     @property
     def min_raw(self):
-        """bool, int, float, or bytes: Min value as physical type."""
+        """Min value as physical type (bool, int, float, or bytes)."""
         if self.has_min_max:
             return _cast_statistic_raw_min(self.statistics.get())
         else:
@@ -141,7 +142,7 @@ cdef class Statistics(_Weakrefable):
 
     @property
     def max_raw(self):
-        """bool, int, float, or bytes: Max value as physical type."""
+        """Max value as physical type (bool, int, float, or bytes)."""
         if self.has_min_max:
             return _cast_statistic_raw_max(self.statistics.get())
         else:
@@ -149,10 +150,12 @@ cdef class Statistics(_Weakrefable):
 
     @property
     def min(self):
-        """Min value as logical type.
+        """
+        Min value as logical type.
 
         Returned as the Python equivalent of logical type, such as datetime.date
-        for dates and decimal.Decimal for decimals."""
+        for dates and decimal.Decimal for decimals.
+        """
         if self.has_min_max:
             min_scalar, _ = _cast_statistics(self.statistics.get())
             return min_scalar.as_py()
@@ -161,10 +164,12 @@ cdef class Statistics(_Weakrefable):
 
     @property
     def max(self):
-        """Max value as logical type.
+        """
+        Max value as logical type.
 
         Returned as the Python equivalent of logical type, such as datetime.date
-        for dates and decimal.Decimal for decimals."""
+        for dates and decimal.Decimal for decimals.
+        """
         if self.has_min_max:
             _, max_scalar = _cast_statistics(self.statistics.get())
             return max_scalar.as_py()
@@ -173,36 +178,38 @@ cdef class Statistics(_Weakrefable):
 
     @property
     def null_count(self):
-        """int: Number of null values in chunk."""
+        """Number of null values in chunk (int)."""
         return self.statistics.get().null_count()
 
     @property
     def distinct_count(self):
-        """int: Distinct number of values in chunk.
+        """
+        Distinct number of values in chunk (int).
 
-        If this is not set, will return 0."""
+        If this is not set, will return 0.
+        """
         # This seems to be zero if not set. See: ARROW-11793
         return self.statistics.get().distinct_count()
 
     @property
     def num_values(self):
-        """int: Number of non-null values."""
+        """Number of non-null values (int)."""
         return self.statistics.get().num_values()
 
     @property
     def physical_type(self):
-        """str: Physical type of column."""
+        """Physical type of column (str)."""
         raw_physical_type = self.statistics.get().physical_type()
         return physical_type_name_from_enum(raw_physical_type)
 
     @property
     def logical_type(self):
-        """:class:`ParquetLogicalType`: Logical type of column."""
+        """Logical type of column (:class:`ParquetLogicalType`)."""
         return wrap_logical_type(self.statistics.get().descr().logical_type())
 
     @property
     def converted_type(self):
-        """str or None: Legacy converted type."""
+        """Legacy converted type (str or None)."""
         raw_converted_type = self.statistics.get().descr().converted_type()
         return converted_type_name_from_enum(raw_converted_type)
 
@@ -225,7 +232,8 @@ cdef class ParquetLogicalType(_Weakrefable):
         return frombytes(self.type.get().ToString(), safe=True)
 
     def to_json(self):
-        """Get a JSON string containing type and type parameters
+        """
+        Get a JSON string containing type and type parameters
 
         Returns
         -------
@@ -233,12 +241,13 @@ cdef class ParquetLogicalType(_Weakrefable):
             JSON representation of type, with at least a field called 'Type'
             which contains the type name. If the type is parameterized, such 
             as a decimal with scale and precision, will contain those as fields
-            as well."""
+            as well.
+        """
         return frombytes(self.type.get().ToJSON())
 
     @property
     def type(self):
-        """str: Name of the logical type."""
+        """Name of the logical type (str)."""
         return logical_type_name_from_enum(self.type.get().type())
 
 
@@ -342,7 +351,8 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.total_uncompressed_size)
 
     def to_dict(self):
-        """Get dictionary represenation of the column chunk metadata.
+        """
+        Get dictionary represenation of the column chunk metadata.
 
         Returns
         -------
@@ -391,38 +401,38 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def file_offset(self):
-        """int: Offset into file where column chunk is located."""
+        """Offset into file where column chunk is located (int)."""
         return self.metadata.file_offset()
 
     @property
     def file_path(self):
-        """str or None: Optional file path if set."""
+        """Optional file path if set (str or None)."""
         return frombytes(self.metadata.file_path())
 
     @property
     def physical_type(self):
-        """str: Physical type of column."""
+        """Physical type of column (str)."""
         return physical_type_name_from_enum(self.metadata.type())
 
     @property
     def num_values(self):
-        """int: Total number of values."""
+        """Total number of values (int)."""
         return self.metadata.num_values()
 
     @property
     def path_in_schema(self):
-        """str: Nested path to field, separated by periods."""
+        """Nested path to field, separated by periods (str)."""
         path = self.metadata.path_in_schema().get().ToDotString()
         return frombytes(path)
 
     @property
     def is_stats_set(self):
-        """bool: Whether or not statistics are present in metadata."""
+        """Whether or not statistics are present in metadata (bool)."""
         return self.metadata.is_stats_set()
 
     @property
     def statistics(self):
-        """:class:`Statistics`: Statistics for column chunk."""
+        """Statistics for column chunk (:class:`Statistics`)."""
         if not self.metadata.is_stats_set():
             return None
         statistics = Statistics()
@@ -431,28 +441,32 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def compression(self):
-        """str: Type of compression used for column.
+        """
+        Type of compression used for column (str).
 
         One of 'UNCOMPRESSED', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD', 
-        or 'UNKNOWN'."""
+        or 'UNKNOWN'.
+        """
         return compression_name_from_enum(self.metadata.compression())
 
     @property
     def encodings(self):
-        """tuple of str: Encodings used for column.
+        """
+        Encodings used for column (tuple of str).
 
         One of 'PLAIN', 'BIT_PACKED', 'RLE', 'BYTE_STREAM_SPLIT', 'DELTA_BINARY_PACKED',
-        'DELTA_BYTE_ARRAY'."""
+        'DELTA_BYTE_ARRAY'.
+        """
         return tuple(map(encoding_name_from_enum, self.metadata.encodings()))
 
     @property
     def has_dictionary_page(self):
-        """bool: Whether there is dictionary data present in the column chunk."""
+        """Whether there is dictionary data present in the column chunk (bool)."""
         return bool(self.metadata.has_dictionary_page())
 
     @property
     def dictionary_page_offset(self):
-        """int: Offset of dictionary page reglative to column chunk offset."""
+        """Offset of dictionary page reglative to column chunk offset (int)."""
         if self.has_dictionary_page:
             return self.metadata.dictionary_page_offset()
         else:
@@ -460,7 +474,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def data_page_offset(self):
-        """int: Offset of data page reglative to column chunk offset."""
+        """Offset of data page reglative to column chunk offset (int)."""
         return self.metadata.data_page_offset()
 
     @property
@@ -475,12 +489,12 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def total_compressed_size(self):
-        """int: Compresssed size in bytes."""
+        """Compresssed size in bytes (int)."""
         return self.metadata.total_compressed_size()
 
     @property
     def total_uncompressed_size(self):
-        """int: Uncompressed size in bytes."""
+        """Uncompressed size in bytes (int)."""
         return self.metadata.total_uncompressed_size()
 
 
@@ -520,7 +534,8 @@ cdef class RowGroupMetaData(_Weakrefable):
         return self.metadata.Equals(deref(other.metadata))
 
     def column(self, int i):
-        """Get column metadata at given index.
+        """
+        Get column metadata at given index.
 
         Parameters
         ----------
@@ -548,7 +563,8 @@ cdef class RowGroupMetaData(_Weakrefable):
                                  self.total_byte_size)
 
     def to_dict(self):
-        """Get dictionary represenation of the row group metadata.
+        """
+        Get dictionary represenation of the row group metadata.
 
         Returns
         -------
@@ -568,17 +584,17 @@ cdef class RowGroupMetaData(_Weakrefable):
 
     @property
     def num_columns(self):
-        """int: Number of columns in this row group."""
+        """Number of columns in this row group (int)."""
         return self.metadata.num_columns()
 
     @property
     def num_rows(self):
-        """int: Number of rows in this row group."""
+        """Number of rows in this row group (int)."""
         return self.metadata.num_rows()
 
     @property
     def total_byte_size(self):
-        """int: Total byte size of all the uncompressed column data in this row group."""
+        """Total byte size of all the uncompressed column data in this row group (int)."""
         return self.metadata.total_byte_size()
 
 
@@ -623,7 +639,8 @@ cdef class FileMetaData(_Weakrefable):
                                  self.serialized_size)
 
     def to_dict(self):
-        """Get dictionary represenation of the file metadata.
+        """
+        Get dictionary represenation of the file metadata.
 
         Returns
         -------
@@ -667,34 +684,35 @@ cdef class FileMetaData(_Weakrefable):
 
     @property
     def schema(self):
-        """:class:`ParquetSchema`: Schema of the file."""
+        """Schema of the file (:class:`ParquetSchema`)."""
         if self._schema is None:
             self._schema = ParquetSchema(self)
         return self._schema
 
     @property
     def serialized_size(self):
-        """int: Size of the original thrift encoded metadata footer."""
+        """Size of the original thrift encoded metadata footer (int)."""
         return self._metadata.size()
 
     @property
     def num_columns(self):
-        """int: Number of columns in file."""
+        """Number of columns in file (int)."""
         return self._metadata.num_columns()
 
     @property
     def num_rows(self):
-        """int: Total number of rows in file."""
+        """Total number of rows in file (int)."""
         return self._metadata.num_rows()
 
     @property
     def num_row_groups(self):
-        """int: Number of row groups in file."""
+        """Number of row groups in file (int)."""
         return self._metadata.num_row_groups()
 
     @property
     def format_version(self):
-        """str: Parquet format version used in file (such as '1.0', '2.4').
+        """
+        Parquet format version used in file (str, such as '1.0', '2.4').
 
         If version is missing or unparsable, will default to assuming '1.0'.
         """
@@ -714,15 +732,17 @@ cdef class FileMetaData(_Weakrefable):
 
     @property
     def created_by(self):
-        """str: String describing source of the parquet file.
+        """
+        String describing source of the parquet file (str).
 
         This typically includes library name and version number. For example, Arrow 7.0's
-        writer returns 'parquet-cpp-arrow version 7.0.0'."""
+        writer returns 'parquet-cpp-arrow version 7.0.0'.
+        """
         return frombytes(self._metadata.created_by())
 
     @property
     def metadata(self):
-        """dict[bytes, bytes]: Additional metadata as key value pairs."""
+        """Additional metadata as key value pairs (dict[bytes, bytes])."""
         cdef:
             unordered_map[c_string, c_string] metadata
             const CKeyValueMetadata* underlying_metadata
@@ -734,7 +754,8 @@ cdef class FileMetaData(_Weakrefable):
             return None
 
     def row_group(self, int i):
-        """Get metadata for row group at index i.
+        """
+        Get metadata for row group at index i.
 
         Parameters
         ----------
@@ -828,7 +849,7 @@ cdef class ParquetSchema(_Weakrefable):
 
     @property
     def names(self):
-        "list of str: Name of each field."
+        """Name of each field (list of str)."""
         return [self[i].name for i in range(len(self))]
 
     def to_arrow_schema(self):
@@ -871,7 +892,8 @@ cdef class ParquetSchema(_Weakrefable):
         return self.schema.Equals(deref(other.schema))
 
     def column(self, i):
-        """Return the schema for a single column.
+        """
+        Return the schema for a single column.
 
         Parameters
         ----------
@@ -950,54 +972,54 @@ cdef class ColumnSchema(_Weakrefable):
 
     @property
     def name(self):
-        """str: Name of field."""
+        """Name of field (str)."""
         return frombytes(self.descr.name())
 
     @property
     def path(self):
-        """str: Nested path to field, separated by periods."""
+        """Nested path to field, separated by periods (str)."""
         return frombytes(self.descr.path().get().ToDotString())
 
     @property
     def max_definition_level(self):
-        """int: Maximum definition level."""
+        """Maximum definition level (int)."""
         return self.descr.max_definition_level()
 
     @property
     def max_repetition_level(self):
-        """int: Maximum repetition level."""
+        """Maximum repetition level (int)."""
         return self.descr.max_repetition_level()
 
     @property
     def physical_type(self):
-        """str: Name of physical type."""
+        """Name of physical type (str)."""
         return physical_type_name_from_enum(self.descr.physical_type())
 
     @property
     def logical_type(self):
-        """:class:`ParquetLogicalType`: Logical type of column."""
+        """Logical type of column (:class:`ParquetLogicalType`)."""
         return wrap_logical_type(self.descr.logical_type())
 
     @property
     def converted_type(self):
-        """str or None: Legacy converted type."""
+        """Legacy converted type (str or None)."""
         return converted_type_name_from_enum(self.descr.converted_type())
 
     # FIXED_LEN_BYTE_ARRAY attribute
     @property
     def length(self):
-        """int or None: Array length if fixed length byte array type, None otherwise."""
+        """Array length if fixed length byte array type, None otherwise (int or None)."""
         return self.descr.type_length()
 
     # Decimal attributes
     @property
     def precision(self):
-        """int or None: Precision if decimal type, None otherwise."""
+        """Precision if decimal type, None otherwise (int or None)."""
         return self.descr.type_precision()
 
     @property
     def scale(self):
-        """int or None: Scale if decimal type, None otherwise."""
+        """Scale if decimal type, None otherwise (int or None)."""
         return self.descr.type_scale()
 
 
