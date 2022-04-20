@@ -79,7 +79,7 @@ class BitmapWriter {
   int64_t byte_offset_;
 };
 
-class FirstTimeBitmapWriter {
+class ARROW_EXPORT FirstTimeBitmapWriter {
   // Like BitmapWriter, but any bit values *following* the bits written
   // might be clobbered.  It is hence faster than BitmapWriter, and can
   // also avoid false positives with Valgrind.
