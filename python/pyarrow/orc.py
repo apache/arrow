@@ -325,8 +325,9 @@ columns : list
     that the table will still have the correct num_rows set despite having
     no columns.
 filesystem : FileSystem, default None
-    If nothing passed, paths assumed to be found in the local on-disk
-    filesystem.
+    If nothing passed, will be inferred based on path.
+    Path will try to be found in the local on-disk filesystem otherwise
+    it will be parsed as an URI to determine the filesystem.
 """
 
 

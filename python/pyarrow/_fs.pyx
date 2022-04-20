@@ -20,7 +20,7 @@
 from cpython.datetime cimport datetime, PyDateTime_DateTime
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport PyDateTime_to_TimePoint
+from pyarrow.includes.libarrow_python cimport PyDateTime_to_TimePoint
 from pyarrow.lib import _detect_compression, frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.util import _stringify_path

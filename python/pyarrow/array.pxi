@@ -750,6 +750,61 @@ cdef class _PandasConvertible(_Weakrefable):
         Returns
         -------
         pandas.Series or pandas.DataFrame depending on type of object
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+
+        Convert a Table to pandas DataFrame:
+
+        >>> table = pa.table([
+        ...    pa.array([2, 4, 5, 100]),
+        ...    pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        ...    ], names=['n_legs', 'animals'])
+        >>> table.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       4          Horse
+        2       5  Brittle stars
+        3     100      Centipede
+        >>> isinstance(table.to_pandas(), pd.DataFrame)
+        True
+
+        Convert a RecordBatch to pandas DataFrame:
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.record_batch([n_legs, animals],
+        ...                         names=["n_legs", "animals"])
+        >>> batch
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        >>> batch.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       4          Horse
+        2       5  Brittle stars
+        3     100      Centipede
+        >>> isinstance(batch.to_pandas(), pd.DataFrame)
+        True
+
+        Convert a Chunked Array to pandas Series:
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.to_pandas()
+        0      2
+        1      2
+        2      4
+        3      4
+        4      5
+        5    100
+        dtype: int64
+        >>> isinstance(n_legs.to_pandas(), pd.Series)
+        True
         """
         options = dict(
             pool=memory_pool,
@@ -1223,7 +1278,7 @@ cdef class Array(_PandasConvertible):
         -------
         value : Scalar (index) or Array (slice)
         """
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.length()))
@@ -1540,7 +1595,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
                                               obj, &out))
     elif isinstance(obj, ChunkedArray):
         with nogil:
-            check_status(libarrow.ConvertChunkedArrayToPandas(
+            check_status(libarrow_python.ConvertChunkedArrayToPandas(
                 c_options,
                 (<ChunkedArray> obj).sp_chunked_array,
                 obj, &out))
@@ -2780,6 +2835,23 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
         Arrays to concatenate, must be identically typed.
     memory_pool : MemoryPool, default None
         For memory allocations. If None, the default pool is used.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr1 = pa.array([2, 4, 5, 100])
+    >>> arr2 = pa.array([2, 4])
+    >>> pa.concat_arrays([arr1, arr2])
+    <pyarrow.lib.Int64Array object at 0x1166eb1c0>
+    [
+      2,
+      4,
+      5,
+      100,
+      2,
+      4
+    ]
+
     """
     cdef:
         vector[shared_ptr[CArray]] c_arrays

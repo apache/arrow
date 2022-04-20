@@ -149,6 +149,21 @@ the ``type`` should be ``ClosePreparedStatement``).
     When used with DoPut: execute the query and return the number of
     affected rows.
 
+Sequence Diagrams
+=================
+
+.. figure:: ./FlightSql/CommandGetTables.mmd.svg
+
+   Listing available tables.
+
+.. figure:: ./FlightSql/CommandStatementQuery.mmd.svg
+
+   Executing an ad-hoc query.
+
+.. figure:: ./FlightSql/CommandPreparedStatementQuery.mmd.svg
+
+   Creating a prepared statement, then executing it.
+
 External Resources
 ==================
 

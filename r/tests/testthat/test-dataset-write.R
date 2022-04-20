@@ -506,6 +506,24 @@ test_that("Max partitions fails with non-integer values and less than required p
   )
 })
 
+test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file", {
+  skip_if_not_available("parquet")
+  df <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+  dst_dir <- make_temp_dir()
+
+  # max_rows_per_group unset adjust silently
+  expect_silent(
+    write_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+
+})
+
+
 test_that("write_dataset checks for format-specific arguments", {
   df <- tibble::tibble(
     int = 1:10,

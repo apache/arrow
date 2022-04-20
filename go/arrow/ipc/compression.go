@@ -82,6 +82,7 @@ func getCompressor(codec flatbuf.CompressionType) compressor {
 type decompressor interface {
 	io.Reader
 	Reset(io.Reader)
+	Close()
 }
 
 type zstdDecompressor struct {
@@ -94,10 +95,20 @@ func (z *zstdDecompressor) Reset(r io.Reader) {
 	}
 }
 
+func (z *zstdDecompressor) Close() {
+	z.Decoder.Close()
+}
+
+type lz4Decompressor struct {
+	*lz4.Reader
+}
+
+func (z *lz4Decompressor) Close() {}
+
 func getDecompressor(codec flatbuf.CompressionType) decompressor {
 	switch codec {
 	case flatbuf.CompressionTypeLZ4_FRAME:
-		return lz4.NewReader(nil)
+		return &lz4Decompressor{lz4.NewReader(nil)}
 	case flatbuf.CompressionTypeZSTD:
 		dec, err := zstd.NewReader(nil)
 		if err != nil {

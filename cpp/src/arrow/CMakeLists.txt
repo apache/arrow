@@ -158,6 +158,7 @@ set(ARROW_SRCS
     builder.cc
     buffer.cc
     chunked_array.cc
+    chunk_resolver.cc
     compare.cc
     config.cc
     datum.cc
@@ -748,6 +749,10 @@ endif()
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)
+
+  if(ARROW_WITH_UCX)
+    add_subdirectory(flight/transport/ucx)
+  endif()
 endif()
 
 if(ARROW_FLIGHT_SQL)

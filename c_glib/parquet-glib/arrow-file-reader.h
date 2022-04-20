@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
+#include <parquet-glib/metadata.h>
 
 G_BEGIN_DECLS
 
@@ -72,5 +72,9 @@ gparquet_arrow_file_reader_get_n_rows(GParquetArrowFileReader *reader);
 void
 gparquet_arrow_file_reader_set_use_threads(GParquetArrowFileReader *reader,
                                            gboolean use_threads);
+
+GARROW_AVAILABLE_IN_8_0
+GParquetFileMetadata *
+gparquet_arrow_file_reader_get_metadata(GParquetArrowFileReader *reader);
 
 G_END_DECLS

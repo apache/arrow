@@ -116,16 +116,28 @@ gdv_int64 timestampaddYear_timestamp_int64(gdv_timestamp, gdv_int64);
 
 gdv_boolean isnull_day_time_interval(gdv_day_time_interval in, gdv_boolean is_valid);
 
-gdv_boolean istrue_boolean(gdv_boolean in);
-gdv_boolean isfalse_boolean(gdv_boolean in);
-gdv_boolean istrue_int32(gdv_int32 in);
-gdv_boolean istrue_int64(gdv_int64 in);
-gdv_boolean istrue_uint32(gdv_uint32 in);
-gdv_boolean istrue_uint64(gdv_uint64 in);
-gdv_boolean isfalse_int32(gdv_int32 in);
-gdv_boolean isfalse_int64(gdv_int64 in);
-gdv_boolean isfalse_uint32(gdv_uint32 in);
-gdv_boolean isfalse_uint64(gdv_uint64 in);
+gdv_boolean istrue_boolean(gdv_boolean in, gdv_boolean isvalid);
+gdv_boolean isfalse_boolean(gdv_boolean in, gdv_boolean isvalid);
+gdv_boolean istrue_int32(gdv_int32 in, gdv_boolean is_valid);
+gdv_boolean istrue_int64(gdv_int64 in, gdv_boolean is_valid);
+gdv_boolean istrue_uint32(gdv_uint32 in, gdv_boolean is_valid);
+gdv_boolean istrue_uint64(gdv_uint64 in, gdv_boolean is_valid);
+gdv_boolean isfalse_int32(gdv_int32 in, gdv_boolean is_valid);
+gdv_boolean isfalse_int64(gdv_int64 in, gdv_boolean is_valid);
+gdv_boolean isfalse_uint32(gdv_uint32 in, gdv_boolean is_valid);
+gdv_boolean isfalse_uint64(gdv_uint64 in, gdv_boolean is_valid);
+
+gdv_boolean isnottrue_boolean(gdv_boolean in, gdv_boolean isvalid);
+gdv_boolean isnotfalse_boolean(gdv_boolean in, gdv_boolean isvalid);
+
+gdv_boolean isnottrue_int32(gdv_int32 in, gdv_boolean is_valid);
+gdv_boolean isnottrue_int64(gdv_int64 in, gdv_boolean is_valid);
+gdv_boolean isnottrue_uint32(gdv_uint32 in, gdv_boolean is_valid);
+gdv_boolean isnottrue_uint64(gdv_uint64 in, gdv_boolean is_valid);
+gdv_boolean isnotfalse_int32(gdv_int32 in, gdv_boolean is_valid);
+gdv_boolean isnotfalse_int64(gdv_int64 in, gdv_boolean is_valid);
+gdv_boolean isnotfalse_uint32(gdv_uint32 in, gdv_boolean is_valid);
+gdv_boolean isnotfalse_uint64(gdv_uint64 in, gdv_boolean is_valid);
 
 gdv_int32 nvl_int32_int32(gdv_int32 in, gdv_boolean is_valid_in, gdv_int32 replace,
                           gdv_boolean is_valid_value);
@@ -173,6 +185,8 @@ gdv_int64 date_trunc_Year_date64(gdv_date64);
 gdv_int64 date_trunc_Decade_date64(gdv_date64);
 gdv_int64 date_trunc_Century_date64(gdv_date64);
 gdv_int64 date_trunc_Millennium_date64(gdv_date64);
+gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
+                                       gdv_timestamp end_millis);
 
 gdv_int64 date_trunc_Week_timestamp(gdv_timestamp);
 double months_between_timestamp_timestamp(gdv_uint64, gdv_uint64);
@@ -411,6 +425,9 @@ gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis);
 gdv_time32 castTIME_int32(int32_t int_val);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
 gdv_date64 last_day_from_timestamp(gdv_date64 millis);
+
+gdv_date64 next_day_from_timestamp(gdv_int64 context, gdv_date64 millis, const char* in,
+                                   int32_t in_len);
 
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
 
@@ -733,30 +750,31 @@ gdv_month_interval castNULLABLEINTERVALYEAR_int32(int64_t context, gdv_int32 in)
 gdv_month_interval castNULLABLEINTERVALYEAR_int64(int64_t context, gdv_int64 in);
 
 const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
-                                int32_t separator_len, const char* word1,
-                                int32_t word1_len, const char* word2, int32_t word2_len,
-                                int32_t* out_len);
+                                int32_t separator_len, bool separator_validity,
+                                const char* word1, int32_t word1_len, bool word1_validity,
+                                const char* word2, int32_t word2_len, bool word2_validity,
+                                bool* out_valid, int32_t* out_len);
 
-const char* concat_ws_utf8_utf8_utf8(int64_t context, const char* separator,
-                                     int32_t separator_len, const char* word1,
-                                     int32_t word1_len, const char* word2,
-                                     int32_t word2_len, const char* word3,
-                                     int32_t word3_len, int32_t* out_len);
+const char* concat_ws_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len,
+    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
+    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
+    int32_t word3_len, bool word3_validity, bool* out_valid, int32_t* out_len);
 
-const char* concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
-                                          int32_t separator_len, const char* word1,
-                                          int32_t word1_len, const char* word2,
-                                          int32_t word2_len, const char* word3,
-                                          int32_t word3_len, const char* word4,
-                                          int32_t word4_len, int32_t* out_len);
+const char* concat_ws_utf8_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len,
+    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
+    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
+    int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
+    bool word4_validity, bool* out_valid, int32_t* out_len);
 
-const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
-                                               int32_t separator_len, const char* word1,
-                                               int32_t word1_len, const char* word2,
-                                               int32_t word2_len, const char* word3,
-                                               int32_t word3_len, const char* word4,
-                                               int32_t word4_len, const char* word5,
-                                               int32_t word5_len, int32_t* out_len);
+const char* concat_ws_utf8_utf8_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len,
+    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
+    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
+    int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
+    bool word4_validity, const char* word5, int32_t word5_len, bool word5_validity,
+    bool* out_valid, int32_t* out_len);
 
 const char* elt_int32_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
                                 int32_t word1_len, bool in1_validity, const char* word2,

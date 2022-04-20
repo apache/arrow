@@ -314,15 +314,9 @@ build_libarrow <- function(src_dir, dst_dir) {
   thirdparty_deps_unavailable <- !download_ok &&
     !dir.exists(thirdparty_dependency_dir) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
-  on_solaris <- tolower(Sys.info()[["sysname"]]) %in% "sunos"
-  do_minimal_build <- on_solaris || env_is("LIBARROW_MINIMAL", "true")
+  do_minimal_build <- env_is("LIBARROW_MINIMAL", "true")
 
   if (do_minimal_build) {
-    # Note that JSON support does work on Solaris, but will be turned off with
-    # the rest of the optional dependencies.
-    # All other dependencies don't compile (e.g thrift, jemalloc, and xsimd)
-    # or do compile but `ar` fails to build
-    # libarrow_bundled_dependencies (e.g. re2 and utf8proc).
     env_var_list <- turn_off_all_optional_features(env_var_list)
   } else if (thirdparty_deps_unavailable) {
     cat(paste0(

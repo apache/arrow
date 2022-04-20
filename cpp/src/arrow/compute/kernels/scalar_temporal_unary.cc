@@ -1208,7 +1208,7 @@ struct Strptime {
       arrow::internal::BitmapWriter out_writer(out->GetMutableValues<uint8_t>(0, 0),
                                                out->offset, out->length);
       auto visit_null = [&]() {
-        out_data++;
+        *out_data++ = 0;
         out_writer.Next();
         null_count++;
       };
@@ -1217,7 +1217,7 @@ struct Strptime {
         if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
           *out_data++ = result;
         } else {
-          out_data++;
+          *out_data++ = 0;
           out_writer.Clear();
           null_count++;
         }
@@ -1228,7 +1228,7 @@ struct Strptime {
       out->null_count = null_count;
     } else {
       auto visit_null = [&]() {
-        out_data++;
+        *out_data++ = 0;
         return Status::OK();
       };
       auto visit_value = [&](util::string_view s) {

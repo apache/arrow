@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+library(dplyr, warn.conflicts = FALSE)
+
 test_that("do_exec_plan_substrait can evaluate a simple plan", {
   skip_if_not_available("engine")
 
@@ -55,9 +57,10 @@ test_that("do_exec_plan_substrait can evaluate a simple plan", {
   substrait_json_roundtrip <- engine__internal__SubstraitToJSON(substrait_buffer)
   expect_match(substrait_json_roundtrip, tf, fixed = TRUE)
 
-  result <- do_exec_plan_substrait(substrait_json, names(df))
+  result <- do_exec_plan_substrait(substrait_json)
   expect_identical(
-    tibble::as_tibble(result),
+    # TODO(ARROW-15585) The "select(i, b)" should not be needed
+    tibble::as_tibble(result) %>% select(i, b),
     tibble::as_tibble(df)
   )
 })

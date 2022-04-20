@@ -627,6 +627,7 @@ endif()
 
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
+  target_link_libraries(_exec_plan PRIVATE ${DATASET_LINK_LIBS})
   if(PYARROW_BUILD_ORC)
     target_link_libraries(_dataset_orc PRIVATE ${DATASET_LINK_LIBS})
   endif()

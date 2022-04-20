@@ -137,6 +137,8 @@ TEST(TestDispatchBest, CommonTemporal) {
   args = {timestamp(TimeUnit::SECOND, "UTC"), timestamp(TimeUnit::NANO, "UTC")};
   AssertTypeEqual(timestamp(TimeUnit::NANO, "UTC"),
                   CommonTemporal(args.data(), args.size()));
+  args = {timestamp(TimeUnit::SECOND), date32()};
+  AssertTypeEqual(timestamp(TimeUnit::SECOND), CommonTemporal(args.data(), args.size()));
   args = {date32(), timestamp(TimeUnit::NANO)};
   AssertTypeEqual(timestamp(TimeUnit::NANO), CommonTemporal(args.data(), args.size()));
   args = {date64(), timestamp(TimeUnit::SECOND)};
@@ -161,53 +163,80 @@ TEST(TestDispatchBest, CommonTemporal) {
 TEST(TestDispatchBest, CommonTemporalResolution) {
   std::vector<ValueDescr> args;
   std::string tz = "Pacific/Marquesas";
+  TimeUnit::type ty;
 
   args = {date32(), date32()};
-  ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::SECOND, ty);
   args = {date32(), date64()};
-  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MILLI, ty);
+  args = {date32(), timestamp(TimeUnit::SECOND)};
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::SECOND, ty);
   args = {time32(TimeUnit::MILLI), date32()};
-  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MILLI, ty);
   args = {time32(TimeUnit::MILLI), time32(TimeUnit::SECOND)};
-  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MILLI, ty);
   args = {time32(TimeUnit::MILLI), time64(TimeUnit::MICRO)};
-  ASSERT_EQ(TimeUnit::MICRO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MICRO, ty);
   args = {time64(TimeUnit::NANO), time64(TimeUnit::MICRO)};
-  ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::NANO, ty);
   args = {duration(TimeUnit::MILLI), duration(TimeUnit::MICRO)};
-  ASSERT_EQ(TimeUnit::MICRO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MICRO, ty);
   args = {duration(TimeUnit::MILLI), date32()};
-  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MILLI, ty);
   args = {date64(), duration(TimeUnit::SECOND)};
-  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MILLI, ty);
   args = {duration(TimeUnit::SECOND), time32(TimeUnit::SECOND)};
-  ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::SECOND, ty);
   args = {duration(TimeUnit::SECOND), time64(TimeUnit::NANO)};
-  ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::NANO, ty);
   args = {time64(TimeUnit::MICRO), duration(TimeUnit::NANO)};
-  ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::NANO, ty);
   args = {timestamp(TimeUnit::SECOND, tz), timestamp(TimeUnit::MICRO)};
-  ASSERT_EQ(TimeUnit::MICRO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MICRO, ty);
   args = {date32(), timestamp(TimeUnit::MICRO, tz)};
-  ASSERT_EQ(TimeUnit::MICRO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MICRO, ty);
   args = {timestamp(TimeUnit::MICRO, tz), date64()};
-  ASSERT_EQ(TimeUnit::MICRO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MICRO, ty);
   args = {time32(TimeUnit::MILLI), timestamp(TimeUnit::MICRO, tz)};
-  ASSERT_EQ(TimeUnit::MICRO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MICRO, ty);
   args = {timestamp(TimeUnit::MICRO, tz), time64(TimeUnit::NANO)};
-  ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::NANO, ty);
   args = {timestamp(TimeUnit::SECOND, tz), duration(TimeUnit::MILLI)};
-  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MILLI, ty);
   args = {timestamp(TimeUnit::SECOND, "UTC"), timestamp(TimeUnit::SECOND, tz)};
-  ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::SECOND, ty);
   args = {time32(TimeUnit::MILLI), duration(TimeUnit::SECOND)};
-  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MILLI, ty);
   args = {time64(TimeUnit::MICRO), duration(TimeUnit::NANO)};
-  ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::NANO, ty);
   args = {duration(TimeUnit::SECOND), int64()};
-  ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::SECOND, ty);
   args = {duration(TimeUnit::MILLI), timestamp(TimeUnit::SECOND, tz)};
-  ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ASSERT_EQ(TimeUnit::MILLI, ty);
 }
 
 TEST(TestDispatchBest, ReplaceTemporalTypes) {
@@ -216,67 +245,68 @@ TEST(TestDispatchBest, ReplaceTemporalTypes) {
   TimeUnit::type ty;
 
   args = {date32(), date32()};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, timestamp(TimeUnit::SECOND));
   AssertTypeEqual(args[1].type, timestamp(TimeUnit::SECOND));
 
   args = {date64(), time32(TimeUnit::SECOND)};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, timestamp(TimeUnit::MILLI));
   AssertTypeEqual(args[1].type, time32(TimeUnit::MILLI));
 
   args = {duration(TimeUnit::SECOND), date64()};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, duration(TimeUnit::MILLI));
   AssertTypeEqual(args[1].type, timestamp(TimeUnit::MILLI));
 
   args = {timestamp(TimeUnit::MICRO, tz), timestamp(TimeUnit::NANO)};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, timestamp(TimeUnit::NANO, tz));
   AssertTypeEqual(args[1].type, timestamp(TimeUnit::NANO));
 
   args = {timestamp(TimeUnit::MICRO, tz), time64(TimeUnit::NANO)};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, timestamp(TimeUnit::NANO, tz));
   AssertTypeEqual(args[1].type, time64(TimeUnit::NANO));
 
   args = {timestamp(TimeUnit::SECOND, tz), date64()};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, timestamp(TimeUnit::MILLI, tz));
   AssertTypeEqual(args[1].type, timestamp(TimeUnit::MILLI));
 
   args = {timestamp(TimeUnit::SECOND, "UTC"), timestamp(TimeUnit::SECOND, tz)};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, timestamp(TimeUnit::SECOND, "UTC"));
   AssertTypeEqual(args[1].type, timestamp(TimeUnit::SECOND, tz));
 
   args = {time32(TimeUnit::SECOND), duration(TimeUnit::SECOND)};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, time32(TimeUnit::SECOND));
   AssertTypeEqual(args[1].type, duration(TimeUnit::SECOND));
 
   args = {time64(TimeUnit::MICRO), duration(TimeUnit::SECOND)};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, time64(TimeUnit::MICRO));
   AssertTypeEqual(args[1].type, duration(TimeUnit::MICRO));
 
   args = {time32(TimeUnit::SECOND), duration(TimeUnit::NANO)};
-  ty = CommonTemporalResolution(args.data(), args.size());
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, time64(TimeUnit::NANO));
   AssertTypeEqual(args[1].type, duration(TimeUnit::NANO));
 
   args = {duration(TimeUnit::SECOND), int64()};
-  ReplaceTemporalTypes(CommonTemporalResolution(args.data(), args.size()), &args);
+  ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
+  ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, duration(TimeUnit::SECOND));
   AssertTypeEqual(args[1].type, int64());
 }

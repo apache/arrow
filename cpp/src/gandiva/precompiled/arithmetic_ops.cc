@@ -234,19 +234,41 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
 #undef VALIDITY_OP
 
-#define IS_TRUE_OR_FALSE_BOOL(NAME, TYPE, OP) \
-  FORCE_INLINE                                \
-  gdv_##TYPE NAME##_boolean(gdv_##TYPE in) { return OP in; }
+#define IS_TRUE_OR_FALSE_BOOL(NAME, TYPE, OP)                      \
+  FORCE_INLINE                                                     \
+  gdv_##TYPE NAME##_boolean(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return is_valid && OP in;                                      \
+  }
 
 IS_TRUE_OR_FALSE_BOOL(istrue, boolean, +)
 IS_TRUE_OR_FALSE_BOOL(isfalse, boolean, !)
 
-#define IS_TRUE_OR_FALSE_NUMERIC(NAME, TYPE, OP) \
-  FORCE_INLINE                                   \
-  gdv_boolean NAME##_##TYPE(gdv_##TYPE in) { return OP(in != 0 ? true : false); }
+#define IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(NAME, TYPE, OP)           \
+  FORCE_INLINE                                                     \
+  gdv_##TYPE NAME##_boolean(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return !is_valid || OP in;                                     \
+  }
+
+IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(isnottrue, boolean, !)
+IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(isnotfalse, boolean, +)
+
+#define IS_TRUE_OR_FALSE_NUMERIC(NAME, TYPE, OP)                   \
+  FORCE_INLINE                                                     \
+  gdv_boolean NAME##_##TYPE(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return is_valid && OP(in != 0);                                \
+  }
 
 NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, istrue, +)
 NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, isfalse, !)
+
+#define IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC(NAME, TYPE, OP)        \
+  FORCE_INLINE                                                     \
+  gdv_boolean NAME##_##TYPE(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return !is_valid || OP(in != 0);                               \
+  }
+
+NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnottrue, !)
+NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnotfalse, +)
 
 #define NUMERIC_FUNCTION_FOR_REAL(INNER) \
   INNER(float32)                         \

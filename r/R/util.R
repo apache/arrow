@@ -125,17 +125,17 @@ read_compressed_error <- function(e) {
   stop(e)
 }
 
-handle_parquet_io_error <- function(e, format) {
+handle_parquet_io_error <- function(e, format, call) {
   msg <- conditionMessage(e)
   if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
     # If length(format) > 1, that means it is (almost certainly) the default/not specified value
     # so let the user know that they should specify the actual (not parquet) format
-    abort(c(
+    msg <- c(
       msg,
       i = "Did you mean to specify a 'format' other than the default (parquet)?"
-    ))
+    )
   }
-  stop(e)
+  abort(msg, call = call)
 }
 
 is_writable_table <- function(x) {
@@ -198,19 +198,18 @@ repeat_value_as_array <- function(object, n) {
   return(Scalar$create(object)$as_array(n))
 }
 
-handle_csv_read_error <- function(e, schema) {
+handle_csv_read_error <- function(e, schema, call) {
   msg <- conditionMessage(e)
 
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
-    abort(c(
+    msg <- c(
       msg,
       i = paste(
         "If you have supplied a schema and your data contains a header",
         "row, you should supply the argument `skip = 1` to prevent the",
         "header being read in as data."
       )
-    ))
+    )
   }
-
-  abort(msg)
+  abort(msg, call = call)
 }

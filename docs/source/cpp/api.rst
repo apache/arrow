@@ -40,5 +40,6 @@ API Reference
    api/formats
    api/cuda
    api/flight
+   api/flightsql
    api/filesystem
    api/dataset
