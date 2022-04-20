@@ -27,12 +27,14 @@ as_arrow_array(x, ..., type = NULL)
 will default to the type guessed by \code{\link[=infer_type]{infer_type()}}.}
 }
 \value{
-An \link{Array}.
+An \link{Array} with type \code{type}.
 }
 \description{
 The \code{as_arrow_array()} function is identical to \code{Array$create()} except
 that it is an S3 generic, which allows methods to be defined in other
-packages to convert objects to \link{Array}.
+packages to convert objects to \link{Array}. \code{Array$create()} is slightly faster
+because it tries to convert in C++ before falling back on
+\code{as_arrow_array()}.
 }
 \examples{
 as_arrow_array(1:5)

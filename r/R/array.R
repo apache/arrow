@@ -221,14 +221,16 @@ Array$import_from_c <- ImportArray
 #'
 #' The `as_arrow_array()` function is identical to `Array$create()` except
 #' that it is an S3 generic, which allows methods to be defined in other
-#' packages to convert objects to [Array].
+#' packages to convert objects to [Array]. `Array$create()` is slightly faster
+#' because it tries to convert in C++ before falling back on
+#' `as_arrow_array()`.
 #'
 #' @param x An object to convert to an Arrow Array
 #' @param ... Passed to S3 methods
 #' @param type A [type][data-type] for the final Array. A value of `NULL`
 #'   will default to the type guessed by [infer_type()].
 #'
-#' @return An [Array].
+#' @return An [Array] with type `type`.
 #' @export
 #'
 #' @examples
@@ -297,6 +299,9 @@ as_arrow_array.POSIXlt <- function(x, ..., type = NULL) {
   as_arrow_array.vctrs_vctr(x, ..., type = type)
 }
 
+# data.frame conversion can happen in C++ when all the columns can be
+# converted in C++; however, when calling as_arrow_array(), this method will get
+# called regardless of whether or not this can or can't happen.
 #' @export
 as_arrow_array.data.frame <- function(x, ..., type = NULL) {
   type <- type %||% infer_type(x)
