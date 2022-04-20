@@ -73,7 +73,7 @@ func (l *List) Validate() (err error) {
 	listType := l.Type
 
 	if !arrow.TypeEqual(l.Value.DataType(), valueType) {
-		err = xerrors.Errorf("%s scalar should have a value of type %s, got %s",
+		err = fmt.Errorf("%s scalar should have a value of type %s, got %s",
 			listType, valueType, l.Value.DataType())
 	}
 	return
@@ -97,7 +97,7 @@ func (l *List) CastTo(to arrow.DataType) (Scalar, error) {
 		return NewStringScalarFromBuffer(buf), nil
 	}
 
-	return nil, xerrors.Errorf("cannot convert non-nil list scalar to type %s", to)
+	return nil, fmt.Errorf("cannot convert non-nil list scalar to type %s", to)
 }
 
 func (l *List) String() string {
@@ -144,7 +144,7 @@ func (f *FixedSizeList) Validate() (err error) {
 	if f.Valid {
 		listType := f.Type.(*arrow.FixedSizeListType)
 		if f.Value.Len() != int(listType.Len()) {
-			return xerrors.Errorf("%s scalar should have a child value of length %d, got %d",
+			return fmt.Errorf("%s scalar should have a child value of length %d, got %d",
 				f.Type, listType.Len(), f.Value.Len())
 		}
 	}
@@ -180,7 +180,7 @@ func (s *Struct) Release() {
 func (s *Struct) Field(name string) (Scalar, error) {
 	idx, ok := s.Type.(*arrow.StructType).FieldIdx(name)
 	if !ok {
-		return nil, xerrors.Errorf("no field named %s found in struct scalar %s", name, s.Type)
+		return nil, fmt.Errorf("no field named %s found in struct scalar %s", name, s.Type)
 	}
 
 	return s.Value[idx], nil
@@ -205,7 +205,7 @@ func (s *Struct) CastTo(to arrow.DataType) (Scalar, error) {
 	}
 
 	if to.ID() != arrow.STRING {
-		return nil, xerrors.Errorf("cannot cast non-null struct scalar to type %s", to)
+		return nil, fmt.Errorf("cannot cast non-null struct scalar to type %s", to)
 	}
 
 	var bld bytes.Buffer
@@ -244,7 +244,7 @@ func (s *Struct) Validate() (err error) {
 
 	if !s.Valid {
 		if len(s.Value) != 0 {
-			err = xerrors.Errorf("%s scalar is marked null but has child values", s.Type)
+			err = fmt.Errorf("%s scalar is marked null but has child values", s.Type)
 		}
 		return
 	}
@@ -252,21 +252,21 @@ func (s *Struct) Validate() (err error) {
 	st := s.Type.(*arrow.StructType)
 	num := len(st.Fields())
 	if len(s.Value) != num {
-		return xerrors.Errorf("non-null %s scalar should have %d child values, got %d", s.Type, num, len(s.Value))
+		return fmt.Errorf("non-null %s scalar should have %d child values, got %d", s.Type, num, len(s.Value))
 	}
 
 	for i, f := range st.Fields() {
 		if s.Value[i] == nil {
-			return xerrors.Errorf("non-null %s scalar has missing child value at index %d", s.Type, i)
+			return fmt.Errorf("non-null %s scalar has missing child value at index %d", s.Type, i)
 		}
 
 		err = s.Value[i].Validate()
 		if err != nil {
-			return xerrors.Errorf("%s scalar fails validation for child at index %d: %w", s.Type, i, err)
+			return fmt.Errorf("%s scalar fails validation for child at index %d: %w", s.Type, i, err)
 		}
 
 		if !arrow.TypeEqual(s.Value[i].DataType(), f.Type) {
-			return xerrors.Errorf("%s scalar should have a child value of type %s at index %d, got %s", s.Type, f.Type, i, s.Value[i].DataType())
+			return fmt.Errorf("%s scalar should have a child value of type %s at index %d, got %s", s.Type, f.Type, i, s.Value[i].DataType())
 		}
 	}
 	return
@@ -279,7 +279,7 @@ func (s *Struct) ValidateFull() (err error) {
 
 	if !s.Valid {
 		if len(s.Value) != 0 {
-			err = xerrors.Errorf("%s scalar is marked null but has child values", s.Type)
+			err = fmt.Errorf("%s scalar is marked null but has child values", s.Type)
 		}
 		return
 	}
@@ -287,21 +287,21 @@ func (s *Struct) ValidateFull() (err error) {
 	st := s.Type.(*arrow.StructType)
 	num := len(st.Fields())
 	if len(s.Value) != num {
-		return xerrors.Errorf("non-null %s scalar should have %d child values, got %d", s.Type, num, len(s.Value))
+		return fmt.Errorf("non-null %s scalar should have %d child values, got %d", s.Type, num, len(s.Value))
 	}
 
 	for i, f := range st.Fields() {
 		if s.Value[i] == nil {
-			return xerrors.Errorf("non-null %s scalar has missing child value at index %d", s.Type, i)
+			return fmt.Errorf("non-null %s scalar has missing child value at index %d", s.Type, i)
 		}
 
 		err = s.Value[i].ValidateFull()
 		if err != nil {
-			return xerrors.Errorf("%s scalar fails validation for child at index %d: %w", s.Type, i, err)
+			return fmt.Errorf("%s scalar fails validation for child at index %d: %w", s.Type, i, err)
 		}
 
 		if !arrow.TypeEqual(s.Value[i].DataType(), f.Type) {
-			return xerrors.Errorf("%s scalar should have a child value of type %s at index %d, got %s", s.Type, f.Type, i, s.Value[i].DataType())
+			return fmt.Errorf("%s scalar should have a child value of type %s at index %d, got %s", s.Type, f.Type, i, s.Value[i].DataType())
 		}
 	}
 	return

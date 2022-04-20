@@ -27,7 +27,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/internal/debug"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/goccy/go-json"
-	"golang.org/x/xerrors"
 )
 
 func NewIntervalData(data arrow.ArrayData) Interface {
@@ -39,7 +38,7 @@ func NewIntervalData(data arrow.ArrayData) Interface {
 	case *arrow.MonthDayNanoIntervalType:
 		return NewMonthDayNanoIntervalData(data.(*Data))
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown interval data type %T", data.DataType()))
+		panic(fmt.Errorf("arrow/array: unknown interval data type %T", data.DataType()))
 	}
 }
 

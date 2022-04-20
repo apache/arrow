@@ -109,7 +109,7 @@ type servAuth struct{}
 
 func (a *servAuth) Authenticate(c flight.AuthConn) error {
 	tok, err := c.Read()
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return nil
 	}
 
@@ -170,7 +170,7 @@ func TestListFlights(t *testing.T) {
 
 	for {
 		info, err := flightStream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			t.Error(err)
@@ -290,7 +290,7 @@ func TestServer(t *testing.T) {
 	for {
 		rec, err := r.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			t.Error(err)
@@ -353,7 +353,7 @@ func TestFlightWithAppMetadata(t *testing.T) {
 	for {
 		rec, err := r.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			t.Fatal(err)

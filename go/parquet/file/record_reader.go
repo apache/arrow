@@ -17,6 +17,7 @@
 package file
 
 import (
+	"fmt"
 	"sync/atomic"
 	"unsafe"
 
@@ -413,7 +414,7 @@ func (rr *recordReader) reserveLevels(extra int64) error {
 		if newCap > rr.levelsCap {
 			capBytes, ok := overflow.Mul(int(newCap), arrow.Int16SizeBytes)
 			if !ok {
-				return xerrors.Errorf("allocation size too large (corrupt file?)")
+				return fmt.Errorf("allocation size too large (corrupt file?)")
 			}
 			rr.defLevels.ResizeNoShrink(capBytes)
 			if rr.Descriptor().MaxRepetitionLevel() > 0 {

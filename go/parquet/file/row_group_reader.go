@@ -17,6 +17,8 @@
 package file
 
 import (
+	"fmt"
+
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -55,13 +57,13 @@ func (r *RowGroupReader) ByteSize() int64 { return r.rgMetadata.TotalByteSize() 
 // panics if passed a column not in the range [0, NumColumns)
 func (r *RowGroupReader) Column(i int) ColumnChunkReader {
 	if i >= r.NumColumns() || i < 0 {
-		panic(xerrors.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns()))
+		panic(fmt.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns()))
 	}
 
 	descr := r.fileMetadata.Schema.Column(i)
 	pageRdr, err := r.GetColumnPageReader(i)
 	if err != nil {
-		panic(xerrors.Errorf("parquet: unable to initialize page reader: %w", err))
+		panic(fmt.Errorf("parquet: unable to initialize page reader: %w", err))
 	}
 	return NewColumnReader(descr, pageRdr, r.props.Allocator())
 }
@@ -84,10 +86,10 @@ func (r *RowGroupReader) GetColumnPageReader(i int) (PageReader, error) {
 		// dictionary page header size in total_compressed_size and total_uncompressed_size
 		// (see IMPALA-694). We add padding to compensate.
 		if colStart < 0 || colLen < 0 {
-			return nil, xerrors.Errorf("invalid column chunk metadata, offset (%d) and length (%d) should both be positive", colStart, colLen)
+			return nil, fmt.Errorf("invalid column chunk metadata, offset (%d) and length (%d) should both be positive", colStart, colLen)
 		}
 		if colStart > r.sourceSz || colLen > r.sourceSz {
-			return nil, xerrors.Errorf("invalid column chunk metadata, offset (%d) and length (%d) must both be less than total source size (%d)", colStart, colLen, r.sourceSz)
+			return nil, fmt.Errorf("invalid column chunk metadata, offset (%d) and length (%d) must both be less than total source size (%d)", colStart, colLen, r.sourceSz)
 		}
 		bytesRemain := r.sourceSz - (colStart + colLen)
 		padding := utils.Min(maxDictHeaderSize, bytesRemain)

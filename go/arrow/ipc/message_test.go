@@ -18,6 +18,7 @@ package ipc
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 
@@ -38,7 +39,7 @@ func TestMessageReaderBodyInAllocator(t *testing.T) {
 	msgs := make([]*Message, 0)
 	for {
 		m, err := r.Message()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

@@ -24,6 +24,7 @@
 package cdata
 
 import (
+	"errors"
 	"io"
 	"runtime"
 	"testing"
@@ -602,7 +603,7 @@ func TestRecordReaderStream(t *testing.T) {
 	for {
 		rec, err := rdr.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			assert.NoError(t, err)

@@ -16,8 +16,9 @@
 
 package encoding
 
-import (
+import (  
   "encoding/binary"
+  "fmt"
 
   "github.com/apache/arrow/go/v8/arrow"
   "github.com/apache/arrow/go/v8/parquet"
@@ -134,7 +135,7 @@ func (dec *Plain{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
   max := utils.MinInt(len(out), dec.nvals)
   nbytes := int64(max) * int64({{.prefix}}.{{.Name}}SizeBytes)
   if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-    return 0, xerrors.Errorf("parquet: eof exception decode plain {{.Name}}, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+    return 0, fmt.Errorf("parquet: eof exception decode plain {{.Name}}, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
   }
 
   copyFrom{{.Name}}LE(out, dec.data[:nbytes])

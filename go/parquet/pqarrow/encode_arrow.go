@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"time"
 	"unsafe"
 
@@ -142,7 +143,7 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 				return ArrowColumnWriter{}, nil
 			}
 			if leafCount != bldr.leafCount() {
-				return ArrowColumnWriter{}, xerrors.Errorf("data type leaf_count != builder leafcount: %d - %d", leafCount, bldr.leafCount())
+				return ArrowColumnWriter{}, fmt.Errorf("data type leaf_count != builder leafcount: %d - %d", leafCount, bldr.leafCount())
 			}
 			builders = append(builders, bldr)
 		}
@@ -240,7 +241,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 	switch wr := cw.(type) {
 	case *file.BooleanColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.BOOL {
-			return xerrors.Errorf("type mismatch, column is %s, array is %s", cw.Type(), leafArr.DataType().ID())
+			return fmt.Errorf("type mismatch, column is %s, array is %s", cw.Type(), leafArr.DataType().ID())
 		}
 		// TODO(mtopol): optimize this so that we aren't converting from
 		// the bitmap -> []bool -> bitmap anymore
@@ -308,7 +309,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 					data[idx] = int32(val / 86400000) // coerce date64 values
 				}
 			default:
-				return xerrors.Errorf("type mismatch, column is int32 writer, arrow array is %s, and not a compatible type", leafArr.DataType().Name())
+				return fmt.Errorf("type mismatch, column is int32 writer, arrow array is %s, and not a compatible type", leafArr.DataType().Name())
 			}
 		}
 
@@ -371,7 +372,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
 			data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
 		default:
-			return xerrors.Errorf("unimplemented arrow type to write to int64 column: %s", leafArr.DataType().Name())
+			return fmt.Errorf("unimplemented arrow type to write to int64 column: %s", leafArr.DataType().Name())
 		}
 
 		if !maybeParentNulls && noNulls {
@@ -551,7 +552,7 @@ func writeCoerceTimestamps(arr *array.Timestamp, props *ArrowWriterProperties, o
 	divide := func(factor int64) error {
 		for idx, val := range vals {
 			if !truncation && arr.IsValid(idx) && (int64(val)%factor != 0) {
-				return xerrors.Errorf("casting from %s to %s would lose data", source, target)
+				return fmt.Errorf("casting from %s to %s would lose data", source, target)
 			}
 			out[idx] = int64(val) / factor
 		}

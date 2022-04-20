@@ -18,10 +18,10 @@ package parquet
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 // ReaderProperties are used to define how the file reader will handle buffering and allocating buffers
@@ -68,10 +68,10 @@ func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (i
 	data := make([]byte, nbytes)
 	n, err := source.ReadAt(data, start)
 	if err != nil {
-		return nil, xerrors.Errorf("parquet: tried reading from file, but got error: %w", err)
+		return nil, fmt.Errorf("parquet: tried reading from file, but got error: %w", err)
 	}
 	if n != int(nbytes) {
-		return nil, xerrors.Errorf("parquet: tried reading %d bytes starting at position %d from file but only got %d", nbytes, start, n)
+		return nil, fmt.Errorf("parquet: tried reading %d bytes starting at position %d from file but only got %d", nbytes, start, n)
 	}
 
 	return bytes.NewReader(data), nil
