@@ -21,6 +21,7 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.AbstractArrowFlightJdbcListVectorAccessor;
@@ -159,5 +160,18 @@ public class ArrowFlightJdbcArray implements Array {
   @Override
   public void free() {
 
+  }
+
+  @Override
+  public String toString() {
+    final Object[] array;
+
+    try {
+      array = (Object[]) getArray();
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+
+   return Arrays.toString(array);
   }
 }
