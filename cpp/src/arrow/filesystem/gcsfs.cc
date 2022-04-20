@@ -362,7 +362,7 @@ class GcsFileSystem::Impl {
     // Need to add one level when the object is not empty because all
     // directories have an extra slash.
     const auto max_depth =
-        internal::Depth(p.object) + select.max_recursion + !p.object.empty();
+        internal::Depth(canonical) + select.max_recursion + !p.object.empty();
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
     auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
     // Include trailing delimiters ensures that files matching "directory"
@@ -380,9 +380,7 @@ class GcsFileSystem::Impl {
       }
       // Skip the directory itself from the results, and any result that is "too deep"
       // into the recursion.
-      bool has_trailing_slash = !o->name().empty() && o->name().back() == '/';
-      if (o->name() == canonical ||
-          internal::Depth(o->name()) > (max_depth + has_trailing_slash)) {
+      if (o->name() == canonical || internal::Depth(o->name()) > max_depth) {
         continue;
       }
       auto path = internal::ConcatAbstractPath(o->bucket(), o->name());
@@ -659,8 +657,10 @@ class GcsFileSystem::Impl {
   // for with a trailing slash it is expected to have a trailing
   // slash [1] but for recursive listings it is expected that
   // directories have their path normalized [2].
-  // [1] https://github.com/apache/arrow/blob/3eaa7dd0e8b3dabc5438203331f05e3e6c011e37/python/pyarrow/tests/test_fs.py#L688
-  // [2] https://github.com/apache/arrow/blob/3eaa7dd0e8b3dabc5438203331f05e3e6c011e37/cpp/src/arrow/filesystem/test_util.cc#L767
+  // [1]
+  // https://github.com/apache/arrow/blob/3eaa7dd0e8b3dabc5438203331f05e3e6c011e37/python/pyarrow/tests/test_fs.py#L688
+  // [2]
+  // https://github.com/apache/arrow/blob/3eaa7dd0e8b3dabc5438203331f05e3e6c011e37/cpp/src/arrow/filesystem/test_util.cc#L767
   static FileInfo ToFileInfo(const std::string& full_path,
                              const gcs::ObjectMetadata& meta,
                              bool normalize_directories = false) {

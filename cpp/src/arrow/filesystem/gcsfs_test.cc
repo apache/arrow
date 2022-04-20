@@ -682,7 +682,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorLimitedRecursion) {
     SCOPED_TRACE("Testing with max_recursion=" + std::to_string(max_recursion));
     const auto max_depth =
         internal::Depth(internal::EnsureTrailingSlash(hierarchy.base_dir)) +
-        max_recursion;
+        max_recursion + 1;  // Add 1 because files in a directory should be included
     std::vector<arrow::fs::FileInfo> expected;
     std::copy_if(hierarchy.contents.begin(), hierarchy.contents.end(),
                  std::back_inserter(expected), [&](const arrow::fs::FileInfo& info) {
