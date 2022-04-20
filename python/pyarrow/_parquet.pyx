@@ -233,7 +233,7 @@ cdef class ParquetLogicalType(_Weakrefable):
 
     def to_json(self):
         """
-        Get a JSON string containing type and type parameters
+        Get a JSON string containing type and type parameters.
 
         Returns
         -------
