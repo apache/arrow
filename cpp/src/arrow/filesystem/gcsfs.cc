@@ -365,9 +365,9 @@ class GcsFileSystem::Impl {
         internal::Depth(p.object) + select.max_recursion + !p.object.empty();
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
     auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
-    // TODO(emkornfield): Add docs explaining or simplify.
-    auto include_trailing = select.recursive ? gcs::IncludeTrailingDelimiter(false)
-                                             : gcs::IncludeTrailingDelimiter(true);
+    // Include trailing delimiters ensures that files matching "directory"
+    // conventions are also included in the listing.
+    auto include_trailing = gcs::IncludeTrailingDelimiter(true);
     FileInfoVector result;
     for (auto const& o :
          client_.ListObjects(p.bucket, prefix, delimiter, include_trailing)) {
