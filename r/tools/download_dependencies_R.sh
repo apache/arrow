@@ -19,36 +19,37 @@
 
 # This script downloads all the thirdparty dependencies as a series of tarballs
 # that can be used for offline builds, etc.
+# This script is specific for R users, using R's download facilities rather than
+# wget. The original version of this script is cpp/thirdparty/download_dependencies.sh
+# Changes from the original:
+#  * don't download the files, just emit R code to download
+#  * require a download directory
+#  * don't print env vars
 
 set -eu
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ "$#" -ne 1 ]; then
-  orig_destdir=$(pwd)
+  >&2 echo "Download directory must be specified on the command line"
+  exit 1
 else
-  orig_destdir=$1
+  DESTDIR=$1
 fi
-
-# Try to canonicalize. Not all platforms support `readlink -f` or `realpath`.
-# This only matters if there are symlinks you need to resolve before downloading
-DESTDIR=$(readlink -f "${orig_destdir}" 2> /dev/null) || DESTDIR="${orig_destdir}"
 
 download_dependency() {
   local url=$1
   local out=$2
 
-  wget --quiet --continue --output-document="${out}" "${url}" || \
-    (echo "Failed downloading ${url}" 1>&2; exit 1)
+  echo 'download.file("'${url}'", "'${out}'", quiet = TRUE)'
 }
 
 main() {
   mkdir -p "${DESTDIR}"
 
   # Load `DEPENDENCIES` variable.
-  source ${SOURCE_DIR}/versions.txt
+  source ${SOURCE_DIR}/cpp/thirdparty/versions.txt
 
-  echo "# Environment variables for offline Arrow build"
   for ((i = 0; i < ${#DEPENDENCIES[@]}; i++)); do
     local dep_packed=${DEPENDENCIES[$i]}
 
@@ -57,8 +58,6 @@ main() {
 
     local out=${DESTDIR}/${dep_tar_name}
     download_dependency "${dep_url}" "${out}"
-
-    echo "export ${dep_url_var}=${out}"
   done
 }
 
