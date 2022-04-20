@@ -163,7 +163,7 @@ def _apply_options(cmd, options):
 @click.option("--with-gandiva", default=None, type=BOOL,
               help="Build with Gandiva expression compiler support.")
 @click.option("--with-gcs", default=None, type=BOOL,
-              help="Build Arrow with Google Cloud Storage (gcs) support.")
+              help="Build Arrow with Google Cloud Storage (GCS) support.")
 @click.option("--with-hdfs", default=None, type=BOOL,
               help="Build the Arrow HDFS bridge.")
 @click.option("--with-hiveserver2", default=None, type=BOOL,
@@ -185,8 +185,6 @@ def _apply_options(cmd, options):
 @click.option("--with-r", default=None, type=BOOL,
               help="Build the Arrow R extensions. This is not a CMake option, "
               "it will toggle required options")
-@click.option("--with-gcs", default=None, type=BOOL,
-              help="Build Arrow with Google Cloud Storage (GCS) support.")
 @click.option("--with-s3", default=None, type=BOOL,
               help="Build Arrow with S3 support.")
 # Compressions
