@@ -17,7 +17,7 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static org.apache.arrow.driver.jdbc.utils.FlightSqlTestCertificates.*;
+import static org.apache.arrow.driver.jdbc.utils.FlightSqlTestCertificates.CertKeyPair;
 
 import java.io.File;
 import java.io.IOException;
