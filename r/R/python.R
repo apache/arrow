@@ -241,10 +241,12 @@ as_arrow_array.pyarrow.lib.Array <- function(x, ..., type = NULL) {
   as_arrow_array(py_to_r.pyarrow.lib.Array(x), type = type)
 }
 
+# nolint start
 #' @export
 as_chunked_array.pyarrow.lib.ChunkedArray <- function(x, ..., type = NULL) {
   as_chunked_array(py_to_r.pyarrow.lib.ChunkedArray(x), type = type)
 }
+# nolint end
 
 #' @export
 as_record_batch.pyarrow.lib.RecordBatch <- function(x, ..., schema = NULL) {
@@ -256,10 +258,14 @@ as_arrow_table.pyarrow.lib.RecordBatch <- function(x, ..., schema = NULL) {
   as_arrow_table(py_to_r.pyarrow.lib.RecordBatch(x), schema = schema)
 }
 
+# Some of these function names are longer than 40 characters
+# (but have to be named such because of S3 method naming)
+# nolint start
 #' @export
 as_record_batch_reader.pyarrow.lib.RecordBatch <- function(x, ...) {
   as_record_batch_reader(py_to_r.pyarrow.lib.RecordBatch(x))
 }
+# nolint end
 
 #' @export
 as_record_batch.pyarrow.lib.Table <- function(x, ..., schema = NULL) {
@@ -291,10 +297,12 @@ as_data_type.pyarrow.lib.DataType <- function(x, ...) {
   as_data_type(py_to_r.pyarrow.lib.DataType(x))
 }
 
+# nolint start
 #' @export
 as_record_batch_reader.pyarrow.lib.RecordBatchReader <- function(x, ...) {
   py_to_r.pyarrow.lib.RecordBatchReader(x)
 }
+# nolint end
 
 #' Install pyarrow for use with reticulate
 #'
