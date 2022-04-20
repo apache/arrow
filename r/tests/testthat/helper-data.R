@@ -25,22 +25,6 @@ example_data <- tibble::tibble(
   fct = factor(letters[c(1:4, NA, NA, 7:10)])
 )
 
-old_example_with_metadata <- tibble::tibble(
-  a = structure("one", class = "special_string"),
-  b = 2,
-  c = tibble::tibble(
-    c1 = structure("inner", extra_attr = "something"),
-    c2 = 4,
-    c3 = 50
-  ),
-  d = "four"
-)
-
-attr(old_example_with_metadata, "top_level") <- list(
-  field_one = 12,
-  field_two = "more stuff"
-)
-
 example_with_metadata <- tibble::tibble(
   a = "one",
   b = 2,
@@ -147,9 +131,6 @@ example_with_logical_factors <- tibble::tibble(
     "hey buddy"
   )
 )
-
-old_example_with_extra_metadata <- old_example_with_metadata
-attributes(old_example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
 
 example_with_extra_metadata <- example_with_metadata
 attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))

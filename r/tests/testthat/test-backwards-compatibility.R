@@ -35,6 +35,31 @@
 
 skip_if(getRversion() < "3.5.0", "The serialization format changed in 3.5")
 
+# In version <= 7.0.0, classed vectors were unclassed, converted to Array,
+# and classes were saved in the metadata then restored when
+# as.data.frame() was called. In arrow > 7.0.0, we use as_arrow_array(),
+# infer_type(), and vctrs_extension_array() to handle S3 objects, which
+# now errors for `structure("one", class = "special_string")`. This is
+# the data that was used to write the test files.
+old_example_with_metadata <- tibble::tibble(
+  a = structure("one", class = "special_string"),
+  b = 2,
+  c = tibble::tibble(
+    c1 = structure("inner", extra_attr = "something"),
+    c2 = 4,
+    c3 = 50
+  ),
+  d = "four"
+)
+
+attr(old_example_with_metadata, "top_level") <- list(
+  field_one = 12,
+  field_two = "more stuff"
+)
+
+old_example_with_extra_metadata <- old_example_with_metadata
+attributes(old_example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
+
 expect_identical_with_metadata <- function(object, expected, ..., top_level = TRUE) {
   attrs_to_keep <- c("names", "class", "row.names")
   if (!top_level) {
