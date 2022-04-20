@@ -2366,6 +2366,11 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
 
 
 cdef class ScalarUdfContext:
+    """
+    A container to hold user-defined-function related
+    entities. `batch_length` and `MemoryPool` are important
+    entities in defining functions which require these details. 
+    """
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly"
@@ -2376,10 +2381,34 @@ cdef class ScalarUdfContext:
 
     @property
     def batch_length(self):
+        """
+        Returns the length of the batch associated with the
+        user-defined-function. Useful when the batch_length
+        is required to do computations specially when scalars
+        are parameters of the user-defined-function.
+
+        Returns
+        -------
+        batch_length: int64
+            The number of batches used when calling 
+            user-defined-function. 
+        """
         return self.c_context.batch_length
 
     @property
     def memory_pool(self):
+        """
+        Returns the MemoryPool associated with the 
+        user-defined-function. An already initialized
+        MemoryPool can be used within the
+        user-defined-function. 
+
+        Returns
+        -------
+        memory_pool: MemoryPool
+            MemoryPool is obtained from the KernelContext
+            and passed to the ScalarUdfContext.
+        """
         return box_memory_pool(self.c_context.pool)
 
 
@@ -2405,7 +2434,10 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     return f_doc
 
 cdef _scalar_udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
-    # Create Python context
+    """
+    Helper callback function used to wrap the ScalarUdfContext from Python to C++
+    execution.
+    """
     cdef ScalarUdfContext context = ScalarUdfContext.__new__(ScalarUdfContext)
     context.init(c_context)
     return user_function(context, *inputs)
@@ -2459,7 +2491,7 @@ def register_scalar_function(func, func_name, function_doc, in_types,
     >>> func_doc["summary"] = "simple udf"
     >>> func_doc["description"] = "add a constant to a scalar"
     >>> 
-    >>> def add_constant(array):
+    >>> def add_constant(ctx, array):
     ...     return pc.add(array, 1)
     >>> 
     >>> func_name = "py_add_func"
