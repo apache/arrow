@@ -1304,3 +1304,92 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
     ignore_attr = TRUE
   )
 })
+
+test_that("make_difftime()", {
+  test_df <- tibble(
+    seconds = c(3, 4, 5, 6),
+    minutes = c(1.5, 2.3, 4.5, 6.7),
+    hours = c(2, 3, 4, 5),
+    days = c(6, 7, 8, 9),
+    weeks = c(1, 3, 5, NA),
+    number = 10:13
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        duration_from_parts = make_difftime(
+          second = seconds,
+          minute = minutes,
+          hour = hours,
+          day = days,
+          week = weeks,
+          units = "secs"
+        ),
+        duration_from_num = make_difftime(
+          num = number,
+          units =  "secs"
+        ),
+        duration_from_r_num = make_difftime(
+          num = 154,
+          units = "secs"
+        ),
+        duration_from_r_parts = make_difftime(
+          minute = 45,
+          day = 2,
+          week = 4,
+          units = "secs"
+        )
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # named difftime parts other than `second`, `minute`, `hour`, `day` and `week`
+  # are not supported
+  expect_error(
+    expect_warning(
+      test_df %>%
+        arrow_table() %>%
+        mutate(
+          err_difftime = make_difftime(month = 2)
+        ) %>%
+        collect(),
+      paste0("named `difftime` units other than: `second`, `minute`, `hour`,",
+            " `day`, and `week` not supported in Arrow.")
+    )
+  )
+
+  # units other than "secs" not supported since they are the only ones in common
+  # between R and Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(error_difftime = make_difftime(num = number, units = "mins")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  # constructing a difftime from both `num` and parts passed through `...` while
+  # possible with the lubridate function (resulting in a concatenation of the 2
+  # resulting objects), it errors in a dplyr context
+  expect_error(
+    expect_warning(
+      test_df %>%
+        arrow_table() %>%
+        mutate(
+          duration_from_num_and_parts = make_difftime(
+            num = number,
+            second = seconds,
+            minute = minutes,
+            hour = hours,
+            day = days,
+            week = weeks,
+            units = "secs"
+          )
+        ) %>%
+        collect(),
+      "with both `num` and `...` not supported in Arrow"
+    )
+  )
+})
