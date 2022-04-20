@@ -1,4 +1,4 @@
-# as_arrow_array() works for vctr_vctr types
+# as_arrow_array() works for vctrs_vctr types
 
     Can't create Array<float64()> from object of type custom_vctr / vctrs_vctr
 

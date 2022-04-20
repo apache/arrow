@@ -115,16 +115,6 @@ infer_type.ArrowDatum <- function(x, ...) x$type
 #' @export
 infer_type.Expression <- function(x, ...) x$type()
 
-#' @export
-infer_type.vctrs_vctr <- function(x, ...) {
-  vctrs_extension_type(vctrs::vec_ptype(x))
-}
-
-#' @export
-infer_type.POSIXlt <- function(x, ...) {
-  infer_type.vctrs_vctr(x, ...)
-}
-
 #----- metadata
 
 #' @title class arrow::FixedWidthType

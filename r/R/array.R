@@ -254,7 +254,18 @@ as_arrow_array.default <- function(x, ..., type = NULL, from_vec_to_array = FALS
     # Last ditch attempt: if vctrs::vec_is(x), we can use the vctrs
     # extension type.
     if (vctrs::vec_is(x)) {
-      return(as_arrow_array.vctrs_vctr(x, type = type))
+      if (is.null(type)) {
+        vctrs_extension_array(x)
+      } else if (inherits(type, "VctrsExtensionType")) {
+        array <- vctrs_extension_array(
+          x,
+          ptype = type$ptype(),
+          storage_type = type$storage_type()
+        )
+        return(array)
+      } else {
+        stop_cant_convert_array(x, type)
+      }
     }
 
     stop_cant_convert_array(x, type)
@@ -283,27 +294,6 @@ as_arrow_array.Scalar <- function(x, ..., type = NULL) {
 #' @export
 as_arrow_array.ChunkedArray <- function(x, ..., type = NULL) {
   concat_arrays(!!! x$chunks, type = type)
-}
-
-#' @rdname as_arrow_array
-#' @export
-as_arrow_array.vctrs_vctr <- function(x, ..., type = NULL) {
-  if (is.null(type)) {
-    vctrs_extension_array(x)
-  } else if (inherits(type, "VctrsExtensionType")) {
-    vctrs_extension_array(
-      x,
-      ptype = type$ptype(),
-      storage_type = type$storage_type()
-    )
-  } else {
-    stop_cant_convert_array(x, type)
-  }
-}
-
-#' @export
-as_arrow_array.POSIXlt <- function(x, ..., type = NULL) {
-  as_arrow_array.vctrs_vctr(x, ..., type = type)
 }
 
 # data.frame conversion can happen in C++ when all the columns can be

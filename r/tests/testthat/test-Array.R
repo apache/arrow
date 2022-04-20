@@ -1057,7 +1057,7 @@ test_that("as_arrow_array() works for ChunkedArray", {
   )
 })
 
-test_that("as_arrow_array() works for vctr_vctr types", {
+test_that("as_arrow_array() works for vctrs_vctr types", {
   vctr <- vctrs::new_vctr(1:5, class = "custom_vctr")
   expect_equal(
     as_arrow_array(vctr),

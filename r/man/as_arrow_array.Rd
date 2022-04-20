@@ -5,7 +5,6 @@
 \alias{as_arrow_array.Array}
 \alias{as_arrow_array.Scalar}
 \alias{as_arrow_array.ChunkedArray}
-\alias{as_arrow_array.vctrs_vctr}
 \title{Convert an object to an Arrow Array}
 \usage{
 as_arrow_array(x, ..., type = NULL)
@@ -15,8 +14,6 @@ as_arrow_array(x, ..., type = NULL)
 \method{as_arrow_array}{Scalar}(x, ..., type = NULL)
 
 \method{as_arrow_array}{ChunkedArray}(x, ..., type = NULL)
-
-\method{as_arrow_array}{vctrs_vctr}(x, ..., type = NULL)
 }
 \arguments{
 \item{x}{An object to convert to an Arrow Array}
