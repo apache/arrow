@@ -85,7 +85,7 @@ struct CumulativeGeneric {
     switch (batch[0].kind()) {
       case Datum::SCALAR: {
         auto in_value = UnboxScalar<OutType>::Unbox(*(batch[0].scalar()));
-        builder.Append(start + in_value);
+        RETURN_NOT_OK(builder.Append(start + in_value));
         break;
       }
       case Datum::ARRAY: {
@@ -122,7 +122,7 @@ struct CumulativeGeneric {
     bool encountered_null_tmp = *encountered_null;
 
     auto null_func = [&]() {
-      builder.AppendNull();
+      st &= builder.AppendNull();
       encountered_null_tmp = true;
     };
 
@@ -132,7 +132,7 @@ struct CumulativeGeneric {
           [&](ArgValue v) {
             accumulator_tmp = Op::template Call<OutValue, ArgValue, ArgValue>(
                 ctx, v, accumulator_tmp, &st);
-            builder.Append(accumulator_tmp);
+            st &= builder.Append(accumulator_tmp);
           },
           null_func);
     } else {
@@ -140,11 +140,11 @@ struct CumulativeGeneric {
           input,
           [&](ArgValue v) {
             if (encountered_null_tmp) {
-              builder.AppendNull();
+              st &= builder.AppendNull();
             } else {
               accumulator_tmp = Op::template Call<OutValue, ArgValue, ArgValue>(
                   ctx, v, accumulator_tmp, &st);
-              builder.Append(accumulator_tmp);
+              st &= builder.Append(accumulator_tmp);
             }
           },
           null_func);
