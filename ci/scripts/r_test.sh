@@ -90,9 +90,24 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       message('Running minio for S3 tests (if build supports them)')
       minio_dir <- tempfile()
       dir.create(minio_dir)
-      pid <- sys::exec_background('minio', c('server', minio_dir))
-      on.exit(tools::pskill(pid))
+      pid_minio <- sys::exec_background('minio', c('server', minio_dir))
+      on.exit(tools::pskill(pid_minio), add = TRUE)
     }
+  }
+
+  if (reticulate::py_module_available('pyarrow')) {
+      message('Running flight demo server for tests.')
+      pid_flight <- sys::exec_background(
+          'python',
+          c(
+              '-c',
+              paste0(
+                  '__import__(\"sys\").path.append(\"./inst\"); ',
+                  '__import__(\"demo_flight_server\").DemoFlightServer(port=8089).serve()'
+              )
+          )
+      )
+      on.exit(tools::pskill(pid_flight), add = TRUE)
   }
 
   run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')
