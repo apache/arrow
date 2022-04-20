@@ -34,7 +34,7 @@ if sys.platform == 'win32':
     try:
         import tzdata
     except ImportError:
-        tzdata = None
+        zoneinfo = None
 import numpy as np
 
 import pyarrow as pa
@@ -110,18 +110,11 @@ time_types = st.sampled_from([
     pa.time64('ns')
 ])
 
-# Bool check for zoneinfo
-# True if not on Windows or if on Windows and tzdata is installed
-if sys.platform != 'win32' or (sys.platform == 'win32' and tzdata):
-    win_check = True
-else:
-    win_check = False
-
-if tzst and zoneinfo and win_check:
+if tzst and zoneinfo:
     timezones = st.one_of(st.none(), tzst.timezones(), st.timezones())
 elif tzst:
     timezones = st.one_of(st.none(), tzst.timezones())
-elif zoneinfo and win_check:
+elif zoneinfo:
     timezones = st.one_of(st.none(), st.timezones())
 else:
     timezones = st.none()
@@ -291,12 +284,7 @@ def arrays(draw, type, size=None, nullable=True):
         value = st.dates()
     elif pa.types.is_timestamp(ty):
         if zoneinfo is None:
-            pytest.skip('no module named zoneinfo')
-        if zoneinfo and sys.platform == 'win32':
-            # zoneinfo requires an additional dependency On Windows
-            # tzdata provides IANA time zone data
-            if tzdata is None:
-                pytest.skip('no module named tzdata')
+            pytest.skip('no module named zoneinfo (or tzdata on Windows)')
         if ty.tz is None:
             pytest.skip('requires timezone not None')
         min_int64 = -(2**63)
