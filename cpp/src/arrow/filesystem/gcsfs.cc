@@ -685,6 +685,12 @@ class GcsFileSystem::Impl {
   gcs::Client client_;
 };
 
+GcsOptions::GcsOptions() {
+  this->credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
+      google::cloud::MakeGoogleDefaultCredentials());
+  this->scheme = "https";
+}
+
 bool GcsOptions::Equals(const GcsOptions& other) const {
   return credentials.Equals(other.credentials) &&
          endpoint_override == other.endpoint_override && scheme == other.scheme &&
@@ -692,10 +698,7 @@ bool GcsOptions::Equals(const GcsOptions& other) const {
 }
 
 GcsOptions GcsOptions::Defaults() {
-  GcsOptions options{};
-  options.credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
-      google::cloud::MakeGoogleDefaultCredentials());
-  options.scheme = "https";
+  GcsOptions options;
   return options;
 }
 
