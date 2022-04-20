@@ -1306,6 +1306,14 @@ TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->Seek(2));
 }
 
+TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
+  // Smoke test for FileSystemFromUri
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(std::string("gs://anonymous@") +
+                                                  PreexistingBucketPath()));
+  ASSERT_OK_AND_ASSIGN(auto fs2, FileSystemFromUri(std::string("gcs://anonymous@") +
+                                                   PreexistingBucketPath()));
+}
+
 }  // namespace
 }  // namespace fs
 }  // namespace arrow
