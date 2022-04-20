@@ -142,6 +142,13 @@ public class ArrowFlightJdbcArrayTest {
     }
   }
 
+  @Test
+  public void testToString() throws SQLException {
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    Assert.assertEquals(dataVector.toString().substring(0,20), arrowFlightJdbcArray.toString().substring(0,20));
+  }
+
   @Test(expected = SQLFeatureNotSupportedException.class)
   public void testShouldGetResultSetWithMapNotBeSupported() throws SQLException {
     ArrowFlightJdbcArray arrowFlightJdbcArray =

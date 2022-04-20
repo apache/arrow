@@ -160,4 +160,14 @@ public class ArrowFlightJdbcArray implements Array {
   public void free() {
 
   }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder("[");
+    for (int i = 0; i < valuesCount-1; i++) {
+      sb.append(dataVector.getObject(i)).append(", ");
+    }
+    sb.append(dataVector.getObject((int) (valuesCount-1))).append("]");
+    return sb.toString();
+  }
 }
