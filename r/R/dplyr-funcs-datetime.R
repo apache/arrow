@@ -468,7 +468,7 @@ binding_as_date <- function(x,
                             format = NULL,
                             tryFormats = "%Y-%m-%d",
                             origin = "1970-01-01",
-                            tz = "UTC",
+                            use_tz = "UTC",
                             base = TRUE) {
 
   if (is.null(format) && length(tryFormats) > 1) {
@@ -480,10 +480,14 @@ binding_as_date <- function(x,
 
     # cast from POSIXct
   } else if (call_binding("is.POSIXct", x)) {
-    # base::as.Date() first converts to the desired timezone and then extracts
-    # the date, which is why we need to go through timestamp() first
-    if (base || !is.null(tz)) {
-      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+    # base::as.Date() and lubridate::as_date() differ in the way they use the `tz`
+    # argument both cast to the desired timezone, if present. The difference
+    # appears when the `tz` argument is not set: `as.Date()` uses the default
+    # value ("UTC"), while `as_date()` keeps the original attribute => we only
+    # cast when we want the behaviour of the base version or when `use_tz` is
+    # set (i.e. not NULL)
+    if (base || !is.null(use_tz)) {
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = use_tz)))
     }
     # POSIXct is of type double -> we need this to prevent going down the
     # "double" branch

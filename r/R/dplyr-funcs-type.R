@@ -87,7 +87,7 @@ register_bindings_type_cast <- function() {
       format = format,
       tryFormats = tryFormats,
       origin = origin,
-      tz = tz,
+      use_tz = tz,
       base = TRUE
     )
   })
@@ -100,7 +100,7 @@ register_bindings_type_cast <- function() {
       x = x,
       format = format,
       origin = origin,
-      tz = tz,
+      use_tz = tz,
       base = FALSE
     )
   })
