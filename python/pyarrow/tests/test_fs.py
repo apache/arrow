@@ -101,7 +101,7 @@ class DummyHandler(FileSystemHandler):
     def delete_dir(self, path):
         assert path == "delete_dir"
 
-    def delete_dir_contents(self, path):
+    def delete_dir_contents(self, path, missing_dir_ok):
         if not path.strip("/"):
             raise ValueError
         assert path == "delete_dir_contents"
@@ -836,6 +836,9 @@ def test_delete_dir_contents(fs, pathfn):
     fs.delete_dir_contents(d)
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(nd)
+    fs.delete_dir_contents(nd, missing_dir_ok=True)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir_contents(nd)
     fs.delete_dir(d)
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)

@@ -27,8 +27,10 @@ import sys
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
+cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
 # Initialize NumPy C API

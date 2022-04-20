@@ -16,6 +16,8 @@
 # under the License.
 
 skip_if(on_old_windows())
+# In 3.4 the lack of tzone attribute causes spurious failures
+skip_if_r_version("3.4.4")
 
 library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
@@ -1254,6 +1256,55 @@ test_that("`decimal_date()` and `date_decimal()`", {
   )
 })
 
+test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
+  example_d <- tibble(x = c(1:10, NA))
+  date_to_add <- ymd("2009-08-03", tz = "America/Chicago")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dminutes = dminutes(x),
+        dhours = dhours(x),
+        ddays = ddays(x),
+        dweeks = dweeks(x),
+        dmonths = dmonths(x),
+        dyears = dyears(x)
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dhours = dhours(x),
+        ddays = ddays(x),
+        new_date_1 = date_to_add + ddays,
+        new_date_2 = date_to_add + ddays - dhours(3),
+        new_duration = dhours - ddays
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        r_obj_dminutes = dminutes(1),
+        r_obj_dhours = dhours(2),
+        r_obj_ddays = ddays(3),
+        r_obj_dweeks = dweeks(4),
+        r_obj_dmonths = dmonths(5),
+        r_obj_dyears = dyears(6)
+      ) %>%
+      collect(),
+    tibble(),
+    ignore_attr = TRUE
+  )
+})
+
 test_that("make_difftime()", {
   test_df <- tibble(
     seconds = c(3, 4, 5, 6),
@@ -1263,11 +1314,11 @@ test_that("make_difftime()", {
     weeks = c(1, 3, 5, NA),
     number = 10:13
   )
-
-  compare_dplyr_binding(
+  
+    compare_dplyr_binding(
     .input %>%
       mutate(
-        duration_from_parts = make_difftime(
+          duration_from_parts = make_difftime(
           second = seconds,
           minute = minutes,
           hour = hours,
@@ -1337,5 +1388,5 @@ test_that("make_difftime()", {
         ) %>%
         collect()
     )
-  )
+      )
 })

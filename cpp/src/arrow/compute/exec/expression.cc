@@ -993,6 +993,21 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
       return std::to_string(ret);
     }
 
+    Status VisitFieldRef(const FieldRef& ref) {
+      if (ref.nested_refs()) {
+        metadata_->Append("nested_field_ref", std::to_string(ref.nested_refs()->size()));
+        for (const auto& child : *ref.nested_refs()) {
+          RETURN_NOT_OK(VisitFieldRef(child));
+        }
+        return Status::OK();
+      }
+      if (!ref.name()) {
+        return Status::NotImplemented("Serialization of non-name field_refs");
+      }
+      metadata_->Append("field_ref", *ref.name());
+      return Status::OK();
+    }
+
     Status Visit(const Expression& expr) {
       if (auto lit = expr.literal()) {
         if (!lit->is_scalar()) {
@@ -1004,11 +1019,7 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
       }
 
       if (auto ref = expr.field_ref()) {
-        if (!ref->name()) {
-          return Status::NotImplemented("Serialization of non-name field_refs");
-        }
-        metadata_->Append("field_ref", *ref->name());
-        return Status::OK();
+        return VisitFieldRef(*ref);
       }
 
       auto call = CallNotNull(expr);
@@ -1067,10 +1078,13 @@ Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
 
     const KeyValueMetadata& metadata() { return *batch_.schema()->metadata(); }
 
+    bool ParseInteger(const std::string& s, int32_t* value) {
+      return ::arrow::internal::ParseValue<Int32Type>(s.data(), s.length(), value);
+    }
+
     Result<std::shared_ptr<Scalar>> GetScalar(const std::string& i) {
       int32_t column_index;
-      if (!::arrow::internal::ParseValue<Int32Type>(i.data(), i.length(),
-                                                    &column_index)) {
+      if (!ParseInteger(i, &column_index)) {
         return Status::Invalid("Couldn't parse column_index");
       }
       if (column_index >= batch_.num_columns()) {
@@ -1091,6 +1105,26 @@ Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
       if (key == "literal") {
         ARROW_ASSIGN_OR_RAISE(auto scalar, GetScalar(value));
         return literal(std::move(scalar));
+      }
+
+      if (key == "nested_field_ref") {
+        int32_t size;
+        if (!ParseInteger(value, &size)) {
+          return Status::Invalid("Couldn't parse nested field ref length");
+        }
+        if (size <= 0) {
+          return Status::Invalid("nested field ref length must be > 0");
+        }
+        std::vector<FieldRef> nested;
+        nested.reserve(size);
+        while (size-- > 0) {
+          ARROW_ASSIGN_OR_RAISE(auto ref, GetOne());
+          if (!ref.field_ref()) {
+            return Status::Invalid("invalid nested field ref");
+          }
+          nested.push_back(*ref.field_ref());
+        }
+        return field_ref(FieldRef(std::move(nested)));
       }
 
       if (key == "field_ref") {

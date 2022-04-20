@@ -24,6 +24,20 @@
 #'
 #' @description A `Scalar` holds a single value of an Arrow type.
 #'
+#' @section Factory:
+#' The `Scalar$create()` factory method instantiates a `Scalar` and takes the following arguments:
+#' * `x`: an R vector, list, or `data.frame`
+#' * `type`: an optional [data type][data-type] for `x`. If omitted, the type will be inferred from the data.
+#' @section Usage:
+#'
+#' ```
+#' a <- Scalar$create(x)
+#' length(a)
+#'
+#' print(a)
+#' a == a
+#' ```
+#'
 #' @section Methods:
 #'
 #' - `$ToString()`: convert to a string

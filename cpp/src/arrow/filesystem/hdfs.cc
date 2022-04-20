@@ -26,6 +26,7 @@
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/windows_fixup.h"
@@ -201,14 +202,21 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Status DeleteDirContents(const std::string& path) {
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) {
     if (!IsDirectory(path)) {
       return Status::IOError("Cannot delete contents of directory '", path,
                              "': not a directory");
     }
     std::vector<std::string> file_list;
-    RETURN_NOT_OK(client_->GetChildren(path, &file_list));
-    for (auto file : file_list) {
+    Status get_children_st = client_->GetChildren(path, &file_list);
+    if (!get_children_st.ok()) {
+      if (missing_dir_ok &&
+          ::arrow::internal::ErrnoFromStatus(get_children_st) == ENOENT) {
+        return Status::OK();
+      }
+      return get_children_st;
+    }
+    for (const auto& file : file_list) {
       RETURN_NOT_OK(client_->Delete(file, /*recursive=*/true));
     }
     return Status::OK();
@@ -473,14 +481,16 @@ Status HadoopFileSystem::DeleteDir(const std::string& path) {
   return impl_->DeleteDir(path);
 }
 
-Status HadoopFileSystem::DeleteDirContents(const std::string& path) {
+Status HadoopFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   if (internal::IsEmptyPath(path)) {
     return internal::InvalidDeleteDirContents(path);
   }
-  return impl_->DeleteDirContents(path);
+  return impl_->DeleteDirContents(path, missing_dir_ok);
 }
 
-Status HadoopFileSystem::DeleteRootDirContents() { return impl_->DeleteDirContents(""); }
+Status HadoopFileSystem::DeleteRootDirContents() {
+  return impl_->DeleteDirContents("", /*missing_dir_ok=*/false);
+}
 
 Status HadoopFileSystem::DeleteFile(const std::string& path) {
   return impl_->DeleteFile(path);

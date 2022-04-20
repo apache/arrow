@@ -226,11 +226,13 @@ test_that("Row-level metadata (does not by default) roundtrip", {
   # But we can re-enable this / read data that has already been written with
   # row-level metadata
   withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE), {
+    list("arrow.preserve_row_level_metadata" = TRUE),
+    {
       tab <- Table$create(df)
       expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
       expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
-    })
+    }
+  )
 })
 
 
@@ -256,7 +258,8 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   dst_dir <- make_temp_dir()
 
   withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE), {
+    list("arrow.preserve_row_level_metadata" = TRUE),
+    {
       expect_warning(
         write_dataset(df, dst_dir, partitioning = "part"),
         "Row-level metadata is not compatible with datasets and will be discarded"
@@ -286,7 +289,25 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
         df_from_ds <- ds %>% select(int) %>% collect(),
         NA
       )
-    })
+    }
+  )
+})
+
+test_that("Dataset writing does handle other metadata", {
+  skip_if_not_available("dataset")
+  skip_if_not_available("parquet")
+
+  dst_dir <- make_temp_dir()
+  write_dataset(example_with_metadata, dst_dir, partitioning = "b")
+
+  ds <- open_dataset(dst_dir)
+  expect_equal(
+    ds %>%
+      # partitioning on b puts it last, so move it back
+      select(a, b, c, d) %>%
+      collect(),
+    example_with_metadata
+  )
 })
 
 test_that("When we encounter SF cols, we warn", {
@@ -305,11 +326,13 @@ test_that("When we encounter SF cols, we warn", {
   # But we can re-enable this / read data that has already been written with
   # row-level metadata without a warning
   withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE), {
+    list("arrow.preserve_row_level_metadata" = TRUE),
+    {
       expect_warning(tab <- Table$create(df), NA)
       expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
       expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
-    })
+    }
+  )
 })
 
 test_that("dplyr with metadata", {
@@ -369,7 +392,6 @@ test_that("grouped_df metadata is recorded (efficiently)", {
 })
 
 test_that("grouped_df non-arrow metadata is preserved", {
-
   simple_tbl <- tibble(a = 1:2, b = 3:4)
   attr(simple_tbl, "other_metadata") <- "look I'm still here!"
   grouped <- group_by(simple_tbl, a)
