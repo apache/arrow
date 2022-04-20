@@ -54,4 +54,9 @@ export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
+# DO NOT SUBMIT
+# Without this, the previous install of testbench doesn't seem to be put in a
+# place that the python env can find it. Need githash because of recent 
+# dependency changes.
+python -m pip install "https://github.com/googleapis/storage-testbench/archive/c80ed7604824428a7b8269504ec948a62b445f5d.tar.gz"
 pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow
