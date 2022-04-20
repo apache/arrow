@@ -35,7 +35,7 @@ set ARROW_TEST_DATA=C:\arrow\testing\data
 set PARQUET_TEST_DATA=C:\arrow\submodules\parquet-testing\data
 
 @REM Install testing dependencies
-pip install tzdata -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
 @REM Install the built wheels
 python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1 
