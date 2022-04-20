@@ -3340,7 +3340,7 @@ garrow_string_array_builder_append_string(GArrowStringArrayBuilder *builder,
  * garrow_string_array_builder_append_string_len:
  * @builder: A #GArrowStringArrayBuilder.
  * @value: A string value.
- * @length: The length of the string value.
+ * @length: The length of @value.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
@@ -3484,13 +3484,37 @@ garrow_large_string_array_builder_append_string(GArrowLargeStringArrayBuilder *b
                                                 const gchar *value,
                                                 GError **error)
 {
+  return garrow_large_string_array_builder_append_string_len(
+    builder,
+    value,
+    static_cast<gint64>(strlen(value)),
+    error);
+}
+
+/**
+ * garrow_large_string_array_builder_append_string_len:
+ * @builder: A #GArrowLargeStringArrayBuilder.
+ * @value: A string value.
+ * @length: The length of @value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 8.0.0
+ */
+gboolean garrow_large_string_array_builder_append_string_len(
+  GArrowLargeStringArrayBuilder *builder,
+  const gchar *value,
+  gint64 length,
+  GError **error)
+{
   auto arrow_builder =
     static_cast<arrow::LargeStringBuilder *>(
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
-  auto status = arrow_builder->Append(value);
+  auto status = arrow_builder->Append(value, length);
   return garrow_error_check(error,
                             status,
-                            "[large-string-array-builder][append-string]");
+                            "[large-string-array-builder][append-string-len]");
 }
 
 /**

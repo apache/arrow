@@ -798,6 +798,12 @@ GARROW_AVAILABLE_IN_0_16
 gboolean garrow_large_string_array_builder_append_string(GArrowLargeStringArrayBuilder *builder,
                                                          const gchar *value,
                                                          GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean garrow_large_string_array_builder_append_string_len(
+  GArrowLargeStringArrayBuilder *builder,
+  const gchar *value,
+  gint64 length,
+  GError **error);
 GARROW_AVAILABLE_IN_0_16
 gboolean garrow_large_string_array_builder_append_strings(GArrowLargeStringArrayBuilder *builder,
                                                           const gchar **values,
