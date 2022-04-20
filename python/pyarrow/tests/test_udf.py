@@ -60,194 +60,143 @@ def varargs_function(*values):
     return res
 
 
+def check_scalar_function(name,
+                          in_types,
+                          out_type,
+                          doc,
+                          function,
+                          input):
+    expected_output = function(*input)
+    pc.register_scalar_function(function,
+                                name, doc, in_types, out_type)
+
+    func = pc.get_function(name)
+    assert func.name == name
+
+    result = pc.call_function(name, input)
+    assert result == expected_output
+
+
 def test_scalar_udf_function_with_scalar_valued_functions():
-    function_names = [
-        "scalar_y=x+k",
-        "scalar_y=mx",
-        "scalar_y=mx+c",
-        "scalar_z=ax+by+c",
-    ]
+    check_scalar_function("scalar_y=x+k",
+                          {"scalar": pc.InputType.scalar(pa.int64()), },
+                          pa.int64(),
+                          unary_doc,
+                          unary_function,
+                          [pa.scalar(10, pa.int64())]
+                          )
 
-    function_input_types = [
-        {
-            "scalar": pc.InputType.scalar(pa.int64()),
-        },
-        {
-            "scalar1": pc.InputType.scalar(pa.int64()),
-            "scalar2": pc.InputType.scalar(pa.int64()),
-        },
-        {
-            "scalar1": pc.InputType.scalar(pa.int64()),
-            "scalar2": pc.InputType.scalar(pa.int64()),
-            "scalar3": pc.InputType.scalar(pa.int64()),
-        },
-        {
-            "scalar1": pc.InputType.scalar(pa.int64()),
-            "scalar2": pc.InputType.scalar(pa.int64()),
-            "scalar3": pc.InputType.scalar(pa.int64()),
-            "scalar4": pc.InputType.scalar(pa.int64()),
-            "scalar5": pc.InputType.scalar(pa.int64()),
-        },
-    ]
+    check_scalar_function("scalar_y=mx",
+                          {
+                              "scalar1": pc.InputType.scalar(pa.int64()),
+                              "scalar2": pc.InputType.scalar(pa.int64()),
+                          },
+                          pa.int64(),
+                          binary_doc,
+                          binary_function,
+                          [
+                              pa.scalar(10, pa.int64()),
+                              pa.scalar(2, pa.int64())
+                          ]
+                          )
 
-    function_output_types = [
-        pa.int64(),
-        pa.int64(),
-        pa.int64(),
-        pa.int64(),
-    ]
+    check_scalar_function("scalar_y=mx+c",
+                          {
+                              "scalar1": pc.InputType.scalar(pa.int64()),
+                              "scalar2": pc.InputType.scalar(pa.int64()),
+                              "scalar3": pc.InputType.scalar(pa.int64()),
+                          },
+                          pa.int64(),
+                          ternary_doc,
+                          ternary_function,
+                          [
+                              pa.scalar(10, pa.int64()),
+                              pa.scalar(2, pa.int64()),
+                              pa.scalar(5, pa.int64())
+                          ]
+                          )
 
-    function_docs = [
-        unary_doc,
-        binary_doc,
-        ternary_doc,
-        varargs_doc
-    ]
-
-    functions = [
-        unary_function,
-        binary_function,
-        ternary_function,
-        varargs_function
-    ]
-
-    function_inputs = [
-        [
-            pa.scalar(10, pa.int64())
-        ],
-        [
-            pa.scalar(10, pa.int64()),
-            pa.scalar(2, pa.int64())
-        ],
-        [
-            pa.scalar(10, pa.int64()),
-            pa.scalar(2, pa.int64()),
-            pa.scalar(5, pa.int64())
-        ],
-        [
-            pa.scalar(2, pa.int64()),
-            pa.scalar(10, pa.int64()),
-            pa.scalar(3, pa.int64()),
-            pa.scalar(20, pa.int64()),
-            pa.scalar(5, pa.int64())
-        ],
-    ]
-
-    for name, \
-        in_types, \
-        out_type, \
-        doc, \
-        function, \
-        input in zip(function_names,
-                     function_input_types,
-                     function_output_types,
-                     function_docs,
-                     functions,
-                     function_inputs):
-        expected_output = function(*input)
-        pc.register_scalar_function(function,
-                                    name, doc, in_types, out_type)
-
-        func = pc.get_function(name)
-        assert func.name == name
-
-        result = pc.call_function(name, input)
-        assert result == expected_output
+    check_scalar_function("scalar_z=ax+by+c",
+                          {
+                              "scalar1": pc.InputType.scalar(pa.int64()),
+                              "scalar2": pc.InputType.scalar(pa.int64()),
+                              "scalar3": pc.InputType.scalar(pa.int64()),
+                              "scalar4": pc.InputType.scalar(pa.int64()),
+                              "scalar5": pc.InputType.scalar(pa.int64()),
+                          },
+                          pa.int64(),
+                          varargs_doc,
+                          varargs_function,
+                          [
+                              pa.scalar(2, pa.int64()),
+                              pa.scalar(10, pa.int64()),
+                              pa.scalar(3, pa.int64()),
+                              pa.scalar(20, pa.int64()),
+                              pa.scalar(5, pa.int64())
+                          ]
+                          )
 
 
 def test_scalar_udf_with_array_data_functions():
-    function_names = [
-        "array_y=x+k",
-        "array_y=mx",
-        "array_y=mx+c",
-        "array_z=ax+by+c"
-    ]
+    check_scalar_function("array_y=x+k",
+                          {"array": pc.InputType.array(pa.int64()), },
+                          pa.int64(),
+                          unary_doc,
+                          unary_function,
+                          [
+                              pa.array([10, 20], pa.int64())
+                          ]
+                          )
 
-    function_input_types = [
-        {
-            "array": pc.InputType.array(pa.int64()),
-        },
-        {
-            "array1": pc.InputType.array(pa.int64()),
-            "array2": pc.InputType.array(pa.int64()),
-        },
-        {
-            "array1": pc.InputType.array(pa.int64()),
-            "array2": pc.InputType.array(pa.int64()),
-            "array3": pc.InputType.array(pa.int64()),
-        },
-        {
-            "array1": pc.InputType.array(pa.int64()),
-            "array2": pc.InputType.array(pa.int64()),
-            "array3": pc.InputType.array(pa.int64()),
-            "array4": pc.InputType.array(pa.int64()),
-            "array5": pc.InputType.array(pa.int64()),
-        },
-    ]
+    check_scalar_function("array_y=mx",
+                          {
+                              "array1": pc.InputType.array(pa.int64()),
+                              "array2": pc.InputType.array(pa.int64()),
+                          },
+                          pa.int64(),
+                          binary_doc,
+                          binary_function,
+                          [
+                              pa.array([10, 20], pa.int64()),
+                              pa.array([2, 4], pa.int64())
+                          ]
+                          )
 
-    function_output_types = [
-        pa.int64(),
-        pa.int64(),
-        pa.int64(),
-        pa.int64(),
-    ]
+    check_scalar_function("array_y=mx+c",
+                          {
+                              "array1": pc.InputType.array(pa.int64()),
+                              "array2": pc.InputType.array(pa.int64()),
+                              "array3": pc.InputType.array(pa.int64()),
+                          },
+                          pa.int64(),
+                          ternary_doc,
+                          ternary_function,
+                          [
+                              pa.array([10, 20], pa.int64()),
+                              pa.array([2, 4], pa.int64()),
+                              pa.array([5, 10], pa.int64())
+                          ]
+                          )
 
-    function_docs = [
-        unary_doc,
-        binary_doc,
-        ternary_doc,
-        varargs_doc
-    ]
-
-    functions = [
-        unary_function,
-        binary_function,
-        ternary_function,
-        varargs_function
-    ]
-
-    function_inputs = [
-        [
-            pa.array([10, 20], pa.int64())
-        ],
-        [
-            pa.array([10, 20], pa.int64()),
-            pa.array([2, 4], pa.int64())
-        ],
-        [
-            pa.array([10, 20], pa.int64()),
-            pa.array([2, 4], pa.int64()),
-            pa.array([5, 10], pa.int64())
-        ],
-        [
-            pa.array([2, 3], pa.int64()),
-            pa.array([10, 20], pa.int64()),
-            pa.array([3, 7], pa.int64()),
-            pa.array([20, 30], pa.int64()),
-            pa.array([5, 10], pa.int64())
-        ]
-    ]
-
-    for name, \
-        in_types, \
-        out_type, \
-        doc, \
-        function, \
-        input in zip(function_names,
-                     function_input_types,
-                     function_output_types,
-                     function_docs,
-                     functions,
-                     function_inputs):
-        expected_output = function(*input)
-        pc.register_scalar_function(function,
-                                    name, doc, in_types, out_type)
-
-        func = pc.get_function(name)
-        assert func.name == name
-
-        result = pc.call_function(name, input)
-        assert result == expected_output
+    check_scalar_function("array_z=ax+by+c",
+                          {
+                              "array1": pc.InputType.array(pa.int64()),
+                              "array2": pc.InputType.array(pa.int64()),
+                              "array3": pc.InputType.array(pa.int64()),
+                              "array4": pc.InputType.array(pa.int64()),
+                              "array5": pc.InputType.array(pa.int64()),
+                          },
+                          pa.int64(),
+                          varargs_doc,
+                          varargs_function,
+                          [
+                              pa.array([2, 3], pa.int64()),
+                              pa.array([10, 20], pa.int64()),
+                              pa.array([3, 7], pa.int64()),
+                              pa.array([20, 30], pa.int64()),
+                              pa.array([5, 10], pa.int64())
+                          ]
+                          )
 
 
 def test_udf_input():
@@ -424,6 +373,27 @@ def test_output_datatype():
         pc.call_function(func_name, [pa.array([20, 30])])
 
 
+def test_output_value():
+    def add_one(array):
+        ar = pc.call_function("add", [array, 1])
+        ar = ar.cast(pa.int32())
+        return ar
+
+    func_name = "test_output_value"
+    in_types = {"array": pc.InputType.array(pa.int64())}
+    out_type = {}
+    doc = {
+        "summary": "test output value",
+        "description": "test output"
+    }
+
+    expected_expr = "DataType expected, got <class 'dict'>"
+
+    with pytest.raises(TypeError, match=expected_expr):
+        pc.register_scalar_function(add_one, func_name, doc,
+                                    in_types, out_type)
+
+
 def test_output_type():
     def add_one(array):
         return 42
@@ -446,3 +416,21 @@ def test_output_type():
 
     with pytest.raises(pa.lib.ArrowTypeError, match=expected_expr):
         pc.call_function(func_name, [pa.array([20, 30])])
+
+
+def test_input_type():
+    def add_one(array):
+        return 42
+
+    func_name = "test_input_type"
+    in_types = {"array": None}
+    out_type = pa.int64()
+    doc = {
+        "summary": "test invalid input type",
+        "description": "invalid input function"
+    }
+    expected_expr = "in_types must be of type InputType"
+
+    with pytest.raises(TypeError, match=expected_expr):
+        pc.register_scalar_function(add_one, func_name, doc,
+                                    in_types, out_type)

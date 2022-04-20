@@ -2366,6 +2366,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
         DatumType kind() const
         c_string ToString() const
+        c_string ToString(DatumType kind)
 
         const shared_ptr[CArrayData]& array() const
         const shared_ptr[CChunkedArray]& chunked_array() const

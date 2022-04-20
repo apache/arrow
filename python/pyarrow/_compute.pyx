@@ -2399,7 +2399,7 @@ cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
     f_doc.arg_names = c_arg_names
     # UDFOptions integration:
     # TODO: https://issues.apache.org/jira/browse/ARROW-16041
-    f_doc.options_class = tobytes("None")
+    f_doc.options_class = tobytes("")
     f_doc.options_required = False
     return f_doc
 
@@ -2494,8 +2494,11 @@ def register_scalar_function(function, func_name, function_doc, in_types,
     num_args = -1
     if isinstance(in_types, dict):
         for in_type in in_types.values():
-            in_tmp = (<InputType> in_type).input_type
-            c_in_types.push_back(in_tmp)
+            if isinstance(in_type, InputType):
+                in_tmp = (<InputType> in_type).input_type
+                c_in_types.push_back(in_tmp)
+            else:
+                raise TypeError("in_types must be of type InputType")
         function_doc["arg_names"] = in_types.keys()
         num_args = len(in_types)
     else:

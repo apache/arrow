@@ -28,6 +28,14 @@ namespace arrow {
 
 namespace py {
 
+Status CheckOutputType(const DataType& expected, const DataType& actual) {
+  if (!expected.Equals(actual)) {
+    return Status::TypeError("Expected output type, ", expected.name(),
+                             ", but function returned type ", actual.name());
+  }
+  return Status::OK();
+}
+
 struct PythonUdf {
   std::shared_ptr<OwnedRefNoGIL> function;
   compute::OutputType output_type;
@@ -64,9 +72,10 @@ struct PythonUdf {
           break;
         }
         default:
+          auto datum = batch[arg_id];
           return Status::NotImplemented(
               "User-defined-functions are not supported for the datum kind ",
-              batch[arg_id].kind());
+              datum.ToString(datum.kind()));
       }
     }
     PyObject* result;
@@ -78,19 +87,12 @@ struct PythonUdf {
     // unwrapping the output for expected output type
     if (is_scalar(result)) {
       ARROW_ASSIGN_OR_RAISE(auto val, unwrap_scalar(result));
-      if (!output_type.type()->Equals(val->type)) {
-        return Status::TypeError("Expected output type, ", output_type.type()->ToString(),
-                                 ", but function returned type ", val->type->ToString());
-      }
+      RETURN_NOT_OK(CheckOutputType(*output_type.type(), *val->type));
       *out = Datum(val);
       return Status::OK();
     } else if (is_array(result)) {
       ARROW_ASSIGN_OR_RAISE(auto val, unwrap_array(result));
-      if (!output_type.type()->Equals(val->type())) {
-        return Status::TypeError("Expected output type, ", output_type.type()->ToString(),
-                                 ", but function returned type ",
-                                 val->type()->ToString());
-      }
+      RETURN_NOT_OK(CheckOutputType(*output_type.type(), *val->type()));
       *out = Datum(val);
       return Status::OK();
     } else {
