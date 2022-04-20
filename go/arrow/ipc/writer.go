@@ -163,7 +163,7 @@ func (w *Writer) Write(rec arrow.Record) error {
 
 	err := writeDictionaryPayloads(w.mem, rec, false, w.emitDictDeltas, &w.mapper, w.lastWrittenDicts, w.pw, enc)
 	if err != nil {
-		return xerrors.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
+		return fmt.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
 	}
 
 	enc.reset()

@@ -19,6 +19,7 @@ package ipc
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
@@ -169,7 +170,7 @@ func (f *FileReader) readSchema() error {
 			return err
 		}
 		if kind == dictutils.KindReplacement {
-			return xerrors.New("arrow/ipc: unsupported dictionary replacement in IPC file")
+			return errors.New("arrow/ipc: unsupported dictionary replacement in IPC file")
 		}
 	}
 

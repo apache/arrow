@@ -440,8 +440,8 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 	}
 
 
-	if f.arrowType == nil {
-		return fmt.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
+	if arrowType == nil {
+		err = fmt.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
 	}
 	return
 }

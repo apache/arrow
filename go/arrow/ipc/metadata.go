@@ -190,7 +190,7 @@ func fieldFromFB(field *flatbuf.Field, pos dictutils.FieldPos, memo *dictutils.M
 
 	o.Type, err = typeFromFB(field, pos, children, &o.Metadata, memo)
 	if err != nil {
-		return o, xerrors.Errorf("arrow/ipc: could not convert field type: %w", err)
+		return o, fmt.Errorf("arrow/ipc: could not convert field type: %w", err)
 	}
 
 	return o, nil

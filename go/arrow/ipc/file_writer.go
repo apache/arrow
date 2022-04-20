@@ -349,7 +349,7 @@ func (f *FileWriter) Write(rec arrow.Record) error {
 
 	err := writeDictionaryPayloads(f.mem, rec, true, false, &f.mapper, f.lastWrittenDicts, f.pw, enc)
 	if err != nil {
-		return xerrors.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
+		return fmt.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
 	}
 
 	enc.reset()
