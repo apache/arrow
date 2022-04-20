@@ -84,8 +84,9 @@ type <- function(x) {
 
 #' @export
 infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
-  # If from_array_infer_type is TRUE, this is a call from C++ for which S3
-  # dispatch failed to find a method for the object. This call happens when
+  # If from_array_infer_type is TRUE, this is a call from C++ after
+  # checking the internal C++ type inference and S3 dispatch has failed
+  # to find a method for the object. This call happens when
   # creating Array, ChunkedArray, RecordBatch, and Table objects from
   # data.frame. If the C++ call has reached this default method,
   # we error. If from_array_infer_type is FALSE, we call Array__infer_type

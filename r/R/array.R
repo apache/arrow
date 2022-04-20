@@ -242,7 +242,8 @@ as_arrow_array <- function(x, ..., type = NULL) {
 
 #' @export
 as_arrow_array.default <- function(x, ..., type = NULL, from_vec_to_array = FALSE) {
-  # If from_vec_to_array is TRUE, this is a call from C++ for which S3 dispatch
+  # If from_vec_to_array is TRUE, this is a call from C++ after
+  # trying the internal C++ conversion and S3 dispatch has failed
   # failed to find a method for the object. This call happens when creating
   # Array, ChunkedArray, RecordBatch, and Table objects from data.frame
   # if the internal C++ conversion (faster and can usually be parallelized)
