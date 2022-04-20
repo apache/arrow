@@ -48,7 +48,7 @@ main() {
   mkdir -p "${DESTDIR}"
 
   # Load `DEPENDENCIES` variable.
-  source ${SOURCE_DIR}/versions.txt
+  source ${SOURCE_DIR}/cpp/thirdparty/versions.txt
 
   for ((i = 0; i < ${#DEPENDENCIES[@]}; i++)); do
     local dep_packed=${DEPENDENCIES[$i]}
