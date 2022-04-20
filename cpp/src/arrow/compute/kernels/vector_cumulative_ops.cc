@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
@@ -76,52 +77,53 @@ struct CumulativeGeneric {
     const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
     auto start = UnboxScalar<OutType>::Unbox(*(options.start));
     auto skip_nulls = options.skip_nulls;
-
-    int64_t base_output_offset = 0;
     bool encountered_null = false;
-    ArrayData* out_arr = out->mutable_array();
+
+    std::shared_ptr<ArrayData> out_arr;
+    NumericBuilder<OutType> builder;
 
     switch (batch[0].kind()) {
+      case Datum::SCALAR: {
+        auto in_value = UnboxScalar<OutType>::Unbox(*(batch[0].scalar()));
+        builder.Append(start + in_value);
+        break;
+      }
       case Datum::ARRAY: {
-        auto st = Call(ctx, base_output_offset, *batch[0].array(), out_arr, &start,
-                       skip_nulls, &encountered_null);
-        out_arr->SetNullCount(arrow::kUnknownNullCount);
-        return st;
+        auto input = batch[0].array();
+
+        RETURN_NOT_OK(Call(ctx, *input, builder, &start, skip_nulls, &encountered_null));
+        break;
       }
       case Datum::CHUNKED_ARRAY: {
         const auto& input = batch[0].chunked_array();
 
         for (const auto& chunk : input->chunks()) {
-          RETURN_NOT_OK(Call(ctx, base_output_offset, *chunk->data(), out_arr, &start,
-                             skip_nulls, &encountered_null));
-          base_output_offset += chunk->length();
+          RETURN_NOT_OK(
+              Call(ctx, *chunk->data(), builder, &start, skip_nulls, &encountered_null));
         }
-        out_arr->SetNullCount(arrow::kUnknownNullCount);
-        return Status::OK();
+        break;
       }
       default:
         return Status::NotImplemented(
             "Unsupported input type for function 'cumulative_<operator>': ",
             batch[0].ToString());
     }
+
+    RETURN_NOT_OK(builder.FinishInternal(&out_arr));
+    out->value = std::move(out_arr);
+    return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, int64_t base_output_offset,
-                     const ArrayData& input, ArrayData* output, ArgValue* accumulator,
+  static Status Call(KernelContext* ctx, const ArrayData& input,
+                     NumericBuilder<OutType>& builder, ArgValue* accumulator,
                      bool skip_nulls, bool* encountered_null) {
     Status st = Status::OK();
     ArgValue accumulator_tmp = *accumulator;
     bool encountered_null_tmp = *encountered_null;
 
-    auto out_bitmap = output->GetMutableValues<uint8_t>(0);
-    auto out_data = output->GetMutableValues<OutValue>(1) + base_output_offset;
-    int64_t curr = base_output_offset;
-
     auto null_func = [&]() {
-      *out_data++ = OutValue{};
+      builder.AppendNull();
       encountered_null_tmp = true;
-      arrow::bit_util::SetBitTo(out_bitmap, curr, false);
-      ++curr;
     };
 
     if (skip_nulls || input.GetNullCount() == 0) {
@@ -130,30 +132,22 @@ struct CumulativeGeneric {
           [&](ArgValue v) {
             accumulator_tmp = Op::template Call<OutValue, ArgValue, ArgValue>(
                 ctx, v, accumulator_tmp, &st);
-            *out_data++ = accumulator_tmp;
-            ++curr;
+            builder.Append(accumulator_tmp);
           },
           null_func);
     } else {
-      auto start_null_idx = 0;
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {
             if (encountered_null_tmp) {
-              *out_data++ = OutValue{};
+              builder.AppendNull();
             } else {
               accumulator_tmp = Op::template Call<OutValue, ArgValue, ArgValue>(
                   ctx, v, accumulator_tmp, &st);
-              *out_data++ = accumulator_tmp;
-              ++start_null_idx;
+              builder.Append(accumulator_tmp);
             }
-            ++curr;
           },
           null_func);
-
-      auto null_length = input.length - start_null_idx;
-      arrow::bit_util::SetBitsTo(out_bitmap, base_output_offset + start_null_idx,
-                                 null_length, false);
     }
 
     *accumulator = accumulator_tmp;
@@ -196,7 +190,7 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::INTERSECTION;
-    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
     kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
     kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
