@@ -895,6 +895,8 @@ ensure_source_directory() {
     fi
   fi
 
+  # Ensure ARROW_SOURCE_DIR is a safe.directory for git
+  git config --global --add safe.directory $ARROW_SOURCE_DIR
   # Ensure that the testing repositories are cloned
   if [ ! -d "${ARROW_SOURCE_DIR}/testing/data" ]; then
     git clone https://github.com/apache/arrow-testing.git ${ARROW_SOURCE_DIR}/testing
