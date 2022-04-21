@@ -2930,7 +2930,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
                      use_legacy_dataset=None, schema=None,
                      partitioning=None, basename_template=None,
                      use_threads=None, file_visitor=None,
-                     existing_data_behavior='error', **kwargs):
+                     existing_data_behavior='overwrite_or_ignore',
+                     **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -3004,19 +3005,20 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
             def file_visitor(written_file):
                 visited_paths.append(written_file.path)
-    existing_data_behavior : 'error' | 'overwrite_or_ignore' | \
+    existing_data_behavior : 'overwrite_or_ignore' | 'error' | \
 'delete_matching'
         It is used in the new code path using the new Arrow Dataset API.
         In case the legacy implementation is selected the parameter
         is ignored as the old implementation does not support it.
         Controls how the dataset will handle data that already exists in
-        the destination.  The default behavior ('error') is to raise an error
-        if any data exists in the destination.
-        'overwrite_or_ignore' will ignore any existing data and will
+        the destination.  The default behavior
+        ('overwrite_or_ignore') will ignore any existing data and will
         overwrite files with the same name as an output file.  Other
         existing files will be ignored.  This behavior, in combination
         with a unique basename_template for each write, will allow for
         an append workflow.
+        'error' will raise an error if any data exists in the destination.
+        if any data exists in the destination.
         'delete_matching' is useful when you are writing a partitioned
         dataset.  The first time each partition directory is encountered
         the entire directory will be deleted.  This allows you to overwrite
@@ -3103,7 +3105,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             partitioning=partitioning, use_threads=use_threads,
             file_visitor=file_visitor,
             basename_template=basename_template,
-            existing_data_behavior='overwrite_or_ignore')
+            existing_data_behavior=existing_data_behavior)
         return
 
     # warnings and errors when using legecy implementation
@@ -3130,6 +3132,14 @@ def write_to_dataset(table, root_path, partition_cols=None,
     if partition_filename_cb is not None:
         warnings.warn(
             _DEPR_MSG.format("partition_filename_cb", " Specify "
+                             "'use_legacy_dataset=False' while constructing "
+                             "the ParquetDataset, and then use the "
+                             "'basename_template' parameter instead. For "
+                             "usage see `pyarrow.dataset.write_dataset`"),
+            FutureWarning, stacklevel=2)
+    if existing_data_behavior is not None:
+        warnings.warn(
+            _DEPR_MSG.format("existing_data_behavior", " Specify "
                              "'use_legacy_dataset=False' while constructing "
                              "the ParquetDataset, and then use the "
                              "'basename_template' parameter instead. For "
