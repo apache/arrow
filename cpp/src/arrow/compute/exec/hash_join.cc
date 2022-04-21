@@ -97,6 +97,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     // As of right now, we ignore the `num_threads` argument, so later we will have to
     // readd `num_threads_ = num_threads;`
     num_threads_ = GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1;
+    // num_threads_ = GetCpuThreadPoolCapacity() + 1;
 
     START_COMPUTE_SPAN(span_, "HashJoinBasicImpl",
                        {{"detail", filter.ToString()},
@@ -671,8 +672,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
         keys[i] = batch[input_idx];
       }
       ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(keys)));
-      Hashing32::HashBatch(key_batch, hashes.data(), ctx_->cpu_info()->hardware_flags(),
-                           &temp_stacks_[thread_index], 0, key_batch.length);
+      RETURN_NOT_OK(Hashing32::HashBatch(
+          key_batch, hashes.data(), ctx_->cpu_info()->hardware_flags(),
+          &temp_stacks_[thread_index], 0, key_batch.length));
 
       pushed_bloom_filters_[ifilter]->Find(ctx_->cpu_info()->hardware_flags(),
                                            key_batch.length, hashes.data(), bv.data());
@@ -720,8 +722,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     for (int64_t i = 0; i < key_batch.length; i += util::MiniBatch::kMiniBatchLength) {
       int64_t length = std::min(static_cast<int64_t>(key_batch.length - i),
                                 static_cast<int64_t>(util::MiniBatch::kMiniBatchLength));
-      Hashing32::HashBatch(key_batch, hashes, ctx_->cpu_info()->hardware_flags(),
-                           &temp_stacks_[thread_index], i, length);
+      RETURN_NOT_OK(Hashing32::HashBatch(key_batch, hashes,
+                                         ctx_->cpu_info()->hardware_flags(),
+                                         &temp_stacks_[thread_index], i, length));
       RETURN_NOT_OK(bloom_filter_builder_->PushNextBatch(thread_index, length, hashes));
     }
     return Status::OK();
