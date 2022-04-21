@@ -529,7 +529,7 @@ test_that("Tables can be combined with concat_tables()", {
     regexp = "Unable to merge: Field a has incompatible types: int32 vs string"
   )
   expect_error(
-    concat_tables()
+    concat_tables(),
     regexp = "Must pass at least one Table"
   )
 
