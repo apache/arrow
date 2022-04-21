@@ -1,6 +1,6 @@
 diff --git a/ports/aws-sdk-cpp/fix-find-crypto.patch b/ports/aws-sdk-cpp/fix-find-crypto.patch
 new file mode 100644
-index 00000000..4566cc66
+index 000000000..9cdf7644c
 --- /dev/null
 +++ b/ports/aws-sdk-cpp/fix-find-crypto.patch
 @@ -0,0 +1,20 @@
@@ -24,8 +24,9 @@ index 00000000..4566cc66
 +     )
 +
 + if (NOT SIMPLE_INSTALL)
++ 
 diff --git a/ports/aws-sdk-cpp/portfile.cmake b/ports/aws-sdk-cpp/portfile.cmake
-index 2d6bba4d..0ac47887 100644
+index b520a17ae..531a1c0db 100644
 --- a/ports/aws-sdk-cpp/portfile.cmake
 +++ b/ports/aws-sdk-cpp/portfile.cmake
 @@ -8,6 +8,7 @@ vcpkg_from_github(
@@ -34,13 +35,13 @@ index 2d6bba4d..0ac47887 100644
          fix-aws-root.patch
 +        fix-find-crypto.patch
  )
-
+ 
  string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index ce8b7570..8255ba24 100644
+index f81d0c491..e5ea9cef5 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -92,6 +92,10 @@ vcpkg_cmake_configure(
+@@ -88,6 +88,10 @@ vcpkg_cmake_configure(
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
          -DENABLE_DEBUG=ON
          -DCURL_CA_FALLBACK=ON
@@ -52,7 +53,7 @@ index ce8b7570..8255ba24 100644
          ${OPTIONS_RELEASE}
      OPTIONS_DEBUG
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 45b8c706..b409d8a7 100644
+index 45b8c706d..b409d8a7b 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -4,6 +4,7 @@ vcpkg_from_github(
@@ -61,11 +62,11 @@ index 45b8c706..b409d8a7 100644
      HEAD_REF master
 +    PATCHES "snappy-disable-bmi.patch"
  )
-
+ 
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 00000000..a57ce0c2
+index 000000000..2fcced252
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
