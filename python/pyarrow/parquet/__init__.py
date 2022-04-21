@@ -2041,7 +2041,7 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.common_metadata", ""),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._metadata.common_metadata
 
     @property
