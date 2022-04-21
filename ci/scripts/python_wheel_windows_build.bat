@@ -51,6 +51,7 @@ set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
 set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
 set VCGPK_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
+set ZSTD_MSVC_STATIC_LIB_SUFFIX=''
 
 mkdir C:\arrow-build
 pushd C:\arrow-build
@@ -86,6 +87,7 @@ cmake ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DVCPKG_MANIFEST_MODE=OFF ^
+    -DZSTD_MSVC_STATIC_LIB_SUFFIX=%ZSTD_MSVC_STATIC_LIB_SUFFIX% ^
     -DVCPKG_TARGET_TRIPLET=%VCGPK_TARGET_TRIPLET% ^
     -G "%CMAKE_GENERATOR%" ^
     C:\arrow\cpp || exit /B 1
