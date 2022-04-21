@@ -899,7 +899,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
       ExecNode * l_source,
       MakeExecNode("source", plan.get(), {},
                    SourceNodeOptions{l_batches.schema, l_batches.gen(parallel,
-                                                                     /*slow=*/true)}));
+                                                                     /*slow=*/false)}));
 
   // add right source
   BatchesWithSchema r_batches = TableToBatches(rng, num_batches_r, r, "r_");
