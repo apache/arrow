@@ -89,3 +89,4 @@ index 000000000..2fcced252
 + }
 +
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
++
