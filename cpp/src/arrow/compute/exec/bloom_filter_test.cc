@@ -364,7 +364,7 @@ void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool u
 
 TEST(BloomFilter, Basic) {
   std::vector<int64_t> num_build;
-#if defined(THREAD_SANITIZER) or defined(ARROW_VALGRIND)
+#if defined(THREAD_SANITIZER) || defined(ARROW_VALGRIND)
   constexpr int log_min = 8;
   constexpr int log_max = 9;
 #else

@@ -997,7 +997,7 @@ TEST(HashJoin, Suffix) {
 
 TEST(HashJoin, Random) {
   Random64Bit rng(42);
-#if defined(THREAD_SANITIZER) or defined(ARROW_VALGRIND)
+#if defined(THREAD_SANITIZER) || defined(ARROW_VALGRIND)
   const int num_tests = 15;
 #else
   const int num_tests = 100;
