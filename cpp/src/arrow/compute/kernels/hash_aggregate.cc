@@ -237,19 +237,18 @@ struct GrouperFastImpl : Grouper {
         auto bit_width = checked_cast<const FixedWidthType&>(*key).bit_width();
         ARROW_DCHECK(bit_width % 8 == 0);
         impl->col_metadata_[icol] =
-            arrow::compute::KeyEncoder::KeyColumnMetadata(true, bit_width / 8);
+            arrow::compute::KeyColumnMetadata(true, bit_width / 8);
       } else if (key->id() == Type::BOOL) {
-        impl->col_metadata_[icol] =
-            arrow::compute::KeyEncoder::KeyColumnMetadata(true, 0);
+        impl->col_metadata_[icol] = arrow::compute::KeyColumnMetadata(true, 0);
       } else if (is_fixed_width(key->id())) {
-        impl->col_metadata_[icol] = arrow::compute::KeyEncoder::KeyColumnMetadata(
+        impl->col_metadata_[icol] = arrow::compute::KeyColumnMetadata(
             true, checked_cast<const FixedWidthType&>(*key).bit_width() / 8);
       } else if (is_binary_like(key->id())) {
         impl->col_metadata_[icol] =
-            arrow::compute::KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
+            arrow::compute::KeyColumnMetadata(false, sizeof(uint32_t));
       } else if (key->id() == Type::NA) {
-        impl->col_metadata_[icol] = arrow::compute::KeyEncoder::KeyColumnMetadata(
-            true, 0, /*is_null_type_in=*/true);
+        impl->col_metadata_[icol] =
+            arrow::compute::KeyColumnMetadata(true, 0, /*is_null_type_in=*/true);
       } else {
         return Status::NotImplemented("Keys of type ", *key);
       }
@@ -352,11 +351,10 @@ struct GrouperFastImpl : Grouper {
 
       int64_t offset = batch[icol].array()->offset;
 
-      auto col_base = arrow::compute::KeyEncoder::KeyColumnArray(
+      auto col_base = arrow::compute::KeyColumnArray(
           col_metadata_[icol], offset + num_rows, non_nulls, fixedlen, varlen);
 
-      cols_[icol] =
-          arrow::compute::KeyEncoder::KeyColumnArray(col_base, offset, num_rows);
+      cols_[icol] = col_base.Slice(offset, num_rows);
     }
 
     // Split into smaller mini-batches
@@ -434,8 +432,8 @@ struct GrouperFastImpl : Grouper {
       if (col_metadata_[i].is_null_type) {
         uint8_t* non_nulls = NULLPTR;
         uint8_t* fixedlen = NULLPTR;
-        cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
-            col_metadata_[i], num_groups, non_nulls, fixedlen, NULLPTR);
+        cols_[i] = arrow::compute::KeyColumnArray(col_metadata_[i], num_groups, non_nulls,
+                                                  fixedlen, NULLPTR);
         continue;
       }
       ARROW_ASSIGN_OR_RAISE(non_null_bufs[i], AllocatePaddedBitmap(num_groups));
@@ -451,7 +449,7 @@ struct GrouperFastImpl : Grouper {
         ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i],
                               AllocatePaddedBuffer((num_groups + 1) * sizeof(uint32_t)));
       }
-      cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
+      cols_[i] = arrow::compute::KeyColumnArray(
           col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
           fixedlen_bufs[i]->mutable_data(), nullptr);
     }
@@ -470,7 +468,7 @@ struct GrouperFastImpl : Grouper {
           auto varlen_size =
               reinterpret_cast<const uint32_t*>(fixedlen_bufs[i]->data())[num_groups];
           ARROW_ASSIGN_OR_RAISE(varlen_bufs[i], AllocatePaddedBuffer(varlen_size));
-          cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
+          cols_[i] = arrow::compute::KeyColumnArray(
               col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
               fixedlen_bufs[i]->mutable_data(), varlen_bufs[i]->mutable_data());
         }
@@ -534,8 +532,8 @@ struct GrouperFastImpl : Grouper {
   arrow::compute::KeyEncoder::KeyEncoderContext encode_ctx_;
 
   std::vector<std::shared_ptr<arrow::DataType>> key_types_;
-  std::vector<arrow::compute::KeyEncoder::KeyColumnMetadata> col_metadata_;
-  std::vector<arrow::compute::KeyEncoder::KeyColumnArray> cols_;
+  std::vector<arrow::compute::KeyColumnMetadata> col_metadata_;
+  std::vector<arrow::compute::KeyColumnArray> cols_;
   std::vector<uint32_t> minibatch_hashes_;
 
   std::vector<std::shared_ptr<Array>> dictionaries_;
