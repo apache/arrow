@@ -23,6 +23,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.HashMap;
+
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.util.JsonStringArrayList;
