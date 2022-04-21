@@ -1258,7 +1258,7 @@ test_that("`decimal_date()` and `date_decimal()`", {
 
 test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
   example_d <- tibble(x = c(1:10, NA))
-  date_to_add <- ymd("2009-08-03", tz = "America/Chicago")
+  date_to_add <- ymd("2009-08-03", tz = "Pacific/Marquesas")
 
   compare_dplyr_binding(
     .input %>%
@@ -1307,7 +1307,7 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
 
 test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", {
   example_d <- tibble(x = c(1:10, NA))
-  date_to_add <- ymd("2009-08-03", tz = "America/Chicago")
+  date_to_add <- ymd("2009-08-03", tz = "Pacific/Marquesas")
 
   compare_dplyr_binding(
     .input %>%
