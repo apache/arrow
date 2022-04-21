@@ -1303,6 +1303,15 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
     tibble(),
     ignore_attr = TRUE
   )
+
+  # double -> duration not supported in Arrow.
+  # Error is generated in the C++ code
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(r_obj_dminutes = dminutes(1.12345)) %>%
+      collect()
+  )
 })
 
 test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", {
@@ -1352,6 +1361,15 @@ test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", 
   expect_error(
     call_binding("dpicoseconds"),
     "Duration in picoseconds not supported in Arrow"
+  )
+
+  # double -> duration not supported in Arrow.
+  # Error is generated in the C++ code
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(r_obj_dseconds = dseconds(1.12345)) %>%
+      collect()
   )
 })
 
