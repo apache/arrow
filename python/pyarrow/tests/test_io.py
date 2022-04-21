@@ -327,7 +327,7 @@ def test_python_file_closing():
 # Buffers
 
 
-def check_buffer_pickling(buf, check_func=None):
+def check_buffer_pickling(buf):
     # Check that buffer survives a pickle roundtrip
     for protocol in range(0, pickle.HIGHEST_PROTOCOL + 1):
         result = pickle.loads(pickle.dumps(buf, protocol=protocol))
