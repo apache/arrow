@@ -22,7 +22,8 @@ import (
 
   "github.com/apache/arrow/go/v8/arrow"
   "github.com/apache/arrow/go/v8/parquet"
-  "github.com/apache/arrow/go/v8/parquet/internal/utils"
+  "github.com/apache/arrow/go/v8/internal/utils"
+  "github.com/apache/arrow/go/v8/internal/bitutils"
 )
 
 var (
@@ -80,7 +81,7 @@ func init() {
 type Plain{{.Name}}Encoder struct {
   encoder
 
-  bitSetReader utils.SetBitRunReader
+  bitSetReader bitutils.SetBitRunReader
 }
 
 // Put encodes a slice of values into the underlying buffer
@@ -96,7 +97,7 @@ func (enc *Plain{{.Name}}Encoder) PutSpaced(in []{{.name}}, validBits []byte, va
   enc.ReserveForWrite(nbytes)
 
   if enc.bitSetReader == nil {
-    enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+    enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
   } else {
     enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
   }
@@ -120,7 +121,7 @@ func (Plain{{.Name}}Encoder) Type() parquet.Type {
 type Plain{{.Name}}Decoder struct {
   decoder
 
-  bitSetReader utils.SetBitRunReader
+  bitSetReader bitutils.SetBitRunReader
 }
 
 // Type returns the physical type this decoder is able to decode for
@@ -163,7 +164,7 @@ func (dec *Plain{{.Name}}Decoder) DecodeSpaced(out []{{.name}}, nullCount int, v
 
   idxDecode := nvalues - nullCount
   if dec.bitSetReader == nil {
-    dec.bitSetReader = utils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
+    dec.bitSetReader = bitutils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
   } else {
     dec.bitSetReader.Reset(validBits, validBitsOffset, int64(nvalues))
   }

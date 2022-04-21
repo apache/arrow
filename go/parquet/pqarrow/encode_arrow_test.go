@@ -31,12 +31,13 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
 	"github.com/apache/arrow/go/v8/arrow/decimal128"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/compress"
 	"github.com/apache/arrow/go/v8/parquet/file"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
 	"github.com/apache/arrow/go/v8/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet/pqarrow"
 	"github.com/apache/arrow/go/v8/parquet/schema"
 	"github.com/stretchr/testify/assert"
@@ -907,7 +908,7 @@ func (ps *ParquetIOTestSuite) roundTripTable(expected arrow.Table, storeSchema b
 		}
 		ps.Equal(ex.Len(), tb.Len())
 		// only compare the non-null values
-		ps.NoErrorf(utils.VisitSetBitRuns(ex.NullBitmapBytes(), int64(ex.Data().Offset()), int64(ex.Len()), func(pos, length int64) error {
+		ps.NoErrorf(bitutils.VisitSetBitRuns(ex.NullBitmapBytes(), int64(ex.Data().Offset()), int64(ex.Len()), func(pos, length int64) error {
 			if !ps.True(array.SliceEqual(ex, pos, pos+length, tb, pos, pos+length)) {
 				return errors.New("failed")
 			}

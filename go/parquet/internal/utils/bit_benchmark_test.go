@@ -21,9 +21,22 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
 	"github.com/apache/arrow/go/v8/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 )
+
+type linearBitRunReader struct {
+	reader *bitutil.BitmapReader
+}
+
+func (l linearBitRunReader) NextRun() bitutils.BitRun {
+	r := bitutils.BitRun{0, l.reader.Set()}
+	for l.reader.Pos() < l.reader.Len() && l.reader.Set() == r.Set {
+		r.Len++
+		l.reader.Next()
+	}
+	return r
+}
 
 func randomBitsBuffer(nbits, setPct int64) []byte {
 	rag := testutils.NewRandomArrayGenerator(23)
@@ -48,7 +61,7 @@ func randomBitsBuffer(nbits, setPct int64) []byte {
 	return buf
 }
 
-func testBitRunReader(rdr utils.BitRunReader) (setTotal int64) {
+func testBitRunReader(rdr bitutils.BitRunReader) (setTotal int64) {
 	for {
 		br := rdr.NextRun()
 		if br.Len == 0 {
@@ -76,7 +89,7 @@ func BenchmarkBitRunReader(b *testing.B) {
 			b.Run("internal", func(b *testing.B) {
 				b.SetBytes(numBits / 8)
 				for i := 0; i < b.N; i++ {
-					rdr := utils.NewBitRunReader(buf, 0, numBits)
+					rdr := bitutils.NewBitRunReader(buf, 0, numBits)
 					testBitRunReader(rdr)
 				}
 			})
@@ -84,7 +97,7 @@ func BenchmarkBitRunReader(b *testing.B) {
 	}
 }
 
-func testSetBitRunReader(rdr utils.SetBitRunReader) (setTotal int64) {
+func testSetBitRunReader(rdr bitutils.SetBitRunReader) (setTotal int64) {
 	for {
 		br := rdr.NextRun()
 		if br.Length == 0 {
@@ -103,14 +116,14 @@ func BenchmarkSetBitRunReader(b *testing.B) {
 			b.Run("reader", func(b *testing.B) {
 				b.SetBytes(numBits / 8)
 				for i := 0; i < b.N; i++ {
-					rdr := utils.NewSetBitRunReader(buf, 0, numBits)
+					rdr := bitutils.NewSetBitRunReader(buf, 0, numBits)
 					testSetBitRunReader(rdr)
 				}
 			})
 			b.Run("reverse rdr", func(b *testing.B) {
 				b.SetBytes(numBits / 8)
 				for i := 0; i < b.N; i++ {
-					rdr := utils.NewReverseSetBitRunReader(buf, 0, numBits)
+					rdr := bitutils.NewReverseSetBitRunReader(buf, 0, numBits)
 					testSetBitRunReader(rdr)
 				}
 			})

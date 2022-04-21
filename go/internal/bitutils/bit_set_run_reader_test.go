@@ -14,14 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils_test
+package bitutils_test
 
 import (
 	"reflect"
 	"testing"
 
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -37,8 +38,8 @@ type linearBitRunReader struct {
 	reader *bitutil.BitmapReader
 }
 
-func (l linearBitRunReader) NextRun() utils.BitRun {
-	r := utils.BitRun{0, l.reader.Set()}
+func (l linearBitRunReader) NextRun() bitutils.BitRun {
+	r := bitutils.BitRun{0, l.reader.Set()}
 	for l.reader.Pos() < l.reader.Len() && l.reader.Set() == r.Set {
 		r.Len++
 		l.reader.Next()
@@ -68,14 +69,14 @@ func bitmapFromString(s string) []byte {
 	return ret[:actualLen]
 }
 
-func referenceBitRuns(data []byte, offset, length int) (ret []utils.SetBitRun) {
-	ret = make([]utils.SetBitRun, 0)
+func referenceBitRuns(data []byte, offset, length int) (ret []bitutils.SetBitRun) {
+	ret = make([]bitutils.SetBitRun, 0)
 	reader := linearBitRunReader{bitutil.NewBitmapReader(data, offset, length)}
 	pos := 0
 	for pos < length {
 		br := reader.NextRun()
 		if br.Set {
-			ret = append(ret, utils.SetBitRun{int64(pos), br.Len})
+			ret = append(ret, bitutils.SetBitRun{int64(pos), br.Len})
 		}
 		pos += int(br.Len)
 	}
@@ -120,10 +121,10 @@ func (br *BitSetRunReaderSuite) bufferTestRanges(buf []byte) []Range {
 	return rg
 }
 
-func (br *BitSetRunReaderSuite) assertBitRuns(buf []byte, start, length int64, expected []utils.SetBitRun) {
+func (br *BitSetRunReaderSuite) assertBitRuns(buf []byte, start, length int64, expected []bitutils.SetBitRun) {
 	{
-		runs := make([]utils.SetBitRun, 0)
-		reader := utils.NewSetBitRunReader(buf, start, length)
+		runs := make([]bitutils.SetBitRun, 0)
+		reader := bitutils.NewSetBitRunReader(buf, start, length)
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -134,8 +135,8 @@ func (br *BitSetRunReaderSuite) assertBitRuns(buf []byte, start, length int64, e
 		br.Equal(expected, runs)
 	}
 	{
-		runs := make([]utils.SetBitRun, 0)
-		reader := utils.NewReverseSetBitRunReader(buf, start, length)
+		runs := make([]bitutils.SetBitRun, 0)
+		reader := bitutils.NewReverseSetBitRunReader(buf, start, length)
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -150,13 +151,13 @@ func (br *BitSetRunReaderSuite) assertBitRuns(buf []byte, start, length int64, e
 
 func (br *BitSetRunReaderSuite) TestEmpty() {
 	for _, offset := range br.testOffsets {
-		br.assertBitRuns(nil, offset, 0, []utils.SetBitRun{})
+		br.assertBitRuns(nil, offset, 0, []bitutils.SetBitRun{})
 	}
 }
 
 func (br *BitSetRunReaderSuite) TestOneByte() {
 	buffer := bitmapFromString("01101101")
-	br.assertBitRuns(buffer, 0, 8, []utils.SetBitRun{
+	br.assertBitRuns(buffer, 0, 8, []bitutils.SetBitRun{
 		{1, 2}, {4, 2}, {7, 1},
 	})
 
@@ -174,28 +175,28 @@ func (br *BitSetRunReaderSuite) TestOneByte() {
 func (br *BitSetRunReaderSuite) TestTiny() {
 	buf := bitmapFromString("11100011 10001110 00111000 11100011 10001110 00111000")
 
-	br.assertBitRuns(buf, 0, 48, []utils.SetBitRun{
+	br.assertBitRuns(buf, 0, 48, []bitutils.SetBitRun{
 		{0, 3}, {6, 3}, {12, 3}, {18, 3}, {24, 3}, {30, 3}, {36, 3}, {42, 3},
 	})
-	br.assertBitRuns(buf, 0, 46, []utils.SetBitRun{
+	br.assertBitRuns(buf, 0, 46, []bitutils.SetBitRun{
 		{0, 3}, {6, 3}, {12, 3}, {18, 3}, {24, 3}, {30, 3}, {36, 3}, {42, 3},
 	})
-	br.assertBitRuns(buf, 0, 45, []utils.SetBitRun{
+	br.assertBitRuns(buf, 0, 45, []bitutils.SetBitRun{
 		{0, 3}, {6, 3}, {12, 3}, {18, 3}, {24, 3}, {30, 3}, {36, 3}, {42, 3},
 	})
-	br.assertBitRuns(buf, 0, 42, []utils.SetBitRun{
+	br.assertBitRuns(buf, 0, 42, []bitutils.SetBitRun{
 		{0, 3}, {6, 3}, {12, 3}, {18, 3}, {24, 3}, {30, 3}, {36, 3},
 	})
-	br.assertBitRuns(buf, 3, 45, []utils.SetBitRun{
+	br.assertBitRuns(buf, 3, 45, []bitutils.SetBitRun{
 		{3, 3}, {9, 3}, {15, 3}, {21, 3}, {27, 3}, {33, 3}, {39, 3},
 	})
-	br.assertBitRuns(buf, 3, 43, []utils.SetBitRun{
+	br.assertBitRuns(buf, 3, 43, []bitutils.SetBitRun{
 		{3, 3}, {9, 3}, {15, 3}, {21, 3}, {27, 3}, {33, 3}, {39, 3},
 	})
-	br.assertBitRuns(buf, 3, 42, []utils.SetBitRun{
+	br.assertBitRuns(buf, 3, 42, []bitutils.SetBitRun{
 		{3, 3}, {9, 3}, {15, 3}, {21, 3}, {27, 3}, {33, 3}, {39, 3},
 	})
-	br.assertBitRuns(buf, 3, 39, []utils.SetBitRun{
+	br.assertBitRuns(buf, 3, 39, []bitutils.SetBitRun{
 		{3, 3}, {9, 3}, {15, 3}, {21, 3}, {27, 3}, {33, 3},
 	})
 }
@@ -205,7 +206,7 @@ func (br *BitSetRunReaderSuite) TestAllZeros() {
 	buf := make([]byte, int(bitutil.BytesForBits(bufferSize)))
 
 	for _, rg := range br.bufferTestRanges(buf) {
-		br.assertBitRuns(buf, rg.Offset, rg.Len, []utils.SetBitRun{})
+		br.assertBitRuns(buf, rg.Offset, rg.Len, []bitutils.SetBitRun{})
 	}
 }
 
@@ -216,9 +217,9 @@ func (br *BitSetRunReaderSuite) TestAllOnes() {
 
 	for _, rg := range br.bufferTestRanges(buf) {
 		if rg.Len > 0 {
-			br.assertBitRuns(buf, rg.Offset, rg.Len, []utils.SetBitRun{{0, rg.Len}})
+			br.assertBitRuns(buf, rg.Offset, rg.Len, []bitutils.SetBitRun{{0, rg.Len}})
 		} else {
-			br.assertBitRuns(buf, rg.Offset, rg.Len, []utils.SetBitRun{})
+			br.assertBitRuns(buf, rg.Offset, rg.Len, []bitutils.SetBitRun{})
 		}
 	}
 }
@@ -237,12 +238,12 @@ func (br *BitSetRunReaderSuite) TestSmall() {
 	bitutil.SetBitsTo(buf, secondOnesStart, onesLen, true)
 
 	for _, rg := range br.bufferTestRanges(buf) {
-		expected := []utils.SetBitRun{}
+		expected := []bitutils.SetBitRun{}
 		if rg.Offset < onesLen && rg.Len > 0 {
-			expected = append(expected, utils.SetBitRun{0, utils.Min(onesLen-rg.Offset, rg.Len)})
+			expected = append(expected, bitutils.SetBitRun{0, utils.Min(onesLen-rg.Offset, rg.Len)})
 		}
 		if rg.Offset+rg.Len > secondOnesStart {
-			expected = append(expected, utils.SetBitRun{secondOnesStart - rg.Offset, rg.Len + rg.Offset - secondOnesStart})
+			expected = append(expected, bitutils.SetBitRun{secondOnesStart - rg.Offset, rg.Len + rg.Offset - secondOnesStart})
 		}
 		br.assertBitRuns(buf, rg.Offset, rg.Len, expected)
 	}
@@ -258,14 +259,14 @@ func (br *BitSetRunReaderSuite) TestSingleRun() {
 		bitutil.SetBitsTo(buf, onesRg.Offset, onesRg.Len, true)
 
 		for _, rg := range br.bufferTestRanges(buf) {
-			expect := []utils.SetBitRun{}
+			expect := []bitutils.SetBitRun{}
 			if rg.Len != 0 && onesRg.Len != 0 && rg.Offset < onesRg.EndOffset() && onesRg.Offset < rg.EndOffset() {
 				// the two ranges intersect
 				var (
 					intersectStart = utils.Max(rg.Offset, onesRg.Offset)
 					intersectStop  = utils.Min(rg.EndOffset(), onesRg.EndOffset())
 				)
-				expect = append(expect, utils.SetBitRun{intersectStart - rg.Offset, intersectStop - intersectStart})
+				expect = append(expect, bitutils.SetBitRun{intersectStart - rg.Offset, intersectStop - intersectStart})
 			}
 			br.assertBitRuns(buf, rg.Offset, rg.Len, expect)
 		}

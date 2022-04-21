@@ -171,7 +171,7 @@ func init() {
 		arrow.STRUCT:                  func(data arrow.ArrayData) arrow.Array { return NewStructData(data) },
 		arrow.SPARSE_UNION:            unsupportedArrayType,
 		arrow.DENSE_UNION:             unsupportedArrayType,
-		arrow.DICTIONARY:              func(data arrow.ArrayData) Interface { return NewDictionaryData(data) },
+		arrow.DICTIONARY:              func(data arrow.ArrayData) arrow.Array { return NewDictionaryData(data) },
 		arrow.MAP:                     func(data arrow.ArrayData) arrow.Array { return NewMapData(data) },
 		arrow.EXTENSION:               func(data arrow.ArrayData) arrow.Array { return NewExtensionData(data) },
 		arrow.FIXED_SIZE_LIST:         func(data arrow.ArrayData) arrow.Array { return NewFixedSizeListData(data) },

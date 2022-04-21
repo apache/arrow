@@ -17,8 +17,8 @@
 package encoding
 
 import (
+	"github.com/apache/arrow/go/v8/internal/bitutils"
 	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 )
 
 // PlainFixedLenByteArrayEncoder writes the raw bytes of the byte array
@@ -26,7 +26,7 @@ import (
 type PlainFixedLenByteArrayEncoder struct {
 	encoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Put writes the provided values to the encoder
@@ -50,7 +50,7 @@ func (enc *PlainFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
 func (enc *PlainFixedLenByteArrayEncoder) PutSpaced(in []parquet.FixedLenByteArray, validBits []byte, validBitsOffset int64) {
 	if validBits != nil {
 		if enc.bitSetReader == nil {
-			enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+			enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
 		} else {
 			enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
 		}
@@ -97,7 +97,7 @@ func (enc *DictFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
 
 // PutSpaced is like Put but leaves space for nulls
 func (enc *DictFixedLenByteArrayEncoder) PutSpaced(in []parquet.FixedLenByteArray, validBits []byte, validBitsOffset int64) {
-	utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+	bitutils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
 		enc.Put(in[pos : pos+length])
 		return nil
 	})

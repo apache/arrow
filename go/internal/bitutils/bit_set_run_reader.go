@@ -14,13 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package bitutils
 
 import (
 	"encoding/binary"
 	"math/bits"
 
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/internal/utils"
 )
 
 // IsMultipleOf64 returns whether v is a multiple of 64.
@@ -112,7 +113,7 @@ func (br *baseSetBitRunReader) Reset(bitmap []byte, startOffset, length int64) {
 
 		bitOffset := int8(startOffset % 8)
 		if length > 0 && bitOffset != 0 {
-			br.curNumBits = int32(MinInt(int(length), int(8-bitOffset)))
+			br.curNumBits = int32(utils.MinInt(int(length), int(8-bitOffset)))
 			br.curWord = br.loadPartial(bitOffset, int64(br.curNumBits))
 		}
 		return
@@ -123,7 +124,7 @@ func (br *baseSetBitRunReader) Reset(bitmap []byte, startOffset, length int64) {
 	endBitOffset := int8((startOffset + length) % 8)
 	if length > 0 && endBitOffset != 0 {
 		br.pos++
-		br.curNumBits = int32(MinInt(int(length), int(endBitOffset)))
+		br.curNumBits = int32(utils.MinInt(int(length), int(endBitOffset)))
 		br.curWord = br.loadPartial(8-endBitOffset, int64(br.curNumBits))
 	}
 }
@@ -218,7 +219,7 @@ func (br *baseSetBitRunReader) skipNextZeros() {
 	if br.remaining > 0 {
 		br.curWord = br.loadPartial(0, br.remaining)
 		br.curNumBits = int32(br.remaining)
-		nzeros := int32(MinInt(int(br.curNumBits), int(br.countFirstZeros(br.curWord))))
+		nzeros := int32(utils.MinInt(int(br.curNumBits), int(br.countFirstZeros(br.curWord))))
 		br.curWord = br.consumeBits(br.curWord, nzeros)
 		br.curNumBits -= nzeros
 		br.remaining -= int64(nzeros)

@@ -24,6 +24,7 @@ import (
   "github.com/apache/arrow/go/v8/parquet/internal/utils"
   shared_utils "github.com/apache/arrow/go/v8/internal/utils"
   "github.com/apache/arrow/go/v8/parquet/internal/encoding"
+  "github.com/apache/arrow/go/v8/internal/bitutils"
 )
 
 {{range .In}}
@@ -36,7 +37,7 @@ type {{.Name}}Statistics struct {
   min {{.name}}
   max {{.name}}
 
-  bitSetReader utils.SetBitRunReader
+  bitSetReader bitutils.SetBitRunReader
 }
 
 // New{{.Name}}Statistics constructs an appropriate stat object type using the
@@ -237,7 +238,7 @@ func (s *{{.Name}}Statistics) getMinMaxSpaced(values []{{.name}}, validBits []by
 {{- end}}
 
   if s.bitSetReader == nil {
-    s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+    s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
   } else {
     s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
   }

@@ -198,7 +198,7 @@ func writeDictionaryPayloads(mem memory.Allocator, batch arrow.Record, isFileFor
 				continue
 			}
 			newLen, lastLen := pair.Dict.Len(), lastDict.Len()
-			if lastLen == newLen && array.ArrayApproxEqual(lastDict, pair.Dict, eqopt) {
+			if lastLen == newLen && array.ApproxEqual(lastDict, pair.Dict, eqopt) {
 				// same dictionary by value
 				// might cost CPU, but required for IPC file format
 				continue
@@ -210,7 +210,7 @@ func writeDictionaryPayloads(mem memory.Allocator, batch arrow.Record, isFileFor
 			if newLen > lastLen &&
 				emitDictDeltas &&
 				!hasNestedDict(pair.Dict.Data()) &&
-				(array.ArraySliceApproxEqual(lastDict, 0, int64(lastLen), pair.Dict, 0, int64(lastLen), eqopt)) {
+				(array.SliceApproxEqual(lastDict, 0, int64(lastLen), pair.Dict, 0, int64(lastLen), eqopt)) {
 				deltaStart = int64(lastLen)
 			}
 		}

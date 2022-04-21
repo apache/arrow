@@ -25,6 +25,7 @@ import (
 
 	"github.com/JohnCGriffin/overflow"
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -262,9 +263,9 @@ func (l *LevelDecoder) Decode(levels []int16) (int, int64) {
 		valsToRead   int64
 	)
 
-	n := utils.Min(int64(l.remaining), int64(len(levels)))
+	n := shared_utils.Min(int64(l.remaining), int64(len(levels)))
 	for n > 0 {
-		batch := utils.Min(1024, n)
+		batch := shared_utils.Min(1024, n)
 		switch l.encoding {
 		case format.Encoding_RLE:
 			decoded = l.rle.GetBatch(buf[:batch])
