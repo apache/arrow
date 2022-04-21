@@ -199,7 +199,6 @@ set(ARROW_SRCS
     util/bitmap.cc
     util/bitmap_builders.cc
     util/bitmap_ops.cc
-    util/bitmap_writer.cc
     util/bpacking.cc
     util/byte_size.cc
     util/cancel.cc
