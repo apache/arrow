@@ -185,8 +185,11 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<TaggedRecordBatchIterator> ScanBatches() override;
   Result<TaggedRecordBatchGenerator> ScanBatchesAsync() override;
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync(Executor* executor) override;
   Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered() override;
   Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() override;
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
+      Executor* executor) override;
   Result<std::shared_ptr<Table>> TakeRows(const Array& indices) override;
   Result<std::shared_ptr<Table>> Head(int64_t num_rows) override;
   Result<std::shared_ptr<Table>> ToTable() override;
@@ -195,11 +198,10 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
   const std::shared_ptr<Dataset>& dataset() const override;
 
  private:
-  Result<TaggedRecordBatchGenerator> ScanBatchesAsync(Executor* executor);
   Future<> VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
                              Executor* executor);
   Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
-      Executor* executor, bool sequence_fragments = false);
+      Executor* executor, bool sequence_fragments);
   Future<std::shared_ptr<Table>> ToTableAsync(Executor* executor);
 
   Result<FragmentGenerator> GetFragments() const;
@@ -313,7 +315,13 @@ Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
-  return ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool());
+  return ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool(),
+                                   /*sequence_fragments=*/false);
+}
+
+Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
+    ::arrow::internal::Executor* cpu_thread_pool) {
+  return ScanBatchesUnorderedAsync(cpu_thread_pool, /*sequence_fragments=*/false);
 }
 
 Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
@@ -359,9 +367,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
               {"filter", compute::FilterNodeOptions{scan_options_->filter}},
               {"augmented_project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"sink",
-               compute::SinkNodeOptions{
-                   &sink_gen, compute::BackpressureOptions::DefaultBackpressure()}},
+              {"sink", compute::SinkNodeOptions{&sink_gen, scan_options_->backpressure}},
           })
           .AddToPlan(plan.get()));
 
@@ -834,6 +840,11 @@ Status ScannerBuilder::Pool(MemoryPool* pool) {
 Status ScannerBuilder::FragmentScanOptions(
     std::shared_ptr<dataset::FragmentScanOptions> fragment_scan_options) {
   scan_options_->fragment_scan_options = std::move(fragment_scan_options);
+  return Status::OK();
+}
+
+Status ScannerBuilder::Backpressure(compute::BackpressureOptions backpressure) {
+  scan_options_->backpressure = backpressure;
   return Status::OK();
 }
 

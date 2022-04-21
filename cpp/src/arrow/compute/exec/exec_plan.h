@@ -208,6 +208,9 @@ class ARROW_EXPORT ExecNode {
   // If a node has multiple outputs it should emit a new counter value to its inputs
   // whenever any of its outputs changes which means the counters sent to inputs may be
   // larger than the counters received on its outputs.
+  //
+  // A node with multiple outputs will also need to ensure it is applying backpressure if
+  // any of its outputs is asking to pause
 
   /// \brief Start producing
   ///

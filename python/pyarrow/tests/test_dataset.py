@@ -3600,16 +3600,19 @@ def test_write_dataset_with_backpressure(tempdir):
     gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
 
     schema = pa.schema([pa.field('data', pa.int32())])
-    # By default, the dataset writer will queue up 64Mi rows so
-    # with batches of 1M it should only fit ~67 batches
+    # The scanner should queue ~ 8Mi rows (~8 batches) but due to ARROW-16258
+    # it always queues 32 batches.
     batch = pa.record_batch([pa.array(list(range(1_000_000)))], schema=schema)
     batches_read = 0
-    min_backpressure = 67
+    min_backpressure = 32
     end = 200
+    keep_going = True
 
     def counting_generator():
         nonlocal batches_read
         while batches_read < end:
+            if not keep_going:
+                return
             time.sleep(0.01)
             batches_read += 1
             yield batch
@@ -3651,9 +3654,11 @@ def test_write_dataset_with_backpressure(tempdir):
         assert backpressure_probably_hit
 
     finally:
+        # If any batches remain to be generated go ahead and
+        # skip them
+        keep_going = False
         consumer_gate.set()
         write_thread.join()
-    assert batches_read == end
 
 
 def test_write_dataset_with_dataset(tempdir):

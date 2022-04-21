@@ -60,7 +60,7 @@ class BackpressureResevoir : public BackpressureMonitor {
 
   int32_t RecordProduced(uint64_t num_bytes) {
     std::lock_guard<std::mutex> lg(mutex_);
-    bool was_under = bytes_used_ < pause_if_above_;
+    bool was_under = bytes_used_ <= pause_if_above_;
     bytes_used_ += num_bytes;
     if (was_under && bytes_used_ > pause_if_above_) {
       return ++state_change_counter_;
@@ -70,7 +70,7 @@ class BackpressureResevoir : public BackpressureMonitor {
 
   int32_t RecordConsumed(uint64_t num_bytes) {
     std::lock_guard<std::mutex> lg(mutex_);
-    bool was_over = bytes_used_ > resume_if_below_;
+    bool was_over = bytes_used_ >= resume_if_below_;
     bytes_used_ -= num_bytes;
     if (was_over && bytes_used_ < resume_if_below_) {
       return ++state_change_counter_;
@@ -96,10 +96,20 @@ class SinkNode : public ExecNode {
                  /*num_outputs=*/0),
         backpressure_queue_(std::make_shared<BackpressureResevoir>(
             backpressure.resume_if_below, backpressure.pause_if_above)),
-        producer_(MakeProducer(generator)) {
+        push_gen_(),
+        producer_(push_gen_.producer()) {
     if (backpressure_monitor_out) {
       *backpressure_monitor_out = backpressure_queue_;
     }
+    AsyncGenerator<util::optional<ExecBatch>> captured_gen = push_gen_;
+    *generator = [this, captured_gen]() -> Future<util::optional<ExecBatch>> {
+      return captured_gen().Then([this](const util::optional<ExecBatch>& batch) {
+        if (batch) {
+          RecordBackpressureBytesFreed(*batch);
+        }
+        return batch;
+      });
+    };
   }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -111,14 +121,6 @@ class SinkNode : public ExecNode {
     return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
                                        sink_options.backpressure,
                                        sink_options.backpressure_monitor);
-  }
-
-  static PushGenerator<util::optional<ExecBatch>>::Producer MakeProducer(
-      AsyncGenerator<util::optional<ExecBatch>>* out_gen) {
-    PushGenerator<util::optional<ExecBatch>> push_gen;
-    auto out = push_gen.producer();
-    *out_gen = std::move(push_gen);
-    return out;
   }
 
   const char* kind_name() const override { return "SinkNode"; }
@@ -185,6 +187,7 @@ class SinkNode : public ExecNode {
 
     DCHECK_EQ(input, inputs_[0]);
 
+    RecordBackpressureBytesUsed(batch);
     bool did_push = producer_.Push(std::move(batch));
     if (!did_push) return;  // producer_ was Closed already
 
@@ -241,6 +244,7 @@ class SinkNode : public ExecNode {
 
   // Needs to be a shared_ptr as the push generator can technically outlive the node
   std::shared_ptr<BackpressureResevoir> backpressure_queue_;
+  PushGenerator<util::optional<ExecBatch>> push_gen_;
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
 
