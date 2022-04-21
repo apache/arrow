@@ -431,13 +431,13 @@ TEST(GcsFileSystem, ToArrowStatus) {
 }
 
 TEST(GcsFileSystem, FileSystemCompare) {
-  GcsOptions a_options = GcsOptions::Defaults();
+  GcsOptions a_options;
   a_options.scheme = "http";
   auto a = GcsFileSystem::Make(a_options);
   EXPECT_THAT(a, NotNull());
   EXPECT_TRUE(a->Equals(*a));
 
-  GcsOptions b_options = GcsOptions::Defaults();
+  GcsOptions b_options;
   b_options.scheme = "http";
   b_options.endpoint_override = "localhost:1234";
   auto b = GcsFileSystem::Make(b_options);
@@ -1318,8 +1318,10 @@ TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
   // Smoke test for FileSystemFromUri
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(std::string("gs://anonymous@") +
                                                   PreexistingBucketPath()));
+  EXPECT_EQ(fs->type_name(), "gcs");
   ASSERT_OK_AND_ASSIGN(auto fs2, FileSystemFromUri(std::string("gcs://anonymous@") +
                                                    PreexistingBucketPath()));
+  EXPECT_EQ(fs2->type_name(), "gcs");
 }
 
 }  // namespace
