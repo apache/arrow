@@ -126,7 +126,7 @@ struct CumulativeGeneric {
       encountered_null_tmp = true;
     };
 
-    if (skip_nulls || input.GetNullCount() == 0) {
+    if (skip_nulls || (input.GetNullCount() == 0 && !encountered_null_tmp)) {
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {
