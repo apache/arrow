@@ -20,7 +20,7 @@
 #include <utf8proc.h>
 
 #include <boost/crc.hpp>
-#include <iomanip>
+
 #include <string>
 #include <vector>
 
