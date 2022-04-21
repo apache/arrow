@@ -2930,7 +2930,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
                      use_legacy_dataset=None, schema=None,
                      partitioning=None, basename_template=None,
                      use_threads=None, file_visitor=None,
-                     existing_data_behavior='overwrite_or_ignore',
+                     existing_data_behavior=None,
                      **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
@@ -3011,9 +3011,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
         In case the legacy implementation is selected the parameter
         is ignored as the old implementation does not support it.
         Controls how the dataset will handle data that already exists in
-        the destination.  The default behavior
-        ('overwrite_or_ignore') will ignore any existing data and will
-        overwrite files with the same name as an output file.  Other
+        the destination. 'overwrite_or_ignore' ignores any existing data and
+        will overwrite files with the same name as an output file.  Other
         existing files will be ignored.  This behavior, in combination
         with a unique basename_template for each write, will allow for
         an append workflow.
@@ -3098,6 +3097,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
         if basename_template is None:
             basename_template = guid() + '-{i}.parquet'
+            existing_data_behavior='overwrite_or_ignore'
 
         ds.write_dataset(
             table, root_path, filesystem=filesystem,
