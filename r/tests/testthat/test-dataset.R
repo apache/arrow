@@ -971,7 +971,7 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
 test_that("Filter parquet dataset with is.na ARROW-15312", {
   ds_path <- make_temp_dir()
 
-  df <- tibble(x=1:3, y=c(0L, 0L, NA_integer_), z=c(0L, 1L, NA_integer_))
+  df <- tibble(x = 1:3, y = c(0L, 0L, NA_integer_), z = c(0L, 1L, NA_integer_))
   write_dataset(df, ds_path)
 
   # OK: Collect then filter: returns row 3, as expected
