@@ -72,7 +72,6 @@ import pyarrow.parquet
 import pyarrow.plasma
 "
   if [ "${PYARROW_TEST_GCS}" == "ON" ]; then
-    pip install https://github.com/googleapis/storage-testbench/archive/v0.16.0.tar.gz
     python -c "import pyarrow._gcsfs"
   fi
   if [ "${PYARROW_TEST_S3}" == "ON" ]; then
@@ -89,6 +88,7 @@ fi
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
   pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
+  PYTHON=python ${source_dir}/ci/scripts/install_gcs_testbench.sh default
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
   python -m pytest -r s --pyargs pyarrow
