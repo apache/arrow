@@ -43,8 +43,8 @@ else
 fi
 
 # Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
-R_BUILD_CCACHE=`echo $R_BUILD_CCACHE | tr '[:upper:]' '[:lower:]'`
-if [ "$R_BUILD_CCACHE" = "true" ]; then
+R_CUSTOM_CCACHE=`echo $R_CUSTOM_CCACHE | tr '[:upper:]' '[:lower:]'`
+if [ "$R_CUSTOM_CCACHE" = "true" ]; then
   # install ccache
   $PACKAGE_MANAGER install -y epel-release || true
   $PACKAGE_MANAGER install -y ccache
