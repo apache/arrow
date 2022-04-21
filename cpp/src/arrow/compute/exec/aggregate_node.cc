@@ -603,11 +603,13 @@ class GroupByNode : public ExecNode {
   }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
-    inputs_[0]->PauseProducing(this, counter);
+    // TODO(ARROW-16260)
+    // Without spillover there is way to handle backpressure in this node
   }
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
-    inputs_[0]->ResumeProducing(this, counter);
+    // TODO(ARROW-16260)
+    // Without spillover there is way to handle backpressure in this node
   }
 
   void StopProducing(ExecNode* output) override {
