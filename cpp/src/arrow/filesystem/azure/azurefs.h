@@ -35,7 +35,7 @@ enum class AzureCredentialsKind : int8_t {
   Anonymous,
   /// Use explicitly-provided access key pair
   StorageCredentials,
-  /// 
+  /// Use ServicePrincipleCredentials
   ServicePrincipleCredentials,
   /// Use Sas Token to authenticate
   Sas,
@@ -44,7 +44,7 @@ enum class AzureCredentialsKind : int8_t {
 };
 
 /// Options for the AzureFileSystem implementation.
-struct ARROW_EXPORT AzureOptions{
+struct ARROW_EXPORT AzureOptions {
   std::string scheme;
   std::string account_dfs_url;
   std::string account_blob_url;
@@ -52,22 +52,24 @@ struct ARROW_EXPORT AzureOptions{
 
   std::string sas_token;
   std::string connection_string;
-  std::shared_ptr<Azure::Storage::StorageSharedKeyCredential> storage_credentials_provider;
-  std::shared_ptr<Azure::Core::Credentials::TokenCredential> service_principle_credentials_provider;
+  std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
+        storage_credentials_provider;
+  std::shared_ptr<Azure::Core::Credentials::TokenCredential>
+        service_principle_credentials_provider;
 
   AzureOptions();
 
   void ConfigureAnonymousCredentials(const std::string& account_name);
 
-  void ConfigureAccountKeyCredentials(const std::string& account_name, 
+  void ConfigureAccountKeyCredentials(const std::string& account_name,
                                       const std::string& account_key);
 
   void ConfigureConnectionStringCredentials(const std::string& connection_string);
 
   void ConfigureServicePrincipleCredentials(const std::string& account_name,
-                                 const std::string& tenant_id,
-                                 const std::string& client_id,
-                                 const std::string& client_secret);
+                                            const std::string& tenant_id,
+                                            const std::string& client_id,
+                                            const std::string& client_secret);
 
   void ConfigureSasCredentials(const std::string& sas_token);
 
@@ -81,16 +83,16 @@ struct ARROW_EXPORT AzureOptions{
   static AzureOptions FromConnectionString(const std::string& connection_string);
 
   static AzureOptions FromServicePrincipleCredential(const std::string& account_name,
-                                          const std::string& tenant_id,
-                                          const std::string& client_id,
-                                          const std::string& client_secret);
+                                                     const std::string& tenant_id,
+                                                     const std::string& client_id,
+                                                     const std::string& client_secret);
 
   static AzureOptions FromSas(const std::string& uri);
 
   static Result<AzureOptions> FromUri(const ::arrow::internal::Uri& uri,
-                                   std::string* out_path = NULLPTR);
+                                      std::string* out_path = NULLPTR);
   static Result<AzureOptions> FromUri(const std::string& uri,
-                                   std::string* out_path = NULLPTR);
+                                      std::string* out_path = NULLPTR);
 };
 
 class ARROW_EXPORT AzureBlobFileSystem : public FileSystem {
