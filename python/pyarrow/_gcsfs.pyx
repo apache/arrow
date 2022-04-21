@@ -34,9 +34,10 @@ cdef class GcsFileSystem(FileSystem):
     Google Cloud Storage (GCS) backed FileSystem implementation
 
     By default uses the process described in https://google.aip.dev/auth/4110
-    to resolve credentials. If not running on GCP this generally requires the
-    environment variable GOOGLE_APPLICATION_CREDENTIALS to point to a JSON
-    file containing credentials.
+    to resolve credentials. If not running on Google Cloud Platform (GCP),
+    this generally requires the environment variable
+    GOOGLE_APPLICATION_CREDENTIALS to point to a JSON file
+    containing credentials.
 
     Note: GCS buckets are special and the operations available on them may be
     limited or more expensive than expected compared to local file systems.
