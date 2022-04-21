@@ -1741,6 +1741,11 @@ def test_parquet_write_to_dataset_deprecated_properties(tempdir):
         pq.write_to_dataset(table, path,
                             partition_filename_cb=lambda x: 'filename.parquet')
 
+    with pytest.warns(FutureWarning,
+                      match="Passing 'use_legacy_dataset=True'"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            existing_data_behavior='error')
+
 
 @pytest.mark.dataset
 def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
