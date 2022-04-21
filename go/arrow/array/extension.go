@@ -52,7 +52,7 @@ func arrayEqualExtension(l, r ExtensionArray) bool {
 		return false
 	}
 
-	return ArrayEqual(l.Storage(), r.Storage())
+	return Equal(l.Storage(), r.Storage())
 }
 
 // two extension arrays are approximately equal if their data types are

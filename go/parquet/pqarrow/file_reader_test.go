@@ -92,7 +92,7 @@ func TestArrowReaderAdHocReadDecimals(t *testing.T) {
 			expectedArr := bldr.NewDecimal128Array()
 			defer expectedArr.Release()
 
-			assert.Truef(t, array.ArrayEqual(expectedArr, chunk), "expected: %s\ngot: %s", expectedArr, chunk)
+			assert.Truef(t, array.Equal(expectedArr, chunk), "expected: %s\ngot: %s", expectedArr, chunk)
 		})
 	}
 }

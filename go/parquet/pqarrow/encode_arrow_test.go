@@ -335,7 +335,7 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 			assert.EqualValues(t, chnk.Len(), slc.Len())
 			if len(slc.Chunks()) == 1 {
 				offset += int64(chnk.Len())
-				assert.True(t, array.ArrayEqual(chnk, slc.Chunk(0)))
+				assert.True(t, array.Equal(chnk, slc.Chunk(0)))
 			}
 		}
 	}
@@ -629,7 +629,7 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRequiredTableRead(typ arrow.DataT
 
 	chunked := tbl.Column(0).Data()
 	ps.Len(chunked.Chunks(), 1)
-	ps.True(array.ArrayEqual(values, chunked.Chunk(0)))
+	ps.True(array.Equal(values, chunked.Chunk(0)))
 }
 
 func (ps *ParquetIOTestSuite) checkSingleColumnRead(typ arrow.DataType, numChunks int) {
@@ -647,7 +647,7 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRead(typ arrow.DataType, numChunk
 	defer chunked.Release()
 
 	ps.Len(chunked.Chunks(), 1)
-	ps.True(array.ArrayEqual(values, chunked.Chunk(0)))
+	ps.True(array.Equal(values, chunked.Chunk(0)))
 }
 
 func (ps *ParquetIOTestSuite) TestDateTimeTypesReadWriteTable() {
@@ -675,7 +675,7 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesReadWriteTable() {
 		tblChunk := tbl.Column(i).Data()
 
 		ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
-		ps.Truef(array.ArrayEqual(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected %s\ngot %s", exChunk.Chunk(0), tblChunk.Chunk(0))
+		ps.Truef(array.Equal(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected %s\ngot %s", exChunk.Chunk(0), tblChunk.Chunk(0))
 	}
 }
 
@@ -701,7 +701,7 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesWithInt96ReadWriteTable() {
 		tblChunk := tbl.Column(i).Data()
 
 		ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
-		ps.Truef(array.ArrayEqual(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected %s\ngot %s", exChunk.Chunk(0), tblChunk.Chunk(0))
+		ps.Truef(array.Equal(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected %s\ngot %s", exChunk.Chunk(0), tblChunk.Chunk(0))
 	}
 }
 
@@ -800,7 +800,7 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 	defer chunked.Release()
 
 	ps.Len(chunked.Chunks(), 1)
-	ps.True(array.ArrayEqual(expected, chunked.Chunk(0)))
+	ps.True(array.Equal(expected, chunked.Chunk(0)))
 }
 
 func (ps *ParquetIOTestSuite) writeColumn(sc *schema.GroupNode, values arrow.Array) []byte {
@@ -832,7 +832,7 @@ func (ps *ParquetIOTestSuite) readAndCheckSingleColumnFile(data []byte, values a
 	ps.Len(chunked.Chunks(), 1)
 	ps.NotNil(chunked.Chunk(0))
 
-	ps.True(array.ArrayEqual(values, chunked.Chunk(0)))
+	ps.True(array.Equal(values, chunked.Chunk(0)))
 }
 
 var fullTypeList = []arrow.DataType{
@@ -894,7 +894,7 @@ func (ps *ParquetIOTestSuite) roundTripTable(expected arrow.Table, storeSchema b
 
 	ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
 	if exChunk.DataType().ID() != arrow.STRUCT {
-		ps.Truef(array.ArrayEqual(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected: %s\ngot: %s", exChunk.Chunk(0), tblChunk.Chunk(0))
+		ps.Truef(array.Equal(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected: %s\ngot: %s", exChunk.Chunk(0), tblChunk.Chunk(0))
 	} else {
 		// current impl of ArrayEquals for structs doesn't correctly handle nulls in the parent
 		// with a non-nullable child when comparing. Since after the round trip, the data in the
@@ -908,7 +908,7 @@ func (ps *ParquetIOTestSuite) roundTripTable(expected arrow.Table, storeSchema b
 		ps.Equal(ex.Len(), tb.Len())
 		// only compare the non-null values
 		ps.NoErrorf(utils.VisitSetBitRuns(ex.NullBitmapBytes(), int64(ex.Data().Offset()), int64(ex.Len()), func(pos, length int64) error {
-			if !ps.True(array.ArraySliceEqual(ex, pos, pos+length, tb, pos, pos+length)) {
+			if !ps.True(array.SliceEqual(ex, pos, pos+length, tb, pos, pos+length)) {
 				return errors.New("failed")
 			}
 			return nil
@@ -1037,7 +1037,7 @@ func (ps *ParquetIOTestSuite) TestSingleEmptyListsColumnReadWrite() {
 	tblChunk := tbl.Column(0).Data()
 
 	ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
-	ps.True(array.ArrayEqual(exChunk.Chunk(0), tblChunk.Chunk(0)))
+	ps.True(array.Equal(exChunk.Chunk(0), tblChunk.Chunk(0)))
 }
 
 func (ps *ParquetIOTestSuite) TestSingleColumnOptionalReadWrite() {
