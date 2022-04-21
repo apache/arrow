@@ -1059,7 +1059,7 @@ class ParquetDatasetPiece:
         warnings.warn(
             "ParquetDatasetPiece is deprecated as of pyarrow 5.0.0 and will "
             "be removed in a future version.",
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         self._init(
             path, open_file_func, file_options, row_group, partition_keys)
 
@@ -1692,7 +1692,7 @@ Examples
                 "Specifying the 'metadata_nthreads' argument is deprecated as "
                 "of pyarrow 8.0.0, and the argument will be removed in a "
                 "future version",
-                DeprecationWarning, stacklevel=2,
+                FutureWarning, stacklevel=2,
             )
         else:
             metadata_nthreads = 1
@@ -1742,7 +1742,7 @@ Examples
                 "specify it in combination with 'use_legacy_dataet=False', "
                 "but in that case you need to specify a pyarrow.Schema "
                 "instead of a ParquetSchema.",
-                DeprecationWarning, stacklevel=2)
+                FutureWarning, stacklevel=2)
         self._schema = schema
 
         self.split_row_groups = split_row_groups
@@ -1953,7 +1953,7 @@ Examples
                 " Specify 'use_legacy_dataset=False' while constructing the "
                 "ParquetDataset, and then use the '.fragments' attribute "
                 "instead."),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._pieces
 
     @property
@@ -1967,7 +1967,7 @@ Examples
                 " Specify 'use_legacy_dataset=False' while constructing the "
                 "ParquetDataset, and then use the '.partitioning' attribute "
                 "instead."),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._partitions
 
     @property
@@ -1979,7 +1979,7 @@ Examples
                 "ParquetDataset, and then use the '.schema' attribute "
                 "instead (which will return an Arrow schema instead of a "
                 "Parquet schema)."),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._schema
 
     @property
@@ -1989,7 +1989,7 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.memory_map", ""),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._metadata.memory_map
 
     @property
@@ -1999,7 +1999,7 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.read_dictionary", ""),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._metadata.read_dictionary
 
     @property
@@ -2009,7 +2009,7 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.buffer_size", ""),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._metadata.buffer_size
 
     _fs = property(
@@ -2027,7 +2027,7 @@ Examples
                 " Specify 'use_legacy_dataset=False' while constructing the "
                 "ParquetDataset, and then use the '.filesystem' attribute "
                 "instead."),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._metadata.fs
 
     _common_metadata = property(
@@ -2041,7 +2041,7 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.common_metadata", ""),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._metadata.common_metadata
 
     @property
@@ -2453,7 +2453,7 @@ class _ParquetDatasetV2:
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.pieces",
                              " Use the '.fragments' attribute instead"),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return list(self._dataset.get_fragments())
 
     @property
@@ -2744,7 +2744,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
         "deprecated as of pyarrow 8.0.0, and the legacy implementation will "
         "be removed in a future version.",
-        DeprecationWarning, stacklevel=2)
+        FutureWarning, stacklevel=2)
 
     if ignore_prefixes is not None:
         raise ValueError(
