@@ -72,6 +72,7 @@ import pyarrow.parquet
 import pyarrow.plasma
 "
   if [ "${PYARROW_TEST_GCS}" == "ON" ]; then
+    pip install https://github.com/googleapis/storage-testbench/archive/v0.16.0.tar.gz
     python -c "import pyarrow._gcsfs"
   fi
   if [ "${PYARROW_TEST_S3}" == "ON" ]; then
