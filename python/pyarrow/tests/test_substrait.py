@@ -22,10 +22,11 @@ from pyarrow.lib import ArrowInvalid
 import pyarrow.parquet as pq
 import pytest
 
-from pyarrow.engine import (
-    run_query,
-    get_buffer_from_json,
-)
+try:
+    import pyarrow.engine as engine
+except ImportError:
+    engine = None
+
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not engine'
 pytestmark = pytest.mark.engine
@@ -73,10 +74,8 @@ def resource_root():
 def test_run_query():
     filename = str(resource_root() / "binary.parquet")
 
-    query = _substrait_query
-
-    query = tobytes(query.replace("FILENAME_PLACEHOLDER", filename))
-    reader = run_query(query)
+    query = tobytes(_substrait_query.replace("FILENAME_PLACEHOLDER", filename))
+    reader = engine.run_query(query)
     res_tb = reader.read_all()
 
     expected_tb = pq.read_table(filename)
@@ -87,12 +86,11 @@ def test_run_query():
 def test_run_query_in_bytes():
     filename = str(resource_root() / "binary.parquet")
 
-    query = _substrait_query
-    query = tobytes(query.replace("FILENAME_PLACEHOLDER", filename))
+    query = tobytes(_substrait_query.replace("FILENAME_PLACEHOLDER", filename))
 
-    buf = get_buffer_from_json(query)
+    buf = engine._parse_json_plan(query)
 
-    reader = run_query(buf)
+    reader = engine.run_query(buf)
     res_tb = reader.read_all()
 
     expected_tb = pq.read_table(filename)
@@ -109,4 +107,4 @@ def test_invalid_plan():
     """
     exec_message = "ExecPlan has no node"
     with pytest.raises(ArrowInvalid, match=exec_message):
-        run_query(tobytes(query))
+        engine.run_query(tobytes(query))

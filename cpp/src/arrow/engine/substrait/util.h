@@ -30,17 +30,17 @@ namespace arrow {
 namespace engine {
 
 /// \brief Retrieve a RecordBatchReader from a Substrait plan in JSON.
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
-    std::string& substrait_json);
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteJsonPlan(
+    const std::string& substrait_json);
 
-/// \brief Retrieve a RecordBatchReader from a Substrait plan in Buffer.
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+/// \brief Retrieve a RecordBatchReader from a Substrait plan.
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     std::shared_ptr<Buffer> substrait_buffer);
 
-/// \brief Get Substrait Buffer from a Substrait JSON plan.
+/// \brief Get a Buffer from a Substrait JSON plan.
 /// This is a helper method for Python tests.
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> GetSubstraitBufferFromJSON(
-    std::string& substrait_json);
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> ParseJsonPlan(
+    const std::string& substrait_json);
 
 }  // namespace engine
 

@@ -17,5 +17,5 @@
 
 from pyarrow._engine import (  # noqa
     run_query,
-    get_buffer_from_json,
+    _parse_json_plan,
 )

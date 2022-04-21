@@ -42,10 +42,10 @@ def run_query(plan):
 
     if isinstance(plan, bytes):
         c_str_plan = plan
-        c_res_reader = GetRecordBatchReader(c_str_plan)
+        c_res_reader = ExecuteJsonPlan(c_str_plan)
     elif isinstance(plan, Buffer):
         c_buf_plan = pyarrow_unwrap_buffer(plan)
-        c_res_reader = GetRecordBatchReader(c_buf_plan)
+        c_res_reader = ExecuteSerializedPlan(c_buf_plan)
     else:
         raise ValueError("Expected bytes or pyarrow.Buffer")
 
@@ -56,15 +56,20 @@ def run_query(plan):
     return reader
 
 
-def get_buffer_from_json(plan):
+def _parse_json_plan(plan):
     """
-    Returns Buffer object by converting substrait plan in 
-    JSON.
+    Parse a JSON plan into equivalent serialized Protobuf.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     plan: byte
-        Substrait plan as a bytes.
+        Substrait plan as bytes. This is obtained by encoding in utf-8
+        a Substrait plan in JSON format. 
+
+    Returns
+    -------
+     Buffer
+        pyarrow.Buffer object is returned.
     """
 
     cdef:
@@ -74,7 +79,7 @@ def get_buffer_from_json(plan):
 
     if isinstance(plan, bytes):
         c_str_plan = plan
-        c_res_buffer = GetSubstraitBufferFromJSON(c_str_plan)
+        c_res_buffer = ParseJsonPlan(c_str_plan)
         c_buf_plan = GetResultValue(c_res_buffer)
     else:
         raise ValueError("Expected plan in bytes.")

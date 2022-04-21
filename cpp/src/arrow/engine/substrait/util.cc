@@ -65,18 +65,17 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
       std::shared_ptr<Buffer> substrait_buffer,
       AsyncGenerator<arrow::util::optional<compute::ExecBatch>>* generator,
       std::shared_ptr<compute::ExecPlan> plan, compute::ExecContext exec_context)
-      : substrait_buffer_(substrait_buffer),
+      : substrait_buffer_(std::move(substrait_buffer)),
         generator_(generator),
         plan_(std::move(plan)),
         exec_context_(exec_context) {}
 
   Result<std::shared_ptr<RecordBatchReader>> Execute() {
-    RETURN_NOT_OK(SubstraitExecutor::Init());
     for (const compute::Declaration& decl : declarations_) {
       RETURN_NOT_OK(decl.AddToPlan(plan_.get()).status());
     }
-    ARROW_RETURN_NOT_OK(plan_->Validate());
-    ARROW_RETURN_NOT_OK(plan_->StartProducing());
+    RETURN_NOT_OK(plan_->Validate());
+    RETURN_NOT_OK(plan_->StartProducing());
     // schema of the output can be obtained by the output_schema
     // of the input to the sink node.
     auto schema = plan_->sinks()[0]->inputs()[0]->output_schema();
@@ -118,28 +117,27 @@ SubstraitSinkConsumer::MakeProducer(
   return out;
 }
 
-Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
-    std::string& substrait_json) {
-  ARROW_ASSIGN_OR_RAISE(auto substrait_buffer,
-                        GetSubstraitBufferFromJSON(substrait_json));
-  return GetRecordBatchReader(substrait_buffer);
+Result<std::shared_ptr<RecordBatchReader>> ExecuteJsonPlan(
+    const std::string& substrait_json) {
+  ARROW_ASSIGN_OR_RAISE(auto substrait_buffer, ParseJsonPlan(substrait_json));
+  return ExecuteSerializedPlan(substrait_buffer);
 }
 
-Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     std::shared_ptr<Buffer> substrait_buffer) {
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool());
-  arrow::engine::SubstraitExecutor executor(substrait_buffer, &sink_gen, plan,
-                                            exec_context);
+  arrow::engine::SubstraitExecutor executor(std::move(substrait_buffer), &sink_gen,
+                                            std::move(plan), exec_context);
   RETURN_NOT_OK(executor.Init());
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   RETURN_NOT_OK(executor.Close());
   return sink_reader;
 }
 
-Result<std::shared_ptr<Buffer>> GetSubstraitBufferFromJSON(std::string& substrait_json) {
+Result<std::shared_ptr<Buffer>> ParseJsonPlan(const std::string& substrait_json) {
   return engine::internal::SubstraitFromJSON("Plan", substrait_json);
 }
 
