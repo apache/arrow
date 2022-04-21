@@ -816,4 +816,39 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
                    int32_t substring_len);
 
+double castFLOAT8_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                             int32_t x_scale);
+
+void castDECIMAL_int32(int32_t in, int32_t x_precision, int32_t x_scale,
+                       int64_t* out_high, uint64_t* out_low);
+
+void castDECIMAL_int64(int64_t in, int32_t x_precision, int32_t x_scale,
+                       int64_t* out_high, uint64_t* out_low);
+
+void castDECIMAL_float32(float in, int32_t x_precision, int32_t x_scale,
+                         int64_t* out_high, uint64_t* out_low);
+
+void castDECIMAL_float64(double in, int32_t x_precision, int32_t x_scale,
+                         int64_t* out_high, uint64_t* out_low);
+
+void castDECIMAL_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                            int32_t x_scale, int32_t out_precision, int32_t out_scale,
+                            int64_t* out_high, int64_t* out_low);
+
+void castDECIMAL_utf8(int64_t context, const char* in, int32_t in_length,
+                      int32_t out_precision, int32_t out_scale, int64_t* out_high,
+                      uint64_t* out_low);
+
+void castDECIMALNullOnOverflow_decimal128(int64_t x_high, uint64_t x_low,
+                                          int32_t x_precision, int32_t x_scale,
+                                          bool x_isvalid, bool* out_valid,
+                                          int32_t out_precision, int32_t out_scale,
+                                          int64_t* out_high, int64_t* out_low);
+
+int64_t castBIGINT_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                              int32_t x_scale);
+
+const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
+                                    gdv_int32* out_len);
+
 }  // extern "C"
