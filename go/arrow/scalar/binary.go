@@ -18,11 +18,11 @@ package scalar
 
 import (
 	"bytes"
+	"fmt"
 	"unicode/utf8"
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 type BinaryScalar interface {
@@ -70,7 +70,7 @@ func (b *Binary) CastTo(to arrow.DataType) (Scalar, error) {
 		}
 	}
 
-	return nil, xerrors.Errorf("cannot cast non-null binary scalar to type %s", to)
+	return nil, fmt.Errorf("cannot cast non-null binary scalar to type %s", to)
 }
 
 func (b *Binary) Validate() (err error) {
@@ -102,7 +102,7 @@ func (s *String) ValidateFull() (err error) {
 		return
 	}
 	if s.Valid && !utf8.ValidString(string(s.Value.Bytes())) {
-		err = xerrors.Errorf("%s scalar contains invalid utf8 data", s.Type)
+		err = fmt.Errorf("%s scalar contains invalid utf8 data", s.Type)
 	}
 	return
 }
@@ -116,7 +116,7 @@ func (s *String) CastTo(to arrow.DataType) (Scalar, error) {
 		if s.Value.Len() == to.(*arrow.FixedSizeBinaryType).ByteWidth {
 			return NewFixedSizeBinaryScalar(s.Value, to), nil
 		}
-		return nil, xerrors.Errorf("cannot convert string scalar of %s to type %s", string(s.Value.Bytes()), to)
+		return nil, fmt.Errorf("cannot convert string scalar of %s to type %s", string(s.Value.Bytes()), to)
 	}
 
 	return ParseScalar(to, string(s.Value.Bytes()))
@@ -145,7 +145,7 @@ func (b *FixedSizeBinary) Validate() (err error) {
 	if b.Valid {
 		width := b.Type.(*arrow.FixedSizeBinaryType).ByteWidth
 		if b.Value.Len() != width {
-			err = xerrors.Errorf("%s scalar should have a value of size %d, got %d", b.Type, width, b.Value.Len())
+			err = fmt.Errorf("%s scalar should have a value of size %d, got %d", b.Type, width, b.Value.Len())
 		}
 	}
 	return

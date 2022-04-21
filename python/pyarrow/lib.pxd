@@ -41,6 +41,10 @@ cdef class IpcWriteOptions(_Weakrefable):
     cdef:
         CIpcWriteOptions c_options
 
+cdef class IpcReadOptions(_Weakrefable):
+    cdef:
+        CIpcReadOptions c_options
+
 
 cdef class Message(_Weakrefable):
     cdef:

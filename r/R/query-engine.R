@@ -33,26 +33,15 @@ do_exec_plan <- function(.data) {
 
   if (ncol(tab)) {
     # Apply any column metadata from the original schema, where appropriate
-    original_schema <- source_data(.data)$schema
-    # TODO: do we care about other (non-R) metadata preservation?
-    # How would we know if it were meaningful?
-    r_meta <- original_schema$r_metadata
-    if (!is.null(r_meta)) {
-      # Filter r_metadata$columns on columns with name _and_ type match
-      new_schema <- tab$schema
-      common_names <- intersect(names(r_meta$columns), names(tab))
-      keep <- common_names[
-        map_lgl(common_names, ~ original_schema[[.]] == new_schema[[.]])
-      ]
-      r_meta$columns <- r_meta$columns[keep]
-      if (has_aggregation(.data)) {
-        # dplyr drops top-level attributes if you do summarize
-        r_meta$attributes <- NULL
-      }
-      tab$r_metadata <- r_meta
+    new_r_metadata <- get_r_metadata_from_old_schema(
+      tab$schema,
+      source_data(.data)$schema,
+      drop_attributes = has_aggregation(.data)
+    )
+    if (!is.null(new_r_metadata)) {
+      tab$r_metadata <- new_r_metadata
     }
   }
-
   tab
 }
 
@@ -243,6 +232,10 @@ ExecPlan <- R6Class("ExecPlan",
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
       }
       out
+    },
+    Write = function(node, ...) {
+      # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
+      ExecPlan_Write(self, node, ...)
     },
     Stop = function() ExecPlan_StopProducing(self)
   )

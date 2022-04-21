@@ -21,6 +21,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 
 	"github.com/apache/arrow/go/v8/arrow"
@@ -173,7 +174,7 @@ func (dec *PlainInt32Decoder) Decode(out []int32) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Int32SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Int32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Int32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromInt32LE(out, dec.data[:nbytes])
@@ -278,7 +279,7 @@ func (dec *PlainInt64Decoder) Decode(out []int64) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Int64SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Int64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Int64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromInt64LE(out, dec.data[:nbytes])
@@ -383,7 +384,7 @@ func (dec *PlainInt96Decoder) Decode(out []parquet.Int96) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(parquet.Int96SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Int96, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Int96, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromInt96LE(out, dec.data[:nbytes])
@@ -488,7 +489,7 @@ func (dec *PlainFloat32Decoder) Decode(out []float32) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Float32SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Float32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Float32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromFloat32LE(out, dec.data[:nbytes])
@@ -593,7 +594,7 @@ func (dec *PlainFloat64Decoder) Decode(out []float64) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Float64SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Float64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Float64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromFloat64LE(out, dec.data[:nbytes])

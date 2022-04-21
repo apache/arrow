@@ -17,6 +17,7 @@
 package array
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sync/atomic"
@@ -159,7 +160,7 @@ func (r *JSONReader) readNext() bool {
 	r.err = r.r.Decode(r.bldr)
 	if r.err != nil {
 		r.done = true
-		if r.err == io.EOF {
+		if errors.Is(r.err, io.EOF) {
 			r.err = nil
 		}
 		return false

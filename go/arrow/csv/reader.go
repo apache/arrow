@@ -18,6 +18,7 @@ package csv
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -28,7 +29,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/array"
 	"github.com/apache/arrow/go/v8/arrow/internal/debug"
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -105,7 +105,7 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 func (r *Reader) readHeader() error {
 	records, err := r.r.Read()
 	if err != nil {
-		return xerrors.Errorf("arrow/csv: could not read header from file: %w", err)
+		return fmt.Errorf("arrow/csv: could not read header from file: %w", err)
 	}
 
 	if len(records) != len(r.schema.Fields()) {
@@ -165,7 +165,7 @@ func (r *Reader) next1() bool {
 	recs, r.err = r.r.Read()
 	if r.err != nil {
 		r.done = true
-		if r.err == io.EOF {
+		if errors.Is(r.err, io.EOF) {
 			r.err = nil
 		}
 		return false
@@ -225,7 +225,7 @@ func (r *Reader) nextn() bool {
 
 	if r.err != nil {
 		r.done = true
-		if r.err == io.EOF {
+		if errors.Is(r.err, io.EOF) {
 			r.err = nil
 		}
 	}

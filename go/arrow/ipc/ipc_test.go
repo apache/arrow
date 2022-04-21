@@ -134,7 +134,7 @@ func TestArrow14769(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = reader.Read()
-	if err == nil || err == io.EOF {
+	if err == nil || errors.Is(err, io.EOF) {
 		t.Fatalf("Expected an error, got %s", err)
 	}
 	if err.Error() != "Error!" {

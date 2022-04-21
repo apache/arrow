@@ -32,7 +32,7 @@ import numpy as np
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import tobytes
+from pyarrow.lib import IpcReadOptions, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
@@ -119,6 +119,12 @@ def simple_dicts_table():
     return pa.Table.from_arrays(data, names=['some_dicts'])
 
 
+def multiple_column_table():
+    return pa.Table.from_arrays([pa.array(['foo', 'bar', 'baz', 'qux']),
+                                 pa.array([1, 2, 3, 4])],
+                                names=['a', 'b'])
+
+
 class ConstantFlightServer(FlightServerBase):
     """A Flight server that always returns the same data.
 
@@ -134,6 +140,7 @@ class ConstantFlightServer(FlightServerBase):
         self.table_factories = {
             b'ints': simple_ints_table,
             b'dicts': simple_dicts_table,
+            b'multi': multiple_column_table,
         }
         self.options = options
 
@@ -355,20 +362,23 @@ class SlowFlightServer(FlightServerBase):
 class ErrorFlightServer(FlightServerBase):
     """A Flight server that uses all the Flight-specific errors."""
 
-    errors = {
-        "internal": flight.FlightInternalError,
-        "timedout": flight.FlightTimedOutError,
-        "cancel": flight.FlightCancelledError,
-        "unauthenticated": flight.FlightUnauthenticatedError,
-        "unauthorized": flight.FlightUnauthorizedError,
-        "notimplemented": NotImplementedError,
-        "invalid": pa.ArrowInvalid,
-        "key": KeyError,
-    }
+    @staticmethod
+    def error_cases():
+        return {
+            "internal": flight.FlightInternalError,
+            "timedout": flight.FlightTimedOutError,
+            "cancel": flight.FlightCancelledError,
+            "unauthenticated": flight.FlightUnauthenticatedError,
+            "unauthorized": flight.FlightUnauthorizedError,
+            "notimplemented": NotImplementedError,
+            "invalid": pa.ArrowInvalid,
+            "key": KeyError,
+        }
 
     def do_action(self, context, action):
-        if action.type in self.errors:
-            raise self.errors[action.type]("foo")
+        error_cases = ErrorFlightServer.error_cases()
+        if action.type in error_cases:
+            raise error_cases[action.type]("foo")
         elif action.type == "protobuf":
             err_msg = b'this is an error message'
             raise flight.FlightUnauthorizedError("foo", err_msg)
@@ -1161,6 +1171,23 @@ def test_timeout_passes():
         client.do_get(flight.Ticket(b'ints'), options=options).read_all()
 
 
+def test_read_options():
+    """Make sure ReadOptions can be used."""
+    expected = pa.Table.from_arrays([pa.array([1, 2, 3, 4])], names=["b"])
+    with ConstantFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        options = flight.FlightCallOptions(
+            read_options=IpcReadOptions(included_fields=[1]))
+        response1 = client.do_get(flight.Ticket(
+            b'multi'), options=options).read_all()
+        response2 = client.do_get(flight.Ticket(b'multi')).read_all()
+
+        assert response2.num_columns == 2
+        assert response1.num_columns == 1
+        assert response1 == expected
+        assert response2 == multiple_column_table()
+
+
 basic_auth_handler = HttpBasicServerAuthHandler(creds={
     b"test": b"p4ssw0rd",
 })
@@ -1564,7 +1591,7 @@ def test_roundtrip_errors():
     with ErrorFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
 
-        for arg, exc_type in ErrorFlightServer.errors.items():
+        for arg, exc_type in ErrorFlightServer.error_cases().items():
             with pytest.raises(exc_type, match=".*foo.*"):
                 list(client.do_action(flight.Action(arg, b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):

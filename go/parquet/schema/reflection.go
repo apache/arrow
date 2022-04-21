@@ -17,6 +17,7 @@
 package schema
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -157,7 +158,7 @@ func (t *taggedInfo) UpdateLogicalTypes() {
 		case "uuid":
 			return UUIDLogicalType{}
 		default:
-			panic(xerrors.Errorf("invalid logical type specified: %s", t))
+			panic(fmt.Errorf("invalid logical type specified: %s", t))
 		}
 	}
 
@@ -208,7 +209,7 @@ func infoFromTags(f reflect.StructTag) *taggedInfo {
 	typeFromStr := func(v string) parquet.Type {
 		t, err := format.TypeFromString(strings.ToUpper(v))
 		if err != nil {
-			panic(xerrors.Errorf("invalid type specified: %s", v))
+			panic(fmt.Errorf("invalid type specified: %s", v))
 		}
 		return parquet.Type(t)
 	}

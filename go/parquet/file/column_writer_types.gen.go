@@ -19,6 +19,8 @@
 package file
 
 import (
+	"fmt"
+	
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
@@ -68,7 +70,7 @@ func (w *Int32ColumnChunkWriter) WriteBatch(values []int32, defLevels, repLevels
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
@@ -227,7 +229,7 @@ func (w *Int64ColumnChunkWriter) WriteBatch(values []int64, defLevels, repLevels
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
@@ -386,7 +388,7 @@ func (w *Int96ColumnChunkWriter) WriteBatch(values []parquet.Int96, defLevels, r
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
@@ -545,7 +547,7 @@ func (w *Float32ColumnChunkWriter) WriteBatch(values []float32, defLevels, repLe
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
@@ -704,7 +706,7 @@ func (w *Float64ColumnChunkWriter) WriteBatch(values []float64, defLevels, repLe
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
@@ -866,7 +868,7 @@ func (w *BooleanColumnChunkWriter) WriteBatch(values []bool, defLevels, repLevel
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
@@ -1025,7 +1027,7 @@ func (w *ByteArrayColumnChunkWriter) WriteBatch(values []parquet.ByteArray, defL
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
@@ -1184,7 +1186,7 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatch(values []parquet.FixedLe
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()

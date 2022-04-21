@@ -290,8 +290,9 @@ class ProxyHandler(pyarrow.fs.FileSystemHandler):
     def delete_dir(self, path):
         return self._fs.delete_dir(path)
 
-    def delete_dir_contents(self, path):
-        return self._fs.delete_dir_contents(path)
+    def delete_dir_contents(self, path, missing_dir_ok):
+        return self._fs.delete_dir_contents(path,
+                                            missing_dir_ok=missing_dir_ok)
 
     def delete_root_dir_contents(self):
         return self._fs.delete_dir_contents("", accept_root_dir=True)

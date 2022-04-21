@@ -19,6 +19,7 @@
 package metadata
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/apache/arrow/go/v8/arrow"
@@ -48,7 +49,7 @@ type Int32Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Int32
 func NewInt32Statistics(descr *schema.Column, mem memory.Allocator) *Int32Statistics {
 	if descr.PhysicalType() != parquet.Types.Int32 {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Int32 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Int32 stat object", descr.PhysicalType()))
 	}
 
 	return &Int32Statistics{
@@ -293,7 +294,7 @@ func (s *Int32Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -328,7 +329,7 @@ type Int64Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Int64
 func NewInt64Statistics(descr *schema.Column, mem memory.Allocator) *Int64Statistics {
 	if descr.PhysicalType() != parquet.Types.Int64 {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Int64 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Int64 stat object", descr.PhysicalType()))
 	}
 
 	return &Int64Statistics{
@@ -573,7 +574,7 @@ func (s *Int64Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -608,7 +609,7 @@ type Int96Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Int96
 func NewInt96Statistics(descr *schema.Column, mem memory.Allocator) *Int96Statistics {
 	if descr.PhysicalType() != parquet.Types.Int96 {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Int96 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Int96 stat object", descr.PhysicalType()))
 	}
 
 	return &Int96Statistics{
@@ -845,7 +846,7 @@ func (s *Int96Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -880,7 +881,7 @@ type Float32Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Float
 func NewFloat32Statistics(descr *schema.Column, mem memory.Allocator) *Float32Statistics {
 	if descr.PhysicalType() != parquet.Types.Float {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Float32 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Float32 stat object", descr.PhysicalType()))
 	}
 
 	return &Float32Statistics{
@@ -1124,7 +1125,7 @@ func (s *Float32Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -1159,7 +1160,7 @@ type Float64Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Double
 func NewFloat64Statistics(descr *schema.Column, mem memory.Allocator) *Float64Statistics {
 	if descr.PhysicalType() != parquet.Types.Double {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Float64 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Float64 stat object", descr.PhysicalType()))
 	}
 
 	return &Float64Statistics{
@@ -1403,7 +1404,7 @@ func (s *Float64Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -1438,7 +1439,7 @@ type BooleanStatistics struct {
 // Panics if the physical type of descr is not parquet.Type.Boolean
 func NewBooleanStatistics(descr *schema.Column, mem memory.Allocator) *BooleanStatistics {
 	if descr.PhysicalType() != parquet.Types.Boolean {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Boolean stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Boolean stat object", descr.PhysicalType()))
 	}
 
 	return &BooleanStatistics{
@@ -1675,7 +1676,7 @@ func (s *BooleanStatistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -1710,7 +1711,7 @@ type ByteArrayStatistics struct {
 // Panics if the physical type of descr is not parquet.Type.ByteArray
 func NewByteArrayStatistics(descr *schema.Column, mem memory.Allocator) *ByteArrayStatistics {
 	if descr.PhysicalType() != parquet.Types.ByteArray {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a ByteArray stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a ByteArray stat object", descr.PhysicalType()))
 	}
 
 	return &ByteArrayStatistics{
@@ -1948,7 +1949,7 @@ func (s *ByteArrayStatistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -1983,7 +1984,7 @@ type FixedLenByteArrayStatistics struct {
 // Panics if the physical type of descr is not parquet.Type.FixedLenByteArray
 func NewFixedLenByteArrayStatistics(descr *schema.Column, mem memory.Allocator) *FixedLenByteArrayStatistics {
 	if descr.PhysicalType() != parquet.Types.FixedLenByteArray {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a FixedLenByteArray stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a FixedLenByteArray stat object", descr.PhysicalType()))
 	}
 
 	return &FixedLenByteArrayStatistics{
@@ -2232,7 +2233,7 @@ func (s *FixedLenByteArrayStatistics) Encode() (enc EncodedStatistics, err error
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()

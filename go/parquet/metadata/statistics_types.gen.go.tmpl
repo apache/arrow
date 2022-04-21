@@ -17,6 +17,8 @@
 package metadata
 
 import (
+  "fmt"
+  
   "github.com/apache/arrow/go/v8/parquet"
   "github.com/apache/arrow/go/v8/parquet/schema"
   "github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -42,7 +44,7 @@ type {{.Name}}Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}}
 func New{{.Name}}Statistics(descr *schema.Column, mem memory.Allocator) *{{.Name}}Statistics {
   if descr.PhysicalType() != parquet.Types.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}} {
-    panic(xerrors.Errorf("parquet: invalid type %s for constructing a {{.Name}} stat object", descr.PhysicalType()))
+    panic(fmt.Errorf("parquet: invalid type %s for constructing a {{.Name}} stat object", descr.PhysicalType()))
   }
 
   return &{{.Name}}Statistics{
@@ -367,7 +369,7 @@ func (s *{{.Name}}Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
     }
   }()

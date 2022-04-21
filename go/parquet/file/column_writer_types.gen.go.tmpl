@@ -17,6 +17,8 @@
 package file
 
 import (
+    "fmt"
+    
     "github.com/apache/arrow/go/v8/parquet"
     "github.com/apache/arrow/go/v8/parquet/metadata"
     "github.com/apache/arrow/go/v8/parquet/internal/encoding"
@@ -73,7 +75,7 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatch(values []{{.name}}, defLevels, r
       case error:
         err = r
       default:
-        err = xerrors.Errorf("unknown error type: %s", r)
+        err = fmt.Errorf("unknown error type: %s", r)
       }
     }
   }()

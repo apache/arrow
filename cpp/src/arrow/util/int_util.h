@@ -95,7 +95,7 @@ Status TransposeInts(const DataType& src_type, const DataType& dest_type,
                      int64_t dest_offset, int64_t length, const int32_t* transpose_map);
 
 /// \brief Do vectorized boundschecking of integer-type array indices. The
-/// indices must be non-nonnegative and strictly less than the passed upper
+/// indices must be nonnegative and strictly less than the passed upper
 /// limit (which is usually the length of an array that is being indexed-into).
 ARROW_EXPORT
 Status CheckIndexBounds(const ArrayData& indices, uint64_t upper_limit);

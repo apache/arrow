@@ -17,6 +17,7 @@
 package arrjson
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -115,7 +116,7 @@ func TestReadWrite(t *testing.T) {
 			nrecs := 0
 			for {
 				rec, err := r.Read()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {

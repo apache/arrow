@@ -18,6 +18,7 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	sync "sync"
 	"testing"
@@ -113,7 +114,7 @@ func TestServerStreamMiddleware(t *testing.T) {
 	for {
 		info, err := flightStream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			assert.NoError(t, err)
@@ -229,7 +230,7 @@ func TestClientStreamMiddleware(t *testing.T) {
 	for {
 		info, err := flightStream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			assert.NoError(t, err)

@@ -17,6 +17,8 @@
 package file
 
 import (
+	"fmt"
+
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
@@ -339,9 +341,9 @@ func (c *columnChunkReader) initDataDecoder(page Page, lvlByteLen int64) error {
 		case format.Encoding_RLE_DICTIONARY:
 			return xerrors.New("parquet: dictionary page must be before data page")
 		case format.Encoding_BYTE_STREAM_SPLIT:
-			return xerrors.Errorf("parquet: unsupported data encoding %s", encoding)
+			return fmt.Errorf("parquet: unsupported data encoding %s", encoding)
 		default:
-			return xerrors.Errorf("parquet: unknown encoding type %s", encoding)
+			return fmt.Errorf("parquet: unknown encoding type %s", encoding)
 		}
 	}
 

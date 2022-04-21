@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -33,7 +34,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/float16"
 	"github.com/apache/arrow/go/v8/arrow/ipc"
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 type Schema struct {
@@ -221,7 +221,7 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 	case *arrow.Decimal128Type:
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision)}
 	default:
-		return nil, xerrors.Errorf("unknown arrow.DataType %v", f.arrowType)
+		return nil, fmt.Errorf("unknown arrow.DataType %v", f.arrowType)
 	}
 
 	var err error
@@ -424,7 +424,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 	}
 
 	if f.arrowType == nil {
-		return xerrors.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
+		return fmt.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
 	}
 
 	var err error
@@ -826,7 +826,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := make([][]byte, len(strdata))
 		for i, v := range strdata {
 			if len(v) != 2*dt.ByteWidth {
-				panic(xerrors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
+				panic(fmt.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
 			}
 			vv, err := hex.DecodeString(v)
 			if err != nil {
@@ -939,7 +939,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		return array.NewExtensionArrayWithStorage(dt, storage)
 
 	default:
-		panic(xerrors.Errorf("unknown data type %v %T", dt, dt))
+		panic(fmt.Errorf("unknown data type %v %T", dt, dt))
 	}
 	panic("impossible")
 }
@@ -1124,7 +1124,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 		for i := range o.Data {
 			v := []byte(strings.ToUpper(hex.EncodeToString(arr.Value(i))))
 			if len(v) != 2*dt.ByteWidth {
-				panic(xerrors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
+				panic(fmt.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
 			}
 			o.Data[i] = string(v) // re-convert as string to prevent json.Marshal from base64-encoding it.
 		}
@@ -1210,7 +1210,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 		return arrayToJSON(field, arr.Storage())
 
 	default:
-		panic(xerrors.Errorf("unknown array type %T", arr))
+		panic(fmt.Errorf("unknown array type %T", arr))
 	}
 	panic("impossible")
 }
@@ -1492,7 +1492,7 @@ func decimal128FromJSON(vs []interface{}) []decimal128.Num {
 	o := make([]decimal128.Num, len(vs))
 	for i, v := range vs {
 		if err := tmp.UnmarshalJSON([]byte(v.(string))); err != nil {
-			panic(xerrors.Errorf("could not convert %v (%T) to decimal128: %w", v, v, err))
+			panic(fmt.Errorf("could not convert %v (%T) to decimal128: %w", v, v, err))
 		}
 
 		o[i] = decimal128.FromBigInt(&tmp)
@@ -1509,7 +1509,7 @@ func strFromJSON(vs []interface{}) []string {
 		case json.Number:
 			o[i] = v.String()
 		default:
-			panic(xerrors.Errorf("could not convert %v (%T) to a string", v, v))
+			panic(fmt.Errorf("could not convert %v (%T) to a string", v, v))
 		}
 	}
 	return o
@@ -1533,10 +1533,10 @@ func bytesFromJSON(vs []interface{}) [][]byte {
 		case json.Number:
 			o[i], err = hex.DecodeString(v.String())
 		default:
-			panic(xerrors.Errorf("could not convert %v (%T) to a string", v, v))
+			panic(fmt.Errorf("could not convert %v (%T) to a string", v, v))
 		}
 		if err != nil {
-			panic(xerrors.Errorf("could not decode %v: %v", v, err))
+			panic(fmt.Errorf("could not decode %v: %v", v, err))
 		}
 	}
 	return o

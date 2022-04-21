@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -29,7 +30,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
 	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 type swriter struct {
@@ -110,7 +110,7 @@ func (w *Writer) Close() error {
 
 	err := w.pw.Close()
 	if err != nil {
-		return xerrors.Errorf("arrow/ipc: could not close payload writer: %w", err)
+		return fmt.Errorf("arrow/ipc: could not close payload writer: %w", err)
 	}
 	w.pw = nil
 
@@ -138,7 +138,7 @@ func (w *Writer) Write(rec arrow.Record) error {
 	defer data.Release()
 
 	if err := enc.Encode(&data, rec); err != nil {
-		return xerrors.Errorf("arrow/ipc: could not encode record to payload: %w", err)
+		return fmt.Errorf("arrow/ipc: could not encode record to payload: %w", err)
 	}
 
 	return w.pw.WritePayload(data)
@@ -267,7 +267,7 @@ func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
 	for i, col := range rec.Columns() {
 		err := w.visit(p, col)
 		if err != nil {
-			return xerrors.Errorf("arrow/ipc: could not encode column %d (%q): %w", i, rec.ColumnName(i), err)
+			return fmt.Errorf("arrow/ipc: could not encode column %d (%q): %w", i, rec.ColumnName(i), err)
 		}
 	}
 
@@ -321,7 +321,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		arr := arr.(array.ExtensionArray)
 		err := w.visit(p, arr.Storage())
 		if err != nil {
-			return xerrors.Errorf("failed visiting storage of for array %T: %w", arr, err)
+			return fmt.Errorf("failed visiting storage of for array %T: %w", arr, err)
 		}
 		return nil
 	}
@@ -396,7 +396,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		arr := arr.(*array.Binary)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
-			return xerrors.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
+			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
 		}
 		data := arr.Data()
 		values := data.Buffers()[2]
@@ -426,7 +426,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		arr := arr.(*array.String)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
-			return xerrors.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
+			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
 		}
 		data := arr.Data()
 		values := data.Buffers()[2]
@@ -458,7 +458,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		for i := 0; i < arr.NumField(); i++ {
 			err := w.visit(p, arr.Field(i))
 			if err != nil {
-				return xerrors.Errorf("could not visit field %d of struct-array: %w", i, err)
+				return fmt.Errorf("could not visit field %d of struct-array: %w", i, err)
 			}
 		}
 		w.depth++
@@ -467,7 +467,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		arr := arr.(*array.Map)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
-			return xerrors.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
+			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
 		}
 		p.body = append(p.body, voffsets)
 
@@ -497,14 +497,14 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		err = w.visit(p, values)
 
 		if err != nil {
-			return xerrors.Errorf("could not visit list element for array %T: %w", arr, err)
+			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
 		}
 		w.depth++
 	case *arrow.ListType:
 		arr := arr.(*array.List)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
-			return xerrors.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
+			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
 		}
 		p.body = append(p.body, voffsets)
 
@@ -534,7 +534,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		err = w.visit(p, values)
 
 		if err != nil {
-			return xerrors.Errorf("could not visit list element for array %T: %w", arr, err)
+			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
 		}
 		w.depth++
 
@@ -553,12 +553,12 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		err := w.visit(p, values)
 
 		if err != nil {
-			return xerrors.Errorf("could not visit list element for array %T: %w", arr, err)
+			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
 		}
 		w.depth++
 
 	default:
-		panic(xerrors.Errorf("arrow/ipc: unknown array %T (dtype=%T)", arr, dtype))
+		panic(fmt.Errorf("arrow/ipc: unknown array %T (dtype=%T)", arr, dtype))
 	}
 
 	return nil

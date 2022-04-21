@@ -353,6 +353,36 @@ register_bindings_duration <- function() {
   })
 }
 
+register_bindings_difftime_constructors <- function() {
+  register_binding("make_difftime", function(num = NULL,
+                                             units = "secs",
+                                             ...) {
+    if (units != "secs") {
+      abort("`make_difftime()` with units other than 'secs' not supported in Arrow")
+    }
+
+    chunks <- list(...)
+
+    # lubridate concatenates durations passed via the `num` argument with those
+    # passed via `...` resulting in a vector of length 2 - which is virtually
+    # unusable in a dplyr pipeline. Arrow errors in this situation
+    if (!is.null(num) && length(chunks) > 0) {
+      abort("`make_difftime()` with both `num` and `...` not supported in Arrow")
+    }
+
+    if (!is.null(num)) {
+      # build duration from num if present
+      duration <- num
+    } else {
+      # build duration from chunks when nothing is passed via ...
+      duration <- duration_from_chunks(chunks)
+    }
+
+    duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
+    duration$cast(duration("s"))
+  })
+}
+
 make_duration <- function(x, unit) {
   x <- build_expr("cast", x, options = cast_options(to_type = int64()))
   x$cast(duration(unit))
@@ -396,4 +426,40 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
 
   build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+}
+
+# this is a helper function used for creating a difftime / duration objects from
+# several of the accepted pieces (second, minute, hour, day, week)
+duration_from_chunks <- function(chunks) {
+  accepted_chunks <- c("second", "minute", "hour", "day", "week")
+  matched_chunks <- accepted_chunks[pmatch(names(chunks), accepted_chunks, duplicates.ok = TRUE)]
+
+  if (any(is.na(matched_chunks))) {
+    abort(
+      paste0(
+        "named `difftime` units other than: ",
+        oxford_paste(accepted_chunks, quote_symbol = "`"),
+        " not supported in Arrow. \nInvalid `difftime` parts: ",
+        oxford_paste(names(chunks[is.na(matched_chunks)]), quote_symbol = "`")
+      )
+    )
+  }
+
+  matched_chunks <- matched_chunks[!is.na(matched_chunks)]
+
+  chunks <- chunks[matched_chunks]
+  chunk_duration <- c(
+    "second" = 1L,
+    "minute" = 60L,
+    "hour" = 3600L,
+    "day" = 86400L,
+    "week" = 604800L
+  )
+
+  # transform the duration of each chunk in seconds and add everything together
+  duration <- 0
+  for (chunk in names(chunks)) {
+    duration <- duration + chunks[[chunk]] * chunk_duration[[chunk]]
+  }
+  duration
 }

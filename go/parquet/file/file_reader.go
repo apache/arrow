@@ -19,6 +19,7 @@ package file
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 
@@ -147,7 +148,7 @@ func NewParquetReader(r parquet.ReaderAtSeeker, opts ...ReadOption) (*Reader, er
 	if f.footerOffset <= 0 {
 		f.footerOffset, err = r.Seek(0, io.SeekEnd)
 		if err != nil {
-			return nil, xerrors.Errorf("parquet: could not retrieve footer offset: %w", err)
+			return nil, fmt.Errorf("parquet: could not retrieve footer offset: %w", err)
 		}
 	}
 
@@ -177,17 +178,17 @@ func (f *Reader) MetaData() *metadata.FileMetaData { return f.metadata }
 // parseMetaData handles parsing the metadata from the opened file.
 func (f *Reader) parseMetaData() error {
 	if f.footerOffset <= int64(footerSize) {
-		return xerrors.Errorf("parquet: file too small (size=%d)", f.footerOffset)
+		return fmt.Errorf("parquet: file too small (size=%d)", f.footerOffset)
 	}
 
 	buf := make([]byte, footerSize)
 	// backup 8 bytes to read the footer size (first four bytes) and the magic bytes (last 4 bytes)
 	n, err := f.r.ReadAt(buf, f.footerOffset-int64(footerSize))
 	if err != nil {
-		return xerrors.Errorf("parquet: could not read footer: %w", err)
+		return fmt.Errorf("parquet: could not read footer: %w", err)
 	}
 	if n != len(buf) {
-		return xerrors.Errorf("parquet: could not read %d bytes from end of file", len(buf))
+		return fmt.Errorf("parquet: could not read %d bytes from end of file", len(buf))
 	}
 
 	size := int64(binary.LittleEndian.Uint32(buf[:4]))
@@ -201,17 +202,17 @@ func (f *Reader) parseMetaData() error {
 	case bytes.Equal(buf[4:], magicBytes): // non-encrypted metadata
 		buf = make([]byte, size)
 		if _, err := f.r.ReadAt(buf, f.footerOffset-int64(footerSize)-size); err != nil {
-			return xerrors.Errorf("parquet: could not read footer: %w", err)
+			return fmt.Errorf("parquet: could not read footer: %w", err)
 		}
 
 		f.metadata, err = metadata.NewFileMetaData(buf, nil)
 		if err != nil {
-			return xerrors.Errorf("parquet: could not read footer: %w", err)
+			return fmt.Errorf("parquet: could not read footer: %w", err)
 		}
 
 		if !f.metadata.IsSetEncryptionAlgorithm() {
 			if fileDecryptProps != nil && !fileDecryptProps.PlaintextFilesAllowed() {
-				return xerrors.Errorf("parquet: applying decryption properties on plaintext file")
+				return fmt.Errorf("parquet: applying decryption properties on plaintext file")
 			}
 		} else {
 			if err := f.parseMetaDataEncryptedFilePlaintextFooter(fileDecryptProps, buf); err != nil {
@@ -221,7 +222,7 @@ func (f *Reader) parseMetaData() error {
 	case bytes.Equal(buf[4:], magicEBytes): // encrypted metadata
 		buf = make([]byte, size)
 		if _, err := f.r.ReadAt(buf, f.footerOffset-int64(footerSize)-size); err != nil {
-			return xerrors.Errorf("parquet: could not read footer: %w", err)
+			return fmt.Errorf("parquet: could not read footer: %w", err)
 		}
 
 		if fileDecryptProps == nil {
@@ -241,10 +242,10 @@ func (f *Reader) parseMetaData() error {
 
 		f.metadata, err = metadata.NewFileMetaData(buf[fileCryptoMetadata.Len():], f.fileDecryptor)
 		if err != nil {
-			return xerrors.Errorf("parquet: could not read footer: %w", err)
+			return fmt.Errorf("parquet: could not read footer: %w", err)
 		}
 	default:
-		return xerrors.Errorf("parquet: magic bytes not found in footer. Either the file is corrupted or this isn't a parquet file")
+		return fmt.Errorf("parquet: magic bytes not found in footer. Either the file is corrupted or this isn't a parquet file")
 	}
 
 	return nil
