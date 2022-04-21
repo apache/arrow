@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <azure/core/credentials/credentials.hpp>
+#include <azure/storage/common/storage_credential.hpp>
 #include <memory>
 #include <string>
 #include <vector>
-#include <azure/storage/common/storage_credential.hpp>
-#include <azure/core/credentials/credentials.hpp>
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/macros.h"
@@ -53,9 +53,9 @@ struct ARROW_EXPORT AzureOptions {
   std::string sas_token;
   std::string connection_string;
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
-        storage_credentials_provider;
+      storage_credentials_provider;
   std::shared_ptr<Azure::Core::Credentials::TokenCredential>
-        service_principle_credentials_provider;
+      service_principle_credentials_provider;
 
   AzureOptions();
 
@@ -155,5 +155,5 @@ class ARROW_EXPORT AzureBlobFileSystem : public FileSystem {
   std::shared_ptr<Impl> impl_;
 };
 
-} // namespace fs
-} // namespace arrow
+}  // namespace fs
+}  // namespace arrow

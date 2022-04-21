@@ -20,17 +20,17 @@
 #include <chrono>
 #include <thread>
 
-#include <gtest/gtest.h>
 #include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
 #include <azure/storage/files/datalake.hpp>
 
-#include "arrow/util/uri.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/testing/future_util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/future_util.h"
-#include "arrow/testing/util.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 
@@ -38,12 +38,12 @@ using internal::Uri;
 
 namespace fs {
 
-class AzureEnvTestMixin{
+class AzureEnvTestMixin {
  public:
   static AzureOptions options_;
   static std::shared_ptr<AzureBlobFileSystem> fs_;
   static std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-                                                                   gen2Client_;
+      gen2Client_;
   static std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> gen1Client_;
 
   AzureEnvTestMixin() {}
@@ -97,29 +97,28 @@ class AzureEnvTestMixin{
     return clientSecret;
   }
 
-//  private:
-//   const std::string& AdlsGen2AccountName = std::getenv("ADLS_GEN2_ACCOUNT_NAME");
-//   const std::string& AdlsGen2AccountKey = std::getenv("ADLS_GEN2_ACCOUNT_KEY");
-//   const std::string& AdlsGen2ConnectionStringValue = std::getenv(
-//                                                    "ADLS_GEN2_CONNECTION_STRING");
-//   const std::string& AdlsGen2SasUrl = std::getenv("ADLS_GEN2_SASURL");
-//   const std::string& AadTenantIdValue = std::getenv("AAD_TENANT_ID");
-//   const std::string& AadClientIdValue = std::getenv("AAD_CLIENT_ID");
-//   const std::string& AadClientSecretValue = std::getenv("AAD_CLIENT_SECRET");
+  //  private:
+  //   const std::string& AdlsGen2AccountName = std::getenv("ADLS_GEN2_ACCOUNT_NAME");
+  //   const std::string& AdlsGen2AccountKey = std::getenv("ADLS_GEN2_ACCOUNT_KEY");
+  //   const std::string& AdlsGen2ConnectionStringValue = std::getenv(
+  //                                                    "ADLS_GEN2_CONNECTION_STRING");
+  //   const std::string& AdlsGen2SasUrl = std::getenv("ADLS_GEN2_SASURL");
+  //   const std::string& AadTenantIdValue = std::getenv("AAD_TENANT_ID");
+  //   const std::string& AadClientIdValue = std::getenv("AAD_CLIENT_ID");
+  //   const std::string& AadClientSecretValue = std::getenv("AAD_CLIENT_SECRET");
 };
 
 AzureOptions AzureEnvTestMixin::options_;
 std::shared_ptr<AzureBlobFileSystem> AzureEnvTestMixin::fs_;
 std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-                                                         AzureEnvTestMixin::gen2Client_;
+    AzureEnvTestMixin::gen2Client_;
 std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> AzureEnvTestMixin::gen1Client_;
-
 
 class SetupEnvironment : public ::testing::Environment, public AzureEnvTestMixin {
  public:
   bool isHeirarchialNamespaceEnabled() {
-    return AzureEnvTestMixin::gen1Client_->GetAccountInfo().Value
-                                                      .IsHierarchicalNamespaceEnabled;
+    return AzureEnvTestMixin::gen1Client_->GetAccountInfo()
+        .Value.IsHierarchicalNamespaceEnabled;
   }
 
   void MakeFileSystem() {
@@ -127,17 +126,16 @@ class SetupEnvironment : public ::testing::Environment, public AzureEnvTestMixin
     const std::string& account_name = GetAdlsGen2AccountName();
     AzureEnvTestMixin::options_.ConfigureAccountKeyCredentials(account_name, account_key);
     auto url = options_.account_dfs_url;
-    AzureEnvTestMixin::gen2Client_ = std::make_shared<Azure::Storage::Files::
-                                  DataLake::DataLakeServiceClient>(
-                                  url, options_.storage_credentials_provider);
-    AzureEnvTestMixin::gen1Client_ = std::make_shared<Azure::Storage::Blobs::
-                                BlobServiceClient>(options_.account_blob_url,
-                                 options_.storage_credentials_provider);
+    AzureEnvTestMixin::gen2Client_ =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
+            url, options_.storage_credentials_provider);
+    AzureEnvTestMixin::gen1Client_ =
+        std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
+            options_.account_blob_url, options_.storage_credentials_provider);
     auto result = AzureBlobFileSystem::Make(options_);
     if (!result.ok()) {
-      ARROW_LOG(INFO)
-          << "AzureFileSystem::Make failed, err msg is "
-          << result.status().ToString();
+      ARROW_LOG(INFO) << "AzureFileSystem::Make failed, err msg is "
+                      << result.status().ToString();
       return;
     }
     AzureEnvTestMixin::fs_ = *result;
@@ -145,41 +143,42 @@ class SetupEnvironment : public ::testing::Environment, public AzureEnvTestMixin
 
   void SetUp() override {
     {
-      auto fileSystemClient = AzureEnvTestMixin::gen2Client_->GetFileSystemClient(
-                                                                            "container");
+      auto fileSystemClient =
+          AzureEnvTestMixin::gen2Client_->GetFileSystemClient("container");
       fileSystemClient.CreateIfNotExists();
-      fileSystemClient = AzureEnvTestMixin::gen2Client_->GetFileSystemClient(
-                                                                      "empty-container");
+      fileSystemClient =
+          AzureEnvTestMixin::gen2Client_->GetFileSystemClient("empty-container");
       fileSystemClient.CreateIfNotExists();
     }
     {
       if (isHeirarchialNamespaceEnabled()) {
-        auto directoryClient = AzureEnvTestMixin::gen2Client_->GetFileSystemClient(
-                                              "container").GetDirectoryClient("emptydir");
+        auto directoryClient =
+            AzureEnvTestMixin::gen2Client_->GetFileSystemClient("container")
+                .GetDirectoryClient("emptydir");
         directoryClient.CreateIfNotExists();
         directoryClient = AzureEnvTestMixin::gen2Client_->GetFileSystemClient("container")
-                                                          .GetDirectoryClient("somedir");
+                              .GetDirectoryClient("somedir");
         directoryClient.CreateIfNotExists();
         directoryClient = directoryClient.GetSubdirectoryClient("subdir");
         directoryClient.CreateIfNotExists();
         auto fileClient = directoryClient.GetFileClient("subfile");
         fileClient.CreateIfNotExists();
         std::string s = "sub data";
-        fileClient.UploadFrom(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(
-                                                                      &s[0])), s.size());
-        fileClient = gen2Client_->GetFileSystemClient("container")
-                                                              .GetFileClient("somefile");
+        fileClient.UploadFrom(
+            const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&s[0])), s.size());
+        fileClient =
+            gen2Client_->GetFileSystemClient("container").GetFileClient("somefile");
         fileClient.CreateIfNotExists();
         s = "some data";
-        fileClient.UploadFrom(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(
-                                                                      &s[0])), s.size());
+        fileClient.UploadFrom(
+            const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&s[0])), s.size());
       } else {
         auto fc = std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
-                                        options_.account_blob_url + "container/somefile",
-                                         options_.storage_credentials_provider);
+            options_.account_blob_url + "container/somefile",
+            options_.storage_credentials_provider);
         std::string s = "some data";
         fc->UploadFrom(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&s[0])),
-                                                                             s.size());
+                       s.size());
       }
     }
   }
@@ -195,12 +194,14 @@ class SetupEnvironment : public ::testing::Environment, public AzureEnvTestMixin
 
 class TestAzureFileSystem : public ::testing::Test, public AzureEnvTestMixin {
  public:
-  void AssertObjectContents(Azure::Storage::Files::DataLake::DataLakeServiceClient*
-                             client, const std::string& container, const std::string&
-                              path_to_file, const std::string& expected) {
-    auto pathClient_ = std::make_shared<Azure::Storage::Files::DataLake::
-      DataLakePathClient>(client->GetUrl() + "/"+ container + "/" + path_to_file,
-       options_.storage_credentials_provider);
+  void AssertObjectContents(
+      Azure::Storage::Files::DataLake::DataLakeServiceClient* client,
+      const std::string& container, const std::string& path_to_file,
+      const std::string& expected) {
+    auto pathClient_ =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakePathClient>(
+            client->GetUrl() + "/" + container + "/" + path_to_file,
+            options_.storage_credentials_provider);
     auto size = pathClient_->GetProperties().Value.FileSize;
     auto buf = AllocateResizableBuffer(size, fs_->io_context().pool());
     Azure::Storage::Blobs::DownloadBlobToOptions downloadOptions;
@@ -208,13 +209,17 @@ class TestAzureFileSystem : public ::testing::Test, public AzureEnvTestMixin {
     range.Offset = 0;
     range.Length = size;
     downloadOptions.Range = Azure::Nullable<Azure::Core::Http::HttpRange>(range);
-    auto fileClient_ = std::make_shared<Azure::Storage::Files::DataLake::
-      DataLakeFileClient>(client->GetUrl() + "/"+ container + "/" + path_to_file,
-       options_.storage_credentials_provider);
-    auto result = fileClient_->DownloadTo(reinterpret_cast<uint8_t*>(
-                              buf->get()->mutable_data()), size, downloadOptions).Value;
-    buf->get()->Equals(Buffer(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(
-                                                      &expected[0])), expected.size()));
+    auto fileClient_ =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
+            client->GetUrl() + "/" + container + "/" + path_to_file,
+            options_.storage_credentials_provider);
+    auto result = fileClient_
+                      ->DownloadTo(reinterpret_cast<uint8_t*>(buf->get()->mutable_data()),
+                                   size, downloadOptions)
+                      .Value;
+    buf->get()->Equals(
+        Buffer(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&expected[0])),
+               expected.size()));
   }
 };
 
@@ -222,13 +227,13 @@ TEST(TestAzureFSOptions, FromUri) {
   AzureOptions options;
   Uri uri;
 
-  //Public container
+  // Public container
   ASSERT_OK(uri.Parse("https://testcontainer.dfs.core.windows.net/"));
   ASSERT_OK_AND_ASSIGN(options, AzureOptions::FromUri(uri));
   ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::Anonymous);
   ASSERT_EQ(options.account_dfs_url, "https://testcontainer.dfs.core.windows.net/");
 
-  //Sas Token
+  // Sas Token
   ASSERT_OK(uri.Parse("https://testcontainer.blob.core.windows.net/?dummy_sas_token"));
   ASSERT_OK_AND_ASSIGN(options, AzureOptions::FromUri(uri));
   ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::Sas);
@@ -239,9 +244,9 @@ TEST(TestAzureFSOptions, FromUri) {
 TEST_F(TestAzureFileSystem, FromAccountKey) {
   AzureOptions options;
   options = AzureOptions::FromAccountKey(this->GetAdlsGen2AccountKey(),
-                                                 this->GetAdlsGen2AccountName());
-  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::
-                                                            StorageCredentials);
+                                         this->GetAdlsGen2AccountName());
+  ASSERT_EQ(options.credentials_kind,
+            arrow::fs::AzureCredentialsKind::StorageCredentials);
   ASSERT_NE(options.storage_credentials_provider, nullptr);
 }
 
@@ -254,10 +259,11 @@ TEST_F(TestAzureFileSystem, FromConnectionString) {
 
 TEST_F(TestAzureFileSystem, FromServicePrincipleCredential) {
   AzureOptions options;
-  options = AzureOptions::FromServicePrincipleCredential(this->GetAdlsGen2AccountName(),
-             this->GetAadTenantId(), this->GetAadClientId(), this->GetAadClientSecret());
-  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind
-                                            ::ServicePrincipleCredentials);
+  options = AzureOptions::FromServicePrincipleCredential(
+      this->GetAdlsGen2AccountName(), this->GetAadTenantId(), this->GetAadClientId(),
+      this->GetAadClientSecret());
+  ASSERT_EQ(options.credentials_kind,
+            arrow::fs::AzureCredentialsKind ::ServicePrincipleCredentials);
   ASSERT_NE(options.service_principle_credentials_provider, nullptr);
 }
 
@@ -350,7 +356,7 @@ TEST_F(TestAzureFileSystem, DeleteFileBlobStorage) {
 }
 
 TEST_F(TestAzureFileSystem, GetFileInfoBlobStorage) {
-  //Containers
+  // Containers
   AssertFileInfo(fs_.get(), "container", FileType::Directory);
   AssertFileInfo(fs_.get(), "nonexistent-container", FileType::NotFound);
 
@@ -413,8 +419,8 @@ TEST_F(TestAzureFileSystem, GetFileInfoSelectorBlobStorage) {
 
 TEST_F(TestAzureFileSystem, MoveBlobStorage) {
   ASSERT_RAISES(IOError, fs_->Move("container", "container/nshhd"));
-  ASSERT_RAISES(IOError, fs_->Move("container/somedir/subdir",
-                                                     "container/newdir/newsub"));
+  ASSERT_RAISES(IOError,
+                fs_->Move("container/somedir/subdir", "container/newdir/newsub"));
   ASSERT_RAISES(IOError, fs_->Move("container/emptydir", "container/base.txt"));
   ASSERT_RAISES(IOError, fs_->Move("container/emptydir", "container/ahsh/gssjd"));
   ASSERT_RAISES(IOError, fs_->Move("container/emptydir", "containerqw/ghdj"));
@@ -432,10 +438,10 @@ TEST_F(TestAzureFileSystem, CopyFileBlobStorage) {
   ASSERT_RAISES(IOError, fs_->CopyFile("container", "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir", "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir", "container/newfile"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir22/subdir",
-                                                               "container/newfile"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container23/somedir/subdir",
-                                                               "container/newfile"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir22/subdir", "container/newfile"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container23/somedir/subdir", "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", "container"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", "container3435"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", ""));
@@ -448,23 +454,22 @@ TEST_F(TestAzureFileSystem, CopyFileBlobStorage) {
   res->get()->Write("Changed the data");
   ASSERT_OK(fs_->CopyFile("container/base.txt", "container/somefile"));
   ASSERT_OK(fs_->CopyFile("container/base.txt", "container/somefile3"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                     "container"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                       "container3435"));
+  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile", "container"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container3435"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile", ""));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container/somedir"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container/sjdj"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                   "container/somedir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                     "container/sjdj"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                           "container/somedir/subdir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                 "container/ahsj/ggws"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                   "container27/hshj"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                   "container27/hshj"));
+                                       "container/somedir/subdir"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container/ahsj/ggws"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container27/hshj"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container27/hshj"));
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStreamBlobStorage) {
@@ -665,7 +670,7 @@ TEST_F(TestAzureFileSystem, CreateDirAdlsGen2) {
   // Existing "file", should fail
   ASSERT_RAISES(IOError, fs_->CreateDir("container/somefile"));
 
-  //C/D/D
+  // C/D/D
   AssertFileInfo(fs_.get(), "container/somedir/subdir", FileType::Directory);
   ASSERT_OK(fs_->CreateDir("container/somedir/subdir"));
   AssertFileInfo(fs_.get(), "container/somedir/subdir", FileType::Directory);
@@ -673,7 +678,7 @@ TEST_F(TestAzureFileSystem, CreateDirAdlsGen2) {
   auto res = fs_->OpenOutputStream("container/somedir/base.txt");
   res->get()->Write("Changed the data");
 
-  //C/D/F
+  // C/D/F
   AssertFileInfo(fs_.get(), "container/somedir/base.txt", FileType::File);
   ASSERT_RAISES(IOError, fs_->CreateDir("container/somedir/base.txt"));
   AssertFileInfo(fs_.get(), "container/somedir/base.txt", FileType::File);
@@ -706,7 +711,7 @@ TEST_F(TestAzureFileSystem, DeleteDirAdlsGen2) {
 
   // Nonexistent Container
   ASSERT_OK(fs_->DeleteDir("container3"));
-  AssertFileInfo(fs_.get(), "container3", FileType::NotFound); 
+  AssertFileInfo(fs_.get(), "container3", FileType::NotFound);
 
   // root
   ASSERT_RAISES(NotImplemented, fs_->DeleteDir(""));
@@ -782,7 +787,7 @@ TEST_F(TestAzureFileSystem, DeleteFileAdlsGen2) {
 }
 
 TEST_F(TestAzureFileSystem, GetFileInfoAdlsGen2) {
-  //Containers
+  // Containers
   AssertFileInfo(fs_.get(), "container", FileType::Directory);
   AssertFileInfo(fs_.get(), "nonexistent-container", FileType::NotFound);
 
@@ -876,8 +881,8 @@ TEST_F(TestAzureFileSystem, GetFileInfoSelectorAdlsGen2) {
 TEST_F(TestAzureFileSystem, MoveAdlsGen2) {
   ASSERT_RAISES(IOError, fs_->Move("container", "container/nshhd"));
   fs_->CreateDir("container/newdir/newsub/newsubsub", true);
-  ASSERT_RAISES(IOError, fs_->Move("container/somedir/subdir",
-                                                       "container/newdir/newsub"));
+  ASSERT_RAISES(IOError,
+                fs_->Move("container/somedir/subdir", "container/newdir/newsub"));
   ASSERT_OK(fs_->Move("container/newdir/newsub", "container/emptydir"));
   ASSERT_OK(fs_->Move("container/emptydir", "container/emptydir1"));
   ASSERT_OK(fs_->Move("container/emptydir1", "container/emptydir"));
@@ -899,10 +904,10 @@ TEST_F(TestAzureFileSystem, CopyFileAdlsGen2) {
   ASSERT_RAISES(IOError, fs_->CopyFile("container", "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir", "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir", "container/newfile"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir22/subdir",
-                                                                   "container/newfile"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container23/somedir/subdir",
-                                                                   "container/newfile"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir22/subdir", "container/newfile"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container23/somedir/subdir", "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", "container"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", "container3435"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", ""));
@@ -918,19 +923,19 @@ TEST_F(TestAzureFileSystem, CopyFileAdlsGen2) {
   ASSERT_OK(fs_->CopyFile("container/base.txt", "container/somefile3"));
   ASSERT_OK(fs_->CopyFile("container/base.txt", "container/somedir/subdir/subfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile", "container"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                   "container3435"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container3435"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile", ""));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container/somedir"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                               "container/somedir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                         "container/somedir/subdir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                             "container/ahsj/ggws"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                 "container27/hshj"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                                                 "container27/hshj"));
+                                       "container/somedir/subdir"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container/ahsj/ggws"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container27/hshj"));
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile("container/somedir/subdir/subfile", "container27/hshj"));
   ASSERT_OK(fs_->CopyFile("container/somedir/subdir/subfile", "container/somefile"));
   fs_->DeleteFile("container/somefile3");
   ASSERT_OK(fs_->CopyFile("container/somedir/subdir/subfile", "container/somefile3"));
@@ -1128,7 +1133,7 @@ TEST_F(TestAzureFileSystem, DeleteDirContentsGen2) {
 }  // namespace fs
 }  // namespace arrow
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   auto env = new arrow::fs::SetupEnvironment();
   env->MakeFileSystem();
   ::testing::AddGlobalTestEnvironment(env);
