@@ -426,7 +426,7 @@ struct OrderBySinkNode final : public SinkNode {
                   AsyncGenerator<util::optional<ExecBatch>>* generator)
       : SinkNode(plan, std::move(inputs), generator, /*backpressure=*/{},
                  /*backpressure_monitor_out=*/nullptr),
-        impl_{std::move(impl)} {}
+        impl_(std::move(impl)) {}
 
   const char* kind_name() const override { return "OrderBySinkNode"; }
 
