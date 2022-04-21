@@ -1838,21 +1838,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CArity()
         CArity(int num_args, c_bool is_varargs)
 
-        @staticmethod
-        CArity Nullary()
-
-        @staticmethod
-        CArity Unary()
-
-        @staticmethod
-        CArity Binary()
-
-        @staticmethod
-        CArity Ternary()
-
-        @staticmethod
-        CArity VarArgs(int min_args)
-
     cdef cppclass CInputType" arrow::compute::InputType":
         @staticmethod
         CInputType Array(shared_ptr[CDataType] type)
@@ -2710,4 +2695,5 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
         CScalarUdfOptions(c_string func_name, CArity arity, CFunctionDoc func_doc,
                           vector[CInputType] in_types, COutputType out_type)
 
-    CStatus RegisterScalarFunction(PyObject* function, function[CallbackUdf] wrapper, const CScalarUdfOptions& options)
+    CStatus RegisterScalarFunction(PyObject* function,
+                                   function[CallbackUdf] wrapper, const CScalarUdfOptions& options)

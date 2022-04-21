@@ -79,13 +79,10 @@ struct ARROW_PYTHON_EXPORT ScalarUdfContext {
   int64_t batch_length;
 };
 
-/// \brief register a Scalar user-defined-function from Python
-Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* function,
-                                                  const ScalarUdfOptions& options);
-
 using ScalarUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
 
+/// \brief register a Scalar user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* user_function,
                                                   ScalarUdfWrapperCallback wrapper,
                                                   const ScalarUdfOptions& options);

@@ -30,7 +30,6 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
 
-from libc.stdlib cimport free
 from libcpp cimport bool as c_bool
 
 import inspect
@@ -234,13 +233,13 @@ cdef class InputType(_Weakrefable):
         either array or scalar. A scalar InputType means that
         this argument must be passed a Scalar.  
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         data_type : DataType
             DataType represented by the InputType
 
-        Examples
-        --------
+        Example
+        -------
 
         >>> import pyarrow as pa
         >>> from pyarrow.compute import InputType
@@ -263,13 +262,13 @@ cdef class InputType(_Weakrefable):
         either array or scalar. An array InputType means that
         this argument must be passed an Array.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         data_type : DataType
             DataType represented by the input type
 
-        Examples
-        --------
+        Example
+        -------
 
         >>> import pyarrow as pa
         >>> from pyarrow.compute import InputType
@@ -2366,10 +2365,21 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
 
 
 cdef class ScalarUdfContext:
-    """
-    A container to hold user-defined-function related
+    """A container to hold user-defined-function related
     entities. `batch_length` and `MemoryPool` are important
     entities in defining functions which require these details. 
+
+    Example
+    -------
+
+    ScalarUdfContext is used with the scalar user-defined-functions. 
+    When defining such a function, the first parameter must be a
+    ScalarUdfContext object. This object can be used to hold important
+    information. This can be further enhanced depending on the use 
+    cases of user-defined-functions. 
+
+    >>> def random(context, one, two):
+            return pc.add(one, two, memory_pool=context.memory_pool)
     """
 
     def __init__(self):
@@ -2389,7 +2399,7 @@ cdef class ScalarUdfContext:
 
         Returns
         -------
-        batch_length: int64
+        batch_length : int
             The number of batches used when calling 
             user-defined-function. 
         """
@@ -2405,14 +2415,14 @@ cdef class ScalarUdfContext:
 
         Returns
         -------
-        memory_pool: MemoryPool
+        memory_pool : MemoryPool
             MemoryPool is obtained from the KernelContext
             and passed to the ScalarUdfContext.
         """
         return box_memory_pool(self.c_context.pool)
 
 
-cdef CFunctionDoc _make_function_doc(dict func_doc) except *:
+cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     """
     Helper function to generate the FunctionDoc
     This function accepts a dictionary and expect the 
@@ -2545,7 +2555,7 @@ def register_scalar_function(func, func_name, function_doc, in_types,
             "in_types must be a dictionary of InputType")
 
     if func_spec.varargs:
-        c_arity = CArity.VarArgs(num_args)
+        c_arity = CArity(num_args, True)
     else:
         c_arity = CArity(num_args, False)
 
@@ -2567,4 +2577,4 @@ def register_scalar_function(func, func_name, function_doc, in_types,
                                                c_in_types, deref(c_out_type))
 
     check_status(RegisterScalarFunction(c_function,
-     <function[CallbackUdf]> &_scalar_udf_callback, deref(c_options)))
+                                        <function[CallbackUdf]> &_scalar_udf_callback, deref(c_options)))

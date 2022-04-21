@@ -36,73 +36,6 @@ Status CheckOutputType(const DataType& expected, const DataType& actual) {
   return Status::OK();
 }
 
-// struct PythonUdf {
-//   std::shared_ptr<OwnedRefNoGIL> function;
-//   compute::OutputType output_type;
-
-//   // function needs to be destroyed at process exit
-//   // and Python may no longer be initialized.
-//   ~PythonUdf() {
-//     if (_Py_IsFinalizing()) {
-//       function->detach();
-//     }
-//   }
-
-//   Status operator()(compute::KernelContext* ctx, const compute::ExecBatch& batch,
-//                     Datum* out) {
-//     return SafeCallIntoPython([=]() -> Status { return Execute(ctx, batch, out); });
-//   }
-
-//   Status Execute(compute::KernelContext* ctx, const compute::ExecBatch& batch,
-//                  Datum* out) {
-//     const auto num_args = batch.values.size();
-//     PyObject* arg_tuple = PyTuple_New(num_args);
-//     for (size_t arg_id = 0; arg_id < num_args; arg_id++) {
-//       switch (batch[arg_id].kind()) {
-//         case Datum::SCALAR: {
-//           auto c_data = batch[arg_id].scalar();
-//           PyObject* data = wrap_scalar(c_data);
-//           PyTuple_SetItem(arg_tuple, arg_id, data);
-//           break;
-//         }
-//         case Datum::ARRAY: {
-//           auto c_data = batch[arg_id].make_array();
-//           PyObject* data = wrap_array(c_data);
-//           PyTuple_SetItem(arg_tuple, arg_id, data);
-//           break;
-//         }
-//         default:
-//           auto datum = batch[arg_id];
-//           return Status::NotImplemented(
-//               "User-defined-functions are not supported for the datum kind ",
-//               datum.ToString(batch[arg_id].kind()));
-//       }
-//     }
-//     PyObject* result;
-//     result = PyObject_CallObject(function->obj(), arg_tuple);
-//     RETURN_NOT_OK(CheckPyError());
-//     if (result == Py_None) {
-//       return Status::Invalid("Output is None, but expected an array");
-//     }
-//     // unwrapping the output for expected output type
-//     if (is_scalar(result)) {
-//       ARROW_ASSIGN_OR_RAISE(auto val, unwrap_scalar(result));
-//       RETURN_NOT_OK(CheckOutputType(*output_type.type(), *val->type));
-//       *out = Datum(val);
-//       return Status::OK();
-//     } else if (is_array(result)) {
-//       ARROW_ASSIGN_OR_RAISE(auto val, unwrap_array(result));
-//       RETURN_NOT_OK(CheckOutputType(*output_type.type(), *val->type()));
-//       *out = Datum(val);
-//       return Status::OK();
-//     } else {
-//       return Status::TypeError("Unexpected output type: ", Py_TYPE(result)->tp_name,
-//                                " (expected Scalar or Array)");
-//     }
-//     return Status::OK();
-//   }
-// };
-
 struct PythonUdf {
   ScalarUdfWrapperCallback cb;
   std::shared_ptr<OwnedRefNoGIL> function;
@@ -144,11 +77,10 @@ struct PythonUdf {
           auto datum = batch[arg_id];
           return Status::NotImplemented(
               "User-defined-functions are not supported for the datum kind ",
-              datum.ToString(batch[arg_id].kind()));
+              ToString(batch[arg_id].kind()));
       }
     }
     PyObject* result;
-    // result = PyObject_CallObject(function->obj(), arg_tuple);
     result = cb(function->obj(), udf_context, arg_tuple);
     RETURN_NOT_OK(CheckPyError());
     if (result == Py_None) {
@@ -173,33 +105,6 @@ struct PythonUdf {
   }
 };
 
-// Status RegisterScalarFunction(PyObject* function, const ScalarUdfOptions& options) {
-//   if (function == nullptr) {
-//     return Status::Invalid("Python function cannot be null");
-//   }
-//   if (!PyCallable_Check(function)) {
-//     return Status::TypeError("Expected a callable Python object.");
-//   }
-//   auto doc = options.doc();
-//   auto arity = options.arity();
-//   auto in_types = options.input_types();
-//   auto exp_out_type = options.output_type();
-//   auto scalar_func =
-//       std::make_shared<compute::ScalarFunction>(options.name(), arity, std::move(doc));
-//   Py_INCREF(function);
-//   PythonUdf exec{std::make_shared<OwnedRefNoGIL>(function), std::move(exp_out_type)};
-//   compute::ScalarKernel kernel(
-//       compute::KernelSignature::Make(options.input_types(), options.output_type(),
-//                                      arity.is_varargs),
-//       std::move(exec));
-//   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
-//   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
-//   RETURN_NOT_OK(scalar_func->AddKernel(std::move(kernel)));
-//   auto registry = compute::GetFunctionRegistry();
-//   RETURN_NOT_OK(registry->AddFunction(std::move(scalar_func)));
-//   return Status::OK();
-// }
-
 Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback wrapper,
                               const ScalarUdfOptions& options) {
   if (user_function == nullptr) {
@@ -208,18 +113,14 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
   if (!PyCallable_Check(user_function)) {
     return Status::TypeError("Expected a callable Python object.");
   }
-  auto doc = options.doc();
-  auto arity = options.arity();
-  auto in_types = options.input_types();
-  auto exp_out_type = options.output_type();
-  auto scalar_func =
-      std::make_shared<compute::ScalarFunction>(options.name(), arity, std::move(doc));
+  auto scalar_func = std::make_shared<compute::ScalarFunction>(
+      options.name(), options.arity(), std::move(options.doc()));
   Py_INCREF(user_function);
   PythonUdf exec{wrapper, std::make_shared<OwnedRefNoGIL>(user_function),
-                 std::move(exp_out_type)};
+                 std::move(options.output_type())};
   compute::ScalarKernel kernel(
       compute::KernelSignature::Make(options.input_types(), options.output_type(),
-                                     arity.is_varargs),
+                                     options.arity().is_varargs),
       std::move(exec));
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;

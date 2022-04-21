@@ -279,7 +279,7 @@ void PrintTo(const Datum& datum, std::ostream* os) {
   }
 }
 
-std::string Datum::ToString(Datum::Kind kind) {
+std::string ToString(Datum::Kind kind) {
   switch (kind) {
     case Datum::NONE:
       return "None";
