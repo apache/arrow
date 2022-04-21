@@ -34,6 +34,7 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -110,7 +111,7 @@ namespace {
 
 std::string PrintDatum(const Datum& datum) {
   if (datum.is_scalar()) {
-    if (!datum.scalar()->is_valid) return "null";
+    if (!datum.scalar()->is_valid) return "null[" + datum.type()->ToString() + "]";
 
     switch (datum.type()->id()) {
       case Type::STRING:
@@ -129,6 +130,8 @@ std::string PrintDatum(const Datum& datum) {
     }
 
     return datum.scalar()->ToString();
+  } else if (datum.is_array()) {
+    return "Array[" + datum.type()->ToString() + "]";
   }
   return datum.ToString();
 }
@@ -305,18 +308,48 @@ bool Expression::IsNullLiteral() const {
   return false;
 }
 
-bool Expression::IsSatisfiable() const {
-  if (type() && type()->id() == Type::NA) {
-    return false;
+namespace {
+util::optional<compute::NullHandling::type> GetNullHandling(
+    const Expression::Call& call) {
+  DCHECK_NE(call.function, nullptr);
+  if (call.function->kind() == compute::Function::SCALAR) {
+    return static_cast<const compute::ScalarKernel*>(call.kernel)->null_handling;
   }
+  return util::nullopt;
+}
+}  // namespace
+
+bool Expression::IsSatisfiable() const {
+  if (!type()) return true;
+  if (type()->id() != Type::BOOL) return true;
 
   if (auto lit = literal()) {
     if (lit->null_count() == lit->length()) {
       return false;
     }
 
-    if (lit->is_scalar() && lit->type()->id() == Type::BOOL) {
+    if (lit->is_scalar()) {
       return lit->scalar_as<BooleanScalar>().value;
+    }
+
+    return true;
+  }
+
+  if (field_ref()) return true;
+
+  auto call = CallNotNull(*this);
+
+  // invert(true_unless_null(x)) is always false or null by definition
+  // true_unless_null arises in simplification of inequalities below
+  if (call->function_name == "invert") {
+    if (auto nested_call = call->arguments[0].call()) {
+      if (nested_call->function_name == "true_unless_null") return false;
+    }
+  }
+
+  if (call->function_name == "and_kleene" || call->function_name == "and") {
+    for (const Expression& arg : call->arguments) {
+      if (!arg.IsSatisfiable()) return false;
     }
   }
 
@@ -370,9 +403,11 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
 
   compute::KernelContext kernel_context(exec_context);
   if (call.kernel->init) {
+    const FunctionOptions* options =
+        call.options ? call.options.get() : call.function->default_options();
     ARROW_ASSIGN_OR_RAISE(
         call.kernel_state,
-        call.kernel->init(&kernel_context, {call.kernel, descrs, call.options.get()}));
+        call.kernel->init(&kernel_context, {call.kernel, descrs, options}));
 
     kernel_context.SetState(call.kernel_state.get());
   }
@@ -575,14 +610,6 @@ util::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
   return folded;
 }
 
-util::optional<compute::NullHandling::type> GetNullHandling(
-    const Expression::Call& call) {
-  if (call.function && call.function->kind() == compute::Function::SCALAR) {
-    return static_cast<const compute::ScalarKernel*>(call.kernel)->null_handling;
-  }
-  return util::nullopt;
-}
-
 }  // namespace
 
 std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
@@ -632,9 +659,17 @@ Result<Expression> FoldConstants(Expression expr) {
         if (GetNullHandling(*call) == compute::NullHandling::INTERSECTION) {
           // kernels which always produce intersected validity can be resolved
           // to null *now* if any of their inputs is a null literal
+          if (!call->descr.type) {
+            return Status::Invalid("Cannot fold constants for unbound expression ",
+                                   expr.ToString());
+          }
           for (const auto& argument : call->arguments) {
             if (argument.IsNullLiteral()) {
-              return argument;
+              if (argument.type()->Equals(*call->descr.type)) {
+                return argument;
+              } else {
+                return literal(MakeNullScalar(call->descr.type));
+              }
             }
           }
         }
@@ -682,46 +717,52 @@ std::vector<Expression> GuaranteeConjunctionMembers(
   return FlattenedAssociativeChain(guaranteed_true_predicate).fringe;
 }
 
-// Conjunction members which are represented in known_values are erased from
-// conjunction_members
-Status ExtractKnownFieldValuesImpl(
-    std::vector<Expression>* conjunction_members,
-    std::unordered_map<FieldRef, Datum, FieldRef::Hash>* known_values) {
-  auto unconsumed_end =
-      std::partition(conjunction_members->begin(), conjunction_members->end(),
-                     [](const Expression& expr) {
-                       // search for an equality conditions between a field and a literal
-                       auto call = expr.call();
-                       if (!call) return true;
+/// \brief Extract an equality from an expression.
+///
+/// Recognizes expressions of the form:
+/// equal(a, 2)
+/// is_null(a)
+util::optional<std::pair<FieldRef, Datum>> ExtractOneFieldValue(
+    const Expression& guarantee) {
+  auto call = guarantee.call();
+  if (!call) return util::nullopt;
 
-                       if (call->function_name == "equal") {
-                         auto ref = call->arguments[0].field_ref();
-                         auto lit = call->arguments[1].literal();
-                         return !(ref && lit);
-                       }
+  // search for an equality conditions between a field and a literal
+  if (call->function_name == "equal") {
+    auto ref = call->arguments[0].field_ref();
+    if (!ref) return util::nullopt;
 
-                       if (call->function_name == "is_null") {
-                         auto ref = call->arguments[0].field_ref();
-                         return !ref;
-                       }
+    auto lit = call->arguments[1].literal();
+    if (!lit) return util::nullopt;
 
-                       return true;
-                     });
-
-  for (auto it = unconsumed_end; it != conjunction_members->end(); ++it) {
-    auto call = CallNotNull(*it);
-
-    if (call->function_name == "equal") {
-      auto ref = call->arguments[0].field_ref();
-      auto lit = call->arguments[1].literal();
-      known_values->emplace(*ref, *lit);
-    } else if (call->function_name == "is_null") {
-      auto ref = call->arguments[0].field_ref();
-      known_values->emplace(*ref, Datum(std::make_shared<NullScalar>()));
-    }
+    return std::make_pair(*ref, *lit);
   }
 
-  conjunction_members->erase(unconsumed_end, conjunction_members->end());
+  // ... or a known null field
+  if (call->function_name == "is_null") {
+    auto ref = call->arguments[0].field_ref();
+    if (!ref) return util::nullopt;
+
+    return std::make_pair(*ref, Datum(std::make_shared<NullScalar>()));
+  }
+
+  return util::nullopt;
+}
+
+// Conjunction members which are represented in known_values are erased from
+// conjunction_members
+Status ExtractKnownFieldValues(std::vector<Expression>* conjunction_members,
+                               KnownFieldValues* known_values) {
+  // filter out consumed conjunction members, leaving only unconsumed
+  *conjunction_members = arrow::internal::FilterVector(
+      std::move(*conjunction_members),
+      [known_values](const Expression& guarantee) -> bool {
+        if (auto known_value = ExtractOneFieldValue(guarantee)) {
+          known_values->map.insert(std::move(*known_value));
+          return false;
+        }
+        return true;
+      });
 
   return Status::OK();
 }
@@ -730,9 +771,9 @@ Status ExtractKnownFieldValuesImpl(
 
 Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate) {
-  auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
   KnownFieldValues known_values;
-  RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values.map));
+  auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
+  RETURN_NOT_OK(ExtractKnownFieldValues(&conjunction_members, &known_values));
   return known_values;
 }
 
@@ -879,68 +920,199 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
 
 namespace {
 
-Result<Expression> DirectComparisonSimplification(Expression expr,
-                                                  const Expression::Call& guarantee) {
+// An inequality comparison which a target Expression is known to satisfy. If nullable,
+// the target may evaluate to null in addition to values satisfying the comparison.
+struct Inequality {
+  // The inequality type
+  Comparison::type cmp;
+  // The LHS of the inequality
+  const FieldRef& target;
+  // The RHS of the inequality
+  const Datum& bound;
+  // Whether target can be null
+  bool nullable;
+
+  // Extract an Inequality if possible, derived from "less",
+  // "greater", "less_equal", and "greater_equal" expressions,
+  // possibly disjuncted with an "is_null" Expression.
+  // cmp(a, 2)
+  // cmp(a, 2) or is_null(a)
+  static util::optional<Inequality> ExtractOne(const Expression& guarantee) {
+    auto call = guarantee.call();
+    if (!call) return util::nullopt;
+
+    if (call->function_name == "or_kleene") {
+      // expect the LHS to be a usable field inequality
+      auto out = ExtractOneFromComparison(call->arguments[0]);
+      if (!out) return util::nullopt;
+
+      // expect the RHS to be an is_null expression
+      auto call_rhs = call->arguments[1].call();
+      if (!call_rhs) return util::nullopt;
+      if (call_rhs->function_name != "is_null") return util::nullopt;
+
+      // ... and that it references the same target
+      auto target = call_rhs->arguments[0].field_ref();
+      if (!target) return util::nullopt;
+      if (*target != out->target) return util::nullopt;
+
+      out->nullable = true;
+      return out;
+    }
+
+    // fall back to a simple comparison with no "is_null"
+    return ExtractOneFromComparison(guarantee);
+  }
+
+  static util::optional<Inequality> ExtractOneFromComparison(
+      const Expression& guarantee) {
+    auto call = guarantee.call();
+    if (!call) return util::nullopt;
+
+    if (auto cmp = Comparison::Get(call->function_name)) {
+      // not_equal comparisons are not very usable as guarantees
+      if (*cmp == Comparison::NOT_EQUAL) return util::nullopt;
+
+      auto target = call->arguments[0].field_ref();
+      if (!target) return util::nullopt;
+
+      auto bound = call->arguments[1].literal();
+      if (!bound) return util::nullopt;
+      if (!bound->is_scalar()) return util::nullopt;
+
+      return Inequality{*cmp, /*target=*/*target, *bound, /*nullable=*/false};
+    }
+
+    return util::nullopt;
+  }
+
+  /// The given expression simplifies to `value` if the inequality
+  /// target is not nullable. Otherwise, it simplifies to either a
+  /// call to true_unless_null or !true_unless_null.
+  Result<Expression> simplified_to(const Expression& bound_target, bool value) const {
+    if (!nullable) return literal(value);
+
+    ExecContext exec_context;
+
+    // Data may be null, so comparison will yield `value` - or null IFF the data was null
+    //
+    // true_unless_null is cheap; it purely reuses the validity bitmap for the values
+    // buffer. Inversion is less cheap but we expect that term never to be evaluated
+    // since invert(true_unless_null(x)) is not satisfiable.
+    Expression::Call call;
+    call.function_name = "true_unless_null";
+    call.arguments = {bound_target};
+    ARROW_ASSIGN_OR_RAISE(
+        auto true_unless_null,
+        BindNonRecursive(std::move(call),
+                         /*insert_implicit_casts=*/false, &exec_context));
+    if (value) return true_unless_null;
+
+    Expression::Call invert;
+    invert.function_name = "invert";
+    invert.arguments = {std::move(true_unless_null)};
+    return BindNonRecursive(std::move(invert),
+                            /*insert_implicit_casts=*/false, &exec_context);
+  }
+
+  /// \brief Simplify the given expression given this inequality as a guarantee.
+  Result<Expression> Simplify(Expression expr) {
+    const auto& guarantee = *this;
+
+    auto call = expr.call();
+    if (!call) return expr;
+
+    if (call->function_name == "is_valid" || call->function_name == "is_null") {
+      if (guarantee.nullable) return expr;
+      const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+      if (!lhs.field_ref()) return expr;
+      if (*lhs.field_ref() != guarantee.target) return expr;
+
+      return call->function_name == "is_valid" ? literal(true) : literal(false);
+    }
+
+    auto cmp = Comparison::Get(expr);
+    if (!cmp) return expr;
+
+    auto rhs = call->arguments[1].literal();
+    if (!rhs) return expr;
+    if (!rhs->is_scalar()) return expr;
+
+    const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+    if (!lhs.field_ref()) return expr;
+    if (*lhs.field_ref() != guarantee.target) return expr;
+
+    // Whether the RHS of the expression is EQUAL, LESS, or GREATER than the
+    // RHS of the guarantee. N.B. Comparison::type is a bitmask
+    ARROW_ASSIGN_OR_RAISE(const Comparison::type cmp_rhs_bound,
+                          Comparison::Execute(*rhs, guarantee.bound));
+    DCHECK_NE(cmp_rhs_bound, Comparison::NA);
+
+    if (cmp_rhs_bound == Comparison::EQUAL) {
+      // RHS of filter is equal to RHS of guarantee
+
+      if ((*cmp & guarantee.cmp) == guarantee.cmp) {
+        // guarantee is a subset of filter, so all data will be included
+        // x > 1, x >= 1, x != 1 guaranteed by x > 1
+        return simplified_to(lhs, true);
+      }
+
+      if ((*cmp & guarantee.cmp) == 0) {
+        // guarantee disjoint with filter, so all data will be excluded
+        // x > 1, x >= 1 unsatisfiable if x == 1
+        return simplified_to(lhs, false);
+      }
+
+      return expr;
+    }
+
+    if (guarantee.cmp & cmp_rhs_bound) {
+      // We guarantee (x (?) N) and are trying to simplify (x (?) M).  We know
+      // either M < N or M > N (i.e. cmp_rhs_bound is either LESS or GREATER).
+
+      // If M > N, then if the guarantee is (x > N), (x >= N), or (x != N)
+      // (i.e. guarantee.cmp & cmp_rhs_bound), we cannot do anything with the
+      // guarantee, and bail out here.
+
+      // For example, take M = 5, N = 3. Then cmp_rhs_bound = GREATER.
+      // x > 3, x >= 3, x != 3 implies nothing about x < 5, x <= 5, x > 5,
+      // x >= 5, x != 5 and we bail out here.
+      // x < 3, x <= 3 could simplify (some of) those expressions.
+      return expr;
+    }
+
+    if (*cmp & Comparison::GetFlipped(cmp_rhs_bound)) {
+      // x > 1, x >= 1, x != 1 guaranteed by x >= 3
+      // (where `guarantee.cmp` is GREATER_EQUAL, `cmp_rhs_bound` is LESS)
+      return simplified_to(lhs, true);
+    } else {
+      // x < 1, x <= 1, x == 1 unsatisfiable if x >= 3
+      return simplified_to(lhs, false);
+    }
+  }
+};
+
+/// \brief Simplify an expression given a guarantee, if the guarantee
+///   is is_valid().
+Result<Expression> SimplifyIsValidGuarantee(Expression expr,
+                                            const Expression::Call& guarantee) {
+  if (guarantee.function_name != "is_valid") return expr;
+
   return Modify(
       std::move(expr), [](Expression expr) { return expr; },
-      [&guarantee](Expression expr, ...) -> Result<Expression> {
+      [&](Expression expr, ...) -> Result<Expression> {
         auto call = expr.call();
         if (!call) return expr;
 
-        // Ensure both calls are comparisons with equal LHS and scalar RHS
-        auto cmp = Comparison::Get(expr);
-        auto cmp_guarantee = Comparison::Get(guarantee.function_name);
+        if (call->arguments[0] != guarantee.arguments[0]) return expr;
 
-        if (!cmp) return expr;
-        if (!cmp_guarantee) return expr;
+        if (call->function_name == "is_valid") return literal(true);
 
-        const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
-        const auto& guarantee_lhs = guarantee.arguments[0];
-        if (lhs != guarantee_lhs) return expr;
+        if (call->function_name == "true_unless_null") return literal(true);
 
-        auto rhs = call->arguments[1].literal();
-        auto guarantee_rhs = guarantee.arguments[1].literal();
+        if (call->function_name == "is_null") return literal(false);
 
-        if (!rhs) return expr;
-        if (!rhs->is_scalar()) return expr;
-
-        if (!guarantee_rhs) return expr;
-        if (!guarantee_rhs->is_scalar()) return expr;
-
-        ARROW_ASSIGN_OR_RAISE(auto cmp_rhs_guarantee_rhs,
-                              Comparison::Execute(*rhs, *guarantee_rhs));
-        DCHECK_NE(cmp_rhs_guarantee_rhs, Comparison::NA);
-
-        if (cmp_rhs_guarantee_rhs == Comparison::EQUAL) {
-          // RHS of filter is equal to RHS of guarantee
-
-          if ((*cmp & *cmp_guarantee) == *cmp_guarantee) {
-            // guarantee is a subset of filter, so all data will be included
-            // x > 1, x >= 1, x != 1 guaranteed by x > 1
-            return literal(true);
-          }
-
-          if ((*cmp & *cmp_guarantee) == 0) {
-            // guarantee disjoint with filter, so all data will be excluded
-            // x > 1, x >= 1, x != 1 unsatisfiable if x == 1
-            return literal(false);
-          }
-
-          return expr;
-        }
-
-        if (*cmp_guarantee & cmp_rhs_guarantee_rhs) {
-          // x > 1, x >= 1, x != 1 cannot use guarantee x >= 3
-          return expr;
-        }
-
-        if (*cmp & Comparison::GetFlipped(cmp_rhs_guarantee_rhs)) {
-          // x > 1, x >= 1, x != 1 guaranteed by x >= 3
-          return literal(true);
-        } else {
-          // x < 1, x <= 1, x == 1 unsatisfiable if x >= 3
-          return literal(false);
-        }
+        return expr;
       });
 }
 
@@ -948,10 +1120,10 @@ Result<Expression> DirectComparisonSimplification(Expression expr,
 
 Result<Expression> SimplifyWithGuarantee(Expression expr,
                                          const Expression& guaranteed_true_predicate) {
+  KnownFieldValues known_values;
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
-  KnownFieldValues known_values;
-  RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values.map));
+  RETURN_NOT_OK(ExtractKnownFieldValues(&conjunction_members, &known_values));
 
   ARROW_ASSIGN_OR_RAISE(expr,
                         ReplaceFieldsWithKnownValues(known_values, std::move(expr)));
@@ -964,9 +1136,26 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   RETURN_NOT_OK(CanonicalizeAndFoldConstants());
 
   for (const auto& guarantee : conjunction_members) {
-    if (Comparison::Get(guarantee) && guarantee.call()->arguments[1].literal()) {
+    if (!guarantee.call()) continue;
+
+    if (auto inequality = Inequality::ExtractOne(guarantee)) {
+      ARROW_ASSIGN_OR_RAISE(auto simplified,
+                            Modify(
+                                std::move(expr), [](Expression expr) { return expr; },
+                                [&](Expression expr, ...) -> Result<Expression> {
+                                  return inequality->Simplify(std::move(expr));
+                                }));
+
+      if (Identical(simplified, expr)) continue;
+
+      expr = std::move(simplified);
+      RETURN_NOT_OK(CanonicalizeAndFoldConstants());
+    }
+
+    if (guarantee.call()->function_name == "is_valid") {
       ARROW_ASSIGN_OR_RAISE(
-          auto simplified, DirectComparisonSimplification(expr, *CallNotNull(guarantee)));
+          auto simplified,
+          SimplifyIsValidGuarantee(std::move(expr), *CallNotNull(guarantee)));
 
       if (Identical(simplified, expr)) continue;
 
