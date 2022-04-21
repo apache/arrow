@@ -841,7 +841,7 @@ test_that("month() supports integer input", {
       test_df_month
     )
 
-    # skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+    # test skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
     compare_dplyr_binding(
       .input %>%
@@ -905,7 +905,7 @@ test_that("month() errors with double input and returns NA with int outside 1:12
 
 test_that("date works in arrow", {
   # https://issues.apache.org/jira/browse/ARROW-13168
-  # skip_on_os("windows")
+  # test skip_on_os("windows")
   # this date is specific since lubridate::date() is different from base::as.Date()
   # since as.Date returns the UTC date and date() doesn't
   test_df <- tibble(
@@ -1123,7 +1123,7 @@ test_that("difftime works correctly", {
     ignore_attr = TRUE
   )
 
-  # skip_on_os("windows")
+  # test skip_on_os("windows")
   test_df_with_tz <- tibble(
     time1 = as.POSIXct(
       c("2021-02-20", "2021-07-31", "2021-10-30", "2021-01-31"),

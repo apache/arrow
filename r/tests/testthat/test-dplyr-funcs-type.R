@@ -959,7 +959,7 @@ test_that("`as_datetime()`", {
 })
 
 test_that("format date/time", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # test skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   # In 3.4 the lack of tzone attribute causes spurious failures
   skip_if_r_version("3.4.4")
 
@@ -967,7 +967,7 @@ test_that("format date/time", {
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
     date = c(as.Date("2021-01-01"), NA)
   )
-  formats <- "%a %A %w %d %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
   formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
 
   compare_dplyr_binding(
