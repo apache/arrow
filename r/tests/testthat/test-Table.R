@@ -530,7 +530,7 @@ test_that("Tables can be combined with concat_tables()", {
   )
   expect_error(
     concat_tables()
-    regexp = "Must pass at least one table"
+    regexp = "Must pass at least one Table"
   )
 
   expect_equal(
