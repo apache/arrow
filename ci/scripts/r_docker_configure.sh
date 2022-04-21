@@ -52,9 +52,9 @@ if [ "$R_BUILD_CCACHE" = "true" ]; then
   mkdir -p ~/.R
   echo "VER=
 CCACHE=ccache
-CC=\$(CCACHE) gcc$(VER)
-CXX=\$(CCACHE) g++$(VER)
-CXX11=\$(CCACHE) g++$(VER)" >> ~/.R/Makevars
+CC=\$(CCACHE) gcc\$(VER)
+CXX=\$(CCACHE) g++\$(VER)
+CXX11=\$(CCACHE) g++\$(VER)" >> ~/.R/Makevars
 
   mkdir -p ~/.ccache/
   echo "max_size = 5.0G
