@@ -84,8 +84,6 @@ public class TestClientMiddleware {
         });
     // The server echoes the headers we send back to us, so ensure all the ones we sent are present with the correct
     // values in the correct order.
-    EXPECTED_BINARY_HEADERS.put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
-    EXPECTED_TEXT_HEADERS.put("x-text", Arrays.asList("foo", "bar"));
     for (final Map.Entry<String, List<byte[]>> entry : EXPECTED_BINARY_HEADERS.entrySet()) {
       // Compare header values entry-by-entry because byte arrays don't compare via equals
       final List<byte[]> receivedValues = clientFactory.lastBinaryHeaders.get(entry.getKey());
@@ -251,6 +249,11 @@ public class TestClientMiddleware {
   static final Map<String, List<byte[]>> EXPECTED_BINARY_HEADERS = new HashMap<String, List<byte[]>>();
   static final Map<String, List<String>> EXPECTED_TEXT_HEADERS = new HashMap<String, List<String>>();
 
+  {
+    EXPECTED_BINARY_HEADERS.put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
+    EXPECTED_TEXT_HEADERS.put("x-text", Arrays.asList("foo", "bar"));
+  }
+
   static class MultiHeaderServerMiddlewareFactory implements
       FlightServerMiddleware.Factory<MultiHeaderServerMiddleware> {
     @Override
@@ -324,8 +327,6 @@ public class TestClientMiddleware {
 
     @Override
     public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-      EXPECTED_BINARY_HEADERS.put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
-      EXPECTED_TEXT_HEADERS.put("x-text", Arrays.asList("foo", "bar"));
       for (final Map.Entry<String, List<byte[]>> entry : EXPECTED_BINARY_HEADERS.entrySet()) {
         entry.getValue().forEach((value) -> outgoingHeaders.insert(entry.getKey(), value));
         Assert.assertTrue(outgoingHeaders.containsKey(entry.getKey()));
