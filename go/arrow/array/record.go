@@ -36,7 +36,7 @@ type RecordReader interface {
 	Schema() *arrow.Schema
 
 	Next() bool
-	Record() Record
+	Record() arrow.Record
 }
 
 // simpleRecords is a simple iterator over a collection of records.
@@ -44,12 +44,12 @@ type simpleRecords struct {
 	refCount int64
 
 	schema *arrow.Schema
-	recs   []Record
-	cur    Record
+	recs   []arrow.Record
+	cur    arrow.Record
 }
 
 // NewRecordReader returns a simple iterator over the given slice of records.
-func NewRecordReader(schema *arrow.Schema, recs []Record) (*simpleRecords, error) {
+func NewRecordReader(schema *arrow.Schema, recs []arrow.Record) (*simpleRecords, error) {
 	rs := &simpleRecords{
 		refCount: 1,
 		schema:   schema,
@@ -95,7 +95,7 @@ func (rs *simpleRecords) Release() {
 }
 
 func (rs *simpleRecords) Schema() *arrow.Schema { return rs.schema }
-func (rs *simpleRecords) Record() Record        { return rs.cur }
+func (rs *simpleRecords) Record() arrow.Record  { return rs.cur }
 func (rs *simpleRecords) Next() bool {
 	if len(rs.recs) == 0 {
 		return false
@@ -107,12 +107,6 @@ func (rs *simpleRecords) Next() bool {
 	rs.recs = rs.recs[1:]
 	return true
 }
-
-// Record aliases arrow.Record so that existing consumers do not get broken
-// by the migration to arrow.Record.
-//
-// Deprecated: this alias will be removed in v8
-type Record = arrow.Record
 
 // simpleRecord is a basic, non-lazy in-memory record batch.
 type simpleRecord struct {
@@ -214,7 +208,7 @@ func (rec *simpleRecord) ColumnName(i int) string  { return rec.schema.Field(i).
 //
 // NewSlice panics if the slice is outside the valid range of the record array.
 // NewSlice panics if j < i.
-func (rec *simpleRecord) NewSlice(i, j int64) Record {
+func (rec *simpleRecord) NewSlice(i, j int64) arrow.Record {
 	arrs := make([]arrow.Array, len(rec.arrs))
 	for ii, arr := range rec.arrs {
 		arrs[ii] = NewSlice(arr, i, j)
@@ -303,7 +297,7 @@ func (b *RecordBuilder) Reserve(size int) {
 // The returned Record must be Release()'d after use.
 //
 // NewRecord panics if the fields' builder do not have the same length.
-func (b *RecordBuilder) NewRecord() Record {
+func (b *RecordBuilder) NewRecord() arrow.Record {
 	cols := make([]arrow.Array, len(b.fields))
 	rows := int64(0)
 
@@ -376,6 +370,6 @@ func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Record       = (*simpleRecord)(nil)
+	_ arrow.Record = (*simpleRecord)(nil)
 	_ RecordReader = (*simpleRecords)(nil)
 )

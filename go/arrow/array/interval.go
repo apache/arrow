@@ -29,7 +29,7 @@ import (
 	"github.com/goccy/go-json"
 )
 
-func NewIntervalData(data arrow.ArrayData) Interface {
+func NewIntervalData(data arrow.ArrayData) arrow.Array {
 	switch data.DataType().(type) {
 	case *arrow.MonthIntervalType:
 		return NewMonthIntervalData(data.(*Data))
@@ -817,9 +817,9 @@ func (b *MonthDayNanoIntervalBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*MonthInterval)(nil)
-	_ Interface = (*DayTimeInterval)(nil)
-	_ Interface = (*MonthDayNanoInterval)(nil)
+	_ arrow.Array = (*MonthInterval)(nil)
+	_ arrow.Array = (*DayTimeInterval)(nil)
+	_ arrow.Array = (*MonthDayNanoInterval)(nil)
 
 	_ Builder = (*MonthIntervalBuilder)(nil)
 	_ Builder = (*DayTimeIntervalBuilder)(nil)

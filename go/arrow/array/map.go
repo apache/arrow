@@ -293,6 +293,6 @@ func (b *MapBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*Map)(nil)
-	_ Builder   = (*MapBuilder)(nil)
+	_ arrow.Array = (*Map)(nil)
+	_ Builder     = (*MapBuilder)(nil)
 )

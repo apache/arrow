@@ -245,6 +245,6 @@ func (b *ExtensionBuilder) NewExtensionArray() ExtensionArray {
 }
 
 var (
-	_ Interface = (ExtensionArray)(nil)
-	_ Builder   = (*ExtensionBuilder)(nil)
+	_ arrow.Array = (ExtensionArray)(nil)
+	_ Builder     = (*ExtensionBuilder)(nil)
 )

@@ -103,5 +103,5 @@ func arrayEqualFloat16(left, right *Float16) bool {
 }
 
 var (
-	_ Interface = (*Float16)(nil)
+	_ arrow.Array = (*Float16)(nil)
 )
