@@ -518,12 +518,33 @@ test_that("Table$create() no recycling with tibbles", {
   )
 })
 
+test_that("Tables can be combined with concat_tables()", {
+  expect_error(
+    concat_tables(arrow_table(a = 1:10), arrow_table(a = c("a", "b")), unify_schemas = FALSE),
+    regexp = "Schema at index 2 does not match the first schema"
+  )
+
+  expect_error(
+    concat_tables(arrow_table(a = 1:10), arrow_table(a = c("a", "b")), unify_schemas = TRUE),
+    regexp = "Unable to merge: Field a has incompatible types: int32 vs string"
+  )
+
+  expect_equal(
+    concat_tables(
+      arrow_table(a = 1:5),
+      arrow_table(a = 6:7, b = c("d", "e"))
+    ),
+    arrow_table(a = 1:7, b = c(rep(NA, 5), "d", "e"))
+  )
+
+  # concat_tables() with one argument returns identical table
+  expected <- arrow_table(a = 1:10)
+  expect_equal(expected, concat_tables(expected))
+})
+
 test_that("Table supports rbind", {
   expect_error(
-    rbind(
-      arrow_table(a = 1:10, b = Scalar$create(5)),
-      arrow_table(a = c("a", "b"), b = Scalar$create(5))
-    ),
+    rbind(arrow_table(a = 1:10), arrow_table(a = c("a", "b"))),
     regexp = "Schema at index 2 does not match the first schema"
   )
 
