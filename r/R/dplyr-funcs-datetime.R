@@ -467,9 +467,7 @@ duration_from_chunks <- function(chunks) {
 binding_as_date <- function(x,
                             format = NULL,
                             tryFormats = "%Y-%m-%d",
-                            origin = "1970-01-01",
-                            use_tz = "UTC",
-                            base = TRUE) {
+                            origin = "1970-01-01") {
 
   if (is.null(format) && length(tryFormats) > 1) {
     abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
@@ -481,14 +479,11 @@ binding_as_date <- function(x,
     # cast from POSIXct
   } else if (call_binding("is.POSIXct", x)) {
     # base::as.Date() and lubridate::as_date() differ in the way they use the
-    # `tz` argument both cast to the desired timezone, if present. The
+    # `tz` argument. Both cast to the desired timezone, if present. The
     # difference appears when the `tz` argument is not set: `as.Date()` uses the
     # default value ("UTC"), while `as_date()` keeps the original attribute
     # => we only cast when we want the behaviour of the base version or when
-    # `use_tz` is set (i.e. not NULL)
-    if (base || !is.null(use_tz)) {
-      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = use_tz)))
-    }
+    # `tz` is set (i.e. not NULL)
 
     # cast from character
   } else if (call_binding("is.character", x)) {

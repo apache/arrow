@@ -82,13 +82,15 @@ register_bindings_type_cast <- function() {
                                        tryFormats = "%Y-%m-%d",
                                        origin = "1970-01-01",
                                        tz = "UTC") {
+    if (call_binding("is.POSIXct", x)) {
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+    }
+
     binding_as_date(
       x = x,
       format = format,
       tryFormats = tryFormats,
-      origin = origin,
-      use_tz = tz,
-      base = TRUE
+      origin = origin
     )
   })
 
@@ -96,12 +98,13 @@ register_bindings_type_cast <- function() {
                                        format = NULL,
                                        origin = "1970-01-01",
                                        tz = NULL) {
+    if (call_binding("is.POSIXct", x) && !is.null(tz)) {
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+    }
     binding_as_date(
       x = x,
       format = format,
-      origin = origin,
-      use_tz = tz,
-      base = FALSE
+      origin = origin
     )
   })
 
