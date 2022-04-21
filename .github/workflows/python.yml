@@ -122,8 +122,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
-      # TODO(ARROW-16102): Turn this on once we can build client successfully.
-      ARROW_GCS: OFF
+      ARROW_GCS: ON
       ARROW_HDFS: ON
       ARROW_JEMALLOC: ON
       ARROW_ORC: ON

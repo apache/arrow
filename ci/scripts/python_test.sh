@@ -54,7 +54,7 @@ export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
-# Without this, install_gcs_test_bench.sh doesn't seem to be put in a
-# place that the python env can find it.
-python -m pip install "https://github.com/googleapis/storage-testbench/archive/v0.16.0.tar.gz"
+if [ -f "/arrow/ci/scripts/install_gcs_testbench.sh" ]; then
+  /arrow/ci/scripts/install_gcs_testbench.sh default
+fi
 pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow
