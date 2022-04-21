@@ -32,7 +32,7 @@ struct GcsCredentialsHolder;
 class GcsFileSystem;
 
 /// \brief Container for GCS Credentials and information necessary to recreate them.
-class GcsCredentials {
+class ARROW_EXPORT GcsCredentials {
  public:
   bool Equals(const GcsCredentials& other) const;
   bool anonymous() const { return anonymous_; }
