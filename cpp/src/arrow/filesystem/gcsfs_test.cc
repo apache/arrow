@@ -783,7 +783,6 @@ TEST_F(GcsIntegrationTest, DeleteBucketDirSuccess) {
   ASSERT_OK(fs->DeleteDir("pyarrow-filesystem/"));
 }
 
-
 TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));

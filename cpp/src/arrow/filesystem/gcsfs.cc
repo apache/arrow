@@ -182,7 +182,7 @@ class GcsOutputStream : public arrow::io::OutputStream {
 
   Status Close() override {
     if (closed_) {
-      return Status::Invalid("Already closed stream.");
+      return Status::OK();
     }
     stream_.Close();
     closed_ = true;
