@@ -3097,7 +3097,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
         if basename_template is None:
             basename_template = guid() + '-{i}.parquet'
-            existing_data_behavior='overwrite_or_ignore'
+            existing_data_behavior = 'overwrite_or_ignore'
 
         ds.write_dataset(
             table, root_path, filesystem=filesystem,
