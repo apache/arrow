@@ -816,8 +816,6 @@ test_that("`as.Date()` and `as_date()`", {
     double_var = 34.56
   )
 
-  # casting from POSIXct treated separately so we can skip on Windows
-  # TODO move the test for casting from POSIXct below once ARROW-13168 is done
   compare_dplyr_binding(
     .input %>%
       mutate(
