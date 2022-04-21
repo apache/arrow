@@ -77,7 +77,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 /**
  * Flight client with Flight SQL semantics.
  */
-@SuppressWarnings({"ProtoBuilderReturnValueIgnored", "ReturnValueIgnored"})
 public class FlightSqlClient implements AutoCloseable {
   private final FlightClient client;
 
@@ -319,7 +318,7 @@ public class FlightSqlClient implements AutoCloseable {
     }
 
     Objects.requireNonNull(tableRef.getTable());
-    builder.setTable(tableRef.getTable()).build();
+    builder.setTable(tableRef.getTable()).isInitialized();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
@@ -346,7 +345,7 @@ public class FlightSqlClient implements AutoCloseable {
     }
 
     Objects.requireNonNull(tableRef.getTable());
-    builder.setTable(tableRef.getTable()).build();
+    builder.setTable(tableRef.getTable()).isInitialized();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
@@ -374,7 +373,7 @@ public class FlightSqlClient implements AutoCloseable {
     }
 
     Objects.requireNonNull(tableRef.getTable());
-    builder.setTable(tableRef.getTable()).build();
+    builder.setTable(tableRef.getTable()).isInitialized();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
