@@ -31,7 +31,7 @@ from datetime import datetime
 
 cdef class GcsFileSystem(FileSystem):
     """
-    GCS-backed FileSystem implementation
+    Google Cloud Storage (GCS) backed FileSystem implementation
 
     By default uses the process described in https://google.aip.dev/auth/4110
     to resolve credentials. If not running on GCP this generally requires the
