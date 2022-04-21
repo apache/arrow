@@ -3129,17 +3129,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
         raise ValueError(msg2.format("use_threads"))
     if file_visitor is not None:
         raise ValueError(msg2.format("file_visitor"))
+    if existing_data_behavior is not None:
+        raise ValueError(msg2.format("existing_data_behavior"))
     if partition_filename_cb is not None:
         warnings.warn(
             _DEPR_MSG.format("partition_filename_cb", " Specify "
-                             "'use_legacy_dataset=False' while constructing "
-                             "the ParquetDataset, and then use the "
-                             "'basename_template' parameter instead. For "
-                             "usage see `pyarrow.dataset.write_dataset`"),
-            FutureWarning, stacklevel=2)
-    if existing_data_behavior is not None:
-        warnings.warn(
-            _DEPR_MSG.format("existing_data_behavior", " Specify "
                              "'use_legacy_dataset=False' while constructing "
                              "the ParquetDataset, and then use the "
                              "'basename_template' parameter instead. For "
