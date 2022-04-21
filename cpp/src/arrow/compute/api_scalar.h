@@ -107,8 +107,7 @@ enum class CalendarUnit : int8_t {
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
-                                bool week_starts_monday = true,
-                                bool change_on_boundary = false,
+                                bool week_starts_monday = true, bool strict_ceil = false,
                                 bool calendar_based_origin = false);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
@@ -121,7 +120,7 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   bool week_starts_monday;
   /// Times exactly on unit multiple boundary will be rounded one unit multiple up.
   /// This applies for ceiling only.
-  bool change_on_boundary;
+  bool strict_ceil;
   /// By default origin is 1970-01-01T00:00:00. By setting this to true, rounding origin
   /// will be beginning of one less precise calendar unit. E.g. rounding to hours will use
   /// beginning of day as origin.
