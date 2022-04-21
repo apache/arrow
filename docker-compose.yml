@@ -1209,6 +1209,7 @@ services:
         devtoolset_version: ${DEVTOOLSET_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_custom_ccache: ${R_CUSTOM_CCACHE}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
@@ -1217,7 +1218,6 @@ services:
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
       devtoolset_version: ${DEVTOOLSET_VERSION}
-      r_custom_ccache: ${R_CUSTOM_CCACHE}
     volumes:
       - .:/arrow:delegated
     command: >
