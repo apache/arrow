@@ -528,6 +528,10 @@ test_that("Tables can be combined with concat_tables()", {
     concat_tables(arrow_table(a = 1:10), arrow_table(a = c("a", "b")), unify_schemas = TRUE),
     regexp = "Unable to merge: Field a has incompatible types: int32 vs string"
   )
+  expect_error(
+    concat_tables()
+    regexp = "Must pass at least one table"
+  )
 
   expect_equal(
     concat_tables(

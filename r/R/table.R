@@ -169,13 +169,17 @@ names.Table <- function(x) x$ColumnNames()
 concat_tables <- function(..., unify_schemas = TRUE) {
   tables <- list2(...)
 
+  if (length(tables) == 0) {
+    abort("Must pass at least one table.")
+  }
+
   if (!unify_schemas) {
     # assert they have same schema
     schema <- tables[[1]]$schema
     unequal_schema_idx <- which.min(lapply(tables, function(x) x$schema == schema))
     if (unequal_schema_idx != 1) {
       abort(c(
-        sprintf("Schema at index %i does not match the first schema", unequal_schema_idx),
+        sprintf("Schema at index %i does not match the first schema.", unequal_schema_idx),
         i = paste0("Schema 1:\n", schema$ToString()),
         i = paste0(
           sprintf("Schema %d:\n", unequal_schema_idx),
