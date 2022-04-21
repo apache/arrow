@@ -25,6 +25,8 @@ build_dir=${2}/cpp
 : ${ARROW_USE_CCACHE:=OFF}
 : ${BUILD_DOCS_CPP:=OFF}
 
+git config --global --add safe.directory ${1}
+
 # TODO(kszucs): consider to move these to CMake
 if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="

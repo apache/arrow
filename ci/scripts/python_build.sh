@@ -27,6 +27,8 @@ python_build_dir=${build_dir}/python
 
 : ${BUILD_DOCS_PYTHON:=OFF}
 
+git config --global --add safe.directory ${arrow_dir}
+
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
