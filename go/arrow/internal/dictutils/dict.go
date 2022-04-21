@@ -24,7 +24,6 @@ import (
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/array"
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 type Kind int8
@@ -329,7 +328,7 @@ func (memo Memo) HasID(id int64) bool {
 
 func (memo *Memo) Add(id int64, v arrow.ArrayData) {
 	if _, dup := memo.id2dict[id]; dup {
-		panic(xerrors.Errorf("arrow/ipc: duplicate id=%d", id))
+		panic(fmt.Errorf("arrow/ipc: duplicate id=%d", id))
 	}
 	v.Retain()
 	memo.id2dict[id] = []arrow.ArrayData{v}
