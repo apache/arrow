@@ -309,7 +309,7 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     arrays <- Map(as_arrow_array, x, types)
     names(arrays) <- names
 
-    # ...because there isn't a StructArray$create() yet
+    # TODO(ARROW-16266): a hack because there is no StructArray$create() yet
     batch <- record_batch(!!! arrays)
     array_ptr <- allocate_arrow_array()
     schema_ptr <- allocate_arrow_schema()
