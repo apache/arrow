@@ -54,7 +54,4 @@ export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
-if [ -f "/arrow/ci/scripts/install_gcs_testbench.sh" ]; then
-  /arrow/ci/scripts/install_gcs_testbench.sh default
-fi
 pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow

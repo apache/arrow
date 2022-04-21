@@ -32,6 +32,11 @@ RUN mamba install -q \
         nomkl && \
     mamba clean --all
 
+# XXX The GCS testbench was already installed in conda-cpp.dockerfile,
+# but we changed the installed Python version above, so we need to reinstall it.
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
