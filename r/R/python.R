@@ -105,8 +105,9 @@ py_to_r.pyarrow.lib.ChunkedArray <- function(x, ...) {
 }
 
 r_to_py.Table <- function(x, convert = FALSE) {
-  # Going through RecordBatchReader maintains schema metadata (e.g.,
-  # extension types) more faithfully than column-wise construction.
+  # TODO(ARROW-16269): Going through RecordBatchReader maintains schema
+  # metadata (e.g., extension types) more faithfully than column-wise
+  # construction; however, may re-chunk columns unnecessarily.
   py_rbr <- reticulate::r_to_py(as_record_batch_reader(x), convert = FALSE)
   out <- py_rbr$read_all()
   assign("convert", convert, out)
@@ -114,8 +115,9 @@ r_to_py.Table <- function(x, convert = FALSE) {
 }
 
 py_to_r.pyarrow.lib.Table <- function(x, ...) {
-  # Going through RecordBatchReader maintains schema metadata (e.g.,
-  # extension types) more faithfully than column-wise construction.
+  # TODO(ARROW-16269): Going through RecordBatchReader maintains schema
+  # metadata (e.g., extension types) more faithfully than column-wise
+  # construction; however, may re-chunk columns unnecessarily.
   pa <- reticulate::import("pyarrow", convert = FALSE)
   py_rbr <- pa$lib$RecordBatchReader$from_batches(
     x$schema,
