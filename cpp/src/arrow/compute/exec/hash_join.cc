@@ -139,7 +139,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     scheduler_ = TaskScheduler::Make();
     if (pushdown_target_) {
-      bloom_filter_ = std::make_shared<BlockedBloomFilter>();
+      bloom_filter_ = arrow::internal::make_unique<BlockedBloomFilter>();
       bloom_filter_builder_ = BloomFilterBuilder::Make(
           use_sync_execution ? BloomFilterBuildStrategy::SINGLE_THREADED
                              : BloomFilterBuildStrategy::PARALLEL);
@@ -166,7 +166,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     scheduler_->Abort(std::move(pos_abort_callback));
   }
 
-  Status PushBloomFilter(size_t thread_index, std::shared_ptr<BlockedBloomFilter> filter,
+  Status PushBloomFilter(size_t thread_index, std::unique_ptr<BlockedBloomFilter> filter,
                          std::vector<int> column_map) override {
     bool proceed;
     {
@@ -681,7 +681,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
       arrow::internal::BitmapAnd(bv.data(), 0, selected.data(), 0, key_batch.length, 0,
                                  selected.data());
     }
-    auto selected_buffer = std::make_shared<Buffer>(selected.data(), bit_vector_bytes);
+    auto selected_buffer = arrow::internal::make_unique<Buffer>(selected.data(), bit_vector_bytes);
     ArrayData selected_arraydata(boolean(), batch.length,
                                  {nullptr, std::move(selected_buffer)});
     Datum selected_datum(selected_arraydata);
@@ -1143,9 +1143,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
   // Bloom filter stuff
   //
   std::unique_ptr<BloomFilterBuilder> bloom_filter_builder_;
-  std::shared_ptr<BlockedBloomFilter> bloom_filter_;
+  std::unique_ptr<BlockedBloomFilter> bloom_filter_;
   std::vector<int> column_map_;
-  std::vector<std::shared_ptr<BlockedBloomFilter>> pushed_bloom_filters_;
+  std::vector<std::unique_ptr<BlockedBloomFilter>> pushed_bloom_filters_;
   std::vector<std::vector<int>> bloom_filter_column_maps_;
   std::mutex bloom_filters_mutex_;
   size_t num_expected_bloom_filters_;

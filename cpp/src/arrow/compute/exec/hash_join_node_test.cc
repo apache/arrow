@@ -1112,7 +1112,7 @@ TEST(HashJoin, Random) {
 
     ARROW_SCOPED_TRACE(join_type_name, " ", key_cmp_str,
                        " parallel = ", (parallel ? "true" : "false"),
-                       " bloom_filter =", (disable_bloom_filter ? "false" : "true"));
+                       " bloom_filter = ", (disable_bloom_filter ? "false" : "true"));
 
     // Run reference join implementation
     std::vector<bool> null_in_key_vectors[2];
