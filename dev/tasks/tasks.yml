@@ -1279,6 +1279,15 @@ tasks:
     template: r/github.linux.offline.build.yml
 
 
+  test-r-rhub-debian-gcc-release-custom-ccache:
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rhub
+      r_image: debian-gcc-release
+      r_tag: latest
+      r_custom_ccache: true
+
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
                                  ("rstudio", "r-base", "4.1-focal"),

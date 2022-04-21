@@ -1209,6 +1209,7 @@ services:
         devtoolset_version: ${DEVTOOLSET_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_custom_ccache: ${R_CUSTOM_CCACHE}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
