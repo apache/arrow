@@ -971,7 +971,7 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
     path = str(tempdir / "test_parquet_dataset")
 
     # write_to_dataset currently requires pandas
-    pq.write_to_dataset(table, path,
+    pq.write_to_dataset(table, path, use_legacy_dataset=True,
                         partition_cols=["part"], chunk_size=chunk_size)
     dataset = ds.dataset(
         path, format="parquet", partitioning="hive", filesystem=filesystem
@@ -1247,7 +1247,8 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
     path = str(tempdir / "test_parquet_dataset_all_types")
 
     # write_to_dataset currently requires pandas
-    pq.write_to_dataset(table, path, chunk_size=chunk_size)
+    pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                        chunk_size=chunk_size)
 
     return table, ds.dataset(path, format="parquet", partitioning="hive")
 
