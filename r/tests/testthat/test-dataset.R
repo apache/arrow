@@ -619,6 +619,14 @@ test_that("map_batches", {
     c(5, 10)
   )
 
+  # Can take a raw dataset as X argument
+  expect_equal(
+    ds %>%
+      map_batches(~ count(., part)) %>%
+      arrange(part),
+    tibble(part = c(1, 2), n = c(10, 10))
+  )
+
   # $Take returns RecordBatch, which gets binded into a tibble
   expect_equal(
     ds %>%
