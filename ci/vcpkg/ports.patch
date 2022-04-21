@@ -87,6 +87,6 @@ index 000000000..2fcced252
 +   return v & ~(mask << (8 * n));
 +-#endif
 + }
-+
++ 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
 +
