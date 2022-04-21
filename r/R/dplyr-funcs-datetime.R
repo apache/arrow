@@ -376,7 +376,7 @@ register_bindings_duration_helpers <- function() {
     function(x = 1) make_duration(x * value, unit)
   }
 
-  for (name in names(.helpers_function_map)){
+  for (name in names(.helpers_function_map)) {
     register_binding(
       name,
       duration_helpers_map_factory(
