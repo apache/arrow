@@ -22,12 +22,16 @@ import (
 	"io"
 
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/utils"
 )
 
 // ReaderProperties are used to define how the file reader will handle buffering and allocating buffers
 type ReaderProperties struct {
 	alloc memory.Allocator
-	// Default buffer size to utilize when reading chunks
+	// Default buffer size to utilize when reading chunks, when reading page
+	// headers or other metadata, this buffer may be increased if necessary
+	// to read in the necessary metadata. The value here is simply the default
+	// initial BufferSize when reading a new chunk.
 	BufferSize int64
 	// create with NewFileDecryptionProperties if dealing with an encrypted file
 	FileDecryptProps *FileDecryptionProperties
@@ -41,6 +45,12 @@ type ReaderProperties struct {
 	// reading small portions / subsets  of the parquet file, this can be set to false
 	// to reduce the amount of IO performed in order to avoid reading excess amounts of data.
 	BufferedStreamEnabled bool
+}
+
+type BufferedReader interface {
+	Peek(int) ([]byte, error)
+	Discard(int) (int, error)
+	io.Reader
 }
 
 // NewReaderProperties returns the default Reader Properties using the provided allocator.
@@ -60,9 +70,9 @@ func (r *ReaderProperties) Allocator() memory.Allocator { return r.alloc }
 //
 // If BufferedStreamEnabled is true, it creates an io.SectionReader, otherwise it will read the entire section
 // into a buffer in memory and return a bytes.NewReader for that buffer.
-func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (io.ReadSeeker, error) {
+func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (BufferedReader, error) {
 	if r.BufferedStreamEnabled {
-		return io.NewSectionReader(source, start, nbytes), nil
+		return utils.NewBufferedReader(io.NewSectionReader(source, start, nbytes), int(r.BufferSize)), nil
 	}
 
 	data := make([]byte, nbytes)
@@ -74,5 +84,5 @@ func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (i
 		return nil, fmt.Errorf("parquet: tried reading %d bytes starting at position %d from file but only got %d", nbytes, start, n)
 	}
 
-	return bytes.NewReader(data), nil
+	return utils.NewBufferedReader(bytes.NewReader(data), int(nbytes)), nil
 }
