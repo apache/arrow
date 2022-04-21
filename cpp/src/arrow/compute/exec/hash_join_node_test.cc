@@ -883,43 +883,49 @@ std::shared_ptr<Table> HashJoinSimple(
   return Table::Make(schema, result, result[0]->length());
 }
 
-void HashJoinWithExecPlan(Random64Bit& rng, bool parallel,
-                          const HashJoinNodeOptions& join_options,
-                          const std::shared_ptr<Schema>& output_schema,
-                          const std::vector<std::shared_ptr<Array>>& l,
-                          const std::vector<std::shared_ptr<Array>>& r, int num_batches_l,
-                          int num_batches_r, std::shared_ptr<Table>* output) {
+Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
+    Random64Bit& rng, bool parallel, const HashJoinNodeOptions& join_options,
+    const std::shared_ptr<Schema>& output_schema,
+    const std::vector<std::shared_ptr<Array>>& l,
+    const std::vector<std::shared_ptr<Array>>& r, int num_batches_l, int num_batches_r) {
   auto exec_ctx = arrow::internal::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   // add left source
   BatchesWithSchema l_batches = TableToBatches(rng, num_batches_l, l, "l_");
-  ASSERT_OK_AND_ASSIGN(
+  ARROW_ASSIGN_OR_RAISE(
       ExecNode * l_source,
       MakeExecNode("source", plan.get(), {},
                    SourceNodeOptions{l_batches.schema, l_batches.gen(parallel,
-                                                                     /*slow=*/false)}));
+                                                                     /*slow=*/true)}));
 
   // add right source
   BatchesWithSchema r_batches = TableToBatches(rng, num_batches_r, r, "r_");
-  ASSERT_OK_AND_ASSIGN(
+  ARROW_ASSIGN_OR_RAISE(
       ExecNode * r_source,
       MakeExecNode("source", plan.get(), {},
                    SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
                                                                      /*slow=*/false)}));
 
-  ASSERT_OK_AND_ASSIGN(ExecNode * join, MakeExecNode("hashjoin", plan.get(),
-                                                     {l_source, r_source}, join_options));
+  ARROW_ASSIGN_OR_RAISE(
+      ExecNode * join,
+      MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
 
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  ASSERT_OK_AND_ASSIGN(
+  ARROW_ASSIGN_OR_RAISE(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
 
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
-
-  ASSERT_OK_AND_ASSIGN(*output, TableFromExecBatches(output_schema, res));
+  auto batches_fut = StartAndCollect(plan.get(), sink_gen);
+  if (!batches_fut.Wait(::arrow::kDefaultAssertFinishesWaitSeconds)) {
+    plan->StopProducing();
+    // If this second wait fails then there isn't much we can do.  We will abort
+    // and probably get a segmentation fault.
+    plan->finished().Wait(::arrow::kDefaultAssertFinishesWaitSeconds);
+    return Status::Invalid("Plan did not finish in a reasonable amount of time");
+  }
+  return batches_fut.result();
 }
 
 TEST(HashJoin, Suffix) {
@@ -1161,12 +1167,15 @@ TEST(HashJoin, Random) {
     }
     std::shared_ptr<Schema> output_schema =
         std::make_shared<Schema>(std::move(output_schema_fields));
-    std::shared_ptr<Table> output_rows_test;
-    HashJoinWithExecPlan(rng, parallel, join_options, output_schema,
-                         shuffled_input_arrays[0], shuffled_input_arrays[1],
-                         static_cast<int>(bit_util::CeilDiv(num_rows_l, batch_size)),
-                         static_cast<int>(bit_util::CeilDiv(num_rows_r, batch_size)),
-                         &output_rows_test);
+    ASSERT_OK_AND_ASSIGN(
+        auto batches, HashJoinWithExecPlan(
+                          rng, parallel, join_options, output_schema,
+                          shuffled_input_arrays[0], shuffled_input_arrays[1],
+                          static_cast<int>(bit_util::CeilDiv(num_rows_l, batch_size)),
+                          static_cast<int>(bit_util::CeilDiv(num_rows_r, batch_size))));
+
+    ASSERT_OK_AND_ASSIGN(auto output_rows_test,
+                         TableFromExecBatches(output_schema, batches));
 
     // Compare results
     AssertTablesEqual(output_rows_ref, output_rows_test);
