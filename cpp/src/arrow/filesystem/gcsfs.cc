@@ -534,7 +534,7 @@ class GcsFileSystem::Impl {
       submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
     }
 
-    if (!missing_dir_ok && !at_least_one_obj && !dir) {
+    if (!missing_dir_ok && !at_least_one_obj && !dir && !p.object.empty()) {
       // No files were found and no directory marker exists
       return Status::IOError("No such directory: ", p.full_path);
     }

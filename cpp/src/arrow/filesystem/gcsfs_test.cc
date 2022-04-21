@@ -776,6 +776,14 @@ TEST_F(GcsIntegrationTest, CreateDirUri) {
   ASSERT_RAISES(Invalid, fs->CreateDir("gs://" + RandomBucketName(), true));
 }
 
+TEST_F(GcsIntegrationTest, DeleteBucketDirSuccess) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  ASSERT_OK(fs->CreateDir("pyarrow-filesystem/", /*recursive=*/true));
+  EXPECT_FALSE(fs->CreateDir("/", false).ok());
+  ASSERT_OK(fs->DeleteDir("pyarrow-filesystem/"));
+}
+
+
 TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
