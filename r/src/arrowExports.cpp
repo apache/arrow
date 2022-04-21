@@ -4992,12 +4992,12 @@ BEGIN_CPP11
 END_CPP11
 }
 // table.cpp
-std::shared_ptr<arrow::Table> Table__ConcatenateTable(const std::vector<std::shared_ptr<arrow::Table>>& tables, bool unify_schemas);
-extern "C" SEXP _arrow_Table__ConcatenateTable(SEXP tables_sexp, SEXP unify_schemas_sexp){
+std::shared_ptr<arrow::Table> Table__ConcatenateTables(const std::vector<std::shared_ptr<arrow::Table>>& tables, bool unify_schemas);
+extern "C" SEXP _arrow_Table__ConcatenateTables(SEXP tables_sexp, SEXP unify_schemas_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::vector<std::shared_ptr<arrow::Table>>&>::type tables(tables_sexp);
 	arrow::r::Input<bool>::type unify_schemas(unify_schemas_sexp);
-	return cpp11::as_sexp(Table__ConcatenateTable(tables, unify_schemas));
+	return cpp11::as_sexp(Table__ConcatenateTables(tables, unify_schemas));
 END_CPP11
 }
 // threadpool.cpp
@@ -5593,7 +5593,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_all_record_batches", (DL_FUNC) &_arrow_all_record_batches, 1}, 
 		{ "_arrow_Table__from_record_batches", (DL_FUNC) &_arrow_Table__from_record_batches, 2}, 
 		{ "_arrow_Table__ReferencedBufferSize", (DL_FUNC) &_arrow_Table__ReferencedBufferSize, 1}, 
-		{ "_arrow_Table__ConcatenateTable", (DL_FUNC) &_arrow_Table__ConcatenateTable, 2}, 
+		{ "_arrow_Table__ConcatenateTables", (DL_FUNC) &_arrow_Table__ConcatenateTables, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
 		{ "_arrow_GetIOThreadPoolCapacity", (DL_FUNC) &_arrow_GetIOThreadPoolCapacity, 0}, 

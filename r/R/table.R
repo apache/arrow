@@ -185,7 +185,7 @@ concat_tables <- function(..., unify_schemas = TRUE) {
     }
   }
 
-  Table__ConcatenateTable(tables, unify_schemas)
+  Table__ConcatenateTables(tables, unify_schemas)
 }
 
 #' @export
