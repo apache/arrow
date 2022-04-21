@@ -283,8 +283,10 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
                         "[[4, false], [5, null], [6, false], [7, false], [null, true]]");
   constexpr uint32_t kPauseIfAbove = 4;
   constexpr uint32_t kResumeIfBelow = 2;
-  uint32_t pause_if_above_bytes = kPauseIfAbove * batch->TotalBufferSize();
-  uint32_t resume_if_below_bytes = kResumeIfBelow * batch->TotalBufferSize();
+  uint32_t pause_if_above_bytes =
+      kPauseIfAbove * static_cast<uint32_t>(batch->TotalBufferSize());
+  uint32_t resume_if_below_bytes =
+      kResumeIfBelow * static_cast<uint32_t>(batch->TotalBufferSize());
   EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
   PushGenerator<util::optional<ExecBatch>> batch_producer;
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
