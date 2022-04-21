@@ -619,7 +619,6 @@ TEST(TpchNode, AllTables) {
   };
 
   std::array<AsyncGenerator<util::optional<ExecBatch>>, kNumTables> gens;
-  std::array<std::vector<ExecBatch>, kNumTables> batches;
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<TpchGen> gen,
@@ -634,9 +633,9 @@ TEST(TpchNode, AllTables) {
   for (int i = 0; i < kNumTables; i++) {
     auto fut = CollectAsyncGenerator(gens[i]);
     ASSERT_OK_AND_ASSIGN(auto maybe_batches, fut.MoveResult());
-    for (auto& maybe_batch : maybe_batches)
-      batches[i].emplace_back(std::move(*maybe_batch));
-    verify_fns[i](batches[i], kScaleFactor);
+    std::vector<ExecBatch> batches;
+    for (auto& maybe_batch : maybe_batches) batches.emplace_back(std::move(*maybe_batch));
+    verify_fns[i](batches, kScaleFactor);
   }
 }
 
