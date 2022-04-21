@@ -253,22 +253,17 @@ as_arrow_array.default <- function(x, ..., type = NULL, from_vec_to_array = FALS
   if (from_vec_to_array) {
     # Last ditch attempt: if vctrs::vec_is(x), we can use the vctrs
     # extension type.
-    if (vctrs::vec_is(x)) {
-      if (is.null(type)) {
-        vctrs_extension_array(x)
-      } else if (inherits(type, "VctrsExtensionType")) {
-        array <- vctrs_extension_array(
-          x,
-          ptype = type$ptype(),
-          storage_type = type$storage_type()
-        )
-        return(array)
-      } else {
-        stop_cant_convert_array(x, type)
-      }
+    if (vctrs::vec_is(x) && is.null(type)) {
+      vctrs_extension_array(x)
+    } else if (vctrs::vec_is(x) && inherits(type, "VctrsExtensionType")) {
+      vctrs_extension_array(
+        x,
+        ptype = type$ptype(),
+        storage_type = type$storage_type()
+      )
+    } else {
+      stop_cant_convert_array(x, type)
     }
-
-    stop_cant_convert_array(x, type)
   } else {
     vec_to_Array(x, type)
   }

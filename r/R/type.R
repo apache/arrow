@@ -95,15 +95,15 @@ infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
     # Last ditch attempt: if vctrs::vec_is(x), we can use the vctrs
     # extension type.
     if (vctrs::vec_is(x)) {
-      return(vctrs_extension_type(vctrs::vec_ptype(x)))
-    }
-
-    abort(
-      sprintf(
-        "Can't infer Arrow data type from object inheriting from %s",
-        paste(class(x), collapse = " / ")
+     vctrs_extension_type(x)
+    } else {
+      abort(
+        sprintf(
+          "Can't infer Arrow data type from object inheriting from %s",
+          paste(class(x), collapse = " / ")
+        )
       )
-    )
+    }
   } else {
     Array__infer_type(x)
   }
