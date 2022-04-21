@@ -208,13 +208,13 @@ as_record_batch_reader.Table <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.RecordBatch <- function(x, ...) {
-  as_record_batch_reader(as_arrow_table(x))
+  RecordBatchReader__from_batches(list(x), NULL)
 }
 
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.data.frame <- function(x, ...) {
-  as_record_batch_reader(as_arrow_table(x))
+  as_record_batch_reader(as_record_batch(x))
 }
 
 #' @rdname as_record_batch_reader

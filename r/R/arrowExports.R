@@ -1724,6 +1724,14 @@ RecordBatchReader__batches <- function(reader) {
   .Call(`_arrow_RecordBatchReader__batches`, reader)
 }
 
+RecordBatchReader__from_batches <- function(batches, schema_sxp) {
+  .Call(`_arrow_RecordBatchReader__from_batches`, batches, schema_sxp)
+}
+
+RecordBatchReader__from_Table <- function(table) {
+  .Call(`_arrow_RecordBatchReader__from_Table`, table)
+}
+
 Table__from_RecordBatchReader <- function(reader) {
   .Call(`_arrow_Table__from_RecordBatchReader`, reader)
 }
@@ -1758,10 +1766,6 @@ Table__from_RecordBatchFileReader <- function(reader) {
 
 ipc___RecordBatchFileReader__batches <- function(reader) {
   .Call(`_arrow_ipc___RecordBatchFileReader__batches`, reader)
-}
-
-RecordBatchReader__from_Table <- function(table) {
-  .Call(`_arrow_RecordBatchReader__from_Table`, table)
 }
 
 ipc___RecordBatchWriter__WriteRecordBatch <- function(batch_writer, batch) {
