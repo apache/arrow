@@ -55,13 +55,13 @@ import (
 type Dictionary struct {
 	array
 
-	indices Interface
-	dict    Interface
+	indices arrow.Array
+	dict    arrow.Array
 }
 
 // NewDictionaryArray constructs a dictionary array with the provided indices
 // and dictionary using the given type.
-func NewDictionaryArray(typ arrow.DataType, indices, dict Interface) *Dictionary {
+func NewDictionaryArray(typ arrow.DataType, indices, dict arrow.Array) *Dictionary {
 	a := &Dictionary{}
 	a.array.refCount = 1
 	dictdata := NewData(typ, indices.Len(), indices.Data().Buffers(), indices.Data().Children(), indices.NullN(), indices.Data().Offset())
@@ -165,7 +165,7 @@ func checkIndexBounds(indices *Data, upperlimit uint64) error {
 // NewValidatedDictionaryArray constructs a dictionary array from the provided indices
 // and dictionary arrays, while also performing validation checks to ensure correctness
 // such as bounds checking at are usually skipped for performance.
-func NewValidatedDictionaryArray(typ *arrow.DictionaryType, indices, dict Interface) (*Dictionary, error) {
+func NewValidatedDictionaryArray(typ *arrow.DictionaryType, indices, dict arrow.Array) (*Dictionary, error) {
 	if indices.DataType().ID() != typ.IndexType.ID() {
 		return nil, fmt.Errorf("dictionary type index (%T) does not match indices array type (%T)", typ.IndexType, indices.DataType())
 	}
@@ -226,7 +226,7 @@ func (d *Dictionary) setData(data *Data) {
 
 // Dictionary returns the values array that makes up the dictionary for this
 // array.
-func (d *Dictionary) Dictionary() Interface {
+func (d *Dictionary) Dictionary() arrow.Array {
 	if d.dict == nil {
 		d.dict = MakeFromData(d.data.dictionary)
 	}
@@ -234,7 +234,7 @@ func (d *Dictionary) Dictionary() Interface {
 }
 
 // Indices returns the underlying array of indices as it's own array
-func (d *Dictionary) Indices() Interface {
+func (d *Dictionary) Indices() arrow.Array {
 	return d.indices
 }
 
@@ -398,8 +398,8 @@ type DictionaryBuilder interface {
 	Builder
 
 	NewDictionaryArray() *Dictionary
-	NewDelta() (indices, delta Interface, err error)
-	AppendArray(Interface) error
+	NewDelta() (indices, delta arrow.Array, err error)
+	AppendArray(arrow.Array) error
 	ResetFull()
 }
 
@@ -414,7 +414,7 @@ type dictionaryBuilder struct {
 
 // NewDictionaryBuilderWithDict initializes a dictionary builder and inserts the values from `init` as the first
 // values in the dictionary, but does not insert them as values into the array.
-func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType, init Interface) DictionaryBuilder {
+func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType, init arrow.Array) DictionaryBuilder {
 	if init != nil && !arrow.TypeEqual(dt.ValueType, init.DataType()) {
 		panic(fmt.Errorf("arrow/array: cannot initialize dictionary type %T with array of type %T", dt.ValueType, init.DataType()))
 	}
@@ -705,7 +705,7 @@ func (b *dictionaryBuilder) unmarshalOne(dec *json.Decoder) error {
 	return errors.New("unmarshal json to dictionary not yet implemented")
 }
 
-func (b *dictionaryBuilder) NewArray() Interface {
+func (b *dictionaryBuilder) NewArray() arrow.Array {
 	return b.NewDictionaryArray()
 }
 
@@ -782,7 +782,7 @@ func (b *dictionaryBuilder) newWithDictOffset(offset int) (indices, dict *Data, 
 // NewDelta returns the dictionary indices and a delta dictionary since the
 // last time NewArray or NewDictionaryArray were called, and resets the state
 // of the builder (except for the dictionary / memotable)
-func (b *dictionaryBuilder) NewDelta() (indices, delta Interface, err error) {
+func (b *dictionaryBuilder) NewDelta() (indices, delta arrow.Array, err error) {
 	indicesData, deltaData, err := b.newWithDictOffset(b.deltaOffset)
 	if err != nil {
 		return nil, nil, err
@@ -806,7 +806,7 @@ func (b *dictionaryBuilder) appendValue(val interface{}) error {
 	return err
 }
 
-func getvalFn(arr Interface) func(i int) interface{} {
+func getvalFn(arr arrow.Array) func(i int) interface{} {
 	switch typedarr := arr.(type) {
 	case *Int8:
 		return func(i int) interface{} { return typedarr.Value(i) }
@@ -870,7 +870,7 @@ func getvalFn(arr Interface) func(i int) interface{} {
 	panic("arrow/array: invalid dictionary value type")
 }
 
-func (b *dictionaryBuilder) AppendArray(arr Interface) error {
+func (b *dictionaryBuilder) AppendArray(arr arrow.Array) error {
 	debug.Assert(arrow.TypeEqual(b.dt.ValueType, arr.DataType()), "wrong value type of array to append to dict")
 
 	valfn := getvalFn(arr)
@@ -890,7 +890,7 @@ type NullDictionaryBuilder struct {
 	dictionaryBuilder
 }
 
-func (b *NullDictionaryBuilder) NewArray() Interface {
+func (b *NullDictionaryBuilder) NewArray() arrow.Array {
 	return b.NewDictionaryArray()
 }
 
@@ -909,7 +909,7 @@ func (b *NullDictionaryBuilder) NewDictionaryArray() *Dictionary {
 	return NewDictionaryData(out)
 }
 
-func (b *NullDictionaryBuilder) AppendArray(arr Interface) error {
+func (b *NullDictionaryBuilder) AppendArray(arr arrow.Array) error {
 	if arr.DataType().ID() != arrow.NULL {
 		return fmt.Errorf("cannot append non-null array to null dictionary")
 	}
@@ -1289,6 +1289,6 @@ func (b *DayTimeDictionaryBuilder) InsertDictValues(arr *DayTimeInterval) (err e
 }
 
 var (
-	_ Interface = (*Dictionary)(nil)
-	_ Builder   = (*dictionaryBuilder)(nil)
+	_ arrow.Array = (*Dictionary)(nil)
+	_ Builder     = (*dictionaryBuilder)(nil)
 )

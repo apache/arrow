@@ -868,8 +868,8 @@ func TestDictionaryEquals(t *testing.T) {
 
 	var (
 		isValid                     = []bool{true, true, false, true, true, true}
-		dict, dict2                 array.Interface
-		indices, indices2, indices3 array.Interface
+		dict, dict2                 arrow.Array
+		indices, indices2, indices3 arrow.Array
 	)
 
 	dict, _, _ = array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["foo", "bar", "baz"]`))
