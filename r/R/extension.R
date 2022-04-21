@@ -534,9 +534,9 @@ vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
 
 #' @rdname vctrs_extension_array
 #' @export
-vctrs_extension_type <- function(ptype,
-                                 storage_type = infer_type(vctrs::vec_data(ptype))) {
-  ptype <- vctrs::vec_ptype(ptype)
+vctrs_extension_type <- function(x,
+                                 storage_type = infer_type(vctrs::vec_data(x))) {
+  ptype <- vctrs::vec_ptype(x)
 
   new_extension_type(
     storage_type = storage_type,
