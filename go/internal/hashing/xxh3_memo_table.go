@@ -26,15 +26,55 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/apache/arrow/go/v8/parquet"
 
 	"github.com/zeebo/xxh3"
 )
 
-//go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=types.tmpldata xxh3_memo_table.gen.go.tmpl
+//go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=types.tmpldata xxh3_memo_table.gen.go.tmpl
+
+type TypeTraits interface {
+	BytesRequired(n int) int
+}
+
+// MemoTable interface for hash tables and dictionary encoding.
+//
+// Values will remember the order they are inserted to generate a valid
+// dictionary.
+type MemoTable interface {
+	TypeTraits() TypeTraits
+	// Reset drops everything in the table allowing it to be reused
+	Reset()
+	// Size returns the current number of unique values stored in
+	// the table, including whether or not a null value has been
+	// inserted via GetOrInsertNull.
+	Size() int
+	// GetOrInsert returns the index of the table the specified value is,
+	// and a boolean indicating whether or not the value was found in
+	// the table (if false, the value was inserted). An error is returned
+	// if val is not the appropriate type for the table.
+	GetOrInsert(val interface{}) (idx int, existed bool, err error)
+	// GetOrInsertNull returns the index of the null value in the table,
+	// inserting one if it hasn't already been inserted. It returns a boolean
+	// indicating if the null value already existed or not in the table.
+	GetOrInsertNull() (idx int, existed bool)
+	// GetNull returns the index of the null value in the table, but does not
+	// insert one if it doesn't already exist. Will return -1 if it doesn't exist
+	// indicated by a false value for the boolean.
+	GetNull() (idx int, exists bool)
+	// WriteOut copys the unique values of the memotable out to the byte slice
+	// provided. Must have allocated enough bytes for all the values.
+	WriteOut(out []byte)
+	// WriteOutSubset is like WriteOut, but only writes a subset of values
+	// starting with the index offset.
+	WriteOutSubset(offset int, out []byte)
+}
+
+type NumericMemoTable interface {
+	MemoTable
+	WriteOutLE(out []byte)
+	WriteOutSubsetLE(offset int, out []byte)
+}
 
 func hashInt(val uint64, alg uint64) uint64 {
 	// Two of xxhash's prime multipliers (which are chosen for their
@@ -125,13 +165,27 @@ var isNan32Cmp = func(v float32) bool { return math.IsNaN(float64(v)) }
 // KeyNotFound is the constant returned by memo table functions when a key isn't found in the table
 const KeyNotFound = -1
 
+type BinaryBuilderIFace interface {
+	Reserve(int)
+	ReserveData(int)
+	Retain()
+	Resize(int)
+	Release()
+	DataLen() int
+	Value(int) []byte
+	Len() int
+	AppendNull()
+	AppendString(string)
+	Append([]byte)
+}
+
 // BinaryMemoTable is our hashtable for binary data using the BinaryBuilder
 // to construct the actual data in an easy to pass around way with minimal copies
 // while using a hash table to keep track of the indexes into the dictionary that
 // is created as we go.
 type BinaryMemoTable struct {
 	tbl     *Int32HashTable
-	builder *array.BinaryBuilder
+	builder BinaryBuilderIFace
 	nullIdx int
 }
 
@@ -140,11 +194,7 @@ type BinaryMemoTable struct {
 // initial and valuesize can be used to pre-allocate the table to reduce allocations. With
 // initial being the initial number of entries to allocate for and valuesize being the starting
 // amount of space allocated for writing the actual binary data.
-func NewBinaryMemoTable(mem memory.Allocator, initial, valuesize int) *BinaryMemoTable {
-	if mem == nil {
-		mem = memory.DefaultAllocator
-	}
-	bldr := array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+func NewBinaryMemoTable(initial, valuesize int, bldr BinaryBuilderIFace) *BinaryMemoTable {
 	bldr.Reserve(int(initial))
 	datasize := valuesize
 	if datasize <= 0 {
@@ -154,10 +204,18 @@ func NewBinaryMemoTable(mem memory.Allocator, initial, valuesize int) *BinaryMem
 	return &BinaryMemoTable{tbl: NewInt32HashTable(uint64(initial)), builder: bldr, nullIdx: KeyNotFound}
 }
 
+type unimplementedtraits struct{}
+
+func (unimplementedtraits) BytesRequired(int) int { panic("unimplemented") }
+
+func (BinaryMemoTable) TypeTraits() TypeTraits {
+	return unimplementedtraits{}
+}
+
 // Reset dumps all of the data in the table allowing it to be reutilized.
 func (s *BinaryMemoTable) Reset() {
 	s.tbl.Reset(32)
-	s.builder.NewArray().Release()
+	s.builder.Resize(0)
 	s.builder.Reserve(int(32))
 	s.builder.ReserveData(int(32) * 4)
 	s.nullIdx = KeyNotFound
@@ -299,13 +357,13 @@ func (b *BinaryMemoTable) findOffset(idx int) uintptr {
 // CopyOffsets copies the list of offsets into the passed in slice, the offsets
 // being the start and end values of the underlying allocated bytes in the builder
 // for the individual values of the table. out should be at least sized to Size()+1
-func (b *BinaryMemoTable) CopyOffsets(out []int8) {
+func (b *BinaryMemoTable) CopyOffsets(out []int32) {
 	b.CopyOffsetsSubset(0, out)
 }
 
 // CopyOffsetsSubset is like CopyOffsets but instead of copying all of the offsets,
 // it gets a subset of the offsets in the table starting at the index provided by "start".
-func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int8) {
+func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int32) {
 	if b.builder.Len() <= start {
 		return
 	}
@@ -313,11 +371,11 @@ func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int8) {
 	first := b.findOffset(0)
 	delta := b.findOffset(start)
 	for i := start; i < b.Size(); i++ {
-		offset := int8(b.findOffset(i) - delta)
+		offset := int32(b.findOffset(i) - delta)
 		out[i-start] = offset
 	}
 
-	out[b.Size()-start] = int8(b.builder.DataLen() - int(delta) - int(first))
+	out[b.Size()-start] = int32(b.builder.DataLen() - (int(delta) - int(first)))
 }
 
 // CopyValues copies the raw binary data bytes out, out should be a []byte
@@ -329,6 +387,10 @@ func (b *BinaryMemoTable) CopyValues(out interface{}) {
 // CopyValuesSubset copies the raw binary data bytes out starting with the value
 // at the index start, out should be a []byte with at least ValuesSize bytes allocated
 func (b *BinaryMemoTable) CopyValuesSubset(start int, out interface{}) {
+	if b.builder.Len() <= start {
+		return
+	}
+
 	var (
 		first  = b.findOffset(0)
 		offset = b.findOffset(int(start))

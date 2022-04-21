@@ -14,13 +14,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !noasm
-
 package utils
 
-func init() {
-	minmaxFuncs.i32 = int32MinMax
-	minmaxFuncs.ui32 = uint32MinMax
-	minmaxFuncs.i64 = int64MinMax
-	minmaxFuncs.ui64 = uint64MinMax
-}
+import (
+	"math"
+	"math/bits"
+)
+
+var (
+	ToLEInt16   = func(x int16) int16 { return int16(bits.ReverseBytes16(uint16(x))) }
+	ToLEUint16  = bits.ReverseBytes16
+	ToLEUint32  = bits.ReverseBytes32
+	ToLEUint64  = bits.ReverseBytes64
+	ToLEInt32   = func(x int32) int32 { return int32(bits.ReverseBytes32(uint32(x))) }
+	ToLEInt64   = func(x int64) int64 { return int64(bits.ReverseBytes64(uint64(x))) }
+	ToLEFloat32 = func(x float32) float32 { return math.Float32frombits(bits.ReverseBytes32(math.Float32bits(x))) }
+	ToLEFloat64 = func(x float64) float64 { return math.Float64frombits(bits.ReverseBytes64(math.Float64bits(x))) }
+)

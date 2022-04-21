@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 )
@@ -274,8 +275,15 @@ type FileWriter struct {
 	pw PayloadWriter
 
 	schema     *arrow.Schema
+	mapper     dictutils.Mapper
 	codec      flatbuf.CompressionType
 	compressNP int
+
+	// map of the last written dictionaries by id
+	// so we can avoid writing the same dictionary over and over
+	// also needed for correctness when writing IPC format which
+	// does not allow replacements or deltas.
+	lastWrittenDicts map[int64]arrow.Array
 }
 
 // NewFileWriter opens an Arrow file using the provided writer w.
@@ -339,6 +347,12 @@ func (f *FileWriter) Write(rec arrow.Record) error {
 	)
 	defer data.Release()
 
+	err := writeDictionaryPayloads(f.mem, rec, true, false, &f.mapper, f.lastWrittenDicts, f.pw, enc)
+	if err != nil {
+		return fmt.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
+	}
+
+	enc.reset()
 	if err := enc.Encode(&data, rec); err != nil {
 		return fmt.Errorf("arrow/ipc: could not encode record to payload: %w", err)
 	}
@@ -360,8 +374,11 @@ func (f *FileWriter) start() error {
 		return err
 	}
 
+	f.mapper.ImportSchema(f.schema)
+	f.lastWrittenDicts = make(map[int64]arrow.Array)
+
 	// write out schema payloads
-	ps := payloadsFromSchema(f.schema, f.mem, nil)
+	ps := payloadFromSchema(f.schema, f.mem, &f.mapper)
 	defer ps.Release()
 
 	for _, data := range ps {

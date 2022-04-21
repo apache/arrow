@@ -447,6 +447,36 @@ func ConvertTimestampValue(in, out TimeUnit, value int64) int64 {
 	return 0
 }
 
+// DictionaryType represents categorical or dictionary-encoded in-memory data
+// It contains a dictionary-encoded value type (any type) and an index type
+// (any integer type).
+type DictionaryType struct {
+	IndexType DataType
+	ValueType DataType
+	Ordered   bool
+}
+
+func (*DictionaryType) ID() Type        { return DICTIONARY }
+func (*DictionaryType) Name() string    { return "dictionary" }
+func (d *DictionaryType) BitWidth() int { return d.IndexType.(FixedWidthDataType).BitWidth() }
+func (d *DictionaryType) String() string {
+	return fmt.Sprintf("%s<values=%s, indices=%s, ordered=%t>",
+		d.Name(), d.ValueType, d.IndexType, d.Ordered)
+}
+func (d *DictionaryType) Fingerprint() string {
+	indexFingerprint := d.IndexType.Fingerprint()
+	valueFingerprint := d.ValueType.Fingerprint()
+	ordered := "1"
+	if !d.Ordered {
+		ordered = "0"
+	}
+
+	if len(valueFingerprint) > 0 {
+		return typeFingerprint(d) + indexFingerprint + valueFingerprint + ordered
+	}
+	return ordered
+}
+
 var (
 	FixedWidthTypes = struct {
 		Boolean              FixedWidthDataType

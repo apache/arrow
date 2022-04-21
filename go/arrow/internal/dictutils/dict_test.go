@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc
+package dictutils_test
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 )
 
@@ -44,15 +45,15 @@ func TestDictMemo(t *testing.T) {
 	f2 := bldr.NewFloat64Array()
 	defer f2.Release()
 
-	memo := newMemo()
-	defer memo.delete()
+	memo := dictutils.NewMemo()
+	defer memo.Clear()
 
 	if got, want := memo.Len(), 0; got != want {
 		t.Fatalf("invalid length: got=%d, want=%d", got, want)
 	}
 
-	memo.Add(0, f0)
-	memo.Add(1, f1)
+	memo.Add(0, f0.Data())
+	memo.Add(1, f1.Data())
 
 	if !memo.HasID(0) {
 		t.Fatalf("could not find id=0")
@@ -69,17 +70,17 @@ func TestDictMemo(t *testing.T) {
 	var ff arrow.Array
 
 	ff = f0
-	if !memo.HasDict(ff) {
+	if !memo.HasDict(ff.Data()) {
 		t.Fatalf("failed to find f0 through interface")
 	}
 
 	ff = f1
-	if !memo.HasDict(ff) {
+	if !memo.HasDict(ff.Data()) {
 		t.Fatalf("failed to find f1 through interface")
 	}
 
 	ff = f2
-	if memo.HasDict(ff) {
+	if memo.HasDict(ff.Data()) {
 		t.Fatalf("should not have found f2")
 	}
 
@@ -87,59 +88,42 @@ func TestDictMemo(t *testing.T) {
 		return v
 	}
 
-	if !memo.HasDict(fct(f1)) {
+	if !memo.HasDict(fct(f1).Data()) {
 		t.Fatalf("failed to find dict through func through interface")
 	}
 
-	if memo.HasDict(f2) {
+	if memo.HasDict(f2.Data()) {
 		t.Fatalf("should not have found f2")
 	}
 
 	ff = f0
 	for i, f := range []arrow.Array{f0, f1, ff, fct(f0), fct(f1)} {
-		if !memo.HasDict(f) {
+		if !memo.HasDict(f.Data()) {
 			t.Fatalf("failed to find dict %d", i)
 		}
 	}
 
-	v, ok := memo.Dict(0)
-	if !ok {
+	v, err := memo.Dict(0, mem)
+	if err != nil {
 		t.Fatalf("expected to find id=0")
 	}
-	if v != f0 {
+	if v != f0.Data() {
 		t.Fatalf("expected fo find id=0 array")
 	}
 
-	_, ok = memo.Dict(2)
-	if ok {
+	_, err = memo.Dict(2, mem)
+	if err == nil {
 		t.Fatalf("should not have found id=2")
 	}
-	_, ok = memo.Dict(-2)
-	if ok {
+	_, err = memo.Dict(-2, mem)
+	if err == nil {
 		t.Fatalf("should not have found id=-2")
 	}
 
-	if got, want := memo.ID(f0), int64(0); got != want {
-		t.Fatalf("found invalid id. got=%d, want=%d", got, want)
-	}
-
-	if got, want := memo.ID(f2), int64(2); got != want {
-		t.Fatalf("found invalid id. got=%d, want=%d", got, want)
-	}
-	if !memo.HasDict(f2) {
-		t.Fatalf("should have found f2")
-	}
-
 	// test we don't leak nor "double-delete" when adding an array multiple times.
-	memo.Add(42, f2)
-	if got, want := memo.ID(f2), int64(42); got != want {
-		t.Fatalf("found invalid id. got=%d, want=%d", got, want)
-	}
-	memo.Add(43, f2)
-	if got, want := memo.ID(f2), int64(43); got != want {
-		t.Fatalf("found invalid id. got=%d, want=%d", got, want)
-	}
-	if got, want := memo.Len(), 5; got != want {
+	memo.Add(42, f2.Data())
+	memo.Add(43, f2.Data())
+	if got, want := memo.Len(), 4; got != want {
 		t.Fatalf("invalid length. got=%d, want=%d", got, want)
 	}
 }
@@ -183,15 +167,15 @@ func TestDictMemoPanics(t *testing.T) {
 				}
 			}()
 
-			memo := newMemo()
-			defer memo.delete()
+			memo := dictutils.NewMemo()
+			defer memo.Clear()
 
 			if got, want := memo.Len(), 0; got != want {
 				t.Fatalf("invalid length: got=%d, want=%d", got, want)
 			}
 
-			memo.Add(tc.ids[0], tc.vs[0])
-			memo.Add(tc.ids[1], tc.vs[1])
+			memo.Add(tc.ids[0], tc.vs[0].Data())
+			memo.Add(tc.ids[1], tc.vs[1].Data())
 		})
 	}
 }

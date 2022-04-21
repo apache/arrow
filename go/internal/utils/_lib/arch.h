@@ -14,12 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build tools
-// +build tools
+#undef FULL_NAME
 
-package _tools
-
-import (
-	_ "golang.org/x/tools/cmd/goimports"
-	_ "golang.org/x/tools/cmd/stringer"
-)
+#if defined(__AVX2__)
+    #define FULL_NAME(x) x##_avx2
+#elif __SSE4_2__ == 1
+    #define FULL_NAME(x) x##_sse4
+#elif __SSE3__ == 1
+    #define FULL_NAME(x) x##_sse3
+#elif defined(__ARM_NEON) || defined(__ARM_NEON__)
+    #define FULL_NAME(x) x##_neon
+#else
+    #define FULL_NAME(x) x##_x86
+#endif

@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -131,6 +132,11 @@ func (enc *DictInt32Encoder) Type() parquet.Type {
 	return parquet.Types.Int32
 }
 
+// WriteDict populates the byte slice with the dictionary index
+func (enc *DictInt32Encoder) WriteDict(out []byte) {
+	enc.memo.(NumericMemoTable).WriteOutLE(out)
+}
+
 // Put encodes the values passed in, adding to the index as needed.
 func (enc *DictInt32Encoder) Put(in []int32) {
 	for _, val := range in {
@@ -225,7 +231,7 @@ func (dc *Int32DictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *Int32DictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
 	dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)
@@ -342,6 +348,11 @@ func (enc *DictInt64Encoder) Type() parquet.Type {
 	return parquet.Types.Int64
 }
 
+// WriteDict populates the byte slice with the dictionary index
+func (enc *DictInt64Encoder) WriteDict(out []byte) {
+	enc.memo.(NumericMemoTable).WriteOutLE(out)
+}
+
 // Put encodes the values passed in, adding to the index as needed.
 func (enc *DictInt64Encoder) Put(in []int64) {
 	for _, val := range in {
@@ -436,7 +447,7 @@ func (dc *Int64DictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *Int64DictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
 	dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)
@@ -644,7 +655,7 @@ func (dc *Int96DictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *Int96DictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
 	dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)
@@ -749,6 +760,11 @@ func (enc *DictFloat32Encoder) Type() parquet.Type {
 	return parquet.Types.Float
 }
 
+// WriteDict populates the byte slice with the dictionary index
+func (enc *DictFloat32Encoder) WriteDict(out []byte) {
+	enc.memo.(NumericMemoTable).WriteOutLE(out)
+}
+
 // Put encodes the values passed in, adding to the index as needed.
 func (enc *DictFloat32Encoder) Put(in []float32) {
 	for _, val := range in {
@@ -843,7 +859,7 @@ func (dc *Float32DictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *Float32DictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
 	dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)
@@ -948,6 +964,11 @@ func (enc *DictFloat64Encoder) Type() parquet.Type {
 	return parquet.Types.Double
 }
 
+// WriteDict populates the byte slice with the dictionary index
+func (enc *DictFloat64Encoder) WriteDict(out []byte) {
+	enc.memo.(NumericMemoTable).WriteOutLE(out)
+}
+
 // Put encodes the values passed in, adding to the index as needed.
 func (enc *DictFloat64Encoder) Put(in []float64) {
 	for _, val := range in {
@@ -1042,7 +1063,7 @@ func (dc *Float64DictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *Float64DictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
 	dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)
@@ -1308,7 +1329,7 @@ func (dc *ByteArrayDictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *ByteArrayDictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
 	dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)
@@ -1489,7 +1510,7 @@ func (dc *FixedLenByteArrayDictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *FixedLenByteArrayDictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
 	dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)

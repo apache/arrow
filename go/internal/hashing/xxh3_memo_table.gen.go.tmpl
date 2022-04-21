@@ -18,7 +18,7 @@ package hashing
 
 import (
   "github.com/apache/arrow/go/v8/arrow/bitutil"
-  "github.com/apache/arrow/go/v8/parquet/internal/utils"
+  "github.com/apache/arrow/go/v8/internal/utils"
 )
 
 {{range .In}}
@@ -90,7 +90,11 @@ func (h *{{.Name}}HashTable) WriteOutSubset(start int, out []byte) {
   h.VisitEntries(func(e *entry{{.Name}}) {
     idx := e.payload.memoIdx - int32(start)
     if idx >= 0 {
+{{if and (ne .Name "Int8") (ne .Name "Uint8") -}}    
       data[idx] = utils.ToLE{{.Name}}(e.payload.val)
+{{else -}}
+      data[idx] = e.payload.val
+{{end -}}
     }
   })
 }
@@ -197,6 +201,10 @@ func New{{.Name}}MemoTable(num int64) *{{.Name}}MemoTable {
   return &{{.Name}}MemoTable{tbl: New{{.Name}}HashTable(uint64(num)), nullIdx: KeyNotFound}
 }
 
+func ({{.Name}}MemoTable) TypeTraits() TypeTraits {
+  return arrow.{{.Name}}Traits
+}
+
 // Reset allows this table to be re-used by dumping all the data currently in the table.
 func (s *{{.Name}}MemoTable) Reset() {
   s.tbl.Reset(32)
@@ -244,17 +252,25 @@ func (s *{{.Name}}MemoTable) CopyValuesSubset(start int, out interface{}) {
 }
 
 func (s *{{.Name}}MemoTable) WriteOut(out []byte) {
-  s.tbl.WriteOut(out)
+  s.tbl.CopyValues(arrow.{{.Name}}Traits.CastFromBytes(out))
 }
 
 func (s *{{.Name}}MemoTable) WriteOutSubset(start int, out []byte) {
+  s.tbl.CopyValuesSubset(start, arrow.{{.Name}}Traits.CastFromBytes(out))
+}
+
+func (s *{{.Name}}MemoTable) WriteOutLE(out []byte) {
+  s.tbl.WriteOut(out)
+}
+
+func (s *{{.Name}}MemoTable) WriteOutSubsetLE(start int, out []byte) {
   s.tbl.WriteOutSubset(start, out)
 }
 
 // Get returns the index of the requested value in the hash table or KeyNotFound
 // along with a boolean indicating if it was found or not.
 func (s *{{.Name}}MemoTable) Get(val interface{}) (int, bool) {
-{{if or (eq .Name "Int32") (eq .Name "Int64") }}
+{{if and (ne .Name "Float32") (ne .Name "Float64") }}
   h := hashInt(uint64(val.({{.name}})), 0)
   if e, ok := s.tbl.Lookup(h, func(v {{.name}}) bool { return val.({{.name}}) == v }); ok {
 {{ else -}}
@@ -288,7 +304,7 @@ func (s *{{.Name}}MemoTable) Get(val interface{}) (int, bool) {
 // value into the table and return the new index. found indicates whether or not it already
 // existed in the table (true) or was inserted by this call (false).
 func (s *{{.Name}}MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err error) {
-  {{if or (eq .Name "Int32") (eq .Name "Int64") }}
+  {{if and (ne .Name "Float32") (ne .Name "Float64") }}
   h := hashInt(uint64(val.({{.name}})), 0)
   e, ok := s.tbl.Lookup(h, func(v {{.name}}) bool {
     return val.({{.name}}) == v

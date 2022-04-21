@@ -14,14 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build noasm
+//go:build !s390x
+// +build !s390x
 
 package utils
 
-// if building with the 'noasm' tag, then point to the pure go implementations
-func init() {
-	minmaxFuncs.i32 = int32MinMax
-	minmaxFuncs.ui32 = uint32MinMax
-	minmaxFuncs.i64 = int64MinMax
-	minmaxFuncs.ui64 = uint64MinMax
-}
+var (
+	ToLEInt16   = func(x int16) int16 { return x }
+	ToLEUint16  = func(x uint16) uint16 { return x }
+	ToLEUint32  = func(x uint32) uint32 { return x }
+	ToLEUint64  = func(x uint64) uint64 { return x }
+	ToLEInt32   = func(x int32) int32 { return x }
+	ToLEInt64   = func(x int64) int64 { return x }
+	ToLEFloat32 = func(x float32) float32 { return x }
+	ToLEFloat64 = func(x float64) float64 { return x }
+)

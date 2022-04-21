@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -28,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/array"
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 )
@@ -57,6 +59,18 @@ func (w *swriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
+func hasNestedDict(data arrow.ArrayData) bool {
+	if data.DataType().ID() == arrow.DICTIONARY {
+		return true
+	}
+	for _, c := range data.Children() {
+		if hasNestedDict(c) {
+			return true
+		}
+	}
+	return false
+}
+
 // Writer is an Arrow stream writer.
 type Writer struct {
 	w io.Writer
@@ -66,8 +80,14 @@ type Writer struct {
 
 	started    bool
 	schema     *arrow.Schema
+	mapper     dictutils.Mapper
 	codec      flatbuf.CompressionType
 	compressNP int
+
+	// map of the last written dictionaries by id
+	// so we can avoid writing the same dictionary over and over
+	lastWrittenDicts map[int64]arrow.Array
+	emitDictDeltas   bool
 }
 
 // NewWriterWithPayloadWriter constructs a writer with the provided payload writer
@@ -114,6 +134,10 @@ func (w *Writer) Close() error {
 	}
 	w.pw = nil
 
+	for _, d := range w.lastWrittenDicts {
+		d.Release()
+	}
+
 	return nil
 }
 
@@ -137,6 +161,12 @@ func (w *Writer) Write(rec arrow.Record) error {
 	)
 	defer data.Release()
 
+	err := writeDictionaryPayloads(w.mem, rec, false, w.emitDictDeltas, &w.mapper, w.lastWrittenDicts, w.pw, enc)
+	if err != nil {
+		return fmt.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
+	}
+
+	enc.reset()
 	if err := enc.Encode(&data, rec); err != nil {
 		return fmt.Errorf("arrow/ipc: could not encode record to payload: %w", err)
 	}
@@ -144,11 +174,80 @@ func (w *Writer) Write(rec arrow.Record) error {
 	return w.pw.WritePayload(data)
 }
 
+func writeDictionaryPayloads(mem memory.Allocator, batch arrow.Record, isFileFormat bool, emitDictDeltas bool, mapper *dictutils.Mapper, lastWrittenDicts map[int64]arrow.Array, pw PayloadWriter, encoder *recordEncoder) error {
+	dictionaries, err := dictutils.CollectDictionaries(batch, mapper)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for _, d := range dictionaries {
+			d.Dict.Release()
+		}
+	}()
+
+	eqopt := array.WithNaNsEqual(true)
+	for _, pair := range dictionaries {
+		encoder.reset()
+		var (
+			deltaStart int64
+			enc        = dictEncoder{encoder}
+		)
+		lastDict, exists := lastWrittenDicts[pair.ID]
+		if exists {
+			if lastDict.Data() == pair.Dict.Data() {
+				continue
+			}
+			newLen, lastLen := pair.Dict.Len(), lastDict.Len()
+			if lastLen == newLen && array.ArrayApproxEqual(lastDict, pair.Dict, eqopt) {
+				// same dictionary by value
+				// might cost CPU, but required for IPC file format
+				continue
+			}
+			if isFileFormat {
+				return errors.New("arrow/ipc: Dictionary replacement detected when writing IPC file format. Arrow IPC File only supports single dictionary per field")
+			}
+
+			if newLen > lastLen &&
+				emitDictDeltas &&
+				!hasNestedDict(pair.Dict.Data()) &&
+				(array.ArraySliceApproxEqual(lastDict, 0, int64(lastLen), pair.Dict, 0, int64(lastLen), eqopt)) {
+				deltaStart = int64(lastLen)
+			}
+		}
+
+		var data = Payload{msg: MessageDictionaryBatch}
+		defer data.Release()
+
+		dict := pair.Dict
+		if deltaStart > 0 {
+			dict = array.NewSlice(dict, deltaStart, int64(dict.Len()))
+			defer dict.Release()
+		}
+		if err := enc.Encode(&data, pair.ID, deltaStart > 0, dict); err != nil {
+			return err
+		}
+
+		if err := pw.WritePayload(data); err != nil {
+			return err
+		}
+
+		lastWrittenDicts[pair.ID] = pair.Dict
+		if lastDict != nil {
+			lastDict.Release()
+		}
+		pair.Dict.Retain()
+	}
+	return nil
+}
+
 func (w *Writer) start() error {
 	w.started = true
 
+	w.mapper.ImportSchema(w.schema)
+	w.lastWrittenDicts = make(map[int64]arrow.Array)
+
 	// write out schema payloads
-	ps := payloadsFromSchema(w.schema, w.mem, nil)
+	ps := payloadFromSchema(w.schema, w.mem, &w.mapper)
 	defer ps.Release()
 
 	for _, data := range ps {
@@ -159,6 +258,31 @@ func (w *Writer) start() error {
 	}
 
 	return nil
+}
+
+type dictEncoder struct {
+	*recordEncoder
+}
+
+func (d *dictEncoder) encodeMetadata(p *Payload, isDelta bool, id, nrows int64) error {
+	p.meta = writeDictionaryMessage(d.mem, id, isDelta, nrows, p.size, d.fields, d.meta, d.codec)
+	return nil
+}
+
+func (d *dictEncoder) Encode(p *Payload, id int64, isDelta bool, dict arrow.Array) error {
+	d.start = 0
+	defer func() {
+		d.start = 0
+	}()
+
+	schema := arrow.NewSchema([]arrow.Field{{Name: "dictionary", Type: dict.DataType(), Nullable: true}}, nil)
+	batch := array.NewRecord(schema, []arrow.Array{dict}, int64(dict.Len()))
+	defer batch.Release()
+	if err := d.encode(p, batch); err != nil {
+		return err
+	}
+
+	return d.encodeMetadata(p, isDelta, id, batch.NumRows())
 }
 
 type recordEncoder struct {
@@ -183,6 +307,11 @@ func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64
 		codec:      codec,
 		compressNP: compressNP,
 	}
+}
+
+func (w *recordEncoder) reset() {
+	w.start = 0
+	w.fields = make([]fieldMetadata, 0)
 }
 
 func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
@@ -261,7 +390,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	return <-errch
 }
 
-func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
+func (w *recordEncoder) encode(p *Payload, rec arrow.Record) error {
 
 	// perform depth-first traversal of the row-batch
 	for i, col := range rec.Columns() {
@@ -305,7 +434,7 @@ func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
 		panic("not aligned")
 	}
 
-	return w.encodeMetadata(p, rec.NumRows())
+	return nil
 }
 
 func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
@@ -324,6 +453,11 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			return fmt.Errorf("failed visiting storage of for array %T: %w", arr, err)
 		}
 		return nil
+	}
+
+	if arr.DataType().ID() == arrow.DICTIONARY {
+		arr := arr.(*array.Dictionary)
+		return w.visit(p, arr.Indices())
 	}
 
 	// add all common elements
@@ -595,6 +729,13 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffe
 	}
 
 	return voffsets, nil
+}
+
+func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
+	if err := w.encode(p, rec); err != nil {
+		return err
+	}
+	return w.encodeMetadata(p, rec.NumRows())
 }
 
 func (w *recordEncoder) encodeMetadata(p *Payload, nrows int64) error {

@@ -303,6 +303,9 @@ func ArrayEqual(left, right arrow.Array) bool {
 	case ExtensionArray:
 		r := right.(ExtensionArray)
 		return arrayEqualExtension(l, r)
+	case *Dictionary:
+		r := right.(*Dictionary)
+		return arrayEqualDict(l, r)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
@@ -507,6 +510,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *Map:
 		r := right.(*Map)
 		return arrayApproxEqualList(l.List, r.List, opt)
+	case *Dictionary:
+		r := right.(*Dictionary)
+		return arrayApproxEqualDict(l, r, opt)
 	case ExtensionArray:
 		r := right.(ExtensionArray)
 		return arrayApproxEqualExtension(l, r, opt)

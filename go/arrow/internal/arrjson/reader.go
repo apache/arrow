@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/arrio"
 	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
 )
 
 type Reader struct {
@@ -31,6 +32,7 @@ type Reader struct {
 
 	schema *arrow.Schema
 	recs   []arrow.Record
+	memo   *dictutils.Memo
 
 	irec int // current record index. used for the arrio.Reader interface.
 }
@@ -49,11 +51,14 @@ func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
 		opt(cfg)
 	}
 
-	schema := schemaFromJSON(raw.Schema)
+	memo := dictutils.NewMemo()
+	schema := schemaFromJSON(raw.Schema, &memo)
+	dictionariesFromJSON(cfg.alloc, raw.Dictionaries, &memo)
 	rr := &Reader{
 		refs:   1,
 		schema: schema,
-		recs:   recordsFromJSON(cfg.alloc, schema, raw.Records),
+		recs:   recordsFromJSON(cfg.alloc, schema, raw.Records, &memo),
+		memo:   &memo,
 	}
 	return rr, nil
 }

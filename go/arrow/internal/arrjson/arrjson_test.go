@@ -44,6 +44,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["decimal128"] = makeDecimal128sWantJSONs()
 	wantJSONs["maps"] = makeMapsWantJSONs()
 	wantJSONs["extension"] = makeExtensionsWantJSONs()
+	wantJSONs["dictionary"] = makeDictionaryWantJSONs()
 
 	tempDir, err := ioutil.TempDir("", "go-arrow-read-write-")
 	if err != nil {
@@ -3990,6 +3991,431 @@ func makeMapsWantJSONs() string {
 }`
 }
 
+func makeDictionaryWantJSONs() string {
+	return `{
+    "schema": {
+      "fields": [
+        {
+          "name": "dict0",
+          "type": {
+            "name": "utf8"
+          },
+          "nullable": true,
+          "children": [],
+          "dictionary": {
+            "id": 0,
+            "indexType": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 8
+            },
+            "isOrdered": false
+          }
+        },
+        {
+          "name": "dict1",
+          "type": {
+            "name": "utf8"
+          },
+          "nullable": true,
+          "children": [],
+          "dictionary": {
+            "id": 1,
+            "indexType": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "isOrdered": false
+          }
+        },
+        {
+          "name": "dict2",
+          "type": {
+            "name": "int",
+            "isSigned": true,
+            "bitWidth": 64
+          },
+          "nullable": true,
+          "children": [],
+          "dictionary": {
+            "id": 2,
+            "indexType": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 16
+            },
+            "isOrdered": false
+          }
+        }
+      ]
+    },
+    "dictionaries": [
+      {
+        "id": 0,
+        "data": {
+          "count": 10,
+          "columns": [
+            {
+              "name": "DICT0",
+              "count": 10,
+              "VALIDITY": [
+                1,
+                1,
+                0,
+                0,
+                0,
+                1,
+                1,
+                0,
+                1,
+                0
+              ],
+              "OFFSET": [
+                0,
+                7,
+                16,
+                16,
+                16,
+                16,
+                28,
+                39,
+                39,
+                46,
+                46
+              ],
+              "DATA": [
+                "gen3wjf",
+                "bbg61\u00b5\u00b0",
+                "",
+                "",
+                "",
+                "\u00f4\u00f42n\u20acm\u00a3",
+                "jb2b\u20acd\u20ac",
+                "",
+                "jfjddrg",
+                ""
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 1,
+        "data": {
+          "count": 5,
+          "columns": [
+            {
+              "name": "DICT1",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "OFFSET": [
+                0,
+                8,
+                18,
+                27,
+                35,
+                45
+              ],
+              "DATA": [
+                "\u00c2arcall",
+                "\u77e23b\u00b0eif",
+                "i3ak\u00b0k\u00b5",
+                "gp16\u00a3nd",
+                "f4\u00b01e\u00c2\u00b0"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "data": {
+          "count": 50,
+          "columns": [
+            {
+              "name": "DICT2",
+              "count": 50,
+              "VALIDITY": [
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                1,
+                1,
+                1,
+                1,
+                0,
+                0,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                0,
+                1,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                "-2147483648",
+                "2147483647",
+                "97251241",
+                "-315526314",
+                "-256834552",
+                "-1159355470",
+                "800976983",
+                "-1728247486",
+                "-1784101814",
+                "1320684343",
+                "-788965748",
+                "1298782506",
+                "1971840342",
+                "686564052",
+                "-115364825",
+                "1787500433",
+                "-123446338",
+                "-1973712113",
+                "870684092",
+                "-994630427",
+                "-1826738974",
+                "461928552",
+                "1374967188",
+                "1317234669",
+                "1129789963",
+                "312195995",
+                "1535930156",
+                "-1610317326",
+                "-721673697",
+                "1443186644",
+                "-643456149",
+                "1132307434",
+                "1240578589",
+                "379611602",
+                "2011416968",
+                "165842874",
+                "-570054451",
+                "893435720",
+                "835998817",
+                "1223423131",
+                "-1677568310",
+                "-230900360",
+                "-229961726",
+                "2113303164",
+                "201112068",
+                "452691328",
+                "-1980985397",
+                "675701869",
+                "-1802109191",
+                "-669843831"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "batches": [
+      {
+        "count": 7,
+        "columns": [
+          {
+            "name": "dict0",
+            "count": 7,
+            "VALIDITY": [
+              1,
+              1,
+              0,
+              1,
+              0,
+              1,
+              1
+            ],
+            "DATA": [
+              7,
+              6,
+              3,
+              1,
+              2,
+              9,
+              1
+            ]
+          },
+          {
+            "name": "dict1",
+            "count": 7,
+            "VALIDITY": [
+              1,
+              1,
+              0,
+              0,
+              0,
+              1,
+              0
+            ],
+            "DATA": [
+              0,
+              0,
+              3,
+              3,
+              4,
+              2,
+              3
+            ]
+          },
+          {
+            "name": "dict2",
+            "count": 7,
+            "VALIDITY": [
+              0,
+              1,
+              0,
+              1,
+              1,
+              0,
+              1
+            ],
+            "DATA": [
+              3,
+              11,
+              0,
+              33,
+              5,
+              21,
+              9
+            ]
+          }
+        ]
+      },
+      {
+        "count": 10,
+        "columns": [
+          {
+            "name": "dict0",
+            "count": 10,
+            "VALIDITY": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              1,
+              0,
+              1,
+              1
+            ],
+            "DATA": [
+              9,
+              4,
+              3,
+              9,
+              5,
+              7,
+              9,
+              4,
+              0,
+              9
+            ]
+          },
+          {
+            "name": "dict1",
+            "count": 10,
+            "VALIDITY": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              1,
+              1,
+              1,
+              0
+            ],
+            "DATA": [
+              1,
+              2,
+              4,
+              3,
+              3,
+              3,
+              2,
+              4,
+              4,
+              4
+            ]
+          },
+          {
+            "name": "dict2",
+            "count": 10,
+            "VALIDITY": [
+              0,
+              0,
+              1,
+              1,
+              1,
+              1,
+              0,
+              0,
+              1,
+              0
+            ],
+            "DATA": [
+              24,
+              26,
+              39,
+              4,
+              23,
+              23,
+              6,
+              28,
+              9,
+              49
+            ]
+          }
+        ]
+      }
+    ]
+  }`
+}
+
 func makeExtensionsWantJSONs() string {
 	return `{
   "schema": {
@@ -4112,7 +4538,27 @@ func makeExtensionsWantJSONs() string {
           "name": "struct"
         },
         "nullable": true,
-        "children": [],
+        "children": [
+          {
+            "name": "a",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 64
+            },
+            "nullable": false,
+            "children": []
+          },
+          {
+            "name": "b",
+            "type": {
+              "name": "floatingpoint",
+              "precision": "DOUBLE"
+            },
+            "nullable": false,
+            "children": []
+          }
+        ],
         "metadata": [
           {
             "key": "k1",

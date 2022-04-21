@@ -22,6 +22,7 @@ import (
   format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
   "github.com/apache/arrow/go/v8/arrow"
   "github.com/apache/arrow/go/v8/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v8/internal/utils"
 )
 
 // fully typed encoder interfaces to enable writing against encoder/decoders
@@ -165,7 +166,7 @@ func (enc *Dict{{.Name}}Encoder) Type() parquet.Type {
 {{if (ne .Name "Int96")}}
 // WriteDict populates the byte slice with the dictionary index
 func (enc *Dict{{.Name}}Encoder) WriteDict(out []byte) {
-  enc.memo.CopyValues({{.prefix}}.{{.Name}}Traits.CastFromBytes(out))
+  enc.memo.(NumericMemoTable).WriteOutLE(out)
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -291,7 +292,7 @@ func (dc *{{.Name}}DictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *{{.Name}}DictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
   dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)
