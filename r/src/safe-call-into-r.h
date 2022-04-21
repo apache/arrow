@@ -132,6 +132,12 @@ static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun) {
 
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
+  // Unwind protection was added in R 3.5 and some calls here crash R
+  // in older versions (ARROW-16201). Rather than crash, just return an error result
+  // when this is attempted.
+#if !defined(HAS_UNWIND_PROTECT)
+  return arrow::Status::NotImplemented("RunWithCapturedR() without UnwindProtect");
+#else
   if (GetMainRThread().Executor() != nullptr) {
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
@@ -148,6 +154,7 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
   GetMainRThread().ClearError();
 
   return result;
+#endif
 }
 
 #endif
