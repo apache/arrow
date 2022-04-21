@@ -32,7 +32,7 @@ except ImportError:
     zoneinfo = None
 if sys.platform == 'win32':
     try:
-        import tzdata
+        import tzdata  # noqa:F401
     except ImportError:
         zoneinfo = None
 import numpy as np
