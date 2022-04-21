@@ -29,54 +29,6 @@
 namespace arrow {
 namespace compute {
 
-static KeyEncoder::KeyColumnMetadata ColumnMetadataFromDataType(
-    const std::shared_ptr<DataType>& type) {
-  if (type->id() == Type::DICTIONARY) {
-    auto bit_width =
-        arrow::internal::checked_cast<const FixedWidthType&>(*type).bit_width();
-    ARROW_DCHECK(bit_width % 8 == 0);
-    return KeyEncoder::KeyColumnMetadata(true, bit_width / 8);
-  } else if (type->id() == Type::BOOL) {
-    return KeyEncoder::KeyColumnMetadata(true, 0);
-  } else if (is_fixed_width(type->id())) {
-    return KeyEncoder::KeyColumnMetadata(
-        true,
-        arrow::internal::checked_cast<const FixedWidthType&>(*type).bit_width() / 8);
-  } else if (is_binary_like(type->id())) {
-    return KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
-  } else {
-    ARROW_DCHECK(false);
-    return KeyEncoder::KeyColumnMetadata(true, sizeof(int));
-  }
-}
-
-static KeyEncoder::KeyColumnArray ColumnArrayFromArrayData(
-    const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows) {
-  KeyEncoder::KeyColumnArray column_array = KeyEncoder::KeyColumnArray(
-      ColumnMetadataFromDataType(array_data->type),
-      array_data->offset + start_row + num_rows,
-      array_data->buffers[0] != NULLPTR ? array_data->buffers[0]->data() : nullptr,
-      array_data->buffers[1]->data(),
-      array_data->buffers.size() >= 3 && array_data->buffers[2] != NULLPTR
-          ? array_data->buffers[2]->data()
-          : nullptr);
-  return KeyEncoder::KeyColumnArray(column_array, array_data->offset + start_row,
-                                    num_rows);
-}
-
-static void ColumnArraysFromExecBatch(
-    const ExecBatch& batch, int64_t start_row, int64_t num_rows,
-    std::vector<KeyEncoder::KeyColumnArray>& column_arrays) {
-  int num_columns = static_cast<int>(batch.values.size());
-  column_arrays.resize(num_columns);
-  for (int i = 0; i < num_columns; ++i) {
-    const Datum& data = batch.values[i];
-    ARROW_DCHECK(data.is_array());
-    const std::shared_ptr<ArrayData>& array_data = data.array();
-    column_arrays[i] = ColumnArrayFromArrayData(array_data, start_row, num_rows);
-  }
-}
-
 inline uint32_t Hashing32::Round(uint32_t acc, uint32_t input) {
   acc += input * PRIME32_2;
   acc = ROTL(acc, 13);
@@ -508,8 +460,8 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 void Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
                           int64_t offset, int64_t length) {
-  std::vector<KeyEncoder::KeyColumnArray> column_arrays;
-  ColumnArraysFromExecBatch(key_batch, offset, length, column_arrays);
+  std::vector<KeyColumnArray> column_arrays;
+  ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays);
 
   KeyEncoder::KeyEncoderContext ctx;
   ctx.hardware_flags = hardware_flags;
@@ -939,8 +891,8 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 void Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
                           int64_t offset, int64_t length) {
-  std::vector<KeyEncoder::KeyColumnArray> column_arrays;
-  ColumnArraysFromExecBatch(key_batch, offset, length, column_arrays);
+  std::vector<KeyColumnArray> column_arrays;
+  ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays);
 
   KeyEncoder::KeyEncoderContext ctx;
   ctx.hardware_flags = hardware_flags;
