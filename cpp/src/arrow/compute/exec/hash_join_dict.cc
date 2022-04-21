@@ -566,7 +566,7 @@ Status HashJoinDictBuildMulti::PostDecode(
 }
 
 void HashJoinDictProbeMulti::Init(size_t num_threads) {
-  local_states_.resize(num_threads + 1);  // +1 for calling thread + worker threads
+  local_states_.resize(num_threads);
   for (size_t i = 0; i < local_states_.size(); ++i) {
     local_states_[i].is_initialized = false;
   }
@@ -576,6 +576,7 @@ bool HashJoinDictProbeMulti::BatchRemapNeeded(
     size_t thread_index, const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, ExecContext* ctx) {
   InitLocalStateIfNeeded(thread_index, proj_map_probe, proj_map_build, ctx);
+  DCHECK_LT(thread_index, local_states_.size());
   return local_states_[thread_index].any_needs_remap;
 }
 
