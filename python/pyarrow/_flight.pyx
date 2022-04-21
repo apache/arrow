@@ -107,7 +107,8 @@ cdef class FlightCallOptions(_Weakrefable):
     cdef:
         CFlightCallOptions options
 
-    def __init__(self, timeout=None, write_options=None, headers=None):
+    def __init__(self, timeout=None, write_options=None, headers=None,
+                 IpcReadOptions read_options=None):
         """Create call options.
 
         Parameters
@@ -120,14 +121,22 @@ cdef class FlightCallOptions(_Weakrefable):
             by environment variables (see pyarrow.ipc).
         headers : List[Tuple[str, str]], optional
             A list of arbitrary headers as key, value tuples
+        read_options : pyarrow.ipc.IpcReadOptions, optional
+            Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
+        cdef IpcReadOptions c_read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
         if write_options is not None:
             c_write_options = _get_options(write_options)
             self.options.write_options = c_write_options.c_options
+        if read_options is not None:
+            if not isinstance(read_options, IpcReadOptions):
+                raise TypeError("expected IpcReadOptions, got {}"
+                                .format(type(read_options)))
+            self.options.read_options = read_options.c_options
         if headers is not None:
             self.options.headers = headers
 

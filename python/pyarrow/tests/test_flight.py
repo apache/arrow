@@ -32,7 +32,7 @@ import numpy as np
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import tobytes
+from pyarrow.lib import IpcReadOptions, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
@@ -119,6 +119,12 @@ def simple_dicts_table():
     return pa.Table.from_arrays(data, names=['some_dicts'])
 
 
+def multiple_column_table():
+    return pa.Table.from_arrays([pa.array(['foo', 'bar', 'baz', 'qux']),
+                                 pa.array([1, 2, 3, 4])],
+                                names=['a', 'b'])
+
+
 class ConstantFlightServer(FlightServerBase):
     """A Flight server that always returns the same data.
 
@@ -134,6 +140,7 @@ class ConstantFlightServer(FlightServerBase):
         self.table_factories = {
             b'ints': simple_ints_table,
             b'dicts': simple_dicts_table,
+            b'multi': multiple_column_table,
         }
         self.options = options
 
@@ -1162,6 +1169,23 @@ def test_timeout_passes():
             FlightClient(('localhost', server.port)) as client:
         options = flight.FlightCallOptions(timeout=5.0)
         client.do_get(flight.Ticket(b'ints'), options=options).read_all()
+
+
+def test_read_options():
+    """Make sure ReadOptions can be used."""
+    expected = pa.Table.from_arrays([pa.array([1, 2, 3, 4])], names=["b"])
+    with ConstantFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        options = flight.FlightCallOptions(
+            read_options=IpcReadOptions(included_fields=[1]))
+        response1 = client.do_get(flight.Ticket(
+            b'multi'), options=options).read_all()
+        response2 = client.do_get(flight.Ticket(b'multi')).read_all()
+
+        assert response2.num_columns == 2
+        assert response1.num_columns == 1
+        assert response1 == expected
+        assert response2 == multiple_column_table()
 
 
 basic_auth_handler = HttpBasicServerAuthHandler(creds={
