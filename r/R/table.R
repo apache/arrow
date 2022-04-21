@@ -170,7 +170,7 @@ concat_tables <- function(..., unify_schemas = TRUE) {
   tables <- list2(...)
 
   if (length(tables) == 0) {
-    abort("Must pass at least one table.")
+    abort("Must pass at least one Table.")
   }
 
   if (!unify_schemas) {
