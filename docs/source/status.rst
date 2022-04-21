@@ -21,7 +21,7 @@ Implementation Status
 
 The following tables summarize the features available in the various official
 Arrow libraries. All libraries currently follow version 1.0.0 of the Arrow
-format. See :ref:`status` for details about versioning. Unless otherwise stated,
+format. See :doc:`versioning` for details about versioning. Unless otherwise stated,
 the Python, R, Ruby and C/GLib libraries follow the C++ Arrow library.
 
 Data Types
