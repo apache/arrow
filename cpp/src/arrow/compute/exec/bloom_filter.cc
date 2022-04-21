@@ -105,10 +105,10 @@ Status BlockedBloomFilter::CreateEmpty(int64_t num_rows_to_insert, MemoryPool* p
 
   // Allocate and zero out bit vector
   //
-  int64_t buffer_size = num_blocks_ * sizeof(uint64_t);
+  int64_t buffer_size = num_blocks_ * sizeof(std::atomic<uint64_t>);
   ARROW_ASSIGN_OR_RAISE(buf_, AllocateBuffer(buffer_size, pool));
-  blocks_ = reinterpret_cast<uint64_t*>(buf_->mutable_data());
-  memset(blocks_, 0, buffer_size);
+  blocks_ = reinterpret_cast<std::atomic<uint64_t>*>(buf_->mutable_data());
+  memset(reinterpret_cast<void*>(blocks_), 0, buffer_size);
 
   return Status::OK();
 }
@@ -262,14 +262,16 @@ void BlockedBloomFilter::SingleFold(int num_folds) {
   //
   int64_t num_slices = 1LL << num_folds;
   int64_t num_slice_blocks = (num_blocks_ >> num_folds);
-  uint64_t* target_slice = blocks_;
+  std::atomic<uint64_t>* target_slice = blocks_;
 
   // OR bits of all the slices and store result in the first slice
   //
   for (int64_t slice = 1; slice < num_slices; ++slice) {
-    const uint64_t* source_slice = blocks_ + slice * num_slice_blocks;
+    const std::atomic<uint64_t>* source_slice = blocks_ + slice * num_slice_blocks;
     for (int i = 0; i < num_slice_blocks; ++i) {
-      target_slice[i] |= source_slice[i];
+      uint64_t target = target_slice[i].load(std::memory_order_relaxed);
+      uint64_t source = source_slice[i].load(std::memory_order_relaxed);
+      target_slice[i].store(target | source, std::memory_order_relaxed);
     }
   }
 

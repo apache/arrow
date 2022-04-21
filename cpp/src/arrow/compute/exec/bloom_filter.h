@@ -113,7 +113,7 @@ class ARROW_EXPORT BlockedBloomFilter {
 
   inline bool Find(uint64_t hash) const {
     uint64_t m = mask(hash);
-    uint64_t b = blocks_[block_id(hash)];
+    uint64_t b = blocks_[block_id(hash)].load(std::memory_order_relaxed);
     return (b & m) == m;
   }
 
@@ -163,8 +163,9 @@ class ARROW_EXPORT BlockedBloomFilter {
 
   inline void Insert(uint64_t hash) {
     uint64_t m = mask(hash);
-    uint64_t& b = blocks_[block_id(hash)];
-    b |= m;
+    std::atomic<uint64_t>& b = blocks_[block_id(hash)];
+    uint64_t b_old = b.load(std::memory_order_relaxed);
+    b.store(b_old | m, std::memory_order_relaxed);
   }
 
   void Insert(int64_t hardware_flags, int64_t num_rows, const uint32_t* hashes);
@@ -237,7 +238,7 @@ class ARROW_EXPORT BlockedBloomFilter {
   std::shared_ptr<Buffer> buf_;
   // Pointer to mutable data owned by Buffer
   //
-  uint64_t* blocks_;
+  std::atomic<uint64_t>* blocks_;
 };
 
 // We have two separate implementations of building a Bloom filter, multi-threaded and
