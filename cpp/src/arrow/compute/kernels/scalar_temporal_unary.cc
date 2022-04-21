@@ -690,7 +690,7 @@ struct IsDaylightSavings {
 
 template <typename Duration, typename Localizer>
 year_month_day GetFlooredYmd(int64_t arg, const int multiple,
-                             const RoundTemporalOptions options, Localizer localizer_) {
+                             const RoundTemporalOptions& options, Localizer localizer_) {
   year_month_day ymd{floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
 
   if (multiple == 1) {

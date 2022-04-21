@@ -917,7 +917,7 @@ class RoundTemporalOptions(_RoundTemporalOptions):
 
     """
 
-    def __init__(self, multiple=1, unit="day", week_starts_monday=True,
+    def __init__(self, multiple=1, unit="day", *, week_starts_monday=True,
                  change_on_boundary=False, calendar_based_origin=False):
         self._set_options(multiple, unit, week_starts_monday,
                           change_on_boundary, calendar_based_origin)
