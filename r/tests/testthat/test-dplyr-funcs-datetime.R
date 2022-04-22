@@ -1260,6 +1260,11 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
   example_d <- tibble(x = c(1:10, NA))
   date_to_add <- ymd("2009-08-03", tz = "Pacific/Marquesas")
 
+  # When comparing results we use ignore_attr = TRUE because of the diff in:
+  # attribute 'package' (absent vs. 'lubridate')
+  # class (difftime vs Duration)
+  # attribute 'units' (character vector ('secs') vs. absent)
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1317,6 +1322,11 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
 test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", {
   example_d <- tibble(x = c(1:10, NA))
   date_to_add <- ymd("2009-08-03", tz = "Pacific/Marquesas")
+
+  # When comparing results we use ignore_attr = TRUE because of the diff in:
+  # attribute 'package' (absent vs. 'lubridate')
+  # class (difftime vs Duration)
+  # attribute 'units' (character vector ('secs') vs. absent)
 
   compare_dplyr_binding(
     .input %>%
