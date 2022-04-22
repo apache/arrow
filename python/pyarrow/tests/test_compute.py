@@ -1171,8 +1171,8 @@ def test_drop_null(ty, values):
 
 
 def test_drop_null_chunked_array():
-    arr = pa.chunked_array([["a", None], ["c", "d", None], [None], []])
-    expected_drop = pa.chunked_array([["a"], ["c", "d"], [], []])
+    arr = pa.chunked_array([[None], [None], []])
+    expected_drop = pa.chunked_array([[]])
 
     result = arr.drop_null()
     assert result.equals(expected_drop)
