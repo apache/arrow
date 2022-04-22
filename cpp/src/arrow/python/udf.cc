@@ -111,13 +111,13 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
     return Status::TypeError("Expected a callable Python object.");
   }
   auto scalar_func = std::make_shared<compute::ScalarFunction>(
-      options.name(), options.arity(), std::move(options.doc()));
+      options.func_name, options.arity, options.func_doc);
   Py_INCREF(user_function);
   PythonUdf exec{wrapper, std::make_shared<OwnedRefNoGIL>(user_function),
-                 std::move(options.output_type())};
+                 *options.output_type};
   compute::ScalarKernel kernel(
-      compute::KernelSignature::Make(options.input_types(), options.output_type(),
-                                     options.arity().is_varargs),
+      compute::KernelSignature::Make(options.input_types, *options.output_type,
+                                     options.arity.is_varargs),
       std::move(exec));
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;

@@ -36,38 +36,13 @@ namespace py {
 // TODO: TODO(ARROW-16041): UDF Options are not exposed to the Python
 // users. This feature will be included when extending to provide advanced
 // options for the users.
-class ARROW_PYTHON_EXPORT ScalarUdfOptions {
- public:
-  ScalarUdfOptions(const std::string func_name, const compute::Arity arity,
-                   const compute::FunctionDoc func_doc,
-                   const std::vector<compute::InputType> in_types,
-                   const compute::OutputType out_type)
-      : func_name_(func_name),
-        kind_(compute::Function::SCALAR),
-        arity_(arity),
-        func_doc_(std::move(func_doc)),
-        in_types_(std::move(in_types)),
-        out_type_(out_type) {}
-
-  const std::string& name() const { return func_name_; }
-
-  compute::Function::Kind kind() { return kind_; }
-
-  const compute::Arity& arity() const { return arity_; }
-
-  const compute::FunctionDoc& doc() const { return func_doc_; }
-
-  const std::vector<compute::InputType>& input_types() const { return in_types_; }
-
-  const compute::OutputType& output_type() const { return out_type_; }
-
- private:
-  std::string func_name_;
-  compute::Function::Kind kind_;
-  compute::Arity arity_;
-  const compute::FunctionDoc func_doc_;
-  std::vector<compute::InputType> in_types_;
-  compute::OutputType out_type_;
+struct ARROW_PYTHON_EXPORT ScalarUdfOptions {
+  std::string func_name;
+  compute::Function::Kind kind = compute::Function::SCALAR;
+  compute::Arity arity;
+  compute::FunctionDoc func_doc;
+  std::vector<compute::InputType> input_types;
+  std::shared_ptr<compute::OutputType> output_type;
 };
 
 struct ARROW_PYTHON_EXPORT ScalarUdfContext {

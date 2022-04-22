@@ -2692,8 +2692,11 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
         int64_t batch_length
 
     cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions":
-        CScalarUdfOptions(c_string func_name, CArity arity, CFunctionDoc func_doc,
-                          vector[CInputType] in_types, COutputType out_type)
+        c_string func_name
+        CArity arity
+        CFunctionDoc func_doc
+        vector[CInputType] input_types
+        shared_ptr[COutputType] output_type
 
     CStatus RegisterScalarFunction(PyObject* function,
                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options)

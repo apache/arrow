@@ -2521,7 +2521,7 @@ def register_scalar_function(func, func_name, function_doc, in_types,
         shared_ptr[CDataType] c_type
         shared_ptr[COutputType] c_out_type
         CStatus st
-        shared_ptr[CScalarUdfOptions] c_options
+        CScalarUdfOptions c_options
 
     c_func_name = tobytes(func_name)
 
@@ -2564,8 +2564,12 @@ def register_scalar_function(func, func_name, function_doc, in_types,
     c_type = pyarrow_unwrap_data_type(ensure_type(out_type))
 
     c_out_type = make_shared[COutputType](c_type)
-    c_options = make_shared[CScalarUdfOptions](c_func_name, c_arity, c_func_doc,
-                                               c_in_types, deref(c_out_type))
+
+    c_options.func_name = c_func_name
+    c_options.arity = c_arity
+    c_options.func_doc = c_func_doc
+    c_options.input_types = c_in_types
+    c_options.output_type = c_out_type
 
     check_status(RegisterScalarFunction(c_function,
-                                        <function[CallbackUdf]> &_scalar_udf_callback, deref(c_options)))
+                                        <function[CallbackUdf]> &_scalar_udf_callback, c_options))
