@@ -3110,6 +3110,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
         schema = kwargs.pop("schema", None)
         use_threads = kwargs.pop("use_threads", True)
         chunk_size = kwargs.pop("chunk_size", None)
+        row_group_size = kwargs.pop("row_group_size", None)
+
+        if row_group_size or chunk_size is not None:
+            row_group_size = row_group_size if row_group_size else chunk_size
 
         # raise for unsupported keywords
         msg = (
@@ -3149,7 +3153,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             file_visitor=file_visitor,
             basename_template=basename_template,
             existing_data_behavior=existing_data_behavior,
-            max_rows_per_group=chunk_size)
+            max_rows_per_group=row_group_size)
         return
 
     # warnings and errors when using legecy implementation
