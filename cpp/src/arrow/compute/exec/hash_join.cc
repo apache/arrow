@@ -90,8 +90,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
               OutputBatchCallback output_batch_callback,
               FinishedCallback finished_callback,
               TaskScheduler::ScheduleImpl schedule_task_callback,
-              HashJoinImpl* pushdown_target,
-              std::vector<int> column_map) override {
+              HashJoinImpl* pushdown_target, std::vector<int> column_map) override {
     // TODO(ARROW-15732)
     // Each side of join might have an IO thread being called from.
     // As of right now, we ignore the `num_threads` argument, so later we will have to
@@ -117,11 +116,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
       local_states_[i].is_has_match_initialized = false;
     }
     temp_stacks_.resize(num_threads_);
-    for(size_t i = 0; i < temp_stacks_.size(); i++)
-        RETURN_NOT_OK(temp_stacks_[i].Init(ctx_->memory_pool(), 4 * util::MiniBatch::kMiniBatchLength * sizeof(uint32_t)));
+    for (size_t i = 0; i < temp_stacks_.size(); i++)
+      RETURN_NOT_OK(temp_stacks_[i].Init(
+          ctx_->memory_pool(), 4 * util::MiniBatch::kMiniBatchLength * sizeof(uint32_t)));
 
     dict_probe_.Init(num_threads_);
-
 
     pushdown_target_ = pushdown_target;
     column_map_ = std::move(column_map);
@@ -681,7 +680,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
       arrow::internal::BitmapAnd(bv.data(), 0, selected.data(), 0, key_batch.length, 0,
                                  selected.data());
     }
-    auto selected_buffer = arrow::internal::make_unique<Buffer>(selected.data(), bit_vector_bytes);
+    auto selected_buffer =
+        arrow::internal::make_unique<Buffer>(selected.data(), bit_vector_bytes);
     ArrayData selected_arraydata(boolean(), batch.length,
                                  {nullptr, std::move(selected_buffer)});
     Datum selected_datum(selected_arraydata);
