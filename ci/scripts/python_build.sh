@@ -27,7 +27,9 @@ python_build_dir=${build_dir}/python
 
 : ${BUILD_DOCS_PYTHON:=OFF}
 
-git config --global --add safe.directory ${arrow_dir}
+if [ -x "$(command -v git)" ]; then
+  git config --global --add safe.directory ${arrow_dir}
+fi
 
 case "$(uname)" in
   Linux)
