@@ -65,7 +65,7 @@ jobs:
       - name: Add Vcpkg to PATH
         run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
 
-      - name: Install Arm64 Packages
+      - name: Install ARM64 Packages
         env:
           VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
         run: |
@@ -78,7 +78,7 @@ jobs:
             --x-feature=json \
             --x-feature=parquet
 
-      - name: Build Arm64 Wheel
+      - name: Build ARM64 Wheel
         env:
           VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
         run: |
@@ -88,11 +88,11 @@ jobs:
           arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
 
       {% if arch == "universal2" %}
-      - name: Install Amd64 Packages
+      - name: Install AMD64 Packages
         env:
           VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
         run: |
-           arch -x86_64 vcpkg install \
+           arch -arm64 vcpkg install \
             --clean-after-build \
             --x-install-root=${VCPKG_ROOT}/installed \
             --x-manifest-root=arrow/ci/vcpkg \
@@ -101,16 +101,16 @@ jobs:
             --x-feature=json \
             --x-feature=parquet
 
-      - name: Build Amd64 Wheel
+      - name: Build AMD64 Wheel
         env:
           VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
         run: |
           $PYTHON -m venv build-amd64-env
           source build-amd64-env/bin/activate
           pip install --upgrade pip wheel
-          arch -x86_64 arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
+          arch -x86_64 arrow/ci/scripts/python_wheel_macos_build.sh amd64 $(pwd)/arrow $(pwd)/build
 
-      - name: Fuse Amd64 and Arm64 wheels
+      - name: Fuse AMD64 and ARM64 wheels
         run: |
           source build-amd64-env/bin/activate
           pip install delocate

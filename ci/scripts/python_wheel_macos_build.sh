@@ -25,10 +25,10 @@ build_dir=${3}
 
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
+rm -rf ${build_dir}/build
 rm -rf ${build_dir}/install
 rm -rf ${source_dir}/python/dist
 rm -rf ${source_dir}/python/build
-rm -rf ${source_dir}/python/repaired_wheels
 rm -rf ${source_dir}/python/pyarrow/*.so
 rm -rf ${source_dir}/python/pyarrow/*.so.*
 
@@ -39,7 +39,7 @@ export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 
 if [ $arch = "arm64" ]; then
   export CMAKE_OSX_ARCHITECTURES="arm64"
-elif [ $arch = "x86_64" ]; then
+elif [ $arch = "amd64" ]; then
   export CMAKE_OSX_ARCHITECTURES="x86_64"
 elif [ $arch = "universal2" ]; then
   export CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
