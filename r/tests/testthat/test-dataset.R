@@ -980,7 +980,7 @@ test_that("Filter parquet dataset with is.na ARROW-15312", {
     df %>% collect() %>% filter(is.na(y))
   )
 
-  # ERROR: Filter then collect (on y) returns a tibble with no row
+  # Before the fix: Filter then collect on y returned a 0-row tibble
   expect_identical(
     open_dataset(ds_path) %>% filter(is.na(y)) %>% collect(),
     df %>% filter(is.na(y)) %>% collect()
