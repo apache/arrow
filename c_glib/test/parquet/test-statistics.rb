@@ -21,13 +21,18 @@ class TestParquetStatistics < Test::Unit::TestCase
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
     @file = Tempfile.open(["data", ".parquet"])
-    @table = build_table("int32" => build_int32_array([nil, 2, 2, 9]))
-    writer = Parquet::ArrowFileWriter.new(@table.schema, @file.path)
+    table = build_table("int32" => build_int32_array([nil, 2, 2, 9]))
+    writer = Parquet::ArrowFileWriter.new(table.schema, @file.path)
     chunk_size = 1024
-    writer.write_table(@table, chunk_size)
+    writer.write_table(table, chunk_size)
     writer.close
     reader = Parquet::ArrowFileReader.new(@file.path)
     @statistics = reader.metadata.get_row_group(0).get_column_chunk(0).statistics
+    begin
+      yield
+    ensure
+      @file.close!
+    end
   end
 
   test("#==") do

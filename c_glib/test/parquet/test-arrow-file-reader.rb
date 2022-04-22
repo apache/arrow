@@ -20,16 +20,21 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
 
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
-    @file = Tempfile.open(["data", ".parquet"])
+    file = Tempfile.open(["data", ".parquet"])
     @a_array = build_string_array(["foo", "bar"])
     @b_array = build_int32_array([123, 456])
     @table = build_table("a" => @a_array,
                          "b" => @b_array)
-    writer = Parquet::ArrowFileWriter.new(@table.schema, @file.path)
+    writer = Parquet::ArrowFileWriter.new(@table.schema, file.path)
     chunk_size = 1
     writer.write_table(@table, chunk_size)
     writer.close
-    @reader = Parquet::ArrowFileReader.new(@file.path)
+    @reader = Parquet::ArrowFileReader.new(file.path)
+    begin
+      yield
+    ensure
+      file.close!
+    end
   end
 
   def test_schema

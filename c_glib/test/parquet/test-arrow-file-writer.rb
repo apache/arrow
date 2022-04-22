@@ -21,6 +21,11 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
     @file = Tempfile.open(["data", ".parquet"])
+    begin
+      yield
+    ensure
+      @file.close!
+    end
   end
 
   def test_write

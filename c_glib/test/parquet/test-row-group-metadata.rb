@@ -21,7 +21,7 @@ class TestParquetRowGroupMetadata < Test::Unit::TestCase
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
     @file = Tempfile.open(["data", ".parquet"])
-    @string_array = build_string_array([nil, "hello"])
+    string_array = build_string_array([nil, "hello"])
     fields = [
       Arrow::Field.new("int8", Arrow::Int8DataType.new),
       Arrow::Field.new("boolean", Arrow::BooleanDataType.new),
@@ -33,18 +33,24 @@ class TestParquetRowGroupMetadata < Test::Unit::TestCase
       },
       nil,
     ]
-    @struct_array = build_struct_array(fields, structs)
-    @table = build_table("string" => @string_array,
-                         "struct" => @struct_array)
-    writer = Parquet::ArrowFileWriter.new(@table.schema, @file.path)
+    struct_array = build_struct_array(fields, structs)
+    table = build_table("string" => string_array,
+                        "struct" => struct_array)
+    writer = Parquet::ArrowFileWriter.new(table.schema, @file.path)
     chunk_size = 1
-    writer.write_table(@table, chunk_size)
+    writer.write_table(table, chunk_size)
     writer.close
     reader = Parquet::ArrowFileReader.new(@file.path)
     @metadata = reader.metadata.get_row_group(0)
+    begin
+      yield
+    ensure
+      @file.close!
+    end
   end
 
   test("#==") do
+    omit("parquet::RowGroupMetaData::Equals() isn't stable.")
     reader = Parquet::ArrowFileReader.new(@file.path)
     other_metadata = reader.metadata.get_row_group(0)
     assert do
