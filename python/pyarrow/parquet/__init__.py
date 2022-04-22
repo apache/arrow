@@ -1715,14 +1715,14 @@ Examples
 
         (self._pieces,
          self._partitions,
-         self.common_metadata_path,
-         self.metadata_path) = _make_manifest(
+         self._common_metadata_path,
+         self._metadata_path) = _make_manifest(
              path_or_paths, self._fs, metadata_nthreads=metadata_nthreads,
              open_file_func=partial(_open_dataset_file, self._metadata)
         )
 
-        if self.common_metadata_path is not None:
-            with self._fs.open(self.common_metadata_path) as f:
+        if self._common_metadata_path is not None:
+            with self._fs.open(self._common_metadata_path) as f:
                 self._metadata.common_metadata = read_metadata(
                     f,
                     memory_map=memory_map
@@ -2030,6 +2030,36 @@ Examples
                 "instead."),
             FutureWarning, stacklevel=2)
         return self._metadata.fs
+
+    @property
+    def metadata_(self):
+        """
+        DEPRECATED
+        """
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.metadata_", ""),
+            FutureWarning, stacklevel=2)
+        return self._metadata
+
+    @property
+    def metadata_path(self):
+        """
+        DEPRECATED
+        """
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.metadata_path", ""),
+            FutureWarning, stacklevel=2)
+        return self._metadata_path
+
+    @property
+    def common_metadata_path(self):
+        """
+        DEPRECATED
+        """
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.common_metadata_path", ""),
+            FutureWarning, stacklevel=2)
+        return self._common_metadata_path
 
     _common_metadata = property(
         operator.attrgetter('_metadata.common_metadata')
