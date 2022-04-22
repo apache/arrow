@@ -1581,7 +1581,10 @@ services:
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
-    command: archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc
+    command: >
+      /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
+        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
 
   ######################### Integration Tests #################################
 
