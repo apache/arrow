@@ -96,11 +96,17 @@ class SinkNode : public ExecNode {
                  /*num_outputs=*/0),
         backpressure_queue_(backpressure.resume_if_below, backpressure.pause_if_above),
         push_gen_(),
-        producer_(push_gen_.producer()) {
+        producer_(push_gen_.producer()),
+        node_destroyed_(std::make_shared<bool>(false)) {
     if (backpressure_monitor_out) {
       *backpressure_monitor_out = &backpressure_queue_;
     }
-    *generator = [this]() -> Future<util::optional<ExecBatch>> {
+    auto node_destroyed_capture = node_destroyed_;
+    *generator = [this, node_destroyed_capture]() -> Future<util::optional<ExecBatch>> {
+      if (*node_destroyed_capture) {
+        return Status::Invalid(
+            "Attempt to consume data after the plan has been destroyed");
+      }
       return push_gen_().Then([this](const util::optional<ExecBatch>& batch) {
         if (batch) {
           RecordBackpressureBytesFreed(*batch);
@@ -109,6 +115,8 @@ class SinkNode : public ExecNode {
       });
     };
   }
+
+  ~SinkNode() override { *node_destroyed_ = true; }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -244,6 +252,7 @@ class SinkNode : public ExecNode {
   BackpressureReservoir backpressure_queue_;
   PushGenerator<util::optional<ExecBatch>> push_gen_;
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
+  std::shared_ptr<bool> node_destroyed_;
 };
 
 // A sink node that owns consuming the data and will not finish until the consumption
