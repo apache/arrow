@@ -50,6 +50,7 @@
     <chapter id="meta">
       <title>Meta</title>
       <xi:include href="xml/metadata.xml"/>
+      <xi:include href="xml/statistics.xml"/>
     </chapter>
   </part>
 
