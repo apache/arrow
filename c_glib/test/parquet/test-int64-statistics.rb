@@ -20,18 +20,15 @@ class TestParquetInt64Statistics < Test::Unit::TestCase
 
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
-    Tempfile.create(["data", ".parquet"]) do |file|
-      array = build_int64_array([nil, -(2 ** 32), 2 ** 32])
-      table = build_table("int64" => array)
-      writer = Parquet::ArrowFileWriter.new(table.schema, file.path)
-      chunk_size = 1024
-      writer.write_table(table, chunk_size)
-      writer.close
-      reader = Parquet::ArrowFileReader.new(file.path)
-      @statistics =
-        reader.metadata.get_row_group(0).get_column_chunk(0).statistics
-      yield
-    end
+    @file = Tempfile.open(["data", ".parquet"])
+    array = build_int64_array([nil, -(2 ** 32), 2 ** 32])
+    @table = build_table("int64" => array)
+    writer = Parquet::ArrowFileWriter.new(@table.schema, @file.path)
+    chunk_size = 1024
+    writer.write_table(@table, chunk_size)
+    writer.close
+    reader = Parquet::ArrowFileReader.new(@file.path)
+    @statistics = reader.metadata.get_row_group(0).get_column_chunk(0).statistics
   end
 
   test("#min") do

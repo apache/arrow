@@ -20,31 +20,28 @@ class TestParquetRowGroupMetadata < Test::Unit::TestCase
 
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
-    Tempfile.create(["data", ".parquet"]) do |file|
-      @file = file
-      string_array = build_string_array([nil, "hello"])
-      fields = [
-        Arrow::Field.new("int8", Arrow::Int8DataType.new),
-        Arrow::Field.new("boolean", Arrow::BooleanDataType.new),
-      ]
-      structs = [
-        {
-          "int8" => -29,
-          "boolean" => true,
-        },
-        nil,
-      ]
-      struct_array = build_struct_array(fields, structs)
-      table = build_table("string" => string_array,
-                          "struct" => struct_array)
-      writer = Parquet::ArrowFileWriter.new(table.schema, @file.path)
-      chunk_size = 1
-      writer.write_table(table, chunk_size)
-      writer.close
-      reader = Parquet::ArrowFileReader.new(@file.path)
-      @metadata = reader.metadata.get_row_group(0)
-      yield
-    end
+    @file = Tempfile.open(["data", ".parquet"])
+    @string_array = build_string_array([nil, "hello"])
+    fields = [
+      Arrow::Field.new("int8", Arrow::Int8DataType.new),
+      Arrow::Field.new("boolean", Arrow::BooleanDataType.new),
+    ]
+    structs = [
+      {
+        "int8" => -29,
+        "boolean" => true,
+      },
+      nil,
+    ]
+    @struct_array = build_struct_array(fields, structs)
+    @table = build_table("string" => @string_array,
+                         "struct" => @struct_array)
+    writer = Parquet::ArrowFileWriter.new(@table.schema, @file.path)
+    chunk_size = 1
+    writer.write_table(@table, chunk_size)
+    writer.close
+    reader = Parquet::ArrowFileReader.new(@file.path)
+    @metadata = reader.metadata.get_row_group(0)
   end
 
   test("#==") do

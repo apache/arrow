@@ -17,18 +17,15 @@
 
 class TestBooleanStatistics < Test::Unit::TestCase
   def setup
-    Tempfile.create(["data", ".parquet"]) do |file|
-      array = Arrow::BooleanArray.new([nil, false, true])
-      table = Arrow::Table.new("boolean" => array)
-      writer = Parquet::ArrowFileWriter.new(table.schema, file.path)
-      chunk_size = 1024
-      writer.write_table(table, chunk_size)
-      writer.close
-      reader = Parquet::ArrowFileReader.new(file.path)
-      @statistics =
-        reader.metadata.get_row_group(0).get_column_chunk(0).statistics
-      yield
-    end
+    file = Tempfile.open(["data", ".parquet"])
+    array = Arrow::BooleanArray.new([nil, false, true])
+    table = Arrow::Table.new("boolean" => array)
+    writer = Parquet::ArrowFileWriter.new(table.schema, file.path)
+    chunk_size = 1024
+    writer.write_table(table, chunk_size)
+    writer.close
+    reader = Parquet::ArrowFileReader.new(file.path)
+    @statistics = reader.metadata.get_row_group(0).get_column_chunk(0).statistics
   end
 
   def test_min

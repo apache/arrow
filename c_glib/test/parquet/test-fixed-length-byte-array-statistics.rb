@@ -20,19 +20,16 @@ class TestParquetFixedLengthByteArrayStatistics < Test::Unit::TestCase
 
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
-    Tempfile.create(["data", ".parquet"]) do |file|
-      data_type = Arrow::FixedSizeBinaryDataType.new(3)
-      array = build_fixed_size_binary_array(data_type, [nil, "abc", "xyz"])
-      table = build_table("binary" => array)
-      writer = Parquet::ArrowFileWriter.new(table.schema, file.path)
-      chunk_size = 1024
-      writer.write_table(table, chunk_size)
-      writer.close
-      reader = Parquet::ArrowFileReader.new(file.path)
-      @statistics =
-        reader.metadata.get_row_group(0).get_column_chunk(0).statistics
-      yield
-    end
+    @file = Tempfile.open(["data", ".parquet"])
+    data_type = Arrow::FixedSizeBinaryDataType.new(3)
+    array = build_fixed_size_binary_array(data_type, [nil, "abc", "xyz"])
+    @table = build_table("binary" => array)
+    writer = Parquet::ArrowFileWriter.new(@table.schema, @file.path)
+    chunk_size = 1024
+    writer.write_table(@table, chunk_size)
+    writer.close
+    reader = Parquet::ArrowFileReader.new(@file.path)
+    @statistics = reader.metadata.get_row_group(0).get_column_chunk(0).statistics
   end
 
   test("#min") do
