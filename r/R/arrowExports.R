@@ -1112,12 +1112,12 @@ ipc___feather___Reader__version <- function(reader) {
   .Call(`_arrow_ipc___feather___Reader__version`, reader)
 }
 
-ipc___feather___Reader__Read <- function(reader, columns) {
-  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns)
+ipc___feather___Reader__Read <- function(reader, columns, on_old_windows) {
+  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns, on_old_windows)
 }
 
-ipc___feather___Reader__Open <- function(stream) {
-  .Call(`_arrow_ipc___feather___Reader__Open`, stream)
+ipc___feather___Reader__Open <- function(stream, on_old_windows) {
+  .Call(`_arrow_ipc___feather___Reader__Open`, stream, on_old_windows)
 }
 
 ipc___feather___Reader__schema <- function(reader) {
@@ -1382,6 +1382,18 @@ io___BufferOutputStream__Tell <- function(stream) {
 
 io___BufferOutputStream__Write <- function(stream, bytes) {
   invisible(.Call(`_arrow_io___BufferOutputStream__Write`, stream, bytes))
+}
+
+MakeRConnectionInputStream <- function(con) {
+  .Call(`_arrow_MakeRConnectionInputStream`, con)
+}
+
+MakeRConnectionOutputStream <- function(con) {
+  .Call(`_arrow_MakeRConnectionOutputStream`, con)
+}
+
+MakeRConnectionRandomAccessFile <- function(con) {
+  .Call(`_arrow_MakeRConnectionRandomAccessFile`, con)
 }
 
 MakeReencodeInputStream <- function(wrapped, from) {

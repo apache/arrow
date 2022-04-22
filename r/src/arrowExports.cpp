@@ -2814,20 +2814,22 @@ BEGIN_CPP11
 END_CPP11
 }
 // feather.cpp
-std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(const std::shared_ptr<arrow::ipc::feather::Reader>& reader, SEXP columns);
-extern "C" SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp){
+std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(const std::shared_ptr<arrow::ipc::feather::Reader>& reader, cpp11::sexp columns, bool on_old_windows);
+extern "C" SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp, SEXP on_old_windows_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
-	arrow::r::Input<SEXP>::type columns(columns_sexp);
-	return cpp11::as_sexp(ipc___feather___Reader__Read(reader, columns));
+	arrow::r::Input<cpp11::sexp>::type columns(columns_sexp);
+	arrow::r::Input<bool>::type on_old_windows(on_old_windows_sexp);
+	return cpp11::as_sexp(ipc___feather___Reader__Read(reader, columns, on_old_windows));
 END_CPP11
 }
 // feather.cpp
-std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
-extern "C" SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp){
+std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream, bool on_old_windows);
+extern "C" SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp, SEXP on_old_windows_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type stream(stream_sexp);
-	return cpp11::as_sexp(ipc___feather___Reader__Open(stream));
+	arrow::r::Input<bool>::type on_old_windows(on_old_windows_sexp);
+	return cpp11::as_sexp(ipc___feather___Reader__Open(stream, on_old_windows));
 END_CPP11
 }
 // feather.cpp
@@ -3439,6 +3441,30 @@ BEGIN_CPP11
 	arrow::r::Input<cpp11::raws>::type bytes(bytes_sexp);
 	io___BufferOutputStream__Write(stream, bytes);
 	return R_NilValue;
+END_CPP11
+}
+// io.cpp
+std::shared_ptr<arrow::io::InputStream> MakeRConnectionInputStream(cpp11::sexp con);
+extern "C" SEXP _arrow_MakeRConnectionInputStream(SEXP con_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type con(con_sexp);
+	return cpp11::as_sexp(MakeRConnectionInputStream(con));
+END_CPP11
+}
+// io.cpp
+std::shared_ptr<arrow::io::OutputStream> MakeRConnectionOutputStream(cpp11::sexp con);
+extern "C" SEXP _arrow_MakeRConnectionOutputStream(SEXP con_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type con(con_sexp);
+	return cpp11::as_sexp(MakeRConnectionOutputStream(con));
+END_CPP11
+}
+// io.cpp
+std::shared_ptr<arrow::io::RandomAccessFile> MakeRConnectionRandomAccessFile(cpp11::sexp con);
+extern "C" SEXP _arrow_MakeRConnectionRandomAccessFile(SEXP con_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type con(con_sexp);
+	return cpp11::as_sexp(MakeRConnectionRandomAccessFile(con));
 END_CPP11
 }
 // io.cpp
@@ -5372,8 +5398,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_arrow__UnregisterRExtensionType", (DL_FUNC) &_arrow_arrow__UnregisterRExtensionType, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
-		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 
-		{ "_arrow_ipc___feather___Reader__Open", (DL_FUNC) &_arrow_ipc___feather___Reader__Open, 1}, 
+		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 3}, 
+		{ "_arrow_ipc___feather___Reader__Open", (DL_FUNC) &_arrow_ipc___feather___Reader__Open, 2}, 
 		{ "_arrow_ipc___feather___Reader__schema", (DL_FUNC) &_arrow_ipc___feather___Reader__schema, 1}, 
 		{ "_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3}, 
 		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
@@ -5440,6 +5466,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC) &_arrow_io___BufferOutputStream__Finish, 1}, 
 		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1}, 
 		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2}, 
+		{ "_arrow_MakeRConnectionInputStream", (DL_FUNC) &_arrow_MakeRConnectionInputStream, 1}, 
+		{ "_arrow_MakeRConnectionOutputStream", (DL_FUNC) &_arrow_MakeRConnectionOutputStream, 1}, 
+		{ "_arrow_MakeRConnectionRandomAccessFile", (DL_FUNC) &_arrow_MakeRConnectionRandomAccessFile, 1}, 
 		{ "_arrow_MakeReencodeInputStream", (DL_FUNC) &_arrow_MakeReencodeInputStream, 2}, 
 		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 2}, 
 		{ "_arrow_json___ParseOptions__initialize1", (DL_FUNC) &_arrow_json___ParseOptions__initialize1, 1}, 

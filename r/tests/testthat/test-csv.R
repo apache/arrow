@@ -292,6 +292,27 @@ test_that("more informative error when reading a CSV with headers and schema", {
   )
 })
 
+test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
+  # connections with csv need RunWithCapturedR, which is not available
+  # in R <= 3.4.4
+  skip_if_r_version("3.4.4")
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # make this big enough that we might expose concurrency problems,
+  # but not so big that it slows down the tests
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_csv_arrow(test_tbl, file(tf))
+  expect_identical(read_csv_arrow(tf), test_tbl)
+  expect_identical(read_csv_arrow(file(tf)), read_csv_arrow(tf))
+})
+
 test_that("CSV reader works on files with non-UTF-8 encoding", {
   strings <- c("a", "\u00e9", "\U0001f4a9")
   file_string <- paste0(
