@@ -1936,6 +1936,15 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   }
 }
 
+// Ranking Tests
+//
+TEST(ArrayRankFunction, Array) {
+  auto arr = ArrayFromJSON(int16(), "[0, 1, null, -3, null, -42, 5]");
+  auto expected = ArrayFromJSON(uint64(), "[3, 4, null, 2, null, 1, 5]");
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {arr}));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
 // Some first keys will have duplicates, others not
 static const auto first_sort_keys = testing::Values("uint8", "int16", "uint64", "float",
                                                     "boolean", "string", "decimal128");

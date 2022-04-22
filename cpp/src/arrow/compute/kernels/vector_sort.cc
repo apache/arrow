@@ -1905,6 +1905,57 @@ class SelectKUnstableMetaFunction : public MetaFunction {
   }
 };
 
+// ----------------------------------------------------------------------
+// Rank implementation
+
+const FunctionDoc rank_doc(
+    "Returns the ranking of an array",
+    ("This function computes a rank of the input array.\n"
+     "By default, nNull values are\n"
+     "considered greater than any other value and are therefore sorted at the\n"
+     "end of the input. For floating-point types, NaNs are considered greater\n"
+     "than any other non-null value, but smaller than null values.\n"
+     "\n"
+     "The handling of nulls and NaNs can be changed in SortOptions."),
+    {"input"}, "RankOptions", /*options_required=*/true);
+
+class RankMetaFunction : public MetaFunction {
+ public:
+  RankMetaFunction()
+      : MetaFunction("rank", Arity::Unary(), &rank_doc, GetDefaultSortOptions()) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options, ExecContext* ctx) const {
+    const SortOptions& sort_options = static_cast<const SortOptions&>(*options);
+    switch (args[0].kind()) {
+      case Datum::ARRAY: {
+        return Rank(*args[0].make_array(), sort_options, ctx);
+      } break;
+      default:
+        break;
+    }
+    return Status::NotImplemented(
+        "Unsupported types for rank operation: "
+        "values=",
+        args[0].ToString());
+  }
+
+ private:
+  Result<Datum> Rank(const Array& array, const SortOptions& options,
+                     ExecContext* ctx) const {
+    SortOrder order = SortOrder::Ascending;
+    if (!options.sort_keys.empty()) {
+      order = options.sort_keys[0].order;
+    }
+    ArraySortOptions array_options(order, options.null_placement);
+
+    Datum output;
+    ARROW_ASSIGN_OR_RAISE(
+        output, CallFunction("array_sort_indices", {array}, &array_options, ctx));
+    return output;
+  }
+};
+
 }  // namespace
 
 Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
@@ -1918,6 +1969,7 @@ Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* ind
 void RegisterVectorSort(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<SortIndicesMetaFunction>()));
   DCHECK_OK(registry->AddFunction(std::make_shared<SelectKUnstableMetaFunction>()));
+  DCHECK_OK(registry->AddFunction(std::make_shared<RankMetaFunction>()));
 }
 
 #undef VISIT_SORTABLE_PHYSICAL_TYPES
