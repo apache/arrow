@@ -482,7 +482,6 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
-      arrow_simd_level: "DEFAULT"
       python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
     artifacts:
@@ -493,7 +492,6 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: universal2
-      arrow_simd_level: "DEFAULT"
       python_version: "{{ python_version }}"
       macos_deployment_target: "10.13"
     artifacts:

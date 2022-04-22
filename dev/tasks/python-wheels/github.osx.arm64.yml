@@ -25,7 +25,6 @@
 env:
   ARROW_FLIGHT: OFF
   ARROW_JEMALLOC: OFF
-  ARROW_SIMD_LEVEL: "{{ arrow_simd_level }}"
   CC: "clang"
   CMAKE_BUILD_TYPE: release
   CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
@@ -80,6 +79,7 @@ jobs:
 
       - name: Build ARM64 Wheel
         env:
+          ARROW_SIMD_LEVEL: "DEFAULT"
           VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
         run: |
           $PYTHON -m venv build-arm64-env
@@ -103,6 +103,7 @@ jobs:
 
       - name: Build AMD64 Wheel
         env:
+          ARROW_SIMD_LEVEL: "NONE"
           VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
         run: |
           $PYTHON -m venv build-amd64-env
