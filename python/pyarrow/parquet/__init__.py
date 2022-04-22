@@ -2970,8 +2970,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
         Default is False. Set to True to use the the legacy behaviour
         (this option is deprecated, and the legacy implementation will be
         removed in a future version). The legacy implementation still
-        supports `partition_filename_cb` and `metadata_collector` keywords
-        but is less efficient when using partition columns.
+        supports the `partition_filename_cb` keyword but is less efficient
+        when using partition columns.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
@@ -3007,17 +3007,22 @@ def write_to_dataset(table, root_path, partition_cols=None,
                 visited_paths.append(written_file.path)
     existing_data_behavior : 'overwrite_or_ignore' | 'error' | \
 'delete_matching'
-        It is used in the new code path using the new Arrow Dataset API.
-        In case the legacy implementation is selected the parameter
-        is ignored as the old implementation does not support it.
         Controls how the dataset will handle data that already exists in
-        the destination. 'overwrite_or_ignore' ignores any existing data and
-        will overwrite files with the same name as an output file.  Other
+        the destination. The default behaviour is 'overwrite_or_ignore'.
+
+        Only used in the new code path using the new Arrow Dataset API
+        (``use_legacy_dataset=False``). In case the legacy implementation
+        is selected the parameter is ignored as the old implementation does
+        not support it (only has the default behaviour).
+
+        'overwrite_or_ignore' will ignore any existing data and will
+        overwrite files with the same name as an output file.  Other
         existing files will be ignored.  This behavior, in combination
         with a unique basename_template for each write, will allow for
         an append workflow.
+
         'error' will raise an error if any data exists in the destination.
-        if any data exists in the destination.
+
         'delete_matching' is useful when you are writing a partitioned
         dataset.  The first time each partition directory is encountered
         the entire directory will be deleted.  This allows you to overwrite
