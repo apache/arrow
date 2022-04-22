@@ -4377,21 +4377,25 @@ def test_write_dataset_s3_put_only(s3_server):
         pa.array(np.repeat(['a', 'b'], 10))],
         names=["f1", "f2", "part"]
     )
+    part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
+
     # writing with filesystem object with create_dir flag set to false
     ds.write_dataset(
         table, "existing-bucket", filesystem=fs,
-        format="feather", create_dir=False
+        format="feather", create_dir=False, partitioning=part,
+        existing_data_behavior='overwrite_or_ignore'
     )
     # check roundtrip
     result = ds.dataset(
-        "existing-bucket", filesystem=fs, format="ipc",
+        "existing-bucket", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
     assert result.equals(table)
 
     with pytest.raises(OSError, match="Access Denied"):
         ds.write_dataset(
             table, "existing-bucket", filesystem=fs,
-            format="feather", create_dir=True
+            format="feather", create_dir=True,
+            existing_data_behavior='overwrite_or_ignore'
         )
 
 
