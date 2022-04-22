@@ -118,11 +118,11 @@ jobs:
           amd64_wheel=$(ls arrow/python/repaired_wheels/pyarrow*x86_64.whl)
           arm64_wheel=$(ls arrow/python/repaired_wheels/pyarrow*arm64.whl)
           echo "Fusing ${amd64_wheel} and ${arm64_wheel} into an universal2 wheel..."
-          delocate-fuse $arm64_wheel $amd64_wheel -w .
+          delocate-fuse $amd64_wheel $arm64_wheel -w .
 
-          fused_wheel=$(ls *arm64.whl)
+          fused_wheel=$(ls *x86_64.whl)
           rm arrow/python/repaired_wheels/*.whl
-          mv $fused_wheel arrow/python/repaired_wheels/${fused_wheel/arm64/universal2}
+          mv $fused_wheel arrow/python/repaired_wheels/${fused_wheel/x86_64/universal2}
       {% endif %}
 
       - name: Test Wheel on ARM64
