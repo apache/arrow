@@ -229,9 +229,6 @@ set(ZSTD_INCLUDE_DIR
 set(ZSTD_ROOT
     "${ARROW_VCPKG_PREFIX}"
     CACHE STRING "")
-set(ZSTD_MSVC_STATIC_LIB_SUFFIX
-    ""
-    CACHE STRING "")
 set(BROTLI_ROOT
     "${ARROW_VCPKG_PREFIX}"
     CACHE STRING "")
@@ -247,6 +244,9 @@ if(CMAKE_HOST_WIN32)
       ""
       CACHE STRING "")
   set(ZSTD_MSVC_LIB_PREFIX
+      ""
+      CACHE STRING "")
+  set(ZSTD_MSVC_STATIC_LIB_SUFFIX
       ""
       CACHE STRING "")
 endif()
