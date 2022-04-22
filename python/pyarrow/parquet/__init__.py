@@ -2043,7 +2043,7 @@ Examples
         DEPRECATED
         """
         warnings.warn(
-            _DEPR_MSG.format("ParquetDataset.metadata_", ""),
+            _DEPR_MSG.format("ParquetDataset.metadata", ""),
             FutureWarning, stacklevel=2)
         return self.__metadata
 
