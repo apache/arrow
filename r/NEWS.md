@@ -25,6 +25,7 @@
   * Added `make_date()` & `make_datetime()` + `ISOdatetime()` & `ISOdate()` to create date-times from numeric representations. 
   * Added `decimal_date()` and `date_decimal()`
   * Added `make_difftime()` (duration constructor)
+  * Added duration helper functions: `dyears()`, `dmonths()`, `dweeks()`, `ddays()`, `dhours()`, `dminutes()`, `dseconds()`, `dmilliseconds()`, `dmicroseconds()`, `dnanoseconds()`.
 * date-time functionality:
   * Added `difftime` and `as.difftime()` 
   * Added `as.Date()` to convert to date

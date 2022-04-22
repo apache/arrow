@@ -353,6 +353,44 @@ register_bindings_duration <- function() {
   })
 }
 
+.helpers_function_map <- list(
+  "dminutes" = list(60, "s"),
+  "dhours" = list(3600, "s"),
+  "ddays" = list(86400, "s"),
+  "dweeks" = list(604800, "s"),
+  "dmonths" = list(2629800, "s"),
+  "dyears" = list(31557600, "s"),
+  "dseconds" = list(1, "s"),
+  "dmilliseconds" = list(1, "ms"),
+  "dmicroseconds" = list(1, "us"),
+  "dnanoseconds" = list(1, "ns")
+)
+make_duration <- function(x, unit) {
+  x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+  x$cast(duration(unit))
+}
+register_bindings_duration_helpers <- function() {
+  duration_helpers_map_factory <- function(value, unit) {
+    force(value)
+    force(unit)
+    function(x = 1) make_duration(x * value, unit)
+  }
+
+  for (name in names(.helpers_function_map)) {
+    register_binding(
+      name,
+      duration_helpers_map_factory(
+        .helpers_function_map[[name]][[1]],
+        .helpers_function_map[[name]][[2]]
+      )
+    )
+  }
+
+  register_binding("dpicoseconds", function(x = 1) {
+    abort("Duration in picoseconds not supported in Arrow.")
+  })
+}
+
 register_bindings_difftime_constructors <- function() {
   register_binding("make_difftime", function(num = NULL,
                                              units = "secs",
@@ -380,31 +418,6 @@ register_bindings_difftime_constructors <- function() {
 
     duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
     duration$cast(duration("s"))
-  })
-}
-
-make_duration <- function(x, unit) {
-  x <- build_expr("cast", x, options = cast_options(to_type = int64()))
-  x$cast(duration(unit))
-}
-register_bindings_duration_helpers <- function() {
-  register_binding("dminutes", function(x = 1) {
-    make_duration(x * 60, "s")
-  })
-  register_binding("dhours", function(x = 1) {
-    make_duration(x * 3600, "s")
-  })
-  register_binding("ddays", function(x = 1) {
-    make_duration(x * 86400, "s")
-  })
-  register_binding("dweeks", function(x = 1) {
-    make_duration(x * 604800, "s")
-  })
-  register_binding("dmonths", function(x = 1) {
-    make_duration(x * 2629800, "s")
-  })
-  register_binding("dyears", function(x = 1) {
-    make_duration(x * 31557600, "s")
   })
 }
 
