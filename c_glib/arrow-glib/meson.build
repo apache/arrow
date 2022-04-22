@@ -281,14 +281,10 @@ if have_gi
                                         '--warn-all',
                                       ])
 
-  if have_vapi
-    package_api_name = '@0@-@1@'.format('arrow_glib', library_version)
-    arrow_glib_vapi = gnome.generate_vapi(package_api_name,
-                                          sources: arrow_glib_gir[0],
-                                          packages: [ 'gio-2.0' ],
+  if generate_vapi
+    arrow_glib_vapi = gnome.generate_vapi('arrow-' + api_version,
                                           install: true,
-                                          install_dir: vapidir,
-                                          metadata_dirs: [ meson.current_source_dir() ],
-    )
+                                          packages: ['gio-2.0'],
+                                          sources: arrow_glib_gir[0])
   endif
 endif

@@ -170,6 +170,7 @@ c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
 popd
 
 if [ "${have_glib}" = "yes" ]; then
+  # TODO: Test Vala API
   ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
 fi

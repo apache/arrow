@@ -79,14 +79,14 @@ if have_gi
                                            install: true,
                                            extra_args: gir_extra_args)
 
-  if have_vapi
-    package_api_name = '@0@-@1@'.format('arrow_cuda_glib', library_version)
-    arrow_cuda_glib_vapi = gnome.generate_vapi(package_api_name,
-                                                sources: arrow_cuda_glib_gir[0],
-                                                packages: [ 'gio-2.0' ],
-                                                install: true,
-                                                install_dir: vapidir,
-                                                metadata_dirs: [ meson.current_source_dir() ],
-    )
+  if generate_vapi
+    arrow_cuda_glib_vapi = \
+      gnome.generate_vapi('arrow-cuda-' + api_version,
+                          install: true,
+                          packages: [
+                            arrow_glib_vapi,
+                            'gio-2.0',
+                          ],
+                          sources: arrow_cuda_glib_gir[0])
   endif
 endif

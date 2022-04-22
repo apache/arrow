@@ -38,7 +38,6 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
-    vala-devel \
     gtk-doc \
     json-devel \
     lz4-devel \
@@ -50,6 +49,7 @@ RUN \
     snappy-devel \
     tar \
     utf8proc-devel \
+    vala-devel \
     zlib-devel && \
   # Install ninja-build dependencies in amzn2-core
   yum install -y ${quiet} ninja-build && \
