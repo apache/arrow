@@ -1304,6 +1304,7 @@ def chunked_array(arrays, type=None):
         Array arr
         vector[shared_ptr[CArray]] c_arrays
         shared_ptr[CChunkedArray] c_result
+        shared_ptr[CDataType] c_type
 
     type = ensure_type(type, allow_none=True)
 
@@ -1314,8 +1315,10 @@ def chunked_array(arrays, type=None):
         arr = x if isinstance(x, Array) else array(x, type=type)
         c_arrays.push_back(arr.sp_array)
 
-    c_result = GetResultValue(CChunkedArray.Make(
-        c_arrays, pyarrow_unwrap_data_type(type)))
+    c_type = pyarrow_unwrap_data_type(type)
+    with nogil:
+        c_result = GetResultValue(CChunkedArray.Make(
+            c_arrays, c_type))
     return pyarrow_wrap_chunked_array(c_result)
 
 
