@@ -167,7 +167,7 @@ groups:
     - homebrew-r-brew
     - nuget
     - wheel-*
-    - python-sdist  
+    - python-sdist
 
   nightly-release:
     - verify-rc-source-*
@@ -482,7 +482,6 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
-      arrow_simd_level: "DEFAULT"
       python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
     artifacts:
@@ -493,9 +492,6 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: universal2
-      # Universal2 builds for both rosetta and native, but we currently can't
-      # configure SIMD for both architectures at the same time
-      arrow_simd_level: "NONE"
       python_version: "{{ python_version }}"
       macos_deployment_target: "10.13"
     artifacts:
