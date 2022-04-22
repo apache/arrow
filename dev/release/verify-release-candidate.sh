@@ -342,16 +342,19 @@ install_csharp() {
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=3.1.405
     local dotnet_platform=
+    local dotnet_version=3.1.405
     case "$(uname)" in
       Linux)
         dotnet_platform=linux
+        if [ $(. /etc/os-release && echo ${UBUNTU_CODENAME}) = "jammy" ]; 
+          then dotnet_version=6.0.202; fi
         ;;
       Darwin)
         dotnet_platform=macos
         ;;
     esac
+    
     local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
     local dotnet_download_url=$( \
       curl -sL ${dotnet_download_thank_you_url} | \
