@@ -313,6 +313,11 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     batch <- record_batch(!!! arrays)
     array_ptr <- allocate_arrow_array()
     schema_ptr <- allocate_arrow_schema()
+    on.exit({
+      delete_arrow_array(array_ptr)
+      delete_arrow_schema(schema_ptr)
+    })
+
     batch$export_to_c(array_ptr, schema_ptr)
     Array$import_from_c(array_ptr, schema_ptr)
   } else {
