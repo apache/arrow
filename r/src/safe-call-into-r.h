@@ -26,6 +26,13 @@
 #include <functional>
 #include <thread>
 
+// Unwind protection was added in R 3.5 and some calls here use it
+// and crash R in older versions (ARROW-16201). We use this define
+// to make sure we don't crash on R 3.4 and lower.
+#if defined(HAS_UNWIND_PROTECT)
+#define HAS_SAFE_CALL_INTO_R
+#endif
+
 // The MainRThread class keeps track of the thread on which it is safe
 // to call the R API to facilitate its safe use (or erroring
 // if it is not safe). The MainRThread singleton can be accessed from
@@ -132,10 +139,7 @@ static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun) {
 
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
-  // Unwind protection was added in R 3.5 and some calls here crash R
-  // in older versions (ARROW-16201). Rather than crash, just return an error result
-  // when this is attempted.
-#if !defined(HAS_UNWIND_PROTECT)
+#if !defined(HAS_SAFE_CALL_INTO_R)
   return arrow::Status::NotImplemented("RunWithCapturedR() without UnwindProtect");
 #else
   if (GetMainRThread().Executor() != nullptr) {

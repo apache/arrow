@@ -184,6 +184,9 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
 test_that("read_feather() and write_feather() accept connection objects", {
   # connection object don't work on Windows i386 before R 4.0
   skip_if(on_old_windows())
+  # connections with feather need RunWithCapturedR, which is not available
+  # in R <= 3.4.4
+  skip_if_r_version("3.4.4")
 
   tf <- tempfile()
   on.exit(unlink(tf))

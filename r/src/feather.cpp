@@ -79,6 +79,9 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
     }
   };
 
+#if !defined(HAS_SAFE_CALL_INTO_R)
+  return ValueOrStop(read_table());
+#else
   if (!on_old_windows) {
     const auto& io_context = arrow::io::default_io_context();
     auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>(
@@ -87,11 +90,15 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
   } else {
     return ValueOrStop(read_table());
   }
+#endif
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream, bool on_old_windows) {
+#if !defined(HAS_SAFE_CALL_INTO_R)
+  return ValueOrStop(arrow::ipc::feather::Reader::Open(stream));
+#else
   if (!on_old_windows) {
     const auto& io_context = arrow::io::default_io_context();
     auto result = RunWithCapturedR<std::shared_ptr<arrow::ipc::feather::Reader>>([&]() {
@@ -102,6 +109,7 @@ std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
   } else {
     return ValueOrStop(arrow::ipc::feather::Reader::Open(stream));
   }
+#endif
 }
 
 // [[arrow::export]]
