@@ -1171,7 +1171,7 @@ def test_drop_null(ty, values):
 
 
 def test_drop_null_chunked_array():
-    arr = pa.chunked_array([[None], [None], []])
+    arr = pa.chunked_array([[None, None], [None], []])
     expected_drop = pa.chunked_array([[]])
 
     result = arr.drop_null()
