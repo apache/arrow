@@ -114,8 +114,7 @@ Status BlockedBloomFilter::CreateEmpty(int64_t num_rows_to_insert, MemoryPool* p
 }
 
 template <typename T>
-NO_TSAN
-void BlockedBloomFilter::InsertImp(int64_t num_rows, const T* hashes) {
+NO_TSAN void BlockedBloomFilter::InsertImp(int64_t num_rows, const T* hashes) {
   for (int64_t i = 0; i < num_rows; ++i) {
     Insert(hashes[i]);
   }
@@ -144,9 +143,9 @@ void BlockedBloomFilter::Insert(int64_t hardware_flags, int64_t num_rows,
 }
 
 template <typename T>
-NO_TSAN
-void BlockedBloomFilter::FindImp(int64_t num_rows, const T* hashes,
-                                 uint8_t* result_bit_vector, bool enable_prefetch) const {
+NO_TSAN void BlockedBloomFilter::FindImp(int64_t num_rows, const T* hashes,
+                                         uint8_t* result_bit_vector,
+                                         bool enable_prefetch) const {
   int64_t num_processed = 0;
   uint64_t bits = 0ULL;
 
