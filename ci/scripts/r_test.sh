@@ -33,6 +33,12 @@ printenv
 # In the other CI checks the files are synced but ignored.
 make sync-cpp
 
+if [ "$ARROW_R_FORCE_TESTS" = "true"]; then
+  export ARROW_R_DEV=TRUE
+  export NOT_CRAN=true
+  export ARROW_LARGE_MEMORY_TESTS=TRUE
+fi
+
 if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
   export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
