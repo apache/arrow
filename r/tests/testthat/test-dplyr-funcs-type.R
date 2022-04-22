@@ -854,7 +854,8 @@ test_that("`as.Date()` and `as_date()`", {
     warning = TRUE
   )
 
-  # strptime does not support a partial format -
+  # strptime does not support a partial format - testing an error surfaced from
+  # C++ (hence not testing the content of the error message)
   # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
   expect_error(
     test_df %>%
