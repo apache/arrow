@@ -1719,6 +1719,16 @@ def test_parquet_dataset_deprecated_properties(tempdir):
     with pytest.warns(FutureWarning, match="'ParquetDataset.common_metadata'"):
         dataset.common_metadata
 
+    with pytest.warns(FutureWarning, match="'ParquetDataset.metadata"):
+        dataset.metadata
+
+    with pytest.warns(FutureWarning, match="'ParquetDataset.metadata_path"):
+        dataset.metadata_path
+
+    with pytest.warns(FutureWarning,
+                      match="'ParquetDataset.common_metadata_path"):
+        dataset.common_metadata_path
+
     dataset2 = pq.ParquetDataset(path, use_legacy_dataset=False)
 
     with pytest.warns(FutureWarning, match="'ParquetDataset.pieces"):
