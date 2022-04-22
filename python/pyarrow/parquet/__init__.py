@@ -1736,11 +1736,11 @@ Examples
                 "True' is deprecated as of pyarrow 8.0.0.",
                 FutureWarning, stacklevel=2)
 
-        if metadata is None and self.metadata_path is not None:
-            with self._fs.open(self.metadata_path) as f:
-                self.metadata = read_metadata(f, memory_map=memory_map)
+        if metadata is None and self._metadata_path is not None:
+            with self._fs.open(self._metadata_path) as f:
+                self.__metadata = read_metadata(f, memory_map=memory_map)
         else:
-            self.metadata = metadata
+            self.__metadata = metadata
 
         if schema is not None:
             warnings.warn(
@@ -1789,13 +1789,13 @@ Examples
             return NotImplemented
 
     def validate_schemas(self):
-        if self.metadata is None and self._schema is None:
-            if self.common_metadata is not None:
-                self._schema = self.common_metadata.schema
+        if self.__metadata is None and self._schema is None:
+            if self._common_metadata is not None:
+                self._schema = self._common_metadata.schema
             else:
                 self._schema = self._pieces[0].get_metadata().schema
         elif self._schema is None:
-            self._schema = self.metadata.schema
+            self._schema = self.__metadata.schema
 
         # Verify schemas are all compatible
         dataset_schema = self._schema.to_arrow_schema()
@@ -2038,14 +2038,14 @@ Examples
         return self._metadata.fs
 
     @property
-    def metadata_(self):
+    def metadata(self):
         """
         DEPRECATED
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.metadata_", ""),
             FutureWarning, stacklevel=2)
-        return self._metadata
+        return self.__metadata
 
     @property
     def metadata_path(self):
