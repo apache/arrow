@@ -966,3 +966,29 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   # must clean up the pointer or we leak
   delete_arrow_array_stream(stream_ptr)
 })
+
+
+test_that("Filter parquet dataset with is.na ARROW-15312", {
+  ds_path <- make_temp_dir()
+
+  df <- tibble(x = 1:3, y = c(0L, 0L, NA_integer_), z = c(0L, 1L, NA_integer_))
+  write_dataset(df, ds_path)
+
+  # OK: Collect then filter: returns row 3, as expected
+  expect_identical(
+    open_dataset(ds_path) %>% collect() %>% filter(is.na(y)),
+    df %>% collect() %>% filter(is.na(y))
+  )
+
+  # Before the fix: Filter then collect on y returned a 0-row tibble
+  expect_identical(
+    open_dataset(ds_path) %>% filter(is.na(y)) %>% collect(),
+    df %>% filter(is.na(y)) %>% collect()
+  )
+
+  # OK: Filter then collect (on z) returns row 3, as expected
+  expect_identical(
+    open_dataset(ds_path) %>% filter(is.na(z)) %>% collect(),
+    df %>% filter(is.na(z)) %>% collect()
+  )
+})
