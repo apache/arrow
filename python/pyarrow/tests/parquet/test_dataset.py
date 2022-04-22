@@ -1774,3 +1774,6 @@ def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
     with pytest.raises(ValueError, match="file_visitor"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
                             file_visitor=lambda x: x)
+    with pytest.raises(ValueError, match="existing_data_behavior"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            existing_data_behavior='error')
