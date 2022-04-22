@@ -23,7 +23,7 @@ brew "c-ares"
 brew "ccache"
 brew "cmake"
 brew "flatbuffers"
-brew "git", link: true, conflicts_with: ["git"]
+brew "git@2.35.1"
 brew "glog"
 brew "grpc"
 brew "llvm"
