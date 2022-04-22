@@ -509,7 +509,8 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
   if (origin != "1970-01-01") {
     delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
     # TODO: revisit once either of these issues is addressed:
-    #   https://issues.apache.org/jira/browse/ARROW-16253 (helper function) or
+    #   https://issues.apache.org/jira/browse/ARROW-16253 (helper function for
+    #   casting from double to duration) or
     #   https://issues.apache.org/jira/browse/ARROW-15862 (casting from int32
     #   -> duration or double -> duration)
     delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int64()))
