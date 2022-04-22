@@ -77,6 +77,11 @@
 #' # When constructing a ChunkedArray, the first chunk is used to infer type.
 #' doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
 #' doubles$type
+#'
+#' # Concatenating chunked arrays returns a new chunked array containing all chunks
+#' a <- chunked_array(c(1, 2), 3)
+#' b <- chunked_array(c(4, 5), 6)
+#' c(a, b)
 #' @export
 ChunkedArray <- R6Class("ChunkedArray",
   inherit = ArrowDatum,
@@ -145,7 +150,19 @@ ChunkedArray$create <- function(..., type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
-  ChunkedArray__from_list(list2(...), type)
+  chunks <- flatten(map(list2(...), function(arr) {
+    if (inherits(arr, "ChunkedArray")) {
+      arr$chunks
+    } else {
+      list(arr)
+    }
+  }))
+  ChunkedArray__from_list(chunks, type)
+}
+
+#' @export
+c.ChunkedArray <- function(...) {
+  ChunkedArray$create(...)
 }
 
 #' @param \dots Vectors to coerce

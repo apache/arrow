@@ -222,10 +222,7 @@ Array$import_from_c <- ImportArray
 #' Concatenates zero or more [Array] objects into a single
 #' array. This operation will make a copy of its input; if you need
 #' the behavior of a single Array but don't need a
-#' single object, use [ChunkedArray]. Note that a [c()]
-#' method is provided for convenience but that it may
-#' produce surprising results when used with other
-#' classes of objects.
+#' single object, use [ChunkedArray].
 #'
 #' @param ... zero or more [Array] objects to concatenate
 #' @param type An optional `type` describing the desired
@@ -236,7 +233,6 @@ Array$import_from_c <- ImportArray
 #'
 #' @examplesIf arrow_available()
 #' concat_arrays(Array$create(1:3), Array$create(4:5))
-#'
 concat_arrays <- function(..., type = NULL) {
   dots <- lapply(list2(...), Array$create, type = type)
 
@@ -256,7 +252,11 @@ concat_arrays <- function(..., type = NULL) {
 #' @rdname concat_arrays
 #' @export
 c.Array <- function(...) {
-  concat_arrays(...)
+  abort(c(
+    "Use `concat_arrays()` or `ChunkedArray$create()` instead.",
+    i = "`concat_arrays()` creates a new Array by copying data.",
+    i = "`ChunkedArray$create()` uses the arrays as chunks for zero-copy concatenation."
+  ))
 }
 
 #' @rdname array

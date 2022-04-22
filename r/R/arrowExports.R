@@ -1980,6 +1980,10 @@ Table__ReferencedBufferSize <- function(table) {
   .Call(`_arrow_Table__ReferencedBufferSize`, table)
 }
 
+Table__ConcatenateTables <- function(tables, unify_schemas) {
+  .Call(`_arrow_Table__ConcatenateTables`, tables, unify_schemas)
+}
+
 GetCpuThreadPoolCapacity <- function() {
   .Call(`_arrow_GetCpuThreadPoolCapacity`)
 }

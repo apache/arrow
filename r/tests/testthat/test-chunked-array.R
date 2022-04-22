@@ -91,6 +91,27 @@ test_that("ChunkedArray", {
   expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
 })
 
+test_that("ChunkedArray can be constructed from Array and ChunkedArrays", {
+  expect_equal(
+    chunked_array(Array$create(1:2), Array$create(3:4)),
+    chunked_array(1:2, 3:4),
+  )
+  expect_equal(
+    chunked_array(chunked_array(1:2, 3:4), chunked_array(5:6)),
+    chunked_array(1:2, 3:4, 5:6),
+  )
+
+  # Cannot mix array types
+  expect_error(
+    chunked_array(Array$create(1:2), Array$create(c("a", "b"))),
+    regexp = "Array chunks must all be same type"
+  )
+  expect_error(
+    chunked_array(chunked_array(1:2), chunked_array(c("a", "b"))),
+    regexp = "Array chunks must all be same type"
+  )
+})
+
 test_that("print ChunkedArray", {
   verify_output(test_path("test-chunked-array.txt"), {
     chunked_array(c(1, 2, 3), c(4, 5, 6))
@@ -98,6 +119,18 @@ test_that("print ChunkedArray", {
     chunked_array(1:30)
     chunked_array(factor(c("a", "b")), factor(c("c", "d")))
   })
+})
+
+test_that("ChunkedArray can be concatenated with c()", {
+  a <- chunked_array(c(1, 2), 3)
+  b <- chunked_array(c(4, 5), 6)
+  expected <- chunked_array(c(1, 2), 3, c(4, 5), 6)
+  expect_equal(c(a, b), expected)
+
+  # Can handle Arrays and base vectors
+  vectors <- list(chunked_array(1:10), Array$create(1:10), 1:10)
+  expected <- chunked_array(1:10, 1:10, 1:10)
+  expect_equal(do.call(c, vectors), expected)
 })
 
 test_that("ChunkedArray handles !!! splicing", {

@@ -1056,29 +1056,11 @@ test_that("concat_arrays() coerces its input to Array", {
   )
 })
 
-test_that("c() works for Array", {
-  expect_r6_class(c(Array$create(1L), Array$create(1L)), "Array")
-
-  struct <- call_function(
-    "make_struct",
-    Array$create(1L),
-    options = list(field_names = "")
+test_that("Array doesn't support c()", {
+  expect_snapshot_error(
+    c(Array$create(1:2), Array$create(3:5))
   )
-  expect_r6_class(c(struct, struct), "StructArray")
-
-  list <- Array$create(list(1))
-  expect_r6_class(c(list, list), "ListArray")
-
-  list <- Array$create(list(), type = large_list_of(float64()))
-  expect_r6_class(c(list, list), "LargeListArray")
-
-  list <- Array$create(list(), type = fixed_size_list_of(float64(), 1L))
-  expect_r6_class(c(list, list), "FixedSizeListArray")
-
-  list <- Array$create(list(), type = map_of(string(), float64()))
-  expect_r6_class(c(list, list), "MapArray")
 })
-
 
 test_that("Array to C-interface", {
   # create a struct array since that's one of the more complicated array types

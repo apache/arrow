@@ -144,6 +144,7 @@ reference:
       - buffer
       - read_message
       - concat_arrays
+      - concat_tables
       - ExtensionArray
       - vctrs_extension_array
   - title: Arrow data types and schema

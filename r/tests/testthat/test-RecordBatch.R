@@ -513,6 +513,103 @@ test_that("record_batch() with different length arrays", {
   expect_error(record_batch(a = 1:5, b = 1:6), msg)
 })
 
+test_that("RecordBatch doesn't support rbind", {
+  expect_snapshot_error(
+    rbind(
+      record_batch(a = 1:10),
+      record_batch(a = 2:4)
+    )
+  )
+})
+
+test_that("RecordBatch supports cbind", {
+  expect_snapshot_error(
+    cbind(
+      record_batch(a = 1:10),
+      record_batch(a = c("a", "b"))
+    )
+  )
+  expect_error(
+    cbind(record_batch(a = 1:10), record_batch(b = character(0))),
+    regexp = "Non-scalar inputs must have an equal number of rows"
+  )
+
+  actual <- cbind(
+    record_batch(a = c(1, 2), b = c("a", "b")),
+    record_batch(a = c("d", "c")),
+    record_batch(c = c(2, 3))
+  )
+  expected <- record_batch(
+    a = c(1, 2),
+    b = c("a", "b"),
+    a = c("d", "c"),
+    c = c(2, 3)
+  )
+  expect_equal(actual, expected)
+
+  # cbind() with one argument returns identical table
+  expected <- record_batch(a = 1:10)
+  expect_equal(expected, cbind(expected))
+
+  # Handles arrays
+  expect_equal(
+    cbind(record_batch(a = 1:2), b = Array$create(4:5)),
+    record_batch(a = 1:2, b = 4:5)
+  )
+
+  # Handles data.frames on R 4.0 or greater
+  if (getRversion() >= "4.0.0") {
+    # Prior to R 4.0, cbind would short-circuit to the data.frame implementation
+    # if **any** of the arguments are a data.frame.
+    expect_equal(
+      cbind(record_batch(a = 1:2), data.frame(b = 4:5)),
+      record_batch(a = 1:2, b = 4:5)
+    )
+  }
+
+  # Handles base factors
+  expect_equal(
+    cbind(record_batch(a = 1:2), b = factor(c("a", "b"))),
+    record_batch(a = 1:2, b = factor(c("a", "b")))
+  )
+
+  # Handles base scalars
+  expect_equal(
+    cbind(record_batch(a = 1:2), b = 1L),
+    record_batch(a = 1:2, b = rep(1L, 2))
+  )
+
+  # Handles zero rows
+  expect_equal(
+    cbind(record_batch(a = character(0)), b = Array$create(numeric(0)), c = integer(0)),
+    record_batch(a = character(0), b = numeric(0), c = integer(0)),
+  )
+
+  # Rejects unnamed arrays, even in cases where no named arguments are passed
+  expect_error(
+    cbind(record_batch(a = 1:2), b = 3:4, 5:6),
+    regexp = "Vector and array arguments must have names"
+  )
+  expect_error(
+    cbind(record_batch(a = 1:2), 3:4, 5:6),
+    regexp = "Vector and array arguments must have names"
+  )
+
+  # Rejects Table and ChunkedArray arguments
+  if (getRversion() >= "4.0.0") {
+    # R 3.6 cbind dispatch rules cause cbind to fall back to default impl if
+    # there are multiple arguments with distinct cbind implementations
+    expect_error(
+      cbind(record_batch(a = 1:2), arrow_table(b = 3:4)),
+      regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
+    )
+  }
+  expect_error(
+    cbind(record_batch(a = 1:2), b = chunked_array(1, 2)),
+    regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
+  )
+})
+
 test_that("Handling string data with embedded nuls", {
   raws <- Array$create(structure(list(
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
@@ -655,7 +752,7 @@ test_that("RecordBatch to C-interface", {
 
   # then import it and check that the roundtripped value is the same
   circle <- RecordBatch$import_from_c(array_ptr, schema_ptr)
-  expect_equal
+  expect_equal(batch, circle)
 
   # must clean up the pointers or we leak
   delete_arrow_schema(schema_ptr)

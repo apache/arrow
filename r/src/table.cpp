@@ -289,4 +289,12 @@ int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table) 
   return ValueOrStop(arrow::util::ReferencedBufferSize(*table));
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__ConcatenateTables(
+    const std::vector<std::shared_ptr<arrow::Table>>& tables, bool unify_schemas) {
+  arrow::ConcatenateTablesOptions options;
+  options.unify_schemas = unify_schemas;
+  return ValueOrStop(arrow::ConcatenateTables(tables, options));
+}
+
 #endif

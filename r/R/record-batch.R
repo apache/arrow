@@ -189,3 +189,56 @@ record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) x$names()
+
+#' @export
+rbind.RecordBatch <- function(...) {
+  abort("Use `Table$create()` to combine RecordBatches into a Table")
+}
+
+cbind_check_length <- function(inputs, call = caller_env()) {
+  sizes <- map_int(inputs, NROW)
+  ok_lengths <- sizes %in% c(head(sizes, 1), 1L)
+  if (!all(ok_lengths)) {
+    first_bad_one <- which.min(ok_lengths)
+    abort(
+      c("Non-scalar inputs must have an equal number of rows.",
+        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])),
+      call = call
+    )
+  }
+}
+
+#' @export
+cbind.RecordBatch <- function(...) {
+  call <- sys.call()
+  inputs <- list(...)
+  arg_names <- if (is.null(names(inputs))) {
+    rep("", length(inputs))
+  } else {
+    names(inputs)
+  }
+
+  cbind_check_length(inputs, call)
+
+  columns <- flatten(map(seq_along(inputs), function(i) {
+    input <- inputs[[i]]
+    name <- arg_names[i]
+
+    if (inherits(input, "RecordBatch")) {
+      set_names(input$columns, names(input))
+    } else if (inherits(input, "data.frame")) {
+      as.list(input)
+    } else if (inherits(input, "Table") || inherits(input, "ChunkedArray")) {
+      abort("Cannot cbind a RecordBatch with Tables or ChunkedArrays",
+            i = "Hint: consider converting the RecordBatch into a Table first")
+    } else {
+      if (name == "") {
+        abort("Vector and array arguments must have names",
+              i = sprintf("Argument ..%d is missing a name", i))
+      }
+      list2("{name}" := input)
+    }
+  }))
+
+  RecordBatch$create(!!! columns)
+}

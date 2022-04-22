@@ -22,10 +22,7 @@ A single \link{Array}
 Concatenates zero or more \link{Array} objects into a single
 array. This operation will make a copy of its input; if you need
 the behavior of a single Array but don't need a
-single object, use \link{ChunkedArray}. Note that a \code{\link[=c]{c()}}
-method is provided for convenience but that it may
-produce surprising results when used with other
-classes of objects.
+single object, use \link{ChunkedArray}.
 }
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}

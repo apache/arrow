@@ -74,6 +74,11 @@ list_scores$num_chunks
 # When constructing a ChunkedArray, the first chunk is used to infer type.
 doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
 doubles$type
+
+# Concatenating chunked arrays returns a new chunked array containing all chunks
+a <- chunked_array(c(1, 2), 3)
+b <- chunked_array(c(4, 5), 6)
+c(a, b)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
