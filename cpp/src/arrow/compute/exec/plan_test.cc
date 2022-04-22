@@ -238,6 +238,25 @@ TEST(ExecPlanExecution, SourceSink) {
   }
 }
 
+TEST(ExecPlanExecution, UseSinkAfterExecution) {
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    auto basic_data = MakeBasicBatches();
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"source", SourceNodeOptions{basic_data.schema,
+                                                   basic_data.gen(/*parallel=*/false,
+                                                                  /*slow=*/false)}},
+                      {"sink", SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
+    ASSERT_OK(plan->StartProducing());
+    ASSERT_FINISHES_OK(plan->finished());
+  }
+  ASSERT_FINISHES_AND_RAISES(Invalid, sink_gen());
+}
+
 TEST(ExecPlanExecution, TableSourceSink) {
   for (int batch_size : {1, 4}) {
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
