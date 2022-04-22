@@ -22,6 +22,8 @@ import pytest
 pytestmark = [
     pytest.mark.parquet,
     pytest.mark.filterwarnings(
-        "ignore:Passing 'use_legacy_dataset=True':DeprecationWarning"
+        "ignore:Passing 'use_legacy_dataset=True':FutureWarning",
+        "ignore:'ParquetDataset.common_metadata':FutureWarning",
+        "ignore:'partition_filename_cb':FutureWarning"
     ),
 ]
