@@ -411,8 +411,8 @@ Compatibility Note: if using ``pq.write_to_dataset`` to create a table that
 will then be used by HIVE then partition column values must be compatible with
 the allowed character set of the HIVE version you are running.
 
-Writing ``_metadata`` and ``_common_medata`` files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Writing ``_metadata`` and ``_common_metadata`` files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some processing frameworks such as Spark or Dask (optionally) use ``_metadata``
 and ``_common_metadata`` files with partitioned datasets.
