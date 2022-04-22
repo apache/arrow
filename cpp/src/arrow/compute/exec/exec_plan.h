@@ -194,6 +194,24 @@ class ARROW_EXPORT ExecNode {
   // - A method allows passing a ProductionHint asynchronously from an output node
   //   (replacing PauseProducing(), ResumeProducing(), StopProducing())
 
+  // Concurrent calls to PauseProducing and ResumeProducing can be hard to sequence
+  // as they may travel at different speeds through the plan.
+  //
+  // For example, consider a resume that comes quickly after a pause.  If the source
+  // receives the resume before the pause the source may think the destination is full
+  // and halt production which would lead to deadlock.
+  //
+  // To resolve this a counter is sent for all calls to pause/resume.  Only the call with
+  // the highest counter value is valid.  So if a call to PauseProducing(5) comes after
+  // a call to ResumeProducing(6) then the source should continue producing.
+  //
+  // If a node has multiple outputs it should emit a new counter value to its inputs
+  // whenever any of its outputs changes which means the counters sent to inputs may be
+  // larger than the counters received on its outputs.
+  //
+  // A node with multiple outputs will also need to ensure it is applying backpressure if
+  // any of its outputs is asking to pause
+
   /// \brief Start producing
   ///
   /// This must only be called once.  If this fails, then other lifecycle
@@ -204,22 +222,26 @@ class ARROW_EXPORT ExecNode {
 
   /// \brief Pause producing temporarily
   ///
+  /// \param output Pointer to the output that is full
+  /// \param counter Counter used to sequence calls to pause/resume
+  ///
   /// This call is a hint that an output node is currently not willing
   /// to receive data.
   ///
   /// This may be called any number of times after StartProducing() succeeds.
   /// However, the node is still free to produce data (which may be difficult
   /// to prevent anyway if data is produced using multiple threads).
-  virtual void PauseProducing(ExecNode* output) = 0;
+  virtual void PauseProducing(ExecNode* output, int32_t counter) = 0;
 
   /// \brief Resume producing after a temporary pause
+  ///
+  /// \param output Pointer to the output that is now free
+  /// \param counter Counter used to sequence calls to pause/resume
   ///
   /// This call is a hint that an output node is willing to receive data again.
   ///
   /// This may be called any number of times after StartProducing() succeeds.
-  /// This may also be called concurrently with PauseProducing(), which suggests
-  /// the implementation may use an atomic counter.
-  virtual void ResumeProducing(ExecNode* output) = 0;
+  virtual void ResumeProducing(ExecNode* output, int32_t counter) = 0;
 
   /// \brief Stop producing definitively to a single output
   ///
@@ -281,9 +303,9 @@ class MapNode : public ExecNode {
 
   Status StartProducing() override;
 
-  void PauseProducing(ExecNode* output) override;
+  void PauseProducing(ExecNode* output, int32_t counter) override;
 
-  void ResumeProducing(ExecNode* output) override;
+  void ResumeProducing(ExecNode* output, int32_t counter) override;
 
   void StopProducing(ExecNode* output) override;
 

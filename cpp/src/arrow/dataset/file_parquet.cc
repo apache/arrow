@@ -417,13 +417,11 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
         auto parquet_scan_options,
         GetFragmentScanOptions<ParquetFragmentScanOptions>(
             kParquetTypeName, options.get(), default_fragment_scan_options));
-    // Assume 1 row group corresponds to 1 batch (this factor could be
-    // improved by looking at metadata)
-    int row_group_readahead = options->batch_readahead;
-    ARROW_ASSIGN_OR_RAISE(
-        auto generator, reader->GetRecordBatchGenerator(
-                            reader, row_groups, column_projection,
-                            ::arrow::internal::GetCpuThreadPool(), row_group_readahead));
+    int batch_readahead = options->batch_readahead;
+    ARROW_ASSIGN_OR_RAISE(auto generator,
+                          reader->GetRecordBatchGenerator(
+                              reader, row_groups, column_projection,
+                              ::arrow::internal::GetCpuThreadPool(), batch_readahead));
     return generator;
   };
   auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)

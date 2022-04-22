@@ -409,18 +409,13 @@ class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
  public:
   explicit WriteNodeOptions(
       FileSystemDatasetWriteOptions options,
-      std::shared_ptr<const KeyValueMetadata> custom_metadata = NULLPTR,
-      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
-      : write_options(std::move(options)),
-        custom_metadata(std::move(custom_metadata)),
-        backpressure_toggle(std::move(backpressure_toggle)) {}
+      std::shared_ptr<const KeyValueMetadata> custom_metadata = NULLPTR)
+      : write_options(std::move(options)), custom_metadata(std::move(custom_metadata)) {}
 
   /// \brief Options to control how to write the dataset
   FileSystemDatasetWriteOptions write_options;
   /// \brief Optional metadata to attach to written batches
   std::shared_ptr<const KeyValueMetadata> custom_metadata;
-  /// \brief Optional toggle that can be used to pause producers when the node is full
-  std::shared_ptr<util::AsyncToggle> backpressure_toggle;
 };
 
 /// @}

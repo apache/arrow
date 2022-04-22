@@ -121,9 +121,17 @@ class UnionNode : public ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    for (auto* input : inputs_) {
+      input->PauseProducing(this, counter);
+    }
+  }
 
-  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    for (auto* input : inputs_) {
+      input->ResumeProducing(this, counter);
+    }
+  }
 
   void StopProducing(ExecNode* output) override {
     EVENT(span_, "StopProducing");

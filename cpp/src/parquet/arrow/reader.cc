@@ -1121,7 +1121,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         const std::vector<int> row_group_indices,
                                         const std::vector<int> column_indices,
                                         ::arrow::internal::Executor* cpu_executor,
-                                        int row_group_readahead) {
+                                        int batch_readahead) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -1132,12 +1132,21 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
   ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
       RowGroupGenerator(::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader),
                         cpu_executor, row_group_indices, column_indices);
-  if (row_group_readahead > 0) {
-    row_group_generator = ::arrow::MakeReadaheadGenerator(std::move(row_group_generator),
-                                                          row_group_readahead);
+  // We always readahead at least 1 row group unless readahead is completely disabled
+  if (batch_readahead > 0) {
+    row_group_generator =
+        ::arrow::MakeReadaheadGenerator(std::move(row_group_generator), 1);
   }
-  WRAP_ASYNC_GENERATOR(std::move(row_group_generator));
-  return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
+  ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>> concatenated =
+      ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
+  if (batch_readahead > 0) {
+    auto readahead_gen =
+        ::arrow::MakeReadaheadGenerator(std::move(concatenated), batch_readahead);
+    WRAP_ASYNC_GENERATOR(std::move(readahead_gen));
+    return readahead_gen;
+  }
+  WRAP_ASYNC_GENERATOR(std::move(concatenated));
+  return concatenated;
 }
 
 Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,

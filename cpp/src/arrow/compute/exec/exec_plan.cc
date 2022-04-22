@@ -395,9 +395,13 @@ Status MapNode::StartProducing() {
   return Status::OK();
 }
 
-void MapNode::PauseProducing(ExecNode* output) { EVENT(span_, "PauseProducing"); }
+void MapNode::PauseProducing(ExecNode* output, int32_t counter) {
+  inputs_[0]->PauseProducing(this, counter);
+}
 
-void MapNode::ResumeProducing(ExecNode* output) { EVENT(span_, "ResumeProducing"); }
+void MapNode::ResumeProducing(ExecNode* output, int32_t counter) {
+  inputs_[0]->ResumeProducing(this, counter);
+}
 
 void MapNode::StopProducing(ExecNode* output) {
   DCHECK_EQ(output, outputs_[0]);

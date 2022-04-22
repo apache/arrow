@@ -592,9 +592,13 @@ class HashJoinNode : public ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    // TODO(ARROW-16246)
+  }
 
-  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    // TODO(ARROW-16246)
+  }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);

@@ -232,9 +232,13 @@ class ScalarAggregateNode : public ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->PauseProducing(this, counter);
+  }
 
-  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->ResumeProducing(this, counter);
+  }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
@@ -598,9 +602,15 @@ class GroupByNode : public ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    // TODO(ARROW-16260)
+    // Without spillover there is way to handle backpressure in this node
+  }
 
-  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    // TODO(ARROW-16260)
+    // Without spillover there is way to handle backpressure in this node
+  }
 
   void StopProducing(ExecNode* output) override {
     EVENT(span_, "StopProducing");

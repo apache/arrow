@@ -238,6 +238,25 @@ TEST(ExecPlanExecution, SourceSink) {
   }
 }
 
+TEST(ExecPlanExecution, UseSinkAfterExecution) {
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    auto basic_data = MakeBasicBatches();
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"source", SourceNodeOptions{basic_data.schema,
+                                                   basic_data.gen(/*parallel=*/false,
+                                                                  /*slow=*/false)}},
+                      {"sink", SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
+    ASSERT_OK(plan->StartProducing());
+    ASSERT_FINISHES_OK(plan->finished());
+  }
+  ASSERT_FINISHES_AND_RAISES(Invalid, sink_gen());
+}
+
 TEST(ExecPlanExecution, TableSourceSink) {
   for (int batch_size : {1, 4}) {
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
@@ -278,48 +297,56 @@ TEST(ExecPlanExecution, TableSourceSinkError) {
 }
 
 TEST(ExecPlanExecution, SinkNodeBackpressure) {
+  util::optional<ExecBatch> batch =
+      ExecBatchFromJSON({int32(), boolean()},
+                        "[[4, false], [5, null], [6, false], [7, false], [null, true]]");
   constexpr uint32_t kPauseIfAbove = 4;
   constexpr uint32_t kResumeIfBelow = 2;
+  uint32_t pause_if_above_bytes =
+      kPauseIfAbove * static_cast<uint32_t>(batch->TotalBufferSize());
+  uint32_t resume_if_below_bytes =
+      kResumeIfBelow * static_cast<uint32_t>(batch->TotalBufferSize());
   EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
   PushGenerator<util::optional<ExecBatch>> batch_producer;
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  util::BackpressureOptions backpressure_options =
-      util::BackpressureOptions::Make(kResumeIfBelow, kPauseIfAbove);
+  BackpressureMonitor* backpressure_monitor;
+  BackpressureOptions backpressure_options(resume_if_below_bytes, pause_if_above_bytes);
   std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
   ARROW_EXPECT_OK(compute::Declaration::Sequence(
                       {
                           {"source", SourceNodeOptions(schema_, batch_producer)},
-                          {"sink", SinkNodeOptions{&sink_gen, backpressure_options}},
+                          {"sink", SinkNodeOptions{&sink_gen, backpressure_options,
+                                                   &backpressure_monitor}},
                       })
                       .AddToPlan(plan.get()));
+  ASSERT_TRUE(backpressure_monitor);
   ARROW_EXPECT_OK(plan->StartProducing());
 
-  EXPECT_OK_AND_ASSIGN(util::optional<ExecBatch> batch, ExecBatch::Make({MakeScalar(0)}));
-  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+  ASSERT_FALSE(backpressure_monitor->is_paused());
 
   // Should be able to push kPauseIfAbove batches without triggering back pressure
   for (uint32_t i = 0; i < kPauseIfAbove; i++) {
     batch_producer.producer().Push(batch);
   }
   SleepABit();
-  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+  ASSERT_FALSE(backpressure_monitor->is_paused());
 
   // One more batch should trigger back pressure
   batch_producer.producer().Push(batch);
-  BusyWait(10, [&] { return !backpressure_options.toggle->IsOpen(); });
-  ASSERT_FALSE(backpressure_options.toggle->IsOpen());
+  BusyWait(10, [&] { return backpressure_monitor->is_paused(); });
+  ASSERT_TRUE(backpressure_monitor->is_paused());
 
   // Reading as much as we can while keeping it paused
   for (uint32_t i = kPauseIfAbove; i >= kResumeIfBelow; i--) {
     ASSERT_FINISHES_OK(sink_gen());
   }
   SleepABit();
-  ASSERT_FALSE(backpressure_options.toggle->IsOpen());
+  ASSERT_TRUE(backpressure_monitor->is_paused());
 
   // Reading one more item should open up backpressure
   ASSERT_FINISHES_OK(sink_gen());
-  BusyWait(10, [&] { return backpressure_options.toggle->IsOpen(); });
-  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+  BusyWait(10, [&] { return !backpressure_monitor->is_paused(); });
+  ASSERT_FALSE(backpressure_monitor->is_paused());
 
   // Cleanup
   batch_producer.producer().Push(IterationEnd<util::optional<ExecBatch>>());
@@ -387,8 +414,6 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
         :FilterNode{filter=(i32 >= 0)}
           custom_source_label:SourceNode{}
 )a");
-
-  std::cout << plan->ToString() << '\n';
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
 
@@ -493,7 +518,8 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
         TestConsumer(std::atomic<uint32_t>* batches_seen, Future<> finish)
             : batches_seen(batches_seen), finish(std::move(finish)) {}
 
-        Status Init(const std::shared_ptr<Schema>& schema) override {
+        Status Init(const std::shared_ptr<Schema>& schema,
+                    BackpressureControl* backpressure_control) override {
           return Status::OK();
         }
 
@@ -565,19 +591,26 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
 
 TEST(ExecPlanExecution, ConsumingSinkError) {
   struct InitErrorConsumer : public SinkNodeConsumer {
-    Status Init(const std::shared_ptr<Schema>& schema) override {
+    Status Init(const std::shared_ptr<Schema>& schema,
+                BackpressureControl* backpressure_control) override {
       return Status::Invalid("XYZ");
     }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
     Future<> Finish() override { return Future<>::MakeFinished(); }
   };
   struct ConsumeErrorConsumer : public SinkNodeConsumer {
-    Status Init(const std::shared_ptr<Schema>& schema) override { return Status::OK(); }
+    Status Init(const std::shared_ptr<Schema>& schema,
+                BackpressureControl* backpressure_control) override {
+      return Status::OK();
+    }
     Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }
     Future<> Finish() override { return Future<>::MakeFinished(); }
   };
   struct FinishErrorConsumer : public SinkNodeConsumer {
-    Status Init(const std::shared_ptr<Schema>& schema) override { return Status::OK(); }
+    Status Init(const std::shared_ptr<Schema>& schema,
+                BackpressureControl* backpressure_control) override {
+      return Status::OK();
+    }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
     Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
   };
