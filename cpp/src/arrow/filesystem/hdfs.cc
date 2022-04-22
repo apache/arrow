@@ -212,7 +212,7 @@ class HadoopFileSystem::Impl {
   }
 
   Status DeleteDirContents(const std::string& path, bool missing_dir_ok) {
-    auto st = CheckForDirectory(path, "delete contents of ");
+    auto st = CheckForDirectory(path, "delete contents of");
     if (!st.ok()) {
       if (missing_dir_ok && ErrnoFromStatus(st) == ENOENT) {
         return Status::OK();
