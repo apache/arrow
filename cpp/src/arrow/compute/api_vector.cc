@@ -139,6 +139,10 @@ static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOpti
     DataMember("start", &CumulativeSumOptions::start),
     DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
     DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
+static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
+    DataMember("order", &RankOptions::order),
+    DataMember("null_placement", &RankOptions::null_placement),
+    DataMember("tiebreaker", &RankOptions::tiebreaker));
 }  // namespace
 }  // namespace internal
 
@@ -191,6 +195,13 @@ CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool s
       skip_nulls(skip_nulls),
       check_overflow(check_overflow) {}
 constexpr char CumulativeSumOptions::kTypeName[];
+RankOptions::RankOptions(SortOrder order, NullPlacement null_placement,
+                         TieBreaker tiebreaker)
+    : FunctionOptions(internal::kRankOptionsType),
+      order(order),
+      null_placement(null_placement),
+      tiebreaker(tiebreaker) {}
+constexpr char RankOptions::kTypeName[];
 
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
@@ -202,6 +213,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
 }
 }  // namespace internal
 

@@ -95,6 +95,13 @@ enum class NullPlacement {
   AtEnd,
 };
 
+enum class TieBreaker {
+  Lowest,
+  Highest,
+  First,
+  Dense,
+};
+
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
@@ -172,6 +179,23 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   int64_t k;
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+};
+
+/// \brief Rank options
+class ARROW_EXPORT RankOptions : public FunctionOptions {
+ public:
+  explicit RankOptions(SortOrder order = SortOrder::Ascending,
+                       NullPlacement null_placement = NullPlacement::AtEnd,
+                       TieBreaker tiebreaker = TieBreaker::First);
+  static constexpr char const kTypeName[] = "RankOptions";
+  static RankOptions Defaults() { return RankOptions(); }
+
+  /// Sorting order
+  SortOrder order;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+  /// Tiebreaker for dealing with equal values in ranks
+  TieBreaker tiebreaker;
 };
 
 /// \brief Partitioning options for NthToIndices

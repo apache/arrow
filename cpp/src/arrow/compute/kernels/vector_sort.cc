@@ -1926,7 +1926,7 @@ class RankMetaFunction : public MetaFunction {
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options, ExecContext* ctx) const {
-    const SortOptions& sort_options = static_cast<const SortOptions&>(*options);
+    const RankOptions& sort_options = static_cast<const RankOptions&>(*options);
     switch (args[0].kind()) {
       case Datum::ARRAY: {
         return Rank(*args[0].make_array(), sort_options, ctx);
@@ -1941,23 +1941,20 @@ class RankMetaFunction : public MetaFunction {
   }
 
  private:
-  Result<Datum> Rank(const Array& array, const SortOptions& options,
+  Result<Datum> Rank(const Array& array, const RankOptions& options,
                      ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
-    if (!options.sort_keys.empty()) {
-      order = options.sort_keys[0].order;
-    }
     ArraySortOptions array_options(order, options.null_placement);
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto sortIndices, CallFunction("array_sort_indices", {array}, &array_options, ctx));
+    ARROW_ASSIGN_OR_RAISE(auto sortIndices, CallFunction("array_sort_indices", {array},
+                                                         &array_options, ctx));
 
     auto out_size = array.length();
-        ARROW_ASSIGN_OR_RAISE(auto rankings, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto rankings,
+                          MakeMutableUInt64Array(uint64(), out_size, ctx->memory_pool()));
 
     uint64_t rank = 0;
-    auto *indices = sortIndices.make_array()->data()->GetValues<uint64_t>(1);
+    auto* indices = sortIndices.make_array()->data()->GetValues<uint64_t>(1);
     auto out_rankings = rankings->GetMutableValues<uint64_t>(1);
     for (auto i = 0; i < out_size; i++) {
       out_rankings[indices[i]] = ++rank;

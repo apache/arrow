@@ -53,6 +53,10 @@ std::vector<NullPlacement> AllNullPlacements() {
   return {NullPlacement::AtEnd, NullPlacement::AtStart};
 }
 
+std::vector<TieBreaker> AllTieBreakers() {
+  return {TieBreaker::Lowest, TieBreaker::Highest, TieBreaker::First, TieBreaker::Dense};
+}
+
 std::ostream& operator<<(std::ostream& os, NullPlacement null_placement) {
   os << (null_placement == NullPlacement::AtEnd ? "AtEnd" : "AtStart");
   return os;
@@ -1941,8 +1945,13 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
 TEST(ArrayRankFunction, Array) {
   auto arr = ArrayFromJSON(int16(), "[0, 1, -3, -42, 5]");
   auto expected = ArrayFromJSON(uint64(), "[3, 4, 2, 1, 5]");
-  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {arr}));
-  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTieBreakers()) {
+      RankOptions options(SortOrder::Ascending, null_placement, tiebreaker);
+      ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {arr}, &options));
+      AssertDatumsEqual(expected, actual, /*verbose=*/true);
+    }
+  }
 }
 
 // Some first keys will have duplicates, others not
