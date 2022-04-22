@@ -1092,10 +1092,21 @@ class PartAndPartSupplierGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     int32_t byte_width = arrow::internal::GetByteWidth(*kPartsuppTypes[column]);
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
-                          AllocateBuffer(batch_size_ * byte_width));
+                          AllocateResizableBuffer(batch_size_ * byte_width));
     ArrayData ad(kPartsuppTypes[column], batch_size_, {nullptr, std::move(buff)});
     tld.partsupp[ibatch][column] = std::move(ad);
     return Status::OK();
+  }
+
+  Status SetPartSuppColumnSize(size_t thread_index, size_t ibatch, int column,
+                               size_t new_size) {
+    ThreadLocalData& tld = thread_local_data_[thread_index];
+    int32_t byte_width = arrow::internal::GetByteWidth(*kPartsuppTypes[column]);
+    tld.partsupp[ibatch][column].array()->length = static_cast<int64_t>(new_size);
+    ResizableBuffer* buff = checked_cast<ResizableBuffer*>(
+        tld.partsupp[ibatch][column].array()->buffers[1].get());
+    return buff->Resize(static_cast<int64_t>(new_size * byte_width),
+                        /*shrink_to_fit=*/false);
   }
 
   Status PS_PARTKEY(size_t thread_index) {
@@ -1129,8 +1140,9 @@ class PartAndPartSupplierGenerator {
             ipart++;
           }
         }
+        RETURN_NOT_OK(
+            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_PARTKEY, next_run));
         irow += next_run;
-        tld.partsupp[ibatch][PARTSUPP::PS_PARTKEY].array()->length = batch_offset;
       }
     }
     return Status::OK();
@@ -1173,8 +1185,9 @@ class PartAndPartSupplierGenerator {
             ipart++;
           }
         }
+        RETURN_NOT_OK(
+            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_SUPPKEY, next_run));
         irow += next_run;
-        tld.partsupp[ibatch][PARTSUPP::PS_SUPPKEY].array()->length = batch_offset;
       }
     }
     return Status::OK();
@@ -1197,7 +1210,8 @@ class PartAndPartSupplierGenerator {
         int64_t next_run = std::min(batch_size_, ps_to_generate - irow);
         for (int64_t irun = 0; irun < next_run; irun++) ps_availqty[irun] = dist(tld.rng);
 
-        tld.partsupp[ibatch][PARTSUPP::PS_AVAILQTY].array()->length = next_run;
+        RETURN_NOT_OK(
+            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_AVAILQTY, next_run));
         irow += next_run;
       }
     }
@@ -1223,7 +1237,8 @@ class PartAndPartSupplierGenerator {
         for (int64_t irun = 0; irun < next_run; irun++)
           ps_supplycost[irun] = {dist(tld.rng)};
 
-        tld.partsupp[ibatch][PARTSUPP::PS_SUPPLYCOST].array()->length = next_run;
+        RETURN_NOT_OK(SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_SUPPLYCOST,
+                                            next_run));
         irow += next_run;
       }
     }
@@ -1232,7 +1247,8 @@ class PartAndPartSupplierGenerator {
 
   Status PS_COMMENT(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
-    if (tld.part[PARTSUPP::PS_COMMENT].kind() == Datum::NONE) {
+    if (!tld.generated_partsupp[PARTSUPP::PS_COMMENT]) {
+      tld.generated_partsupp[PARTSUPP::PS_COMMENT] = true;
       int64_t irow = 0;
       int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
       for (size_t ibatch = 0; ibatch < tld.partsupp.size(); ibatch++) {
@@ -1327,13 +1343,14 @@ class OrdersAndLineItemGenerator {
             std::min(batch_size_, orders_rows_to_generate_ - orders_rows_generated_);
         orders_rows_generated_ += tld.orders_to_generate;
         orders_batches_generated_.fetch_add(1);
+        tld.first_batch_offset = 0;
+        RETURN_NOT_OK(GenerateRowCounts(thread_index));
+        lineitem_batches_generated_.fetch_add(static_cast<int64_t>(tld.lineitem.size()));
         ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
       }
     }
     tld.orders.resize(ORDERS::kNumCols);
     std::fill(tld.orders.begin(), tld.orders.end(), Datum());
-    RETURN_NOT_OK(GenerateRowCounts(thread_index));
-    tld.first_batch_offset = 0;
     tld.generated_lineitem.reset();
 
     for (int col : orders_cols_) RETURN_NOT_OK(kOrdersGenerators[col](thread_index));
@@ -1395,15 +1412,16 @@ class OrdersAndLineItemGenerator {
       tld.orders_to_generate =
           std::min(batch_size_, orders_rows_to_generate_ - orders_rows_generated_);
       orders_rows_generated_ += tld.orders_to_generate;
-      orders_batches_generated_.fetch_add(1ll);
+      orders_batches_generated_.fetch_add(1);
+      RETURN_NOT_OK(GenerateRowCounts(thread_index));
+      lineitem_batches_generated_.fetch_add(
+          static_cast<int64_t>(tld.lineitem.size() - from_queue));
       ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
     }
     tld.orders.resize(ORDERS::kNumCols);
     std::fill(tld.orders.begin(), tld.orders.end(), Datum());
-    RETURN_NOT_OK(GenerateRowCounts(thread_index));
     tld.generated_lineitem.reset();
     if (from_queue) {
-      lineitem_batches_generated_.fetch_sub(1);
       for (size_t i = 0; i < lineitem_cols_.size(); i++)
         if (tld.lineitem[0][lineitem_cols_[i]].kind() == Datum::NONE)
           tld.lineitem[0][lineitem_cols_[i]] = std::move(queued[i]);
@@ -1435,7 +1453,6 @@ class OrdersAndLineItemGenerator {
       ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(lineitem_result)));
       lineitem_results.emplace_back(std::move(eb));
     }
-    lineitem_batches_generated_.fetch_add(static_cast<int64_t>(lineitem_results.size()));
     // Return the first batch, enqueue the rest.
     {
       std::lock_guard<std::mutex> lock(lineitem_output_queue_mutex_);
@@ -1774,9 +1791,10 @@ class OrdersAndLineItemGenerator {
                                         size_t& out_batch_offset) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.lineitem[ibatch][column].kind() == Datum::NONE) {
+      ARROW_DCHECK(ibatch != 0 || tld.first_batch_offset == 0);
       int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[column]);
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
-                            AllocateBuffer(batch_size_ * byte_width));
+                            AllocateResizableBuffer(batch_size_ * byte_width));
       ArrayData ad(kLineitemTypes[column], batch_size_, {nullptr, std::move(buff)});
       tld.lineitem[ibatch][column] = std::move(ad);
       out_batch_offset = 0;
@@ -1784,6 +1802,17 @@ class OrdersAndLineItemGenerator {
     if (ibatch == 0) out_batch_offset = tld.first_batch_offset;
 
     return Status::OK();
+  }
+
+  Status SetLineItemColumnSize(size_t thread_index, size_t ibatch, int column,
+                               size_t new_size) {
+    ThreadLocalData& tld = thread_local_data_[thread_index];
+    int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[column]);
+    tld.lineitem[ibatch][column].array()->length = static_cast<int64_t>(new_size);
+    ResizableBuffer* buff = checked_cast<ResizableBuffer*>(
+        tld.lineitem[ibatch][column].array()->buffers[1].get());
+    return buff->Resize(static_cast<int64_t>(new_size * byte_width),
+                        /*shrink_to_fit=*/false);
   }
 
   Status L_ORDERKEY(size_t thread_index) {
@@ -1817,8 +1846,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_ORDERKEY].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_ORDERKEY,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1847,8 +1876,8 @@ class OrdersAndLineItemGenerator {
           l_partkey[batch_offset] = dist(tld.rng);
 
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_PARTKEY].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_PARTKEY,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1885,8 +1914,8 @@ class OrdersAndLineItemGenerator {
               (partkey + (supplier * ((S / 4) + (partkey - 1) / S))) % S + 1;
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_SUPPKEY].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_SUPPKEY,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1922,8 +1951,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_LINENUMBER].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_LINENUMBER,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1954,8 +1983,8 @@ class OrdersAndLineItemGenerator {
           l_quantity[batch_offset++] = {quantity};
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_QUANTITY].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_QUANTITY,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1998,8 +2027,8 @@ class OrdersAndLineItemGenerator {
           l_extendedprice[batch_offset] = {extended_price};
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_EXTENDEDPRICE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch,
+                                            LINEITEM::L_EXTENDEDPRICE, batch_offset));
       }
     }
     return Status::OK();
@@ -2027,8 +2056,8 @@ class OrdersAndLineItemGenerator {
         for (int64_t i = 0; i < next_run; i++, batch_offset++)
           l_discount[batch_offset] = {dist(tld.rng)};
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_DISCOUNT].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_DISCOUNT,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2052,8 +2081,8 @@ class OrdersAndLineItemGenerator {
         for (int64_t i = 0; i < next_run; i++, batch_offset++)
           l_tax[batch_offset] = {dist(tld.rng)};
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_TAX].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(
+            SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_TAX, batch_offset));
       }
     }
     return Status::OK();
@@ -2093,8 +2122,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_RETURNFLAG].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_RETURNFLAG,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2131,8 +2160,8 @@ class OrdersAndLineItemGenerator {
             l_linestatus[batch_offset] = 'F';
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_LINESTATUS].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_LINESTATUS,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2169,8 +2198,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_SHIPDATE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_SHIPDATE,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2207,8 +2236,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_COMMITDATE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_COMMITDATE,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2243,8 +2272,8 @@ class OrdersAndLineItemGenerator {
           l_receiptdate[batch_offset] = l_shipdate[batch_offset] + dist(tld.rng);
 
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_RECEIPTDATE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_RECEIPTDATE,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2278,8 +2307,8 @@ class OrdersAndLineItemGenerator {
           std::strncpy(l_shipinstruct + batch_offset * byte_width, str, byte_width);
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_SHIPINSTRUCT].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch,
+                                            LINEITEM::L_SHIPINSTRUCT, batch_offset));
       }
     }
     return Status::OK();
@@ -2311,8 +2340,8 @@ class OrdersAndLineItemGenerator {
           std::strncpy(l_shipmode + batch_offset * byte_width, str, byte_width);
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_SHIPMODE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_SHIPMODE,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2323,16 +2352,17 @@ class OrdersAndLineItemGenerator {
     if (!tld.generated_lineitem[LINEITEM::L_COMMENT]) {
       tld.generated_lineitem[LINEITEM::L_COMMENT] = true;
 
-      size_t batch_offset = tld.first_batch_offset;
       size_t ibatch = 0;
       for (int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++) {
         // Comments are kind of sneaky: we always generate the full batch and then just
         // bump the length
+        size_t batch_offset = 0;
         if (tld.lineitem[ibatch][LINEITEM::L_COMMENT].kind() == Datum::NONE) {
           ARROW_ASSIGN_OR_RAISE(tld.lineitem[ibatch][LINEITEM::L_COMMENT],
                                 g_text.GenerateComments(batch_size_, 10, 43, tld.rng));
           batch_offset = 0;
         }
+        if (irow == 0) batch_offset = tld.first_batch_offset;
 
         int64_t remaining_in_batch = static_cast<int64_t>(batch_size_ - batch_offset);
         int64_t next_run = std::min(tld.lineitem_to_generate - irow, remaining_in_batch);
@@ -2694,8 +2724,10 @@ class PartGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -2754,8 +2786,10 @@ class PartSuppGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -3070,8 +3104,10 @@ class OrdersGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -3130,8 +3166,11 @@ class LineitemGenerator : public TpchTableGenerator {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      // We may have generated but not outputted all of the batches.
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
