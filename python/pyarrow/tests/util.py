@@ -26,6 +26,7 @@ import numpy as np
 import os
 import random
 import re
+import shutil
 import signal
 import socket
 import string
@@ -424,8 +425,9 @@ def _configure_s3_limited_user(s3_server, policy):
             # minio version is too old for the capabilities we need
             return False
         mcdir = os.path.join(tempdir, 'mc')
-        if not os.path.exists(mcdir):
-            os.mkdir(mcdir)
+        if os.path.exists(mcdir):
+            shutil.rmtree(mcdir)
+        os.mkdir(mcdir)
         policy_path = os.path.join(tempdir, 'limited-buckets-policy.json')
         with open(policy_path, mode='w') as policy_file:
             policy_file.write(policy)
