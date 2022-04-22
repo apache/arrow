@@ -51,7 +51,6 @@ test_that("Can see the metadata (parquet)", {
   )
 
   # column-level attributes
-  expect_equal(attributes(df$a), list(class = "special_string"))
   expect_equal(
     attributes(df$c),
     list(
@@ -94,7 +93,6 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     )
 
     # column-level attributes
-    expect_equal(attributes(df$a), list(class = "special_string"))
     expect_equal(
       attributes(df$c),
       list(
