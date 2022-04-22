@@ -1944,12 +1944,21 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
 //
 TEST(ArrayRankFunction, Array) {
   auto arr = ArrayFromJSON(int16(), "[0, 1, -3, -42, 5]");
-  auto expected = ArrayFromJSON(uint64(), "[3, 4, 2, 1, 5]");
+  auto expectedAsc = ArrayFromJSON(uint64(), "[3, 4, 2, 1, 5]");
   for (auto null_placement : AllNullPlacements()) {
     for (auto tiebreaker : AllTieBreakers()) {
       RankOptions options(SortOrder::Ascending, null_placement, tiebreaker);
       ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {arr}, &options));
-      AssertDatumsEqual(expected, actual, /*verbose=*/true);
+      AssertDatumsEqual(expectedAsc, actual, /*verbose=*/true);
+    }
+  }
+
+  auto expectedDesc = ArrayFromJSON(uint64(), "[3, 2, 4, 5, 1]");
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTieBreakers()) {
+      RankOptions options(SortOrder::Descending, null_placement, tiebreaker);
+      ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {arr}, &options));
+      AssertDatumsEqual(expectedDesc, actual, /*verbose=*/true);
     }
   }
 }

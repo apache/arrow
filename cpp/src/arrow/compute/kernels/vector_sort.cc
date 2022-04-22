@@ -1943,8 +1943,7 @@ class RankMetaFunction : public MetaFunction {
  private:
   Result<Datum> Rank(const Array& array, const RankOptions& options,
                      ExecContext* ctx) const {
-    SortOrder order = SortOrder::Ascending;
-    ArraySortOptions array_options(order, options.null_placement);
+    ArraySortOptions array_options(options.order, options.null_placement);
 
     ARROW_ASSIGN_OR_RAISE(auto sortIndices, CallFunction("array_sort_indices", {array},
                                                          &array_options, ctx));
