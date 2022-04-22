@@ -165,7 +165,7 @@ public class ArrowFlightJdbcArray implements Array {
 
   @Override
   public String toString() {
-    JsonStringArrayList<Object> array = new JsonStringArrayList<>();
+    JsonStringArrayList<Object> array = new JsonStringArrayList<>((int) this.valuesCount);
 
     try {
       array.addAll(Arrays.asList((Object[]) getArray()));
