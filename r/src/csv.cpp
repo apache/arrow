@@ -165,7 +165,7 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
 #if !defined(HAS_SAFE_CALL_INTO_R)
-  return table_reader->Read();
+  return ValueOrStop(table_reader->Read());
 #else
   const auto& io_context = arrow::io::default_io_context();
   auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
