@@ -147,5 +147,20 @@ jobs:
           arch -x86_64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
       {% endif %}
 
-      {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
+      - name: Upload artifacts
+        shell: bash
+        run: |
+          $PYTHON -m venv crossbow-env
+          source crossbow-env/bin/activate
+          arch -x86_64 pip install -e arrow/dev/archery[crossbow-upload]
+          arch -x86_64 archery crossbow \
+          --queue-path $(pwd) \
+          --queue-remote {{ queue_remote_url }} \
+          upload-artifacts \
+          --sha {{ task.branch }} \
+          --tag {{ task.tag }} \
+          "arrow/python/repaired_wheels/*.whl"
+        env:
+          CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
+
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
