@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.replaceSemiColons;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,7 +27,6 @@ import java.io.Reader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -217,6 +218,9 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      *
      */
 
+    final Properties resultMap = new Properties();
+    url = replaceSemiColons(url);
+
     if (!url.startsWith("jdbc:")) {
       throw new SQLException("Connection string must start with 'jdbc:'. Expected format: " +
           CONNECTION_STRING_EXPECTED);
@@ -238,8 +242,6 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
           CONNECTION_STRING_EXPECTED);
     }
 
-
-    final Map<Object, Object> resultMap = new HashMap<>();
 
     resultMap.put(ArrowFlightConnectionProperty.HOST.camelName(), uri.getHost()); // host
     resultMap.put(ArrowFlightConnectionProperty.PORT.camelName(), uri.getPort()); // port

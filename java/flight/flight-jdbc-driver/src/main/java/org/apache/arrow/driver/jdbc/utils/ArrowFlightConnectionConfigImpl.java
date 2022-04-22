@@ -245,5 +245,18 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     public Class<?> valueClass() {
       return type.defaultValueClass();
     }
+
+    /**
+     * Replaces the semicolons in the URL to the proper format.
+     * @param url the current connection string
+     * @return the formatted url
+     */
+    public static String replaceSemiColons(String url) {
+      if (url != null) {
+        url = url.replaceFirst(";", "?");
+        url = url.replaceAll(";", "&");
+      }
+      return url;
+    }
   }
 }

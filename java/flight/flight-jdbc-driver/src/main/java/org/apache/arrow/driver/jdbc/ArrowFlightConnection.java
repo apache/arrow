@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.replaceSemiColons;
+
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -78,13 +80,13 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    */
   static ArrowFlightConnection createNewConnection(final ArrowFlightJdbcDriver driver,
                                                    final AvaticaFactory factory,
-                                                   final String url, final Properties properties,
+                                                   String url, final Properties properties,
                                                    final BufferAllocator allocator)
       throws SQLException {
+    url = replaceSemiColons(url);
     final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
     final ArrowFlightSqlClientHandler clientHandler = createNewClientHandler(config, allocator);
-    return new ArrowFlightConnection(driver, factory, url, properties, config, allocator,
-        clientHandler);
+    return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
   }
 
   private static ArrowFlightSqlClientHandler createNewClientHandler(
