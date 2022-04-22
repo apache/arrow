@@ -19,10 +19,6 @@
 
 #include "arrow/python/platform.h"
 
-#include <cstdint>
-#include <memory>
-#include <unordered_map>
-
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"

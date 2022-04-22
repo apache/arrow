@@ -294,7 +294,8 @@ std::string ToString(Datum::Kind kind) {
     case Datum::TABLE:
       return "Table";
     default:
-      return NULL;
+      DCHECK(false);
+      return "";
   }
 }
 

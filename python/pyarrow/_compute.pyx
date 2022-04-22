@@ -238,8 +238,8 @@ cdef class InputType(_Weakrefable):
         data_type : DataType
             DataType represented by the InputType
 
-        Example
-        -------
+        Examples
+        --------
 
         >>> import pyarrow as pa
         >>> from pyarrow.compute import InputType
@@ -267,8 +267,8 @@ cdef class InputType(_Weakrefable):
         data_type : DataType
             DataType represented by the input type
 
-        Example
-        -------
+        Examples
+        --------
 
         >>> import pyarrow as pa
         >>> from pyarrow.compute import InputType
@@ -2365,21 +2365,11 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
 
 
 cdef class ScalarUdfContext:
-    """A container to hold user-defined-function related
-    entities. `batch_length` and `MemoryPool` are important
-    entities in defining functions which require these details. 
+    """
+    Per-invocation function context/state.
 
-    Example
-    -------
-
-    ScalarUdfContext is used with the scalar user-defined-functions. 
-    When defining such a function, the first parameter must be a
-    ScalarUdfContext object. This object can be used to hold important
-    information. This can be further enhanced depending on the use 
-    cases of user-defined-functions. 
-
-    >>> def random(context, one, two):
-            return pc.add(one, two, memory_pool=context.memory_pool)
+    This object will always be the first argument to a user-defined
+    function. It should not be used outside of a call to the function.
     """
 
     def __init__(self):
@@ -2392,32 +2382,19 @@ cdef class ScalarUdfContext:
     @property
     def batch_length(self):
         """
-        Returns the length of the batch associated with the
-        user-defined-function. Useful when the batch_length
-        is required to do computations specially when scalars
-        are parameters of the user-defined-function.
+        The common length of all input arguments (int).
 
-        Returns
-        -------
-        batch_length : int
-            The number of batches used when calling 
-            user-defined-function. 
+        In the case that all arguments are scalars, this value
+        is used to pass the "actual length" of the arguments,
+        e.g. because the scalar values are encoding a column
+        with a constant value.
         """
         return self.c_context.batch_length
 
     @property
     def memory_pool(self):
         """
-        Returns the MemoryPool associated with the 
-        user-defined-function. An already initialized
-        MemoryPool can be used within the
-        user-defined-function. 
-
-        Returns
-        -------
-        memory_pool : MemoryPool
-            MemoryPool is obtained from the KernelContext
-            and passed to the ScalarUdfContext.
+        A memory pool for allocations (:class:`MemoryPool`).
         """
         return box_memory_pool(self.c_context.pool)
 
@@ -2443,14 +2420,28 @@ cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     f_doc.options_required = False
     return f_doc
 
+
+cdef object box_scalar_udf_context(const CScalarUdfContext& c_context):
+    cdef ScalarUdfContext context = ScalarUdfContext.__new__(ScalarUdfContext)
+    context.init(c_context)
+    return context
+
+
 cdef _scalar_udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
     """
     Helper callback function used to wrap the ScalarUdfContext from Python to C++
     execution.
     """
-    cdef ScalarUdfContext context = ScalarUdfContext.__new__(ScalarUdfContext)
-    context.init(c_context)
+    context = box_scalar_udf_context(c_context)
     return user_function(context, *inputs)
+
+
+def _get_scalar_udf_context(memory_pool, batch_length):
+    cdef CScalarUdfContext c_context
+    c_context.pool = maybe_unbox_memory_pool(memory_pool)
+    c_context.batch_length = batch_length
+    context = box_scalar_udf_context(c_context)
+    return context
 
 
 def register_scalar_function(func, func_name, function_doc, in_types,
@@ -2492,8 +2483,8 @@ def register_scalar_function(func, func_name, function_doc, in_types,
     out_type : DataType
         Output type of the function.
 
-    Example
-    -------
+    Examples
+    --------
 
     >>> import pyarrow.compute as pc
     >>> 

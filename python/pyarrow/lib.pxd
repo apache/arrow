@@ -61,7 +61,7 @@ cdef class MemoryPool(_Weakrefable):
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool)
 
 
-cdef api object box_memory_pool(CMemoryPool* pool)
+cdef object box_memory_pool(CMemoryPool* pool)
 
 
 cdef class DataType(_Weakrefable):

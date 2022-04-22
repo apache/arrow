@@ -83,9 +83,6 @@ struct PythonUdf {
     PyObject* result;
     result = cb(function->obj(), udf_context, arg_tuple);
     RETURN_NOT_OK(CheckPyError());
-    if (result == Py_None) {
-      return Status::Invalid("Output is None, but expected an array");
-    }
     // unwrapping the output for expected output type
     if (is_scalar(result)) {
       ARROW_ASSIGN_OR_RAISE(auto val, unwrap_scalar(result));
