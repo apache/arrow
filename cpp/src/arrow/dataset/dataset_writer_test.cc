@@ -453,6 +453,18 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
   ASSERT_RAISES(Invalid, DatasetWriter::Make(write_options_));
   AssertEmptyFiles(
       {"testdir/chunk-0.arrow", "testdir/chunk-5.arrow", "testdir/blah.txt"});
+
+  // only a single file in the target directory
+  fs::TimePoint mock_now2 = std::chrono::system_clock::now();
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<fs::FileSystem> fs2,
+      MockFileSystem::Make(
+          mock_now2, {::arrow::fs::Dir("testdir"), fs::File("testdir/part-0.arrow")}));
+  filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs2);
+  write_options_.filesystem = filesystem_;
+  write_options_.base_dir = "testdir";
+  ASSERT_RAISES(Invalid, DatasetWriter::Make(write_options_));
+  AssertEmptyFiles({"testdir/part-0.arrow"});
 }
 
 }  // namespace internal
