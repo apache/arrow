@@ -33,6 +33,12 @@
 namespace arrow {
 namespace compute {
 
+#if defined(__clang__) || defined(__GNUC__)
+#define NO_TSAN __attribute__((no_sanitize_thread))
+#else
+#define NO_TSAN
+#endif
+
 // A set of pre-generated bit masks from a 64-bit word.
 //
 // It is used to map selected bits of hash to a bit mask that will be used in
@@ -111,9 +117,10 @@ class ARROW_EXPORT BlockedBloomFilter {
  public:
   BlockedBloomFilter() : log_num_blocks_(0), num_blocks_(0), blocks_(NULLPTR) {}
 
+  NO_TSAN
   inline bool Find(uint64_t hash) const {
     uint64_t m = mask(hash);
-    uint64_t b = blocks_[block_id(hash)].load(std::memory_order_relaxed);
+    uint64_t b = blocks_[block_id(hash)];
     return (b & m) == m;
   }
 
@@ -161,11 +168,11 @@ class ARROW_EXPORT BlockedBloomFilter {
  private:
   Status CreateEmpty(int64_t num_rows_to_insert, MemoryPool* pool);
 
+  NO_TSAN
   inline void Insert(uint64_t hash) {
     uint64_t m = mask(hash);
-    std::atomic<uint64_t>& b = blocks_[block_id(hash)];
-    uint64_t b_old = b.load(std::memory_order_relaxed);
-    b.store(b_old | m, std::memory_order_relaxed);
+    uint64_t& b = blocks_[block_id(hash)];
+    b |= m;
   }
 
   void Insert(int64_t hardware_flags, int64_t num_rows, const uint32_t* hashes);
@@ -238,7 +245,7 @@ class ARROW_EXPORT BlockedBloomFilter {
   std::shared_ptr<Buffer> buf_;
   // Pointer to mutable data owned by Buffer
   //
-  std::atomic<uint64_t>* blocks_;
+  uint64_t* blocks_;
 };
 
 // We have two separate implementations of building a Bloom filter, multi-threaded and
