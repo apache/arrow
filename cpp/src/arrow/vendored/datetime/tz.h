@@ -293,40 +293,6 @@ struct zoned_traits
 {
 };
 
-class OffsetZone {
-  std::chrono::minutes offset_;
-
- public:
-  explicit OffsetZone(std::chrono::minutes offset) : offset_{offset} {}
-
-  template <class Duration>
-  local_time<Duration> to_local(sys_time<Duration> tp) const {
-    return local_time<Duration>{(tp + offset_).time_since_epoch()};
-  }
-
-  template <class Duration>
-  sys_time<Duration> to_sys(local_time<Duration> tp, choose = choose::earliest) const {
-    return sys_time<Duration>{(tp - offset_).time_since_epoch()};
-  }
-
-  template <class Duration>
-  sys_info get_info(sys_time<Duration> st) const {
-    return {sys_seconds::min(), sys_seconds::max(), offset_, std::chrono::minutes{0},
-            offset_ >= std::chrono::minutes{0} ? "+" + format("%H%M", offset_)
-                                               : "-" + format("%H%M", -offset_)};
-  }
-
-  const OffsetZone* operator->() const { return this; }
-};
-
-template <>
-struct zoned_traits<OffsetZone> {
-  static OffsetZone default_zone() {
-    using namespace std::chrono;
-    return OffsetZone{minutes{0}};
-  }
-};
-
 template <>
 struct zoned_traits<const time_zone*>
 {

@@ -22,6 +22,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/vendored/datetime.h"
+#include "arrow/util/date_internal.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/variant.h"
 
@@ -43,7 +44,8 @@ using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::zoned_time;
 using std::chrono::duration_cast;
 
-using ArrowTimeZone = util::Variant<const time_zone*, const arrow_vendored::date::OffsetZone*>;
+using ArrowTimeZone =
+    util::Variant<const time_zone*, const arrow_vendored::date::OffsetZone*>;
 
 inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
@@ -53,13 +55,14 @@ static inline Result<const ArrowTimeZone*> LocateZone(const std::string& timezon
   ArrowTimeZone tz;
   try {
     std::chrono::minutes zone_offset;
-    const bool is_offset = arrow::internal::detail::ParseHH_MM(timezone.c_str(), &zone_offset);
+    const bool is_offset =
+        arrow::internal::detail::ParseHH_MM(timezone.c_str(), &zone_offset);
     if (is_offset) {
       const auto offset_zone = OffsetZone(zone_offset);
       tz = ArrowTimeZone{&offset_zone};
-    }
-    else {
-      tz = ArrowTimeZone{locate_zone(timezone)};
+    } else {
+      const auto offset_zone = locate_zone(timezone);
+      tz = ArrowTimeZone{offset_zone};
     }
   } catch (const std::runtime_error& ex) {
     return Status::Invalid("Cannot locate timezone '", timezone, "': ", ex.what());
@@ -177,7 +180,8 @@ struct TimestampFormatter {
         arrow_vendored::date::to_stream(bufstream, format, zt);
       } else {
         auto tz = tz_->get<OffsetZone, 1>();
-        const auto zt = zoned_time<Duration, const OffsetZone*>{tz, sys_time<Duration>(Duration{arg})};
+        const auto zt = zoned_time<Duration, const OffsetZone*>{
+            tz, sys_time<Duration>(Duration{arg})};
         arrow_vendored::date::to_stream(bufstream, format, zt);
       }
     } catch (const std::runtime_error& ex) {
