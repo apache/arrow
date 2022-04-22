@@ -154,8 +154,9 @@ jobs:
         shell: bash
         run: |
           rm -f /usr/local/bin/2to3
+          brew unlink git
           brew update --preinstall
-          brew bundle --force --file=cpp/Brewfile
+          brew bundle --file=cpp/Brewfile
       - name: Install Google Cloud Storage Testbench
         shell: bash
         run: ci/scripts/install_gcs_testbench.sh default
