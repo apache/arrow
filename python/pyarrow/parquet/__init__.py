@@ -3112,7 +3112,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
         chunk_size = kwargs.pop("chunk_size", None)
         row_group_size = kwargs.pop("row_group_size", None)
 
-        row_group_size = row_group_size if row_group_size is not None else chunk_size
+        row_group_size = (
+            row_group_size if row_group_size is not None else chunk_size
+        )
 
         # raise for unsupported keywords
         msg = (
