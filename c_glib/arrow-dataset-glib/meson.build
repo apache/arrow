@@ -85,31 +85,31 @@ pkgconfig.generate(libarrow_dataset_glib,
                    requires: ['arrow-glib', 'arrow-dataset'])
 
 if have_gi
-  dataset_glib_gir = gnome.generate_gir(libarrow_dataset_glib,
-                     dependencies: declare_dependency(sources: arrow_glib_gir),
-                     sources: sources + c_headers + enums,
-                     namespace: 'ArrowDataset',
-                     nsversion: api_version,
-                     identifier_prefix: 'GADataset',
-                     symbol_prefix: 'gadataset',
-                     export_packages: 'arrow-dataset-glib',
-                     includes: [
-                       'Arrow-1.0',
-                     ],
-                     install: true,
-                     extra_args: [
-                       '--warn-all',
-                       '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                     ])
+  dataset_glib_gir = \
+    gnome.generate_gir(libarrow_dataset_glib,
+                       dependencies: declare_dependency(sources: arrow_glib_gir),
+                       sources: sources + c_headers + enums,
+                       namespace: 'ArrowDataset',
+                       nsversion: api_version,
+                       identifier_prefix: 'GADataset',
+                       symbol_prefix: 'gadataset',
+                       export_packages: 'arrow-dataset-glib',
+                       includes: [
+                         'Arrow-1.0',
+                       ],
+                       install: true,
+                       extra_args: [
+                         '--warn-all',
+                         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                       ])
 
-  if have_vapi
-    package_api_name = '@0@-@1@'.format('arrow_dataset_glib', library_version)
-    dataset_glib_vapi = gnome.generate_vapi(package_api_name,
-                                            sources: dataset_glib_gir[0],
-                                            packages: [ 'gio-2.0' ],
-                                            install: true,
-                                            install_dir: vapidir,
-                                            metadata_dirs: [ meson.current_source_dir() ],
-    )
+  if generate_vapi
+    gnome.generate_vapi('arrow-dataset-' + api_version,
+                        install: true,
+                        packages: [
+                          arrow_glib_vapi,
+                          'gio-2.0',
+                        ],
+                        sources: dataset_glib_gir[0])
   endif
 endif

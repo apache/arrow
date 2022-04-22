@@ -70,31 +70,31 @@ pkgconfig.generate(libparquet_glib,
                    requires: ['parquet', 'arrow-glib'])
 
 if have_gi
-  parquet_glib_gir = gnome.generate_gir(libparquet_glib,
-                     dependencies: declare_dependency(sources: arrow_glib_gir),
-                     sources: sources + c_headers,
-                     namespace: 'Parquet',
-                     nsversion: api_version,
-                     identifier_prefix: 'GParquet',
-                     symbol_prefix: 'gparquet',
-                     export_packages: 'parquet-glib',
-                     includes: [
-                       'Arrow-1.0',
-                     ],
-                     install: true,
-                     extra_args: [
-                       '--warn-all',
-                       '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                     ])
+  parquet_glib_gir = \
+    gnome.generate_gir(libparquet_glib,
+                       dependencies: declare_dependency(sources: arrow_glib_gir),
+                       sources: sources + c_headers,
+                       namespace: 'Parquet',
+                       nsversion: api_version,
+                       identifier_prefix: 'GParquet',
+                       symbol_prefix: 'gparquet',
+                       export_packages: 'parquet-glib',
+                       includes: [
+                         'Arrow-1.0',
+                       ],
+                       install: true,
+                       extra_args: [
+                         '--warn-all',
+                         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                       ])
 
-  if have_vapi
-    package_api_name = '@0@-@1@'.format('arrow_parquet_glib', library_version)
-    parquet_glib_vapi = gnome.generate_vapi(package_api_name,
-                                            sources: parquet_glib_gir[0],
-                                            packages: [ 'gio-2.0' ],
-                                            install: true,
-                                            install_dir: vapidir,
-                                            metadata_dirs: [ meson.current_source_dir() ],
-    )
+  if generate_vapi
+    gnome.generate_vapi('parquet-' + api_version,
+                        install: true,
+                        packages: [
+                          arrow_glib_vapi,
+                          'gio-2.0',
+                        ],
+                        sources: parquet_glib_gir[0])
   endif
 endif

@@ -158,12 +158,14 @@ popd
 echo "::endgroup::"
 
 
+# TODO: Test Vala API
+
 echo "::group::Test Apache Arrow GLib"
 ${APT_INSTALL} libarrow-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-glib-doc=${package_version}
 
 ${APT_INSTALL} ruby-dev rubygems-integration
-gem install gobject-introspection vala
+gem install gobject-introspection
 ruby -r gi -e "p GI.load('Arrow')"
 echo "::endgroup::"
 

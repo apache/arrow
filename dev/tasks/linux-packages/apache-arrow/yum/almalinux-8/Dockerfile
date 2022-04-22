@@ -39,7 +39,6 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
-    vala-devel \
     gtk-doc \
     json-devel \
     libarchive \
@@ -62,5 +61,6 @@ RUN \
     snappy-devel \
     tar \
     # utf8proc-devel \
+    vala-devel \
     zlib-devel && \
   dnf clean ${quiet} all

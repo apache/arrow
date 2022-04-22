@@ -33,7 +33,6 @@ dnf -y install \
   cmake \
   git \
   gobject-introspection-devel \
-  vala \
   java-1.8.0-openjdk-devel \
   libcurl-devel \
   llvm-devel \
@@ -47,6 +46,7 @@ dnf -y install \
   python38-pip \
   ruby-devel \
   sqlite-devel \
+  vala-devel \
   wget \
   which
 npm install -g yarn
