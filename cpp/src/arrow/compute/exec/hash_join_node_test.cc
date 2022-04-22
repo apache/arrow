@@ -899,7 +899,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
       ExecNode * l_source,
       MakeExecNode("source", plan.get(), {},
                    SourceNodeOptions{l_batches.schema, l_batches.gen(parallel,
-                                                                     /*slow=*/true)}));
+                                                                     /*slow=*/false)}));
 
   // add right source
   BatchesWithSchema r_batches = TableToBatches(rng, num_batches_r, r, "r_");
@@ -997,7 +997,7 @@ TEST(HashJoin, Suffix) {
 
 TEST(HashJoin, Random) {
   Random64Bit rng(42);
-#if defined(THREAD_SANITIZER)
+#if defined(THREAD_SANITIZER) || defined(ARROW_VALGRIND)
   const int num_tests = 15;
 #else
   const int num_tests = 100;
