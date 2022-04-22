@@ -132,6 +132,7 @@ struct SourceNode : ExecNode {
                         }
                         lock.lock();
                         if (!backpressure_future_.is_finished()) {
+                          EVENT(span_, "Source paused due to backpressure");
                           return backpressure_future_.Then(
                               []() -> ControlFlow<int> { return Continue(); });
                         }

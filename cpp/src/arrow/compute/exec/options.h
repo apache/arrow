@@ -132,7 +132,7 @@ class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
 constexpr int32_t kDefaultBackpressureHighBytes = 1 << 30;  // 1GiB
 constexpr int32_t kDefaultBackpressureLowBytes = 1 << 28;   // 256MiB
 
-class BackpressureMonitor {
+class ARROW_EXPORT BackpressureMonitor {
  public:
   virtual ~BackpressureMonitor() = default;
   virtual uint64_t bytes_in_use() const = 0;
@@ -157,7 +157,7 @@ struct ARROW_EXPORT BackpressureOptions {
                                kDefaultBackpressureHighBytes);
   }
 
-  inline bool should_apply_backpressure() const { return pause_if_above > 0; }
+  bool should_apply_backpressure() const { return pause_if_above > 0; }
 
   uint64_t resume_if_below;
   uint64_t pause_if_above;
@@ -168,10 +168,9 @@ struct ARROW_EXPORT BackpressureOptions {
 /// Emitted batches will not be ordered.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit SinkNodeOptions(
-      std::function<Future<util::optional<ExecBatch>>()>* generator,
-      BackpressureOptions backpressure = {},
-      std::shared_ptr<BackpressureMonitor>* backpressure_monitor = NULLPTR)
+  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator,
+                           BackpressureOptions backpressure = {},
+                           BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor) {}
@@ -192,7 +191,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// This will be set when the node is added to the plan.  This can be used to inspect
   /// the amount of data currently queued in the sink node.  This is an optional utility
   /// and backpressure can be applied even if this is not used.
-  std::shared_ptr<BackpressureMonitor>* backpressure_monitor;
+  BackpressureMonitor** backpressure_monitor;
 };
 
 /// \brief Control used by a SinkNodeConsumer to pause & resume
@@ -200,7 +199,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
 /// Callers should ensure that they do not call Pause and Resume simultaneously and they
 /// should sequence things so that a call to Pause() is always followed by an eventual
 /// call to Resume()
-class BackpressureControl {
+class ARROW_EXPORT BackpressureControl {
  public:
   /// \brief Ask the input to pause
   ///

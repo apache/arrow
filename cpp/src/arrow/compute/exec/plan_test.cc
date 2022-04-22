@@ -290,7 +290,7 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
   EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
   PushGenerator<util::optional<ExecBatch>> batch_producer;
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  std::shared_ptr<BackpressureMonitor> backpressure_monitor;
+  BackpressureMonitor* backpressure_monitor;
   BackpressureOptions backpressure_options(resume_if_below_bytes, pause_if_above_bytes);
   std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
   ARROW_EXPECT_OK(compute::Declaration::Sequence(

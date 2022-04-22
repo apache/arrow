@@ -46,9 +46,9 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
-class BackpressureResevoir : public BackpressureMonitor {
+class BackpressureReservoir : public BackpressureMonitor {
  public:
-  BackpressureResevoir(uint64_t resume_if_below, uint64_t pause_if_above)
+  BackpressureReservoir(uint64_t resume_if_below, uint64_t pause_if_above)
       : bytes_used_(0),
         state_change_counter_(0),
         resume_if_below_(resume_if_below),
@@ -91,19 +91,17 @@ class SinkNode : public ExecNode {
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
            AsyncGenerator<util::optional<ExecBatch>>* generator,
            BackpressureOptions backpressure,
-           std::shared_ptr<BackpressureMonitor>* backpressure_monitor_out)
+           BackpressureMonitor** backpressure_monitor_out)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
                  /*num_outputs=*/0),
-        backpressure_queue_(std::make_shared<BackpressureResevoir>(
-            backpressure.resume_if_below, backpressure.pause_if_above)),
+        backpressure_queue_(backpressure.resume_if_below, backpressure.pause_if_above),
         push_gen_(),
         producer_(push_gen_.producer()) {
     if (backpressure_monitor_out) {
-      *backpressure_monitor_out = backpressure_queue_;
+      *backpressure_monitor_out = &backpressure_queue_;
     }
-    AsyncGenerator<util::optional<ExecBatch>> captured_gen = push_gen_;
-    *generator = [this, captured_gen]() -> Future<util::optional<ExecBatch>> {
-      return captured_gen().Then([this](const util::optional<ExecBatch>& batch) {
+    *generator = [this]() -> Future<util::optional<ExecBatch>> {
+      return push_gen_().Then([this](const util::optional<ExecBatch>& batch) {
         if (batch) {
           RecordBackpressureBytesFreed(*batch);
         }
@@ -158,22 +156,22 @@ class SinkNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
   void RecordBackpressureBytesUsed(const ExecBatch& batch) {
-    if (backpressure_queue_->enabled()) {
+    if (backpressure_queue_.enabled()) {
       uint64_t bytes_used = static_cast<uint64_t>(batch.TotalBufferSize());
-      auto state_change = backpressure_queue_->RecordProduced(bytes_used);
+      auto state_change = backpressure_queue_.RecordProduced(bytes_used);
       if (state_change >= 0) {
-        EVENT(span_, "Backpressure applied", {{"counter", state_change}});
+        EVENT(span_, "Backpressure applied", {{"backpressure.counter", state_change}});
         inputs_[0]->PauseProducing(this, state_change);
       }
     }
   }
 
   void RecordBackpressureBytesFreed(const ExecBatch& batch) {
-    if (backpressure_queue_->enabled()) {
+    if (backpressure_queue_.enabled()) {
       uint64_t bytes_freed = static_cast<uint64_t>(batch.TotalBufferSize());
-      auto state_change = backpressure_queue_->RecordConsumed(bytes_freed);
+      auto state_change = backpressure_queue_.RecordConsumed(bytes_freed);
       if (state_change >= 0) {
-        EVENT(span_, "Backpressure released", {{"counter", state_change}});
+        EVENT(span_, "Backpressure released", {{"backpressure.counter", state_change}});
         inputs_[0]->ResumeProducing(this, state_change);
       }
     }
@@ -243,7 +241,7 @@ class SinkNode : public ExecNode {
   AtomicCounter input_counter_;
 
   // Needs to be a shared_ptr as the push generator can technically outlive the node
-  std::shared_ptr<BackpressureResevoir> backpressure_queue_;
+  BackpressureReservoir backpressure_queue_;
   PushGenerator<util::optional<ExecBatch>> push_gen_;
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
