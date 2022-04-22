@@ -43,6 +43,7 @@ namespace internal {
 using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
 using compute::NullPlacement;
+using compute::TieBreaker;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -84,6 +85,25 @@ struct EnumTraits<NullPlacement>
         return "AtStart";
       case NullPlacement::AtEnd:
         return "AtEnd";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
+struct EnumTraits<TieBreaker>
+    : BasicEnumTraits<TieBreaker, TieBreaker::Lowest, TieBreaker::Highest,
+                      TieBreaker::First, TieBreaker::Dense> {
+  static std::string name() { return "TieBreaker"; }
+  static std::string value_name(TieBreaker value) {
+    switch (value) {
+      case TieBreaker::Lowest:
+        return "Lowest";
+      case TieBreaker::Highest:
+        return "Highest";
+      case TieBreaker::First:
+        return "First";
+      case TieBreaker::Dense:
+        return "Dense";
     }
     return "<INVALID>";
   }
