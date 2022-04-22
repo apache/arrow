@@ -802,37 +802,46 @@ test_that("nested structs can be created from scalars and existing data frames",
 
   })
 
-test_that("as.Date() converts successfully from date, timestamp, integer, char and double", {
+test_that("`as.Date()` and `as_date()`", {
   test_df <- tibble::tibble(
-    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
+    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Pacific/Marquesas"),
+    dt_europe = ymd_hms("2010-08-03 00:50:50", tz = "Europe/London"),
+    dt_utc = ymd_hms("2010-08-03 00:50:50"),
     date_var = as.Date("2022-02-25"),
+    difference_date = ymd_hms("2010-08-03 00:50:50", tz = "Pacific/Marquesas"),
     character_ymd_var = "2022-02-25 00:00:01",
     character_ydm_var = "2022/25/02 00:00:01",
     integer_var = 32L,
+    integerish_var = 32,
     double_var = 34.56
   )
 
-  # casting from POSIXct treated separately so we can skip on Windows
-  # TODO move the test for casting from POSIXct below once ARROW-13168 is done
   compare_dplyr_binding(
     .input %>%
       mutate(
-        date_dv = as.Date(date_var),
-        date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
-        date_int = as.Date(integer_var, origin = "1970-01-01")
+        date_dv1 = as.Date(date_var),
+        date_pv1 = as.Date(posixct_var),
+        date_pv_tz1 = as.Date(posixct_var, tz = "Pacific/Marquesas"),
+        date_utc1 = as.Date(dt_utc),
+        date_europe1 = as.Date(dt_europe),
+        date_char_ymd1 = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm1 = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_int1 = as.Date(integer_var, origin = "1970-01-01"),
+        date_int_origin1 = as.Date(integer_var, origin = "1970-01-03"),
+        date_integerish1 = as.Date(integerish_var, origin = "1970-01-01"),
+        date_dv2 = as_date(date_var),
+        date_pv2 = as_date(posixct_var),
+        date_pv_tz2 = as_date(posixct_var, tz = "Pacific/Marquesas"),
+        date_utc2 = as_date(dt_utc),
+        date_europe2 = as_date(dt_europe),
+        date_char_ymd2 = as_date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm2 = as_date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_int2 = as_date(integer_var, origin = "1970-01-01"),
+        date_int_origin2 = as_date(integer_var, origin = "1970-01-03"),
+        date_integerish2 = as_date(integerish_var, origin = "1970-01-01")
       ) %>%
       collect(),
     test_df
-  )
-
-  # currently we do not support an origin different to "1970-01-01"
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
-      collect(),
-    test_df,
-    warning = TRUE
   )
 
   # we do not support multiple tryFormats
@@ -845,6 +854,16 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     warning = TRUE
   )
 
+  # strptime does not support a partial format - testing an error surfaced from
+  # C++ (hence not testing the content of the error message)
+  # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_char_ymd = as_date(character_ymd_var)) %>%
+      collect()
+  )
+
   expect_error(
     test_df %>%
       arrow_table() %>%
@@ -854,24 +873,87 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     fixed = TRUE
   )
 
-  # we do not support as.Date() with double/ float
-  compare_dplyr_binding(
-     .input %>%
+
+  # we do not support as.Date() with double/ float (error surfaced from C++)
+  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
       mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect(),
-     test_df,
-     warning = TRUE
+      collect()
   )
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # we do not support as_date with double/ float (error surfaced from C++)
+  # TODO: revisit after https://issues.apache.org/jira/browse/ARROW-15798
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = as_date(double_var, origin = "1970-01-01")) %>%
+      collect()
+  )
+
+  # difference between as.Date() and as_date():
+  #`as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
+  # to `as.Date()`
+  # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
+  # passsed if`tz` is NULL
   compare_dplyr_binding(
     .input %>%
-      mutate(
-        date_pv = as.Date(posixct_var),
-        date_pv_tz = as.Date(posixct_var, tz = "Pacific/Marquesas")
+      transmute(
+        date_diff_lubridate = as_date(difference_date),
+        date_diff_base = as.Date(difference_date)
       ) %>%
       collect(),
     test_df
+  )
+})
+
+test_that("`as_datetime()`", {
+  test_df <- tibble(
+    date = as.Date(c("2022-03-22", "2021-07-30", NA)),
+    char_date = c("2022-03-22", "2021-07-30 14:32:47", NA),
+    char_date_non_iso = c("2022-22-03 12:34:56", "2021-30-07 14:32:47", NA),
+    int_date = c(10L, 25L, NA),
+    integerish_date = c(10, 25, NA),
+    double_date = c(10.1, 25.2, NA)
+  )
+
+  test_df %>%
+    arrow_table() %>%
+    mutate(
+      ddate = as_datetime(date),
+      dchar_date_no_tz = as_datetime(char_date),
+      dchar_date_non_iso = as_datetime(char_date_non_iso, format = "%Y-%d-%m %H:%M:%S"),
+      dint_date = as_datetime(int_date, origin = "1970-01-02"),
+      dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
+      dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
+    ) %>%
+    collect()
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ddate = as_datetime(date),
+        dchar_date_no_tz = as_datetime(char_date),
+        dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
+        dint_date = as_datetime(int_date, origin = "1970-01-02"),
+        dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
+        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # Arrow does not support conversion of double to date
+  # the below should error with an error message originating in the C++ code
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        ddouble_date = as_datetime(double_date)
+      ) %>%
+      collect(),
+    regexp = "Float value 10.1 was truncated converting to int64"
   )
 })
 

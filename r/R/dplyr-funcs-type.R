@@ -82,44 +82,65 @@ register_bindings_type_cast <- function() {
                                        tryFormats = "%Y-%m-%d",
                                        origin = "1970-01-01",
                                        tz = "UTC") {
-
-    # the origin argument will be better supported once we implement temporal
-    # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
-    # TODO revisit once the above has been sorted
-    if (call_binding("is.numeric", x) & origin != "1970-01-01") {
-      abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
-    }
-
-    # this could be improved with tryFormats once strptime returns NA and we
-    # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
-    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
-    if (is.null(format) && length(tryFormats) > 1) {
-      abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
-    }
-
-    if (call_binding("is.Date", x)) {
-      return(x)
-
-    # cast from POSIXct
-    } else if (call_binding("is.POSIXct", x)) {
-      # base::as.Date() first converts to the desired timezone and then extracts
-      # the date, which is why we need to go through timestamp() first
+    # base::as.Date() and lubridate::as_date() differ in the way they use the
+    # `tz` argument. Both cast to the desired timezone, if present. The
+    # difference appears when the `tz` argument is not set: `as.Date()` uses the
+    # default value ("UTC"), while `as_date()` keeps the original attribute
+    # => we only cast when we want the behaviour of the base version or when
+    # `tz` is set (i.e. not NULL)
+    if (call_binding("is.POSIXct", x)) {
       x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
-
-    # cast from character
-    } else if (call_binding("is.character", x)) {
-      format <- format %||% tryFormats[[1]]
-      # unit = 0L is the identifier for seconds in valid_time32_units
-      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-
-    # cast from numeric
-    } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
-      # Arrow does not support direct casting from double to date32()
-      # https://issues.apache.org/jira/browse/ARROW-15798
-      # TODO revisit if arrow decides to support double -> date casting
-      abort("`as.Date()` with double/float is not supported in Arrow")
     }
-    build_expr("cast", x, options = cast_options(to_type = date32()))
+
+    binding_as_date(
+      x = x,
+      format = format,
+      tryFormats = tryFormats,
+      origin = origin
+    )
+  })
+
+  register_binding("as_date", function(x,
+                                       format = NULL,
+                                       origin = "1970-01-01",
+                                       tz = NULL) {
+    # base::as.Date() and lubridate::as_date() differ in the way they use the
+    # `tz` argument. Both cast to the desired timezone, if present. The
+    # difference appears when the `tz` argument is not set: `as.Date()` uses the
+    # default value ("UTC"), while `as_date()` keeps the original attribute
+    # => we only cast when we want the behaviour of the base version or when
+    # `tz` is set (i.e. not NULL)
+    if (call_binding("is.POSIXct", x) && !is.null(tz)) {
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+    }
+    binding_as_date(
+      x = x,
+      format = format,
+      origin = origin
+    )
+  })
+
+  register_binding("as_datetime", function(x,
+                                           origin = "1970-01-01",
+                                           tz = "UTC",
+                                           format = NULL) {
+    if (call_binding("is.numeric", x)) {
+      delta <- call_binding("difftime", origin, "1970-01-01")
+      delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
+      x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+      x <- build_expr("+", x, delta)
+    }
+
+    if (call_binding("is.character", x) && !is.null(format)) {
+      # unit = 0L is the identifier for seconds in valid_time32_units
+      x <- build_expr(
+        "strptime",
+        x,
+        options = list(format = format, unit = 0L, error_is_null = TRUE)
+      )
+    }
+    output <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
+    build_expr("assume_timezone", output, options = list(timezone = tz))
   })
 
   register_binding("is", function(object, class2) {

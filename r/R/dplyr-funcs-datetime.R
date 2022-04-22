@@ -263,11 +263,11 @@ register_bindings_duration <- function() {
     # cast to timestamp if time1 and time2 are not dates or timestamp expressions
     # (the subtraction of which would output a `duration`)
     if (!call_binding("is.instant", time1)) {
-      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = "UTC")))
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp()))
     }
 
     if (!call_binding("is.instant", time2)) {
-      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp()))
     }
 
     # if time1 or time2 are timestamps they cannot be expressed in "s" /seconds
@@ -475,4 +475,61 @@ duration_from_chunks <- function(chunks) {
     duration <- duration + chunks[[chunk]] * chunk_duration[[chunk]]
   }
   duration
+}
+
+binding_as_date <- function(x,
+                            format = NULL,
+                            tryFormats = "%Y-%m-%d",
+                            origin = "1970-01-01") {
+
+  if (is.null(format) && length(tryFormats) > 1) {
+    abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+  }
+
+  if (call_binding("is.Date", x)) {
+    return(x)
+
+    # cast from character
+  } else if (call_binding("is.character", x)) {
+    x <- binding_as_date_character(x, format, tryFormats)
+
+    # cast from numeric
+  } else if (call_binding("is.numeric", x)) {
+    x <- binding_as_date_numeric(x, origin)
+  }
+
+  build_expr("cast", x, options = cast_options(to_type = date32()))
+}
+
+binding_as_date_character <- function(x,
+                                      format = NULL,
+                                      tryFormats = "%Y-%m-%d") {
+  format <- format %||% tryFormats[[1]]
+  # unit = 0L is the identifier for seconds in valid_time32_units
+  build_expr("strptime", x, options = list(format = format, unit = 0L))
+}
+
+binding_as_date_numeric <- function(x, origin = "1970-01-01") {
+
+  # Arrow does not support direct casting from double to date32(), but for
+  # integer-like values we can go via int32()
+  # https://issues.apache.org/jira/browse/ARROW-15798
+  # TODO revisit if arrow decides to support double -> date casting
+  if (!call_binding("is.integer", x)) {
+    x <- build_expr("cast", x, options = cast_options(to_type = int32()))
+  }
+
+  if (origin != "1970-01-01") {
+    delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
+    # TODO: revisit once either of these issues is addressed:
+    #   https://issues.apache.org/jira/browse/ARROW-16253 (helper function for
+    #   casting from double to duration) or
+    #   https://issues.apache.org/jira/browse/ARROW-15862 (casting from int32
+    #   -> duration or double -> duration)
+    delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int64()))
+    delta_in_days <- (delta_in_sec / 86400L)$cast(int32())
+    x <- build_expr("+", x, delta_in_days)
+  }
+
+  x
 }

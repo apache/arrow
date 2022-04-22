@@ -27,6 +27,7 @@
   * Added `make_difftime()` (duration constructor)
   * Added duration helper functions: `dyears()`, `dmonths()`, `dweeks()`, `ddays()`, `dhours()`, `dminutes()`, `dseconds()`, `dmilliseconds()`, `dmicroseconds()`, `dnanoseconds()`.
 * date-time functionality:
+  * Added `as_date()` and `as_datetime()`
   * Added `difftime` and `as.difftime()` 
   * Added `as.Date()` to convert to date
 * `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
