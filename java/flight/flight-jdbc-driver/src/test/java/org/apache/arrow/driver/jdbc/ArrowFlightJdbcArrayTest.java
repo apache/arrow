@@ -21,10 +21,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -140,6 +142,17 @@ public class ArrowFlightJdbcArrayTest {
       }
       Assert.assertEquals(count, 5);
     }
+  }
+
+  @Test
+  public void testToString() throws SQLException {
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+
+    JsonStringArrayList<Object> array = new JsonStringArrayList<>();
+    array.addAll(Arrays.asList((Object[]) arrowFlightJdbcArray.getArray()));
+
+    Assert.assertEquals(array.toString(), arrowFlightJdbcArray.toString());
   }
 
   @Test(expected = SQLFeatureNotSupportedException.class)

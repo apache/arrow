@@ -21,6 +21,7 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.AbstractArrowFlightJdbcListVectorAccessor;
@@ -30,6 +31,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
@@ -159,5 +161,18 @@ public class ArrowFlightJdbcArray implements Array {
   @Override
   public void free() {
 
+  }
+
+  @Override
+  public String toString() {
+    JsonStringArrayList<Object> array = new JsonStringArrayList<>((int) this.valuesCount);
+
+    try {
+      array.addAll(Arrays.asList((Object[]) getArray()));
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+
+    return array.toString();
   }
 }
