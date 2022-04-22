@@ -23,7 +23,7 @@ brew "c-ares"
 brew "ccache"
 brew "cmake"
 brew "flatbuffers"
-cask "git", greedy: true
+brew "git", greedy: true, link: true
 brew "glog"
 brew "grpc"
 brew "llvm"
