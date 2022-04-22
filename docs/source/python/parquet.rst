@@ -328,13 +328,16 @@ plain encoding. Whether dictionary encoding is used can be toggled using the
 
 The data pages within a column in a row group can be compressed after the
 encoding passes (dictionary, RLE encoding). In PyArrow we use Snappy
-compression by default, but Brotli, Gzip, and uncompressed are also supported:
+compression by default, but Brotli, Gzip, ZSTD, LZ4, and uncompressed are
+also supported:
 
 .. code-block:: python
 
    pq.write_table(table, where, compression='snappy')
    pq.write_table(table, where, compression='gzip')
    pq.write_table(table, where, compression='brotli')
+   pq.write_table(table, where, compression='zstd')
+   pq.write_table(table, where, compression='lz4')
    pq.write_table(table, where, compression='none')
 
 Snappy generally results in better performance, while Gzip may yield smaller
