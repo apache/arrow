@@ -107,6 +107,21 @@ ValueDescr Expression::descr() const {
   return CallNotNull(*this)->descr;
 }
 
+const std::shared_ptr<DataType>& Expression::type() const {
+  static const std::shared_ptr<DataType> no_type;
+  if (impl_ == nullptr) return no_type;
+
+  if (auto lit = literal()) {
+    return lit->type();
+  }
+
+  if (auto parameter = this->parameter()) {
+    return parameter->descr.type;
+  }
+
+  return CallNotNull(*this)->descr.type;
+}
+
 namespace {
 
 std::string PrintDatum(const Datum& datum) {
