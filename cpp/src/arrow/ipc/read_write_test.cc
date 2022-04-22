@@ -1481,7 +1481,7 @@ class TestFileFormatGenerator
     : public ReaderWriterMixin<FileGeneratorWriterHelper</*kCoalesce=*/false>>,
       public ::testing::TestWithParam<MakeRecordBatch*> {};
 
-class TestFileFormatCoalesced
+class TestFileFormatGeneratorCoalesced
     : public ReaderWriterMixin<FileGeneratorWriterHelper</*kCoalesce=*/true>>,
       public ::testing::TestWithParam<MakeRecordBatch*> {};
 
@@ -1654,7 +1654,9 @@ TEST_P(TestFileFormat, RoundTrip) { TestRoundTripWithOptions(*GetParam()); }
 
 TEST_P(TestFileFormatGenerator, RoundTrip) { TestRoundTripWithOptions(*GetParam()); }
 
-TEST_P(TestFileFormatCoalesced, RoundTrip) { TestRoundTripWithOptions(*GetParam()); }
+TEST_P(TestFileFormatGeneratorCoalesced, RoundTrip) {
+  TestRoundTripWithOptions(*GetParam());
+}
 
 TEST_P(TestStreamFormat, RoundTrip) { TestRoundTripWithOptions(*GetParam()); }
 
@@ -1672,7 +1674,7 @@ INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat,
                          ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormatGenerator,
                          ::testing::ValuesIn(kBatchCases));
-INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormatCoalesced,
+INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormatGeneratorCoalesced,
                          ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat,
                          ::testing::ValuesIn(kBatchCases));
@@ -1793,24 +1795,26 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
 TEST_F(TestStreamFormat, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
 TEST_F(TestFileFormat, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
 TEST_F(TestFileFormatGenerator, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
-TEST_F(TestFileFormatCoalesced, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
+TEST_F(TestFileFormatGeneratorCoalesced, DictionaryRoundTrip) {
+  TestDictionaryRoundtrip();
+}
 
 TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 TEST_F(TestFileFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 TEST_F(TestFileFormatGenerator, DifferentSchema) { TestWriteDifferentSchema(); }
-TEST_F(TestFileFormatCoalesced, DifferentSchema) { TestWriteDifferentSchema(); }
+TEST_F(TestFileFormatGeneratorCoalesced, DifferentSchema) { TestWriteDifferentSchema(); }
 
 TEST_F(TestStreamFormat, NoRecordBatches) { TestWriteNoRecordBatches(); }
 TEST_F(TestFileFormat, NoRecordBatches) { TestWriteNoRecordBatches(); }
 TEST_F(TestFileFormatGenerator, NoRecordBatches) { TestWriteNoRecordBatches(); }
-TEST_F(TestFileFormatCoalesced, NoRecordBatches) { TestWriteNoRecordBatches(); }
+TEST_F(TestFileFormatGeneratorCoalesced, NoRecordBatches) { TestWriteNoRecordBatches(); }
 
 TEST_F(TestStreamFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
 TEST_F(TestFileFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
 TEST_F(TestFileFormatGenerator, ReadFieldSubset) { TestReadSubsetOfFields(); }
-TEST_F(TestFileFormatCoalesced, ReadFieldSubset) { TestReadSubsetOfFields(); }
+TEST_F(TestFileFormatGeneratorCoalesced, ReadFieldSubset) { TestReadSubsetOfFields(); }
 
-TEST_F(TestFileFormatCoalesced, Errors) {
+TEST_F(TestFileFormatGeneratorCoalesced, Errors) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeIntRecordBatch(&batch));
 
