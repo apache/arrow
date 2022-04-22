@@ -496,8 +496,7 @@ binding_as_date_character <- function(x,
   build_expr("strptime", x, options = list(format = format, unit = 0L))
 }
 
-binding_as_date_numeric <- function(x,
-                                  origin = "1970-01-01") {
+binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 
   # Arrow does not support direct casting from double to date32(), but for
   # integer-like values we can go via int32()
