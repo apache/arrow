@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include <iostream>
 
 #include <algorithm>
 #include <cmath>
@@ -1917,7 +1918,7 @@ const FunctionDoc rank_doc(
      "than any other non-null value, but smaller than null values.\n"
      "\n"
      "The handling of nulls and NaNs can be changed in SortOptions."),
-    {"input"}, "RankOptions", /*options_required=*/true);
+    {"input"}, "RankOptions");
 
 class RankMetaFunction : public MetaFunction {
  public:
@@ -1949,10 +1950,21 @@ class RankMetaFunction : public MetaFunction {
     }
     ArraySortOptions array_options(order, options.null_placement);
 
-    Datum output;
     ARROW_ASSIGN_OR_RAISE(
-        output, CallFunction("array_sort_indices", {array}, &array_options, ctx));
-    return output;
+        auto sortIndices, CallFunction("array_sort_indices", {array}, &array_options, ctx));
+
+    auto out_size = array.length();
+        ARROW_ASSIGN_OR_RAISE(auto rankings, MakeMutableUInt64Array(uint64(), out_size,
+                                                                    ctx->memory_pool()));
+
+    uint64_t rank = 0;
+    auto *indices = sortIndices.make_array()->data()->GetValues<uint64_t>(1);
+    auto out_rankings = rankings->GetMutableValues<uint64_t>(1);
+    for (auto i = 0; i < out_size; i++) {
+      out_rankings[indices[i]] = ++rank;
+    }
+
+    return rankings;
   }
 };
 
