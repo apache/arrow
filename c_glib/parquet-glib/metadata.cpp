@@ -20,6 +20,7 @@
 #include <arrow-glib/arrow-glib.hpp>
 
 #include <parquet-glib/metadata.hpp>
+#include <parquet-glib/statistics.hpp>
 
 G_BEGIN_DECLS
 
@@ -185,6 +186,28 @@ gparquet_column_chunk_metadata_can_decompress(
 {
   auto parquet_metadata = gparquet_column_chunk_metadata_get_raw(metadata);
   return parquet_metadata->can_decompress();
+}
+
+/**
+ * gparquet_column_chunk_metadata_get_statistics:
+ * @metadata: A #GParquetColumnChunkMetadata.
+ *
+ * Returns: (transfer full) (nullable): The statistics of this column chunk if
+ *   it's set, %NULL otherwise.
+ *
+ * Since: 8.0.0
+ */
+GParquetStatistics *
+gparquet_column_chunk_metadata_get_statistics(
+  GParquetColumnChunkMetadata *metadata)
+{
+  auto parquet_metadata = gparquet_column_chunk_metadata_get_raw(metadata);
+  auto parquet_statistics = parquet_metadata->statistics();
+  if (parquet_statistics) {
+    return gparquet_statistics_new_raw(&parquet_statistics);
+  } else {
+    return NULL;
+  }
 }
 
 

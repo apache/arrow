@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
+#include <parquet-glib/statistics.h>
 
 G_BEGIN_DECLS
 
@@ -55,6 +55,10 @@ gparquet_column_chunk_metadata_get_file_offset(
 GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_column_chunk_metadata_can_decompress(
+  GParquetColumnChunkMetadata *metadata);
+GARROW_AVAILABLE_IN_8_0
+GParquetStatistics *
+gparquet_column_chunk_metadata_get_statistics(
   GParquetColumnChunkMetadata *metadata);
 
 
