@@ -711,7 +711,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
         schema_mgr_->proj_maps[1].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
     std::vector<Datum> key_columns(key_to_in.num_cols);
     for (size_t i = 0; i < key_columns.size(); i++) {
-      int input_idx = key_to_in.get(i);
+      int input_idx = key_to_in.get(static_cast<int>(i));
       key_columns[i] = input_batch[input_idx];
     }
     ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(key_columns)));
