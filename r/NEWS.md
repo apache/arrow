@@ -32,6 +32,7 @@
   * Added `as.Date()` to convert to date
 * `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
 * Removed Solaris workarounds, libarrow is now required.
+* Fix `create_package_with_all_dependencies()` to run on any platform with bash (previously only worked on Linux).
 
 # arrow 7.0.0
 
