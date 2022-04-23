@@ -71,6 +71,8 @@ Status BuildBloomFilter_Parallel(
   for (std::vector<uint32_t>& h : thread_local_hashes32) h.resize(kBatchSizeMax);
   for (std::vector<uint64_t>& h : thread_local_hashes64) h.resize(kBatchSizeMax);
 
+  std::condition_variable cv;
+  std::unique_lock<std::mutex> lk(mutex, std::defer_lock);
   auto group = scheduler->RegisterTaskGroup(
       [&](size_t thread_index, int64_t task_id) -> Status {
         int batch_size = static_cast<int>(std::min(num_rows - task_id * kBatchSizeMax,
@@ -87,7 +89,8 @@ Status BuildBloomFilter_Parallel(
         return Status::OK();
       },
       [&](size_t thread_index) -> Status {
-        mutex.unlock();
+        lk.unlock();
+        cv.notify_one();
         return Status::OK();
       });
   scheduler->RegisterEnd();
@@ -101,10 +104,11 @@ Status BuildBloomFilter_Parallel(
         });
       },
       2 * num_threads, false));
-  mutex.lock();
-  RETURN_NOT_OK(scheduler->StartTaskGroup(0, group, num_batches));
-  mutex.lock();
-  mutex.unlock();
+  {
+      lk.lock();
+      RETURN_NOT_OK(scheduler->StartTaskGroup(0, group, num_batches));
+      cv.wait(lk);
+  }
   return Status::OK();
 }
 
