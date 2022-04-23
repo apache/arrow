@@ -94,7 +94,7 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tool
 @rem generator used
 
 cmake -G "%GENERATOR%" ^
-      -A "%ARCHITECTURE" ^
+      -A "%ARCHITECTURE%" ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
