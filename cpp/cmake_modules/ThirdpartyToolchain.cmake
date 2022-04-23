@@ -840,37 +840,16 @@ macro(build_boost)
     set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
                              ${BOOST_STATIC_FILESYSTEM_LIBRARY})
 
-    add_thirdparty_lib(boost_system
-                       STATIC_LIB
+    add_thirdparty_lib(Boost::system
+                       STATIC
                        "${BOOST_STATIC_SYSTEM_LIBRARY}"
                        INCLUDE_DIRECTORIES
                        "${Boost_INCLUDE_DIR}")
-    add_library(Boost::system INTERFACE IMPORTED)
-    if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(Boost::system
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${Boost_INCLUDE_DIR}" INTERFACE_LINK_LIBRARIES
-                                                              boost_system_static)
-    else()
-      target_include_directories(Boost::system INTERFACE "${Boost_INCLUDE_DIR}")
-      target_link_libraries(Boost::system INTERFACE boost_system_static)
-    endif()
-
-    add_thirdparty_lib(boost_filesystem
-                       STATIC_LIB
+    add_thirdparty_lib(Boost::filesystem
+                       STATIC
                        "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
                        INCLUDE_DIRECTORIES
                        "${Boost_INCLUDE_DIR}")
-    add_library(Boost::filesystem INTERFACE IMPORTED)
-    if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(Boost::filesystem
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${Boost_INCLUDE_DIR}" INTERFACE_LINK_LIBRARIES
-                                                              boost_filesystem_static)
-    else()
-      target_include_directories(Boost::filesystem INTERFACE "${Boost_INCLUDE_DIR}")
-      target_link_libraries(Boost::filesystem INTERFACE boost_filesystem_static)
-    endif()
 
     externalproject_add(boost_ep
                         URL ${BOOST_SOURCE_URL}
@@ -880,8 +859,8 @@ macro(build_boost)
                         CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
                         BUILD_COMMAND ${BOOST_BUILD_COMMAND}
                         INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-    add_dependencies(boost_system_static boost_ep)
-    add_dependencies(boost_filesystem_static boost_ep)
+    add_dependencies(Boost::system boost_ep)
+    add_dependencies(Boost::filesystem boost_ep)
   else()
     externalproject_add(boost_ep
                         ${EP_LOG_OPTIONS}
@@ -1382,8 +1361,8 @@ macro(build_gflags)
 
   add_dependencies(toolchain gflags_ep)
 
-  add_thirdparty_lib(gflags STATIC_LIB ${GFLAGS_STATIC_LIB})
-  set(GFLAGS_LIBRARY gflags_static)
+  add_thirdparty_lib(gflags::gflags_static STATIC ${GFLAGS_STATIC_LIB})
+  set(GFLAGS_LIBRARY gflags::gflags_static)
   set_target_properties(${GFLAGS_LIBRARY}
                         PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GFLAGS_IS_A_DLL=0"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GFLAGS_INCLUDE_DIR}")
@@ -1395,7 +1374,7 @@ macro(build_gflags)
 
   set(GFLAGS_VENDORED TRUE)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS gflags_static)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS gflags::gflags_static)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
@@ -1409,7 +1388,9 @@ if(ARROW_NEED_GFLAGS)
                      FALSE)
 
   if(NOT TARGET ${GFLAGS_LIBRARIES})
-    if(TARGET gflags-shared)
+    if(TARGET gflags::gflags_shared)
+      set(GFLAGS_LIBRARIES gflags::gflags_shared)
+    elseif(TARGET gflags-shared)
       set(GFLAGS_LIBRARIES gflags-shared)
     elseif(TARGET gflags_shared)
       set(GFLAGS_LIBRARIES gflags_shared)
@@ -1600,6 +1581,8 @@ macro(build_protobuf)
                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
   file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
+  # For compatibility of CMake's FindProtobuf.cmake.
+  set(Protobuf_INCLUDE_DIRS "${PROTOBUF_INCLUDE_DIR}")
 
   add_library(arrow::protobuf::libprotobuf STATIC IMPORTED)
   set_target_properties(arrow::protobuf::libprotobuf

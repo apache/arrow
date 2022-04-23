@@ -98,8 +98,11 @@ add_arrow_lib(arrow_python
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               ${ARROW_PYTHON_SHARED_LINK_LIBS}
+              SHARED_PRIVATE_LINK_LIBS
+              xsimd
               STATIC_LINK_LIBS
               ${PYTHON_OTHER_LIBS}
+              xsimd
               EXTRA_INCLUDES
               "${ARROW_PYTHON_INCLUDES}")
 
@@ -138,7 +141,9 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
                 STATIC_LINK_LIBS
                 ${PYTHON_OTHER_LIBS}
                 EXTRA_INCLUDES
-                "${ARROW_PYTHON_INCLUDES}")
+                "${ARROW_PYTHON_INCLUDES}"
+                PRIVATE_INCLUDES
+                "${Protobuf_INCLUDE_DIRS}")
 
   add_dependencies(arrow_python ${ARROW_PYFLIGHT_LIBRARIES})
 

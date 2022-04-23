@@ -102,6 +102,10 @@ set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
                                      ${GANDIVA_OPENSSL_LIBS} Boost::headers)
 set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS}
                              Boost::headers)
+if(ARROW_WITH_RE2)
+  list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS re2::re2)
+  list(APPEND GANDIVA_STATIC_LINK_LIBS re2::re2)
+endif()
 if(ARROW_WITH_UTF8PROC)
   list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS utf8proc::utf8proc)
   list(APPEND GANDIVA_STATIC_LINK_LIBS utf8proc::utf8proc)

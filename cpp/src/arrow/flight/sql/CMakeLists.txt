@@ -59,7 +59,9 @@ add_arrow_lib(arrow_flight_sql
               SHARED_LINK_LIBS
               arrow_flight_shared
               STATIC_LINK_LIBS
-              arrow_flight_static)
+              arrow_flight_static
+              PRIVATE_INCLUDES
+              "${Protobuf_INCLUDE_DIRS}")
 
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_static
