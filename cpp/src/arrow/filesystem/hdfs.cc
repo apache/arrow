@@ -33,6 +33,7 @@
 
 namespace arrow {
 
+using internal::ErrnoFromStatus;
 using internal::ParseValue;
 using internal::Uri;
 
@@ -194,28 +195,33 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Status DeleteDir(const std::string& path) {
-    if (!IsDirectory(path)) {
-      return Status::IOError("Cannot delete directory '", path, "': not a directory");
+  Status CheckForDirectory(const std::string& path, const char* action) {
+    // Check existence of path, and that it's a directory
+    io::HdfsPathInfo info;
+    RETURN_NOT_OK(client_->GetPathInfo(path, &info));
+    if (info.kind != io::ObjectType::DIRECTORY) {
+      return Status::IOError("Cannot ", action, " directory '", path,
+                             "': not a directory");
     }
-    RETURN_NOT_OK(client_->DeleteDirectory(path));
     return Status::OK();
   }
 
+  Status DeleteDir(const std::string& path) {
+    RETURN_NOT_OK(CheckForDirectory(path, "delete"));
+    return client_->DeleteDirectory(path);
+  }
+
   Status DeleteDirContents(const std::string& path, bool missing_dir_ok) {
-    if (!IsDirectory(path)) {
-      return Status::IOError("Cannot delete contents of directory '", path,
-                             "': not a directory");
-    }
-    std::vector<std::string> file_list;
-    Status get_children_st = client_->GetChildren(path, &file_list);
-    if (!get_children_st.ok()) {
-      if (missing_dir_ok &&
-          ::arrow::internal::ErrnoFromStatus(get_children_st) == ENOENT) {
+    auto st = CheckForDirectory(path, "delete contents of");
+    if (!st.ok()) {
+      if (missing_dir_ok && ErrnoFromStatus(st) == ENOENT) {
         return Status::OK();
       }
-      return get_children_st;
+      return st;
     }
+
+    std::vector<std::string> file_list;
+    RETURN_NOT_OK(client_->GetChildren(path, &file_list));
     for (const auto& file : file_list) {
       RETURN_NOT_OK(client_->Delete(file, /*recursive=*/true));
     }

@@ -418,11 +418,17 @@ class SignalDetail : public StatusDetail {
 }  // namespace
 
 std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
+  if (!errnum) {
+    return nullptr;
+  }
   return std::make_shared<ErrnoDetail>(errnum);
 }
 
 #if _WIN32
 std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
+  if (!errnum) {
+    return nullptr;
+  }
   return std::make_shared<WinErrorDetail>(errnum);
 }
 #endif
