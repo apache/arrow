@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
 #include <mutex>
 
 #include "arrow/compute/exec.h"
