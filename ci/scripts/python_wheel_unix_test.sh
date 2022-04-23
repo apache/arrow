@@ -86,9 +86,11 @@ import pyarrow.plasma
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
-  # Install testing dependencies
-  pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
-  PYTHON=python ${source_dir}/ci/scripts/install_gcs_testbench.sh default
+  # Generally, we should install testing dependencies here to install
+  # built wheels without testing dependencies. Testing dependencies are
+  # installed in ci/docker/python-wheel-manylinux-test.dockerfile to
+  # reduce test time.
+
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
   python -m pytest -r s --pyargs pyarrow
