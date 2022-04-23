@@ -785,3 +785,48 @@ test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {
   # must clean up the pointer or we leak
   delete_arrow_array_stream(stream_ptr)
 })
+
+
+test_that("as_record_batch() works for RecordBatch", {
+  batch <- record_batch(col1 = 1L, col2 = "two")
+  expect_identical(as_record_batch(batch), batch)
+  expect_equal(
+    as_record_batch(batch, schema = schema(col1 = float64(), col2 = string())),
+    record_batch(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+})
+
+test_that("as_record_batch() works for Table", {
+  batch <- record_batch(col1 = 1L, col2 = "two")
+  table <- arrow_table(col1 = 1L, col2 = "two")
+
+  expect_equal(as_record_batch(table), batch)
+  expect_equal(
+    as_record_batch(table, schema = schema(col1 = float64(), col2 = string())),
+    record_batch(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+
+  # also check zero column table and make sure row count is preserved
+  table0 <- table[integer()]
+  expect_identical(table0$num_columns, 0L)
+  expect_identical(table0$num_rows, 1L)
+
+  batch0 <- as_record_batch(table0)
+  expect_identical(batch0$num_columns, 0L)
+  expect_identical(batch0$num_rows, 1L)
+})
+
+test_that("as_record_batch() works for data.frame()", {
+  batch <- record_batch(col1 = 1L, col2 = "two")
+  tbl <- tibble::tibble(col1 = 1L, col2 = "two")
+
+  expect_equal(as_record_batch(tbl), batch)
+
+  expect_equal(
+    as_record_batch(
+      tbl,
+      schema = schema(col1 = float64(), col2 = string())
+    ),
+    record_batch(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+})

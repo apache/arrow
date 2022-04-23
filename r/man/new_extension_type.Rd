@@ -86,7 +86,6 @@ extension type that uses most of these features, see
 \code{\link[=vctrs_extension_type]{vctrs_extension_type()}}.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Create the R6 type whose methods control how Array objects are
 # converted to R objects, how equality between types is computed,
 # and how types are printed.
@@ -163,5 +162,4 @@ array$type$center()
 array$type$scale()
 
 as.vector(array)
-\dontshow{\}) # examplesIf}
 }

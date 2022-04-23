@@ -193,13 +193,13 @@ SEXP arrow_attributes(SEXP x, bool only_top_level) {
   return att;
 }
 
-SEXP CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
+cpp11::writable::list CollectColumnMetadata(SEXP lst, int num_fields) {
   // Preallocate for the lambda to fill in
   cpp11::writable::list metadata_columns(num_fields);
 
   cpp11::writable::strings metadata_columns_names(num_fields);
 
-  auto extract_one_metadata = [&metadata_columns, &metadata_columns_names, &has_metadata](
+  auto extract_one_metadata = [&metadata_columns, &metadata_columns_names](
                                   int j, SEXP x, std::string name) {
     metadata_columns_names[j] = name;
 
@@ -208,10 +208,6 @@ SEXP CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
       return;
     }
     metadata_columns[j] = arrow_attributes(x, false);
-
-    if (!Rf_isNull(metadata_columns[j])) {
-      has_metadata = true;
-    }
   };
   arrow::r::TraverseDots(lst, num_fields, extract_one_metadata);
 
@@ -226,7 +222,7 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   cpp11::writable::list metadata(2);
   metadata.names() = arrow::r::data::names_metadata;
 
-  bool has_metadata = false;
+  bool has_top_level_metadata = false;
 
   // "top level" attributes, only relevant if the first object is not named and a data
   // frame
@@ -234,12 +230,33 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   if (names[0] == "" && Rf_inherits(VECTOR_ELT(lst, 0), "data.frame")) {
     SEXP top_level = metadata[0] = arrow_attributes(VECTOR_ELT(lst, 0), true);
     if (!Rf_isNull(top_level) && XLENGTH(top_level) > 0) {
-      has_metadata = true;
+      has_top_level_metadata = true;
     }
   }
 
   // recurse to get all columns metadata
-  metadata[1] = CollectColumnMetadata(lst, num_fields, has_metadata);
+  cpp11::writable::list metadata_columns = CollectColumnMetadata(lst, num_fields);
+
+  // Remove metadata for ExtensionType columns, because these have their own mechanism for
+  // preserving R type information
+  for (R_xlen_t i = 0; i < schema->num_fields(); i++) {
+    if (schema->field(i)->type()->id() == Type::EXTENSION) {
+      metadata_columns[i] = R_NilValue;
+    }
+  }
+
+  // If all metadata_columns are NULL and there is no top-level metadata, set has_metadata
+  // to false
+  bool has_metadata = has_top_level_metadata;
+  for (R_xlen_t i = 0; i < metadata_columns.size(); i++) {
+    if (metadata_columns[i] != R_NilValue) {
+      has_metadata = true;
+      break;
+    }
+  }
+
+  // Assign to the output metadata
+  metadata[1] = metadata_columns;
 
   if (has_metadata) {
     SEXP serialise_call =

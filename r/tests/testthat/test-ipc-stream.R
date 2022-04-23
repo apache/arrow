@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("read_ipc_stream() and write_ipc_stream() accept connection objects", {
   tf <- tempfile()
   on.exit(unlink(tf))
@@ -29,4 +28,18 @@ test_that("read_ipc_stream() and write_ipc_stream() accept connection objects", 
   write_ipc_stream(test_tbl, file(tf))
   expect_identical(read_ipc_stream(tf), test_tbl)
   expect_identical(read_ipc_stream(file(tf)), read_ipc_stream(tf))
+})
+
+test_that("write_ipc_stream can write Table", {
+  table <- arrow_table(col1 = 1, col2 = "two")
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  expect_identical(write_ipc_stream(table, tf), table)
+  expect_equal(read_ipc_stream(tf, as_data_frame = FALSE), table)
+})
+
+test_that("write_ipc_stream errors for invalid input type", {
+  bad_input <- Array$create(1:5)
+  expect_snapshot_error(write_ipc_stream(bad_input, feather_file))
 })

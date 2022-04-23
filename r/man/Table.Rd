@@ -81,7 +81,6 @@ All list elements are coerced to string. See \code{schema()} for more informatio
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tbl <- arrow_table(name = rownames(mtcars), mtcars)
 dim(tbl)
 dim(head(tbl))
@@ -89,5 +88,4 @@ names(tbl)
 tbl$mpg
 tbl[["cyl"]]
 as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
-\dontshow{\}) # examplesIf}
 }

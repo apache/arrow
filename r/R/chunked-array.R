@@ -58,7 +58,7 @@
 #' @rdname ChunkedArray
 #' @name ChunkedArray
 #' @seealso [Array]
-#' @examplesIf arrow_available()
+#' @examples
 #' # Pass items into chunked_array as separate objects to create chunks
 #' class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
 #' class_scores$num_chunks
@@ -170,3 +170,47 @@ c.ChunkedArray <- function(...) {
 #' @rdname ChunkedArray
 #' @export
 chunked_array <- ChunkedArray$create
+
+#' Convert an object to an Arrow ChunkedArray
+#'
+#' Whereas [chunked_array()] constructs a [ChunkedArray] from zero or more
+#' [Array]s or R vectors, `as_chunked_array()` converts a single object to a
+#' [ChunkedArray].
+#'
+#' @param x An object to convert to an Arrow Chunked Array
+#' @inheritParams as_arrow_array
+#'
+#' @return A [ChunkedArray].
+#' @export
+#'
+#' @examples
+#' as_chunked_array(1:5)
+#'
+as_chunked_array <- function(x, ..., type = NULL) {
+  UseMethod("as_chunked_array")
+}
+
+#' @rdname as_chunked_array
+#' @export
+as_chunked_array.ChunkedArray <- function(x, ..., type = NULL) {
+  if (is.null(type)) {
+    x
+  } else {
+    x$cast(type)
+  }
+}
+
+#' @rdname as_chunked_array
+#' @export
+as_chunked_array.Array <- function(x, ..., type = NULL) {
+  if (is.null(type)) {
+    chunked_array(x)
+  } else {
+    chunked_array(x$cast(type))
+  }
+}
+
+#' @export
+as_chunked_array.default <- function(x, ..., type = NULL) {
+  ChunkedArray$create(x)
+}

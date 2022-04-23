@@ -133,6 +133,7 @@ reference:
       - RecordBatchWriter
       - CsvReadOptions
       - CsvWriteOptions
+      - as_record_batch_reader
   - title: Arrow data containers
     contents:
       - array
@@ -147,11 +148,15 @@ reference:
       - concat_tables
       - ExtensionArray
       - vctrs_extension_array
+      - as_arrow_array
+      - as_chunked_array
+      - as_record_batch
+      - as_arrow_table
   - title: Arrow data types and schema
     contents:
       - Schema
       - unify_schemas
-      - type
+      - infer_type
       - dictionary
       - Field
       - read_schema
@@ -162,6 +167,8 @@ reference:
       - new_extension_type
       - vctrs_extension_type
       - ExtensionType
+      - as_data_type
+      - as_schema
   - title: Flight
     contents:
       - load_flight_server

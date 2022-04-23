@@ -237,7 +237,7 @@ cbind.Table <- function(...) {
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname Table
-#' @examplesIf arrow_available()
+#' @examples
 #' tbl <- arrow_table(name = rownames(mtcars), mtcars)
 #' dim(tbl)
 #' dim(head(tbl))
@@ -247,3 +247,67 @@ cbind.Table <- function(...) {
 #' as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
 #' @export
 arrow_table <- Table$create
+
+
+#' Convert an object to an Arrow Table
+#'
+#' Whereas [arrow_table()] constructs a table from one or more columns,
+#' `as_arrow_table()` converts a single object to an Arrow [Table].
+#'
+#' @param x An object to convert to an Arrow Table
+#' @param ... Passed to S3 methods
+#' @inheritParams arrow_table
+#'
+#' @return A [Table]
+#' @export
+#'
+#' @examples
+#' # use as_arrow_table() for a single object
+#' as_arrow_table(data.frame(col1 = 1, col2 = "two"))
+#'
+#' # use arrow_table() to create from columns
+#' arrow_table(col1 = 1, col2 = "two")
+#'
+as_arrow_table <- function(x, ..., schema = NULL) {
+  UseMethod("as_arrow_table")
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.default <- function(x, ...) {
+  # throw a classed error here so that we can customize the error message
+  # in as_writable_table()
+  abort(
+    sprintf(
+      "No method for `as_arrow_table()` for object of class %s",
+      paste(class(x), collapse = " / ")
+    ),
+    class = "arrow_no_method_as_arrow_table"
+  )
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.Table <- function(x, ..., schema = NULL) {
+  if (is.null(schema)) {
+    x
+  } else {
+    x$cast(schema)
+  }
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.RecordBatch <- function(x, ..., schema = NULL) {
+  if (is.null(schema)) {
+    Table$create(x)
+  } else {
+    Table$create(x$cast(schema))
+  }
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.data.frame <- function(x, ..., schema = NULL) {
+  Table$create(x, schema = schema)
+}

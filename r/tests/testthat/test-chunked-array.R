@@ -505,3 +505,44 @@ test_that("Handling string data with embedded nuls", {
     )
   })
 })
+
+test_that("as_chunked_array() default method calls chunked_array()", {
+  expect_equal(
+    as_chunked_array(chunked_array(1:3, 4:5)),
+    chunked_array(1:3, 4:5)
+  )
+
+  expect_equal(
+    as_chunked_array(chunked_array(1:3, 4:5), type = float64()),
+    chunked_array(
+      Array$create(1:3, type = float64()),
+      Array$create(4:5, type = float64())
+    )
+  )
+})
+
+test_that("as_chunked_array() works for ChunkedArray", {
+  array <- chunked_array(type = null())
+  expect_identical(as_chunked_array(array), array)
+  expect_equal(
+    as_chunked_array(array, type = int32()),
+    chunked_array(type = int32())
+  )
+})
+
+test_that("as_chunked_array() works for Array", {
+  expect_equal(
+    as_chunked_array(Array$create(logical(), type = null())),
+    chunked_array(type = null())
+  )
+
+  expect_equal(
+    as_chunked_array(Array$create(1:6)),
+    chunked_array(Array$create(1:6))
+  )
+
+  expect_equal(
+    as_chunked_array(Array$create(1:6), type = float64()),
+    chunked_array(Array$create(1:6, type = float64()))
+  )
+})

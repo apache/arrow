@@ -176,7 +176,7 @@ RecordBatch$import_from_c <- ImportRecordBatch
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname RecordBatch
-#' @examplesIf arrow_available()
+#' @examples
 #' batch <- record_batch(name = rownames(mtcars), mtcars)
 #' dim(batch)
 #' dim(head(batch))
@@ -241,4 +241,61 @@ cbind.RecordBatch <- function(...) {
   }))
 
   RecordBatch$create(!!! columns)
+}
+
+#' Convert an object to an Arrow RecordBatch
+#'
+#' Whereas [record_batch()] constructs a [RecordBatch] from one or more columns,
+#' `as_record_batch()` converts a single object to an Arrow [RecordBatch].
+#'
+#' @param x An object to convert to an Arrow RecordBatch
+#' @param ... Passed to S3 methods
+#' @inheritParams record_batch
+#'
+#' @return A [RecordBatch]
+#' @export
+#'
+#' @examples
+#' # use as_record_batch() for a single object
+#' as_record_batch(data.frame(col1 = 1, col2 = "two"))
+#'
+#' # use record_batch() to create from columns
+#' record_batch(col1 = 1, col2 = "two")
+#'
+as_record_batch <- function(x, ..., schema = NULL) {
+  UseMethod("as_record_batch")
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.RecordBatch <- function(x, ..., schema = NULL) {
+  if (is.null(schema)) {
+    x
+  } else {
+    x$cast(schema)
+  }
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.Table <- function(x, ..., schema = NULL) {
+  if (x$num_columns == 0) {
+    batch <- record_batch(data.frame())
+    return(batch$Take(rep_len(0, x$num_rows)))
+  }
+
+  arrays_out <- lapply(x$columns, as_arrow_array)
+  names(arrays_out) <- names(x)
+  out <- RecordBatch$create(!!! arrays_out)
+  if (!is.null(schema)) {
+    out <- out$cast(schema)
+  }
+
+  out
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.data.frame <- function(x, ..., schema = NULL) {
+  RecordBatch$create(x, schema = schema)
 }

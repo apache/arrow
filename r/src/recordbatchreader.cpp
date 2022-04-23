@@ -42,6 +42,26 @@ cpp11::list RecordBatchReader__batches(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_batches(
+    const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches,
+    cpp11::sexp schema_sxp) {
+  bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
+
+  if (infer_schema) {
+    return ValueOrStop(arrow::RecordBatchReader::Make(std::move(batches)));
+  } else {
+    auto schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(schema_sxp);
+    return ValueOrStop(arrow::RecordBatchReader::Make(std::move(batches), schema));
+  }
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_Table(
+    const std::shared_ptr<arrow::Table>& table) {
+  return std::make_shared<arrow::TableBatchReader>(table);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   return ValueOrStop(reader->ToTable());

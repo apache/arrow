@@ -85,7 +85,7 @@
 #'
 #' @rdname array
 #' @name array
-#' @examplesIf arrow_available()
+#' @examples
 #' my_array <- Array$create(1:10)
 #' my_array$type
 #' my_array$cast(int8())
@@ -217,6 +217,135 @@ Array$create <- function(x, type = NULL) {
 Array$import_from_c <- ImportArray
 
 
+#' Convert an object to an Arrow Array
+#'
+#' The `as_arrow_array()` function is identical to `Array$create()` except
+#' that it is an S3 generic, which allows methods to be defined in other
+#' packages to convert objects to [Array]. `Array$create()` is slightly faster
+#' because it tries to convert in C++ before falling back on
+#' `as_arrow_array()`.
+#'
+#' @param x An object to convert to an Arrow Array
+#' @param ... Passed to S3 methods
+#' @param type A [type][data-type] for the final Array. A value of `NULL`
+#'   will default to the type guessed by [infer_type()].
+#'
+#' @return An [Array] with type `type`.
+#' @export
+#'
+#' @examples
+#' as_arrow_array(1:5)
+#'
+as_arrow_array <- function(x, ..., type = NULL) {
+  UseMethod("as_arrow_array")
+}
+
+#' @export
+as_arrow_array.default <- function(x, ..., type = NULL, from_vec_to_array = FALSE) {
+  # If from_vec_to_array is TRUE, this is a call from C++ after
+  # trying the internal C++ conversion and S3 dispatch has failed
+  # failed to find a method for the object. This call happens when creating
+  # Array, ChunkedArray, RecordBatch, and Table objects from data.frame
+  # if the internal C++ conversion (faster and can usually be parallelized)
+  # is not implemented. If the C++ call has reached this default method,
+  # we error. If from_vec_to_array is FALSE, we call vec_to_Array to use the
+  # internal C++ conversion.
+  if (from_vec_to_array) {
+    # Last ditch attempt: if vctrs::vec_is(x), we can use the vctrs
+    # extension type.
+    if (vctrs::vec_is(x) && is.null(type)) {
+      vctrs_extension_array(x)
+    } else if (vctrs::vec_is(x) && inherits(type, "VctrsExtensionType")) {
+      vctrs_extension_array(
+        x,
+        ptype = type$ptype(),
+        storage_type = type$storage_type()
+      )
+    } else {
+      stop_cant_convert_array(x, type)
+    }
+  } else {
+    vec_to_Array(x, type)
+  }
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.Array <- function(x, ..., type = NULL) {
+  if (is.null(type)) {
+    x
+  } else {
+    x$cast(type)
+  }
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.Scalar <- function(x, ..., type = NULL) {
+  as_arrow_array(x$as_array(), ..., type = type)
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.ChunkedArray <- function(x, ..., type = NULL) {
+  concat_arrays(!!! x$chunks, type = type)
+}
+
+# data.frame conversion can happen in C++ when all the columns can be
+# converted in C++ and when `type` is not an ExtensionType; however,
+# when calling as_arrow_array(), this method will get called regardless
+# of whether or not this can or can't happen.
+#' @export
+as_arrow_array.data.frame <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+
+  if (inherits(type, "VctrsExtensionType")) {
+    storage <- as_arrow_array(x, type = type$storage_type())
+    new_extension_array(storage, type)
+  } else if (inherits(type, "StructType")) {
+    fields <- type$fields()
+    names <- map_chr(fields, "name")
+    types <- map(fields, "type")
+    arrays <- Map(as_arrow_array, x, types)
+    names(arrays) <- names
+
+    # TODO(ARROW-16266): a hack because there is no StructArray$create() yet
+    batch <- record_batch(!!! arrays)
+    array_ptr <- allocate_arrow_array()
+    schema_ptr <- allocate_arrow_schema()
+    on.exit({
+      delete_arrow_array(array_ptr)
+      delete_arrow_schema(schema_ptr)
+    })
+
+    batch$export_to_c(array_ptr, schema_ptr)
+    Array$import_from_c(array_ptr, schema_ptr)
+  } else {
+    stop_cant_convert_array(x, type)
+  }
+}
+
+stop_cant_convert_array <- function(x, type) {
+  if (is.null(type)) {
+    abort(
+      sprintf(
+        "Can't create Array from object of type %s",
+        paste(class(x), collapse = " / ")
+      ),
+      call = rlang::caller_env()
+    )
+  } else {
+    abort(
+      sprintf(
+        "Can't create Array<%s> from object of type %s",
+        format(type$code()),
+        paste(class(x), collapse = " / ")
+      ),
+      call = rlang::caller_env()
+    )
+  }
+}
+
 #' Concatenate zero or more Arrays
 #'
 #' Concatenates zero or more [Array] objects into a single
@@ -231,7 +360,7 @@ Array$import_from_c <- ImportArray
 #' @return A single [Array]
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' concat_arrays(Array$create(1:3), Array$create(4:5))
 concat_arrays <- function(..., type = NULL) {
   dots <- lapply(list2(...), Array$create, type = type)

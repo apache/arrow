@@ -42,10 +42,8 @@
 #' write_ipc_stream(mtcars, tf)
 write_ipc_stream <- function(x, sink, ...) {
   x_out <- x # So we can return the data we got
-  if (is.data.frame(x)) {
-    x <- Table$create(x)
-  }
-  assert_that(is_writable_table(x))
+  x <- as_writable_table(x)
+
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
     on.exit(sink$close())
@@ -54,6 +52,7 @@ write_ipc_stream <- function(x, sink, ...) {
   writer <- RecordBatchStreamWriter$create(sink, x$schema)
   writer$write(x)
   writer$close()
+
   invisible(x_out)
 }
 

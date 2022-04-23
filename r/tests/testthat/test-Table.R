@@ -688,3 +688,45 @@ test_that("ARROW-12729 - length returns number of columns in Table", {
 
   expect_identical(length(tab), 3L)
 })
+
+test_that("as_arrow_table() works for Table", {
+  table <- arrow_table(col1 = 1L, col2 = "two")
+  expect_identical(as_arrow_table(table), table)
+  expect_equal(
+    as_arrow_table(table, schema = schema(col1 = float64(), col2 = string())),
+    arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+})
+
+test_that("as_arrow_table() works for RecordBatch", {
+  table <- arrow_table(col1 = 1L, col2 = "two")
+  batch <- record_batch(col1 = 1L, col2 = "two")
+
+  expect_equal(as_arrow_table(batch), table)
+  expect_equal(
+    as_arrow_table(batch, schema = schema(col1 = float64(), col2 = string())),
+    arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+})
+
+test_that("as_arrow_table() works for data.frame()", {
+  table <- arrow_table(col1 = 1L, col2 = "two")
+  tbl <- tibble::tibble(col1 = 1L, col2 = "two")
+
+  expect_equal(as_arrow_table(tbl), table)
+
+  expect_equal(
+    as_arrow_table(
+      tbl,
+      schema = schema(col1 = float64(), col2 = string())
+    ),
+    arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+})
+
+test_that("as_arrow_table() errors for invalid input", {
+  expect_error(
+    as_arrow_table("no as_arrow_table() method"),
+    class = "arrow_no_method_as_arrow_table"
+  )
+})
