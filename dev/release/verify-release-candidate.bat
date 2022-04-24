@@ -73,7 +73,8 @@ call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 @rem for more context, see https://issues.apache.org/jira/browse/ARROW-15378
 call conda remove -y gtest gmock || exit /B 1
 
-set GENERATOR=Visual Studio 15 2017 Win64
+set GENERATOR=Visual Studio 16 2019
+set ARCHITECTURE=x64
 set CONFIGURATION=release
 
 pushd !ARROW_SOURCE!
@@ -93,6 +94,7 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tool
 @rem generator used
 
 cmake -G "%GENERATOR%" ^
+      -A "%ARCHITECTURE%" ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
