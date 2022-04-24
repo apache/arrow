@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG platform=bionic
+ARG arch=amd64
 ARG dotnet=6.0
-FROM mcr.microsoft.com/dotnet/core/sdk:${dotnet}-${platform}
+ARG platform=focal
+FROM mcr.microsoft.com/dotnet/sdk:${dotnet}-${platform}-${arch}
 
 RUN dotnet tool install --tool-path /usr/local/bin sourcelink

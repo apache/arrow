@@ -1416,15 +1416,16 @@ services:
     # Usage:
     #   docker-compose build ubuntu-csharp
     #   docker-compose run ubuntu-csharp
-    image: ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
+    image: ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
     build:
       context: .
-      dockerfile: ci/docker/ubuntu-18.04-csharp.dockerfile
+      dockerfile: ci/docker/ubuntu-20.04-csharp.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
+        - ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
       args:
+        arch: ${ARCH}
         dotnet: ${DOTNET}
-        platform: bionic  # use bionic-arm64v8 for ARM
+        platform: focal
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: &csharp-command >
