@@ -16,7 +16,7 @@
 # under the License.
 
 ARG platform=bionic
-ARG dotnet=3.1
+ARG dotnet=6.0
 FROM mcr.microsoft.com/dotnet/core/sdk:${dotnet}-${platform}
 
 RUN dotnet tool install --tool-path /usr/local/bin sourcelink

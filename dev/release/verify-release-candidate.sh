@@ -342,14 +342,11 @@ install_csharp() {
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=3.1.418
+    local dotnet_version=6.0.202
     local dotnet_platform=
     case "$(uname)" in
       Linux)
         dotnet_platform=linux
-        if [ -e /usr/lib/$(uname -m)-linux-gnu/libssl.so.3 ]; then
-          dotnet_version=6.0.104
-        fi
         ;;
       Darwin)
         dotnet_platform=macos
@@ -798,7 +795,7 @@ test_csharp() {
   fi
 
   sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb
+  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
 
   popd
 }
