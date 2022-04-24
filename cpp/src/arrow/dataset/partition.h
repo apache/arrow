@@ -358,6 +358,11 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
 
+/// \brief Remove only the prefix of a path.
+///
+/// e.g., `StripPrefix("/data/2019_c.txt", "/data") -> "2019_c.txt"`
+ARROW_DS_EXPORT std::string StripPrefix(const std::string& path,
+                                        const std::string& prefix);
 /// \brief Remove a prefix and the filename of a path.
 ///
 /// e.g., `StripPrefixAndFilename("/data/year=2019/c.txt", "/data") -> "year=2019"`

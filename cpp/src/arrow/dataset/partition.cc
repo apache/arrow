@@ -805,9 +805,14 @@ std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory(
   return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory(options));
 }
 
-std::string StripPrefixAndFilename(const std::string& path, const std::string& prefix) {
+std::string StripPrefix(const std::string& path, const std::string& prefix) {
   auto maybe_base_less = fs::internal::RemoveAncestor(prefix, path);
   auto base_less = maybe_base_less ? std::string(*maybe_base_less) : path;
+  return base_less;
+}
+
+std::string StripPrefixAndFilename(const std::string& path, const std::string& prefix) {
+  auto base_less = StripPrefix(path, prefix);
   auto basename_filename = fs::internal::GetAbstractPathParent(base_less);
   return basename_filename.first;
 }
