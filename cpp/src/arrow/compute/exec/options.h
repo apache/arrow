@@ -201,6 +201,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
 /// call to Resume()
 class ARROW_EXPORT BackpressureControl {
  public:
+  virtual ~BackpressureControl() = default;
   /// \brief Ask the input to pause
   ///
   /// This is best effort, batches may continue to arrive
