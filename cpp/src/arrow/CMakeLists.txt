@@ -731,7 +731,7 @@ if(ARROW_COMPUTE)
   add_subdirectory(compute)
 endif()
 
-if(ARROW_ENGINE)
+if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
 endif()
 

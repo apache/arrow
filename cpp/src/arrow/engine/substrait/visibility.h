@@ -15,23 +15,38 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// TODO(westonpace): Once we have a propert engine module this file
+// should be renamed arrow/engine/visibility.h
 // This API is EXPERIMENTAL.
 
 #pragma once
 
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/engine/substrait/extension_types.h"
-#include "arrow/engine/substrait/serde.h"
-#include "arrow/engine/substrait/visibility.h"
-#include "arrow/type_fwd.h"
+#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
 
-#include "substrait/relations.pb.h"  // IWYU pragma: export
+#ifdef ARROW_ENGINE_STATIC
+#define ARROW_ENGINE_EXPORT
+#elif defined(ARROW_ENGINE_EXPORTING)
+#define ARROW_ENGINE_EXPORT __declspec(dllexport)
+#else
+#define ARROW_ENGINE_EXPORT __declspec(dllimport)
+#endif
 
-namespace arrow {
-namespace engine {
+#define ARROW_ENGINE_NO_EXPORT
+#else  // Not Windows
+#ifndef ARROW_ENGINE_EXPORT
+#define ARROW_ENGINE_EXPORT __attribute__((visibility("default")))
+#endif
+#ifndef ARROW_ENGINE_NO_EXPORT
+#define ARROW_ENGINE_NO_EXPORT __attribute__((visibility("hidden")))
+#endif
+#endif  // Non-Windows
 
-ARROW_ENGINE_EXPORT
-Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&);
-
-}  // namespace engine
-}  // namespace arrow
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

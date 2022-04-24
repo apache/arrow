@@ -19,32 +19,6 @@
 
 #pragma once
 
-#if defined(_WIN32) || defined(__CYGWIN__)
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4251)
-#else
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-
-#ifdef ARROW_ENGINE_STATIC
-#define ARROW_ENGINE_EXPORT
-#elif defined(ARROW_ENGINE_EXPORTING)
-#define ARROW_ENGINE_EXPORT __declspec(dllexport)
-#else
-#define ARROW_ENGINE_EXPORT __declspec(dllimport)
-#endif
-
-#define ARROW_ENGINE_NO_EXPORT
-#else  // Not Windows
-#ifndef ARROW_ENGINE_EXPORT
-#define ARROW_ENGINE_EXPORT __attribute__((visibility("default")))
-#endif
-#ifndef ARROW_ENGINE_NO_EXPORT
-#define ARROW_ENGINE_NO_EXPORT __attribute__((visibility("hidden")))
-#endif
-#endif  // Non-Windows
-
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/serde.h"

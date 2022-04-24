@@ -161,8 +161,8 @@ arrow_with_dataset <- function() {
 
 #' @rdname arrow_available
 #' @export
-arrow_with_engine <- function() {
-  tryCatch(.Call(`_engine_available`), error = function(e) {
+arrow_with_substrait <- function() {
+  tryCatch(.Call(`_substrait_available`), error = function(e) {
     return(FALSE)
   })
 }
@@ -234,7 +234,7 @@ arrow_info <- function() {
     out <- c(out, list(
       capabilities = c(
         dataset = arrow_with_dataset(),
-        engine = arrow_with_engine(),
+        substrait = arrow_with_substrait(),
         parquet = arrow_with_parquet(),
         json = arrow_with_json(),
         s3 = arrow_with_s3(),
@@ -269,7 +269,7 @@ arrow_info <- function() {
 some_features_are_off <- function(features) {
   # `features` is a named logical vector (as in arrow_info()$capabilities)
   # Let's exclude some less relevant ones
-  blocklist <- c("lzo", "bz2", "brotli", "engine")
+  blocklist <- c("lzo", "bz2", "brotli", "substrait")
   # Return TRUE if any of the other features are FALSE
   !all(features[setdiff(names(features), blocklist)])
 }

@@ -23,7 +23,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compute/function.h"
-#include "arrow/engine/visibility.h"
+#include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
