@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
