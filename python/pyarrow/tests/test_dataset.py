@@ -662,6 +662,24 @@ def test_partitioning():
     assert partitioning.dictionaries[1].to_pylist() == [
         "first", "second", "third"]
 
+    # test partitioning roundtrip
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
+    )
+    partitioning_schema = pa.schema([("part", pa.string())])
+    for klass in [ds.DirectoryPartitioning, ds.HivePartitioning,
+                  ds.FilenamePartitioning]:
+        with tempfile.TemporaryDirectory() as tempdir:
+            partitioning = klass(partitioning_schema)
+            ds.write_dataset(table, tempdir,
+                             format='ipc', partitioning=partitioning)
+            load_back = ds.dataset(tempdir, format='ipc',
+                                   partitioning=partitioning)
+            load_back_table = load_back.to_table()
+            assert load_back_table.equals(table)
+
 
 def test_expression_arithmetic_operators():
     dataset = ds.dataset(pa.table({'a': [1, 2, 3], 'b': [2, 2, 2]}))
