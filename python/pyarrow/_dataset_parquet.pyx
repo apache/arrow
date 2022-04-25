@@ -333,7 +333,6 @@ cdef class ParquetFileFragment(FileFragment):
     @property
     def metadata(self):
         self.ensure_complete_metadata()
-
         cdef FileMetaData metadata = FileMetaData()
         metadata.init(self.parquet_file_fragment.metadata())
         return metadata
