@@ -518,7 +518,7 @@ services:
     command: >-
       /bin/bash -c "
         /arrow/ci/scripts/conan_setup.sh &&
-        /arrow/ci/scripts/conan_build.sh /arrow"
+        /arrow/ci/scripts/conan_build.sh /arrow /build"
 
   ############################### C GLib ######################################
 

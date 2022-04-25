@@ -21,6 +21,8 @@ set -eux
 
 source_dir=${1}
 shift
+build_dir=${1}
+shift
 
 export ARROW_HOME=${source_dir}
 export CONAN_HOOK_ERROR_LEVEL=40
@@ -28,5 +30,12 @@ export CONAN_HOOK_ERROR_LEVEL=40
 version=$(grep '^set(ARROW_VERSION ' ${ARROW_HOME}/cpp/CMakeLists.txt | \
             grep -E -o '([0-9.]*)')
 
-cd /arrow/ci/conan/all
+rm -rf ${build_dir}/conan || sudo rm -rf ${build_dir}/conan
+mkdir -p ${build_dir} || sudo mkdir -p ${build_dir}
+if [ -w ${build_dir} ]; then
+  cp -a ${source_dir}/ci/conan/all ${build_dir}/conan
+else
+  sudo cp -a ${source_dir}/ci/conan/all ${build_dir}/conan
+fi
+cd ${build_dir}/conan
 conan create . arrow/${version}@ "$@"
