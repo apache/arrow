@@ -103,11 +103,11 @@ Status BuildBloomFilter_Parallel(
           std::ignore = func(tid);
         });
       },
-      2 * num_threads, false));
+      static_cast<int>(2 * num_threads), false));
   {
-      lk.lock();
-      RETURN_NOT_OK(scheduler->StartTaskGroup(0, group, num_batches));
-      cv.wait(lk);
+    lk.lock();
+    RETURN_NOT_OK(scheduler->StartTaskGroup(0, group, num_batches));
+    cv.wait(lk);
   }
   return Status::OK();
 }

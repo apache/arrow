@@ -1981,9 +1981,11 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
 
   for (int i = 1; i < num_joins; i++) {
     int num_right_cols = rng.from_range(1, 8);
-    HashJoinNodeOptions opt = GenerateHashJoinNodeOptions(
-        rng, opts[i - 1].left_output.size() + opts[i - 1].right_output.size(),
-        num_right_cols);
+    HashJoinNodeOptions opt =
+        GenerateHashJoinNodeOptions(rng,
+                                    static_cast<int>(opts[i - 1].left_output.size() +
+                                                     opts[i - 1].right_output.size()),
+                                    num_right_cols);
     opts.push_back(std::move(opt));
 
     std::vector<std::shared_ptr<Field>> right_fields;
