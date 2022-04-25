@@ -78,7 +78,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
@@ -1493,12 +1492,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     Schema schemaToUse = Schemas.GET_TABLES_SCHEMA;
 
     if (!request.getIncludeSchema()) {
-      List<Field> fieldsToUse = Schemas.GET_TABLES_SCHEMA
-              .getFields()
-              .stream()
-              .filter(f -> !f.getName().equals("table_schema"))
-              .collect(Collectors.toList());
-      schemaToUse = new Schema(fieldsToUse);
+      schemaToUse = Schemas.GET_TABLES_SCHEMA_NO_SCHEMA;
     }
 
     return getFlightInfoForSchema(request, descriptor, schemaToUse);
