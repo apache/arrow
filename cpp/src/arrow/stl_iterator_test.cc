@@ -248,5 +248,216 @@ TEST(ArrayIterator, StdMerge) {
   ASSERT_EQ(values, expected);
 }
 
+TEST(ChunkedArrayIterator, Basics) {
+  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
+  auto chunk1 = ArrayFromJSON(int32(), "[6]");
+
+  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1}, int32()));
+  auto it = Iterate<Int32Type>(*result);
+  optional<int32_t> v = *it;
+  ASSERT_EQ(v, 4);
+  ASSERT_EQ(it[0], 4);
+  ++it;
+  ASSERT_EQ(it[0], 5);
+  ASSERT_EQ(*it, 5);
+  ASSERT_EQ(it[1], nullopt);
+  ASSERT_EQ(it[2], 6);
+}
+
+TEST(ChunkedArrayIterator, Arithmetic) {
+  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
+  auto chunk1 = ArrayFromJSON(int32(), "[6, null, 7]");
+
+  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1}, int32()));
+  auto it = Iterate<Int32Type>(*result);
+  auto it2 = it + 2;
+  ASSERT_EQ(*it, 4);
+  ASSERT_EQ(*it2, nullopt);
+  ASSERT_EQ(it2 - it, 2);
+  ASSERT_EQ(it - it2, -2);
+  auto it3 = it++;
+  ASSERT_EQ(it2 - it, 1);
+  ASSERT_EQ(it2 - it3, 2);
+  ASSERT_EQ(*it3, 4);
+  ASSERT_EQ(*it, 5);
+  auto it4 = ++it;
+  ASSERT_EQ(*it, nullopt);
+  ASSERT_EQ(*it4, nullopt);
+  ASSERT_EQ(it2 - it, 0);
+  ASSERT_EQ(it2 - it4, 0);
+  auto it5 = it + 3;
+  ASSERT_EQ(*it5, 7);
+  ASSERT_EQ(*(it5 - 2), 6);
+  ASSERT_EQ(*(it5 + (-2)), 6);
+  auto it6 = (--it5)--;
+  ASSERT_EQ(*it6, nullopt);
+  ASSERT_EQ(*it5, 6);
+  ASSERT_EQ(it6 - it5, 1);
+}
+
+TEST(ChunkedArrayIterator, Comparison) {
+  auto array = checked_pointer_cast<Int32Array>(
+      ArrayFromJSON(int32(), "[4, 5, null, 6, null, 7]"));
+  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
+  auto chunk1 = ArrayFromJSON(int32(), "[6, null, 7]");
+
+  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1}, int32()));
+  auto it = Iterate<Int32Type>(*result) + 2;
+  auto it2 = Iterate<Int32Type>(*result) + 2;
+  auto it3 = Iterate<Int32Type>(*result) + 4;
+
+  ASSERT_TRUE(it == it2);
+  ASSERT_TRUE(it <= it2);
+  ASSERT_TRUE(it >= it2);
+  ASSERT_FALSE(it != it2);
+  ASSERT_FALSE(it < it2);
+  ASSERT_FALSE(it > it2);
+
+  ASSERT_FALSE(it == it3);
+  ASSERT_TRUE(it <= it3);
+  ASSERT_FALSE(it >= it3);
+  ASSERT_TRUE(it != it3);
+  ASSERT_TRUE(it < it3);
+  ASSERT_FALSE(it > it3);
+}
+
+TEST(ChunkedArrayIterator, MultipleChunks) {
+  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
+  auto chunk1 = ArrayFromJSON(int32(), "[6]");
+  auto chunk2 = ArrayFromJSON(int32(), "[7, 9, 10, 8]");
+  auto chunk3 = ArrayFromJSON(int32(), "[11, 13]");
+  auto chunk4 = ArrayFromJSON(int32(), "[14]");
+  auto chunk5 = ArrayFromJSON(int32(), "[15]");
+  auto chunk6 = ArrayFromJSON(int32(), "[16]");
+
+  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1, chunk2, chunk3,
+                                                        chunk4, chunk5, chunk6},
+                                                       int32()));
+  auto it = Iterate<Int32Type>(*result);
+  ASSERT_EQ(it[8], 11);
+  ASSERT_EQ(it[9], 13);
+  it += 3;
+  ASSERT_EQ(it[0], 6);
+  ++it;
+  ASSERT_EQ(it[0], 7);
+  ASSERT_EQ(*it, 7);
+  ASSERT_EQ(it[1], 9);
+  ASSERT_EQ(it[2], 10);
+  it -= 4;
+  ASSERT_EQ(it[0], 4);
+  ASSERT_EQ(it[1], 5);
+  ASSERT_EQ(it[2], nullopt);
+  ASSERT_EQ(it[3], 6);
+  ASSERT_EQ(it[4], 7);
+  it += 9;
+  ASSERT_EQ(*it, 13);
+  --it;
+  ASSERT_EQ(*it, 11);
+  --it;
+  ASSERT_EQ(*it, 8);
+  ASSERT_EQ(it[0], 8);
+  ASSERT_EQ(it[1], 11);
+  ASSERT_EQ(it[2], 13);
+  ASSERT_EQ(it[3], 14);
+  ASSERT_EQ(it[4], 15);
+  ASSERT_EQ(it[5], 16);
+  ++it;
+  ASSERT_EQ(*it, 11);
+  ASSERT_EQ(it[0], 11);
+  ASSERT_EQ(it[1], 13);
+  ASSERT_EQ(it[2], 14);
+  ASSERT_EQ(it[3], 15);
+  ASSERT_EQ(it[4], 16);
+  ++it;
+  ASSERT_EQ(*it, 13);
+  ASSERT_EQ(it[0], 13);
+  ASSERT_EQ(it[1], 14);
+  ASSERT_EQ(it[2], 15);
+  ASSERT_EQ(it[3], 16);
+  ++it;
+  ++it;
+  ASSERT_EQ(*it, 15);
+  ASSERT_EQ(it[0], 15);
+  ASSERT_EQ(it[1], 16);
+  --it;
+  ASSERT_EQ(*it, 14);
+  ASSERT_EQ(it[0], 14);
+  ASSERT_EQ(it[1], 15);
+  ASSERT_EQ(it[2], 16);
+  --it;
+  ASSERT_EQ(*it, 13);
+  ASSERT_EQ(it[0], 13);
+  ASSERT_EQ(it[1], 14);
+  ASSERT_EQ(it[2], 15);
+  it -= 2;
+  ASSERT_EQ(*it, 8);
+  ASSERT_EQ(it[0], 8);
+  ASSERT_EQ(it[1], 11);
+  ASSERT_EQ(it[2], 13);
+}
+
+TEST(ChunkedArrayIterator, EmptyChunks) {
+  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
+  auto chunk1 = ArrayFromJSON(int32(), "[]");
+  auto chunk2 = ArrayFromJSON(int32(), "[7, 9, 10, 8]");
+  auto chunk3 = ArrayFromJSON(int32(), "[11, 13]");
+  auto chunk4 = ArrayFromJSON(int32(), "[]");
+  auto chunk5 = ArrayFromJSON(int32(), "[]");
+  auto chunk6 = ArrayFromJSON(int32(), "[16]");
+
+  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1, chunk2, chunk3,
+                                                        chunk4, chunk5, chunk6},
+                                                       int32()));
+  auto it = Iterate<Int32Type>(*result);
+  ASSERT_EQ(it[8], 13);
+  ASSERT_EQ(it[9], 16);
+  it += 3;
+  ASSERT_EQ(it[0], 7);
+  ++it;
+  ASSERT_EQ(it[0], 9);
+  ASSERT_EQ(*it, 9);
+  ASSERT_EQ(it[1], 10);
+  ASSERT_EQ(it[2], 8);
+  it -= 4;
+  ASSERT_EQ(it[0], 4);
+  ASSERT_EQ(it[1], 5);
+  ASSERT_EQ(it[2], nullopt);
+  ASSERT_EQ(it[3], 7);
+  ASSERT_EQ(it[4], 9);
+  it += 9;
+  ASSERT_EQ(*it, 16);
+  --it;
+  ASSERT_EQ(*it, 13);
+  --it;
+  ASSERT_EQ(*it, 11);
+  ASSERT_EQ(it[0], 11);
+  ASSERT_EQ(it[1], 13);
+  ASSERT_EQ(it[2], 16);
+  ++it;
+  ASSERT_EQ(*it, 13);
+  ASSERT_EQ(it[0], 13);
+  ASSERT_EQ(it[1], 16);
+  ++it;
+  ASSERT_EQ(*it, 16);
+  ASSERT_EQ(it[0], 16);
+  --it;
+  ASSERT_EQ(*it, 13);
+  ASSERT_EQ(it[0], 13);
+  ASSERT_EQ(it[1], 16);
+  --it;
+  ASSERT_EQ(*it, 11);
+  ASSERT_EQ(it[0], 11);
+  ASSERT_EQ(it[1], 13);
+  ASSERT_EQ(it[2], 16);
+  it += 2;
+  ASSERT_EQ(*it, 16);
+  ASSERT_EQ(it[0], 16);
+  it -= 3;
+  ASSERT_EQ(*it, 8);
+  ASSERT_EQ(it[0], 8);
+  ASSERT_EQ(it[1], 11);
+  ASSERT_EQ(it[2], 13);
+}
+
 }  // namespace stl
 }  // namespace arrow

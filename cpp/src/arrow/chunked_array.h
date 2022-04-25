@@ -141,6 +141,9 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Return the type of the chunked array
   const std::shared_ptr<DataType>& type() const { return type_; }
 
+  /// \brief Return chunk resolver of the chunked array
+  const internal::ChunkResolver& GetChunkResolver() const { return chunk_resolver_; }
+
   /// \brief Return a Scalar containing the value of this array at index
   Result<std::shared_ptr<Scalar>> GetScalar(int64_t index) const;
 
