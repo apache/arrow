@@ -368,7 +368,7 @@ def _ensure_minio_component_version(component, minimum_year):
         version_year = version_match.group(1)
         return int(version_year) >= minimum_year
     else:
-        return False
+        raise FileNotFoundError("minio component older than the minimum year")
 
 
 def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
@@ -408,39 +408,42 @@ def _configure_s3_limited_user(s3_server, policy):
     (e.g. see ARROW-13685)
     """
 
-    # ensuring version of mc and minio for the capabilities we need
-    if not (_ensure_minio_component_version('mc', 2021) and
-            _ensure_minio_component_version('minio', 2021)):
-        return False
-
     if sys.platform == 'win32':
         # Can't rely on FileNotFound check because
         # there is sometimes an mc command on Windows
         # which is unrelated to the minio mc
         pytest.skip('The mc command is not installed on Windows')
-    tempdir = s3_server['tempdir']
-    host, port, access_key, secret_key = s3_server['connection']
-    address = '{}:{}'.format(host, port)
 
-    mcdir = os.path.join(tempdir, 'mc')
-    if os.path.exists(mcdir):
-        shutil.rmtree(mcdir)
-    os.mkdir(mcdir)
-    policy_path = os.path.join(tempdir, 'limited-buckets-policy.json')
-    with open(policy_path, mode='w') as policy_file:
-        policy_file.write(policy)
-    # The s3_server fixture starts the minio process but
-    # it takes a few moments for the process to become available
-    _wait_for_minio_startup(mcdir, address, access_key, secret_key)
-    # These commands create a limited user with a specific
-    # policy and creates a sample bucket for that user to
-    # write to
-    _run_mc_command(mcdir, 'admin', 'policy', 'add',
-                    'myminio/', 'no-create-buckets', policy_path)
-    _run_mc_command(mcdir, 'admin', 'user', 'add',
-                    'myminio/', 'limited', 'limited123')
-    _run_mc_command(mcdir, 'admin', 'policy', 'set',
-                    'myminio', 'no-create-buckets', 'user=limited')
-    _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
-                    '--ignore-existing')
-    return True
+    try:
+        # ensuring version of mc and minio for the capabilities we need
+        _ensure_minio_component_version('mc', 2021)
+        _ensure_minio_component_version('minio', 2021)
+
+        tempdir = s3_server['tempdir']
+        host, port, access_key, secret_key = s3_server['connection']
+        address = '{}:{}'.format(host, port)
+
+        mcdir = os.path.join(tempdir, 'mc')
+        if os.path.exists(mcdir):
+            shutil.rmtree(mcdir)
+        os.mkdir(mcdir)
+        policy_path = os.path.join(tempdir, 'limited-buckets-policy.json')
+        with open(policy_path, mode='w') as policy_file:
+            policy_file.write(policy)
+        # The s3_server fixture starts the minio process but
+        # it takes a few moments for the process to become available
+        _wait_for_minio_startup(mcdir, address, access_key, secret_key)
+        # These commands create a limited user with a specific
+        # policy and creates a sample bucket for that user to
+        # write to
+        _run_mc_command(mcdir, 'admin', 'policy', 'add',
+                        'myminio/', 'no-create-buckets', policy_path)
+        _run_mc_command(mcdir, 'admin', 'user', 'add',
+                        'myminio/', 'limited', 'limited123')
+        _run_mc_command(mcdir, 'admin', 'policy', 'set',
+                        'myminio', 'no-create-buckets', 'user=limited')
+        _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
+                        '--ignore-existing')
+
+    except FileNotFoundError:
+        pytest.skip("Configuring limited s3 user failed")

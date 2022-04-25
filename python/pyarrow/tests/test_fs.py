@@ -432,8 +432,7 @@ def skip_fsspec_s3fs(fs):
 @pytest.mark.s3
 def test_s3fs_limited_permissions_create_bucket(s3_server):
     from pyarrow.fs import S3FileSystem
-    if not _configure_s3_limited_user(s3_server, _minio_limited_policy):
-        pytest.skip("Configuring limited s3 user failed")
+    _configure_s3_limited_user(s3_server, _minio_limited_policy)
     host, port, _, _ = s3_server['connection']
 
     fs = S3FileSystem(
