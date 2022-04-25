@@ -1564,11 +1564,13 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 | cumulative_sum_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
 +------------------------+-------+-------------+-------------+--------------------------------+-------+
 
-* \(1) CumulativeSumOptions has two optional parameters. The first is
-  :member:`CumulativeSumOptions::start`, which is an optional starting value for
-  the running sum with the same type as the input. start has and default value
-  of 0. The second parameter is :member:`CumulativeSumOptions::skip_nulls`, which
-  is a boolean that when set to false, the first encountered null is propagated.
+* \(1) CumulativeSumOptions has two optional parameters. The first parameter
+  :member:`CumulativeSumOptions::start` is a starting value for the running
+  sum. It has a default value of 0. Specified values of ``start`` must have the
+  same type as the input. The second parameter 
+  :member:`CumulativeSumOptions::skip_nulls` is a boolean. When set to
+  false (the default), the first encountered null is propagated. When set to
+  true, each null in the input produces a corresponding null in the output.
 
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
