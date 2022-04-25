@@ -186,8 +186,6 @@ public class TestFlightSql {
     collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
   }
 
-
-
   @Test
   public void testGetTablesResultNoSchema() throws Exception {
     try (final FlightStream stream =

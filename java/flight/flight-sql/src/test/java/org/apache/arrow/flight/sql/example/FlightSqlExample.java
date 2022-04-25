@@ -1488,13 +1488,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoTables(final CommandGetTables request, final CallContext context,
                                         final FlightDescriptor descriptor) {
-
     Schema schemaToUse = Schemas.GET_TABLES_SCHEMA;
-
     if (!request.getIncludeSchema()) {
       schemaToUse = Schemas.GET_TABLES_SCHEMA_NO_SCHEMA;
     }
-
     return getFlightInfoForSchema(request, descriptor, schemaToUse);
   }
 
