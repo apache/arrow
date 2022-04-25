@@ -25,6 +25,7 @@ import gc
 import numpy as np
 import os
 import random
+import re
 import shutil
 import signal
 import socket
@@ -354,6 +355,22 @@ def signal_wakeup_fd(*, warn_on_full_buffer=False):
         w.close()
 
 
+def _ensure_minio_component_version(component, minimum_year):
+    full_args = [component, '--version']
+    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, encoding='utf-8')
+    if proc.wait(10) != 0:
+        return False
+    stdout = proc.stdout.read()
+    pattern = component + r' version RELEASE\.(\d+)-.*'
+    version_match = re.search(pattern, stdout)
+    if version_match:
+        version_year = version_match.group(1)
+        return int(version_year) >= minimum_year
+    else:
+        return False
+
+
 def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
     start = time.time()
     while time.time() - start < 10:
@@ -400,15 +417,16 @@ def _configure_s3_limited_user(s3_server, policy):
     host, port, access_key, secret_key = s3_server['connection']
     address = '{}:{}'.format(host, port)
 
-    mcdir = os.path.join(tempdir, 'mc')
-    if os.path.exists(mcdir):
-        shutil.rmtree(mcdir)
-    os.mkdir(mcdir)
-    policy_path = os.path.join(tempdir, 'limited-buckets-policy.json')
-
-    with open(policy_path, mode='w') as policy_file:
-        policy_file.write(policy)
-    try:
+    # ensuring version of mc and minio for the capabilities we need
+    if (_ensure_minio_component_version('mc', 2021) and
+            _ensure_minio_component_version('minio', 2021)):
+        mcdir = os.path.join(tempdir, 'mc')
+        if os.path.exists(mcdir):
+            shutil.rmtree(mcdir)
+        os.mkdir(mcdir)
+        policy_path = os.path.join(tempdir, 'limited-buckets-policy.json')
+        with open(policy_path, mode='w') as policy_file:
+            policy_file.write(policy)
         # The s3_server fixture starts the minio process but
         # it takes a few moments for the process to become available
         _wait_for_minio_startup(mcdir, address, access_key, secret_key)
@@ -423,7 +441,3 @@ def _configure_s3_limited_user(s3_server, policy):
                         'myminio', 'no-create-buckets', 'user=limited')
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
                         '--ignore-existing')
-
-    except FileNotFoundError:
-        pytest.skip(
-            'Could not locate mc command to configure limited user')
