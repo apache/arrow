@@ -90,6 +90,9 @@ if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # built wheels without testing dependencies. Testing dependencies are
   # installed in ci/docker/python-wheel-manylinux-test.dockerfile to
   # reduce test time.
+  #
+  # We also need to update dev/tasks/python-wheels/*.yml when we need
+  # to add more steps to prepare testing dependencies.
 
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
