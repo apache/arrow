@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import pprint
 import shutil
 import subprocess
 import sys
@@ -122,6 +123,7 @@ def test_cython_api(tmpdir):
         code = """if 1:
             import sys
 
+            print("Python path in subprocess:", sys.path)
             mod = __import__({mod_name!r})
             arr = mod.make_null_array(5)
             assert mod.get_array_length(arr) == 5
@@ -136,6 +138,15 @@ def test_cython_api(tmpdir):
         subprocess_env[var] = delim.join(
             pa.get_library_dirs() + [subprocess_env.get(var, '')]
         )
+        print("-" * 70)
+        print("executing with environment:")
+        pprint.pprint(subprocess_env)
+        print("-" * 70)
+        print(f"directory listing for {str(tmpdir)!r}: {os.listdir(tmpdir)}")
+        print("-" * 70)
+
+        subprocess.check_call([sys.executable, '-m', 'site'])
+        print("-" * 70)
 
         subprocess.check_call([sys.executable, '-c', code],
                               stdout=subprocess.PIPE,
