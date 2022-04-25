@@ -17,8 +17,8 @@
 
 #pragma once
 
-namespace arrow_vendored {
-namespace date {
+namespace arrow {
+namespace internal {
 
 class OffsetZone {
   std::chrono::minutes offset_;
