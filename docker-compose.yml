@@ -1795,4 +1795,5 @@ services:
       TEST_YUM: 0
     command: >
       /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
