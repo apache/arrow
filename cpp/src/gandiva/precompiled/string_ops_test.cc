@@ -261,14 +261,14 @@ TEST(TestStringOps, TestConvertUtf8) {
   const char* c_str = convert_fromUTF8_binary(
       ctx_ptr, c.data(), c_in_out_len, &c_in_out_len);
   EXPECT_EQ(std::string(c_str, c_in_out_len), "hello");
-  EXPECT_FALSE(ctx.has_error()); 
+  EXPECT_FALSE(ctx.has_error());
 
   std::string d("zero length");
   int d_in_out_len = 0;
   const char* d_str = convert_fromUTF8_binary(
     ctx_ptr, d.data(), d_in_out_len, &d_in_out_len);
   EXPECT_EQ(std::string(d_str, d_in_out_len), "");
-  EXPECT_FALSE(ctx.has_error()); 
+  EXPECT_FALSE(ctx.has_error());
 
   std::string e("substring");
   int e_in_out_len = 3;
