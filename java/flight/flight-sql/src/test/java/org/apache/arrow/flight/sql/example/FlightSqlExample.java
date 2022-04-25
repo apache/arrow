@@ -1492,7 +1492,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
     Schema schemaToUse = Schemas.GET_TABLES_SCHEMA;
 
-    if(!request.getIncludeSchema()) {
+    if (!request.getIncludeSchema()) {
       List<Field> fieldsToUse = Schemas.GET_TABLES_SCHEMA
               .getFields()
               .stream()
