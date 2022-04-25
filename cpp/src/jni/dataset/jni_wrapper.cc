@@ -440,6 +440,10 @@ JNIEXPORT jboolean JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextReco
     // Generally a non-zero offset will occur whenever the scanner batch
     // size is smaller than the batch size of the underlying files.
     std::shared_ptr<arrow::Array> array = record_batch->column(i);
+    if (array->offset() == 0) {
+      offset_zeroed_arrays.push_back(array);
+      continue;
+    }
     std::shared_ptr<arrow::Array> offset_zeroed =
         JniGetOrThrow(arrow::Concatenate({array}));
     offset_zeroed_arrays.push_back(offset_zeroed);
