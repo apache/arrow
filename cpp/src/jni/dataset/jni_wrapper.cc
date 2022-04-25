@@ -429,8 +429,26 @@ JNIEXPORT jboolean JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextReco
   if (record_batch == nullptr) {
     return false;  // stream ended
   }
+  std::vector<std::shared_ptr<arrow::Array>> offset_zeroed_arrays;
+  for (int i = 0; i < record_batch->num_columns(); ++i) {
+    // TODO: If the array has an offset then we need to de-offset the array
+    // in order for it to be properly consumed on the Java end.
+    // This forces a copy, it would be nice to avoid this if Java
+    // could consume offset-arrays.  Perhaps at some point in the future
+    // using the C data interface.  See ARROW-15275
+    //
+    // Generally a non-zero offset will occur whenever the scanner batch
+    // size is smaller than the batch size of the underlying files.
+    std::shared_ptr<arrow::Array> array = record_batch->column(i);
+    std::shared_ptr<arrow::Array> offset_zeroed =
+        JniGetOrThrow(arrow::Concatenate({array}));
+    offset_zeroed_arrays.push_back(offset_zeroed);
+  }
+
+  std::shared_ptr<arrow::RecordBatch> offset_zeroed_batch = arrow::RecordBatch::Make(
+      record_batch->schema(), record_batch->num_rows(), offset_zeroed_arrays);
   JniAssertOkOrThrow(
-      arrow::dataset::jni::ExportRecordBatch(env, record_batch, struct_array));
+      arrow::dataset::jni::ExportRecordBatch(env, offset_zeroed_batch, struct_array));
   return true;
   JNI_METHOD_END(false)
 }
