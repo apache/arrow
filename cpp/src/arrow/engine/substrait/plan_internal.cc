@@ -43,7 +43,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   auto uris = plan->mutable_extension_uris();
   uris->Reserve(static_cast<int>(ext_set.uris().size()));
   for (uint32_t anchor = 0; anchor < ext_set.uris().size(); ++anchor) {
-    auto uri = ext_set.uris().at(anchor);
+    auto uri = ext_set.uris()[anchor];
     if (uri.empty()) continue;
 
     auto ext_uri = internal::make_unique<substrait::extensions::SimpleExtensionURI>();
@@ -109,22 +109,14 @@ void SetElement(size_t i, const Element& element, std::vector<T>* vector) {
   (*vector)[i] = static_cast<T>(element);
 }
 
-template <typename Element, typename key, typename value>
-void SetMapElement(key i, const Element& element, std::unordered_map<key, value>* map) {
-  DCHECK_LE(i, 1 << 20);
-  if (i >= map->size()) {
-    map->reserve(i + 1);
-  }
-  (*map)[i] = static_cast<value>(element);
-}
-
 }  // namespace
 
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                                              ExtensionIdRegistry* registry) {
   std::unordered_map<uint32_t, util::string_view> uris;
+  uris.reserve(plan.extension_uris_size());
   for (const auto& uri : plan.extension_uris()) {
-    SetMapElement(uri.extension_uri_anchor(), uri.uri(), &uris);
+    uris[uri.extension_uri_anchor()] = uri.uri();
   }
 
   // NOTE: it's acceptable to use views to memory owned by plan; ExtensionSet::Make

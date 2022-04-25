@@ -159,10 +159,6 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   explicit ExtensionSet(ExtensionIdRegistry* = default_extension_id_registry());
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExtensionSet);
 
-  static Status CheckHasUri(util::string_view uri, ExtensionSet* self);
-  static void AddUri(std::pair<uint32_t, util::string_view> uri, ExtensionSet* self);
-  static void AddUri(Id id, ExtensionSet* self);
-
   /// Construct an ExtensionSet with explicit extension ids for efficient referencing
   /// during deserialization. Note that input vectors need not be densely packed; an empty
   /// (default constructed) Id may be used as a placeholder to indicate an unused
@@ -182,9 +178,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
       std::vector<bool> type_is_variation, std::vector<Id> function_ids,
       ExtensionIdRegistry* = default_extension_id_registry());
 
-  // index in these vectors == value of _anchor/_reference fields
-  /// TODO(ARROW-15583) this assumes that _anchor/_references won't be huge, which is not
-  /// guaranteed. Could it be?
+
   const std::unordered_map<uint32_t, util::string_view>& uris() const { return uris_; }
 
   /// \brief Returns a data type given an anchor
@@ -250,6 +244,10 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   std::vector<TypeRecord> types_;
   std::vector<FunctionRecord> functions_;
   std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_map_, functions_map_;
+
+  Status CheckHasUri(util::string_view uri);
+  void AddUri(std::pair<uint32_t, util::string_view> uri);
+  void AddUri(Id id);
 };
 
 }  // namespace engine
