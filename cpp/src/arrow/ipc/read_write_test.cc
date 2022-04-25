@@ -66,6 +66,7 @@ namespace ipc {
 
 using internal::FieldPosition;
 using internal::IoRecordedRandomAccessFile;
+using MetadataVector = std::vector<std::shared_ptr<KeyValueMetadata>>;
 
 namespace test {
 
@@ -1018,8 +1019,9 @@ struct FileWriterHelper {
     return Status::OK();
   }
 
-  Status WriteBatch(const std::shared_ptr<RecordBatch>& batch) {
-    RETURN_NOT_OK(writer_->WriteRecordBatch(*batch));
+  Status WriteBatch(const std::shared_ptr<RecordBatch>& batch,
+                    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr) {
+    RETURN_NOT_OK(writer_->WriteRecordBatch(*batch, metadata));
     num_batches_written_++;
     return Status::OK();
   }
@@ -1042,16 +1044,22 @@ struct FileWriterHelper {
 
   virtual Status ReadBatches(const IpcReadOptions& options,
                              RecordBatchVector* out_batches,
-                             ReadStats* out_stats = nullptr) {
+                             ReadStats* out_stats = nullptr,
+                             MetadataVector* out_metadata_list = nullptr) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(
                                            buf_reader.get(), footer_offset_, options));
 
     EXPECT_EQ(num_batches_written_, reader->num_record_batches());
     for (int i = 0; i < num_batches_written_; ++i) {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> chunk,
-                            reader->ReadRecordBatch(i));
+      ARROW_ASSIGN_OR_RAISE(auto chunk_with_metadata,
+                            reader->ReadRecordBatchWithCustomMetadata(i));
+      auto chunk = chunk_with_metadata.batch;
       out_batches->push_back(chunk);
+      if (out_metadata_list) {
+        auto metadata = chunk_with_metadata.custom_metadata;
+        out_metadata_list->push_back(metadata);
+      }
     }
     if (out_stats) {
       *out_stats = reader->stats();
@@ -1096,7 +1104,8 @@ class NoZeroCopyBufferReader : public io::BufferReader {
 template <bool kCoalesce>
 struct FileGeneratorWriterHelper : public FileWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
-                     ReadStats* out_stats = nullptr) override {
+                     ReadStats* out_stats = nullptr,
+                     MetadataVector* out_metadata_list = nullptr) override {
     std::shared_ptr<io::RandomAccessFile> buf_reader;
     if (kCoalesce) {
       // Use a non-zero-copy enabled BufferReader so we can test paths properly
@@ -1145,8 +1154,9 @@ struct StreamWriterHelper {
     return Status::OK();
   }
 
-  Status WriteBatch(const std::shared_ptr<RecordBatch>& batch) {
-    RETURN_NOT_OK(writer_->WriteRecordBatch(*batch));
+  Status WriteBatch(const std::shared_ptr<RecordBatch>& batch,
+                    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr) {
+    RETURN_NOT_OK(writer_->WriteRecordBatch(*batch, metadata));
     return Status::OK();
   }
 
@@ -1165,10 +1175,23 @@ struct StreamWriterHelper {
 
   virtual Status ReadBatches(const IpcReadOptions& options,
                              RecordBatchVector* out_batches,
-                             ReadStats* out_stats = nullptr) {
+                             ReadStats* out_stats = nullptr,
+                             MetadataVector* out_metadata_list = nullptr) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(buf_reader, options))
-    ARROW_ASSIGN_OR_RAISE(*out_batches, reader->ToRecordBatches());
+    if (out_metadata_list) {
+      while (true) {
+        ARROW_ASSIGN_OR_RAISE(auto chunk_with_metadata, reader->ReadNext());
+        if (chunk_with_metadata.batch == nullptr) {
+          break;
+        }
+        out_batches->push_back(chunk_with_metadata.batch);
+        out_metadata_list->push_back(chunk_with_metadata.custom_metadata);
+      }
+    } else {
+      ARROW_ASSIGN_OR_RAISE(*out_batches, reader->ToRecordBatches());
+    }
+
     if (out_stats) {
       *out_stats = reader->stats();
     }
@@ -1195,7 +1218,8 @@ struct StreamWriterHelper {
 
 struct StreamDecoderWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
-                     ReadStats* out_stats = nullptr) override {
+                     ReadStats* out_stats = nullptr,
+                     MetadataVector* out_metadata_list = nullptr) override {
     auto listener = std::make_shared<CollectListener>();
     StreamDecoder decoder(listener, options);
     RETURN_NOT_OK(DoConsume(&decoder));
@@ -1418,6 +1442,57 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
     CompareBatch(*out_batches[0], *batch_bools, false /* compare_metadata */);
     // Metadata from the RecordBatchWriter initialization schema was kept
     ASSERT_TRUE(out_batches[0]->schema()->Equals(*schema));
+  }
+
+  void TestWriteBatchWithMetadata() {
+    std::shared_ptr<RecordBatch> batch;
+    ASSERT_OK(MakeIntRecordBatch(&batch));
+
+    WriterHelper writer_helper;
+    ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+
+    auto metadata = key_value_metadata({"some_key"}, {"some_value"});
+    ASSERT_OK(writer_helper.WriteBatch(batch, metadata));
+    ASSERT_OK(writer_helper.Finish());
+
+    RecordBatchVector out_batches;
+    MetadataVector out_metadata_list;
+    ASSERT_OK(writer_helper.ReadBatches(IpcReadOptions::Defaults(), &out_batches, nullptr,
+                                        &out_metadata_list));
+    ASSERT_EQ(out_batches.size(), 1);
+    ASSERT_EQ(out_metadata_list.size(), 1);
+    CompareBatch(*out_batches[0], *batch, false /* compare_metadata */);
+    ASSERT_TRUE(out_metadata_list[0]->Equals(*metadata));
+  }
+
+  // write multiple batches and each of them with different metadata
+  void TestWriteDifferentMetadata() {
+    std::shared_ptr<RecordBatch> batch_0;
+    std::shared_ptr<RecordBatch> batch_1;
+    auto metadata_0 = key_value_metadata({"some_key"}, {"0"});
+    auto metadata_1 = key_value_metadata({"some_key"}, {"1"});
+    ASSERT_OK(MakeIntRecordBatch(&batch_0));
+    ASSERT_OK(MakeIntRecordBatch(&batch_1));
+
+    WriterHelper writer_helper;
+    ASSERT_OK(writer_helper.Init(batch_0->schema(), IpcWriteOptions::Defaults()));
+
+    ASSERT_OK(writer_helper.WriteBatch(batch_0, metadata_0));
+
+    // Write a batch with different metadata
+    ASSERT_OK(writer_helper.WriteBatch(batch_1, metadata_1));
+    ASSERT_OK(writer_helper.Finish());
+
+    RecordBatchVector out_batches;
+    MetadataVector out_metadata_list;
+    ASSERT_OK(writer_helper.ReadBatches(IpcReadOptions::Defaults(), &out_batches, nullptr,
+                                        &out_metadata_list));
+    ASSERT_EQ(out_batches.size(), 2);
+    ASSERT_EQ(out_metadata_list.size(), 2);
+    CompareBatch(*out_batches[0], *batch_0, true /* compare_metadata */);
+    CompareBatch(*out_batches[1], *batch_1, true /* compare_metadata */);
+    ASSERT_TRUE(out_metadata_list[0]->Equals(*metadata_0));
+    ASSERT_TRUE(out_metadata_list[1]->Equals(*metadata_1));
   }
 
   void TestWriteNoRecordBatches() {
@@ -1800,6 +1875,15 @@ TEST_F(TestFileFormatGeneratorCoalesced, DictionaryRoundTrip) {
 }
 
 TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
+
+TEST_F(TestFileFormat, BatchWithMetadata) { TestWriteBatchWithMetadata(); }
+
+TEST_F(TestStreamFormat, BatchWithMetadata) { TestWriteBatchWithMetadata(); }
+
+TEST_F(TestFileFormat, DifferentMetadataBatches) { TestWriteDifferentMetadata(); }
+
+TEST_F(TestStreamFormat, DifferentMetadataBatches) { TestWriteDifferentMetadata(); }
+
 TEST_F(TestFileFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 TEST_F(TestFileFormatGenerator, DifferentSchema) { TestWriteDifferentSchema(); }
 TEST_F(TestFileFormatGeneratorCoalesced, DifferentSchema) { TestWriteDifferentSchema(); }
