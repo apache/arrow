@@ -443,7 +443,8 @@ def _configure_s3_limited_user(s3_server, policy):
                         'myminio/', 'limited', 'limited123')
         _run_mc_command(mcdir, 'admin', 'policy', 'set',
                         'myminio', 'no-create-buckets', 'user=limited')
-        _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket')
+        _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
+                        '--ignore-existing')
 
     except FileNotFoundError:
         pytest.skip(
