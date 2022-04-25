@@ -4371,7 +4371,9 @@ def test_write_dataset_s3_put_only(s3_server):
         endpoint_override='{}:{}'.format(host, port),
         scheme='http'
     )
-    _configure_s3_limited_user(s3_server, _minio_put_only_policy)
+    if not _configure_s3_limited_user(s3_server, _minio_put_only_policy):
+        pytest.skip("Configuring limited s3 user failed")
+
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
         pa.array(np.repeat(['a', 'b'], 10))],
