@@ -897,11 +897,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
-    ARROW_ASSIGN_OR_RAISE(
-        batch_with_metadata,
-        ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                context, reader.get()));
-    return batch_with_metadata;
+    return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                   context, reader.get());
   }
 
   std::shared_ptr<Schema> schema() const override { return out_schema_; }
@@ -1187,19 +1184,15 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     auto cached_metadata = cached_metadata_.find(i);
     if (cached_metadata != cached_metadata_.end()) {
       auto result = ReadCachedRecordBatch(i, cached_metadata->second).result();
-      if (result.ok()) {
-        auto batch = result.ValueOrDie();
-        ARROW_ASSIGN_OR_RAISE(auto message_obj, cached_metadata->second.result());
-        ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
-        std::shared_ptr<KeyValueMetadata> custom_metadata;
-        if (message->custom_metadata() != nullptr) {
-          RETURN_NOT_OK(internal::GetKeyValueMetadata(message->custom_metadata(),
-                                                      &custom_metadata));
-        }
-        return RecordBatchWithMetadata{std::move(batch), std::move(custom_metadata)};
-      } else {
-        return result.status();
+      ARROW_ASSIGN_OR_RAISE(auto batch, result);
+      ARROW_ASSIGN_OR_RAISE(auto message_obj, cached_metadata->second.result());
+      ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
+      std::shared_ptr<KeyValueMetadata> custom_metadata;
+      if (message->custom_metadata() != nullptr) {
+        RETURN_NOT_OK(
+            internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
       }
+      return RecordBatchWithMetadata{std::move(batch), std::move(custom_metadata)};
     }
 
     RETURN_NOT_OK(WaitForDictionaryReadFinished());
