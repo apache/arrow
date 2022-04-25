@@ -208,6 +208,9 @@ TEST(TestShaHashUtils, TestSha512Varlen) {
       "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeın\nY [ˈʏpsilɔn], "
       "Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
 
+  std::string third_string =
+      "0";
+
   // The strings expected hashes are obtained from shell executing the following command:
   // echo -n <output-string> | openssl dgst sha1
   std::string expected_first_result =
@@ -216,6 +219,9 @@ TEST(TestShaHashUtils, TestSha512Varlen) {
   std::string expected_second_result =
       "a5446a30e173baf3aa27800a7d304d16a68b87800723973156ad4362cbe4c136e4b12c950a603f25fc"
       "3b2e1ea778a1936ee2dbf71d27a3bc0f81498df3ce060c";
+
+  std::string expected_third_result =
+      "31bca02094eb78126a517b206a88c73cfa9ec6f704c7030d18212cace820f025f00bf0ea68dbf3f3a5436ca63b53bf7bf80ad8d5de7d8359d0b7fed9dbc3ab99";
 
   // Generate the hashes and compare with expected outputs
   const int sha512_size = 128;
@@ -232,6 +238,12 @@ TEST(TestShaHashUtils, TestSha512Varlen) {
   std::string sha2_as_str(sha_2, out_length);
   EXPECT_EQ(sha2_as_str.size(), sha512_size);
   EXPECT_EQ(sha2_as_str, expected_second_result);
+
+  const char* sha_3 = gandiva::gdv_sha512_hash(ctx_ptr, third_string.c_str(),
+                                               third_string.size(), &out_length);
+  std::string sha3_as_str(sha_3, out_length);
+  EXPECT_EQ(sha3_as_str.size(), sha512_size);
+  EXPECT_EQ(sha3_as_str, expected_third_result);
 }
 
 TEST(TestShaHashUtils, TestSha256Varlen) {
