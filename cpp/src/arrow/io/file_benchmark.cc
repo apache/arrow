@@ -196,10 +196,10 @@ static void SetupPipeWriter(std::shared_ptr<io::OutputStream>* stream,
 }
 
 static void BenchmarkStreamingWrites(benchmark::State& state,
-                                     std::valarray<int64_t> sizes,
+                                     const std::valarray<int64_t>& sizes,
                                      io::OutputStream* stream,
                                      BackgroundReader* reader = nullptr) {
-  const std::string datastr(*std::max_element(std::begin(sizes), std::end(sizes)), 'x');
+  const std::string datastr(sizes.max(), 'x');
   const void* data = datastr.data();
   const int64_t sum_sizes = sizes.sum();
 
