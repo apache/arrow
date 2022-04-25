@@ -328,7 +328,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
-    if (directory_.empty()) {
+    if (directory_.empty() || !write_options_.create_dir) {
       init_future_ = Future<>::MakeFinished();
     } else {
       if (write_options_.existing_data_behavior ==

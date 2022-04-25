@@ -35,7 +35,8 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler)
+                                FSProtocolClass, ProxyHandler,
+                                _configure_s3_limited_user)
 
 try:
     import pandas as pd
@@ -4332,6 +4333,71 @@ def test_write_dataset_s3(s3_example_simple):
         "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
     assert result.equals(table)
+
+
+_minio_put_only_policy = """{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:ListBucket",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": [
+                "arn:aws:s3:::*"
+            ]
+        }
+    ]
+}"""
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_write_dataset_s3_put_only(s3_server):
+    # [ARROW-15892] Testing the create_dir flag which will restrict
+    # creating a new directory for writing a dataset. This is
+    # required while writing a dataset in s3 where we have very
+    # limited permissions and thus we can directly write the dataset
+    # without creating a directory.
+    from pyarrow.fs import S3FileSystem
+
+    # write dataset with s3 filesystem
+    host, port, _, _ = s3_server['connection']
+    fs = S3FileSystem(
+        access_key='limited',
+        secret_key='limited123',
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http'
+    )
+    _configure_s3_limited_user(s3_server, _minio_put_only_policy)
+
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
+    )
+    part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
+
+    # writing with filesystem object with create_dir flag set to false
+    ds.write_dataset(
+        table, "existing-bucket", filesystem=fs,
+        format="feather", create_dir=False, partitioning=part,
+        existing_data_behavior='overwrite_or_ignore'
+    )
+    # check roundtrip
+    result = ds.dataset(
+        "existing-bucket", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
+
+    with pytest.raises(OSError, match="Access Denied"):
+        ds.write_dataset(
+            table, "existing-bucket", filesystem=fs,
+            format="feather", create_dir=True,
+            existing_data_behavior='overwrite_or_ignore'
+        )
 
 
 @pytest.mark.parquet

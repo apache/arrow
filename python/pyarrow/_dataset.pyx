@@ -24,6 +24,7 @@ from cython.operator cimport dereference as deref
 import collections
 import os
 import warnings
+from libcpp cimport bool
 
 import pyarrow as pa
 from pyarrow.lib cimport *
@@ -2683,6 +2684,7 @@ def _filesystemdataset_write(
     int max_rows_per_file,
     int min_rows_per_group,
     int max_rows_per_group,
+    bool create_dir
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -2715,6 +2717,7 @@ def _filesystemdataset_write(
             ("existing_data_behavior must be one of 'error', ",
              "'overwrite_or_ignore' or 'delete_matching'")
         )
+    c_options.create_dir = create_dir
 
     if file_visitor is not None:
         visit_args = {'base_dir': c_options.base_dir,
