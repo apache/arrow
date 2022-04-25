@@ -38,6 +38,11 @@ jobs:
         run: |
           choco install boost-msvc-14.1
           choco install wget
+
+      - name: Download Timezone Database
+        shell: bash
+        run: arrow/ci/scripts/download_tz_database.sh
+
       - name: Run verification
         shell: cmd
         run: |
