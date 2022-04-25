@@ -41,8 +41,8 @@ There are numerous important directories in the Arrow project which relate to CI
 
 Instead of thinking about Arrow CI in terms of files and folders, it may be conceptually simpler to instead divide it into 2 main categories:
 
-- CI jobs which are triggered based on specific actions on GitHub (pull requests opened, pull requests merged, etc)
-- On-demand builds which are manually triggered on a nightly basis or via Archery
+- **action-triggered builds**: CI jobs which are triggered based on specific actions on GitHub (pull requests opened, pull requests merged, etc)
+- **extended builds**: manually triggered with many being run on a nightly basis
 
 Action-triggered builds
 -----------------------
@@ -63,7 +63,7 @@ There are two other files which define action-triggered builds:
 - ``.travis.yml`` - runs on all commits and is used to test on architectures such as ARM and S390x
 - ``appveyor.yml`` - runs on commits related to Python or C++ 
 
-On-demand builds
+Extended builds
 -----------------------
 
 Crossbow is a subcomponent of Archery and can be used to manually trigger builds.  The tasks which can be run on Crossbow can be found in the ``dev/tasks`` directory.  This directory contains:
