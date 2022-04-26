@@ -17,6 +17,7 @@
 
 #include "arrow/engine/substrait/util.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/async_util.h"
 
 namespace arrow {
 
