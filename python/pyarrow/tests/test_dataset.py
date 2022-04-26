@@ -984,6 +984,8 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
@@ -1032,6 +1034,8 @@ def test_fragments_implicit_cast(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_reconstruct(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
@@ -1094,6 +1098,8 @@ def test_fragments_reconstruct(tempdir, dataset_reader):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1160,6 +1166,8 @@ def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
@@ -1276,6 +1284,8 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_parquet_fragment_statistics(tempdir):
     table, dataset = _create_dataset_all_types(tempdir)
 
@@ -1343,6 +1353,8 @@ def test_parquet_empty_row_group_statistics(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups_predicate(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1367,6 +1379,8 @@ def test_fragments_parquet_row_groups_predicate(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1409,6 +1423,8 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
                                       dataset_reader):
     fs, assert_opens = open_logging_fs
@@ -1438,6 +1454,8 @@ def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_filter(tempdir, open_logging_fs,
                                          dataset_reader):
     fs, assert_opens = open_logging_fs
@@ -1471,6 +1489,8 @@ def test_fragments_parquet_subset_filter(tempdir, open_logging_fs,
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_invalid(tempdir):
     _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
     fragment = list(dataset.get_fragments())[0]
@@ -3164,6 +3184,8 @@ def test_parquet_dataset_factory_fsspec(tempdir):
 @pytest.mark.parquet
 @pytest.mark.pandas  # write_to_dataset currently requires pandas
 @pytest.mark.parametrize('use_legacy_dataset', [False, True])
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
     # Simple test to ensure we can roundtrip dataset to
     # _metadata/common_metadata and back.  A more complex test
@@ -3509,6 +3531,8 @@ def test_write_to_dataset_given_null_just_works(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_legacy_write_to_dataset_drops_null(tempdir):
     schema = pa.schema([
         pa.field('col', pa.int64()),
