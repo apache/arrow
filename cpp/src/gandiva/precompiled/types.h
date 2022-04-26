@@ -207,6 +207,10 @@ gdv_float32 positive_float32(gdv_float32 in);
 gdv_float64 positive_float64(gdv_float64 in);
 gdv_float32 negative_float32(gdv_float32 in);
 gdv_float64 negative_float64(gdv_float64 in);
+void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
+                      int32_t /*precision*/, int32_t /*scale*/, int32_t /*out_precision*/,
+                      int32_t /*out_scale*/, int64_t* out_high_bits,
+                      uint64_t* out_low_bits);
 
 gdv_int64 divide_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 

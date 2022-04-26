@@ -21,6 +21,9 @@
 #include <cstdint>
 
 #include "../execution_context.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/decimal.h"
+#include "gandiva/decimal_scalar.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {
@@ -78,6 +81,63 @@ TEST(TestArithmeticOps, TestMod) {
   EXPECT_NEAR(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 9.2, 3.7), 1.8,
               acceptable_abs_error);
   EXPECT_FALSE(context.has_error());
+}
+
+TEST(TestArithmeticOps, TestNegativeDecimal) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  int64_t out_high_bits = 0;
+  uint64_t out_low_bits = 0;
+
+  arrow::Decimal128 input_decimal("-10.5");
+  negative_decimal(ctx_ptr, input_decimal.high_bits(), input_decimal.low_bits(), 3, 1, 3,
+                   1, &out_high_bits, &out_low_bits);
+  arrow::Decimal128 output_decimal("10.5");
+  EXPECT_EQ(output_decimal.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal.low_bits(), out_low_bits);
+
+  arrow::Decimal128 input_decimal2("10.5");
+  negative_decimal(ctx_ptr, input_decimal2.high_bits(), input_decimal2.low_bits(), 3, 1,
+                   3, 1, &out_high_bits, &out_low_bits);
+  arrow::Decimal128 output_decimal2("-10.5");
+  EXPECT_EQ(output_decimal2.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal2.low_bits(), out_low_bits);
+
+  arrow::Decimal128 input_decimal3("-23049223942343.532412");
+  negative_decimal(ctx_ptr, input_decimal3.high_bits(), input_decimal3.low_bits(), 20, 6,
+                   20, 6, &out_high_bits, &out_low_bits);
+  arrow::Decimal128 output_decimal3("23049223942343.532412");
+  EXPECT_EQ(output_decimal3.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal3.low_bits(), out_low_bits);
+
+  arrow::Decimal128 input_decimal4("15.001");
+  negative_decimal(ctx_ptr, input_decimal4.high_bits(), input_decimal4.low_bits(), 2, 3,
+                   2, 3, &out_high_bits, &out_low_bits);
+  arrow::Decimal128 output_decimal4("-15.001");
+  EXPECT_EQ(output_decimal4.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal4.low_bits(), out_low_bits);
+
+  arrow::Decimal128 input_decimal5("17");
+  negative_decimal(ctx_ptr, input_decimal5.high_bits(), input_decimal5.low_bits(), 2, 0,
+                   2, 0, &out_high_bits, &out_low_bits);
+  arrow::Decimal128 output_decimal5("-17");
+  EXPECT_EQ(output_decimal5.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal5.low_bits(), out_low_bits);
+
+  arrow::Decimal128 input_decimal6("-99917");
+  negative_decimal(ctx_ptr, input_decimal6.high_bits(), input_decimal6.low_bits(), 5, 0,
+                   5, 0, &out_high_bits, &out_low_bits);
+  arrow::Decimal128 output_decimal6("99917");
+  EXPECT_EQ(output_decimal6.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal6.low_bits(), out_low_bits);
+
+  arrow::Decimal128 input_decimal7("0.99917");
+  negative_decimal(ctx_ptr, input_decimal7.high_bits(), input_decimal7.low_bits(), 0, 5,
+                   0, 5, &out_high_bits, &out_low_bits);
+  arrow::Decimal128 output_decimal7("-0.99917");
+  EXPECT_EQ(output_decimal7.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal7.low_bits(), out_low_bits);
 }
 
 TEST(TestArithmeticOps, TestPositiveNegative) {
