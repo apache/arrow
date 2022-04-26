@@ -1955,8 +1955,15 @@ class RankMetaFunction : public MetaFunction {
     uint64_t rank = 0;
     auto* indices = sortIndices.make_array()->data()->GetValues<uint64_t>(1);
     auto out_rankings = rankings->GetMutableValues<uint64_t>(1);
+    Datum prevValue, currValue;
     for (auto i = 0; i < out_size; i++) {
-      out_rankings[indices[i]] = ++rank;
+      currValue = array.GetScalar(indices[i]).ValueOrDie();
+      if (i > 0 && currValue == prevValue) {
+      } else {
+        ++rank;
+      }
+      out_rankings[indices[i]] = rank;
+      prevValue = currValue;
     }
 
     return rankings;
