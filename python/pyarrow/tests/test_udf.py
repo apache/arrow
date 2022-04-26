@@ -52,7 +52,7 @@ def unary_func_fixture():
     pc.register_scalar_function(unary_function,
                                 func_name,
                                 unary_doc,
-                                {"array": pc.InputType.array(pa.int64())},
+                                {"array": pa.int64()},
                                 pa.int64())
     return unary_function, func_name
 
@@ -67,8 +67,8 @@ def binary_func_fixture():
     pc.register_scalar_function(binary_function,
                                 func_name,
                                 binary_doc,
-                                {"m": pc.InputType.array(pa.int64()),
-                                 "x": pc.InputType.array(pa.int64())
+                                {"m": pa.int64(),
+                                 "x": pa.int64(),
                                  },
                                 pa.int64())
     return binary_function, func_name
@@ -86,9 +86,9 @@ def ternary_func_fixture():
                                 func_name,
                                 ternary_doc,
                                 {
-                                    "array1": pc.InputType.array(pa.int64()),
-                                    "array2": pc.InputType.array(pa.int64()),
-                                    "array3": pc.InputType.array(pa.int64()),
+                                    "array1": pa.int64(),
+                                    "array2": pa.int64(),
+                                    "array3": pa.int64(),
                                 },
                                 pa.int64())
     return ternary_function, func_name
@@ -110,11 +110,11 @@ def varargs_func_fixture():
                                 func_name,
                                 varargs_doc,
                                 {
-                                    "array1": pc.InputType.array(pa.int64()),
-                                    "array2": pc.InputType.array(pa.int64()),
-                                    "array3": pc.InputType.array(pa.int64()),
-                                    "array4": pc.InputType.array(pa.int64()),
-                                    "array5": pc.InputType.array(pa.int64()),
+                                    "array1": pa.int64(),
+                                    "array2": pa.int64(),
+                                    "array3": pa.int64(),
+                                    "array4": pa.int64(),
+                                    "array5": pa.int64(),
                                 },
                                 pa.int64())
     return varargs_function, func_name
@@ -272,7 +272,7 @@ def test_udf_input():
         "summary": "test udf input",
         "description": "parameters are validated"
     }
-    in_types = {"scalar": pc.InputType.scalar(pa.int64())}
+    in_types = {"scalar": pa.int64()}
     out_type = pa.int64()
     with pytest.raises(TypeError):
         pc.register_scalar_function(add_const,
@@ -292,7 +292,7 @@ def test_udf_input():
                                     None)
 
     # validate input type
-    expected_expr = r'in_types must be a dictionary of InputType'
+    expected_expr = r'in_types must be a dictionary of DataType'
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(add_const,
                                     "test_input_function", doc, None,
@@ -300,8 +300,8 @@ def test_udf_input():
 
 
 def test_varargs_function_validation(varargs_check_func_fixture):
-    in_types = {"array1": pc.InputType.array(pa.int64()),
-                "array2": pc.InputType.array(pa.int64())
+    in_types = {"array1": pa.int64(),
+                "array2": pa.int64(),
                 }
     doc = {"summary": "n add function",
            "description": "add N number of arrays"
@@ -320,7 +320,7 @@ def test_varargs_function_validation(varargs_check_func_fixture):
 
 def test_function_doc_validation():
     # validate arity
-    in_types = {"scalar": pc.InputType.scalar(pa.int64())}
+    in_types = {"scalar": pa.int64()}
     out_type = pa.int64()
 
     # doc with no summary
@@ -364,7 +364,7 @@ def test_nullary_functions(nullary_check_func_fixture, mock_udf_context):
 
 def test_output_datatype(output_check_func_fixture):
     func_name = "test_add_to_scalar"
-    in_types = {"array": pc.InputType.array(pa.int64())}
+    in_types = {"array": pa.int64()}
     out_type = pa.int64()
     doc = {
         "summary": "add function scalar",
@@ -386,7 +386,7 @@ def test_output_datatype(output_check_func_fixture):
 
 def test_output_value(output_check_func_fixture):
     func_name = "test_output_value"
-    in_types = {"array": pc.InputType.array(pa.int64())}
+    in_types = {"array": pa.int64()}
     out_type = {}
     doc = {
         "summary": "test output value",
@@ -402,7 +402,7 @@ def test_output_value(output_check_func_fixture):
 
 def test_output_type(const_return_func_fixture):
     func_name = "test_output_type_func"
-    in_types = {"array": pc.InputType.array(pa.int64())}
+    in_types = {"array": pa.int64()}
     out_type = pa.int64()
     doc = {
         "summary": "add function scalar",
@@ -429,7 +429,7 @@ def test_input_type(const_return_func_fixture):
         "summary": "test invalid input type",
         "description": "invalid input function"
     }
-    expected_expr = "in_types must be of type InputType"
+    expected_expr = "in_types must be of type DataType"
 
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(const_return_func_fixture, func_name, doc,
@@ -438,8 +438,8 @@ def test_input_type(const_return_func_fixture):
 
 def test_udf_context(random_with_udf_ctx_func_fixture):
     proxy_pool = pa.proxy_memory_pool(pa.default_memory_pool())
-    in_types = {"one": pc.InputType.scalar(pa.int64()),
-                "two": pc.InputType.scalar(pa.int64())
+    in_types = {"one": pa.int64(),
+                "two": pa.int64()
                 }
     func_doc = {
         "summary": "test udf context",

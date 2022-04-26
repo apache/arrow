@@ -21,13 +21,6 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-
-cdef class InputType(_Weakrefable):
-    cdef:
-        CInputType input_type
-
-    cdef void init(self, const CInputType &input_type)
-
 cdef class ScalarUdfContext(_Weakrefable):
     cdef:
         CScalarUdfContext c_context

@@ -40,8 +40,8 @@ struct ARROW_PYTHON_EXPORT ScalarUdfOptions {
   std::string func_name;
   compute::Arity arity;
   compute::FunctionDoc func_doc;
-  std::vector<compute::InputType> input_types;
-  std::shared_ptr<compute::OutputType> output_type;
+  std::vector<std::shared_ptr<DataType>> input_types;
+  std::shared_ptr<DataType> output_type;
 };
 
 struct ARROW_PYTHON_EXPORT ScalarUdfContext {

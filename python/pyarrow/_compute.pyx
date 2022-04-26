@@ -203,89 +203,6 @@ FunctionDoc = namedtuple(
      "options_required"))
 
 
-cdef wrap_input_type(const CInputType c_input_type):
-    """
-    Wrap a C++ InputType in an InputType object.
-    """
-    cdef InputType input_type = InputType.__new__(InputType)
-    input_type.init(c_input_type)
-    return input_type
-
-
-cdef class InputType(_Weakrefable):
-    """
-    An input type specification for a user-defined function.
-    """
-
-    def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
-
-    cdef void init(self, const CInputType &input_type):
-        self.input_type = input_type
-
-    @staticmethod
-    def scalar(data_type):
-        """
-        Create a scalar input type of the given data type.
-
-        Arguments to a UDF have both a data type and a shape,
-        either array or scalar. A scalar InputType means that
-        this argument must be passed a Scalar.  
-
-        Parameters
-        ----------
-        data_type : DataType
-            DataType represented by the InputType
-
-        Examples
-        --------
-
-        >>> import pyarrow as pa
-        >>> from pyarrow.compute import InputType
-        >>> in_type = InputType.scalar(pa.int32())
-        scalar[int32]
-        """
-        cdef:
-            shared_ptr[CDataType] c_data_type
-            CInputType c_input_type
-        c_data_type = pyarrow_unwrap_data_type(data_type)
-        c_input_type = CInputType.Scalar(c_data_type)
-        return wrap_input_type(c_input_type)
-
-    @staticmethod
-    def array(data_type):
-        """
-        Create an array input type of the given data type.
-
-        Arguments to a UDF have both a data type and a shape,
-        either array or scalar. An array InputType means that
-        this argument must be passed an Array.
-
-        Parameters
-        ----------
-        data_type : DataType
-            DataType represented by the input type
-
-        Examples
-        --------
-
-        >>> import pyarrow as pa
-        >>> from pyarrow.compute import InputType
-        >>> in_type = InputType.array(pa.int32())
-        array[int32]
-        """
-        cdef:
-            shared_ptr[CDataType] c_data_type
-            CInputType c_input_type
-        c_data_type = pyarrow_unwrap_data_type(data_type)
-        c_input_type = CInputType.Array(c_data_type)
-        return wrap_input_type(c_input_type)
-
-    def __repr__(self):
-        return frombytes(self.input_type.ToString())
-
-
 cdef class Function(_Weakrefable):
     """
     A compute function.
@@ -2473,9 +2390,9 @@ def register_scalar_function(func, func_name, function_doc, in_types,
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
-    in_types : Dict[str, InputType]
-        Dictionary mapping function argument names to
-        their respective InputType specifications.
+    in_types : Dict[str, DataType]
+        A dictionarym mapping function argument names to
+        their respective DataType.
         The argument names will be used to generate
         documentation for the function. The number of
         arguments specified here determines the function
@@ -2496,7 +2413,7 @@ def register_scalar_function(func, func_name, function_doc, in_types,
     ...     return pc.add(array, 1)
     >>> 
     >>> func_name = "py_add_func"
-    >>> in_types = {"array": pc.InputType.array(pa.int64())}
+    >>> in_types = {"array": pa.int64()}
     >>> out_type = pa.int64()
     >>> pc.register_scalar_function(add_constant, func_name, func_doc,
     ...                   in_types, out_type)
@@ -2515,11 +2432,9 @@ def register_scalar_function(func, func_name, function_doc, in_types,
         c_string c_func_name
         CArity c_arity
         CFunctionDoc c_func_doc
-        CInputType in_tmp
-        vector[CInputType] c_in_types
+        vector[shared_ptr[CDataType]] c_in_types
         PyObject* c_function
-        shared_ptr[CDataType] c_type
-        shared_ptr[COutputType] c_out_type
+        shared_ptr[CDataType] c_out_type
         CScalarUdfOptions c_options
 
     c_func_name = tobytes(func_name)
@@ -2533,16 +2448,15 @@ def register_scalar_function(func, func_name, function_doc, in_types,
     num_args = -1
     if isinstance(in_types, dict):
         for in_type in in_types.values():
-            if isinstance(in_type, InputType):
-                in_tmp = (<InputType> in_type).input_type
-                c_in_types.push_back(in_tmp)
+            if isinstance(in_type, DataType):
+                c_in_types.push_back(pyarrow_unwrap_data_type(in_type))
             else:
-                raise TypeError("in_types must be of type InputType")
+                raise TypeError("in_types must be of type DataType")
         function_doc["arg_names"] = in_types.keys()
         num_args = len(in_types)
     else:
         raise TypeError(
-            "in_types must be a dictionary of InputType")
+            "in_types must be a dictionary of DataType")
 
     c_arity = CArity(num_args, func_spec.varargs)
 
@@ -2557,9 +2471,7 @@ def register_scalar_function(func, func_name, function_doc, in_types,
 
     c_func_doc = _make_function_doc(function_doc)
 
-    c_type = pyarrow_unwrap_data_type(ensure_type(out_type))
-
-    c_out_type = make_shared[COutputType](c_type)
+    c_out_type = pyarrow_unwrap_data_type(ensure_type(out_type))
 
     c_options.func_name = c_func_name
     c_options.arity = c_arity
