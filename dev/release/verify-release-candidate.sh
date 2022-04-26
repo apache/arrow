@@ -192,8 +192,6 @@ test_apt() {
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
-                "ubuntu:hirsute" \
-                "arm64v8/ubuntu:hirsute" \
                 "ubuntu:impish" \
                 "arm64v8/ubuntu:impish" \
                 "ubuntu:jammy" \
