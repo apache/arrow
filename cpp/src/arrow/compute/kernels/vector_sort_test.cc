@@ -2017,12 +2017,14 @@ TEST(ArrayRankFunction, TiebreakHandlingDesc) {
   AssertDatumsEqual(expectedHighest, actualHighest, /*verbose=*/true);
 
   auto expectedFirst = ArrayFromJSON(uint64(), "[3, 4, 1, 2, 5]");
-  RankOptions optionsFirst(SortOrder::Descending, NullPlacement::AtEnd, Tiebreaker::First);
+  RankOptions optionsFirst(SortOrder::Descending, NullPlacement::AtEnd,
+                           Tiebreaker::First);
   ASSERT_OK_AND_ASSIGN(auto actualFirst, CallFunction("rank", {arr}, &optionsFirst));
   AssertDatumsEqual(expectedFirst, actualFirst, /*verbose=*/true);
 
   auto expectedDense = ArrayFromJSON(uint64(), "[2, 3, 1, 1, 3]");
-  RankOptions optionsDense(SortOrder::Descending, NullPlacement::AtEnd, Tiebreaker::Dense);
+  RankOptions optionsDense(SortOrder::Descending, NullPlacement::AtEnd,
+                           Tiebreaker::Dense);
   ASSERT_OK_AND_ASSIGN(auto actualDense, CallFunction("rank", {arr}, &optionsDense));
   AssertDatumsEqual(expectedDense, actualDense, /*verbose=*/true);
 }
