@@ -81,7 +81,7 @@ class ColumnMetadata {
   /// \return The table name.
   arrow::Result<std::string> GetTableName() const;
 
-  /// \brief  Return the type name set in the KeyValueMetadata.
+  /// \brief  Return the data source-specific name for the data type of the column.
   /// \return The type name.
   arrow::Result<std::string> GetTypeName() const;
 
