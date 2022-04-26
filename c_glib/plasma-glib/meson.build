@@ -105,18 +105,19 @@ if have_gi
   plasma_glib_gir = \
     gnome.generate_gir(libplasma_glib,
                        dependencies: gir_dependencies,
-                       sources: sources + c_headers,
-                       namespace: 'Plasma',
-                       nsversion: api_version,
-                       identifier_prefix: 'GPlasma',
-                       symbol_prefix: 'gplasma',
                        export_packages: 'plasma-glib',
+                       extra_args: gir_extra_args,
+                       header: 'plasma-glib/plasma-glib.h',
+                       identifier_prefix: 'GPlasma',
                        includes: gir_includes,
                        install: true,
-                       extra_args: gir_extra_args)
+                       namespace: 'Plasma',
+                       nsversion: api_version,
+                       sources: sources + c_headers,
+                       symbol_prefix: 'gplasma')
 
   if generate_vapi
-    gnome.generate_vapi('plasma-' + api_version,
+    gnome.generate_vapi('plasma-glib',
                         install: true,
                         packages: vapi_packages,
                         sources: plasma_glib_gir[0])
