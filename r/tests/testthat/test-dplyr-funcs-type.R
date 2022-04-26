@@ -873,7 +873,6 @@ test_that("`as.Date()` and `as_date()`", {
     fixed = TRUE
   )
 
-
   # we do not support as.Date() with double/ float (error surfaced from C++)
   # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
   expect_error(
