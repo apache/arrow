@@ -1952,18 +1952,57 @@ class RankMetaFunction : public MetaFunction {
     ARROW_ASSIGN_OR_RAISE(auto rankings,
                           MakeMutableUInt64Array(uint64(), out_size, ctx->memory_pool()));
 
-    uint64_t rank = 0;
     auto* indices = sortIndices.make_array()->data()->GetValues<uint64_t>(1);
     auto out_rankings = rankings->GetMutableValues<uint64_t>(1);
+    uint64_t rank = 0;
     Datum prevValue, currValue;
-    for (auto i = 0; i < out_size; i++) {
-      currValue = array.GetScalar(indices[i]).ValueOrDie();
-      if (i > 0 && currValue == prevValue) {
-      } else {
-        ++rank;
+
+    if (options.tiebreaker == TieBreaker::Dense) {
+      for (auto i = 0; i < out_size; i++) {
+        currValue = array.GetScalar(indices[i]).ValueOrDie();
+        if (i > 0 && currValue == prevValue) {
+        } else {
+          ++rank;
+        }
+        out_rankings[indices[i]] = rank;
+        prevValue = currValue;
       }
-      out_rankings[indices[i]] = rank;
-      prevValue = currValue;
+    } else if (options.tiebreaker == TieBreaker::First) {
+      for (auto i = 0; i < out_size; i++) {
+        currValue = array.GetScalar(indices[i]).ValueOrDie();
+        if (i > 0 && currValue == prevValue) {
+        } else {
+          rank = i + 1;
+        }
+        out_rankings[indices[i]] = rank;
+        prevValue = currValue;
+      }
+    } else if (options.tiebreaker == TieBreaker::Lowest) {
+      for (auto i = 0; i < out_size; i++) {
+        currValue = array.GetScalar(indices[i]).ValueOrDie();
+        if (i > 0 && currValue == prevValue) {
+        } else {
+          rank = i + 1;
+        }
+        out_rankings[indices[i]] = rank;
+        prevValue = currValue;
+      }
+    } else if (options.tiebreaker == TieBreaker::Highest) {
+      auto currentTieCount = 0;
+      for (auto i = 0; i < out_size; i++) {
+        currValue = array.GetScalar(indices[i]).ValueOrDie();
+        if (i > 0 && currValue == prevValue) {
+          currentTieCount++;
+        } else {
+          currentTieCount = 0;
+        }
+        rank = i + 1;
+
+        for (auto j = 0; j < currentTieCount + 1; j++) {
+          out_rankings[indices[i - j]] = rank;
+        }
+        prevValue = currValue;
+      }
     }
 
     return rankings;

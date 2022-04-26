@@ -1965,12 +1965,12 @@ TEST(ArrayRankFunction, Array) {
 
 TEST(ArrayRankFunction, NullHandling) {
   auto arr = ArrayFromJSON(int16(), "[0, 1, null, null, 2]");
-  auto expectedEnd = ArrayFromJSON(uint64(), "[1, 2, 4, 5, 3]");
+  auto expectedEnd = ArrayFromJSON(uint64(), "[1, 2, 4, 4, 3]");
   RankOptions optionsEnd(SortOrder::Ascending, NullPlacement::AtEnd, TieBreaker::First);
   ASSERT_OK_AND_ASSIGN(auto actualEnd, CallFunction("rank", {arr}, &optionsEnd));
   AssertDatumsEqual(expectedEnd, actualEnd, /*verbose=*/true);
 
-  auto expectedStart = ArrayFromJSON(uint64(), "[3, 4, 1, 2, 5]");
+  auto expectedStart = ArrayFromJSON(uint64(), "[3, 4, 1, 1, 5]");
   RankOptions optionsStart(SortOrder::Ascending, NullPlacement::AtStart,
                            TieBreaker::First);
   ASSERT_OK_AND_ASSIGN(auto actualStart, CallFunction("rank", {arr}, &optionsStart));
