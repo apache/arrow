@@ -355,7 +355,6 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
                         click.echo(f'Retry #{n_retries} after {wait_seconds}s')
                         click.echo(error)
                         time.sleep(wait_seconds)
-                        pass
                     else:
                         break
 
