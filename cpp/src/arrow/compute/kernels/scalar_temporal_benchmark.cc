@@ -49,18 +49,17 @@ template <UnaryRoundingOp& Op, std::shared_ptr<DataType>& timestamp_type,
           RoundTemporalOptions& options>
 static void BenchmarkTemporalRounding(benchmark::State& state) {
   RegressionArgs args(state);
+  ExecContext* ctx = default_exec_context();
 
   const int64_t array_size = args.size / sizeof(int64_t);
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion));
-  auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
-      timestamp_type, array->length(), array->data()->buffers[1],
-      array->data()->buffers[0], array->null_count());
+  auto array =
+      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  EXPECT_OK_AND_ASSIGN(auto timestamp_array, array->View(timestamp_type));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(timestamp_array, options, nullptr).status());
+    ABORT_NOT_OK(Op(timestamp_array, options, ctx).status());
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -69,18 +68,17 @@ static void BenchmarkTemporalRounding(benchmark::State& state) {
 template <UnaryOp& Op, std::shared_ptr<DataType>& timestamp_type>
 static void BenchmarkTemporal(benchmark::State& state) {
   RegressionArgs args(state);
+  ExecContext* ctx = default_exec_context();
 
   const int64_t array_size = args.size / sizeof(int64_t);
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion));
-  auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
-      timestamp_type, array->length(), array->data()->buffers[1],
-      array->data()->buffers[0], array->null_count());
+  auto array =
+      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  EXPECT_OK_AND_ASSIGN(auto timestamp_array, array->View(timestamp_type));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(timestamp_array, nullptr).status());
+    ABORT_NOT_OK(Op(timestamp_array, ctx).status());
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
