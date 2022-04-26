@@ -127,6 +127,27 @@ static void BenchmarkStrptime(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * array_size);
 }
 
+static void BenchmarkAssumeTimezone(benchmark::State& state) {
+  RegressionArgs args(state);
+  ExecContext* ctx = default_exec_context();
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto array =
+      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  EXPECT_OK_AND_ASSIGN(auto timestamp_array, array->View(timestamp(TimeUnit::NANO)));
+
+  auto options = AssumeTimezoneOptions(
+      "Pacific/Marquesas", AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST,
+      AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST);
+  for (auto _ : state) {
+    ABORT_NOT_OK(AssumeTimezone(timestamp_array, options, ctx).status());
+  }
+
+  state.SetItemsProcessed(state.iterations() * array_size);
+}
+
 auto zoned = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
 auto non_zoned = timestamp(TimeUnit::NANO);
 
@@ -185,10 +206,13 @@ DECLARE_TEMPORAL_BENCHMARKS(Millisecond);
 DECLARE_TEMPORAL_BENCHMARKS(Microsecond);
 DECLARE_TEMPORAL_BENCHMARKS(Nanosecond);
 DECLARE_TEMPORAL_BENCHMARKS(Subsecond);
+
+// Other temporal benchmarks
 BENCHMARK_TEMPLATE(BenchmarkStrftime, non_zoned)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BenchmarkStrftime, zoned)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BenchmarkStrptime, non_zoned)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BenchmarkStrptime, zoned)->Apply(SetArgs);
+BENCHMARK(BenchmarkAssumeTimezone)->Apply(SetArgs);
 
 }  // namespace compute
 }  // namespace arrow
