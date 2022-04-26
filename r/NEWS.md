@@ -17,7 +17,31 @@
   under the License.
 -->
 
-# arrow 7.0.0.9000
+# arrow 8.0.0
+
+## Enhancements to dplyr and datasets
+
+* `arrow_dplyr_query` can now wrap Record Batch Readers. This allows results from DuckDB
+  to be streamed back into Arrow rather than materialized before continuing the pipeline.
+* `write_dataset` now has more options for controlling row group and file sizes when
+  writing partitioned datasets, such as `max_open_files`, `max_rows_per_file`, 
+  `min_rows_per_group`, and `max_rows_per_group`.
+* Fixed issue that caused a crash when one or more datasets were joined while
+  `option(use_threads = FALSE)`. That option is set by default on Windows.
+* `dplyr::count()` now returns an ungrouped dataframe.
+* `arrow_dplyr_query` now supports `dplyr::rename_with`.
+* `dplyr` joins now support the `suffix` argument to handle overlap in column names.
+* `write_csv_arrow` now accepts a `Dataset` or `arrow_dplyr_query`.
+* `open_dataset` now correctly supports the `skip` argument for skipping header
+  rows in CSV datasets.
+* `open_dataset` now can take a list of datasets with differing schemas and attempt
+  to unify the schemas to produce a `UnionDataset`.
+* Filtering a Parquet dataset with `is.na` no longer misses any rows.
+* An `arrow_dplyr_query` that contains aggregations or joins can now be written
+  to a dataset in streaming fashion, without any need to materialize the table 
+  prior to writing.
+
+## Enhancements to date and time support
 
 * `read_csv_arrow()`'s readr-style type `T` is now mapped to `timestamp(unit = "ns")` instead of `timestamp(unit = "s")`.
 * `lubridate`:
@@ -26,12 +50,64 @@
   * Added `decimal_date()` and `date_decimal()`
   * Added `make_difftime()` (duration constructor)
   * Added duration helper functions: `dyears()`, `dmonths()`, `dweeks()`, `ddays()`, `dhours()`, `dminutes()`, `dseconds()`, `dmilliseconds()`, `dmicroseconds()`, `dnanoseconds()`.
+  * Added `leap_year()`
 * date-time functionality:
   * Added `as_date()` and `as_datetime()`
   * Added `difftime` and `as.difftime()` 
   * Added `as.Date()` to convert to date
+  * Arrow timestamp and date arrays now support `base::format()`
+  * `strptime()` now returns `NA` instead of erroring in case of format mismatch,
+    just like `base::strptime()`.
+* Timezone operations are now supported on Windows if the 
+  [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
+  installed.
+
+## Extension Array Support
+
+Custom extension arrays can be created and registered, allowing other packages to
+define their own array types. Extension arrays wrap regular Arrow array types and
+provide customized behavior and/or storage. A common use-case for extension types 
+is to define a customized conversion between an an Arrow Array and an R object 
+when the default conversion is slow or looses metadata important to the interpretation
+of values in the array. For most types, the built-in vctrs extension type is probably 
+sufficient. See description and example with `?new_extension_type`.
+
+## Concatenation Support
+
+Arrow arrays and tables can now be easily concatenated:
+
+ * Arrays can now be concatenated with `concat_arrays()` or, if zero-copy is desired
+   and chunking is acceptable, using `ChunkedArray$create()`.
+ * Chunked arrays can now be concatenated with `c()`.
+ * Record batches and tables now support `cbind()`.
+ * Arrow tables now support `rbind()`.
+
+ ## S3 Conversion Generics
+
+Arrow now provides S3 generic conversion functions such as `as_arrow_array()`
+and `as_chunked_array()` for main Arrow objects. This includes, Arrow tables,
+record batches, arrays, chunked arrays, record batch readers, schemas, and
+data types. This allows other packages to define custom conversions from their
+types to Arrow objects, including extension arrays.
+
+## Other improvements and fixes
+
 * `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
 * Removed Solaris workarounds, libarrow is now required.
+* Dictionary arrays now support using ALTREP when converting to R factors.
+* Math group generics are now implemented for ArrowDatum. This means you can use
+  base functions like `sqrt()`, `log()`, and `exp()` with Arrow arrays and scalars.
+* Fixed an issue where `set_io_thread_count()` would set the CPU count instead of
+  the IO thread count.
+* `RandomAccessFile` now has a `$ReadMetadata()` method that provides useful
+  metadata provided by the filesystem.
+* `grepl` binding now returns `FALSE` for `NA` inputs (previously it returned `NA`),
+  which matches the behavior of `base::grepl`.
+* `map_batches` no longer errors if passed a `Dataset` object.
+* `read_*` and `write_*` functions now support R Connection objects for reading
+  and writing files.
+* `create_package_with_all_dependencies()` now works on Windows and Mac OS, instead
+  of only Linux.
 
 # arrow 7.0.0
 
