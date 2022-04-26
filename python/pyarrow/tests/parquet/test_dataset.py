@@ -789,7 +789,8 @@ def _test_read_common_metadata_files(fs, base_path):
         pq.write_metadata(table.schema, f)
 
     dataset = pq.ParquetDataset(base_path, filesystem=fs)
-    assert dataset.common_metadata_path == str(metadata_path)
+    with pytest.warns(FutureWarning):
+        assert dataset.common_metadata_path == str(metadata_path)
 
     with fs.open(data_path) as f:
         common_schema = pq.read_metadata(f).schema
@@ -830,7 +831,8 @@ def test_read_metadata_files(tempdir):
         pq.write_metadata(table.schema, f)
 
     dataset = pq.ParquetDataset(tempdir, filesystem=fs)
-    assert dataset.metadata_path == str(metadata_path)
+    with pytest.warns(FutureWarning):
+        assert dataset.metadata_path == str(metadata_path)
 
     with fs.open(data_path) as f:
         metadata_schema = pq.read_metadata(f).schema
@@ -1482,7 +1484,8 @@ def _make_dataset_for_pickling(tempdir, N=100):
         pq.write_metadata(table.schema, f)
 
     dataset = pq.ParquetDataset(tempdir, filesystem=fs)
-    assert dataset.metadata_path == str(metadata_path)
+    with pytest.warns(FutureWarning):
+        assert dataset.metadata_path == str(metadata_path)
 
     return dataset
 
@@ -1492,10 +1495,12 @@ def _assert_dataset_is_picklable(dataset, pickler):
         return obj == pickler.loads(pickler.dumps(obj))
 
     assert is_pickleable(dataset)
-    assert is_pickleable(dataset.metadata)
-    assert is_pickleable(dataset.metadata.schema)
-    assert len(dataset.metadata.schema)
-    for column in dataset.metadata.schema:
+    with pytest.warns(FutureWarning):
+        metadata = dataset.metadata
+    assert is_pickleable(metadata)
+    assert is_pickleable(metadata.schema)
+    assert len(metadata.schema)
+    for column in metadata.schema:
         assert is_pickleable(column)
 
     for piece in dataset._pieces:
