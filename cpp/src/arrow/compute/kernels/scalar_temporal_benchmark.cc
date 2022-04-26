@@ -84,6 +84,49 @@ static void BenchmarkTemporal(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * array_size);
 }
 
+template <std::shared_ptr<DataType>& timestamp_type>
+static void BenchmarkStrftime(benchmark::State& state) {
+  RegressionArgs args(state);
+  ExecContext* ctx = default_exec_context();
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto array =
+      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  EXPECT_OK_AND_ASSIGN(auto timestamp_array, array->View(timestamp_type));
+
+  auto options = StrftimeOptions();
+  for (auto _ : state) {
+    ABORT_NOT_OK(Strftime(timestamp_array, options, ctx).status());
+  }
+
+  state.SetItemsProcessed(state.iterations() * array_size);
+}
+
+template <std::shared_ptr<DataType>& timestamp_type>
+static void BenchmarkStrptime(benchmark::State& state) {
+  RegressionArgs args(state);
+  ExecContext* ctx = default_exec_context();
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto array =
+      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  EXPECT_OK_AND_ASSIGN(auto timestamp_array, array->View(timestamp_type));
+  auto strftime_options = StrftimeOptions("%Y-%m-%dT%H:%M:%S");
+  EXPECT_OK_AND_ASSIGN(auto string_array,
+                       Strftime(timestamp_array, strftime_options, ctx));
+  auto strptime_options = StrptimeOptions("%Y-%m-%dT%H:%M:%S", TimeUnit::MICRO, true);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(Strptime(string_array, strptime_options, ctx).status());
+  }
+
+  state.SetItemsProcessed(state.iterations() * array_size);
+}
+
 auto zoned = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
 auto non_zoned = timestamp(TimeUnit::NANO);
 
@@ -142,6 +185,10 @@ DECLARE_TEMPORAL_BENCHMARKS(Millisecond);
 DECLARE_TEMPORAL_BENCHMARKS(Microsecond);
 DECLARE_TEMPORAL_BENCHMARKS(Nanosecond);
 DECLARE_TEMPORAL_BENCHMARKS(Subsecond);
+BENCHMARK_TEMPLATE(BenchmarkStrftime, non_zoned)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(BenchmarkStrftime, zoned)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(BenchmarkStrptime, non_zoned)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(BenchmarkStrptime, zoned)->Apply(SetArgs);
 
 }  // namespace compute
 }  // namespace arrow
