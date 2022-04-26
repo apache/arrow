@@ -554,34 +554,47 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
-  Status process_thread(size_t /*thread_index*/, int64_t /*task_id*/) {
-    std::cerr << "AsOfJoinNode::process_thread started.\n";
-    auto result = _process.try_pop();
+  // Status process_thread(size_t /*thread_index*/, int64_t /*task_id*/) {
+  //   std::cerr << "AsOfJoinNode::process_thread started.\n";
+  //   auto result = _process.try_pop();
 
-    if (result == util::nullopt) {
-      std::cerr << "AsOfJoinNode::process_thread no inputs.\n";
-      return Status::OK();
-    } else {
-      if (result.value()) {
-        std::cerr << "AsOfJoinNode::process_thread process.\n";
-        process();
-      } else {
-        std::cerr << "AsOfJoinNode::process_thread done.\n";
-        return Status::OK();
-      }
-    }
+  //   if (result == util::nullopt) {
+  //     std::cerr << "AsOfJoinNode::process_thread no inputs.\n";
+  //     return Status::OK();
+  //   } else {
+  //     if (result.value()) {
+  //       std::cerr << "AsOfJoinNode::process_thread process.\n";
+  //       process();
+  //     } else {
+  //       std::cerr << "AsOfJoinNode::process_thread done.\n";
+  //       return Status::OK();
+  //     }
+  //   }
 
-    return Status::OK();
-  }
-
-  Status process_finished(size_t /*thread_index*/) {
-    std::cerr << "AsOfJoinNode::process_finished started.\n";
-    return Status::OK();
-  }
-
-  // static void process_thread_wrapper(AsofJoinNode *node) {
-  //   node->process_thread();
+  //   return Status::OK();
   // }
+
+  // Status process_finished(size_t /*thread_index*/) {
+  //   std::cerr << "AsOfJoinNode::process_finished started.\n";
+  //   return Status::OK();
+  // }
+
+  void process_thread() {
+    std::cerr << "AsOfMergeNode::process_thread started.\n";
+    for(;;) {
+      if(!_process.pop()) {
+	std::cerr << "AsOfMergeNode::process_thread done.\n";
+	return; 
+      }
+      //cerr << "AsOfMergeNode::process() BEGIN\n";
+      process();
+      //cerr << "AsOfMergeNode::process() END\n";
+    }
+  }
+  
+  static void process_thread_wrapper(AsofJoinNode *node) {
+     node->process_thread();
+  }
 
  public:
   AsofJoinNode(ExecPlan* plan,
@@ -592,6 +605,11 @@ class AsofJoinNode : public ExecNode {
                std::unique_ptr<AsofJoinImpl> impl
                );
 
+  virtual ~AsofJoinNode() {
+    _process.push(false); // poison pill
+    _process_thread.join();
+  }
+  
   static arrow::Result<ExecNode*> Make(ExecPlan *plan, std::vector<ExecNode*> inputs,
                                        const ExecNodeOptions &options) {
     std::unique_ptr<AsofJoinSchema> schema_mgr =
@@ -648,24 +666,24 @@ class AsofJoinNode : public ExecNode {
     std::cerr << "InputFinished END\n";
   }
   Status StartProducing() override {
-    finished_=arrow::Future<>::Make();
     std::cout << "StartProducing" << "\n";
-    bool use_sync_execution = !(plan_->exec_context()->executor());
-    std::cerr << "StartScheduling\n";
-    std::cerr << "use_sync_execution: " << use_sync_execution << std::endl;
-    RETURN_NOT_OK(
-                  scheduler_->StartScheduling(0 /*thread index*/,
-                                              std::move([this](std::function<Status(size_t)> func) -> Status {
-                                                          return this->ScheduleTaskCallback(std::move(func));
-                                                        }),
-                                              1,
-                                              use_sync_execution
-                                              )
-                  );
-    RETURN_NOT_OK(
-                  scheduler_->StartTaskGroup(0, task_group_process_, 1)
-                  );
-    std::cerr << "StartScheduling done\n";
+    finished_=arrow::Future<>::Make();    
+    // bool use_sync_execution = !(plan_->exec_context()->executor());
+    // std::cerr << "StartScheduling\n";
+    // std::cerr << "use_sync_execution: " << use_sync_execution << std::endl;
+    // RETURN_NOT_OK(
+    //               scheduler_->StartScheduling(0 /*thread index*/,
+    //                                           std::move([this](std::function<Status(size_t)> func) -> Status {
+    //                                                       return this->ScheduleTaskCallback(std::move(func));
+    //                                                     }),
+    //                                           1,
+    //                                           use_sync_execution
+    //                                           )
+    //               );
+    // RETURN_NOT_OK(
+    //               scheduler_->StartTaskGroup(0, task_group_process_, 1)
+    //               );
+    // std::cerr << "StartScheduling done\n";
     return Status::OK();
   }
   void PauseProducing(ExecNode* output) override {
@@ -680,33 +698,31 @@ class AsofJoinNode : public ExecNode {
     std::cout << "StopProducing" << "\n";
   }
   void StopProducing() override {
+    std::cerr << "StopProducing" << std::endl;
     //if(batch_count_.Cancel()) finished_.MarkFinished();
-    finished_.MarkFinished();
+    finished_.MarkFinished();    
     for(auto&& input: inputs_) input->StopProducing(this);
   }
-  Future<> finished() override {
-    std::cout << "finished" << "\n";
-    return finished_;
-  }
+  Future<> finished() override { return finished_; }
 
-  Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
-    auto executor = plan_->exec_context()->executor();
-    if (executor) {
-      RETURN_NOT_OK(executor->Spawn([this, func] {
-        size_t thread_index = thread_indexer_();
-        Status status = func(thread_index);
-        if (!status.ok()) {
-          StopProducing();
-          ErrorIfNotOk(status);
-          return;
-        }
-      }));
-    } else {
-      // We should not get here in serial execution mode
-      ARROW_DCHECK(false);
-    }
-    return Status::OK();
-  }
+  // Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
+  //   auto executor = plan_->exec_context()->executor();
+  //   if (executor) {
+  //     RETURN_NOT_OK(executor->Spawn([this, func] {
+  //       size_t thread_index = thread_indexer_();
+  //       Status status = func(thread_index);
+  //       if (!status.ok()) {
+  //         StopProducing();
+  //         ErrorIfNotOk(status);
+  //         return;
+  //       }
+  //     }));
+  //   } else {
+  //     // We should not get here in serial execution mode
+  //     ARROW_DCHECK(false);
+  //   }
+  //   return Status::OK();
+  // }
 
  private:
   std::unique_ptr<AsofJoinSchema> schema_mgr_;
@@ -716,12 +732,15 @@ class AsofJoinNode : public ExecNode {
   std::mutex _gate;
   AsofJoinNodeOptions _options;
 
-  ThreadIndexer thread_indexer_;
-  std::unique_ptr<TaskScheduler> scheduler_;
-  int task_group_process_;
+  //ThreadIndexer thread_indexer_;
+  //std::unique_ptr<TaskScheduler> scheduler_;
+  // int task_group_process_;
+
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
   concurrent_bounded_queue<bool> _process;
+  // Worker thread
+  std::thread _process_thread;
 
   // Total batches produced, once we've finished -- only known at completion time.
   util::optional<int> _total_batches_produced;
@@ -773,8 +792,8 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan,
              /*num_outputs=*/1),
     impl_(std::move(impl)),
     _options(join_options),
-    _process(1)
-    // _process_thread(&AsofJoinNode::process_thread_wrapper, this)
+    _process(1),
+    _process_thread(&AsofJoinNode::process_thread_wrapper, this)
 {
   std::cout << "AsofJoinNode created" << "\n";
 
@@ -789,16 +808,16 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan,
 
     finished_ = Future<>::MakeFinished();
 
-    scheduler_ = TaskScheduler::Make();
-    task_group_process_ = scheduler_->RegisterTaskGroup(
-                                                       [this](size_t thread_index, int64_t task_id) -> Status {
-                                                         return process_thread(thread_index, task_id);
-                                                       },
-                                                       [this](size_t thread_index) -> Status {
-                                                         return process_finished(thread_index);
-                                                       }
-                                                       );
-    scheduler_->RegisterEnd();
+    // scheduler_ = TaskScheduler::Make();
+    // task_group_process_ = scheduler_->RegisterTaskGroup(
+    //                                                    [this](size_t thread_index, int64_t task_id) -> Status {
+    //                                                      return process_thread(thread_index, task_id);
+    //                                                    },
+    //                                                    [this](size_t thread_index) -> Status {
+    //                                                      return process_finished(thread_index);
+    //                                                    }
+    //                                                    );
+    // scheduler_->RegisterEnd();
 }
 
 namespace internal {
