@@ -403,14 +403,14 @@ gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval inte
     return 0;
   }
 
-  int64_t qty_days = interval >> 32;
-  int64_t qty_millis = interval & 0x00000000FFFFFFFF;
+  int64_t left = interval >> 32;
+  int64_t right = interval & 0x00000000FFFFFFFF;
 
-  qty_days = -1 * qty_days;
-  qty_millis = -1 * qty_millis;
+  left = -1 * left;
+  right = -1 * right;
 
-  gdv_int64 out = (qty_days & 0x00000000FFFFFFFF) << 32;
-  out |= (qty_millis & 0x00000000FFFFFFFF);
+  gdv_int64 out = (left & 0x00000000FFFFFFFF) << 32;
+  out |= (right & 0x00000000FFFFFFFF);
 
   return out;
 }

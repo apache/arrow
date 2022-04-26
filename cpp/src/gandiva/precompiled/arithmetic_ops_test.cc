@@ -183,28 +183,28 @@ TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
   gandiva::ExecutionContext ctx;
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  // Input: 8589934594;         Mean:  2 days &  2 time
-  // Response: -4294967298;     Mean: -2 days & -2 time
+  // Input: 8589934594;         Mean:  2 time &  2 days
+  // Response: -4294967298;     Mean: -2 time & -2 days
   gdv_int64 result = negative_daytimeinterval(ctx_ptr, 8589934594);
   EXPECT_EQ(result, -4294967298);
 
-  // Input: -4294967298;      Mean: -2 days & -2 time
-  // Response: 8589934594;    Mean:  2 days &  2 time
+  // Input: -4294967298;      Mean: -2 time & -2 days
+  // Response: 8589934594;    Mean:  2 time &  2 days
   result = negative_daytimeinterval(ctx_ptr, -4294967298);
   EXPECT_EQ(result, 8589934594);
 
-  // Input: -12884903388;      Mean: -4 days & -1500 time
-  // Response: 17179870684;    Mean:  4 days &  1500 time
+  // Input: -12884903388;      Mean: -4 time & -1500 days
+  // Response: 17179870684;    Mean:  4 time &  1500 days
   result = negative_daytimeinterval(ctx_ptr, -12884903388);
   EXPECT_EQ(result, 17179870684);
 
-  // Input: 44023418384000;      Mean:  10250 days &  3600000 time
-  // Response: -44019123416704;  Mean: -10250 days & -3600000 time
+  // Input: 44023418384000;      Mean:  10250 time &  3600000 days
+  // Response: -44019123416704;  Mean: -10250 time & -3600000 days
   result = negative_daytimeinterval(ctx_ptr, 44023418384000);
   EXPECT_EQ(result, -44019123416704);
 
-  // Input: 9223372034707292159;      Mean:  2147483647 days &  2147483647 time
-  // Response: -9223372030412324863;  Mean: -2147483647 days & -2147483647 time
+  // Input: 9223372034707292159;      Mean:  2147483647 time &  2147483647 days
+  // Response: -9223372030412324863;  Mean: -2147483647 time & -2147483647 days
   const int64_t INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME = 9223372034707292159;
   result = negative_daytimeinterval(ctx_ptr, INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME);
   EXPECT_EQ(result, -9223372030412324863);
