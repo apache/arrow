@@ -1999,10 +1999,10 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
 
   std::vector<ExecBatch> reference;
   for (bool bloom_filters : {false, true}) {
-    bool parallel = true;
+    bool kParallel = true;
     ARROW_SCOPED_TRACE(bloom_filters ? "bloom filtered" : "unfiltered");
     auto exec_ctx = arrow::internal::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+        default_memory_pool(), kParallel ? arrow::internal::GetCpuThreadPool() : nullptr);
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
     ExecNode* left_source;
@@ -2010,7 +2010,7 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
         left_source,
         MakeExecNode("source", plan.get(), {},
                      SourceNodeOptions{input_left.schema,
-                                       input_left.gen(parallel, /*slow=*/false)}));
+                                       input_left.gen(kParallel, /*slow=*/false)}));
     std::vector<ExecNode*> joins(num_joins);
     for (int i = 0; i < num_joins; i++) {
       opts[i].disable_bloom_filter = !bloom_filters;
@@ -2019,7 +2019,7 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
           right_source,
           MakeExecNode("source", plan.get(), {},
                        SourceNodeOptions{input_right[i].schema,
-                                         input_right[i].gen(parallel, /*slow=*/false)}));
+                                         input_right[i].gen(kParallel, /*slow=*/false)}));
 
       std::vector<ExecNode*> inputs;
       if (i == 0)
@@ -2030,8 +2030,8 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
                            MakeExecNode("hashjoin", plan.get(), inputs, opts[i]));
     }
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-    ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {joins.back()},
-                                                   SinkNodeOptions{&sink_gen}));
+    ASSERT_OK(
+        MakeExecNode("sink", plan.get(), {joins.back()}, SinkNodeOptions{&sink_gen}));
     ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
     if (!bloom_filters)
       reference = std::move(result);

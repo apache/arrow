@@ -94,7 +94,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     // TODO(ARROW-15732)
     // Each side of join might have an IO thread being called from.
     // As of right now, we ignore the `num_threads` argument, so later we will have to
-    // readd `num_threads_ = num_threads;`
+    // re-add `num_threads_ = num_threads;`
     num_threads_ = GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1;
     // num_threads_ = GetCpuThreadPoolCapacity() + 1;
 
@@ -110,7 +110,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     filter_ = std::move(filter);
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
-    local_states_.resize(GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1);
+    local_states_.resize(num_threads_);
     for (size_t i = 0; i < local_states_.size(); ++i) {
       local_states_[i].is_initialized = false;
       local_states_[i].is_has_match_initialized = false;

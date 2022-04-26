@@ -89,7 +89,6 @@ Status BuildBloomFilter_Parallel(
         return Status::OK();
       },
       [&](size_t thread_index) -> Status {
-        lk.unlock();
         cv.notify_one();
         return Status::OK();
       });
@@ -98,12 +97,12 @@ Status BuildBloomFilter_Parallel(
   RETURN_NOT_OK(scheduler->StartScheduling(
       0,
       [&](std::function<Status(size_t)> func) -> Status {
-        return tp->Spawn([&, func] {
+        return tp->Spawn([&, func]() {
           size_t tid = thread_indexer();
-          std::ignore = func(tid);
+          ARROW_DCHECK_OK(func(tid));
         });
       },
-      static_cast<int>(2 * num_threads), false));
+      static_cast<int>(num_threads), false));
   {
     lk.lock();
     RETURN_NOT_OK(scheduler->StartTaskGroup(0, group, num_batches));

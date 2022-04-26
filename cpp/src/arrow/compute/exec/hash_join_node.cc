@@ -573,6 +573,13 @@ class HashJoinNode : public ExecNode {
     }
   }
 
+  // The Bloom filter is built on the build side of some upstream join. For a join to
+  // evaluate the Bloom filter on its input columns, it has to rearrange its input columns
+  // to match the column order of the Bloom filter.
+  //
+  // The first part of the pair is the HashJoin to actually perform the pushdown into.
+  // The second part is a mapping such that column_map[i] is the index of key i in
+  // the first part's input.
   std::pair<HashJoinImpl*, std::vector<int>> GetPushdownTarget() {
     ARROW_DCHECK(!disable_bloom_filter_);
     // We currently only push Bloom filters on the probe side, and only if that input is
