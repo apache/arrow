@@ -2333,7 +2333,7 @@ cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     f_doc.arg_names = c_arg_names
     # UDFOptions integration:
     # TODO: https://issues.apache.org/jira/browse/ARROW-16041
-    f_doc.options_class = tobytes("")
+    f_doc.options_class = b""
     f_doc.options_required = False
     return f_doc
 
@@ -2460,13 +2460,13 @@ def register_scalar_function(func, func_name, function_doc, in_types,
 
     c_arity = CArity(num_args, func_spec.varargs)
 
-    if not "summary" in function_doc.keys():
+    if "summary" not in function_doc.keys():
         raise ValueError("Function doc must contain a summary")
 
-    if not "description" in function_doc.keys():
+    if "description" not in function_doc.keys():
         raise ValueError("Function doc must contain a description")
 
-    if not "arg_names" in function_doc.keys():
+    if "arg_names" not in function_doc.keys():
         raise ValueError("Function doc must contain arg_names")
 
     c_func_doc = _make_function_doc(function_doc)

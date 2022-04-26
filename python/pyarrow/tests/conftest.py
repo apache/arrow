@@ -70,7 +70,6 @@ groups = [
     'flight',
     'slow',
     'requires_testing_data',
-    'udf',
     'zstd',
 ]
 
@@ -100,7 +99,6 @@ defaults = {
     'slow': False,
     'snappy': Codec.is_available('snappy'),
     'tensorflow': False,
-    'udf': False,
     'zstd': Codec.is_available('zstd'),
 }
 

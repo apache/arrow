@@ -242,7 +242,6 @@ def raise_func_fixture():
     return raise_func, func_name
 
 
-# TODO: just add the fixtures to this component
 def check_scalar_function(func_fixture,
                           input,
                           mock_udf_context,
@@ -466,7 +465,7 @@ def test_udf_context(random_with_udf_ctx_func_fixture):
                            [pa.scalar(10), pa.scalar(20)],
                            memory_pool=proxy_pool)
     assert res[0].as_py() == 30
-    assert proxy_pool.bytes_allocated() == 64
+    assert proxy_pool.bytes_allocated() > 0
 
 
 def test_function_with_raise(raise_func_fixture):
