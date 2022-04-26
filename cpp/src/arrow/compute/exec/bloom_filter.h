@@ -277,7 +277,7 @@ class ARROW_EXPORT BloomFilterBuilder {
   static std::unique_ptr<BloomFilterBuilder> Make(BloomFilterBuildStrategy strategy);
 };
 
-class BloomFilterBuilder_SingleThreaded : public BloomFilterBuilder {
+class ARROW_EXPORT BloomFilterBuilder_SingleThreaded : public BloomFilterBuilder {
  public:
   Status Begin(size_t num_threads, int64_t hardware_flags, MemoryPool* pool,
                int64_t num_rows, int64_t num_batches,
@@ -297,7 +297,7 @@ class BloomFilterBuilder_SingleThreaded : public BloomFilterBuilder {
   BlockedBloomFilter* build_target_;
 };
 
-class BloomFilterBuilder_Parallel : public BloomFilterBuilder {
+class ARROW_EXPORT BloomFilterBuilder_Parallel : public BloomFilterBuilder {
  public:
   Status Begin(size_t num_threads, int64_t hardware_flags, MemoryPool* pool,
                int64_t num_rows, int64_t num_batches,
