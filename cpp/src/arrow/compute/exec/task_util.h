@@ -32,7 +32,7 @@ namespace compute {
 // whenever it is modified by a concurrent thread on a different CPU core.
 //
 template <typename T>
-class AtomicWithPadding {
+class ARROW_EXPORT AtomicWithPadding {
  private:
   static constexpr int kCacheLineSize = 64;
   uint8_t padding_before[kCacheLineSize];
