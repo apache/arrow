@@ -18,7 +18,7 @@
 #pragma once
 
 #include <memory>
-#include "arrow/engine/api.h"
+#include "arrow/engine/substrait/api.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/optional.h"
 
