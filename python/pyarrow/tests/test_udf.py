@@ -127,14 +127,23 @@ def random_with_udf_ctx_func_fixture():
         ans = pc.add(one, two, memory_pool=proxy_pool)
         res = pa.array([ans.as_py()], memory_pool=proxy_pool)
         return res
-    return random_with_udf_ctx
+    in_types = {"one": pa.int64(),
+                "two": pa.int64(),
+                }
+    func_doc = {
+        "summary": "test udf context",
+        "description": "udf context test"
+    }
+    func_name = "test_udf_context"
+    pc.register_scalar_function(random_with_udf_ctx,
+                                func_name, func_doc,
+                                in_types,
+                                pa.int64())
+    return random_with_udf_ctx, func_name
 
 
-@pytest.fixture(scope="session")
-def const_return_func_fixture():
-    def const_return(ctx, array):
-        return 42
-    return const_return
+def const_return(ctx, scalar):
+    return 42
 
 
 @pytest.fixture(scope="session")
@@ -143,7 +152,16 @@ def output_check_func_fixture():
         ar = pc.call_function("add", [array, 1])
         ar = ar.cast(pa.int32())
         return ar
-    return output_check
+    func_name = "test_output_value"
+    in_types = {"array": pa.int64()}
+    out_type = pa.int64()
+    doc = {
+        "summary": "add function scalar",
+        "description": "add function"
+    }
+    pc.register_scalar_function(output_check, func_name, doc,
+                                in_types, out_type)
+    return output_check, func_name
 
 
 @pytest.fixture(scope="session")
@@ -176,6 +194,20 @@ def add_const(ctx, scalar):
 
 
 @pytest.fixture(scope="session")
+def output_type_func_fixture():
+    func_name = "test_output_type"
+    in_types = {"array": pa.int64()}
+    out_type = pa.int64()
+    doc = {
+        "summary": "add function scalar",
+        "description": "add function"
+    }
+    pc.register_scalar_function(const_return, func_name, doc,
+                                in_types, out_type)
+    return const_return, func_name
+
+
+@pytest.fixture(scope="session")
 def varargs_check_func_fixture():
     def varargs_check(ctx, *values):
         base_val = values[:2]
@@ -183,7 +215,17 @@ def varargs_check_func_fixture():
         for other_val in values[2:]:
             res = pc.call_function("add", [res, other_val])
         return res
-    return varargs_check
+    func_name = "test_varargs_function"
+    in_types = {"array1": pa.int64(),
+                "array2": pa.int64(),
+                }
+    doc = {"summary": "n add function",
+           "description": "add N number of arrays"
+           }
+    pc.register_scalar_function(varargs_check, func_name, doc,
+                                in_types, pa.int64())
+
+    return varargs_check, func_name
 
 
 @pytest.fixture(scope="session")
@@ -300,22 +342,17 @@ def test_udf_input():
 
 
 def test_varargs_function_validation(varargs_check_func_fixture):
-    in_types = {"array1": pa.int64(),
-                "array2": pa.int64(),
-                }
-    doc = {"summary": "n add function",
-           "description": "add N number of arrays"
-           }
-    pc.register_scalar_function(varargs_check_func_fixture, "test_n_add", doc,
-                                in_types, pa.int64())
+    _function, func_name = varargs_check_func_fixture
+    func = pc.get_function(func_name)
 
-    func = pc.get_function("test_n_add")
+    assert func.name == func_name
 
-    assert func.name == "test_n_add"
-    error_msg = "VarArgs function 'test_n_add' needs at least 2 arguments"
+    error_msg = "VarArgs function 'test_varargs_function'" \
+        + " needs at least 2 arguments"
+
     with pytest.raises(pa.lib.ArrowInvalid, match=error_msg):
-        pc.call_function("test_n_add", [pa.array([1, 10]),
-                                        ])
+        pc.call_function(func_name, [pa.array([1, 10]),
+                                     ])
 
 
 def test_function_doc_validation():
@@ -363,16 +400,7 @@ def test_nullary_functions(nullary_check_func_fixture, mock_udf_context):
 
 
 def test_output_datatype(output_check_func_fixture):
-    func_name = "test_add_to_scalar"
-    in_types = {"array": pa.int64()}
-    out_type = pa.int64()
-    doc = {
-        "summary": "add function scalar",
-        "description": "add function"
-    }
-    pc.register_scalar_function(output_check_func_fixture, func_name, doc,
-                                in_types, out_type)
-
+    function, func_name = output_check_func_fixture
     func = pc.get_function(func_name)
 
     assert func.name == func_name
@@ -384,7 +412,9 @@ def test_output_datatype(output_check_func_fixture):
         pc.call_function(func_name, [pa.array([20, 30])])
 
 
-def test_output_value(output_check_func_fixture):
+def test_output_value():
+    def get_output(ctx, array):
+        return pc.call_function("add", [array, 1])
     func_name = "test_output_value"
     in_types = {"array": pa.int64()}
     out_type = {}
@@ -400,16 +430,8 @@ def test_output_value(output_check_func_fixture):
                                     in_types, out_type)
 
 
-def test_output_type(const_return_func_fixture):
-    func_name = "test_output_type_func"
-    in_types = {"array": pa.int64()}
-    out_type = pa.int64()
-    doc = {
-        "summary": "add function scalar",
-        "description": "add function"
-    }
-    pc.register_scalar_function(const_return_func_fixture, func_name, doc,
-                                in_types, out_type)
+def test_output_type(output_type_func_fixture):
+    _, func_name = output_type_func_fixture
 
     func = pc.get_function(func_name)
 
@@ -421,7 +443,7 @@ def test_output_type(const_return_func_fixture):
         pc.call_function(func_name, [pa.array([20, 30])])
 
 
-def test_input_type(const_return_func_fixture):
+def test_input_type():
     func_name = "test_input_type"
     in_types = {"array": None}
     out_type = pa.int64()
@@ -432,25 +454,15 @@ def test_input_type(const_return_func_fixture):
     expected_expr = "in_types must be of type DataType"
 
     with pytest.raises(TypeError, match=expected_expr):
-        pc.register_scalar_function(const_return_func_fixture, func_name, doc,
+        pc.register_scalar_function(const_return, func_name, doc,
                                     in_types, out_type)
 
 
 def test_udf_context(random_with_udf_ctx_func_fixture):
     proxy_pool = pa.proxy_memory_pool(pa.default_memory_pool())
-    in_types = {"one": pa.int64(),
-                "two": pa.int64()
-                }
-    func_doc = {
-        "summary": "test udf context",
-        "description": "udf context test"
-    }
-    pc.register_scalar_function(random_with_udf_ctx_func_fixture,
-                                "test_udf_context", func_doc,
-                                in_types,
-                                pa.int64())
+    _, func_name = random_with_udf_ctx_func_fixture
 
-    res = pc.call_function("test_udf_context",
+    res = pc.call_function(func_name,
                            [pa.scalar(10), pa.scalar(20)],
                            memory_pool=proxy_pool)
     assert res[0].as_py() == 30
@@ -458,26 +470,15 @@ def test_udf_context(random_with_udf_ctx_func_fixture):
 
 
 def test_function_with_raise(raise_func_fixture):
-    _, name = raise_func_fixture
+    _, func_name = raise_func_fixture
     expected_expr = "Test function with raise"
     with pytest.raises(ValueError, match=expected_expr):
-        pc.call_function(name, [])
+        pc.call_function(func_name, [])
 
-# def test_non_uniform_input_udfs(ternary_func_fixture):
-#     in_types = {"scalar1": pc.InputType.scalar(pa.int64()),
-#                 "scalar2": pc.InputType.array(pa.int64()),
-#                 "scalar3": pc.InputType.scalar(pa.int64()),
-#                 }
-#     func_doc = {
-#         "summary": "multi type udf",
-#         "description": "desc"
-#     }
-#     pc.register_scalar_function(ternary_func_fixture,
-#                                 "test_multi_type_udf", func_doc,
-#                                 in_types,
-#                                 pa.int64())
 
-#     res = pc.call_function("test_multi_type_udf",
-#                            [pa.scalar(10), pa.array([1, 2, 3]),
-# pa.scalar(20)])
-#     assert res == pa.array([30, 40, 50])
+def test_non_uniform_input_udfs(ternary_func_fixture):
+    function, func_name = ternary_func_fixture
+    res = pc.call_function(func_name,
+                           [pa.scalar(10), pa.array([1, 2, 3]),
+                            pa.scalar(20)])
+    assert res == pa.array([30, 40, 50])

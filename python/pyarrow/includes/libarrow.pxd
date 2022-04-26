@@ -19,8 +19,6 @@
 
 from pyarrow.includes.common cimport *
 
-from cpython.ref cimport PyObject
-
 
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
@@ -2673,7 +2671,7 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     int64_t TotalBufferSize(const CRecordBatch& record_batch)
     int64_t TotalBufferSize(const CTable& table)
 
-ctypedef PyObject* CallbackUdf(object user_function, const CScalarUdfContext& context, PyObject* inputs)
+ctypedef PyObject* CallbackUdf(object user_function, const CScalarUdfContext& context, object inputs)
 
 cdef extern from "arrow/python/udf.h" namespace "arrow::py":
     cdef cppclass CScalarUdfContext" arrow::py::ScalarUdfContext":

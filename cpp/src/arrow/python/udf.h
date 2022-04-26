@@ -18,9 +18,9 @@
 #pragma once
 
 #include "arrow/python/platform.h"
-
-#include "arrow/compute/api_scalar.h"
-#include "arrow/compute/cast.h"
+// TODO: remove after test cases passes
+//#include "arrow/compute/api_scalar.h"
+//#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"

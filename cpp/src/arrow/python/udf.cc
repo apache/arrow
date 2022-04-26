@@ -16,11 +16,6 @@
 // under the License.
 
 #include "arrow/python/udf.h"
-
-#include <cstddef>
-#include <memory>
-#include <sstream>
-
 #include "arrow/compute/function.h"
 #include "arrow/python/common.h"
 
