@@ -18,9 +18,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <vector>
-#include "arrow/compute/type_fwd.h"
 #include "arrow/engine/api.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/optional.h"
@@ -37,7 +34,7 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteJsonPlan(
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     std::shared_ptr<Buffer> substrait_buffer);
 
-/// \brief Get a Buffer from a Substrait JSON plan.
+/// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> ParseJsonPlan(
     const std::string& substrait_json);

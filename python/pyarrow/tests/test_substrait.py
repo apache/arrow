@@ -17,6 +17,7 @@
 
 import os
 import pathlib
+import pyarrow as pa
 from pyarrow.lib import tobytes
 from pyarrow.lib import ArrowInvalid
 import pyarrow.parquet as pq
@@ -88,7 +89,7 @@ def test_run_query_in_bytes():
 
     query = tobytes(_substrait_query.replace("FILENAME_PLACEHOLDER", filename))
 
-    buf = engine._parse_json_plan(query)
+    buf = pa._engine._parse_json_plan(query)
 
     reader = engine.run_query(buf)
     res_tb = reader.read_all()

@@ -29,8 +29,8 @@ def run_query(plan):
     Parameters
     ----------
     plan : bytes or Buffer
-        Substrait Plan can be fed as a encoded string in utf-8
-        as a JSON string or as an Arrow Buffer. 
+        Substrait plan can be fed as a serialized plan (Buffer) 
+        or a JSON plan. 
     """
 
     cdef:
@@ -63,8 +63,7 @@ def _parse_json_plan(plan):
     Parameters
     ----------
     plan: byte
-        Substrait plan as bytes. This is obtained by encoding in utf-8
-        a Substrait plan in JSON format. 
+        Parse a Substrait plan in JSON to a serialized plan.
 
     Returns
     -------
