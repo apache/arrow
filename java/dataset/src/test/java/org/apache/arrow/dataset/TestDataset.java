@@ -17,6 +17,8 @@
 
 package org.apache.arrow.dataset;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Spliterator;
@@ -26,11 +28,15 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.apache.arrow.dataset.scanner.ScanOptions;
+import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
@@ -56,15 +62,31 @@ public abstract class TestDataset {
   protected List<ArrowRecordBatch> collectResultFromFactory(DatasetFactory factory, ScanOptions options) {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
-    final List<ArrowRecordBatch> ret = stream(scanner.scan())
-        .flatMap(t -> stream(t.execute()))
-        .collect(Collectors.toList());
     try {
+      final List<ArrowRecordBatch> ret = stream(scanner.scan())
+          .flatMap(t -> stream(collectTaskData(t)))
+          .collect(Collectors.toList());
       AutoCloseables.close(scanner, dataset);
+      return ret;
+    } catch (RuntimeException e) {
+      throw e;
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-    return ret;
+  }
+
+  protected List<ArrowRecordBatch> collectTaskData(ScanTask scanTask) {
+    try (ArrowReader reader = scanTask.execute()) {
+      List<ArrowRecordBatch> batches = new ArrayList<>();
+      while (reader.loadNextBatch()) {
+        VectorSchemaRoot root = reader.getVectorSchemaRoot();
+        final VectorUnloader unloader = new VectorUnloader(root);
+        batches.add(unloader.getRecordBatch());
+      }
+      return batches;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   protected Schema inferResultSchemaFromFactory(DatasetFactory factory, ScanOptions options) {
