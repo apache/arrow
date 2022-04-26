@@ -601,6 +601,7 @@ Libraries and header files for Apache Arrow GLib.
 %{_libdir}/pkgconfig/arrow-glib.pc
 %{_libdir}/pkgconfig/arrow-orc-glib.pc
 %{_libdir}/girepository-1.0/Arrow-1.0.typelib
+%{_datadir}/arrow-glib/example/
 %{_datadir}/vala/vapi/arrow-glib.*
 
 %package glib-doc
