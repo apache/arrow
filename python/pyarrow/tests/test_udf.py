@@ -438,7 +438,6 @@ def test_input_type(const_return_func_fixture):
 
 def test_udf_context(random_with_udf_ctx_func_fixture):
     proxy_pool = pa.proxy_memory_pool(pa.default_memory_pool())
-    pa.set_memory_pool(proxy_pool)
     in_types = {"one": pc.InputType.scalar(pa.int64()),
                 "two": pc.InputType.scalar(pa.int64())
                 }
@@ -451,7 +450,9 @@ def test_udf_context(random_with_udf_ctx_func_fixture):
                                 in_types,
                                 pa.int64())
 
-    res = pc.call_function("test_udf_context", [pa.scalar(10), pa.scalar(20)])
+    res = pc.call_function("test_udf_context",
+                           [pa.scalar(10), pa.scalar(20)],
+                           memory_pool=proxy_pool)
     assert res[0].as_py() == 30
     assert proxy_pool.bytes_allocated() == 64
 
