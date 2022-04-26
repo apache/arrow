@@ -17,15 +17,11 @@
 
 #include <cmath>
 #include <cstdint>
-#include "./epoch_time_point.h"
 #include "arrow/util/basic_decimal.h"
-//#include "../../arrow/type.h"
 
 extern "C" {
 
 #include "./types.h"
-
-// using arrow::DayTimeIntervalType;
 
 // Expand inner macro for all numeric types.
 #define NUMERIC_TYPES(INNER, NAME, OP) \
