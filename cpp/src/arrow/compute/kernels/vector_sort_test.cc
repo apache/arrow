@@ -1977,6 +1977,31 @@ TEST(ArrayRankFunction, NullHandling) {
   AssertDatumsEqual(expectedStart, actualStart, /*verbose=*/true);
 }
 
+TEST(ArrayRankFunction, TiebreakHandling) {
+  auto arr = ArrayFromJSON(int16(), "[1, -5, 5, 5, -5]");
+  auto expectedLowest = ArrayFromJSON(uint64(), "[3, 1, 4, 4, 1]");
+  RankOptions optionsLowest(SortOrder::Ascending, NullPlacement::AtEnd,
+                            TieBreaker::Lowest);
+  ASSERT_OK_AND_ASSIGN(auto actualLowest, CallFunction("rank", {arr}, &optionsLowest));
+  AssertDatumsEqual(expectedLowest, actualLowest, /*verbose=*/true);
+
+  auto expectedHighest = ArrayFromJSON(uint64(), "[3, 2, 5, 5, 2]");
+  RankOptions optionsHighest(SortOrder::Ascending, NullPlacement::AtEnd,
+                             TieBreaker::Highest);
+  ASSERT_OK_AND_ASSIGN(auto actualHighest, CallFunction("rank", {arr}, &optionsHighest));
+  AssertDatumsEqual(expectedHighest, actualHighest, /*verbose=*/true);
+
+  auto expectedFirst = ArrayFromJSON(uint64(), "[3, 1, 4, 4, 1]");
+  RankOptions optionsFirst(SortOrder::Ascending, NullPlacement::AtEnd, TieBreaker::First);
+  ASSERT_OK_AND_ASSIGN(auto actualFirst, CallFunction("rank", {arr}, &optionsFirst));
+  AssertDatumsEqual(expectedFirst, actualFirst, /*verbose=*/true);
+
+  auto expectedDense = ArrayFromJSON(uint64(), "[2, 1, 3, 3, 1]");
+  RankOptions optionsDense(SortOrder::Ascending, NullPlacement::AtEnd, TieBreaker::Dense);
+  ASSERT_OK_AND_ASSIGN(auto actualDense, CallFunction("rank", {arr}, &optionsDense));
+  AssertDatumsEqual(expectedDense, actualDense, /*verbose=*/true);
+}
+
 // Some first keys will have duplicates, others not
 static const auto first_sort_keys = testing::Values("uint8", "int16", "uint64", "float",
                                                     "boolean", "string", "decimal128");
