@@ -95,7 +95,7 @@ enum class NullPlacement {
   AtEnd,
 };
 
-enum class TieBreaker {
+enum class Tiebreaker {
   Lowest,
   Highest,
   First,
@@ -186,7 +186,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
  public:
   explicit RankOptions(SortOrder order = SortOrder::Ascending,
                        NullPlacement null_placement = NullPlacement::AtEnd,
-                       TieBreaker tiebreaker = TieBreaker::First);
+                       Tiebreaker tiebreaker = Tiebreaker::First);
   static constexpr char const kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
@@ -195,7 +195,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   /// Whether nulls and NaNs are placed at the start or at the end
   NullPlacement null_placement;
   /// Tiebreaker for dealing with equal values in ranks
-  TieBreaker tiebreaker;
+  Tiebreaker tiebreaker;
 };
 
 /// \brief Partitioning options for NthToIndices

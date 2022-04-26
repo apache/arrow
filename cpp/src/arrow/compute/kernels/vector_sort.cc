@@ -1957,7 +1957,7 @@ class RankMetaFunction : public MetaFunction {
     uint64_t rank = 0;
     Datum prevValue, currValue;
 
-    if (options.tiebreaker == TieBreaker::Dense) {
+    if (options.tiebreaker == Tiebreaker::Dense) {
       for (auto i = 0; i < out_size; i++) {
         currValue = array.GetScalar(indices[i]).ValueOrDie();
         if (i > 0 && currValue == prevValue) {
@@ -1967,12 +1967,12 @@ class RankMetaFunction : public MetaFunction {
         out_rankings[indices[i]] = rank;
         prevValue = currValue;
       }
-    } else if (options.tiebreaker == TieBreaker::First) {
+    } else if (options.tiebreaker == Tiebreaker::First) {
       for (auto i = 0; i < out_size; i++) {
         rank = i + 1;
         out_rankings[indices[i]] = rank;
       }
-    } else if (options.tiebreaker == TieBreaker::Lowest) {
+    } else if (options.tiebreaker == Tiebreaker::Lowest) {
       for (auto i = 0; i < out_size; i++) {
         currValue = array.GetScalar(indices[i]).ValueOrDie();
         if (i > 0 && currValue == prevValue) {
@@ -1982,7 +1982,7 @@ class RankMetaFunction : public MetaFunction {
         out_rankings[indices[i]] = rank;
         prevValue = currValue;
       }
-    } else if (options.tiebreaker == TieBreaker::Highest) {
+    } else if (options.tiebreaker == Tiebreaker::Highest) {
       auto currentTieCount = 0;
       for (auto i = 0; i < out_size; i++) {
         currValue = array.GetScalar(indices[i]).ValueOrDie();
@@ -1993,6 +1993,10 @@ class RankMetaFunction : public MetaFunction {
         }
         rank = i + 1;
 
+        // This can be inefficient when dealing many tied values
+        // Can alternately compare to nextValue and only write
+        // at changes, at the expense of breaking consistency with
+        // other tiebreakers
         for (auto j = 0; j < currentTieCount + 1; j++) {
           out_rankings[indices[i - j]] = rank;
         }

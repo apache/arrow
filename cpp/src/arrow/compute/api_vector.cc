@@ -43,7 +43,7 @@ namespace internal {
 using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
 using compute::NullPlacement;
-using compute::TieBreaker;
+using compute::Tiebreaker;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -90,19 +90,19 @@ struct EnumTraits<NullPlacement>
   }
 };
 template <>
-struct EnumTraits<TieBreaker>
-    : BasicEnumTraits<TieBreaker, TieBreaker::Lowest, TieBreaker::Highest,
-                      TieBreaker::First, TieBreaker::Dense> {
-  static std::string name() { return "TieBreaker"; }
-  static std::string value_name(TieBreaker value) {
+struct EnumTraits<Tiebreaker>
+    : BasicEnumTraits<Tiebreaker, Tiebreaker::Lowest, Tiebreaker::Highest,
+                      Tiebreaker::First, Tiebreaker::Dense> {
+  static std::string name() { return "Tiebreaker"; }
+  static std::string value_name(Tiebreaker value) {
     switch (value) {
-      case TieBreaker::Lowest:
+      case Tiebreaker::Lowest:
         return "Lowest";
-      case TieBreaker::Highest:
+      case Tiebreaker::Highest:
         return "Highest";
-      case TieBreaker::First:
+      case Tiebreaker::First:
         return "First";
-      case TieBreaker::Dense:
+      case Tiebreaker::Dense:
         return "Dense";
     }
     return "<INVALID>";
@@ -216,7 +216,7 @@ CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool s
       check_overflow(check_overflow) {}
 constexpr char CumulativeSumOptions::kTypeName[];
 RankOptions::RankOptions(SortOrder order, NullPlacement null_placement,
-                         TieBreaker tiebreaker)
+                         Tiebreaker tiebreaker)
     : FunctionOptions(internal::kRankOptionsType),
       order(order),
       null_placement(null_placement),
