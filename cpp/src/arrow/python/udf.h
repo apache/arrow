@@ -38,7 +38,6 @@ namespace py {
 // options for the users.
 struct ARROW_PYTHON_EXPORT ScalarUdfOptions {
   std::string func_name;
-  compute::Function::Kind kind = compute::Function::SCALAR;
   compute::Arity arity;
   compute::FunctionDoc func_doc;
   std::vector<compute::InputType> input_types;

@@ -80,7 +80,6 @@ from pyarrow._compute import (  # noqa
     # Udf
     register_scalar_function,
     ScalarUdfContext,
-    _get_scalar_udf_context,
     # Expressions
     Expression,
 )

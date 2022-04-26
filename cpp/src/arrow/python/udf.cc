@@ -57,7 +57,7 @@ struct PythonUdf {
   Status Execute(compute::KernelContext* ctx, const compute::ExecBatch& batch,
                  Datum* out) {
     const auto num_args = batch.values.size();
-    ScalarUdfContext udf_context{ctx->memory_pool(), static_cast<int64_t>(num_args)};
+    ScalarUdfContext udf_context{ctx->memory_pool(), static_cast<int64_t>(batch.length)};
     PyObject* arg_tuple = PyTuple_New(num_args);
     for (size_t arg_id = 0; arg_id < num_args; arg_id++) {
       switch (batch[arg_id].kind()) {

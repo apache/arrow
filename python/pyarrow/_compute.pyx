@@ -2520,7 +2520,6 @@ def register_scalar_function(func, func_name, function_doc, in_types,
         PyObject* c_function
         shared_ptr[CDataType] c_type
         shared_ptr[COutputType] c_out_type
-        CStatus st
         CScalarUdfOptions c_options
 
     c_func_name = tobytes(func_name)
@@ -2528,7 +2527,7 @@ def register_scalar_function(func, func_name, function_doc, in_types,
     if callable(func):
         c_function = <PyObject*>func
     else:
-        raise TypeError("Object must be a callable")
+        raise TypeError("func must be a callable")
 
     func_spec = inspect.getfullargspec(func)
     num_args = -1
@@ -2545,10 +2544,7 @@ def register_scalar_function(func, func_name, function_doc, in_types,
         raise TypeError(
             "in_types must be a dictionary of InputType")
 
-    if func_spec.varargs:
-        c_arity = CArity(num_args, True)
-    else:
-        c_arity = CArity(num_args, False)
+    c_arity = CArity(num_args, func_spec.varargs)
 
     if not "summary" in function_doc.keys():
         raise ValueError("Function doc must contain a summary")
