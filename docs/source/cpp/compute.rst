@@ -1669,6 +1669,8 @@ in the respective option classes.
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 | sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(1) \(4)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
+| rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`          | \(6)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 
 * \(1) The output is an array of indices into the input, that define a
   stable sort of the input.
@@ -1688,6 +1690,8 @@ in the respective option classes.
 
 * \(5) The output is an array of indices into the input, that define a
   non-stable sort of the input.
+
+* \(6) The output is a one-based numerical array of ranks
 
 .. _cpp-compute-vector-structural-transforms:
 
