@@ -628,11 +628,7 @@ TEST(Substrait, ReadRel) {
       "local_files": {
         "items": [
           {
-            "uri_file": "file:///tmp/dat1.parquet",
-            "format": "FILE_FORMAT_PARQUET"
-          },
-          {
-            "uri_file": "file:///tmp/dat2.parquet",
+            "uri_path_glob": "file:///tmp/dat*.parquet",
             "format": "FILE_FORMAT_PARQUET"
           }
         ]
@@ -654,7 +650,9 @@ TEST(Substrait, ReadRel) {
   ASSERT_EQ(scan_node_options.dataset->type_name(), "filesystem");
   const auto& dataset =
       checked_cast<const dataset::FileSystemDataset&>(*scan_node_options.dataset);
-  EXPECT_THAT(dataset.files(), ElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
+  auto files = dataset.files();
+  std::sort(files.begin(), files.end());
+  EXPECT_THAT(files, ElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
   EXPECT_EQ(dataset.format()->type_name(), "parquet");
   EXPECT_EQ(*dataset.schema(), Schema({field("i", int64()), field("b", boolean())}));
 }

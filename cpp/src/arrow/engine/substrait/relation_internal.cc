@@ -26,6 +26,7 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 
 namespace arrow {
 namespace engine {
@@ -47,6 +48,57 @@ Status CheckRelCommon(const RelMessage& rel) {
     return Status::NotImplemented("substrait AdvancedExtensions");
   }
   return Status::OK();
+}
+
+Result<fs::FileInfoVector> GetGlobFiles(const std::shared_ptr<fs::FileSystem>& filesystem,
+                                        std::string& path) {
+  fs::FileInfoVector results, temp;
+  fs::FileSelector selector;
+  std::string cur;
+  size_t i = 0;
+
+#if _WIN32
+  auto split_path = fs::internal::SplitAbstractPath(path, '\\');
+  ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(split_path[i++] + "\\"));
+#else
+  auto split_path = fs::internal::SplitAbstractPath(path, '/');
+  ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo("/"));
+#endif
+  results.push_back(std::move(file));
+
+  for (; i < split_path.size(); i++) {
+    if (split_path[i].find_first_of("*?") == std::string::npos) {
+      if (cur.empty())
+        cur = split_path[i];
+      else
+        cur = fs::internal::ConcatAbstractPath(cur, split_path[i]);
+      continue;
+    } else {
+      for (auto res : results) {
+        if (res.type() != fs::FileType::Directory) continue;
+        selector.base_dir = res.path() + cur;
+        ARROW_ASSIGN_OR_RAISE(auto entries, filesystem->GetFileInfo(selector));
+        fs::internal::Globber globber(
+            fs::internal::ConcatAbstractPath(selector.base_dir, split_path[i]));
+        for (auto entry : entries) {
+          if (globber.Matches(entry.path())) {
+            temp.push_back(std::move(entry));
+          }
+        }
+      }
+      results = temp;
+      temp.clear();
+      cur.clear();
+    }
+  }
+
+  if (!cur.empty()) {
+    for (size_t i = 0; i < results.size(); i++) {
+      results[i].set_path(fs::internal::ConcatAbstractPath(results[i].path(), cur));
+    }
+  }
+
+  return results;
 }
 
 Result<compute::Declaration> FromProto(const substrait::Rel& rel,
@@ -88,22 +140,29 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
 
       std::shared_ptr<dataset::FileFormat> format;
       auto filesystem = std::make_shared<fs::LocalFileSystem>();
-      std::vector<std::shared_ptr<dataset::FileFragment>> fragments;
+      std::vector<fs::FileInfo> files;
 
       for (const auto& item : read.local_files().items()) {
-        if (item.path_type_case() !=
-            substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile) {
-          return Status::NotImplemented(
-              "substrait::ReadRel::LocalFiles::FileOrFiles with "
-              "path_type other than uri_file");
+        std::string path;
+        if (item.path_type_case() ==
+            substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath) {
+          path = item.uri_path();
+        } else if (item.path_type_case() ==
+                   substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile) {
+          path = item.uri_file();
+        } else if (item.path_type_case() ==
+                   substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder) {
+          path = item.uri_folder();
+        } else {
+          path = item.uri_path_glob();
         }
 
         if (item.format() ==
             substrait::ReadRel::LocalFiles::FileOrFiles::FILE_FORMAT_PARQUET) {
           format = std::make_shared<dataset::ParquetFileFormat>();
-        } else if (util::string_view{item.uri_file()}.ends_with(".arrow")) {
+        } else if (util::string_view{path}.ends_with(".arrow")) {
           format = std::make_shared<dataset::IpcFileFormat>();
-        } else if (util::string_view{item.uri_file()}.ends_with(".feather")) {
+        } else if (util::string_view{path}.ends_with(".feather")) {
           format = std::make_shared<dataset::IpcFileFormat>();
         } else {
           return Status::NotImplemented(
@@ -111,12 +170,11 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
               "other than FILE_FORMAT_PARQUET");
         }
 
-        if (!util::string_view{item.uri_file()}.starts_with("file:///")) {
+        if (!util::string_view{path}.starts_with("file:///")) {
           return Status::NotImplemented(
-              "substrait::ReadRel::LocalFiles::FileOrFiles::uri_file "
+              "substrait::ReadRel::LocalFiles::FileOrFiles::uri_path "
               "with other than local filesystem (file:///)");
         }
-        auto path = item.uri_file().substr(7);
 
         if (item.partition_index() != 0) {
           return Status::NotImplemented(
@@ -133,15 +191,44 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
               "non-default substrait::ReadRel::LocalFiles::FileOrFiles::length");
         }
 
-        ARROW_ASSIGN_OR_RAISE(auto fragment, format->MakeFragment(dataset::FileSource{
-                                                 std::move(path), filesystem}));
-        fragments.push_back(std::move(fragment));
+        path = path.substr(7);
+        if (item.path_type_case() ==
+            substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath) {
+          ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
+          if (file.type() == fs::FileType::File) {
+            files.push_back(std::move(file));
+          } else if (file.type() == fs::FileType::Directory) {
+            fs::FileSelector selector;
+            selector.base_dir = path;
+            selector.recursive = true;
+            ARROW_ASSIGN_OR_RAISE(auto discovered_files,
+                                  filesystem->GetFileInfo(selector));
+            std::move(files.begin(), files.end(), std::back_inserter(discovered_files));
+          }
+        }
+        if (item.path_type_case() ==
+            substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile) {
+          files.emplace_back(std::move(path), fs::FileType::File);
+        } else if (item.path_type_case() ==
+                   substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder) {
+          fs::FileSelector selector;
+          selector.base_dir = path;
+          selector.recursive = true;
+          ARROW_ASSIGN_OR_RAISE(auto discovered_files, filesystem->GetFileInfo(selector));
+          std::move(discovered_files.begin(), discovered_files.end(),
+                    std::back_inserter(files));
+        } else {
+          ARROW_ASSIGN_OR_RAISE(auto discovered_files, GetGlobFiles(filesystem, path));
+          std::move(discovered_files.begin(), discovered_files.end(),
+                    std::back_inserter(files));
+        }
       }
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto ds, dataset::FileSystemDataset::Make(
-                       std::move(base_schema), /*root_partition=*/compute::literal(true),
-                       std::move(format), std::move(filesystem), std::move(fragments)));
+      ARROW_ASSIGN_OR_RAISE(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                                 std::move(filesystem), std::move(files),
+                                                 std::move(format), {}));
+
+      ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(std::move(base_schema)));
 
       return compute::Declaration{
           "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}};
