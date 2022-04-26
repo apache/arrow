@@ -523,7 +523,9 @@ class AsofJoinNode : public ExecNode {
   }
 
   void process() {
-    // std::lock_guard<mutex> guard(_gate);
+    std::cerr << "process() begin\n";
+
+    std::lock_guard<std::mutex> guard(_gate);
     if(finished_.is_finished()) { std::cerr << "InputReceived EARLYEND\n"; return; }
 
     // Process batches while we have data
@@ -535,6 +537,8 @@ class AsofJoinNode : public ExecNode {
       outputs_[0]->InputReceived(this,std::move(out_b));
     }
 
+    std::cerr << "process() end\n";
+
     // Report to the output the total batch count, if we've already finished everything
     // (there are two places where this can happen: here and InputFinished)
     //
@@ -543,26 +547,41 @@ class AsofJoinNode : public ExecNode {
     if(_state.at(0)->finished()) {
       //cerr << "LHS is finished\n";
       _total_batches_produced=util::make_optional<int>(_progress_batches_produced);
+      std::cerr << "process() finished " << *_total_batches_produced << "\n";
       StopProducing();
       assert(_total_batches_produced.has_value());
       outputs_[0]->InputFinished(this,*_total_batches_produced);
     }
   }
 
-  void process_thread() {
+  Status process_thread(size_t /*thread_index*/, int64_t /*task_id*/) {
     std::cerr << "AsOfJoinNode::process_thread started.\n";
-    for(;;) {
-      if(!_process.pop()) {
+    auto result = _process.try_pop();
+
+    if (result == util::nullopt) {
+      std::cerr << "AsOfJoinNode::process_thread no inputs.\n";
+      return Status::OK();
+    } else {
+      if (result.value()) {
+        std::cerr << "AsOfJoinNode::process_thread process.\n";
+        process();
+      } else {
         std::cerr << "AsOfJoinNode::process_thread done.\n";
-        return;
+        return Status::OK();
       }
-      process();
     }
+
+    return Status::OK();
   }
 
-  static void process_thread_wrapper(AsofJoinNode *node) {
-    node->process_thread();
+  Status process_finished(size_t /*thread_index*/) {
+    std::cerr << "AsOfJoinNode::process_finished started.\n";
+    return Status::OK();
   }
+
+  // static void process_thread_wrapper(AsofJoinNode *node) {
+  //   node->process_thread();
+  // }
 
  public:
   AsofJoinNode(ExecPlan* plan,
@@ -571,28 +590,7 @@ class AsofJoinNode : public ExecNode {
                std::shared_ptr<Schema> output_schema,
                std::unique_ptr<AsofJoinSchema> schema_mgr,
                std::unique_ptr<AsofJoinImpl> impl
-               )
-    : ExecNode(plan, inputs, {"left", "right"},
-               /*output_schema=*/std::move(output_schema),
-               /*num_outputs=*/1),
-      impl_(std::move(impl)),
-      _options(join_options),
-      _process(1),
-      _process_thread(&AsOfJoinNode::process_thread_wrapper, this)
-  {
-    std::cout << "AsofJoinNode created" << "\n";
-
-    for(size_t i=0;i<inputs.size();++i)
-      _state.push_back(::arrow::internal::make_unique<InputState>(inputs[i]->output_schema(),
-                                                                  *_options.time.name(),
-                                                                  *_options.keys.name(),
-                                                                  util::make_optional<KeyType>(0) /*TODO: make wildcard configuirable*/));
-    size_t dst_offset=0;
-    for(auto &state:_state)
-      dst_offset=state->init_src_to_dst_mapping(dst_offset,!!dst_offset);
-
-    finished_ = Future<>::MakeFinished();
-  }
+               );
 
   static arrow::Result<ExecNode*> Make(ExecPlan *plan, std::vector<ExecNode*> inputs,
                                        const ExecNodeOptions &options) {
@@ -631,13 +629,15 @@ class AsofJoinNode : public ExecNode {
   }
   void InputFinished(ExecNode* input, int total_batches) override {
     std::cerr << "InputFinished BEGIN\n";
-    bool is_finished=false;
+    // bool is_finished=false;
     {
+      std::lock_guard<std::mutex> guard(_gate);
+      std::cerr << "InputFinished find\n";
       ARROW_DCHECK(std::find(inputs_.begin(),inputs_.end(),input)!=inputs_.end());
       size_t k=std::find(inputs_.begin(),inputs_.end(),input)-inputs_.begin();
       //cerr << "set_total_batches for input " << k << ": " << total_batches << "\n";
       _state.at(k)->set_total_batches(total_batches);
-      is_finished=_state.at(k)->finished();
+      // is_finished=_state.at(k)->finished();
     }
     // Trigger a process call
     // The reason for this is that there are cases at the end of a table where we don't
@@ -650,6 +650,22 @@ class AsofJoinNode : public ExecNode {
   Status StartProducing() override {
     finished_=arrow::Future<>::Make();
     std::cout << "StartProducing" << "\n";
+    bool use_sync_execution = !(plan_->exec_context()->executor());
+    std::cerr << "StartScheduling\n";
+    std::cerr << "use_sync_execution: " << use_sync_execution << std::endl;
+    RETURN_NOT_OK(
+                  scheduler_->StartScheduling(0 /*thread index*/,
+                                              std::move([this](std::function<Status(size_t)> func) -> Status {
+                                                          return this->ScheduleTaskCallback(std::move(func));
+                                                        }),
+                                              1,
+                                              use_sync_execution
+                                              )
+                  );
+    RETURN_NOT_OK(
+                  scheduler_->StartTaskGroup(0, task_group_process_, 1)
+                  );
+    std::cerr << "StartScheduling done\n";
     return Status::OK();
   }
   void PauseProducing(ExecNode* output) override {
@@ -673,6 +689,25 @@ class AsofJoinNode : public ExecNode {
     return finished_;
   }
 
+  Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
+    auto executor = plan_->exec_context()->executor();
+    if (executor) {
+      RETURN_NOT_OK(executor->Spawn([this, func] {
+        size_t thread_index = thread_indexer_();
+        Status status = func(thread_index);
+        if (!status.ok()) {
+          StopProducing();
+          ErrorIfNotOk(status);
+          return;
+        }
+      }));
+    } else {
+      // We should not get here in serial execution mode
+      ARROW_DCHECK(false);
+    }
+    return Status::OK();
+  }
+
  private:
   std::unique_ptr<AsofJoinSchema> schema_mgr_;
   std::unique_ptr<AsofJoinImpl> impl_;
@@ -681,12 +716,12 @@ class AsofJoinNode : public ExecNode {
   std::mutex _gate;
   AsofJoinNodeOptions _options;
 
+  ThreadIndexer thread_indexer_;
+  std::unique_ptr<TaskScheduler> scheduler_;
+  int task_group_process_;
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
   concurrent_bounded_queue<bool> _process;
-
-  // Process thread
-  std::thread _process_thread;
 
   // Total batches produced, once we've finished -- only known at completion time.
   util::optional<int> _total_batches_produced;
@@ -723,6 +758,47 @@ std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(const std::vector<ExecN
 
   // Combine into a schema
   return std::make_shared<arrow::Schema>(fields);
+}
+
+
+AsofJoinNode::AsofJoinNode(ExecPlan* plan,
+                           NodeVector inputs,
+                           const AsofJoinNodeOptions& join_options,
+                           std::shared_ptr<Schema> output_schema,
+                           std::unique_ptr<AsofJoinSchema> schema_mgr,
+                            std::unique_ptr<AsofJoinImpl> impl
+                           )
+  : ExecNode(plan, inputs, {"left", "right"},
+             /*output_schema=*/std::move(output_schema),
+             /*num_outputs=*/1),
+    impl_(std::move(impl)),
+    _options(join_options),
+    _process(1)
+    // _process_thread(&AsofJoinNode::process_thread_wrapper, this)
+{
+  std::cout << "AsofJoinNode created" << "\n";
+
+    for(size_t i=0;i<inputs.size();++i)
+      _state.push_back(::arrow::internal::make_unique<InputState>(inputs[i]->output_schema(),
+                                                                  *_options.time.name(),
+                                                                  *_options.keys.name(),
+                                                                  util::make_optional<KeyType>(0) /*TODO: make wildcard configuirable*/));
+    size_t dst_offset=0;
+    for(auto &state:_state)
+      dst_offset=state->init_src_to_dst_mapping(dst_offset,!!dst_offset);
+
+    finished_ = Future<>::MakeFinished();
+
+    scheduler_ = TaskScheduler::Make();
+    task_group_process_ = scheduler_->RegisterTaskGroup(
+                                                       [this](size_t thread_index, int64_t task_id) -> Status {
+                                                         return process_thread(thread_index, task_id);
+                                                       },
+                                                       [this](size_t thread_index) -> Status {
+                                                         return process_finished(thread_index);
+                                                       }
+                                                       );
+    scheduler_->RegisterEnd();
 }
 
 namespace internal {

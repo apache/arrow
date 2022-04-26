@@ -65,6 +65,7 @@ BatchesWithSchema GenerateBatchesFromString(
 
 void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r_batches,
+                    const BatchesWithSchema& exp_batches,
                     const FieldRef time,
                     const FieldRef keys) {
   auto exec_ctx = arrow::internal::make_unique<ExecContext>(
@@ -86,36 +87,58 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
             .AddToPlan(plan.get()));
 
   ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+
+  ASSERT_OK_AND_ASSIGN(auto exp_table,
+                       TableFromExecBatches(exp_batches.schema, exp_batches.batches));
+
+  ASSERT_OK_AND_ASSIGN(auto res_table,
+                       TableFromExecBatches(exp_batches.schema, res));
+
+
+  AssertTablesEqual(*exp_table, *res_table,
+                    /*same_chunk_layout=*/false, /*flatten=*/true);
+
+  std::cerr << "Result Equals" << "\n";
 }
 
 void RunNonEmptyTest(bool exact_matches) {
   auto l_schema = schema(
                          {
-                          field("time", timestamp(TimeUnit::NANO)),
+                          field("time", int64()),
                           field("key", int32()),
-                          field("l_v0", float32())
+                          field("l_v0", float64())
                          }
                          );
   auto r_schema = schema(
                          {
-                          field("time", timestamp(TimeUnit::NANO)),
+                          field("time", int64()),
                           field("key", int32()),
-                          field("r_v0", float32())
+                          field("r_v0", float64())
                          }
                          );
+  auto exp_schema = schema({
+                            field("time", int64()),
+                            field("key", int32()),
+                            field("l_v0", float64()),
+                            field("r_v0", float64()),
+    });
 
   BatchesWithSchema l_batches, r_batches, exp_batches;
 
   l_batches = GenerateBatchesFromString(
                                         l_schema,
-                                        {R"([["2020-01-01", 1, 1.0]])"}
+                                        {R"([[0, 1, 1.0]])"}
                                         );
   r_batches = GenerateBatchesFromString(
-                                        l_schema,
-                                        {R"([["2020-01-01", 1, 2.0]])"}
+                                        r_schema,
+                                        {R"([[0, 1, 2.0]])"}
                                         );
+  exp_batches = GenerateBatchesFromString(
+                                          exp_schema,
+                                          {R"([[0, 1, 1.0, 2.0]])"}
+                                          );
 
-  CheckRunOutput(l_batches, r_batches, "time", "key");
+  CheckRunOutput(l_batches, r_batches, exp_batches, "time", "key");
 }
 
   class AsofJoinTest : public testing::TestWithParam<std::tuple<bool>> {};
