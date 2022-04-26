@@ -223,7 +223,8 @@ def test_respond_with_usage(load_fixture, responses):
         {'body':
          ("```\ntest-usage\n"
           "The Archery job run can be found at: "
-          "https://github.com/apache/arrow/actions/runs/1463784188```")
+          "https://github.com/apache/arrow/actions/runs/1463784188\n"
+          "```")
          }
 
 
