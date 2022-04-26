@@ -157,21 +157,20 @@ struct CumulativeGeneric {
 };
 
 const FunctionDoc cumulative_sum_doc{
-    "Compute the cumulative sum over an array/chunked array of numbers",
-    ("`values` must be an array/chunked array of numeric type values.\n"
-     "Return an array/chunked array which is the cumulative sum computed\n"
-     "over `values`. Results will wrap around on integer overflow.\n"
-     "Use function \"cumulative_sum_checked\" if you want overflow\n"
-     "to return an error."),
+    "Computes the cumulative sum over a numeric input.",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative sum computed over `values`. Results will wrap around on\n"
+     "integer overflow. Use function \"cumulative_sum_checked\" if you want\n"
+     "overflow to return an error."),
     {"values"},
     "CumulativeSumOptions"};
 
 const FunctionDoc cumulative_sum_checked_doc{
-    "Compute the cumulative sum over an array/chunked array of numbers",
-    ("`values` must be an array/chunked array of numeric type values.\n"
-     "Return an array/chunked array which is the cumulative sum computed\n"
-     "over `values`. This function returns an error on overflow. For a\n"
-     "variant that doesn't fail on overflow, use function \"cumulative_sum\"."),
+    "Computes the cumulative sum over a numeric input.",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative sum computed over `values`. This function returns an error\n"
+     "on overflow. For a variant that doesn't fail on overflow, use\n"
+     "function \"cumulative_sum\"."),
     {"values"},
     "CumulativeSumOptions"};
 }  // namespace
