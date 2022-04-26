@@ -965,7 +965,7 @@ test_that("format date/time", {
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
     date = c(as.Date("2021-01-01"), NA)
   )
-  formats <- "%w %d %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+  formats <- "%w %d %m %y %Y %H %I %M %z %Z %j %U %W %x %X %% %G %V %u"
   formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
 
   compare_dplyr_binding(
@@ -1037,7 +1037,7 @@ test_that("format date/time", {
   )
 
   skip_on_os("windows") # locale issues
-  formats_skipped_on_windows <- "%a %A %b %B"
+  formats_skipped_on_windows <- "%a %A %b %B %p"
 
   compare_dplyr_binding(
     .input %>%
