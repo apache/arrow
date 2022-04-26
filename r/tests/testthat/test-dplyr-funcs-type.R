@@ -1035,6 +1035,16 @@ test_that("format date/time", {
       )
     }
   )
+
+  skip_on_os("windows") # locale issues
+  formats_skipped_on_windows <- "%a %A %b %B"
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats_skipped_on_windows)) %>%
+      collect(),
+    times
+  )
 })
 
 test_that("format() for unsupported types returns the input as string", {
