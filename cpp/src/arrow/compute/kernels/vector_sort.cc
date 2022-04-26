@@ -1911,12 +1911,13 @@ class SelectKUnstableMetaFunction : public MetaFunction {
 const FunctionDoc rank_doc(
     "Returns the ranking of an array",
     ("This function computes a rank of the input array.\n"
-     "By default, nNull values are\n"
-     "considered greater than any other value and are therefore sorted at the\n"
-     "end of the input. For floating-point types, NaNs are considered greater\n"
-     "than any other non-null value, but smaller than null values.\n"
+     "By default, Null values are considered greater than any other value and\n"
+     "are therefore sorted at the end of the input. For floating-point types,\n"
+     "NaNs are considered greater than any other non-null value, but smaller\n"
+     "than null values. The default tiebreaker is to assign ranks in order of\n"
+     "when ties appear in the input\n"
      "\n"
-     "The handling of nulls and NaNs can be changed in SortOptions."),
+     "The handling of nulls, NaNs and tiebreakers can be changed in RankOptions."),
     {"input"}, "RankOptions");
 
 class RankMetaFunction : public MetaFunction {
