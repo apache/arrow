@@ -897,7 +897,6 @@ test_that("`as.Date()` and `as_date()`", {
   # to `as.Date()`
   # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
   # passsed if`tz` is NULL
-  # skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       transmute(
