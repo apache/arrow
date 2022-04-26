@@ -1969,13 +1969,8 @@ class RankMetaFunction : public MetaFunction {
       }
     } else if (options.tiebreaker == TieBreaker::First) {
       for (auto i = 0; i < out_size; i++) {
-        currValue = array.GetScalar(indices[i]).ValueOrDie();
-        if (i > 0 && currValue == prevValue) {
-        } else {
-          rank = i + 1;
-        }
+        rank = i + 1;
         out_rankings[indices[i]] = rank;
-        prevValue = currValue;
       }
     } else if (options.tiebreaker == TieBreaker::Lowest) {
       for (auto i = 0; i < out_size; i++) {
