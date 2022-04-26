@@ -157,7 +157,7 @@ struct CumulativeGeneric {
 };
 
 const FunctionDoc cumulative_sum_doc{
-    "Computes the cumulative sum over a numeric input.",
+    "Computes the cumulative sum over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative sum computed over `values`. Results will wrap around on\n"
      "integer overflow. Use function \"cumulative_sum_checked\" if you want\n"
@@ -166,7 +166,7 @@ const FunctionDoc cumulative_sum_doc{
     "CumulativeSumOptions"};
 
 const FunctionDoc cumulative_sum_checked_doc{
-    "Computes the cumulative sum over a numeric input.",
+    "Computes the cumulative sum over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative sum computed over `values`. This function returns an error\n"
      "on overflow. For a variant that doesn't fail on overflow, use\n"
