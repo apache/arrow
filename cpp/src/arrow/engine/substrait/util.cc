@@ -27,8 +27,8 @@ namespace engine {
 class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsumer {
  public:
   explicit SubstraitSinkConsumer(
-      AsyncGenerator<arrow::util::optional<compute::ExecBatch>>* generator,
-      arrow::util::BackpressureOptions backpressure = {})
+      AsyncGenerator<util::optional<compute::ExecBatch>>* generator,
+      util::BackpressureOptions backpressure = {})
       : producer_(MakeProducer(generator, std::move(backpressure))) {}
 
   Status Consume(compute::ExecBatch batch) override {
@@ -40,12 +40,12 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsum
 
   Status Init(const std::shared_ptr<Schema>& schema) override { return Status::OK(); }
 
-  static arrow::PushGenerator<arrow::util::optional<compute::ExecBatch>>::Producer
-  MakeProducer(AsyncGenerator<arrow::util::optional<compute::ExecBatch>>* out_gen,
-               arrow::util::BackpressureOptions backpressure);
+  static arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer MakeProducer(
+      AsyncGenerator<util::optional<compute::ExecBatch>>* out_gen,
+      util::BackpressureOptions backpressure);
 
   Future<> Finish() override {
-    producer_.Push(IterationEnd<arrow::util::optional<compute::ExecBatch>>());
+    producer_.Push(IterationEnd<util::optional<compute::ExecBatch>>());
     if (producer_.Close()) {
       return Future<>::MakeFinished();
     }
@@ -54,7 +54,7 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsum
   }
 
  private:
-  PushGenerator<arrow::util::optional<compute::ExecBatch>>::Producer producer_;
+  PushGenerator<util::optional<compute::ExecBatch>>::Producer producer_;
 };
 
 /// \brief An executor to run a Substrait Query
@@ -64,7 +64,7 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
  public:
   explicit SubstraitExecutor(
       std::shared_ptr<Buffer> substrait_buffer,
-      AsyncGenerator<arrow::util::optional<compute::ExecBatch>>* generator,
+      AsyncGenerator<util::optional<compute::ExecBatch>>* generator,
       std::shared_ptr<compute::ExecPlan> plan, compute::ExecContext exec_context)
       : substrait_buffer_(std::move(substrait_buffer)),
         generator_(generator),
@@ -101,17 +101,17 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
 
  private:
   std::shared_ptr<Buffer> substrait_buffer_;
-  AsyncGenerator<arrow::util::optional<compute::ExecBatch>>* generator_;
+  AsyncGenerator<util::optional<compute::ExecBatch>>* generator_;
   std::vector<compute::Declaration> declarations_;
   std::shared_ptr<compute::ExecPlan> plan_;
   compute::ExecContext exec_context_;
 };
 
-arrow::PushGenerator<arrow::util::optional<compute::ExecBatch>>::Producer
+arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer
 SubstraitSinkConsumer::MakeProducer(
-    AsyncGenerator<arrow::util::optional<compute::ExecBatch>>* out_gen,
-    arrow::util::BackpressureOptions backpressure) {
-  arrow::PushGenerator<arrow::util::optional<compute::ExecBatch>> push_gen(
+    AsyncGenerator<util::optional<compute::ExecBatch>>* out_gen,
+    util::BackpressureOptions backpressure) {
+  arrow::PushGenerator<util::optional<compute::ExecBatch>> push_gen(
       std::move(backpressure));
   auto out = push_gen.producer();
   *out_gen = std::move(push_gen);
@@ -126,7 +126,7 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteJsonPlan(
 
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     std::shared_ptr<Buffer> substrait_buffer) {
-  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool());
