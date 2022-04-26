@@ -49,7 +49,6 @@ groups = [
     'bz2',
     'cython',
     'dataset',
-    'engine',
     'hypothesis',
     'fastparquet',
     'gandiva',
@@ -67,6 +66,7 @@ groups = [
     'plasma',
     's3',
     'snappy',
+    'substrait',
     'tensorflow',
     'flight',
     'slow',
@@ -79,7 +79,6 @@ defaults = {
     'bz2': Codec.is_available('bz2'),
     'cython': False,
     'dataset': False,
-    'engine': False,
     'fastparquet': False,
     'flight': False,
     'gandiva': False,
@@ -100,6 +99,7 @@ defaults = {
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
+    'substrait': False,
     'tensorflow': False,
     'zstd': Codec.is_available('zstd'),
 }
@@ -184,8 +184,8 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.engine  # noqa
-    defaults['engine'] = True
+    import pyarrow.substrait  # noqa
+    defaults['substrait'] = True
 except ImportError:
     pass
 

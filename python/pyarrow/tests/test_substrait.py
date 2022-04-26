@@ -24,13 +24,13 @@ import pyarrow.parquet as pq
 import pytest
 
 try:
-    import pyarrow.engine as engine
+    import pyarrow.substrait as substrait
 except ImportError:
-    engine = None
+    substrait = None
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not engine'
-pytestmark = pytest.mark.engine
+pytestmark = pytest.mark.substrait
 
 
 _substrait_query = """
@@ -76,7 +76,7 @@ def test_run_query():
     filename = str(resource_root() / "binary.parquet")
 
     query = tobytes(_substrait_query.replace("FILENAME_PLACEHOLDER", filename))
-    reader = engine.run_query(query)
+    reader = substrait.run_query(query)
     res_tb = reader.read_all()
 
     expected_tb = pq.read_table(filename)
@@ -89,9 +89,9 @@ def test_run_query_in_bytes():
 
     query = tobytes(_substrait_query.replace("FILENAME_PLACEHOLDER", filename))
 
-    buf = pa._engine._parse_json_plan(query)
+    buf = pa._substrait._parse_json_plan(query)
 
-    reader = engine.run_query(buf)
+    reader = substrait.run_query(buf)
     res_tb = reader.read_all()
 
     expected_tb = pq.read_table(filename)
@@ -108,4 +108,4 @@ def test_invalid_plan():
     """
     exec_message = "ExecPlan has no node"
     with pytest.raises(ArrowInvalid, match=exec_message):
-        engine.run_query(tobytes(query))
+        substrait.run_query(tobytes(query))

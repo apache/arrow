@@ -27,9 +27,8 @@ namespace engine {
 class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsumer {
  public:
   explicit SubstraitSinkConsumer(
-      AsyncGenerator<util::optional<compute::ExecBatch>>* generator,
-      util::BackpressureOptions backpressure = {})
-      : producer_(MakeProducer(generator, std::move(backpressure))) {}
+      AsyncGenerator<util::optional<compute::ExecBatch>>* generator)
+      : producer_(MakeProducer(generator)) {}
 
   Status Consume(compute::ExecBatch batch) override {
     // Consume a batch of data
@@ -38,11 +37,13 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsum
     return Status::OK();
   }
 
-  Status Init(const std::shared_ptr<Schema>& schema) override { return Status::OK(); }
+  Status Init(const std::shared_ptr<Schema>& schema,
+              compute::BackpressureControl* backpressure_control) override {
+    return Status::OK();
+  }
 
   static arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer MakeProducer(
-      AsyncGenerator<util::optional<compute::ExecBatch>>* out_gen,
-      util::BackpressureOptions backpressure);
+      AsyncGenerator<util::optional<compute::ExecBatch>>* out_gen);
 
   Future<> Finish() override {
     producer_.Push(IterationEnd<util::optional<compute::ExecBatch>>());
@@ -109,10 +110,8 @@ class ARROW_ENGINE_EXPORT SubstraitExecutor {
 
 arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer
 SubstraitSinkConsumer::MakeProducer(
-    AsyncGenerator<util::optional<compute::ExecBatch>>* out_gen,
-    util::BackpressureOptions backpressure) {
-  arrow::PushGenerator<util::optional<compute::ExecBatch>> push_gen(
-      std::move(backpressure));
+    AsyncGenerator<util::optional<compute::ExecBatch>>* out_gen) {
+  arrow::PushGenerator<util::optional<compute::ExecBatch>> push_gen;
   auto out = push_gen.producer();
   *out_gen = std::move(push_gen);
   return out;

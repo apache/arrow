@@ -120,7 +120,7 @@ jobs:
     env:
       ARROW_HOME: /usr/local
       ARROW_DATASET: ON
-      ARROW_ENGINE: ON
+      ARROW_SUBSTRAIT: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
       ARROW_HDFS: ON

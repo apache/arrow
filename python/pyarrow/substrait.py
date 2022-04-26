@@ -15,6 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._engine import (  # noqa
+from pyarrow._substrait import (  # noqa
     run_query,
 )

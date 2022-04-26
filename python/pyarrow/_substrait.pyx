@@ -67,7 +67,7 @@ def _parse_json_plan(plan):
 
     Returns
     -------
-     Buffer
+    Buffer
         pyarrow.Buffer object is returned.
     """
 
