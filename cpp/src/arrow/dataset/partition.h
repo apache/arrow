@@ -38,6 +38,10 @@ namespace dataset {
 
 constexpr char kFilenamePartitionSep = '_';
 
+struct PartitionPathFormat {
+  std::string directory, prefix;
+};
+
 // ----------------------------------------------------------------------
 // Partitioning
 
@@ -76,11 +80,8 @@ class ARROW_DS_EXPORT Partitioning {
       const std::shared_ptr<RecordBatch>& batch) const = 0;
 
   /// \brief Parse a path into a partition expression
-  virtual Result<compute::Expression> Parse(const std::string& path) const = 0;
-
-  struct PartitionPathFormat {
-    std::string directory, prefix;
-  };
+  virtual Result<compute::Expression> Parse(const std::string& directory = "",
+                                            const std::string& prefix = "") const = 0;
 
   virtual Result<PartitionPathFormat> Format(const compute::Expression& expr) const = 0;
 
@@ -174,7 +175,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const override;
 
-  Result<compute::Expression> Parse(const std::string& path) const override;
+  Result<compute::Expression> Parse(const std::string& directory = "",
+                                    const std::string& prefix = "") const override;
 
   Result<PartitionPathFormat> Format(const compute::Expression& expr) const override;
 
@@ -191,7 +193,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
     }
   }
 
-  virtual Result<std::vector<Key>> ParseKeys(const std::string& path) const = 0;
+  virtual Result<std::vector<Key>> ParseKeys(const std::string& directory,
+                                             const std::string& prefix) const = 0;
 
   virtual Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const = 0;
 
@@ -231,7 +234,8 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
 
  private:
-  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
+  Result<std::vector<Key>> ParseKeys(const std::string& directory,
+                                     const std::string& prefix) const override;
 
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
@@ -288,7 +292,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 
  private:
   const HivePartitioningOptions hive_options_;
-  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
+  Result<std::vector<Key>> ParseKeys(const std::string& directory,
+                                     const std::string& prefix) const override;
 
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
@@ -310,8 +315,9 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
 
   std::string type_name() const override { return name_; }
 
-  Result<compute::Expression> Parse(const std::string& path) const override {
-    return parse_impl_(path);
+  Result<compute::Expression> Parse(const std::string& directory = "",
+                                    const std::string& prefix = "") const override {
+    return parse_impl_(directory);
   }
 
   Result<PartitionPathFormat> Format(const compute::Expression& expr) const override {
@@ -353,21 +359,17 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
 
  private:
-  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
+  Result<std::vector<Key>> ParseKeys(const std::string& directory,
+                                     const std::string& prefix) const override;
 
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
 
-/// \brief Remove only the prefix of a path.
-///
-/// e.g., `StripPrefix("/data/2019_c.txt", "/data") -> "2019_c.txt"`
-ARROW_DS_EXPORT std::string StripPrefix(const std::string& path,
-                                        const std::string& prefix);
 /// \brief Remove a prefix and the filename of a path.
 ///
 /// e.g., `StripPrefixAndFilename("/data/year=2019/c.txt", "/data") -> "year=2019"`
-ARROW_DS_EXPORT std::string StripPrefixAndFilename(const std::string& path,
-                                                   const std::string& prefix);
+ARROW_DS_EXPORT PartitionPathFormat StripPrefixAndFilename(const std::string& path,
+                                                           const std::string& prefix);
 
 /// \brief Vector version of StripPrefixAndFilename.
 ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(

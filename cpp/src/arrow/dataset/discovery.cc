@@ -280,12 +280,9 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
   std::vector<std::shared_ptr<FileFragment>> fragments;
   std::string fixed_path;
   for (const auto& info : files_) {
-    if (partitioning->type_name() == "filename") {
-      fixed_path = StripPrefix(info.path(), options_.partition_base_dir);
-    } else {
-      fixed_path = StripPrefixAndFilename(info.path(), options_.partition_base_dir);
-    }
-    ARROW_ASSIGN_OR_RAISE(auto partition, partitioning->Parse(fixed_path));
+    auto fixed_path = StripPrefixAndFilename(info.path(), options_.partition_base_dir);
+    ARROW_ASSIGN_OR_RAISE(auto partition,
+                          partitioning->Parse(fixed_path.directory, fixed_path.prefix));
     ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment({info, fs_}, partition));
     fragments.push_back(fragment);
   }

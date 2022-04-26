@@ -279,7 +279,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
-        CResult[CExpression] Parse(const c_string & path) const
+        CResult[CExpression] Parse(const c_string & directory, const c_string & prefix) const
         const shared_ptr[CSchema] & schema()
 
     cdef cppclass CSegmentEncoding" arrow::dataset::SegmentEncoding":

@@ -873,11 +873,12 @@ class RangePartitioning : public Partitioning {
 
   std::string type_name() const override { return "range"; }
 
-  Result<compute::Expression> Parse(const std::string& path) const override {
+  Result<compute::Expression> Parse(const std::string& directory,
+                                    const std::string& prefix) const override {
     std::vector<compute::Expression> ranges;
 
     HivePartitioningOptions options;
-    for (auto segment : fs::internal::SplitAbstractPath(path)) {
+    for (auto segment : fs::internal::SplitAbstractPath(directory)) {
       ARROW_ASSIGN_OR_RAISE(auto key, HivePartitioning::ParseKey(segment, options));
       if (!key) {
         return Status::Invalid("can't parse '", segment, "' as a range");
@@ -919,9 +920,8 @@ class RangePartitioning : public Partitioning {
     return Status::OK();
   }
 
-  Result<Partitioning::PartitionPathFormat> Format(
-      const compute::Expression&) const override {
-    return Partitioning::PartitionPathFormat{"", ""};
+  Result<PartitionPathFormat> Format(const compute::Expression&) const override {
+    return PartitionPathFormat{"", ""};
   }
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
@@ -943,12 +943,12 @@ TEST_F(TestPartitioning, Range) {
 }
 
 TEST(TestStripPrefixAndFilename, Basic) {
-  ASSERT_EQ(StripPrefixAndFilename("", ""), "");
-  ASSERT_EQ(StripPrefixAndFilename("a.csv", ""), "");
-  ASSERT_EQ(StripPrefixAndFilename("a/b.csv", ""), "a");
-  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a"), "b");
-  ASSERT_EQ(StripPrefixAndFilename("/a/b/c/d.csv", "/a"), "b/c");
-  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a/b"), "");
+  ASSERT_EQ(StripPrefixAndFilename("", "").directory, "");
+  ASSERT_EQ(StripPrefixAndFilename("a.csv", "").directory, "");
+  ASSERT_EQ(StripPrefixAndFilename("a/b.csv", "").directory, "a");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a").directory, "b");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c/d.csv", "/a").directory, "b/c");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a/b").directory, "");
 
   std::vector<std::string> input{"/data/year=2019/file.parquet",
                                  "/data/year=2019/month=12/file.parquet",

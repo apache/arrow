@@ -894,7 +894,8 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
     auto row_groups = Iota(metadata_subset->num_row_groups());
 
     auto partition_expression =
-        partitioning.Parse(StripPrefixAndFilename(path, options_.partition_base_dir))
+        partitioning
+            .Parse(StripPrefixAndFilename(path, options_.partition_base_dir).directory)
             .ValueOr(compute::literal(true));
 
     ARROW_ASSIGN_OR_RAISE(
@@ -920,7 +921,8 @@ Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchem
 
     size_t i = 0;
     for (const auto& e : paths_with_row_group_ids_) {
-      stripped[i++] = StripPrefixAndFilename(e.first, options_.partition_base_dir);
+      stripped[i++] =
+          StripPrefixAndFilename(e.first, options_.partition_base_dir).directory;
     }
     ARROW_ASSIGN_OR_RAISE(auto partition_schema, factory->Inspect(stripped));
 

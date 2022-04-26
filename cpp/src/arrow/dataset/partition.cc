@@ -82,7 +82,8 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    Result<compute::Expression> Parse(const std::string& path) const override {
+    Result<compute::Expression> Parse(const std::string& directory,
+                                      const std::string& prefix) const override {
       return compute::literal(true);
     }
 
@@ -250,10 +251,11 @@ Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) con
                         compute::literal(std::move(converted)));
 }
 
-Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path) const {
+Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& directory,
+                                                        const std::string& prefix) const {
   std::vector<compute::Expression> expressions;
 
-  ARROW_ASSIGN_OR_RAISE(auto parsed, ParseKeys(path));
+  ARROW_ASSIGN_OR_RAISE(auto parsed, ParseKeys(directory, prefix));
   for (const Key& key : parsed) {
     ARROW_ASSIGN_OR_RAISE(auto expr, ConvertKey(key));
     if (expr == compute::literal(true)) continue;
@@ -263,7 +265,7 @@ Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path)
   return and_(std::move(expressions));
 }
 
-Result<Partitioning::PartitionPathFormat> KeyValuePartitioning::Format(
+Result<PartitionPathFormat> KeyValuePartitioning::Format(
     const compute::Expression& expr) const {
   ScalarVector values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
@@ -376,8 +378,8 @@ DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
 }
 
 Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
-    const std::string& path) const {
-  std::vector<std::string> segments = fs::internal::SplitAbstractPath(path);
+    const std::string& directory, const std::string& prefix) const {
+  std::vector<std::string> segments = fs::internal::SplitAbstractPath(directory);
   return ParsePartitionSegments(segments);
 }
 
@@ -389,24 +391,24 @@ FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
 }
 
 Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
-    const std::string& path) const {
+    const std::string& directory, const std::string& prefix) const {
   std::vector<std::string> segments =
-      fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+      fs::internal::SplitAbstractPath(StripNonPrefix(prefix), kFilenamePartitionSep);
   return ParsePartitionSegments(segments);
 }
 
-Result<Partitioning::PartitionPathFormat> DirectoryPartitioning::FormatValues(
+Result<PartitionPathFormat> DirectoryPartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments;
   ARROW_ASSIGN_OR_RAISE(segments, FormatPartitionSegments(values));
   return PartitionPathFormat{fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
 
-Result<Partitioning::PartitionPathFormat> FilenamePartitioning::FormatValues(
+Result<PartitionPathFormat> FilenamePartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments;
   ARROW_ASSIGN_OR_RAISE(segments, FormatPartitionSegments(values));
-  return Partitioning::PartitionPathFormat{
+  return PartitionPathFormat{
       "", fs::internal::JoinAbstractPath(std::move(segments), kFilenamePartitionSep) +
               kFilenamePartitionSep};
 }
@@ -718,10 +720,10 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
 }
 
 Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
-    const std::string& path) const {
+    const std::string& directory, const std::string& prefix) const {
   std::vector<Key> keys;
 
-  for (const auto& segment : fs::internal::SplitAbstractPath(path)) {
+  for (const auto& segment : fs::internal::SplitAbstractPath(directory)) {
     ARROW_ASSIGN_OR_RAISE(auto maybe_key, ParseKey(segment, hive_options_));
     if (auto key = maybe_key) {
       keys.push_back(std::move(*key));
@@ -731,7 +733,7 @@ Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
   return keys;
 }
 
-Result<Partitioning::PartitionPathFormat> HivePartitioning::FormatValues(
+Result<PartitionPathFormat> HivePartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
@@ -749,8 +751,7 @@ Result<Partitioning::PartitionPathFormat> HivePartitioning::FormatValues(
     }
   }
 
-  return Partitioning::PartitionPathFormat{
-      fs::internal::JoinAbstractPath(std::move(segments)), ""};
+  return PartitionPathFormat{fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
 
 class HivePartitioningFactory : public KeyValuePartitioningFactory {
@@ -805,16 +806,12 @@ std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory(
   return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory(options));
 }
 
-std::string StripPrefix(const std::string& path, const std::string& prefix) {
+PartitionPathFormat StripPrefixAndFilename(const std::string& path,
+                                           const std::string& prefix) {
   auto maybe_base_less = fs::internal::RemoveAncestor(prefix, path);
   auto base_less = maybe_base_less ? std::string(*maybe_base_less) : path;
-  return base_less;
-}
-
-std::string StripPrefixAndFilename(const std::string& path, const std::string& prefix) {
-  auto base_less = StripPrefix(path, prefix);
   auto basename_filename = fs::internal::GetAbstractPathParent(base_less);
-  return basename_filename.first;
+  return PartitionPathFormat{basename_filename.first, basename_filename.second};
 }
 
 std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,
@@ -822,7 +819,7 @@ std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& 
   std::vector<std::string> result;
   result.reserve(paths.size());
   for (const auto& path : paths) {
-    result.emplace_back(StripPrefixAndFilename(path, prefix));
+    result.emplace_back(StripPrefixAndFilename(path, prefix).directory);
   }
   return result;
 }
@@ -832,7 +829,7 @@ std::vector<std::string> StripPrefixAndFilename(const std::vector<fs::FileInfo>&
   std::vector<std::string> result;
   result.reserve(files.size());
   for (const auto& info : files) {
-    result.emplace_back(StripPrefixAndFilename(info.path(), prefix));
+    result.emplace_back(StripPrefixAndFilename(info.path(), prefix).directory);
   }
   return result;
 }

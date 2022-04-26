@@ -629,14 +629,14 @@ def test_partitioning():
     )
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
-    expr = partitioning.parse('3_3.14_')
+    expr = partitioning.parse('', '3_3.14_')
     assert isinstance(expr, ds.Expression)
 
     expected = (ds.field('group') == 3) & (ds.field('key') == 3.14)
     assert expr.equals(expected)
 
     with pytest.raises(pa.ArrowInvalid):
-        partitioning.parse('prefix_3_aaa_')
+        partitioning.parse('', 'prefix_3_aaa_')
 
     partitioning = ds.DirectoryPartitioning(
         pa.schema([
