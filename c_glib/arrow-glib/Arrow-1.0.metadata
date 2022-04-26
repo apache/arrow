@@ -1,0 +1,3 @@
+DecimalDataType.new skip
+// SourceNodeOptions.record_batch#property name="get_record_batch"
+SourceNodeOptions.record_batch#property skip

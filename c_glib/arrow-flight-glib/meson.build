@@ -66,28 +66,29 @@ if have_gi
   flight_glib_gir = \
     gnome.generate_gir(libarrow_flight_glib,
                        dependencies: declare_dependency(sources: arrow_glib_gir),
-                       sources: sources + c_headers,
-                       namespace: 'ArrowFlight',
-                       nsversion: api_version,
-                       identifier_prefix: 'GAFlight',
-                       symbol_prefix: 'gaflight',
                        export_packages: 'arrow-flight-glib',
+                       extra_args: [
+                         '--warn-all',
+                         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                       ],
+                       header: 'arrow-flight-glib/arrow-flight-glib.h',
+                       identifier_prefix: 'GAFlight',
                        includes: [
                          'Arrow-1.0',
                        ],
                        install: true,
-                       extra_args: [
-                         '--warn-all',
-                         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                       ])
+                       namespace: 'ArrowFlight',
+                       nsversion: api_version,
+                       sources: sources + c_headers,
+                       symbol_prefix: 'gaflight')
 
   if generate_vapi
-    gnome.generate_vapi('arrow-flight-' + api_version,
+    gnome.generate_vapi('arrow-flight-glib',
                         install: true,
                         packages: [
                           arrow_glib_vapi,
                           'gio-2.0',
                         ],
-                        sources: flight_glib_gir[0])
+                        sources: [flight_glib_gir[0]])
   endif
 endif
