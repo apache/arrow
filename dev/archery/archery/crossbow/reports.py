@@ -180,11 +180,22 @@ class EmailReport(Report):
     def branch_url(self, branch):
         return '{}/tree/{}'.format(self.repo_url, branch)
 
+    def task_url(self, task):
+        if task.status().build_links:
+            # show link to the actual build, some CI providers implement
+            # the statuses API others implement the checks API, retrieve any.
+            return task.status().build_links[0]
+        else:
+            # show link to the branch if no status build link was found.
+            return self.branch_url(task.branch)
+
     def listing(self, tasks):
         return '\n'.join(
             sorted(
                 self.TASK.format(
-                    name=task_name, url=self.branch_url(task.branch))
+                    name=task_name,
+                    url=self.task_url(task)
+                )
                 for task_name, task in tasks.items()
             )
         )
