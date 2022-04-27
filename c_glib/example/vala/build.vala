@@ -37,7 +37,7 @@ int main (string[] args) {
     var int32_array = array as GArrow.Int32Array;
     var n = array.get_length();
     stdout.printf("length: %" + int64.FORMAT + "\n", n);
-    for (var i = 0; i < n; i++) {
+    for (int64 i = 0; i < n; i++) {
         var value = int32_array.get_value(i);
         stdout.printf("array[%" + int64.FORMAT + "] = %d\n",
                       i, value);
