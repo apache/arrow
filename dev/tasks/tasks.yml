@@ -1328,8 +1328,16 @@ tasks:
       env:
         UBUNTU: 22.04
         GCC_VERSION: 11
-      # S3 support is not buildable with gcc11 right now
-      flags: '-e ARROW_S3=OFF'
+      image: ubuntu-r-only-r
+
+  # This also has -flto=auto
+  test-r-gcc-12:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+        GCC_VERSION: 12
       image: ubuntu-r-only-r
 
   test-r-rstudio-r-base-4.1-centos7-devtoolset-8:
