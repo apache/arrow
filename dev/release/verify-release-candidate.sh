@@ -1086,6 +1086,14 @@ test_jars() {
          --package_type=jars
 
   verify_dir_artifact_signatures ${download_dir}
+
+  # TODO: This should be replaced with real verification by ARROW-15486.
+  # https://issues.apache.org/jira/browse/ARROW-15486
+  # [Release][Java] Verify staged maven artifacts
+  if [ ! -d "${download_dir}/arrow-memory/${VERSION}" ]; then
+    echo "Artifacts for ${VERSION} isn't uploaded yet."
+    return 1
+  fi
 }
 
 # By default test all functionalities.
