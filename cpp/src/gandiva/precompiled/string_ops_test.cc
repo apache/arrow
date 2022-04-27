@@ -252,7 +252,7 @@ TEST(TestStringOps, TestConvertUtf8) {
   std::string b("abc");
   auto b_in_out_len = static_cast<int>(b.length());
   const char* b_str =
-    convert_fromUTF8_binary(ctx_ptr, b.data(), b_in_out_len, &b_in_out_len);
+      convert_fromUTF8_binary(ctx_ptr, b.data(), b_in_out_len, &b_in_out_len);
   EXPECT_EQ(std::string(b_str, b_in_out_len), "abc");
   EXPECT_FALSE(ctx.has_error());
 
