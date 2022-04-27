@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.text;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.ByteArrayInputStream;
 import java.io.CharArrayReader;
@@ -48,7 +49,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
    */
   @FunctionalInterface
   interface Getter {
-    Text get(int index);
+    byte[] get(int index);
   }
 
   private final Getter getter;
@@ -56,13 +57,13 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   public ArrowFlightJdbcVarCharVectorAccessor(VarCharVector vector,
                                               IntSupplier currentRowSupplier,
                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector::getObject, currentRowSupplier, setCursorWasNull);
+    this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
   public ArrowFlightJdbcVarCharVectorAccessor(LargeVarCharVector vector,
                                               IntSupplier currentRowSupplier,
                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector::getObject, currentRowSupplier, setCursorWasNull);
+    this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
   ArrowFlightJdbcVarCharVectorAccessor(Getter getter,
@@ -77,17 +78,10 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
     return String.class;
   }
 
-  private Text getText() {
-    final Text text = this.getter.get(getCurrentRow());
-    this.wasNull = text == null;
-    this.wasNullConsumer.setWasNull(this.wasNull);
-    return text;
-  }
-
   @Override
   public String getObject() {
-    final Text text = getText();
-    return text == null ? null : text.toString();
+    final byte[] bytes = getBytes();
+    return bytes == null ? null : new String(bytes, UTF_8);
   }
 
   @Override
@@ -97,8 +91,10 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public byte[] getBytes() {
-    final Text value = this.getText();
-    return value == null ? null : value.copyBytes();
+    final byte[] bytes = this.getter.get(getCurrentRow());
+    this.wasNull = bytes == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
+    return bytes;
   }
 
   @Override
@@ -171,8 +167,8 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   public BigDecimal getBigDecimal() throws SQLException {
     try {
       return new BigDecimal(this.getString());
-    } catch (NumberFormatException exception) {
-      throw new SQLException(exception);
+    } catch (Exception e) {
+      throw new SQLException(e);
     }
   }
 
@@ -191,17 +187,19 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
     if (textValue == null) {
       return null;
     }
-    // Text is always UTF-8, so we have to encode back to ASCII
+    // Already in UTF-8
     return new ByteArrayInputStream(textValue.getBytes(US_ASCII));
   }
 
   @Override
   public InputStream getUnicodeStream() {
-    final Text textValue = getText();
-    if (textValue == null) {
+    final byte[] value = getBytes();
+    if (value == null) {
       return null;
     }
+
     // Already in UTF-8
+    final Text textValue = new Text(value);
     return new ByteArrayInputStream(textValue.getBytes(), 0, textValue.getLength());
   }
 
