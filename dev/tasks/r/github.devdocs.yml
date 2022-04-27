@@ -37,7 +37,7 @@ jobs:
           # currently part of this build.
           # remove after https://issues.apache.org/jira/browse/ARROW-16376
           r-version: '4.1'
-      - uses: r-lib/actions/setup-pandoc@v1
+      - uses: r-lib/actions/setup-pandoc@v2
       - name: Install knitr, rmarkdown
         run: |
           install.packages(c("rmarkdown", "knitr", "sessioninfo"))
