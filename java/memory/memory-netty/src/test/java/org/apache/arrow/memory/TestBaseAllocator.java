@@ -442,17 +442,6 @@ public class TestBaseAllocator {
   }
 
   @Test
-  public void testDifferentGrantedSize() {
-    // actual size is different from request size
-    final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(16, MAX_ALLOCATION);
-    final ArrowBuf arrowBuf = allocator.buffer(1024L);
-    assertEquals(16L, arrowBuf.getPossibleMemoryConsumed());
-    assertEquals(16L, arrowBuf.getActualMemoryConsumed());
-    assertEquals(16L, allocator.getAllocatedMemory());
-    assertDoesNotThrow(() -> AutoCloseables.close(arrowBuf, allocator));
-  }
-
-  @Test
   public void testLargerGrantedSize() {
     // actual size is larger than request size
     final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(1024, MAX_ALLOCATION);
@@ -477,23 +466,30 @@ public class TestBaseAllocator {
   @Test
   public void testDifferentGrantedSizeTransfer() {
     // actual size is different from request size, then transfer balance.
-    final BaseAllocator root = createAllocatorWithFixedSizeAllocationManager(16, MAX_ALLOCATION);
+    final BaseAllocator root = createAllocatorWithFixedSizeAllocationManager(1024, MAX_ALLOCATION);
     final BufferAllocator c1 = root.newChildAllocator("child1", 0, MAX_ALLOCATION);
     final BufferAllocator c2 = root.newChildAllocator("child2", 0, MAX_ALLOCATION);
-    final ArrowBuf arrowBuf = c1.buffer(1024L);
-    assertEquals(16L, arrowBuf.getPossibleMemoryConsumed());
-    assertEquals(16L, arrowBuf.getActualMemoryConsumed());
-    assertEquals(16L, c1.getAllocatedMemory());
-    assertEquals(16L, root.getAllocatedMemory());
+    final ArrowBuf arrowBuf = c1.buffer(16L);
+    assertEquals(1024L, arrowBuf.getPossibleMemoryConsumed());
+    assertEquals(1024L, arrowBuf.getActualMemoryConsumed());
+    assertEquals(1024L, c1.getAllocatedMemory());
+    assertEquals(1024L, root.getAllocatedMemory());
     OwnershipTransferResult r = arrowBuf.getReferenceManager().transferOwnership(arrowBuf, c2);
     assertTrue(r.getAllocationFit());
     final ArrowBuf transferredBuffer = r.getTransferredBuffer();
-    assertEquals(16L, arrowBuf.getPossibleMemoryConsumed());
+    assertEquals(1024L, arrowBuf.getPossibleMemoryConsumed());
     assertEquals(0L, arrowBuf.getActualMemoryConsumed());
     assertEquals(0L, c1.getAllocatedMemory());
-    assertEquals(16L, c2.getAllocatedMemory());
-    assertEquals(16L, root.getAllocatedMemory());
+    assertEquals(1024L, c2.getAllocatedMemory());
+    assertEquals(1024L, root.getAllocatedMemory());
     assertDoesNotThrow(() -> AutoCloseables.close(arrowBuf, transferredBuffer, c1, c2, root));
+  }
+
+  @Test
+  public void testSmallerGrantedSize() {
+    // actual size is larger than request size
+    final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(1, MAX_ALLOCATION);
+    assertThrows(UnsupportedOperationException.class, () -> allocator.buffer(16L));
   }
 
   private BaseAllocator createAllocatorWithFixedSizeAllocationManager(int fixedSize, long maxAllocation) {
