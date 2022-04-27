@@ -267,11 +267,13 @@ std::shared_ptr<Schema> GetQuerySchema() {
   std::string table_name = "test";
   std::string schema_name = "schema_test";
   std::string catalog_name = "catalog_test";
+  std::string type_name = "type_test";
   return arrow::schema({arrow::field("id", int64(), true,
                                      arrow::flight::sql::ColumnMetadata::Builder()
                                          .TableName(table_name)
                                          .IsAutoIncrement(true)
                                          .IsCaseSensitive(false)
+                                         .TypeName(type_name)
                                          .SchemaName(schema_name)
                                          .IsSearchable(true)
                                          .CatalogName(catalog_name)
