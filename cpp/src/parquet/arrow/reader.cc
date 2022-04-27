@@ -1096,7 +1096,7 @@ class RowGroupGenerator {
   }
 
   void FetchNext() {
-    int row_group_index = readahead_index_++;
+    size_t row_group_index = readahead_index_++;
     int row_group = row_groups_[row_group_index];
     std::vector<int> column_indices = column_indices_;
     auto reader = arrow_reader_;
