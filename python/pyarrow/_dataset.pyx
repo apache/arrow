@@ -2134,7 +2134,7 @@ cdef class TaggedRecordBatchIterator(_Weakrefable):
             fragment=Fragment.wrap(batch.fragment))
 
 
-_DEFAULT_BATCH_SIZE = 2**20
+_DEFAULT_BATCH_SIZE = 2**17
 
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
@@ -2217,7 +2217,7 @@ cdef class Scanner(_Weakrefable):
         partition information or internal metadata found in the data
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
-    batch_size : int, default 1M
+    batch_size : int, default 128Ki
         The maximum row count for scanned record batches. If scanned
         record batches are overflowing memory then this method can be
         called to reduce their size.
@@ -2291,7 +2291,7 @@ cdef class Scanner(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 1M
+        batch_size : int, default 128Ki
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -2369,7 +2369,7 @@ cdef class Scanner(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 1M
+        batch_size : int, default 128Ki
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -2433,7 +2433,7 @@ cdef class Scanner(_Weakrefable):
                 The columns to project.
         filter : Expression, default None
             Scan will return only the rows matching the filter.
-        batch_size : int, default 1M
+        batch_size : int, default 128Ki
             The maximum row count for scanned record batches.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by

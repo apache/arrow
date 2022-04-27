@@ -1741,17 +1741,18 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_read_partition_keys_only(tempdir):
+    BATCH_SIZE = 2 ** 17
     # This is a regression test for ARROW-15318 which saw issues
     # reading only the partition keys from files with batches larger
     # than the default batch size (e.g. so we need to return two chunks)
     table = pa.table({
-        'key': pa.repeat(0, 2 ** 20 + 1),
-        'value': np.arange(2 ** 20 + 1)})
+        'key': pa.repeat(0, BATCH_SIZE + 1),
+        'value': np.arange(BATCH_SIZE + 1)})
     pq.write_to_dataset(
-        table[:2 ** 20],
+        table[:BATCH_SIZE],
         tempdir / 'one', partition_cols=['key'])
     pq.write_to_dataset(
-        table[:2 ** 20 + 1],
+        table[:BATCH_SIZE + 1],
         tempdir / 'two', partition_cols=['key'])
 
     table = pq.read_table(tempdir / 'one', columns=['key'])
