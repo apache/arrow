@@ -108,12 +108,15 @@ class ReservationListenableMemoryPool::Impl {
     }
     int64_t bytes_granted = (new_block_count - blocks_reserved_) * block_size_;
     blocks_reserved_ = new_block_count;
+    if (bytes_reserved_ > max_bytes_reserved_) {
+      max_bytes_reserved_ = bytes_reserved_;
+    }
     return bytes_granted;
   }
 
-  int64_t bytes_allocated() { return pool_->bytes_allocated(); }
+  int64_t bytes_allocated() { return bytes_reserved_; }
 
-  int64_t max_memory() { return pool_->max_memory(); }
+  int64_t max_memory() { return max_bytes_reserved_; }
 
   std::string backend_name() { return pool_->backend_name(); }
 
@@ -125,6 +128,7 @@ class ReservationListenableMemoryPool::Impl {
   int64_t block_size_;
   int64_t blocks_reserved_;
   int64_t bytes_reserved_;
+  int64_t max_bytes_reserved_ = 0L;
   std::mutex mutex_;
 };
 
