@@ -265,18 +265,18 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
 
     // round the request size according to the rounding policy
-    final long actualRequestSize = roundingPolicy.getRoundedSize(initialRequestSize);
+    final long roundedRequestSize = roundingPolicy.getRoundedSize(initialRequestSize);
 
-    listener.onPreAllocation(actualRequestSize);
+    listener.onPreAllocation(roundedRequestSize);
 
-    AllocationOutcome outcome = this.allocateBytes(actualRequestSize);
+    AllocationOutcome outcome = this.allocateBytes(roundedRequestSize);
     if (!outcome.isOk()) {
-      if (listener.onFailedAllocation(actualRequestSize, outcome)) {
+      if (listener.onFailedAllocation(roundedRequestSize, outcome)) {
         // Second try, in case the listener can do something about it
-        outcome = this.allocateBytes(actualRequestSize);
+        outcome = this.allocateBytes(roundedRequestSize);
       }
       if (!outcome.isOk()) {
-        throw new OutOfMemoryException(createErrorMsg(this, actualRequestSize,
+        throw new OutOfMemoryException(createErrorMsg(this, roundedRequestSize,
             initialRequestSize), outcome.getDetails());
       }
     }
@@ -284,35 +284,44 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     boolean success = false;
     final ArrowBuf buffer;
     try {
-      buffer = bufferWithoutReservation(actualRequestSize, manager);
+      buffer = bufferWithoutReservation(roundedRequestSize, manager);
       success = true;
     } catch (OutOfMemoryError e) {
       throw e;
     } finally {
       if (!success) {
-        releaseBytes(actualRequestSize);
+        releaseBytes(roundedRequestSize);
       }
     }
 
     final long grantedSize = buffer.getReferenceManager().getSize();
-    if (grantedSize != actualRequestSize) {
-      // reallocate bytes using the actual returned chunk size
-      long diff = grantedSize - actualRequestSize;
-      if (diff > 0) {
-        AllocationOutcome reallocateOutcome = allocateBytes(diff);
-        if (!reallocateOutcome.isOk()) {
-          // forcibly allocate for remaining bytes, then release all
-          forceAllocate(diff);
-          buffer.close();
-          throw new OutOfMemoryException(createErrorMsg(this, grantedSize, actualRequestSize,
-              initialRequestSize), reallocateOutcome.getDetails());
-        }
-      } else {
-        releaseBytes(-diff);
-      }
+    if (grantedSize == roundedRequestSize) {
+      listener.onAllocation(grantedSize);
+      return buffer;
     }
-    listener.onAllocation(grantedSize);
-    return buffer;
+    if (grantedSize > roundedRequestSize) {
+      // reallocate bytes using the actual returned chunk size
+      long diff = grantedSize - roundedRequestSize;
+      AllocationOutcome reallocateOutcome = allocateBytes(diff);
+      if (!reallocateOutcome.isOk()) {
+        // forcibly allocate for remaining bytes, then release all
+        forceAllocate(diff);
+        buffer.close();
+        listener.onFailedAllocation(roundedRequestSize, reallocateOutcome);
+        throw new OutOfMemoryException(createErrorMsg(this, grantedSize, roundedRequestSize,
+            initialRequestSize), reallocateOutcome.getDetails());
+      }
+      listener.onAllocation(grantedSize);
+      return buffer;
+    }
+    // granted size < request size
+    // forcibly deallocate for under-allocated bytes, then release all
+    long diff = roundedRequestSize - grantedSize;
+    releaseBytes(-diff);
+    buffer.close();
+    throw new UnsupportedOperationException(
+        String.format("Granted buffer size %d is smaller than the rounded request size %d (before rounding: %d), " +
+                "which is illegal for an allocation", grantedSize, roundedRequestSize, initialRequestSize));
   }
 
   /**
