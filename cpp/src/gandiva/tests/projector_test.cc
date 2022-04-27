@@ -1042,6 +1042,102 @@ TEST_F(TestProjector, TestPositiveNegative) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_neg2, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestNegativeMonthInterval) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::month_interval());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_pos = field("result", arrow::month_interval());
+
+  // Build expression for NEGATIVE function
+  auto pos_expr = TreeExprBuilder::MakeExpression("negative", {field0}, field_pos);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {pos_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 6;
+
+  std::shared_ptr<arrow::Array> array0, exp_pos;
+  arrow::ArrayFromVector<arrow::MonthIntervalType>(
+      arrow::month_interval(), {true, true, true, true, true, true},
+      {2, -2, 10250, 2147483647, 4, -4}, &array0);
+
+  // expected output
+  arrow::ArrayFromVector<arrow::MonthIntervalType>(
+      arrow::month_interval(), {true, true, true, true, true, true},
+      {-2, 2, -10250, -2147483647, -4, 4}, &exp_pos);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_pos, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestNegativeIntervalTypeDayTime) {
+  // schema for input fields
+  auto field0 = field("f1", arrow::day_time_interval());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto output_negative = field("result", arrow::day_time_interval());
+
+  // Build expression for POSITIVE function
+  auto pos_expr = TreeExprBuilder::MakeExpression("negative", {field0}, output_negative);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {pos_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 7;
+
+  std::shared_ptr<arrow::Array> array_day_interval, array_day_interval_output;
+  arrow::ArrayFromVector<arrow::DayTimeIntervalType,
+                         arrow::DayTimeIntervalType::DayMilliseconds>(
+      arrow::day_time_interval(), {true, true, true, true, true, true, true},
+      {{2, 2},
+       {-2, -2},
+       {10250, 3600000},
+       {2147483647, 2147483647},
+       {4, 1500},
+       {-4, -1500},
+       {-2147483647, -2147483647}},
+      &array_day_interval);
+
+  // expected output
+  arrow::ArrayFromVector<arrow::DayTimeIntervalType,
+                         arrow::DayTimeIntervalType::DayMilliseconds>(
+      arrow::day_time_interval(), {true, true, true, true, true, true, true},
+      {{-2, -2},
+       {2, 2},
+       {-10250, -3600000},
+       {-2147483647, -2147483647},
+       {-4, -1500},
+       {4, 1500},
+       {2147483647, 2147483647}},
+      &array_day_interval_output);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_day_interval});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(array_day_interval_output, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestConcat) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());

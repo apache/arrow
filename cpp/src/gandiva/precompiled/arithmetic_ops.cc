@@ -386,6 +386,30 @@ NUMERIC_FUNCTION_FOR_REAL(NEGATIVE)
 
 NEGATIVE_INTEGER(int32, 32)
 NEGATIVE_INTEGER(int64, 64)
+NEGATIVE_INTEGER(month_interval, 32)
+
+const int64_t INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME = 9223372034707292159;
+const int64_t INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME = -9223372030412324863;
+
+gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval interval) {
+  if (interval > INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME ||
+      interval < INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME) {
+    gdv_fn_context_set_error_msg(
+        context, "Interval day time is out of boundaries for the negative function");
+    return 0;
+  }
+
+  int64_t left = interval >> 32;
+  int64_t right = interval & 0x00000000FFFFFFFF;
+
+  left = -1 * left;
+  right = -1 * right;
+
+  gdv_int64 out = (left & 0x00000000FFFFFFFF) << 32;
+  out |= (right & 0x00000000FFFFFFFF);
+
+  return out;
+}
 
 #undef NEGATIVE
 #undef NEGATIVE_INTEGER
