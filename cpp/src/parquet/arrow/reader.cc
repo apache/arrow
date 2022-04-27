@@ -1084,9 +1084,14 @@ class RowGroupGenerator {
 
  private:
   void FillReadahead() {
-    while (readahead_index_ < row_groups_.size() &&
-           rows_in_flight_ < min_rows_in_flight_) {
+    if (min_rows_in_flight_ == 0) {
+      // No readahead, fetch the batch when it is asked for
       FetchNext();
+    } else {
+      while (readahead_index_ < row_groups_.size() &&
+             rows_in_flight_ < min_rows_in_flight_) {
+        FetchNext();
+      }
     }
   }
 
@@ -1160,6 +1165,9 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         ::arrow::internal::Executor* cpu_executor,
                                         int rows_to_readahead) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
+  if (rows_to_readahead < 0) {
+    return Status::Invalid("rows_to_readahead must be > 0");
+  }
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     reader_->PreBuffer(row_group_indices, column_indices, reader_properties_.io_context(),
