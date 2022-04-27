@@ -616,7 +616,8 @@ test_and_install_cpp() {
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
-  cmake --build . --target install -j$NPROC
+  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
+  cmake --build . --target install
 
   # Explicitly set site-package directory, otherwise the C++ tests are unable
   # to load numpy in a python virtualenv
