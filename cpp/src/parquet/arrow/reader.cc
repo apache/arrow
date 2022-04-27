@@ -341,7 +341,7 @@ class FileReaderImpl : public FileReader {
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
                           ::arrow::internal::Executor* cpu_executor,
-                          int row_group_readahead) override;
+                          int64_t rows_to_readahead) override;
 
   int num_columns() const { return reader_->metadata()->num_columns(); }
 
@@ -1163,7 +1163,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         const std::vector<int> row_group_indices,
                                         const std::vector<int> column_indices,
                                         ::arrow::internal::Executor* cpu_executor,
-                                        int rows_to_readahead) {
+                                        int64_t rows_to_readahead) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
   if (rows_to_readahead < 0) {
     return Status::Invalid("rows_to_readahead must be > 0");

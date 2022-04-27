@@ -461,10 +461,11 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
         GetFragmentScanOptions<ParquetFragmentScanOptions>(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
-    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
-                                              reader, row_groups, column_projection,
-                                              ::arrow::internal::GetCpuThreadPool(),
-                                              batch_readahead * batch_size));
+    int64_t rows_to_readahead = batch_readahead * batch_size;
+    ARROW_ASSIGN_OR_RAISE(auto generator,
+                          reader->GetRecordBatchGenerator(
+                              reader, row_groups, column_projection,
+                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
     RecordBatchGenerator sliced = SlicingGenerator(std::move(generator), batch_size);
     RecordBatchGenerator sliced_readahead =
         MakeSerialReadaheadGenerator(std::move(sliced), batch_readahead);
