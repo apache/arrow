@@ -1698,37 +1698,37 @@ Examples
         else:
             metadata_nthreads = 1
 
-        self._metadata = _ParquetDatasetMetadata()
+        self._ds_metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
 
-        self._metadata.fs, _ = _get_filesystem_and_path(filesystem, a_path)
+        self._ds_metadata.fs, _ = _get_filesystem_and_path(filesystem, a_path)
         if isinstance(path_or_paths, list):
             self.paths = [_parse_uri(path) for path in path_or_paths]
         else:
             self.paths = _parse_uri(path_or_paths)
 
-        self._metadata.read_dictionary = read_dictionary
-        self._metadata.memory_map = memory_map
-        self._metadata.buffer_size = buffer_size
+        self._ds_metadata.read_dictionary = read_dictionary
+        self._ds_metadata.memory_map = memory_map
+        self._ds_metadata.buffer_size = buffer_size
 
         (self._pieces,
          self._partitions,
          self._common_metadata_path,
          self._metadata_path) = _make_manifest(
              path_or_paths, self._fs, metadata_nthreads=metadata_nthreads,
-             open_file_func=partial(_open_dataset_file, self._metadata)
+             open_file_func=partial(_open_dataset_file, self._ds_metadata)
         )
 
         if self._common_metadata_path is not None:
             with self._fs.open(self._common_metadata_path) as f:
-                self._metadata.common_metadata = read_metadata(
+                self._ds_metadata.common_metadata = read_metadata(
                     f,
                     memory_map=memory_map
                 )
         else:
-            self._metadata.common_metadata = None
+            self._ds_metadata.common_metadata = None
 
         if metadata is not None:
             warnings.warn(
@@ -1738,9 +1738,9 @@ Examples
 
         if metadata is None and self._metadata_path is not None:
             with self._fs.open(self._metadata_path) as f:
-                self.__metadata = read_metadata(f, memory_map=memory_map)
+                self._metadata = read_metadata(f, memory_map=memory_map)
         else:
-            self.__metadata = metadata
+            self._metadata = metadata
 
         if schema is not None:
             warnings.warn(
@@ -1771,13 +1771,16 @@ Examples
         if self._fs.__class__ != other._fs.__class__:
             return False
         for prop in ('paths', '_pieces', '_partitions',
-                     'common_metadata_path', 'metadata_path',
-                     'common_metadata', 'metadata', '_schema',
+                     '_common_metadata_path', '_metadata_path',
+                     '_common_metadata', '_metadata', '_schema',
                      'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
                 return False
         for prop in ('memory_map', 'buffer_size'):
-            if getattr(self._metadata, prop) != getattr(other._metadata, prop):
+            if (
+                getattr(self._ds_metadata, prop) !=
+                getattr(other._ds_metadata, prop)
+            ):
                 return False
 
         return True
@@ -1789,13 +1792,13 @@ Examples
             return NotImplemented
 
     def validate_schemas(self):
-        if self.__metadata is None and self._schema is None:
+        if self._metadata is None and self._schema is None:
             if self._common_metadata is not None:
                 self._schema = self._common_metadata.schema
             else:
                 self._schema = self._pieces[0].get_metadata().schema
         elif self._schema is None:
-            self._schema = self.__metadata.schema
+            self._schema = self._metadata.schema
 
         # Verify schemas are all compatible
         dataset_schema = self._schema.to_arrow_schema()
@@ -1930,10 +1933,10 @@ Examples
         return self.read(use_pandas_metadata=True, **kwargs)
 
     def _get_common_pandas_metadata(self):
-        if self.common_metadata is None:
+        if self._common_metadata is None:
             return None
 
-        keyvalues = self.common_metadata.metadata
+        keyvalues = self._common_metadata.metadata
         return keyvalues.get(b'pandas', None)
 
     def _filter(self, filters):
@@ -1997,7 +2000,7 @@ Examples
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.memory_map", ""),
             FutureWarning, stacklevel=2)
-        return self._metadata.memory_map
+        return self._ds_metadata.memory_map
 
     @property
     def read_dictionary(self):
@@ -2007,7 +2010,7 @@ Examples
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.read_dictionary", ""),
             FutureWarning, stacklevel=2)
-        return self._metadata.read_dictionary
+        return self._ds_metadata.read_dictionary
 
     @property
     def buffer_size(self):
@@ -2017,10 +2020,10 @@ Examples
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.buffer_size", ""),
             FutureWarning, stacklevel=2)
-        return self._metadata.buffer_size
+        return self._ds_metadata.buffer_size
 
     _fs = property(
-        operator.attrgetter('_metadata.fs')
+        operator.attrgetter('_ds_metadata.fs')
     )
 
     @property
@@ -2035,7 +2038,7 @@ Examples
                 "ParquetDataset, and then use the '.filesystem' attribute "
                 "instead."),
             FutureWarning, stacklevel=2)
-        return self._metadata.fs
+        return self._ds_metadata.fs
 
     @property
     def metadata(self):
@@ -2045,7 +2048,7 @@ Examples
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.metadata", ""),
             FutureWarning, stacklevel=2)
-        return self.__metadata
+        return self._metadata
 
     @property
     def metadata_path(self):
@@ -2068,7 +2071,7 @@ Examples
         return self._common_metadata_path
 
     _common_metadata = property(
-        operator.attrgetter('_metadata.common_metadata')
+        operator.attrgetter('_ds_metadata.common_metadata')
     )
 
     @property
@@ -2079,7 +2082,7 @@ Examples
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.common_metadata", ""),
             FutureWarning, stacklevel=2)
-        return self._metadata.common_metadata
+        return self._ds_metadata.common_metadata
 
     @property
     def fragments(self):
