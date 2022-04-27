@@ -1778,8 +1778,8 @@ Examples
                 return False
         for prop in ('memory_map', 'buffer_size'):
             if (
-                getattr(self._ds_metadata, prop)
-                != getattr(other._ds_metadata, prop)
+                getattr(self._ds_metadata, prop) !=
+                getattr(other._ds_metadata, prop)
             ):
                 return False
 
