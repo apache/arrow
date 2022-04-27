@@ -32,6 +32,8 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
 
       - uses: r-lib/actions/setup-r@v1
+        with:
+          r-version: '4.1'
       - uses: r-lib/actions/setup-pandoc@v1
       - name: Install knitr, rmarkdown
         run: |
