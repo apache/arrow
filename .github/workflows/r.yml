@@ -177,9 +177,6 @@ jobs:
         - { rtools: 40, arch: 'mingw32' }
         - { rtools: 40, arch: 'mingw64' }
         - { rtools: 40, arch: 'ucrt64' }
-        - { rtools: 42, arch: 'mingw32' }
-        - { rtools: 42, arch: 'mingw64' }
-        - { rtools: 42, arch: 'ucrt64' }
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
