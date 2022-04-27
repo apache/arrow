@@ -20,8 +20,6 @@ package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorGetter.Getter;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorGetter.Holder;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorGetter.createGetter;
-import static org.apache.calcite.avatica.util.DateTimeUtils.MILLIS_PER_DAY;
-import static org.apache.calcite.avatica.util.DateTimeUtils.unixTimeToString;
 
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -29,6 +27,7 @@ import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcTime;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
@@ -126,7 +125,7 @@ public class ArrowFlightJdbcTimeVectorAccessor extends ArrowFlightJdbcAccessor {
     long value = holder.value;
     long milliseconds = this.timeUnit.toMillis(value);
 
-    return new Time(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    return new ArrowFlightJdbcTime(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
   }
 
   private void fillHolder() {
@@ -142,16 +141,6 @@ public class ArrowFlightJdbcTimeVectorAccessor extends ArrowFlightJdbcAccessor {
       return null;
     }
     return new Timestamp(time.getTime());
-  }
-
-  @Override
-  public String getString() {
-    fillHolder();
-    if (wasNull) {
-      return null;
-    }
-    long milliseconds = timeUnit.toMillis(holder.value);
-    return unixTimeToString((int) (milliseconds % MILLIS_PER_DAY));
   }
 
   protected static TimeUnit getTimeUnitForVector(ValueVector vector) {

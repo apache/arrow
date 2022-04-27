@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.Getter;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.Holder;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.createGetter;
+import static org.apache.arrow.driver.jdbc.utils.DateTimeUtils.getTimestampValue;
 import static org.apache.calcite.avatica.util.DateTimeUtils.MILLIS_PER_DAY;
 import static org.apache.calcite.avatica.util.DateTimeUtils.unixDateToString;
 
@@ -94,7 +95,9 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
     long value = holder.value;
     long milliseconds = this.timeUnit.toMillis(value);
 
-    return new Date(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    long millisWithCalendar = DateTimeUtils.applyCalendarOffset(milliseconds, calendar);
+
+    return new Date(getTimestampValue(millisWithCalendar).getTime());
   }
 
   private void fillHolder() {
