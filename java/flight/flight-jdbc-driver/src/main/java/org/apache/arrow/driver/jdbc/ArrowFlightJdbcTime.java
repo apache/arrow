@@ -61,7 +61,7 @@ public class ArrowFlightJdbcTime extends Time {
 
   private int getMillisReprValue(long milliseconds) {
     // Extract the millisecond part from epoch nano day
-    if (milliseconds > MILLIS_PER_DAY) {
+    if (milliseconds >= MILLIS_PER_DAY) {
       // Convert to Epoch Day
       milliseconds %= MILLIS_PER_DAY;
     } else if (milliseconds < 0) {
