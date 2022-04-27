@@ -182,10 +182,6 @@ def nullary_check_func_fixture():
     return nullary_check, func_name
 
 
-def add_const(ctx, scalar):
-    return pc.call_function("add", [scalar, 1])
-
-
 @pytest.fixture(scope="session")
 def output_python_type_func_fixture():
     # This fixture helps to check the response
@@ -380,6 +376,9 @@ def test_function_doc_validation():
     func_doc = {
         "description": "desc"
     }
+
+    def add_const(ctx, scalar):
+        return pc.call_function("add", [scalar, 1])
 
     expected_expr = "Function doc must contain a summary"
 

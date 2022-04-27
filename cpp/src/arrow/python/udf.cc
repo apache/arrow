@@ -31,7 +31,6 @@ Status CheckOutputType(const DataType& expected, const DataType& actual) {
   }
   return Status::OK();
 }
-}  // namespace
 
 struct PythonUdf {
   ScalarUdfWrapperCallback cb;
@@ -98,6 +97,8 @@ struct PythonUdf {
     return Status::OK();
   }
 };
+
+}  // namespace
 
 Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback wrapper,
                               const ScalarUdfOptions& options) {
