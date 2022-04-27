@@ -616,14 +616,13 @@ test_and_install_cpp() {
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
+  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
   cmake --build . --target install
 
   # Explicitly set site-package directory, otherwise the C++ tests are unable
   # to load numpy in a python virtualenv
   local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
 
-  # TODO: ARROW-5036: plasma-serialization_tests broken
-  # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
     --exclude-regex "plasma-serialization_tests" \
     -j$NPROC \
