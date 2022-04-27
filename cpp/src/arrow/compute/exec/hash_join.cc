@@ -96,7 +96,6 @@ class HashJoinBasicImpl : public HashJoinImpl {
     // As of right now, we ignore the `num_threads` argument, so later we will have to
     // re-add `num_threads_ = num_threads;`
     num_threads_ = GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1;
-    // num_threads_ = GetCpuThreadPoolCapacity() + 1;
 
     START_COMPUTE_SPAN(span_, "HashJoinBasicImpl",
                        {{"detail", filter.ToString()},
