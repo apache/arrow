@@ -23,13 +23,15 @@ namespace arrow {
 
 namespace py {
 
+namespace {
 Status CheckOutputType(const DataType& expected, const DataType& actual) {
   if (!expected.Equals(actual)) {
-    return Status::TypeError("Expected output type, ", expected.name(),
-                             ", but function returned type ", actual.name());
+    return Status::TypeError("Expected output type, ", expected.ToString(),
+                             ", but function returned type ", actual.ToString());
   }
   return Status::OK();
 }
+}  // namespace
 
 struct PythonUdf {
   ScalarUdfWrapperCallback cb;
@@ -99,9 +101,6 @@ struct PythonUdf {
 
 Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback wrapper,
                               const ScalarUdfOptions& options) {
-  if (user_function == nullptr) {
-    return Status::Invalid("Python function cannot be null");
-  }
   if (!PyCallable_Check(user_function)) {
     return Status::TypeError("Expected a callable Python object.");
   }

@@ -2361,7 +2361,7 @@ def _get_scalar_udf_context(memory_pool, batch_length):
     return context
 
 
-def register_scalar_function(func, func_name, function_doc, in_types,
+def register_scalar_function(func, function_name, function_doc, in_types,
                              out_type):
     """
     Register a user-defined scalar function. 
@@ -2383,9 +2383,9 @@ def register_scalar_function(func, func_name, function_doc, in_types,
         all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
-        varargs. The last in_type will be the type of the all
-        varargs arguments.
-    func_name : str
+        varargs. The last in_type will be the type of all varargs
+        arguments.
+    function_name : str
         Name of the function. This name must be globally unique. 
     function_doc : dict
         A dictionary object with keys "summary" (str),
@@ -2437,19 +2437,20 @@ def register_scalar_function(func, func_name, function_doc, in_types,
         shared_ptr[CDataType] c_out_type
         CScalarUdfOptions c_options
 
-    c_func_name = tobytes(func_name)
-
     if callable(func):
         c_function = <PyObject*>func
     else:
         raise TypeError("func must be a callable")
+
+    c_func_name = tobytes(function_name)
 
     func_spec = inspect.getfullargspec(func)
     num_args = -1
     if isinstance(in_types, dict):
         for in_type in in_types.values():
             if isinstance(in_type, DataType):
-                c_in_types.push_back(pyarrow_unwrap_data_type(in_type))
+                c_in_types.push_back(
+                    pyarrow_unwrap_data_type(ensure_type(in_type)))
             else:
                 raise TypeError("in_types must be of type DataType")
         function_doc["arg_names"] = in_types.keys()
@@ -2460,13 +2461,13 @@ def register_scalar_function(func, func_name, function_doc, in_types,
 
     c_arity = CArity(num_args, func_spec.varargs)
 
-    if "summary" not in function_doc.keys():
+    if "summary" not in function_doc:
         raise ValueError("Function doc must contain a summary")
 
-    if "description" not in function_doc.keys():
+    if "description" not in function_doc:
         raise ValueError("Function doc must contain a description")
 
-    if "arg_names" not in function_doc.keys():
+    if "arg_names" not in function_doc:
         raise ValueError("Function doc must contain arg_names")
 
     c_func_doc = _make_function_doc(function_doc)

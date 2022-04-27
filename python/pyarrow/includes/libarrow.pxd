@@ -2338,7 +2338,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
         DatumType kind() const
         c_string ToString() const
-        c_string ToString(DatumType kind)
 
         const shared_ptr[CArrayData]& array() const
         const shared_ptr[CChunkedArray]& chunked_array() const
@@ -2346,6 +2345,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const shared_ptr[CTable]& table() const
         const shared_ptr[CScalar]& scalar() const
 
+    cdef c_string ToString(DatumType kind)
 
 cdef extern from * namespace "arrow::compute":
     # inlined from compute/function_internal.h to avoid exposing
