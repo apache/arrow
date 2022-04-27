@@ -94,7 +94,9 @@ Result<fs::FileInfoVector> GetGlobFiles(const std::shared_ptr<fs::FileSystem>& f
 
   if (!cur.empty()) {
     for (size_t i = 0; i < results.size(); i++) {
-      results[i].set_path(fs::internal::ConcatAbstractPath(results[i].path(), cur));
+      ARROW_ASSIGN_OR_RAISE(
+          results[i], filesystem->GetFileInfo(
+                          fs::internal::ConcatAbstractPath(results[i].path(), cur)));
     }
   }
 
@@ -208,7 +210,8 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         }
         if (item.path_type_case() ==
             substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile) {
-          files.emplace_back(std::move(path), fs::FileType::File);
+          ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
+          files.push_back(std::move(file));
         } else if (item.path_type_case() ==
                    substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder) {
           fs::FileSelector selector;
