@@ -2383,45 +2383,122 @@ TEST(TestStringOps, TestFromHex) {
   EXPECT_EQ(output, "");
   EXPECT_EQ(out_valid, false);
 }
+
 TEST(TestStringOps, TestSoundex) {
   gandiva::ExecutionContext ctx;
   auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
+  bool validity = false;
   const char* out;
 
-  out = soundex_utf8(ctx_ptr, "Miller", 6, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "M460");
-
-  out = soundex_utf8(ctx_ptr, "3Miller", 7, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "M460");
-
-  out = soundex_utf8(ctx_ptr, "Mill3r", 6, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "M460");
-
-  out = soundex_utf8(ctx_ptr, "abc", 3, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "A120");
-
-  out = soundex_utf8(ctx_ptr, "123abc", 6, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "A120");
-
-  out = soundex_utf8(ctx_ptr, "test", 4, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "T230");
-
-  out = soundex_utf8(ctx_ptr, "", 0, &out_len);
+  out = soundex_utf8(ctx_ptr, "123456789", 9, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(validity, false);
 
-  out = soundex_utf8(ctx_ptr, "Elvis", 5, &out_len);
+  out = soundex_utf8(ctx_ptr, "a", 1, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "123456789a", 10, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "a123456789", 10, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "robert", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "r-O-b-E-r-T", 11, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Robert", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Rupert", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Honeyman", 8, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "H555");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Tymczak", 7, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T522");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Ashcraft", 8, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A226");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Ashcroft", 8, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A226");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Jjjice", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "J200");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Luke Garcia", 11, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "L226");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "123 321 Luke 987 Gar4cia", 24, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "L226");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Alice Ichabod", 13, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A422");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Miller", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "3Miller", 7, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Mill3r", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "abc", 3, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A120");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "123abc", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A120");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "test", 4, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T230");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "", 0, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Elvis", 5, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), "E412");
+  EXPECT_EQ(validity, true);
 
-  out = soundex_utf8(ctx_ptr, "waterloo", 8, &out_len);
+  out = soundex_utf8(ctx_ptr, "waterloo", 8, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), "W364");
+  EXPECT_EQ(validity, true);
 
-  out = soundex_utf8(ctx_ptr, "eowolf", 6, &out_len);
+  out = soundex_utf8(ctx_ptr, "eowolf", 6, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), "E410");
+  EXPECT_EQ(validity, true);
 
-  out = soundex_utf8(ctx_ptr, "Smith", 5, &out_len);
-  auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, &out_len);
+  out = soundex_utf8(ctx_ptr, "Smith", 5, true, &validity, &out_len);
+  auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), std::string(out2, out_len));
+  EXPECT_EQ(validity, true);
 }
 
 TEST(TestStringOps, TestInstr) {

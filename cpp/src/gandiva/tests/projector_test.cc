@@ -835,12 +835,16 @@ TEST_F(TestProjector, TestSoundex) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array0 =
-      MakeArrowArrayUtf8({"test", "", "Miller", "abc"}, {true, true, true, true});
+  int num_records = 11;
+  auto array0 = MakeArrowArrayUtf8(
+      {"test", "", "Miller", "abc", "democrat", "luke garcia", "alice ichabod", "Jjjice",
+       "SACHS", "路-大学b路%$大", "a"},
+      {true, true, true, true, true, true, true, true, true, true, true});
   // expected output
-  auto exp_soundex =
-      MakeArrowArrayUtf8({"T230", "", "M460", "A120"}, {true, true, true, true});
+  auto exp_soundex = MakeArrowArrayUtf8(
+      {"T230", "", "M460", "A120", "D526", "L226", "A422", "J200", "S220", "B000",
+       "A000"},
+      {true, true, true, true, true, true, true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
