@@ -278,7 +278,6 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
   }
 
   std::vector<std::shared_ptr<FileFragment>> fragments;
-  std::string fixed_path;
   for (const auto& info : files_) {
     auto fixed_path = StripPrefixAndFilename(info.path(), options_.partition_base_dir);
     ARROW_ASSIGN_OR_RAISE(auto partition,
