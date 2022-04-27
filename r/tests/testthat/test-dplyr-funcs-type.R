@@ -957,7 +957,7 @@ test_that("`as_datetime()`", {
 })
 
 test_that("format date/time", {
-  # test skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168 + locale issues
   # In 3.4 the lack of tzone attribute causes spurious failures
   skip_if_r_version("3.4.4")
 
@@ -965,36 +965,36 @@ test_that("format date/time", {
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
     date = c(as.Date("2021-01-01"), NA)
   )
-  formats <- "%w %d %m %y %Y %H %I %M %z %Z %j %U %W %% %G %V %u"
+  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X%% %G %V %u"
   formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
 
-  # test compare_dplyr_binding(
-  # test  .input %>%
-  # test    mutate(x = format(datetime, format = formats)) %>%
-  # test    collect(),
-  # test  times
-  # test )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats)) %>%
+      collect(),
+    times
+  )
 
-  # test compare_dplyr_binding(
-  # test   .input %>%
-  # test     mutate(x = format(date, format = formats_date)) %>%
-  # test     collect(),
-  # test   times
-  # test )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(date, format = formats_date)) %>%
+      collect(),
+    times
+  )
 
-  # testcompare_dplyr_binding(
-  # test  .input %>%
-  # test    mutate(x = format(datetime, format = formats, tz = "Europe/Bucharest")) %>%
-  # test    collect(),
-  # test  times
-  # test)
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats, tz = "Europe/Bucharest")) %>%
+      collect(),
+    times
+  )
 
-  # testcompare_dplyr_binding(
-  # test  .input %>%
-  # test    mutate(x = format(datetime, format = formats, tz = "EST", usetz = TRUE)) %>%
-  # test    collect(),
-  # test  times
-  # test)
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats, tz = "EST", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
 
   compare_dplyr_binding(
     .input %>%
@@ -1034,16 +1034,6 @@ test_that("format date/time", {
         times
       )
     }
-  )
-
-  skip_on_os("windows") # locale issues
-  formats_skipped_on_windows <- "%a %A %b %B %p %x %X"
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = format(datetime, format = formats_skipped_on_windows)) %>%
-      collect(),
-    times
   )
 })
 
