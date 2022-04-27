@@ -210,8 +210,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         }
         if (item.path_type_case() ==
             substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile) {
-          ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
-          files.push_back(std::move(file));
+          files.emplace_back(path, fs::FileType::File);
         } else if (item.path_type_case() ==
                    substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder) {
           fs::FileSelector selector;

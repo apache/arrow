@@ -628,7 +628,11 @@ TEST(Substrait, ReadRel) {
       "local_files": {
         "items": [
           {
-            "uri_path_glob": "file:///tmp/dat*.parquet",
+            "uri_file": "file:///tmp/dat1.parquet",
+            "format": "FILE_FORMAT_PARQUET"
+          },
+          {
+            "uri_file": "file:///tmp/dat2.parquet",
             "format": "FILE_FORMAT_PARQUET"
           }
         ]
