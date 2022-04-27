@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -64,6 +65,12 @@ struct ARROW_EXPORT GcsOptions {
   std::string scheme;
   /// \brief Location to use for creating buckets.
   std::string default_bucket_location;
+
+  /// \brief If set used to control total time allowed for retrying underlying
+  /// errors.
+  ///
+  /// The default policy is to retry for up to 15 minutes.
+  arrow::util::optional<int> retry_limit_seconds;
 
   /// \brief Default metadata for OpenOutputStream.
   ///

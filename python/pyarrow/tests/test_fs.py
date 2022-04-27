@@ -207,12 +207,15 @@ def gcsfs(request, gcs_server):
 
     host, port = gcs_server['connection']
     bucket = 'pyarrow-filesystem/'
+    # Make sure the server is alive.
+    assert gcs_server['process'].poll() is None
 
     fs = GcsFileSystem(
         endpoint_override=f'{host}:{port}',
         scheme='http',
         # Mock endpoint doesn't check credentials.
-        anonymous=True
+        anonymous=True,
+        retry_time_limit=timedelta(seconds=3)
     )
     fs.create_dir(bucket)
 
@@ -1398,7 +1401,8 @@ def test_filesystem_from_uri_gcs(gcs_server):
     host, port = gcs_server['connection']
 
     uri = ("gs://anonymous@" +
-           f"mybucket/foo/bar?scheme=http&endpoint_override={host}:{port}")
+           f"mybucket/foo/bar?scheme=http&endpoint_override={host}:{port}&" +
+           "retry_limit_seconds=3")
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, GcsFileSystem)

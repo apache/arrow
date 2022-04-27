@@ -26,7 +26,7 @@ from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem, TimePoint_to_ns, PyDateTime_to_TimePoint
 from cython.operator cimport dereference as deref
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 cdef class GcsFileSystem(FileSystem):
@@ -73,6 +73,9 @@ cdef class GcsFileSystem(FileSystem):
     default_metadata : mapping or pyarrow.KeyValueMetadata, default None
         Default metadata for `open_output_stream`.  This will be ignored if
         non-empty metadata is passed to `open_output_stream`.
+    retry_time_limit : timedelta, default None
+        Set the maximum amount of time the GCS client will attempt to retry
+        transient errors. Subsecond granularity is ignored.
     """
 
     cdef:
@@ -83,10 +86,12 @@ cdef class GcsFileSystem(FileSystem):
                  default_bucket_location='US',
                  scheme=None,
                  endpoint_override=None,
-                 default_metadata=None):
+                 default_metadata=None,
+                 retry_time_limit=None):
         cdef:
             CGcsOptions options
             shared_ptr[CGcsFileSystem] wrapped
+            int64_t time_limit_seconds
 
         # Intentional use of truthiness because empty strings aren't valid and
         # for reconstruction from pickling will give empty strings.
@@ -129,6 +134,9 @@ cdef class GcsFileSystem(FileSystem):
         if default_metadata is not None:
             options.default_metadata = pyarrow_unwrap_metadata(
                 ensure_metadata(default_metadata))
+        if retry_time_limit is not None:
+            time_limit_seconds = int(retry_time_limit.total_seconds())
+            options.retry_limit_seconds = time_limit_seconds
 
         with nogil:
             wrapped = GetResultValue(CGcsFileSystem.Make(options))
@@ -154,6 +162,10 @@ cdef class GcsFileSystem(FileSystem):
         cdef CGcsOptions opts = self.gcsfs.options()
         service_account = frombytes(opts.credentials.target_service_account())
         expiration_dt = self._expiration_datetime_from_options()
+        retry_time_limit = None
+        if opts.retry_limit_seconds.has_value():
+            retry_time_limit = timedelta(
+                seconds=opts.retry_limit_seconds.value())
         return (
             GcsFileSystem._reconstruct, (dict(
                 access_token=frombytes(opts.credentials.access_token()),
@@ -165,6 +177,7 @@ cdef class GcsFileSystem(FileSystem):
                 default_bucket_location=frombytes(
                     opts.default_bucket_location),
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
+                retry_time_limit=retry_time_limit
             ),))
 
     @property

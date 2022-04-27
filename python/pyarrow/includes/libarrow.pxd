@@ -54,6 +54,13 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
     cdef cppclass CDecimal256" arrow::Decimal256":
         c_string ToString(int32_t scale) const
 
+cdef extern from "arrow/util/optional.h" namespace "arrow::util" nogil:
+    cdef cppclass c_optional"arrow::util::optional"[T]:
+        c_bool has_value()
+        T value()
+        c_optional(T&)
+        c_optional& operator=[U](U&)
+
 
 cdef extern from "arrow/config.h" namespace "arrow" nogil:
     cdef cppclass CBuildInfo" arrow::BuildInfo":

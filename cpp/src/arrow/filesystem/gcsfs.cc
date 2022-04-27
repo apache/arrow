@@ -318,6 +318,11 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
     options.set<google::cloud::UnifiedCredentialsOption>(
         o.credentials.holder()->credentials);
   }
+  if (o.retry_limit_seconds.has_value()) {
+    options.set<gcs::RetryPolicyOption>(
+        gcs::LimitedTimeRetryPolicy(std::chrono::seconds(*o.retry_limit_seconds))
+            .clone());
+  }
   return options;
 }
 
@@ -367,7 +372,10 @@ class GcsFileSystem::Impl {
     auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
     // Include trailing delimiters ensures that files matching "directory"
     // conventions are also included in the listing.
-    auto include_trailing = gcs::IncludeTrailingDelimiter(true);
+    // Only included for select.recursive false because a delimiter needs
+    // to be specified.
+    auto include_trailing = select.recursive ? gcs::IncludeTrailingDelimiter(false)
+                                             : gcs::IncludeTrailingDelimiter(true);
     FileInfoVector result;
     for (auto const& o :
          client_.ListObjects(p.bucket, prefix, delimiter, include_trailing)) {
@@ -694,7 +702,8 @@ GcsOptions::GcsOptions() {
 bool GcsOptions::Equals(const GcsOptions& other) const {
   return credentials.Equals(other.credentials) &&
          endpoint_override == other.endpoint_override && scheme == other.scheme &&
-         default_bucket_location == other.default_bucket_location;
+         default_bucket_location == other.default_bucket_location &&
+         retry_limit_seconds == other.retry_limit_seconds;
 }
 
 GcsOptions GcsOptions::Defaults() {
@@ -791,6 +800,13 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
       options.scheme = kv.second;
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
+    } else if (kv.first == "retry_limit_seconds") {
+      int parsed_seconds = atoi(kv.second.c_str());
+      if (parsed_seconds <= 0) {
+        return Status::Invalid(
+            "retry_limit_seconds  must be a positive integer.  found '", kv.second, "'");
+      }
+      options.retry_limit_seconds = parsed_seconds;
     } else {
       return Status::Invalid("Unexpected query parameter in GCS URI: '", kv.first, "'");
     }

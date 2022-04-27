@@ -100,6 +100,8 @@ class GcsTestbench : public ::testing::Environment {
     error_ = std::move(error);
   }
 
+  bool running() { return server_process_.running(); }
+
   ~GcsTestbench() override {
     // Brutal shutdown, kill the full process group because the GCS testbench may launch
     // additional children.
@@ -131,6 +133,7 @@ class GcsIntegrationTest : public ::testing::Test {
   void SetUp() override {
     ASSERT_THAT(Testbench(), NotNull());
     ASSERT_THAT(Testbench()->error(), IsEmpty());
+    ASSERT_TRUE(Testbench()->running());
 
     // Initialize a PRNG with a small amount of entropy.
     generator_ = std::mt19937_64(std::random_device()());
@@ -141,7 +144,11 @@ class GcsIntegrationTest : public ::testing::Test {
     auto client = gcs::Client(
         google::cloud::Options{}
             .set<gcs::RestEndpointOption>("http://127.0.0.1:" + Testbench()->port())
-            .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials()));
+            .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
+            .set<gcs::TransferStallTimeoutOption>(std::chrono::seconds(3))
+            .set<gcs::RetryPolicyOption>(
+                gcs::LimitedTimeRetryPolicy(std::chrono::seconds(3)).clone()));
+
     google::cloud::StatusOr<gcs::BucketMetadata> bucket = client.CreateBucketForProject(
         PreexistingBucketName(), "ignored-by-testbench", gcs::BucketMetadata{});
     ASSERT_TRUE(bucket.ok()) << "Failed to create bucket <" << PreexistingBucketName()
@@ -168,6 +175,7 @@ class GcsIntegrationTest : public ::testing::Test {
   GcsOptions TestGcsOptions() {
     auto options = GcsOptions::Anonymous();
     options.endpoint_override = "127.0.0.1:" + Testbench()->port();
+    options.retry_limit_seconds = 2;
     return options;
   }
 
@@ -328,18 +336,27 @@ TEST(GcsFileSystem, OptionsFromUri) {
   ASSERT_OK_AND_ASSIGN(
       options,
       GcsOptions::FromUri("gs://mybucket/foo/bar/"
-                          "?endpoint_override=localhost&scheme=http&location=us-west2",
+                          "?endpoint_override=localhost&scheme=http&location=us-west2"
+                          "&retry_limit_seconds=5",
                           &path));
   EXPECT_EQ(options.default_bucket_location, "us-west2");
   EXPECT_EQ(options.scheme, "http");
   EXPECT_EQ(options.endpoint_override, "localhost");
   EXPECT_EQ(path, "mybucket/foo/bar");
+  ASSERT_TRUE(options.retry_limit_seconds.has_value());
+  EXPECT_EQ(*options.retry_limit_seconds, 5);
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs:///foo/bar/", &path));
 
   // Invalid option
   ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs://mybucket/?xxx=zzz", &path));
+
+  // Invalid retry limit
+  ASSERT_RAISES(Invalid,
+                GcsOptions::FromUri("gs://foo/bar/?retry_limit_seconds=0", &path));
+  ASSERT_RAISES(Invalid,
+                GcsOptions::FromUri("gs://foo/bar/?retry_limit_seconds=-1", &path));
 }
 
 TEST(GcsFileSystem, OptionsAccessToken) {
