@@ -982,12 +982,12 @@ test_that("format date/time", {
   # test   times
   # test )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = format(datetime, format = formats, tz = "Europe/Bucharest")) %>%
-      collect(),
-    times
-  )
+  # testcompare_dplyr_binding(
+  # test  .input %>%
+  # test    mutate(x = format(datetime, format = formats, tz = "Europe/Bucharest")) %>%
+  # test    collect(),
+  # test  times
+  # test)
 
   compare_dplyr_binding(
     .input %>%
