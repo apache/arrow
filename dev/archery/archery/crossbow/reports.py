@@ -182,9 +182,13 @@ class EmailReport(Report):
 
     def listing(self, tasks):
         return '\n'.join(
+            # Use the actual build link if present, otherwise the branch url
             sorted(
                 self.TASK.format(
-                    name=task_name, url=self.branch_url(task.branch))
+                    name=task_name,
+                    url=(task.status().build_links or
+                         self.branch_url(task.branch))
+                )
                 for task_name, task in tasks.items()
             )
         )
