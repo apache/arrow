@@ -36,7 +36,7 @@ static constexpr int64_t kInt64Min = -2000000000;  // 1906-08-16 20:26:40
 static constexpr int64_t kInt64Max = 2000000000;   // 2033-05-18 03:33:20
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
-  for (const auto inverse_null_proportion : std::vector<ArgsType>({100, 0})) {
+  for (const auto inverse_null_proportion : std::vector<ArgsType>({100, 2})) {
     bench->Args({static_cast<ArgsType>(kL2Size), inverse_null_proportion});
   }
 }
@@ -206,6 +206,8 @@ DECLARE_TEMPORAL_BENCHMARKS(Millisecond);
 DECLARE_TEMPORAL_BENCHMARKS(Microsecond);
 DECLARE_TEMPORAL_BENCHMARKS(Nanosecond);
 DECLARE_TEMPORAL_BENCHMARKS(Subsecond);
+DECLARE_TEMPORAL_BENCHMARKS(ISOCalendar);
+DECLARE_TEMPORAL_BENCHMARKS(YearMonthDay);
 
 // Other temporal benchmarks
 BENCHMARK_TEMPLATE(BenchmarkStrftime, non_zoned)->Apply(SetArgs);
