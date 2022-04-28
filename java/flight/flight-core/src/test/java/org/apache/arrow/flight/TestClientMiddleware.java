@@ -246,8 +246,8 @@ public class TestClientMiddleware {
   }
 
   // Used to test that middleware can send and receive multi-valued text and binary headers.
-  static final Map<String, List<byte[]>> EXPECTED_BINARY_HEADERS = new HashMap<String, List<byte[]>>();
-  static final Map<String, List<String>> EXPECTED_TEXT_HEADERS = new HashMap<String, List<String>>();
+  static Map<String, List<byte[]>> EXPECTED_BINARY_HEADERS = new HashMap<String, List<byte[]>>();
+  static Map<String, List<String>> EXPECTED_TEXT_HEADERS = new HashMap<String, List<String>>();
 
   {
     EXPECTED_BINARY_HEADERS.put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
