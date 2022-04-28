@@ -82,8 +82,7 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    Result<compute::Expression> Parse(const std::string& directory,
-                                      const std::string& prefix) const override {
+    Result<compute::Expression> Parse(const PartitionPathFormat& path) const override {
       return compute::literal(true);
     }
 
@@ -251,11 +250,10 @@ Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) con
                         compute::literal(std::move(converted)));
 }
 
-Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& directory,
-                                                        const std::string& prefix) const {
+Result<compute::Expression> KeyValuePartitioning::Parse(const PartitionPathFormat& path) const {
   std::vector<compute::Expression> expressions;
 
-  ARROW_ASSIGN_OR_RAISE(auto parsed, ParseKeys(directory, prefix));
+  ARROW_ASSIGN_OR_RAISE(auto parsed, ParseKeys(path));
   for (const Key& key : parsed) {
     ARROW_ASSIGN_OR_RAISE(auto expr, ConvertKey(key));
     if (expr == compute::literal(true)) continue;
@@ -378,8 +376,8 @@ DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
 }
 
 Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
-    const std::string& directory, const std::string& prefix) const {
-  std::vector<std::string> segments = fs::internal::SplitAbstractPath(directory);
+    const PartitionPathFormat& path) const {
+  std::vector<std::string> segments = fs::internal::SplitAbstractPath(path.directory);
   return ParsePartitionSegments(segments);
 }
 
@@ -391,9 +389,9 @@ FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
 }
 
 Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
-    const std::string& directory, const std::string& prefix) const {
+    const PartitionPathFormat& path) const {
   std::vector<std::string> segments =
-      fs::internal::SplitAbstractPath(StripNonPrefix(prefix), kFilenamePartitionSep);
+      fs::internal::SplitAbstractPath(StripNonPrefix(path.prefix), kFilenamePartitionSep);
   return ParsePartitionSegments(segments);
 }
 
@@ -720,10 +718,10 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
 }
 
 Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
-    const std::string& directory, const std::string& prefix) const {
+    const PartitionPathFormat& path) const {
   std::vector<Key> keys;
 
-  for (const auto& segment : fs::internal::SplitAbstractPath(directory)) {
+  for (const auto& segment : fs::internal::SplitAbstractPath(path.directory)) {
     ARROW_ASSIGN_OR_RAISE(auto maybe_key, ParseKey(segment, hive_options_));
     if (auto key = maybe_key) {
       keys.push_back(std::move(*key));

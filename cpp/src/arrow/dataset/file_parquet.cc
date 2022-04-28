@@ -895,7 +895,7 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
 
     auto partition_expression =
         partitioning
-            .Parse(StripPrefixAndFilename(path, options_.partition_base_dir).directory)
+            .Parse(StripPrefixAndFilename(path, options_.partition_base_dir))
             .ValueOr(compute::literal(true));
 
     ARROW_ASSIGN_OR_RAISE(

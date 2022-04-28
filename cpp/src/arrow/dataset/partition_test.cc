@@ -44,11 +44,11 @@ namespace dataset {
 class TestPartitioning : public ::testing::Test {
  public:
   void AssertParseError(const std::string& path) {
-    ASSERT_RAISES(Invalid, partitioning_->Parse(path));
+    ASSERT_RAISES(Invalid, partitioning_->Parse(PartitionPathFormat{path,""}));
   }
 
   void AssertParse(const std::string& path, compute::Expression expected) {
-    ASSERT_OK_AND_ASSIGN(auto parsed, partitioning_->Parse(path));
+    ASSERT_OK_AND_ASSIGN(auto parsed, partitioning_->Parse(PartitionPathFormat{path,""}));
     ASSERT_EQ(parsed, expected);
   }
 
@@ -68,7 +68,7 @@ class TestPartitioning : public ::testing::Test {
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
     ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
-                         partitioning_->Parse(formatted.directory));
+                         partitioning_->Parse(formatted));
 
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
@@ -656,7 +656,7 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   factory_->Inspect({"/%AF/%BF/%CF"}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-                                  partitioning_->Parse({"/%AF/%BF/%CF"}));
+                                  partitioning_->Parse({"/%AF/%BF/%CF",""}));
 
   options.segment_encoding = SegmentEncoding::None;
   options.schema =
@@ -706,7 +706,7 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   factory_->Inspect({"/date=%AF/time=%BF/str=%CF"}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-                                  partitioning_->Parse({"/date=%AF/time=%BF/str=%CF"}));
+                                  partitioning_->Parse({"/date=%AF/time=%BF/str=%CF",""}));
 
   options.segment_encoding = SegmentEncoding::None;
   options.schema =
@@ -729,7 +729,7 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
                                   factory_->Inspect({"/date=\xAF/time=\xBF/str=\xCF"}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-      partitioning_->Parse({"/date=\xAF/time=\xBF/str=\xCF"}));
+      partitioning_->Parse({"/date=\xAF/time=\xBF/str=\xCF",""}));
 }
 
 TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
@@ -776,7 +776,7 @@ TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
       factory_->Inspect({"/%AF=2021-05-04/time=2021-05-04 07%3A27%3A00/str=%24"}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-      partitioning_->Parse({"/%AF=2021-05-04/%BF=2021-05-04 07%3A27%3A00/str=%24"}));
+      partitioning_->Parse({"/%AF=2021-05-04/%BF=2021-05-04 07%3A27%3A00/str=%24",""}));
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {
@@ -801,12 +801,12 @@ TEST_F(TestPartitioning, EtlThenHive) {
         auto etl_segments_end = segments.begin() + etl_fields.size();
         auto etl_path =
             fs::internal::JoinAbstractPath(segments.begin(), etl_segments_end);
-        ARROW_ASSIGN_OR_RAISE(auto etl_expr, etl_part.Parse(etl_path));
+        ARROW_ASSIGN_OR_RAISE(auto etl_expr, etl_part.Parse({etl_path,""}));
 
         auto alphabeta_segments_end = etl_segments_end + alphabeta_fields.size();
         auto alphabeta_path =
             fs::internal::JoinAbstractPath(etl_segments_end, alphabeta_segments_end);
-        ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr, alphabeta_part.Parse(alphabeta_path));
+        ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr, alphabeta_part.Parse({alphabeta_path,""}));
 
         return and_(etl_expr, alphabeta_expr);
       });
@@ -873,12 +873,11 @@ class RangePartitioning : public Partitioning {
 
   std::string type_name() const override { return "range"; }
 
-  Result<compute::Expression> Parse(const std::string& directory,
-                                    const std::string& prefix) const override {
+  Result<compute::Expression> Parse(const PartitionPathFormat& path) const override {
     std::vector<compute::Expression> ranges;
 
     HivePartitioningOptions options;
-    for (auto segment : fs::internal::SplitAbstractPath(directory)) {
+    for (auto segment : fs::internal::SplitAbstractPath(path.directory)) {
       ARROW_ASSIGN_OR_RAISE(auto key, HivePartitioning::ParseKey(segment, options));
       if (!key) {
         return Status::Invalid("can't parse '", segment, "' as a range");
