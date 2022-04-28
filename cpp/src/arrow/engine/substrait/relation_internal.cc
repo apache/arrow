@@ -131,6 +131,7 @@ Result<compute::Declaration> FromProtoInternal(
       ARROW_ASSIGN_OR_RAISE(auto base_schema, FromProto(read.base_schema(), ext_set));
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
+      scan_options->use_threads = true;
 
       if (read.has_filter()) {
         ARROW_ASSIGN_OR_RAISE(scan_options->filter, FromProto(read.filter(), ext_set));
