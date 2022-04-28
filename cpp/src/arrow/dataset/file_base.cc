@@ -427,6 +427,11 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
       compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
                             compute::ConsumingSinkNodeOptions{consumer}));
 
+  // this is a workaround specific for Arrow Substrait code paths
+  // Arrow Substrait creates ExecNodeOptions instances within a Declaration
+  // at this stage, schemata have not yet been created since nodes haven't
+  // thus, the ConsumingSinkNodeOptions passed to consumer has a null schema
+  // the following call to Init fills in the schema using the node just created
   ARROW_RETURN_NOT_OK(consumer->Init(node));
 
   return node;
