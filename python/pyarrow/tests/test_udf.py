@@ -262,8 +262,7 @@ def test_scalar_udf_array_unary(unary_func_fixture):
     check_scalar_function(unary_func_fixture,
                           [
                               pa.array([10, 20], pa.int64())
-                          ],
-                          mock_udf_context()
+                          ]
                           )
 
 
@@ -272,8 +271,7 @@ def test_scalar_udf_array_binary(binary_func_fixture):
                           [
                               pa.array([10, 20], pa.int64()),
                               pa.array([2, 4], pa.int64())
-                          ],
-                          mock_udf_context()
+                          ]
                           )
 
 
@@ -283,8 +281,7 @@ def test_scalar_udf_array_ternary(ternary_func_fixture):
                               pa.array([10, 20], pa.int64()),
                               pa.array([2, 4], pa.int64()),
                               pa.array([5, 10], pa.int64())
-                          ],
-                          mock_udf_context()
+                          ]
                           )
 
 
@@ -331,7 +328,7 @@ def test_registration_errors():
                                     None)
 
     # validate input type
-    expected_expr = r'in_types must be a dictionary of DataType'
+    expected_expr = "in_types must be a dictionary of DataType"
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
                                     "test_input_function", doc, None,
@@ -352,7 +349,7 @@ def test_registration_errors():
 
 
 def test_varargs_function_validation(varargs_check_func_fixture):
-    _function, func_name = varargs_check_func_fixture
+    _, func_name = varargs_check_func_fixture
     func = pc.get_function(func_name)
 
     assert func.name == func_name
@@ -466,7 +463,7 @@ def test_input_type():
         "summary": "test invalid input type",
         "description": "invalid input function"
     }
-    expected_expr = "in_types must be of type DataType"
+    expected_expr = "DataType expected, got <class 'NoneType'>"
 
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(const_return, func_name, doc,

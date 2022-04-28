@@ -2450,11 +2450,8 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     num_args = -1
     if isinstance(in_types, dict):
         for in_type in in_types.values():
-            if isinstance(in_type, DataType):
-                c_in_types.push_back(
-                    pyarrow_unwrap_data_type(in_type))
-            else:
-                raise TypeError("in_types must be of type DataType")
+            c_in_types.push_back(
+                pyarrow_unwrap_data_type(ensure_type(in_type)))
         function_doc["arg_names"] = in_types.keys()
         num_args = len(in_types)
     else:
