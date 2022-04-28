@@ -708,15 +708,7 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
     chunks[i] = chunk_as_decimal;
   }
   if (!field->nullable()) {
-    // Reconstruct each chunk without nulls.
-    for (size_t i = 0; i < chunks.size(); i++) {
-      if (chunks[i]->data()->buffers[0]) {
-        std::shared_ptr<::arrow::ArrayData> data = chunks[i]->data();
-        data->null_count = 0;
-        data->buffers[0] = nullptr;
-        chunks[i] = MakeArray(data);
-      }
-    }
+    ReconstructChunksWithoutNulls(&chunks);
   }
   *out = std::make_shared<ChunkedArray>(chunks, field->type());
   return Status::OK();
