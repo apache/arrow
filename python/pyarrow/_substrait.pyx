@@ -24,12 +24,12 @@ from pyarrow.includes.libarrow cimport *
 
 def run_query(plan):
     """
-    Executes a substrait plan and returns a RecordBatchReader.
+    Execute a Substrait plan and read the results as a RecordBatchReader.
 
     Parameters
     ----------
     plan : Buffer
-        Substrait plan can be fed as a serialized plan (Buffer). 
+        The serialized Substrait plan to execute.
     """
 
     cdef:

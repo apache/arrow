@@ -23,6 +23,7 @@ namespace arrow {
 
 namespace engine {
 
+namespace {
 /// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
 class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsumer {
  public:
@@ -113,6 +114,7 @@ SubstraitSinkConsumer::MakeProducer(
   *out_gen = std::move(push_gen);
   return out;
 }
+}  // namespace
 
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     std::shared_ptr<Buffer> substrait_buffer) {

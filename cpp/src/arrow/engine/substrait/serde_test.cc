@@ -776,7 +776,7 @@ Result<std::string> GetSubstraitJSON() {
           "local_files": {
             "items": [
               {
-                "uri_file": "FILENAME_PLACEHOLDER",
+                "uri_file": "file://FILENAME_PLACEHOLDER",
                 "format": "FILE_FORMAT_PARQUET"
               }
             ]
@@ -793,7 +793,7 @@ Result<std::string> GetSubstraitJSON() {
 
 TEST(Substrait, GetRecordBatchReader) {
 #ifdef _WIN32
-  GTEST_SKIP() << "Substrait File URI not supported for Windows";
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, engine::ParseJsonPlan(substrait_json));

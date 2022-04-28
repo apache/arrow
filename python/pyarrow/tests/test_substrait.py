@@ -35,8 +35,8 @@ import pytest
 import sys
 
 # Marks all of the tests in this module
-# Ignore these with pytest ... -m 'not engine'
-pytestmark = pytest.mark.substrait
+# Ignore these with pytest ... -m 'not substrait'
+pytestmark = [pytest.mark.parquet, pytest.mark.substrait]
 
 
 def resource_root():
@@ -49,7 +49,7 @@ def resource_root():
 
 
 @pytest.mark.skipif(sys.platform == 'win32',
-                    reason="file based URI is not fully supported for Windows")
+                    reason="ARROW-16392: file based URI is not fully supported for Windows")
 def test_run_serialized_query():
     substrait_query = """
     {
