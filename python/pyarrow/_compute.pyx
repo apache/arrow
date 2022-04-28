@@ -2393,7 +2393,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         A dictionary object with keys "summary" (str),
         and "description" (str).
     in_types : Dict[str, DataType]
-        A dictionarym mapping function argument names to
+        A dictionary mapping function argument names to
         their respective DataType.
         The argument names will be used to generate
         documentation for the function. The number of
