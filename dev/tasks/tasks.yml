@@ -988,35 +988,33 @@ tasks:
       github_runner: "self-hosted"
   {% endfor %}
 
-  verify-rc-binaries-wheels-macos-10.15-amd64:
+  {% for macos_version in ["10.15", "11"] %}
+  verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64:
     ci: github
     template: verify-rc/github.macos.amd64.yml
     params:
-      github_runner: "macos-10.15"
+      github_runner: "macos-{{ macos_version }}"
       target: "wheels"
 
-  verify-rc-binaries-wheels-macos-10.15-amd64-conda:
+  verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64-conda:
     ci: github
     template: verify-rc/github.macos.amd64.yml
     params:
       env:
         USE_CONDA: 1
-      github_runner: "macos-10.15"
+      github_runner: "macos-{{ macos_version }}"
       target: "wheels"
+  {% endfor %}
 
-  # The github hosted macos-11 runners are in preview only, but should be switched once they are generally available:
-  #   https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
-  {% for arch, emulation in [("amd64", "x86_64"), ("arm64", "arm64")] %}
-  verify-rc-binaries-wheels-macos-11-{{ arch }}:
+  verify-rc-binaries-wheels-macos-11-arm64:
     ci: github
     template: verify-rc/github.macos.arm64.yml
     params:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       github_runner: "self-hosted"
-      arch_emulation: {{ emulation }}
+      arch_emulation: arm64
       target: "wheels"
-  {% endfor %}
 
   ######################## Windows verification ##############################
 
