@@ -25,7 +25,7 @@ namespace engine {
 
 namespace {
 /// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
-class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsumer {
+class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
  public:
   explicit SubstraitSinkConsumer(
       AsyncGenerator<util::optional<compute::ExecBatch>>* generator)
@@ -59,7 +59,7 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsum
 /// \brief An executor to run a Substrait Query
 /// This interface is provided as a utility when creating language
 /// bindings for consuming a Substrait plan.
-class ARROW_ENGINE_EXPORT SubstraitExecutor {
+class SubstraitExecutor {
  public:
   explicit SubstraitExecutor(
       std::shared_ptr<Buffer> substrait_buffer,
