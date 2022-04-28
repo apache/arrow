@@ -31,10 +31,6 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
 
-#include <filesystem>
-#include <iostream>
-#include <string>
-
 using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;

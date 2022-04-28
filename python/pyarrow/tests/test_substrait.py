@@ -32,6 +32,7 @@ except ImportError:
     substrait = None
 
 import pytest
+import sys
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not engine'
@@ -47,6 +48,8 @@ def resource_root():
     return pathlib.Path(os.environ["PARQUET_TEST_DATA"])
 
 
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="file based URI is not fully supported for Windows")
 def test_run_serialized_query():
     substrait_query = """
     {
