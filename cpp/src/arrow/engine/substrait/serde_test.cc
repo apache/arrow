@@ -763,6 +763,8 @@ Result<std::string> GetDataPath(const std::string& file_name) {
 }
 
 Result<std::string> GetSubstraitJSON() {
+  // TODO: testing the Windows build issue
+  //  following comments will be removed accordingly
   // ARROW_ASSIGN_OR_RAISE(std::string dir_string,
   //                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
   // auto file_name =
@@ -786,7 +788,7 @@ Result<std::string> GetSubstraitJSON() {
           "local_files": {
             "items": [
               {
-                "uri_file": "file://FILENAME_PLACEHOLDER",
+                "uri_file": "FILENAME_PLACEHOLDER",
                 "format": "FILE_FORMAT_PARQUET"
               }
             ]
@@ -795,13 +797,14 @@ Result<std::string> GetSubstraitJSON() {
       }}
     ]
   })";
-  // #ifdef _WIN32
-  //   // Path is supposed to start with "X:/..."
-  //   file_path = "file:///" + file_path;
-  // #else
-  //   // Path is supposed to start with "/..."
-  //   file_path = "file://" + file_path;
-  // #endif
+// fixing path for OS
+#ifdef _WIN32
+  // Path is supposed to start with "X:/..."
+  file_path = "file:///" + file_path;
+#else
+  // Path is supposed to start with "/..."
+  file_path = "file://" + file_path;
+#endif
   std::cout << "File Path : >>>>" << file_path << std::endl;
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
