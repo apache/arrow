@@ -1524,6 +1524,7 @@ test_that("parse_date_time()", {
   )
 
   # locale not working properly on windows
+  # TODO revisit once https://issues.apache.org/jira/browse/ARROW-13133 is done
   skip_on_os("windows")
   compare_dplyr_binding(
     .input %>%
