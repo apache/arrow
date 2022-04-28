@@ -801,7 +801,8 @@ Result<std::string> GetSubstraitJSON() {
 
 TEST(Substrait, GetRecordBatchReader) {
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
-  ASSERT_OK_AND_ASSIGN(auto reader, engine::ExecuteJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf, engine::ParseJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto reader, engine::ExecuteSerializedPlan(buf));
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
   EXPECT_GT(table->num_rows(), 0);
 }
@@ -811,7 +812,8 @@ TEST(Substrait, InvalidPlan) {
     "relations": [
     ]
   })";
-  ASSERT_RAISES(Invalid, engine::ExecuteJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf, engine::ParseJsonPlan(substrait_json));
+  ASSERT_RAISES(Invalid, engine::ExecuteSerializedPlan(buf));
 }
 
 }  // namespace engine

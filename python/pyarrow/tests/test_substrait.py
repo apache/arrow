@@ -38,7 +38,17 @@ import pytest
 pytestmark = pytest.mark.substrait
 
 
-_substrait_query = """
+def resource_root():
+    """Get the path to the test resources directory."""
+    if not os.environ.get("PARQUET_TEST_DATA"):
+        raise RuntimeError("Test resources not found; set "
+                           "PARQUET_TEST_DATA to "
+                           "<repo root>/cpp/submodules/parquet-testing/data")
+    return pathlib.Path(os.environ["PARQUET_TEST_DATA"])
+
+
+def test_run_serialized_query():
+    substrait_query = """
     {
         "relations": [
         {"rel": {
@@ -67,32 +77,9 @@ _substrait_query = """
     }
     """
 
-
-def resource_root():
-    """Get the path to the test resources directory."""
-    if not os.environ.get("PARQUET_TEST_DATA"):
-        raise RuntimeError("Test resources not found; set "
-                           "PARQUET_TEST_DATA to "
-                           "<repo root>/cpp/submodules/parquet-testing/data")
-    return pathlib.Path(os.environ["PARQUET_TEST_DATA"])
-
-
-def test_run_query():
     filename = str(resource_root() / "binary.parquet")
 
-    query = tobytes(_substrait_query.replace("FILENAME_PLACEHOLDER", filename))
-    reader = substrait.run_query(query)
-    res_tb = reader.read_all()
-
-    expected_tb = pq.read_table(filename)
-
-    assert expected_tb.num_rows == res_tb.num_rows
-
-
-def test_run_serialized_query():
-    filename = str(resource_root() / "binary.parquet")
-
-    query = tobytes(_substrait_query.replace("FILENAME_PLACEHOLDER", filename))
+    query = tobytes(substrait_query.replace("FILENAME_PLACEHOLDER", filename))
 
     buf = pa._substrait._parse_json_plan(query)
 
@@ -111,6 +98,7 @@ def test_invalid_plan():
         ]
     }
     """
+    buf = pa._substrait._parse_json_plan(tobytes(query))
     exec_message = "ExecPlan has no node"
     with pytest.raises(ArrowInvalid, match=exec_message):
-        substrait.run_query(tobytes(query))
+        substrait.run_query(buf)

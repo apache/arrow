@@ -26,10 +26,6 @@ namespace arrow {
 
 namespace engine {
 
-/// \brief Retrieve a RecordBatchReader from a Substrait plan in JSON.
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteJsonPlan(
-    const std::string& substrait_json);
-
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     std::shared_ptr<Buffer> substrait_buffer);

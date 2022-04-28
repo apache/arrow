@@ -47,11 +47,8 @@ class ARROW_ENGINE_EXPORT SubstraitSinkConsumer : public compute::SinkNodeConsum
 
   Future<> Finish() override {
     producer_.Push(IterationEnd<util::optional<compute::ExecBatch>>());
-    if (producer_.Close()) {
-      return Future<>::MakeFinished();
-    }
-    return Future<>::MakeFinished(
-        Status::ExecutionError("Error occurred in closing the batch producer"));
+    ARROW_UNUSED(producer_.Close());
+    return Future<>::MakeFinished();
   }
 
  private:
@@ -115,12 +112,6 @@ SubstraitSinkConsumer::MakeProducer(
   auto out = push_gen.producer();
   *out_gen = std::move(push_gen);
   return out;
-}
-
-Result<std::shared_ptr<RecordBatchReader>> ExecuteJsonPlan(
-    const std::string& substrait_json) {
-  ARROW_ASSIGN_OR_RAISE(auto substrait_buffer, ParseJsonPlan(substrait_json));
-  return ExecuteSerializedPlan(substrait_buffer);
 }
 
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(

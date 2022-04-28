@@ -28,9 +28,8 @@ def run_query(plan):
 
     Parameters
     ----------
-    plan : bytes or Buffer
-        Substrait plan can be fed as a serialized plan (Buffer) 
-        or a JSON plan. 
+    plan : Buffer
+        Substrait plan can be fed as a serialized plan (Buffer). 
     """
 
     cdef:
@@ -40,14 +39,8 @@ def run_query(plan):
         c_string c_str_plan
         shared_ptr[CBuffer] c_buf_plan
 
-    if isinstance(plan, bytes):
-        c_str_plan = plan
-        c_res_reader = ExecuteJsonPlan(c_str_plan)
-    elif isinstance(plan, Buffer):
-        c_buf_plan = pyarrow_unwrap_buffer(plan)
-        c_res_reader = ExecuteSerializedPlan(c_buf_plan)
-    else:
-        raise ValueError("Expected bytes or pyarrow.Buffer")
+    c_buf_plan = pyarrow_unwrap_buffer(plan)
+    c_res_reader = ExecuteSerializedPlan(c_buf_plan)
 
     c_reader = GetResultValue(c_res_reader)
 
