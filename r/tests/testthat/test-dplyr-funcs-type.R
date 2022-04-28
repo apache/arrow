@@ -957,7 +957,7 @@ test_that("`as_datetime()`", {
 })
 
 test_that("format date/time", {
-  # skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168 +
+  # test skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168 +
   # locale issues https://issues.apache.org/jira/browse/ARROW-13133
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     withr::local_locale(LC_TIME = "C")
