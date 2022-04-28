@@ -612,4 +612,4 @@ build_formats <- function(orders) {
   )
   outcome$format <- paste(outcome$Var1, outcome$Var2, outcome$Var3, sep = "-")
   outcome$format
-}  
+}
