@@ -253,13 +253,6 @@ const char* ExtractHolder::operator()(ExecutionContext* ctx, const char* user_in
     return "";
   }
 
-  //  if (!RE2::FullMatchN(re2::StringPiece(user_input_as_str), regex_,
-  //  arguments_ptrs.data(),
-  //                       num_groups_pattern_)) {
-  //    *out_length = 0;
-  //    return "";
-  //  }
-
   auto out_str = arguments_as_str[extract_index];
   *out_length = static_cast<int32_t>(out_str.size());
 
