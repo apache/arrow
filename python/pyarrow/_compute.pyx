@@ -2367,9 +2367,9 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     Register a user-defined scalar function. 
 
     A scalar function is a function that executes elementwise
-    operations on arrays or scalars. Also, a scalar function must
-    be computed row-by-row with no state where each output-row 
-    is computed by only from it's corresponding input-row.
+    operations on arrays or scalars, i.e. a scalar function must
+    be computed row-by-row with no state where each output row 
+    is computed by only from its corresponding input row.
     In other words, all argument arrays have the same length,
     and the output array is of the same length as the arguments.
     Scalar functions are the only functions allowed in query engine
