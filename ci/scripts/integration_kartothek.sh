@@ -28,4 +28,7 @@ python -c "import kartothek"
 
 pushd /kartothek
 # See ARROW-12314, test_load_dataframes_columns_raises_missing skipped because of changed error message
-pytest -n0 --ignore tests/cli/test_query.py -k "not test_load_dataframes_columns_raises_missing"
+# See ARROW-16262 and https://github.com/JDASoftwareGroup/kartothek/issues/515
+pytest -n0 --ignore tests/cli/test_query.py -k "not test_load_dataframes_columns_raises_missing \
+              and not dates_as_object and not test_date_as_object \
+              and not test_predicate_pushdown and not test_predicate_evaluation_date"

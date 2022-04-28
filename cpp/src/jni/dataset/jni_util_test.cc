@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "jni/dataset/jni_util.h"
+
 #include <gtest/gtest.h>
 
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
-#include "jni/dataset/jni_util.h"
 
 namespace arrow {
 namespace dataset {

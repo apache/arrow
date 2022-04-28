@@ -26,7 +26,7 @@ standardized open-source columnar storage format for use in data analysis
 systems. It was created originally for use in `Apache Hadoop
 <http://hadoop.apache.org/>`_ with systems like `Apache Drill
 <http://drill.apache.org>`_, `Apache Hive <http://hive.apache.org>`_, `Apache
-Impala (incubating) <http://impala.apache.org>`_, and `Apache Spark
+Impala <http://impala.apache.org>`_, and `Apache Spark
 <http://spark.apache.org>`_ adopting it as a shared standard for high
 performance data IO.
 
@@ -328,13 +328,16 @@ plain encoding. Whether dictionary encoding is used can be toggled using the
 
 The data pages within a column in a row group can be compressed after the
 encoding passes (dictionary, RLE encoding). In PyArrow we use Snappy
-compression by default, but Brotli, Gzip, and uncompressed are also supported:
+compression by default, but Brotli, Gzip, ZSTD, LZ4, and uncompressed are
+also supported:
 
 .. code-block:: python
 
    pq.write_table(table, where, compression='snappy')
    pq.write_table(table, where, compression='gzip')
    pq.write_table(table, where, compression='brotli')
+   pq.write_table(table, where, compression='zstd')
+   pq.write_table(table, where, compression='lz4')
    pq.write_table(table, where, compression='none')
 
 Snappy generally results in better performance, while Gzip may yield smaller
@@ -411,8 +414,8 @@ Compatibility Note: if using ``pq.write_to_dataset`` to create a table that
 will then be used by HIVE then partition column values must be compatible with
 the allowed character set of the HIVE version you are running.
 
-Writing ``_metadata`` and ``_common_medata`` files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Writing ``_metadata`` and ``_common_metadata`` files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some processing frameworks such as Spark or Dask (optionally) use ``_metadata``
 and ``_common_metadata`` files with partitioned datasets.

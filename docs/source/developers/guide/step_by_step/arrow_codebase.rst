@@ -62,7 +62,7 @@ Other subdirectories included in the arrow repository are:
   integration (CI) jobs.
 - ``dev/`` contains scripts useful to developers when packaging,
   testing, or committing to Arrow, as well as definitions for
-  on-demand continuous integration (CI) tasks.
+  extended continuous integration (CI) tasks.
 - ``.github/`` contains workflows run on GitHub continuous
   integration (CI), triggered by certain actions such as opening a PR.
 - ``docs/`` contains most of the documentation. Read more on
@@ -80,7 +80,7 @@ to work around the library on the issue you have.
 
 Depending on the problem you want to solve (adding a simple
 binding, adding a feature, writing a test, …) there are
-different ways to get the necessary information. 
+different ways to get the necessary information.
 
 **For all the cases** you can help yourself with
 searching for functions via some kind of search tool.
@@ -94,13 +94,13 @@ In our experience there are two good ways:
 
 **Bindings**
 
-The term "binding" is used to refer to a function in the C++ implementation which 
+The term "binding" is used to refer to a function in the C++ implementation which
 can be called from a function in another language.  After a function is defined in
 C++ we must create the binding manually to use it in that implementation.
 
 .. note::
 	There is much you can learn by checking **Pull Requests**
-	and **unit tests** for similar issues.  
+	and **unit tests** for similar issues.
 
 .. tab-set::
 
@@ -120,9 +120,9 @@ C++ we must create the binding manually to use it in that implementation.
       likely point you towards the file you need to take a look at.
 
       **Python - Cython - C++**
-       
+
       It is quite likely that you will bump into Cython code when
-      working on Python issues. It's less likely is that the C++ code 
+      working on Python issues. It's less likely is that the C++ code
       needs updating, though it can happen.
 
       As mentioned before, the underlying code is written in C++.

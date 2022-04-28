@@ -182,7 +182,7 @@ func (d *ArrayDatum) Equals(other Datum) bool {
 	right := rhs.MakeArray()
 	defer right.Release()
 
-	return array.ArrayEqual(left, right)
+	return array.Equal(left, right)
 }
 
 // ChunkedDatum contains a chunked array for use with expressions and compute.

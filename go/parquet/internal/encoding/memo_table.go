@@ -23,8 +23,8 @@ import (
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/array"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/hashing"
 	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/hashing"
 )
 
 //go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=physical_types.tmpldata memo_table_types.gen.go.tmpl
@@ -63,6 +63,18 @@ type MemoTable interface {
 	GetOrInsertNull() (idx int, existed bool)
 }
 
+type NumericMemoTable interface {
+	MemoTable
+	// WriteOutLE writes the contents of the memo table out to the byteslice
+	// but ensures the values are little-endian before writing them (converting
+	// if on a big endian system).
+	WriteOutLE(out []byte)
+	// WriteOutSubsetLE writes the contents of the memo table out to the byteslice
+	// starting with the index indicated by start, but ensures the values are little
+	// endian before writing them (converting if on a big-endian system).
+	WriteOutSubsetLE(start int, out []byte)
+}
+
 // BinaryMemoTable is an extension of the MemoTable interface adding extra methods
 // for handling byte arrays/strings/fixed length byte arrays.
 type BinaryMemoTable interface {
@@ -72,10 +84,10 @@ type BinaryMemoTable interface {
 	ValuesSize() int
 	// CopyOffsets populates out with the start and end offsets of each value in the
 	// table data. Out should be sized to Size()+1 to accomodate all of the offsets.
-	CopyOffsets(out []int8)
+	CopyOffsets(out []int32)
 	// CopyOffsetsSubset is like CopyOffsets but only gets a subset of the offsets
 	// starting at the specified index.
-	CopyOffsetsSubset(start int, out []int8)
+	CopyOffsetsSubset(start int, out []int32)
 	// CopyFixedWidthValues exists to cope with the fact that the table doesn't track
 	// the fixed width when inserting the null value into the databuffer populating
 	// a zero length byte slice for the null value (if found).
@@ -115,7 +127,7 @@ func NewFloat64Dictionary() MemoTable {
 // NewBinaryDictionary returns a memotable interface for use with strings, byte slices,
 // parquet.ByteArray and parquet.FixedLengthByteArray only.
 func NewBinaryDictionary(mem memory.Allocator) BinaryMemoTable {
-	return hashing.NewBinaryMemoTable(mem, 0, -1)
+	return hashing.NewBinaryMemoTable(0, -1, array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary))
 }
 
 const keyNotFound = hashing.KeyNotFound
@@ -246,7 +258,7 @@ func (m *binaryMemoTableImpl) CopyFixedWidthValues(start, width int, out []byte)
 
 }
 
-func (m *binaryMemoTableImpl) CopyOffsetsSubset(start int, out []int8) {
+func (m *binaryMemoTableImpl) CopyOffsetsSubset(start int, out []int32) {
 	if m.builder.Len() <= start {
 		return
 	}
@@ -254,14 +266,14 @@ func (m *binaryMemoTableImpl) CopyOffsetsSubset(start int, out []int8) {
 	first := m.findOffset(0)
 	delta := m.findOffset(start)
 	for i := start; i < m.Size(); i++ {
-		offset := int8(m.findOffset(i) - delta)
+		offset := int32(m.findOffset(i) - delta)
 		out[i-start] = offset
 	}
 
-	out[m.Size()-start] = int8(m.builder.DataLen() - int(delta) - int(first))
+	out[m.Size()-start] = int32(m.builder.DataLen() - int(delta) - int(first))
 }
 
-func (m *binaryMemoTableImpl) CopyOffsets(out []int8) {
+func (m *binaryMemoTableImpl) CopyOffsets(out []int32) {
 	m.CopyOffsetsSubset(0, out)
 }
 

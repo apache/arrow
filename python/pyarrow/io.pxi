@@ -36,10 +36,13 @@ from pyarrow.util import _is_path_like, _stringify_path
 DEFAULT_BUFFER_SIZE = 2 ** 16
 
 
-# To let us get a PyObject* and avoid Cython auto-ref-counting
 cdef extern from "Python.h":
+    # To let us get a PyObject* and avoid Cython auto-ref-counting
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
+
+    # Workaround https://github.com/cython/cython/issues/4707
+    bytearray PyByteArray_FromStringAndSize(char *string, Py_ssize_t len)
 
 
 def io_thread_count():
@@ -1117,9 +1120,16 @@ cdef class Buffer(_Weakrefable):
 
     def __reduce_ex__(self, protocol):
         if protocol >= 5:
-            return py_buffer, (builtin_pickle.PickleBuffer(self),)
+            bufobj = builtin_pickle.PickleBuffer(self)
+        elif self.buffer.get().is_mutable():
+            # Need to pass a bytearray to recreate a mutable buffer when
+            # unpickling.
+            bufobj = PyByteArray_FromStringAndSize(
+                <const char*>self.buffer.get().data(),
+                self.buffer.get().size())
         else:
-            return py_buffer, (self.to_pybytes(),)
+            bufobj = self.to_pybytes()
+        return py_buffer, (bufobj,)
 
     def to_pybytes(self):
         """
@@ -1138,10 +1148,14 @@ cdef class Buffer(_Weakrefable):
                                   "buffer was not mutable")
             buffer.readonly = 1
         buffer.buf = <char *>self.buffer.get().data()
+        buffer.len = self.size
+        if buffer.buf == NULL:
+            # ARROW-16048: Ensure we don't export a NULL address.
+            assert buffer.len == 0
+            buffer.buf = cp.PyBytes_AS_STRING(b"")
         buffer.format = 'b'
         buffer.internal = NULL
         buffer.itemsize = 1
-        buffer.len = self.size
         buffer.ndim = 1
         buffer.obj = self
         buffer.shape = self.shape

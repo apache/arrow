@@ -18,6 +18,7 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 
@@ -167,7 +168,7 @@ func TestBasicAuthHelpers(t *testing.T) {
 	}
 
 	_, err = fs.Recv()
-	if err == nil || err == io.EOF {
+	if err == nil || errors.Is(err, io.EOF) {
 		t.Fatal("Should have failed with unauthenticated error")
 	}
 

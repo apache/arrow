@@ -189,6 +189,13 @@ reload_arrow <- function() {
 #' }
 #' @export
 create_package_with_all_dependencies <- function(dest_file = NULL, source_file = NULL) {
+  if (Sys.which("bash") == "") {
+    stop("
+    This function requires bash to be installed and available in your PATH.
+    If using RTools, it may be useful to run this code as:
+    pkgbuild::with_build_tools(create_package_with_all_dependencies())
+    ")
+  }
   if (is.null(source_file)) {
     pkg_download_dir <- tempfile()
     dir.create(pkg_download_dir)
@@ -209,16 +216,22 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   on.exit(unlink(untar_dir, recursive = TRUE), add = TRUE)
   utils::untar(source_file, exdir = untar_dir)
   tools_dir <- file.path(untar_dir, "arrow/tools")
-  download_dependencies_sh <- file.path(tools_dir, "cpp/thirdparty/download_dependencies.sh")
+  download_dependencies_sh <- file.path(tools_dir, "download_dependencies_R.sh")
   # If you change this path, also need to edit nixlibs.R
   download_dir <- file.path(tools_dir, "thirdparty_dependencies")
   dir.create(download_dir)
-
-  message("Downloading files to ", download_dir)
-  download_successful <- system2(download_dependencies_sh, download_dir, stdout = FALSE) == 0
-  if (!download_successful) {
-    stop("Failed to download thirdparty dependencies")
+  download_script <- tempfile(fileext = ".R")
+  parse_versions_success <- system2(
+    "bash", c(download_dependencies_sh, download_dir),
+    stdout = download_script,
+    stderr = FALSE
+  ) == 0
+  if (!parse_versions_success) {
+    stop("Failed to parse versions.txt")
   }
+  # `source` the download_script to use R to download all the dependency bundles
+  source(download_script)
+
   # Need to change directory to untar_dir so tar() will use relative paths. That
   # means we'll need a full, non-relative path for dest_file. (extra_flags="-C"
   # doesn't work with R's internal tar)

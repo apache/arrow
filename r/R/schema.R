@@ -77,7 +77,7 @@
 #'
 #' @rdname Schema
 #' @name Schema
-#' @examplesIf arrow_available()
+#' @examples
 #' schema(a = int32(), b = float64())
 #'
 #' schema(
@@ -333,7 +333,7 @@ read_schema <- function(stream, ...) {
 #' @return A `Schema` with the union of fields contained in the inputs, or
 #'   `NULL` if any of `schemas` is `NULL`
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' a <- schema(b = double(), c = bool())
 #' z <- schema(b = double(), k = utf8())
 #' unify_schemas(a, z)
@@ -349,4 +349,31 @@ print.arrow_r_metadata <- function(x, ...) {
   utils::str(x)
   utils::str(.unserialize_arrow_r_metadata(x))
   invisible(x)
+}
+
+#' Convert an object to an Arrow DataType
+#'
+#' @param x An object to convert to a [schema()]
+#' @param ... Passed to S3 methods.
+#'
+#' @return A [Schema] object.
+#' @export
+#'
+#' @examples
+#' as_schema(schema(col1 = int32()))
+#'
+as_schema <- function(x, ...) {
+  UseMethod("as_schema")
+}
+
+#' @rdname as_schema
+#' @export
+as_schema.Schema <- function(x, ...) {
+  x
+}
+
+#' @rdname as_schema
+#' @export
+as_schema.StructType <- function(x, ...) {
+  schema(!!! x$fields())
 }

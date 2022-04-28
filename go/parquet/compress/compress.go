@@ -20,11 +20,11 @@ package compress
 
 import (
 	"compress/flate"
+	"fmt"
 	"io"
 	"io/ioutil"
 
 	"github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
-	"golang.org/x/xerrors"
 )
 
 // Compression is an alias to the thrift compression codec enum type for easy use
@@ -150,7 +150,7 @@ func init() {
 func GetCodec(typ Compression) (Codec, error) {
 	ret, ok := codecs[typ]
 	if !ok {
-		return nil, xerrors.Errorf("compression for %s unimplemented", typ.String())
+		return nil, fmt.Errorf("compression for %s unimplemented", typ.String())
 	}
 	return ret, nil
 }

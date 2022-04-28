@@ -52,7 +52,9 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Install Dependencies
-        run: brew bundle --file=arrow/cpp/Brewfile
+        run: |
+          brew install --overwrite git
+          brew bundle --file=arrow/cpp/Brewfile
       - name: Build C Data Interface lib
         run: |
           set -e

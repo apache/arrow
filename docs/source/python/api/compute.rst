@@ -359,6 +359,7 @@ Categorizations
    is_nan
    is_null
    is_valid
+   true_unless_null
 
 Selecting / Multiplexing
 ------------------------

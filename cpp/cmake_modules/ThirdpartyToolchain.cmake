@@ -322,11 +322,7 @@ if(ARROW_ORC
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
-if(ARROW_ENGINE)
-  set(ARROW_WITH_SUBSTRAIT ON)
-endif()
-
-if(ARROW_WITH_SUBSTRAIT)
+if(ARROW_SUBSTRAIT)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -1554,7 +1550,7 @@ if(ARROW_WITH_PROTOBUF)
     # google::protobuf::MessageLite::ByteSize() is deprecated since
     # Protobuf 3.4.0.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
-  elseif(ARROW_ENGINE)
+  elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
   else()
@@ -1705,7 +1701,7 @@ macro(build_substrait)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
 endmacro()
 
-if(ARROW_WITH_SUBSTRAIT)
+if(ARROW_SUBSTRAIT)
   # Currently, we can only build Substrait from source.
   set(Substrait_SOURCE "BUNDLED")
   resolve_dependency(Substrait)

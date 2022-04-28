@@ -16,6 +16,7 @@
 # under the License.
 
 from pathlib import Path
+import time
 
 import click
 
@@ -339,7 +340,23 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
             path = target_dir / task_name / asset.name
             path.parent.mkdir(exist_ok=True)
             if not dry_run:
-                asset.download(path)
+                import github3
+                max_n_retries = 5
+                n_retries = 0
+                while True:
+                    try:
+                        asset.download(path)
+                    except github3.exceptions.GitHubException as error:
+                        n_retries += 1
+                        if n_retries == max_n_retries:
+                            raise
+                        wait_seconds = 60
+                        click.echo(f'Failed to download {path}')
+                        click.echo(f'Retry #{n_retries} after {wait_seconds}s')
+                        click.echo(error)
+                        time.sleep(wait_seconds)
+                    else:
+                        break
 
     click.echo('Downloading {}\'s artifacts.'.format(job_name))
     click.echo('Destination directory is {}'.format(target_dir))

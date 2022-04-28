@@ -23,14 +23,25 @@ import pytest
 import pyarrow as pa
 from pyarrow.tests import util
 
+legacy_filter_mark = pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy:FutureWarning"
+)
+
 parametrize_legacy_dataset = pytest.mark.parametrize(
     "use_legacy_dataset",
-    [True, pytest.param(False, marks=pytest.mark.dataset)])
+    [pytest.param(True, marks=legacy_filter_mark),
+     pytest.param(False, marks=pytest.mark.dataset)]
+)
 parametrize_legacy_dataset_not_supported = pytest.mark.parametrize(
-    "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.skip)])
+    "use_legacy_dataset",
+    [pytest.param(True, marks=legacy_filter_mark),
+     pytest.param(False, marks=pytest.mark.skip)]
+)
 parametrize_legacy_dataset_fixed = pytest.mark.parametrize(
-    "use_legacy_dataset", [pytest.param(True, marks=pytest.mark.xfail),
-                           pytest.param(False, marks=pytest.mark.dataset)])
+    "use_legacy_dataset",
+    [pytest.param(True, marks=[pytest.mark.xfail, legacy_filter_mark]),
+     pytest.param(False, marks=pytest.mark.dataset)]
+)
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'
@@ -58,7 +69,7 @@ def _read_table(*args, **kwargs):
 
 
 def _roundtrip_table(table, read_table_kwargs=None,
-                     write_table_kwargs=None, use_legacy_dataset=True):
+                     write_table_kwargs=None, use_legacy_dataset=False):
     read_table_kwargs = read_table_kwargs or {}
     write_table_kwargs = write_table_kwargs or {}
 
@@ -70,7 +81,7 @@ def _roundtrip_table(table, read_table_kwargs=None,
 
 
 def _check_roundtrip(table, expected=None, read_table_kwargs=None,
-                     use_legacy_dataset=True, **write_table_kwargs):
+                     use_legacy_dataset=False, **write_table_kwargs):
     if expected is None:
         expected = table
 
@@ -87,7 +98,7 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
     assert result.equals(expected)
 
 
-def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
+def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=False):
     table = pa.Table.from_pandas(df)
     result = _roundtrip_table(
         table, write_table_kwargs=write_kwargs,

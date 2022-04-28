@@ -35,7 +35,8 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler)
+                                FSProtocolClass, ProxyHandler,
+                                _configure_s3_limited_user)
 
 try:
     import pandas as pd
@@ -102,13 +103,15 @@ def mockfs():
                 list(range(5)),
                 list(map(float, range(5))),
                 list(map(str, range(5))),
-                [i] * 5
+                [i] * 5,
+                [{'a': j % 3, 'b': str(j % 3)} for j in range(5)],
             ]
             schema = pa.schema([
-                pa.field('i64', pa.int64()),
-                pa.field('f64', pa.float64()),
-                pa.field('str', pa.string()),
-                pa.field('const', pa.int64()),
+                ('i64', pa.int64()),
+                ('f64', pa.float64()),
+                ('str', pa.string()),
+                ('const', pa.int64()),
+                ('struct', pa.struct({'a': pa.int64(), 'b': pa.string()})),
             ])
             batch = pa.record_batch(data, schema=schema)
             table = pa.Table.from_batches([batch])
@@ -383,13 +386,40 @@ def test_dataset(dataset, dataset_reader):
     assert len(table) == 10
 
     condition = ds.field('i64') == 1
-    result = dataset.to_table(use_threads=True, filter=condition).to_pydict()
+    result = dataset.to_table(use_threads=True, filter=condition)
+    # Don't rely on the scanning order
+    result = result.sort_by('group').to_pydict()
 
-    # don't rely on the scanning order
     assert result['i64'] == [1, 1]
     assert result['f64'] == [1., 1.]
     assert sorted(result['group']) == [1, 2]
     assert sorted(result['key']) == ['xxx', 'yyy']
+
+    # Filtering on a nested field ref
+    condition = ds.field(('struct', 'b')) == '1'
+    result = dataset.to_table(use_threads=True, filter=condition)
+    result = result.sort_by('group').to_pydict()
+
+    assert result['i64'] == [1, 4, 1, 4]
+    assert result['f64'] == [1.0, 4.0, 1.0, 4.0]
+    assert result['group'] == [1, 1, 2, 2]
+    assert result['key'] == ['xxx', 'xxx', 'yyy', 'yyy']
+
+    # Projecting on a nested field ref expression
+    projection = {
+        'i64': ds.field('i64'),
+        'f64': ds.field('f64'),
+        'new': ds.field(('struct', 'b')) == '1',
+    }
+    result = dataset.to_table(use_threads=True, columns=projection)
+    result = result.sort_by('i64').to_pydict()
+
+    assert list(result) == ['i64', 'f64', 'new']
+    assert result['i64'] == [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]
+    assert result['f64'] == [0.0, 0.0, 1.0, 1.0,
+                             2.0, 2.0, 3.0, 3.0, 4.0, 4.0]
+    assert result['new'] == [False, False, True, True, False, False,
+                             False, False, True, True]
 
 
 @pytest.mark.parquet
@@ -808,6 +838,8 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
         pa.field('f64', pa.float64()),
         pa.field('str', pa.dictionary(pa.int32(), pa.string())),
         pa.field('const', pa.int64()),
+        pa.field('struct', pa.struct({'a': pa.int64(),
+                                      'b': pa.string()})),
         pa.field('group', pa.int32()),
         pa.field('key', pa.string()),
     ]), check_metadata=False)
@@ -827,6 +859,8 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
         pa.array([0, 1, 2, 3, 4], type=pa.int32()),
         pa.array("0 1 2 3 4".split(), type=pa.string())
     )
+    expected_struct = pa.array([{'a': i % 3, 'b': str(i % 3)}
+                                for i in range(5)])
     iterator = scanner.scan_batches()
     for (batch, fragment), group, key in zip(iterator, [1, 2], ['xxx', 'yyy']):
         expected_group = pa.array([group] * 5, type=pa.int32())
@@ -834,18 +868,19 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
         expected_const = pa.array([group - 1] * 5, type=pa.int64())
         # Can't compare or really introspect expressions from Python
         assert fragment.partition_expression is not None
-        assert batch.num_columns == 6
+        assert batch.num_columns == 7
         assert batch[0].equals(expected_i64)
         assert batch[1].equals(expected_f64)
         assert batch[2].equals(expected_str)
         assert batch[3].equals(expected_const)
-        assert batch[4].equals(expected_group)
-        assert batch[5].equals(expected_key)
+        assert batch[4].equals(expected_struct)
+        assert batch[5].equals(expected_group)
+        assert batch[6].equals(expected_key)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
-    assert table.num_columns == 6
+    assert table.num_columns == 7
 
 
 @pytest.mark.parquet
@@ -1213,7 +1248,8 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
     path = str(tempdir / "test_parquet_dataset_all_types")
 
     # write_to_dataset currently requires pandas
-    pq.write_to_dataset(table, path, chunk_size=chunk_size)
+    pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                        chunk_size=chunk_size)
 
     return table, ds.dataset(path, format="parquet", partitioning="hive")
 
@@ -1480,6 +1516,7 @@ def test_partitioning_factory(mockfs):
         ("f64", pa.float64()),
         ("str", pa.string()),
         ("const", pa.int64()),
+        ("struct", pa.struct({'a': pa.int64(), 'b': pa.string()})),
         ("group", pa.int32()),
         ("key", pa.string()),
     ])
@@ -1704,17 +1741,18 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_read_partition_keys_only(tempdir):
+    BATCH_SIZE = 2 ** 17
     # This is a regression test for ARROW-15318 which saw issues
     # reading only the partition keys from files with batches larger
     # than the default batch size (e.g. so we need to return two chunks)
     table = pa.table({
-        'key': pa.repeat(0, 2 ** 20 + 1),
-        'value': np.arange(2 ** 20 + 1)})
+        'key': pa.repeat(0, BATCH_SIZE + 1),
+        'value': np.arange(BATCH_SIZE + 1)})
     pq.write_to_dataset(
-        table[:2 ** 20],
+        table[:BATCH_SIZE],
         tempdir / 'one', partition_cols=['key'])
     pq.write_to_dataset(
-        table[:2 ** 20 + 1],
+        table[:BATCH_SIZE + 1],
         tempdir / 'two', partition_cols=['key'])
 
     table = pq.read_table(tempdir / 'one', columns=['key'])
@@ -2047,7 +2085,7 @@ def test_construct_from_mixed_child_datasets(mockfs):
 
     table = dataset.to_table()
     assert len(table) == 20
-    assert table.num_columns == 4
+    assert table.num_columns == 5
 
     assert len(dataset.children) == 2
     for child in dataset.children:
@@ -3564,16 +3602,19 @@ def test_write_dataset_with_backpressure(tempdir):
     gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
 
     schema = pa.schema([pa.field('data', pa.int32())])
-    # By default, the dataset writer will queue up 64Mi rows so
-    # with batches of 1M it should only fit ~67 batches
+    # The scanner should queue ~ 8Mi rows (~8 batches) but due to ARROW-16258
+    # it always queues 32 batches.
     batch = pa.record_batch([pa.array(list(range(1_000_000)))], schema=schema)
     batches_read = 0
-    min_backpressure = 67
+    min_backpressure = 32
     end = 200
+    keep_going = True
 
     def counting_generator():
         nonlocal batches_read
         while batches_read < end:
+            if not keep_going:
+                return
             time.sleep(0.01)
             batches_read += 1
             yield batch
@@ -3615,9 +3656,11 @@ def test_write_dataset_with_backpressure(tempdir):
         assert backpressure_probably_hit
 
     finally:
+        # If any batches remain to be generated go ahead and
+        # skip them
+        keep_going = False
         consumer_gate.set()
         write_thread.join()
-    assert batches_read == end
 
 
 def test_write_dataset_with_dataset(tempdir):
@@ -4291,6 +4334,71 @@ def test_write_dataset_s3(s3_example_simple):
         "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
     assert result.equals(table)
+
+
+_minio_put_only_policy = """{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:ListBucket",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": [
+                "arn:aws:s3:::*"
+            ]
+        }
+    ]
+}"""
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_write_dataset_s3_put_only(s3_server):
+    # [ARROW-15892] Testing the create_dir flag which will restrict
+    # creating a new directory for writing a dataset. This is
+    # required while writing a dataset in s3 where we have very
+    # limited permissions and thus we can directly write the dataset
+    # without creating a directory.
+    from pyarrow.fs import S3FileSystem
+
+    # write dataset with s3 filesystem
+    host, port, _, _ = s3_server['connection']
+    fs = S3FileSystem(
+        access_key='limited',
+        secret_key='limited123',
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http'
+    )
+    _configure_s3_limited_user(s3_server, _minio_put_only_policy)
+
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
+    )
+    part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
+
+    # writing with filesystem object with create_dir flag set to false
+    ds.write_dataset(
+        table, "existing-bucket", filesystem=fs,
+        format="feather", create_dir=False, partitioning=part,
+        existing_data_behavior='overwrite_or_ignore'
+    )
+    # check roundtrip
+    result = ds.dataset(
+        "existing-bucket", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
+
+    with pytest.raises(OSError, match="Access Denied"):
+        ds.write_dataset(
+            table, "existing-bucket", filesystem=fs,
+            format="feather", create_dir=True,
+            existing_data_behavior='overwrite_or_ignore'
+        )
 
 
 @pytest.mark.parquet

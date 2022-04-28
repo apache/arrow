@@ -33,6 +33,7 @@ package cdata
 import "C"
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 	"runtime"
@@ -393,7 +394,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 
 		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{nulls}, children, int(imp.arr.null_count), int(imp.arr.offset))
 	default:
-		return xerrors.Errorf("unimplemented type %s", dt)
+		return fmt.Errorf("unimplemented type %s", dt)
 	}
 
 	return nil
@@ -471,14 +472,14 @@ func (imp *cimporter) checkNoChildren() error { return imp.checkNumChildren(0) }
 
 func (imp *cimporter) checkNumChildren(n int64) error {
 	if int64(imp.arr.n_children) != n {
-		return xerrors.Errorf("expected %d children, for imported type %s, ArrowArray has %d", n, imp.dt, imp.arr.n_children)
+		return fmt.Errorf("expected %d children, for imported type %s, ArrowArray has %d", n, imp.dt, imp.arr.n_children)
 	}
 	return nil
 }
 
 func (imp *cimporter) checkNumBuffers(n int64) error {
 	if int64(imp.arr.n_buffers) != n {
-		return xerrors.Errorf("expected %d buffers for imported type %s, ArrowArray has %d", n, imp.dt, imp.arr.n_buffers)
+		return fmt.Errorf("expected %d buffers for imported type %s, ArrowArray has %d", n, imp.dt, imp.arr.n_buffers)
 	}
 	return nil
 }
@@ -498,7 +499,7 @@ func (imp *cimporter) importBitsBuffer(bufferID int) *memory.Buffer {
 
 func (imp *cimporter) importNullBitmap(bufferID int) (*memory.Buffer, error) {
 	if imp.arr.null_count > 0 && imp.cbuffers[bufferID] == nil {
-		return nil, xerrors.Errorf("arrowarray struct has null bitmap buffer, but non-zero null_count %d", imp.arr.null_count)
+		return nil, fmt.Errorf("arrowarray struct has null bitmap buffer, but non-zero null_count %d", imp.arr.null_count)
 	}
 
 	if imp.arr.null_count == 0 && imp.cbuffers[bufferID] == nil {
@@ -546,7 +547,7 @@ type nativeCRecordBatchReader struct {
 }
 
 func (n *nativeCRecordBatchReader) getError(errno int) error {
-	return xerrors.Errorf("%w: %s", syscall.Errno(errno), C.GoString(C.stream_get_last_error(n.stream)))
+	return fmt.Errorf("%w: %s", syscall.Errno(errno), C.GoString(C.stream_get_last_error(n.stream)))
 }
 
 func (n *nativeCRecordBatchReader) Read() (arrow.Record, error) {

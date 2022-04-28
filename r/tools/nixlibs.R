@@ -301,8 +301,14 @@ build_libarrow <- function(src_dir, dst_dir) {
     # EXTRA_CMAKE_FLAGS will often be "", but it's convenient later to have it defined
     EXTRA_CMAKE_FLAGS = Sys.getenv("EXTRA_CMAKE_FLAGS"),
     # Make sure we build with the same compiler settings that R is using
-    CC = R_CMD_config("CC"),
-    CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
+    # Exception: if you've added ccache to CC and CXX following
+    # http://dirk.eddelbuettel.com/blog/2017/11/27/, some libarrow
+    # third party dependencies will error on compilation. But don't
+    # worry, `ARROW_USE_CCACHE=ON` by default, so if ccache
+    # is found, it will be used by the libarrow build, and this does
+    # not affect how R compiles the arrow bindings.
+    CC = sub("^.*ccache", "", R_CMD_config("CC")),
+    CXX = paste(sub("^.*ccache", "", R_CMD_config("CXX11")), R_CMD_config("CXX11STD")),
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
@@ -314,15 +320,9 @@ build_libarrow <- function(src_dir, dst_dir) {
   thirdparty_deps_unavailable <- !download_ok &&
     !dir.exists(thirdparty_dependency_dir) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
-  on_solaris <- tolower(Sys.info()[["sysname"]]) %in% "sunos"
-  do_minimal_build <- on_solaris || env_is("LIBARROW_MINIMAL", "true")
+  do_minimal_build <- env_is("LIBARROW_MINIMAL", "true")
 
   if (do_minimal_build) {
-    # Note that JSON support does work on Solaris, but will be turned off with
-    # the rest of the optional dependencies.
-    # All other dependencies don't compile (e.g thrift, jemalloc, and xsimd)
-    # or do compile but `ar` fails to build
-    # libarrow_bundled_dependencies (e.g. re2 and utf8proc).
     env_var_list <- turn_off_all_optional_features(env_var_list)
   } else if (thirdparty_deps_unavailable) {
     cat(paste0(

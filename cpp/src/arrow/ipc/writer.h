@@ -96,6 +96,18 @@ class ARROW_EXPORT RecordBatchWriter {
   /// \return Status
   virtual Status WriteRecordBatch(const RecordBatch& batch) = 0;
 
+  /// \brief Write a record batch with custom metadata to the stream
+  ///
+  /// \param[in] batch the record batch to write to the stream
+  /// \param[in] custom_metadata the record batch's custom metadata to write to the stream
+  /// \return Status
+  virtual Status WriteRecordBatch(
+      const RecordBatch& batch,
+      const std::shared_ptr<const KeyValueMetadata>& custom_metadata) {
+    return Status::NotImplemented(
+        "Write record batch with custom metadata not implemented");
+  }
+
   /// \brief Write possibly-chunked table by creating sequence of record batches
   /// \param[in] table table to write
   /// \return Status
@@ -388,6 +400,18 @@ Status GetDictionaryPayload(int64_t id, bool is_delta,
 ARROW_EXPORT
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              IpcPayload* out);
+
+/// \brief Compute IpcPayload for the given record batch and custom metadata
+/// \param[in] batch the RecordBatch that is being serialized
+/// \param[in] custom_metadata the custom metadata to be serialized with the record batch
+/// \param[in] options options for serialization
+/// \param[out] out the returned IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetRecordBatchPayload(
+    const RecordBatch& batch,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const IpcWriteOptions& options, IpcPayload* out);
 
 /// \brief Write an IPC payload to the given stream.
 /// \param[in] payload the payload to write

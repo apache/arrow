@@ -2600,8 +2600,8 @@ def table_to_blocks(options, Table table, categories, extension_columns):
 
     with nogil:
         check_status(
-            libarrow.ConvertTableToPandas(c_options, move(c_table),
-                                          &result_obj)
+            libarrow_python.ConvertTableToPandas(c_options, move(c_table),
+                                                 &result_obj)
         )
 
     return PyObject_to_object(result_obj)
@@ -4092,7 +4092,6 @@ cdef class Table(_PandasConvertible):
         Yields
         ------
         ChunkedArray
-        ChunkedArray
 
         Examples
         --------
@@ -4967,8 +4966,8 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     --------
     Table.from_arrays, Table.from_pandas, Table.from_pydict
 
-    Example
-    -------
+    Examples
+    --------
     >>> import pyarrow as pa
     >>> n_legs = pa.array([2, 4, 5, 100])
     >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])

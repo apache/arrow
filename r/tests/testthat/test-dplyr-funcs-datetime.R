@@ -16,6 +16,8 @@
 # under the License.
 
 skip_if(on_old_windows())
+# In 3.4 the lack of tzone attribute causes spurious failures
+skip_if_r_version("3.4.4")
 
 library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
@@ -1254,6 +1256,222 @@ test_that("`decimal_date()` and `date_decimal()`", {
   )
 })
 
+test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
+  example_d <- tibble(x = c(1:10, NA))
+  date_to_add <- ymd("2009-08-03", tz = "Pacific/Marquesas")
+
+  # When comparing results we use ignore_attr = TRUE because of the diff in:
+  # attribute 'package' (absent vs. 'lubridate')
+  # class (difftime vs Duration)
+  # attribute 'units' (character vector ('secs') vs. absent)
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dminutes = dminutes(x),
+        dhours = dhours(x),
+        ddays = ddays(x),
+        dweeks = dweeks(x),
+        dmonths = dmonths(x),
+        dyears = dyears(x)
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dhours = dhours(x),
+        ddays = ddays(x),
+        new_date_1 = date_to_add + ddays,
+        new_date_2 = date_to_add + ddays - dhours(3),
+        new_duration = dhours - ddays
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        r_obj_dminutes = dminutes(1),
+        r_obj_dhours = dhours(2),
+        r_obj_ddays = ddays(3),
+        r_obj_dweeks = dweeks(4),
+        r_obj_dmonths = dmonths(5),
+        r_obj_dyears = dyears(6)
+      ) %>%
+      collect(),
+    tibble(),
+    ignore_attr = TRUE
+  )
+
+  # double -> duration not supported in Arrow.
+  # Error is generated in the C++ code
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(r_obj_dminutes = dminutes(1.12345)) %>%
+      collect()
+  )
+})
+
+test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", {
+  example_d <- tibble(x = c(1:10, NA))
+  date_to_add <- ymd("2009-08-03", tz = "Pacific/Marquesas")
+
+  # When comparing results we use ignore_attr = TRUE because of the diff in:
+  # attribute 'package' (absent vs. 'lubridate')
+  # class (difftime vs Duration)
+  # attribute 'units' (character vector ('secs') vs. absent)
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dseconds = dseconds(x),
+        dmilliseconds = dmilliseconds(x),
+        dmicroseconds = dmicroseconds(x),
+        dnanoseconds = dnanoseconds(x),
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dseconds = dseconds(x),
+        dmicroseconds = dmicroseconds(x),
+        new_date_1 = date_to_add + dseconds,
+        new_date_2 = date_to_add + dseconds - dmicroseconds,
+        new_duration = dseconds - dmicroseconds
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        r_obj_dseconds = dseconds(1),
+        r_obj_dmilliseconds = dmilliseconds(2),
+        r_obj_dmicroseconds = dmicroseconds(3),
+        r_obj_dnanoseconds = dnanoseconds(4)
+      ) %>%
+      collect(),
+    tibble(),
+    ignore_attr = TRUE
+  )
+
+  expect_error(
+    call_binding("dpicoseconds"),
+    "Duration in picoseconds not supported in Arrow"
+  )
+
+  # double -> duration not supported in Arrow.
+  # Error is generated in the C++ code
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(r_obj_dseconds = dseconds(1.12345)) %>%
+      collect()
+  )
+})
+
+test_that("make_difftime()", {
+  test_df <- tibble(
+    seconds = c(3, 4, 5, 6),
+    minutes = c(1.5, 2.3, 4.5, 6.7),
+    hours = c(2, 3, 4, 5),
+    days = c(6, 7, 8, 9),
+    weeks = c(1, 3, 5, NA),
+    number = 10:13
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        duration_from_parts = make_difftime(
+          second = seconds,
+          minute = minutes,
+          hour = hours,
+          day = days,
+          week = weeks,
+          units = "secs"
+        ),
+        duration_from_num = make_difftime(
+          num = number,
+          units =  "secs"
+        ),
+        duration_from_r_num = make_difftime(
+          num = 154,
+          units = "secs"
+        ),
+        duration_from_r_parts = make_difftime(
+          minute = 45,
+          day = 2,
+          week = 4,
+          units = "secs"
+        )
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # named difftime parts other than `second`, `minute`, `hour`, `day` and `week`
+  # are not supported
+  expect_error(
+    expect_warning(
+      test_df %>%
+        arrow_table() %>%
+        mutate(
+          err_difftime = make_difftime(month = 2)
+        ) %>%
+        collect(),
+      paste0("named `difftime` units other than: `second`, `minute`, `hour`,",
+            " `day`, and `week` not supported in Arrow.")
+    )
+  )
+
+  # units other than "secs" not supported since they are the only ones in common
+  # between R and Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(error_difftime = make_difftime(num = number, units = "mins")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  # constructing a difftime from both `num` and parts passed through `...` while
+  # possible with the lubridate function (resulting in a concatenation of the 2
+  # resulting objects), it errors in a dplyr context
+  expect_error(
+    expect_warning(
+      test_df %>%
+        arrow_table() %>%
+        mutate(
+          duration_from_num_and_parts = make_difftime(
+            num = number,
+            second = seconds,
+            minute = minutes,
+            hour = hours,
+            day = days,
+            week = weeks,
+            units = "secs"
+          )
+        ) %>%
+        collect(),
+      "with both `num` and `...` not supported in Arrow"
+    )
+  )
+})
+
 test_that("parse_date_time()", {
   test_df <- tibble(
     dates = c("09-01-17", "02-Sep-17")
@@ -1311,12 +1529,12 @@ test_that("lubridate's fast_strptime", {
       collect(),
     t_string,
     # arrow does not preserve the `tzone` attribute
-    ignore_attr = TRUE
+        ignore_attr = TRUE
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y =
+          mutate(y =
                fast_strptime("68-10-07 19:04:05", format = "%y-%m-%d %H:%M:%S", lt = FALSE)
       ) %>%
       collect(),
@@ -1332,13 +1550,13 @@ test_that("lubridate's fast_strptime", {
       collect(),
     t_string_y,
     # arrow does not preserve the `tzone` attribute
-    ignore_attr = TRUE
+        ignore_attr = TRUE
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(
-        date_short_year =
+                date_short_year =
           fast_strptime(x, format = "%y-%m-%d %H:%M:%S", lt = FALSE, cutoff_2000 = 69L)
       ) %>%
       collect(),
@@ -1398,5 +1616,5 @@ test_that("parse_date_time()", {
       ) %>%
       collect(),
     test_dates
-  )
+      )
 })

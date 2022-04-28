@@ -24,10 +24,10 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/debug"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v8/parquet/schema"
 )
@@ -432,10 +432,10 @@ func (Float64Statistics) less(a, b float64) bool { return a < b }
 func (s *Int96Statistics) less(a, b parquet.Int96) bool {
 	i96a := arrow.Uint32Traits.CastFromBytes(a[:])
 	i96b := arrow.Uint32Traits.CastFromBytes(b[:])
-	
+
 	a0, a1, a2 := utils.ToLEUint32(i96a[0]), utils.ToLEUint32(i96a[1]), utils.ToLEUint32(i96a[2])
 	b0, b1, b2 := utils.ToLEUint32(i96b[0]), utils.ToLEUint32(i96b[1]), utils.ToLEUint32(i96b[2])
-	
+
 	if a2 != b2 {
 		// only the msb bit is by signed comparison
 		if s.order == schema.SortSIGNED {

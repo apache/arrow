@@ -24,6 +24,7 @@ from cython.operator cimport dereference as deref
 import collections
 import os
 import warnings
+from libcpp cimport bool
 
 import pyarrow as pa
 from pyarrow.lib cimport *
@@ -356,6 +357,54 @@ cdef class Dataset(_Weakrefable):
         """The common schema of the full Dataset"""
         return pyarrow_wrap_schema(self.dataset.schema())
 
+    def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
+             left_suffix=None, right_suffix=None, coalesce_keys=True,
+             use_threads=True):
+        """
+        Perform a join between this dataset and another one.
+
+        Result of the join will be a new dataset, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        right_dataset : dataset
+            The dataset to join to the current one, acting as the right dataset
+            in the join operation.
+        keys : str or list[str]
+            The columns from current dataset that should be used as keys
+            of the join operation left side.
+        right_keys : str or list[str], default None
+            The columns from the right_dataset that should be used as keys
+            on the join operation right side.
+            When ``None`` use the same key names as the left dataset.
+        join_type : str, default "left outer"
+            The kind of join that should be performed, one of
+            ("left semi", "right semi", "left anti", "right anti",
+            "inner", "left outer", "right outer", "full outer")
+        left_suffix : str, default None
+            Which suffix to add to right column names. This prevents confusion
+            when the columns in left and right datasets have colliding names.
+        right_suffix : str, default None
+            Which suffic to add to the left column names. This prevents confusion
+            when the columns in left and right datasets have colliding names.
+        coalesce_keys : bool, default True
+            If the duplicated keys should be omitted from one of the sides
+            in the join result.
+        use_threads : bool, default True
+            Whenever to use multithreading or not.
+
+        Returns
+        -------
+        InMemoryDataset
+        """
+        if right_keys is None:
+            right_keys = keys
+        return _pc()._exec_plan._perform_join(join_type, self, keys, right_dataset, right_keys,
+                                              left_suffix=left_suffix, right_suffix=right_suffix,
+                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
+                                              output_type=InMemoryDataset)
+
 
 cdef class InMemoryDataset(Dataset):
     """
@@ -622,54 +671,6 @@ cdef class FileSystemDataset(Dataset):
     def format(self):
         """The FileFormat of this source."""
         return FileFormat.wrap(self.filesystem_dataset.format())
-
-    def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
-             left_suffix=None, right_suffix=None, coalesce_keys=True,
-             use_threads=True):
-        """
-        Perform a join between this dataset and another one.
-
-        Result of the join will be a new dataset, where further
-        operations can be applied.
-
-        Parameters
-        ----------
-        right_dataset : dataset
-            The dataset to join to the current one, acting as the right dataset
-            in the join operation.
-        keys : str or list[str]
-            The columns from current dataset that should be used as keys
-            of the join operation left side.
-        right_keys : str or list[str], default None
-            The columns from the right_dataset that should be used as keys
-            on the join operation right side.
-            When ``None`` use the same key names as the left dataset.
-        join_type : str, default "left outer"
-            The kind of join that should be performed, one of
-            ("left semi", "right semi", "left anti", "right anti",
-            "inner", "left outer", "right outer", "full outer")
-        left_suffix : str, default None
-            Which suffix to add to right column names. This prevents confusion
-            when the columns in left and right datasets have colliding names.
-        right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
-            when the columns in left and right datasets have colliding names.
-        coalesce_keys : bool, default True
-            If the duplicated keys should be omitted from one of the sides
-            in the join result.
-        use_threads : bool, default True
-            Whenever to use multithreading or not.
-
-        Returns
-        -------
-        InMemoryDataset
-        """
-        if right_keys is None:
-            right_keys = keys
-        return _pc()._exec_plan._perform_join(join_type, self, keys, right_dataset, right_keys,
-                                              left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
-                                              output_type=InMemoryDataset)
 
 
 cdef class FileWriteOptions(_Weakrefable):
@@ -1662,7 +1663,7 @@ cdef class FilenamePartitioning(KeyValuePartitioning):
     The FilenamePartitioning expects one segment in the file name for each
     field in the schema (all fields are required to be present) separated
     by '_'. For example given schema<year:int16, month:int8> the name
-    "2009_11_" would be parsed to ("year"_ == 2009 and "month"_ == 11).
+    ``"2009_11_"`` would be parsed to ("year" == 2009 and "month" == 11).
 
     Parameters
     ----------
@@ -2133,7 +2134,7 @@ cdef class TaggedRecordBatchIterator(_Weakrefable):
             fragment=Fragment.wrap(batch.fragment))
 
 
-_DEFAULT_BATCH_SIZE = 2**20
+_DEFAULT_BATCH_SIZE = 2**17
 
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
@@ -2216,7 +2217,7 @@ cdef class Scanner(_Weakrefable):
         partition information or internal metadata found in the data
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
-    batch_size : int, default 1M
+    batch_size : int, default 128Ki
         The maximum row count for scanned record batches. If scanned
         record batches are overflowing memory then this method can be
         called to reduce their size.
@@ -2290,7 +2291,7 @@ cdef class Scanner(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 1M
+        batch_size : int, default 128Ki
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -2368,7 +2369,7 @@ cdef class Scanner(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 1M
+        batch_size : int, default 128Ki
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -2432,7 +2433,7 @@ cdef class Scanner(_Weakrefable):
                 The columns to project.
         filter : Expression, default None
             Scan will return only the rows matching the filter.
-        batch_size : int, default 1M
+        batch_size : int, default 128Ki
             The maximum row count for scanned record batches.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
@@ -2683,6 +2684,7 @@ def _filesystemdataset_write(
     int max_rows_per_file,
     int min_rows_per_group,
     int max_rows_per_group,
+    bool create_dir
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -2715,6 +2717,7 @@ def _filesystemdataset_write(
             ("existing_data_behavior must be one of 'error', ",
              "'overwrite_or_ignore' or 'delete_matching'")
         )
+    c_options.create_dir = create_dir
 
     if file_visitor is not None:
         visit_args = {'base_dir': c_options.base_dir,

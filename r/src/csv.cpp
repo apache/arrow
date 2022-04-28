@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include "./safe-call-into-r.h"
+
 #include <arrow/csv/reader.h>
 #include <arrow/csv/writer.h>
 #include <arrow/memory_pool.h>
@@ -162,7 +164,16 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
+#if !defined(HAS_SAFE_CALL_INTO_R)
   return ValueOrStop(table_reader->Read());
+#else
+  const auto& io_context = arrow::io::default_io_context();
+  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
+    return DeferNotOk(
+        io_context.executor()->Submit([&]() { return table_reader->Read(); }));
+  });
+  return ValueOrStop(result);
+#endif
 }
 
 // [[arrow::export]]

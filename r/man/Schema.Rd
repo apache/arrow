@@ -75,7 +75,6 @@ the metadata is dropped.
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 schema(a = int32(), b = float64())
 
 schema(
@@ -89,5 +88,4 @@ tab1 <- arrow_table(df)
 tab1$schema
 tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
 tab2$schema
-\dontshow{\}) # examplesIf}
 }

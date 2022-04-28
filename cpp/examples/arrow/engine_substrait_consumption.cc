@@ -40,7 +40,8 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
  public:
   explicit IgnoringConsumer(size_t tag) : tag_{tag} {}
 
-  arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema) override {
+  arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
+                     cp::BackpressureControl* backpressure_control) override {
     return arrow::Status::OK();
   }
 

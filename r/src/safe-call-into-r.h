@@ -26,6 +26,13 @@
 #include <functional>
 #include <thread>
 
+// Unwind protection was added in R 3.5 and some calls here use it
+// and crash R in older versions (ARROW-16201). We use this define
+// to make sure we don't crash on R 3.4 and lower.
+#if defined(HAS_UNWIND_PROTECT)
+#define HAS_SAFE_CALL_INTO_R
+#endif
+
 // The MainRThread class keeps track of the thread on which it is safe
 // to call the R API to facilitate its safe use (or erroring
 // if it is not safe). The MainRThread singleton can be accessed from
@@ -86,7 +93,7 @@ MainRThread& GetMainRThread();
 // a SEXP (use cpp11::as_cpp<T> to convert it to a C++ type inside
 // `fun`).
 template <typename T>
-arrow::Future<T> SafeCallIntoRAsync(std::function<T(void)> fun) {
+arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun) {
   MainRThread& main_r_thread = GetMainRThread();
   if (main_r_thread.IsMainThread()) {
     // If we're on the main thread, run the task immediately and let
@@ -104,7 +111,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<T(void)> fun) {
       }
 
       try {
-        return arrow::Result<T>(fun());
+        return fun();
       } catch (cpp11::unwind_exception& e) {
         GetMainRThread().SetError(e.token);
         return arrow::Result<T>(arrow::Status::UnknownError("R code execution error"));
@@ -122,8 +129,19 @@ arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun) {
   return future.result();
 }
 
+static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun) {
+  arrow::Future<bool> future = SafeCallIntoRAsync<bool>([&fun]() {
+    fun();
+    return true;
+  });
+  return future.status();
+}
+
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
+#if !defined(HAS_SAFE_CALL_INTO_R)
+  return arrow::Status::NotImplemented("RunWithCapturedR() without UnwindProtect");
+#else
   if (GetMainRThread().Executor() != nullptr) {
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
@@ -140,6 +158,7 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
   GetMainRThread().ClearError();
 
   return result;
+#endif
 }
 
 #endif

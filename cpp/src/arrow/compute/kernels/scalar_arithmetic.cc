@@ -18,11 +18,13 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
 
 #include "arrow/compare.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
@@ -30,6 +32,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
+#include "arrow/visit_scalar_inline.h"
 
 namespace arrow {
 
@@ -51,6 +54,29 @@ using applicator::ScalarUnaryNotNull;
 using applicator::ScalarUnaryNotNullStateful;
 
 namespace {
+
+// Convenience visitor to detect if a numeric Scalar is positive.
+struct IsPositiveVisitor {
+  bool result = false;
+
+  template <typename... Ts>
+  Status Visit(const NumericScalar<Ts...>& scalar) {
+    result = scalar.value > 0;
+    return Status::OK();
+  }
+  template <typename... Ts>
+  Status Visit(const DecimalScalar<Ts...>& scalar) {
+    result = scalar.value > 0;
+    return Status::OK();
+  }
+  Status Visit(const Scalar& scalar) { return Status::OK(); }
+};
+
+bool IsPositive(const Scalar& scalar) {
+  IsPositiveVisitor visitor{};
+  std::ignore = VisitScalarInline(scalar, &visitor);
+  return visitor.result;
+}
 
 // N.B. take care not to conflict with type_traits.h as that can cause surprises in a
 // unity build
@@ -1175,7 +1201,6 @@ struct RoundOptionsWrapper;
 template <>
 struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
   using OptionsType = RoundOptions;
-  using State = RoundOptionsWrapper<OptionsType>;
   double pow10;
 
   explicit RoundOptionsWrapper(OptionsType options) : OptionsWrapper(std::move(options)) {
@@ -1189,7 +1214,7 @@ struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<State>(*options);
+      return ::arrow::internal::make_unique<RoundOptionsWrapper>(*options);
     }
     return Status::Invalid(
         "Attempted to initialize KernelState from null FunctionOptions");
@@ -1200,70 +1225,44 @@ template <>
 struct RoundOptionsWrapper<RoundToMultipleOptions>
     : public OptionsWrapper<RoundToMultipleOptions> {
   using OptionsType = RoundToMultipleOptions;
-  using State = RoundOptionsWrapper<OptionsType>;
   using OptionsWrapper::OptionsWrapper;
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
-    std::unique_ptr<State> state;
-    if (auto options = static_cast<const OptionsType*>(args.options)) {
-      state = ::arrow::internal::make_unique<State>(*options);
-    } else {
+    auto options = static_cast<const OptionsType*>(args.options);
+    if (!options) {
       return Status::Invalid(
           "Attempted to initialize KernelState from null FunctionOptions");
     }
 
-    auto options = Get(*state);
-    const auto& type = *args.inputs[0].type;
-    if (!options.multiple || !options.multiple->is_valid) {
+    const auto& multiple = options->multiple;
+    if (!multiple || !multiple->is_valid) {
       return Status::Invalid("Rounding multiple must be non-null and valid");
     }
-    if (is_floating(type.id())) {
-      switch (options.multiple->type->id()) {
-        case Type::FLOAT: {
-          if (UnboxScalar<FloatType>::Unbox(*options.multiple) < 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        case Type::DOUBLE: {
-          if (UnboxScalar<DoubleType>::Unbox(*options.multiple) < 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        case Type::HALF_FLOAT:
-          return Status::NotImplemented("Half-float values are not supported");
-        default:
-          return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                                 *options.multiple->type);
-      }
-    } else {
-      DCHECK(is_decimal(type.id()));
-      if (!type.Equals(*options.multiple->type)) {
-        return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                               *options.multiple->type);
-      }
-      switch (options.multiple->type->id()) {
-        case Type::DECIMAL128: {
-          if (UnboxScalar<Decimal128Type>::Unbox(*options.multiple) <= 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        case Type::DECIMAL256: {
-          if (UnboxScalar<Decimal256Type>::Unbox(*options.multiple) <= 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        default:
-          // This shouldn't happen
-          return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                                 *options.multiple->type);
-      }
+
+    if (!IsPositive(*multiple)) {
+      return Status::Invalid("Rounding multiple must be positive");
     }
-    return std::move(state);
+
+    // Ensure the rounding multiple option matches the kernel's output type.
+    // The output type is not available here so we use the following rule:
+    // If `multiple` is neither a floating-point nor a decimal type, then
+    // cast to float64, else cast to the kernel's input type.
+    const auto& to_type =
+        (!is_floating(multiple->type->id()) && !is_decimal(multiple->type->id()))
+            ? float64()
+            : args.inputs[0].type;
+    if (!multiple->type->Equals(to_type)) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto casted_multiple,
+          Cast(Datum(multiple), to_type, CastOptions::Safe(), ctx->exec_context()));
+
+      // Create a new option object if the rounding multiple was casted.
+      auto new_options = OptionsType(casted_multiple.scalar(), options->round_mode);
+      return ::arrow::internal::make_unique<RoundOptionsWrapper>(new_options);
+    }
+
+    return ::arrow::internal::make_unique<RoundOptionsWrapper>(*options);
   }
 };
 
@@ -1341,7 +1340,7 @@ struct Round<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
     if (pow >= ty.precision()) {
       *st = Status::Invalid("Rounding to ", ndigits,
                             " digits will not fit in precision of ", ty);
-      return arg;
+      return 0;
     } else if (pow < 0) {
       // no-op, copy output to input
       return arg;
@@ -1397,21 +1396,12 @@ struct RoundToMultiple {
 
   CType multiple;
 
-  explicit RoundToMultiple(const State& state, const DataType& out_ty) {
+  explicit RoundToMultiple(const State& state, const DataType& out_ty)
+      : multiple(UnboxScalar<ArrowType>::Unbox(*state.options.multiple)) {
     const auto& options = state.options;
     DCHECK(options.multiple);
     DCHECK(options.multiple->is_valid);
     DCHECK(is_floating(options.multiple->type->id()));
-    switch (options.multiple->type->id()) {
-      case Type::FLOAT:
-        multiple = static_cast<CType>(UnboxScalar<FloatType>::Unbox(*options.multiple));
-        break;
-      case Type::DOUBLE:
-        multiple = static_cast<CType>(UnboxScalar<DoubleType>::Unbox(*options.multiple));
-        break;
-      default:
-        DCHECK(false);
-    }
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
@@ -1453,16 +1443,15 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
   bool has_halfway_point;
 
   explicit RoundToMultiple(const State& state, const DataType& out_ty)
-      : ty(checked_cast<const ArrowType&>(out_ty)) {
+      : ty(checked_cast<const ArrowType&>(out_ty)),
+        multiple(UnboxScalar<ArrowType>::Unbox(*state.options.multiple)),
+        half_multiple(multiple / 2),
+        neg_half_multiple(-half_multiple),
+        has_halfway_point(multiple.low_bits() % 2 == 0) {
     const auto& options = state.options;
     DCHECK(options.multiple);
     DCHECK(options.multiple->is_valid);
     DCHECK(options.multiple->type->Equals(out_ty));
-    multiple = UnboxScalar<ArrowType>::Unbox(*options.multiple);
-    half_multiple = multiple;
-    half_multiple /= 2;
-    neg_half_multiple = -half_multiple;
-    has_halfway_point = multiple.low_bits() % 2 == 0;
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
@@ -1489,11 +1478,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
             // Do nothing
             break;
           case RoundMode::HALF_TOWARDS_INFINITY:
-            if (remainder.Sign() >= 0) {
-              pair.first += 1;
-            } else {
-              pair.first -= 1;
-            }
+            pair.first += remainder.Sign() >= 0 ? 1 : -1;
             break;
           case RoundMode::HALF_TO_EVEN:
             if (pair.first.low_bits() % 2 != 0) {
@@ -1533,11 +1518,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
           // Do nothing
           break;
         case RoundMode::TOWARDS_INFINITY:
-          if (remainder.Sign() >= 0) {
-            pair.first += 1;
-          } else {
-            pair.first -= 1;
-          }
+          pair.first += remainder.Sign() >= 0 ? 1 : -1;
           break;
         default:
           DCHECK(false);

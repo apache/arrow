@@ -184,10 +184,10 @@ R CMD check arrow_*.tar.gz --as-cran
 ```
 
 
-## Running additional CI checks
+## Running extended CI checks
 
 On a pull request, there are some actions you can trigger by commenting on the
-PR. We have additional CI checks that run nightly and can be requested on demand
+PR. These extended CI checks are run nightly and can also be requested on-demand
 using an internal tool called
 [crossbow](https://arrow.apache.org/docs/developers/crossbow.html).
 A few important GitHub comment commands are shown below.

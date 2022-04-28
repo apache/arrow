@@ -179,7 +179,13 @@ register_bindings_datetime <- function() {
   })
   register_binding("tz", function(x) {
     if (!call_binding("is.POSIXct", x)) {
-      abort(paste0("timezone extraction for objects of class `", type(x)$ToString(), "` not supported in Arrow"))
+      abort(
+        paste0(
+          "timezone extraction for objects of class `",
+          infer_type(x)$ToString(),
+          "` not supported in Arrow"
+        )
+      )
     }
 
     x$type()$timezone()
@@ -263,11 +269,11 @@ register_bindings_duration <- function() {
     # cast to timestamp if time1 and time2 are not dates or timestamp expressions
     # (the subtraction of which would output a `duration`)
     if (!call_binding("is.instant", time1)) {
-      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = "UTC")))
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp()))
     }
 
     if (!call_binding("is.instant", time2)) {
-      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = "UTC")))
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp()))
     }
 
     # if time1 or time2 are timestamps they cannot be expressed in "s" /seconds
@@ -409,6 +415,74 @@ register_bindings_duration <- function() {
   })
 }
 
+.helpers_function_map <- list(
+  "dminutes" = list(60, "s"),
+  "dhours" = list(3600, "s"),
+  "ddays" = list(86400, "s"),
+  "dweeks" = list(604800, "s"),
+  "dmonths" = list(2629800, "s"),
+  "dyears" = list(31557600, "s"),
+  "dseconds" = list(1, "s"),
+  "dmilliseconds" = list(1, "ms"),
+  "dmicroseconds" = list(1, "us"),
+  "dnanoseconds" = list(1, "ns")
+)
+make_duration <- function(x, unit) {
+  x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+  x$cast(duration(unit))
+}
+register_bindings_duration_helpers <- function() {
+  duration_helpers_map_factory <- function(value, unit) {
+    force(value)
+    force(unit)
+    function(x = 1) make_duration(x * value, unit)
+  }
+
+  for (name in names(.helpers_function_map)) {
+    register_binding(
+      name,
+      duration_helpers_map_factory(
+        .helpers_function_map[[name]][[1]],
+        .helpers_function_map[[name]][[2]]
+      )
+    )
+  }
+
+  register_binding("dpicoseconds", function(x = 1) {
+    abort("Duration in picoseconds not supported in Arrow.")
+  })
+}
+
+register_bindings_difftime_constructors <- function() {
+  register_binding("make_difftime", function(num = NULL,
+                                             units = "secs",
+                                             ...) {
+    if (units != "secs") {
+      abort("`make_difftime()` with units other than 'secs' not supported in Arrow")
+    }
+
+    chunks <- list(...)
+
+    # lubridate concatenates durations passed via the `num` argument with those
+    # passed via `...` resulting in a vector of length 2 - which is virtually
+    # unusable in a dplyr pipeline. Arrow errors in this situation
+    if (!is.null(num) && length(chunks) > 0) {
+      abort("`make_difftime()` with both `num` and `...` not supported in Arrow")
+    }
+
+    if (!is.null(num)) {
+      # build duration from num if present
+      duration <- num
+    } else {
+      # build duration from chunks when nothing is passed via ...
+      duration <- duration_from_chunks(chunks)
+    }
+
+    duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
+    duration$cast(duration("s"))
+  })
+}
+
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
   if (usetz) {
     format <- paste(format, "%Z")
@@ -429,6 +503,99 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
   build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
 
+# this is a helper function used for creating a difftime / duration objects from
+# several of the accepted pieces (second, minute, hour, day, week)
+duration_from_chunks <- function(chunks) {
+  accepted_chunks <- c("second", "minute", "hour", "day", "week")
+  matched_chunks <- accepted_chunks[pmatch(names(chunks), accepted_chunks, duplicates.ok = TRUE)]
+
+  if (any(is.na(matched_chunks))) {
+    abort(
+      paste0(
+        "named `difftime` units other than: ",
+        oxford_paste(accepted_chunks, quote_symbol = "`"),
+        " not supported in Arrow. \nInvalid `difftime` parts: ",
+        oxford_paste(names(chunks[is.na(matched_chunks)]), quote_symbol = "`")
+      )
+    )
+  }
+
+  matched_chunks <- matched_chunks[!is.na(matched_chunks)]
+
+  chunks <- chunks[matched_chunks]
+  chunk_duration <- c(
+    "second" = 1L,
+    "minute" = 60L,
+    "hour" = 3600L,
+    "day" = 86400L,
+    "week" = 604800L
+  )
+
+  # transform the duration of each chunk in seconds and add everything together
+  duration <- 0
+  for (chunk in names(chunks)) {
+    duration <- duration + chunks[[chunk]] * chunk_duration[[chunk]]
+  }
+  duration
+}
+
+binding_as_date <- function(x,
+                            format = NULL,
+                            tryFormats = "%Y-%m-%d",
+                            origin = "1970-01-01") {
+
+  if (is.null(format) && length(tryFormats) > 1) {
+    abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+  }
+
+  if (call_binding("is.Date", x)) {
+    return(x)
+
+    # cast from character
+  } else if (call_binding("is.character", x)) {
+    x <- binding_as_date_character(x, format, tryFormats)
+
+    # cast from numeric
+  } else if (call_binding("is.numeric", x)) {
+    x <- binding_as_date_numeric(x, origin)
+  }
+
+  build_expr("cast", x, options = cast_options(to_type = date32()))
+}
+
+binding_as_date_character <- function(x,
+                                      format = NULL,
+                                      tryFormats = "%Y-%m-%d") {
+  format <- format %||% tryFormats[[1]]
+  # unit = 0L is the identifier for seconds in valid_time32_units
+  build_expr("strptime", x, options = list(format = format, unit = 0L))
+}
+
+binding_as_date_numeric <- function(x, origin = "1970-01-01") {
+
+  # Arrow does not support direct casting from double to date32(), but for
+  # integer-like values we can go via int32()
+  # https://issues.apache.org/jira/browse/ARROW-15798
+  # TODO revisit if arrow decides to support double -> date casting
+  if (!call_binding("is.integer", x)) {
+    x <- build_expr("cast", x, options = cast_options(to_type = int32()))
+  }
+
+  if (origin != "1970-01-01") {
+    delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
+    # TODO: revisit once either of these issues is addressed:
+    #   https://issues.apache.org/jira/browse/ARROW-16253 (helper function for
+    #   casting from double to duration) or
+    #   https://issues.apache.org/jira/browse/ARROW-15862 (casting from int32
+    #   -> duration or double -> duration)
+    delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int64()))
+    delta_in_days <- (delta_in_sec / 86400L)$cast(int32())
+    x <- build_expr("+", x, delta_in_days)
+  }
+
+  x
+}
+
 build_formats <- function(orders) {
   year_chars <- sprintf("%%%s", c("y", "Y"))
   month_chars <- sprintf("%%%s", c("m", "B", "b"))
@@ -445,4 +612,4 @@ build_formats <- function(orders) {
   )
   outcome$format <- paste(outcome$Var1, outcome$Var2, outcome$Var3, sep = "-")
   outcome$format
-}
+}  

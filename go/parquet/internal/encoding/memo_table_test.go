@@ -20,9 +20,11 @@ import (
 	"math"
 	"testing"
 
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/hashing"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/hashing"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -209,7 +211,7 @@ func (m *MemoTableTestSuite) TestBinaryBasics() {
 		F = "\000trailing"
 	)
 
-	table := hashing.NewBinaryMemoTable(memory.DefaultAllocator, 0, -1)
+	table := hashing.NewBinaryMemoTable(0, -1, array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.Binary))
 	defer table.Release()
 
 	m.Zero(table.Size())
@@ -241,9 +243,9 @@ func (m *MemoTableTestSuite) TestBinaryBasics() {
 
 	size := table.Size()
 	{
-		offsets := make([]int8, size+1)
+		offsets := make([]int32, size+1)
 		table.CopyOffsets(offsets)
-		m.Equal([]int8{0, 0, 1, 4, 7, 8, 17, 17}, offsets)
+		m.Equal([]int32{0, 0, 1, 4, 7, 8, 17, 17}, offsets)
 
 		expectedValues := "afoobar"
 		expectedValues += "\000"
@@ -256,9 +258,9 @@ func (m *MemoTableTestSuite) TestBinaryBasics() {
 
 	{
 		startOffset := 4
-		offsets := make([]int8, size+1-int(startOffset))
+		offsets := make([]int32, size+1-int(startOffset))
 		table.CopyOffsetsSubset(startOffset, offsets)
-		m.Equal([]int8{0, 1, 10, 10}, offsets)
+		m.Equal([]int32{0, 1, 10, 10}, offsets)
 
 		expectedValues := ""
 		expectedValues += "\000"
@@ -285,7 +287,7 @@ func (m *MemoTableTestSuite) TestBinaryEmpty() {
 	defer table.Release()
 
 	m.Zero(table.Size())
-	offsets := make([]int8, 1)
+	offsets := make([]int32, 1)
 	table.CopyOffsetsSubset(0, offsets)
-	m.Equal(int8(0), offsets[0])
+	m.Equal(int32(0), offsets[0])
 }

@@ -322,6 +322,6 @@ func (b *Decimal128Builder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*Decimal128)(nil)
-	_ Builder   = (*Decimal128Builder)(nil)
+	_ arrow.Array = (*Decimal128)(nil)
+	_ Builder     = (*Decimal128Builder)(nil)
 )

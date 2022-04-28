@@ -22,17 +22,23 @@ project_name = 'parquet-glib'
 sources = files(
   'arrow-file-reader.cpp',
   'arrow-file-writer.cpp',
+  'metadata.cpp',
+  'statistics.cpp',
 )
 
 c_headers = files(
   'arrow-file-reader.h',
   'arrow-file-writer.h',
+  'metadata.h',
+  'statistics.h',
   'parquet-glib.h',
 )
 
 cpp_headers = files(
   'arrow-file-reader.hpp',
   'arrow-file-writer.hpp',
+  'metadata.hpp',
+  'statistics.hpp',
   'parquet-glib.hpp',
 )
 

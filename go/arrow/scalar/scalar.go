@@ -70,10 +70,10 @@ type Releasable interface {
 
 func validateOptional(s *scalar, value interface{}, valueDesc string) error {
 	if s.Valid && value == nil {
-		return xerrors.Errorf("%s scalar is marked valid but doesn't have a %s", s.Type, valueDesc)
+		return fmt.Errorf("%s scalar is marked valid but doesn't have a %s", s.Type, valueDesc)
 	}
 	if !s.Valid && value != nil && !reflect.ValueOf(value).IsNil() {
-		return xerrors.Errorf("%s scalar is marked null but has a %s", s.Type, valueDesc)
+		return fmt.Errorf("%s scalar is marked null but has a %s", s.Type, valueDesc)
 	}
 	return nil
 }
@@ -209,7 +209,7 @@ func (s *Boolean) CastTo(dt arrow.DataType) (Scalar, error) {
 	case arrow.FLOAT64:
 		return NewFloat64Scalar(float64(val)), nil
 	default:
-		return nil, xerrors.Errorf("invalid scalar cast from type bool to type %s", dt)
+		return nil, fmt.Errorf("invalid scalar cast from type bool to type %s", dt)
 	}
 }
 
@@ -245,7 +245,7 @@ func (f *Float16) CastTo(to arrow.DataType) (Scalar, error) {
 		return NewStringScalar(f.Value.String()), nil
 	}
 
-	return nil, xerrors.Errorf("cannot cast non-null float16 scalar to type %s", to)
+	return nil, fmt.Errorf("cannot cast non-null float16 scalar to type %s", to)
 }
 
 func (s *Float16) String() string {
@@ -304,7 +304,7 @@ func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
 		return NewStringScalar(val.Quo(val, scale).Text('g', int(dt.Precision))), nil
 	}
 
-	return nil, xerrors.Errorf("cannot cast non-nil decimal128 scalar to type %s", to)
+	return nil, fmt.Errorf("cannot cast non-nil decimal128 scalar to type %s", to)
 }
 
 func NewDecimal128Scalar(val decimal128.Num, typ arrow.DataType) *Decimal128 {
@@ -327,19 +327,19 @@ func (e *Extension) Validate() (err error) {
 
 	if !e.Valid {
 		if e.Value != nil {
-			err = xerrors.Errorf("null %s scalar has storage value", e.Type)
+			err = fmt.Errorf("null %s scalar has storage value", e.Type)
 		}
 		return
 	}
 
 	switch {
 	case e.Value == nil:
-		err = xerrors.Errorf("non-null %s scalar doesn't have a storage value", e.Type)
+		err = fmt.Errorf("non-null %s scalar doesn't have a storage value", e.Type)
 	case !e.Value.IsValid():
-		err = xerrors.Errorf("non-null %s scalar has a null storage value", e.Type)
+		err = fmt.Errorf("non-null %s scalar has a null storage value", e.Type)
 	default:
 		if err = e.Value.Validate(); err != nil {
-			err = xerrors.Errorf("%s scalar fails validation for storage value: %w", e.Type, err)
+			err = fmt.Errorf("%s scalar fails validation for storage value: %w", e.Type, err)
 		}
 	}
 	return
@@ -365,7 +365,7 @@ func (s *Extension) CastTo(to arrow.DataType) (Scalar, error) {
 		return s, nil
 	}
 
-	return nil, xerrors.Errorf("cannot cast non-null extension scalar of type %s to type %s", s.Type, to)
+	return nil, fmt.Errorf("cannot cast non-null extension scalar of type %s to type %s", s.Type, to)
 }
 
 func (s *Extension) String() string {
@@ -560,7 +560,7 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return NewTimestampScalar(arr.Value(idx), arr.DataType()), nil
 	}
 
-	return nil, xerrors.Errorf("cannot create scalar from array of type %s", arr.DataType())
+	return nil, fmt.Errorf("cannot create scalar from array of type %s", arr.DataType())
 }
 
 // MakeArrayOfNull creates an array of size length which is all null of the given data type.
@@ -746,7 +746,7 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Arr
 		}()
 		return array.MakeFromData(data), nil
 	default:
-		return nil, xerrors.Errorf("array from scalar not yet implemented for type %s", sc.DataType())
+		return nil, fmt.Errorf("array from scalar not yet implemented for type %s", sc.DataType())
 	}
 }
 

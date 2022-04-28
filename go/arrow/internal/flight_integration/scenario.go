@@ -19,6 +19,7 @@ package flight_integration
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -91,20 +92,20 @@ func consumeFlightLocation(ctx context.Context, loc *flight.Location, tkt *fligh
 
 	for i, chunk := range orig {
 		if !rdr.Next() {
-			return xerrors.Errorf("got fewer batches than expected, received so far: %d, expected: %d", i, len(orig))
+			return fmt.Errorf("got fewer batches than expected, received so far: %d, expected: %d", i, len(orig))
 		}
 
 		if !array.RecordEqual(chunk, rdr.Record()) {
-			return xerrors.Errorf("batch %d doesn't match", i)
+			return fmt.Errorf("batch %d doesn't match", i)
 		}
 
 		if string(rdr.LatestAppMetadata()) != strconv.Itoa(i) {
-			return xerrors.Errorf("expected metadata value: %s, but got: %s", strconv.Itoa(i), string(rdr.LatestAppMetadata()))
+			return fmt.Errorf("expected metadata value: %s, but got: %s", strconv.Itoa(i), string(rdr.LatestAppMetadata()))
 		}
 	}
 
 	if rdr.Next() {
-		return xerrors.Errorf("got more batches than the expected: %d", len(orig))
+		return fmt.Errorf("got more batches than the expected: %d", len(orig))
 	}
 
 	return nil
@@ -138,12 +139,12 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 	fmt.Println("Opening JSON file '", s.path, "'")
 	r, err := os.Open(s.path)
 	if err != nil {
-		return xerrors.Errorf("could not open JSON file: %q: %w", s.path, err)
+		return fmt.Errorf("could not open JSON file: %q: %w", s.path, err)
 	}
 
 	rdr, err := arrjson.NewReader(r)
 	if err != nil {
-		return xerrors.Errorf("could not create JSON file reader from file: %q: %w", s.path, err)
+		return fmt.Errorf("could not create JSON file reader from file: %q: %w", s.path, err)
 	}
 
 	dataSet := integrationDataSet{
@@ -154,7 +155,7 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 	for {
 		rec, err := rdr.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
@@ -185,9 +186,9 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 		acked := pr.GetAppMetadata()
 		switch {
 		case len(acked) == 0:
-			return xerrors.Errorf("expected metadata value: %s, but got nothing.", string(metadata))
+			return fmt.Errorf("expected metadata value: %s, but got nothing", string(metadata))
 		case !bytes.Equal(metadata, acked):
-			return xerrors.Errorf("expected metadata value: %s, but got: %s", string(metadata), string(acked))
+			return fmt.Errorf("expected metadata value: %s, but got: %s", string(metadata), string(acked))
 		}
 	}
 
@@ -204,12 +205,12 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 
 	if len(info.Endpoint) == 0 {
 		fmt.Fprintln(os.Stderr, "no endpoints returned from flight server.")
-		return xerrors.Errorf("no endpoints returned from flight server")
+		return fmt.Errorf("no endpoints returned from flight server")
 	}
 
 	for _, ep := range info.Endpoint {
 		if len(ep.Location) == 0 {
-			return xerrors.Errorf("no locations returned from flight server")
+			return fmt.Errorf("no locations returned from flight server")
 		}
 
 		for _, loc := range ep.Location {
@@ -321,7 +322,7 @@ func CheckActionResults(ctx context.Context, client flight.Client, action *fligh
 
 		actual := string(res.Body)
 		if expected != actual {
-			return xerrors.Errorf("got wrong result: expected: %s, got: %s", expected, actual)
+			return fmt.Errorf("got wrong result: expected: %s, got: %s", expected, actual)
 		}
 	}
 
@@ -420,7 +421,7 @@ func (s *authBasicProtoTester) RunClient(addr string, opts ...grpc.DialOption) e
 	}
 
 	if st.Code() != codes.Unauthenticated {
-		return xerrors.Errorf("expected Unauthenticated, got %s", st.Code())
+		return fmt.Errorf("expected Unauthenticated, got %s", st.Code())
 	}
 
 	auth.auth = &flight.BasicAuth{Username: authUsername, Password: authPassword}
@@ -465,7 +466,7 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 	}
 
 	if tm.received != "expected value" {
-		return xerrors.Errorf("expected to receive header 'x-middleware: expected value', but instead got %s", tm.received)
+		return fmt.Errorf("expected to receive header 'x-middleware: expected value', but instead got %s", tm.received)
 	}
 
 	fmt.Fprintln(os.Stderr, "Headers received successfully on failing call.")
@@ -476,7 +477,7 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 	}
 
 	if tm.received != "expected value" {
-		return xerrors.Errorf("expected to receive header 'x-middleware: expected value', but instead got %s", tm.received)
+		return fmt.Errorf("expected to receive header 'x-middleware: expected value', but instead got %s", tm.received)
 	}
 	fmt.Fprintln(os.Stderr, "Headers received successfully on passing call.")
 	return nil

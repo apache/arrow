@@ -17,6 +17,7 @@
 package array
 
 import (
+	"fmt"
 	"math"
 	"math/bits"
 
@@ -41,7 +42,7 @@ func Concatenate(arrs []arrow.Array, mem memory.Allocator) (arrow.Array, error) 
 	data := make([]arrow.ArrayData, len(arrs))
 	for i, ar := range arrs {
 		if !arrow.TypeEqual(ar.DataType(), arrs[0].DataType()) {
-			return nil, xerrors.Errorf("arrays to be concatenated must be identically typed, but %s and %s were encountered",
+			return nil, fmt.Errorf("arrays to be concatenated must be identically typed, but %s and %s were encountered",
 				arrs[0].DataType(), ar.DataType())
 		}
 		data[i] = ar.Data()
@@ -318,7 +319,7 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 			return nil, err
 		}
 	default:
-		return nil, xerrors.Errorf("concatenate not implemented for type %s", dt)
+		return nil, fmt.Errorf("concatenate not implemented for type %s", dt)
 	}
 
 	return out, nil

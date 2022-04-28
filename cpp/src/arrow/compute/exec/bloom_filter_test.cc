@@ -364,8 +364,13 @@ void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool u
 
 TEST(BloomFilter, Basic) {
   std::vector<int64_t> num_build;
+#if defined(THREAD_SANITIZER) || defined(ARROW_VALGRIND)
+  constexpr int log_min = 8;
+  constexpr int log_max = 9;
+#else
   constexpr int log_min = 8;
   constexpr int log_max = 16;
+#endif
   constexpr int log_large = 22;
   for (int log_num_build = log_min; log_num_build < log_max; ++log_num_build) {
     constexpr int num_intermediate_points = 2;

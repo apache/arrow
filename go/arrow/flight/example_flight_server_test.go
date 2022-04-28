@@ -18,6 +18,7 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -33,7 +34,7 @@ type serverAuth struct{}
 
 func (sa *serverAuth) Authenticate(c flight.AuthConn) error {
 	in, err := c.Read()
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return status.Error(codes.Unauthenticated, "no auth info provided")
 	}
 

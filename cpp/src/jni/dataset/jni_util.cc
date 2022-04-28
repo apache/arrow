@@ -17,9 +17,12 @@
 
 #include "jni/dataset/jni_util.h"
 
-#include "arrow/util/logging.h"
-
+#include <memory>
 #include <mutex>
+
+#include "arrow/c/bridge.h"
+#include "arrow/c/helpers.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {
@@ -162,6 +165,15 @@ std::shared_ptr<ReservationListener> ReservationListenableMemoryPool::get_listen
 
 ReservationListenableMemoryPool::~ReservationListenableMemoryPool() {}
 
+Status CheckException(JNIEnv* env) {
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+    return Status::Invalid("Error during calling Java code from native code");
+  }
+  return Status::OK();
+}
+
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   jclass local_class = env->FindClass(class_name);
   jclass global_class = (jclass)env->NewGlobalRef(local_class);
@@ -235,6 +247,17 @@ arrow::Result<std::shared_ptr<arrow::Schema>> FromSchemaByteArray(
                         arrow::ipc::ReadSchema(&buf_reader, &in_memo))
   env->ReleaseByteArrayElements(schemaBytes, schemaBytes_data, JNI_ABORT);
   return schema;
+}
+arrow::Status ExportRecordBatch(JNIEnv* env, const std::shared_ptr<RecordBatch>& batch,
+                                jlong struct_array) {
+  return arrow::ExportRecordBatch(*batch,
+                                  reinterpret_cast<struct ArrowArray*>(struct_array));
+}
+
+arrow::Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(
+    JNIEnv* env, const std::shared_ptr<Schema>& schema, jlong struct_array) {
+  return arrow::ImportRecordBatch(reinterpret_cast<struct ArrowArray*>(struct_array),
+                                  schema);
 }
 
 }  // namespace jni
