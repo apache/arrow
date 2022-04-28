@@ -2379,7 +2379,9 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     ----------
     func : callable
         A callable implementing the user-defined function.
-        It must take arguments equal to the number of
+        The first argument is the context argument of type
+        ScalarUdfContext.
+        Then, it must take arguments equal to the number of
         in_types defined. It must return an Array or Scalar
         matching the out_type. It must return a Scalar if
         all arguments are scalar, else it must return an Array.

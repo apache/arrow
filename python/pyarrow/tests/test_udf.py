@@ -30,10 +30,8 @@ try:
 except ImportError:
     ds = None
 
-global_batch_length = 10
 
-
-def mock_udf_context(batch_length=global_batch_length):
+def mock_udf_context(batch_length=10):
     from pyarrow._compute import _get_scalar_udf_context
     return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
 
@@ -237,20 +235,24 @@ def raise_func_fixture():
 
 
 def check_scalar_function(func_fixture,
-                          input,
+                          inputs,
                           run_in_dataset=True,
-                          batch_length=global_batch_length):
+                          batch_length=None):
     function, name = func_fixture
-    expected_output = function(mock_udf_context(batch_length), *input)
+    if batch_length is None:
+        try:
+            batch_length = len(inputs)
+        except TypeError:
+            pass
+    expected_output = function(mock_udf_context(batch_length), *inputs)
     func = pc.get_function(name)
     assert func.name == name
 
-    result = pc.call_function(name, input)
-
+    result = pc.call_function(name, inputs)
     assert result == expected_output
     if run_in_dataset:
-        field_names = [f'field{index}' for index, in_arr in input]
-        table = pa.Table.from_arrays(input, field_names)
+        field_names = [f'field{index}' for index, in_arr in inputs]
+        table = pa.Table.from_arrays(inputs, field_names)
         dataset = ds.dataset(table)
         func_args = [ds.field(field_name) for field_name in field_names]
         result_table = dataset.to_table(
@@ -293,8 +295,7 @@ def test_scalar_udf_array_varargs(varargs_func_fixture):
                               pa.array([3, 7], pa.int64()),
                               pa.array([20, 30], pa.int64()),
                               pa.array([5, 10], pa.int64())
-                          ],
-                          mock_udf_context
+                          ]
                           )
 
 
