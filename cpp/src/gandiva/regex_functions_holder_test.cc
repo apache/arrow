@@ -491,6 +491,72 @@ TEST_F(TestExtractHolder, TestSimpleExtract) {
   ret_as_str = std::string(ret, out_length);
   EXPECT_EQ(out_length, 14);
   EXPECT_EQ(ret_as_str, "John Doe - 124");
+
+  // Pattern to match only numbers
+  status = ExtractHolder::Make(R"(((\w+)))", &extract_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& extract_numbers = *extract_holder;
+
+  input_string = "路%$大a";
+  extract_index = 0;  // Retrieve all matched string
+
+  ret = extract_numbers(&execution_context_, input_string.c_str(),
+                        static_cast<int32_t>(input_string.length()), extract_index,
+                        &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 1);
+  EXPECT_EQ(ret_as_str, "a");
+
+  input_string = "b路%$大";
+  extract_index = 0;  // Retrieve all matched string
+
+  ret = extract_numbers(&execution_context_, input_string.c_str(),
+                        static_cast<int32_t>(input_string.length()), extract_index,
+                        &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 1);
+  EXPECT_EQ(ret_as_str, "b");
+
+  input_string = "路%c$大";
+  extract_index = 0;  // Retrieve all matched string
+
+  ret = extract_numbers(&execution_context_, input_string.c_str(),
+                        static_cast<int32_t>(input_string.length()), extract_index,
+                        &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 1);
+  EXPECT_EQ(ret_as_str, "c");
+
+  input_string = "路%c$大";
+  extract_index = 1;  // Retrieve all matched string
+
+  ret = extract_numbers(&execution_context_, input_string.c_str(),
+                        static_cast<int32_t>(input_string.length()), extract_index,
+                        &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 1);
+  EXPECT_EQ(ret_as_str, "c");
+
+  input_string = "路%c$大";
+  extract_index = 2;  // Retrieve all matched string
+
+  ret = extract_numbers(&execution_context_, input_string.c_str(),
+                        static_cast<int32_t>(input_string.length()), extract_index,
+                        &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 1);
+  EXPECT_EQ(ret_as_str, "c");
+
+  input_string = "路%c$大";
+  extract_index = 3;  // Retrieve all matched string
+
+  ret = extract_numbers(&execution_context_, input_string.c_str(),
+                        static_cast<int32_t>(input_string.length()), extract_index,
+                        &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 0);
+  EXPECT_TRUE(execution_context_.has_error());
 }
 
 TEST_F(TestExtractHolder, TestNoMatches) {
