@@ -753,12 +753,22 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
           &ext_set));
 }
 
-Result<std::string> GetSubstraitJSON() {
+Result<std::string> GetDataPath(const std::string& file_name) {
+  std::stringstream ss;
   ARROW_ASSIGN_OR_RAISE(std::string dir_string,
                         arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
-  auto file_name =
-      arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
-  auto file_path = file_name->ToString();
+  ss << dir_string;
+  ss << "/" << file_name;
+  return ss.str();
+}
+
+Result<std::string> GetSubstraitJSON() {
+  // ARROW_ASSIGN_OR_RAISE(std::string dir_string,
+  //                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  // auto file_name =
+  //     arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
+  ARROW_ASSIGN_OR_RAISE(auto file_path, GetDataPath("binary.parquet"));
+  // auto file_path = file_name->ToString();
   std::string substrait_json = R"({
     "relations": [
       {"rel": {
@@ -776,7 +786,7 @@ Result<std::string> GetSubstraitJSON() {
           "local_files": {
             "items": [
               {
-                "uri_file": "FILENAME_PLACEHOLDER",
+                "uri_file": "file://FILENAME_PLACEHOLDER",
                 "format": "FILE_FORMAT_PARQUET"
               }
             ]
@@ -785,13 +795,13 @@ Result<std::string> GetSubstraitJSON() {
       }}
     ]
   })";
-#ifdef _WIN32
-  // Path is supposed to start with "X:/..."
-  file_path = "file:///" + file_path;
-#else
-  // Path is supposed to start with "/..."
-  file_path = "file://" + file_path;
-#endif
+  // #ifdef _WIN32
+  //   // Path is supposed to start with "X:/..."
+  //   file_path = "file:///" + file_path;
+  // #else
+  //   // Path is supposed to start with "/..."
+  //   file_path = "file://" + file_path;
+  // #endif
   std::cout << "File Path : >>>>" << file_path << std::endl;
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
