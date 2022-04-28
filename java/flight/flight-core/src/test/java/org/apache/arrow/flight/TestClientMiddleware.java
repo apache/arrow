@@ -249,7 +249,7 @@ public class TestClientMiddleware {
   static Map<String, List<byte[]>> EXPECTED_BINARY_HEADERS = new HashMap<String, List<byte[]>>();
   static Map<String, List<String>> EXPECTED_TEXT_HEADERS = new HashMap<String, List<String>>();
 
-  {
+  static {
     EXPECTED_BINARY_HEADERS.put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
     EXPECTED_TEXT_HEADERS.put("x-text", Arrays.asList("foo", "bar"));
   }
