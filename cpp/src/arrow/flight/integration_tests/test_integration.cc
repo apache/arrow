@@ -358,10 +358,10 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSqlInfo(
       const ServerCallContext& context, const sql::GetSqlInfo& command,
       const FlightDescriptor& descriptor) override {
-    ARROW_RETURN_NOT_OK(AssertEq<int>(2, command.info.size()));
-    ARROW_RETURN_NOT_OK(AssertEq<int>(
+    ARROW_RETURN_NOT_OK(AssertEq<int64_t>(2, command.info.size()));
+    ARROW_RETURN_NOT_OK(AssertEq<int32_t>(
         sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_NAME, command.info[0]));
-    ARROW_RETURN_NOT_OK(AssertEq<int>(
+    ARROW_RETURN_NOT_OK(AssertEq<int32_t>(
         sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_READ_ONLY, command.info[1]));
 
     return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetSqlInfoSchema());
@@ -395,7 +395,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
                                               command.db_schema_filter_pattern.value()));
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("table_filter_pattern",
                                               command.table_name_filter_pattern.value()));
-    ARROW_RETURN_NOT_OK(AssertEq<int>(2, command.table_types.size()));
+    ARROW_RETURN_NOT_OK(AssertEq<int64_t>(2, command.table_types.size()));
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("table", command.table_types[0]));
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("view", command.table_types[1]));
     ARROW_RETURN_NOT_OK(AssertEq<bool>(true, command.include_schema));
