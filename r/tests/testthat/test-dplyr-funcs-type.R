@@ -958,7 +958,7 @@ test_that("`as_datetime()`", {
 
 test_that("format date/time", {
   # locale issues
-  # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16399 is done
+  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16399 is done
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     withr::local_locale(LC_TIME = "C")
   }
