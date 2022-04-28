@@ -101,6 +101,17 @@
 #include "arrow/util/utf8.h"
 #endif
 
+#ifdef _WIN32
+#include <psapi.h>
+#include <windows.h>
+
+#elif __APPLE__
+#include <mach/mach.h>
+
+#elif __linux__
+#include <fstream>
+#endif
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -1878,6 +1889,45 @@ uint64_t GetThreadId() {
 uint64_t GetOptionalThreadId() {
   auto tid = GetThreadId();
   return (tid == 0) ? tid - 1 : tid;
+}
+
+// Returns the current resident set size (physical memory use) measured
+// in bytes, or zero if the value cannot be determined on this OS.
+int64_t GetCurrentRSS() {
+#if defined(_WIN32)
+  // Windows --------------------------------------------------
+  PROCESS_MEMORY_COUNTERS info;
+  GetProcessMemoryInfo(GetCurrentProcess(), &info, sizeof(info));
+  return static_cast<int64_t>(info.WorkingSetSize);
+
+#elif defined(__APPLE__)
+  // OSX ------------------------------------------------------
+  struct mach_task_basic_info info;
+  mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
+      KERN_SUCCESS) {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value";
+    return 0;
+  }
+  return static_cast<int64_t>(info.resident_size);
+
+#elif defined(__linux__)
+  // Linux ----------------------------------------------------
+  int64_t rss = 0L;
+
+  std::ifstream fp("/proc/self/statm");
+  if (fp) {
+    fp >> rss;
+    return rss * sysconf(_SC_PAGESIZE);
+  } else {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value from /proc/self/statm";
+    return 0;
+  }
+
+#else
+  // AIX, BSD, Solaris, and Unknown OS ------------------------
+  return 0;  // Unsupported.
+#endif
 }
 
 }  // namespace internal

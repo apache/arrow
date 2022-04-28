@@ -112,10 +112,10 @@ class UnionNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
-               {{"node.label", label()},
-                {"node.detail", ToString()},
-                {"node.kind", kind_name()}});
+    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
+                       {{"node.label", label()},
+                        {"node.detail", ToString()},
+                        {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();

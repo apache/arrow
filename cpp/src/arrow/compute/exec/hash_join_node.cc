@@ -525,8 +525,8 @@ class HashJoinNode : public ExecNode {
 
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}, {"side", side}});
     util::tracing::Span span;
-    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                           {{"batch.length", batch.length}});
+    START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                                   {{"batch.length", batch.length}});
 
     {
       Status status = impl_->InputReceived(thread_index, side, std::move(batch));
@@ -572,10 +572,10 @@ class HashJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
-               {{"node.label", label()},
-                {"node.detail", ToString()},
-                {"node.kind", kind_name()}});
+    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
+                       {{"node.label", label()},
+                        {"node.detail", ToString()},
+                        {"node.kind", kind_name()}});
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished(), this);
 
     bool use_sync_execution = !(plan_->exec_context()->executor());
