@@ -1480,9 +1480,7 @@ test_that("parse_date_time()", {
   test_dates <- tibble::tibble(
     string_ymd = c(
       "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
-      "2021 09   6", "21-09-07", "21/09/08", "21.09.9", "21,09,10",
-      "21:09:11", "2021 Sep 12", "2021 September 13", "21 Sep 14",
-      "21 September 15",
+      "2021 09   6", "21-09-07", "21/09/08", "21.09.9", "21,09,10", "21:09:11",
       # not yet working for strings with no separators, like "20210917", "210918" or "2021Sep19
       # no separators and %b or %B are even more complicated (and they work in
       # lubridate). not to mention locale
@@ -1491,20 +1489,29 @@ test_that("parse_date_time()", {
     string_dmy = c(
       "1-09-2021", "2/09//2021", "03.09.2021", "04,09,2021", "5:::09:2021",
       "6  09  2021", "07-09-21", "08/09/21", "9.09.21", "10,09,21", "11:09:21",
-      "12 Sep 2021", "13 September 2021", "14 Sep 21", "15 September 21",
       # not yet working for strings with no separators, like "10092021", "100921",
       NA
     ),
     string_mdy = c(
       "09-01-2021", "09/2/2021", "09.3.2021", "09,04,2021", "09:05:2021",
       "09 6 2021", "09-7-21", "09/08/21", "09.9.21", "09,10,21", "09:11:21",
-      "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21",
       # not yet working for strings with no separators, like "09102021", "091021",
       NA
     )
   )
 
-  # TODO add unit tests and support for hms parts too
+  test_dates_locale <- tibble::tibble(
+    string_ymd = c(
+      "2021 Sep 12", "2021 September 13", "21 Sep 14", "21 September 15", NA
+    ),
+    string_dmy = c(
+      "12 Sep 2021", "13 September 2021", "14 Sep 21", "15 September 21", NA
+    ),
+    string_mdy = c(
+      "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21", NA
+    )
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1514,6 +1521,19 @@ test_that("parse_date_time()", {
       ) %>%
       collect(),
     test_dates
+  )
+
+  # locale not working properly on windows
+  skip_on_os("windows")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_ymd, orders = "ymd"),
+        parsed_date_dmy = parse_date_time(string_dmy, orders = "dmy"),
+        parsed_date_mdy = parse_date_time(string_mdy, orders = "mdy")
+      ) %>%
+      collect(),
+    test_dates_locale
   )
 })
 
