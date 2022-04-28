@@ -303,6 +303,20 @@ Status StatisticsAsScalars(const Statistics& statistics,
 
 namespace {
 
+/// Drop the validity buffer from each chunk.
+///
+/// Used when reading a non-nullable field.
+void ReconstructChunksWithoutNulls(::arrow::ArrayVector* chunks) {
+  for (size_t i = 0; i < chunks->size(); i++) {
+    if ((*chunks)[i]->data()->buffers[0]) {
+      std::shared_ptr<::arrow::ArrayData> data = (*chunks)[i]->data();
+      data->null_count = 0;
+      data->buffers[0] = nullptr;
+      (*chunks)[i] = MakeArray(data);
+    }
+  }
+}
+
 template <typename ArrowType, typename ParquetType>
 Status TransferInt(RecordReader* reader, MemoryPool* pool,
                    const std::shared_ptr<Field>& field, Datum* out) {
@@ -449,16 +463,8 @@ Status TransferDictionary(RecordReader* reader,
     ARROW_ASSIGN_OR_RAISE(*out, (*out)->View(logical_value_type));
   }
   if (!nullable) {
-    // Reconstruct each chunk without nulls.
-    auto chunks = (*out)->chunks();
-    for (size_t i = 0; i < chunks.size(); i++) {
-      if (chunks[i]->data()->buffers[0]) {
-        std::shared_ptr<::arrow::ArrayData> data = chunks[i]->data();
-        data->null_count = 0;
-        data->buffers[0] = nullptr;
-        chunks[i] = MakeArray(data);
-      }
-    }
+    ::arrow::ArrayVector chunks = (*out)->chunks();
+    ReconstructChunksWithoutNulls(&chunks);
     *out = std::make_shared<ChunkedArray>(std::move(chunks), logical_value_type);
   }
   return Status::OK();
@@ -489,15 +495,7 @@ Status TransferBinary(RecordReader* reader, MemoryPool* pool,
     }
   }
   if (!logical_type_field->nullable()) {
-    // Reconstruct each chunk without nulls.
-    for (size_t i = 0; i < chunks.size(); i++) {
-      if (chunks[i]->data()->buffers[0]) {
-        std::shared_ptr<::arrow::ArrayData> data = chunks[i]->data();
-        data->null_count = 0;
-        data->buffers[0] = nullptr;
-        chunks[i] = MakeArray(data);
-      }
-    }
+    ReconstructChunksWithoutNulls(&chunks);
   }
   *out = std::make_shared<ChunkedArray>(std::move(chunks), logical_type_field->type());
   return Status::OK();
