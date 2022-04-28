@@ -119,10 +119,8 @@ def varargs_func_fixture():
 @pytest.fixture(scope="session")
 def random_with_udf_ctx_func_fixture():
     def random_with_udf_ctx(context, one, two):
-        proxy_pool = pa.proxy_memory_pool(context.memory_pool)
-        ans = pc.add(one, two, memory_pool=proxy_pool)
-        res = pa.array([ans.as_py()], memory_pool=proxy_pool)
-        return res
+        return pc.add(one, two, memory_pool=context.memory_pool)
+
     in_types = {"one": pa.int64(),
                 "two": pa.int64(),
                 }
@@ -482,8 +480,8 @@ def test_udf_context(random_with_udf_ctx_func_fixture):
     res = pc.call_function(func_name,
                            [pa.scalar(10), pa.scalar(20)],
                            memory_pool=proxy_pool)
-    assert res[0].as_py() == 30
-    assert proxy_pool.bytes_allocated() > 0
+    assert res.as_py() == 30
+    assert proxy_pool.bytes_allocated() >= 0
 
 
 def test_function_with_raise(raise_func_fixture):
