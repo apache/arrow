@@ -1450,6 +1450,7 @@ services:
         arch: ${ARCH}
         jdk: ${JDK}
         maven: ${MAVEN}
+        jdk_name: ${JDK_NAME}
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated

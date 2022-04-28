@@ -18,7 +18,8 @@
 ARG arch=amd64
 ARG jdk=8
 ARG maven=3.5.4
-FROM ${arch}/maven:${maven}-jdk-${jdk}
+ARG jdk_name=jdk
+FROM ${arch}/maven:${maven}-${jdk_name}-${jdk}
 
 ENV ARROW_JAVA_SHADE_FLATBUFS=ON
 

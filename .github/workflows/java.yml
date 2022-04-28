@@ -54,11 +54,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: [11]
-        maven: [3.6.2]
+        jdk: [11, 17]
+        include:
+        - jdk: 11
+          maven: 3.6
+          jdk_name: jdk
+        - jdk: 17
+          maven: 3.8.5
+          jdk_name: openjdk
     env:
       JDK: ${{ matrix.jdk }}
       MAVEN: ${{ matrix.maven }}
+      JDK_NAME: ${{ matrix.jdk_name }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
