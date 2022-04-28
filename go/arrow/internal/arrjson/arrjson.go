@@ -32,6 +32,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
 	"github.com/apache/arrow/go/v8/arrow/decimal128"
 	"github.com/apache/arrow/go/v8/arrow/float16"
+	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v8/arrow/ipc"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 )
@@ -91,6 +92,13 @@ type FieldWrapper struct {
 	Field
 }
 
+type FieldDict struct {
+	ID      int             `json:"id"`
+	Type    json.RawMessage `json:"indexType"`
+	idxType arrow.DataType  `json:"-"`
+	Ordered bool            `json:"isOrdered"`
+}
+
 type Field struct {
 	Name string `json:"name"`
 	// the arrowType will get populated during unmarshalling by processing the
@@ -99,11 +107,12 @@ type Field struct {
 	// leave this as a json RawMessage in order to partially unmarshal as needed
 	// during marshal/unmarshal time so we can determine what the structure is
 	// actually expected to be.
-	Type      json.RawMessage `json:"type"`
-	Nullable  bool            `json:"nullable"`
-	Children  []FieldWrapper  `json:"children"`
-	arrowMeta arrow.Metadata  `json:"-"`
-	Metadata  []metaKV        `json:"metadata,omitempty"`
+	Type       json.RawMessage `json:"type"`
+	Nullable   bool            `json:"nullable"`
+	Children   []FieldWrapper  `json:"children"`
+	arrowMeta  arrow.Metadata  `json:"-"`
+	Dictionary *FieldDict      `json:"dictionary,omitempty"`
+	Metadata   []metaKV        `json:"metadata,omitempty"`
 }
 
 type metaKV struct {
@@ -111,27 +120,9 @@ type metaKV struct {
 	Value string `json:"value"`
 }
 
-func (f FieldWrapper) MarshalJSON() ([]byte, error) {
-	// for extension types, add the extension type metadata appropriately
-	// and then marshal as normal for the storage type.
-	if f.arrowType.ID() == arrow.EXTENSION {
-		exType := f.arrowType.(arrow.ExtensionType)
-
-		mdkeys := append(f.arrowMeta.Keys(), ipc.ExtensionTypeKeyName)
-		mdvals := append(f.arrowMeta.Values(), exType.ExtensionName())
-
-		serializedData := exType.Serialize()
-		if len(serializedData) > 0 {
-			mdkeys = append(mdkeys, ipc.ExtensionMetadataKeyName)
-			mdvals = append(mdvals, string(serializedData))
-		}
-
-		f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
-		f.arrowType = exType.StorageType()
-	}
-
+func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 	var typ interface{}
-	switch dt := f.arrowType.(type) {
+	switch dt := arrowType.(type) {
 	case *arrow.NullType:
 		typ = nameJSON{"null"}
 	case *arrow.BooleanType:
@@ -221,11 +212,40 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 	case *arrow.Decimal128Type:
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision)}
 	default:
-		return nil, fmt.Errorf("unknown arrow.DataType %v", f.arrowType)
+		return nil, fmt.Errorf("unknown arrow.DataType %v", arrowType)
+	}
+
+	return json.Marshal(typ)
+}
+
+func (f FieldWrapper) MarshalJSON() ([]byte, error) {
+	// for extension types, add the extension type metadata appropriately
+	// and then marshal as normal for the storage type.
+	if f.arrowType.ID() == arrow.EXTENSION {
+		exType := f.arrowType.(arrow.ExtensionType)
+
+		mdkeys := append(f.arrowMeta.Keys(), ipc.ExtensionTypeKeyName)
+		mdvals := append(f.arrowMeta.Values(), exType.ExtensionName())
+
+		serializedData := exType.Serialize()
+		if len(serializedData) > 0 {
+			mdkeys = append(mdkeys, ipc.ExtensionMetadataKeyName)
+			mdvals = append(mdvals, string(serializedData))
+		}
+
+		f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+		f.arrowType = exType.StorageType()
 	}
 
 	var err error
-	if f.Type, err = json.Marshal(typ); err != nil {
+	if f.arrowType.ID() == arrow.DICTIONARY {
+		f.arrowType = f.arrowType.(*arrow.DictionaryType).ValueType
+		if f.Dictionary.Type, err = typeToJSON(f.Dictionary.idxType); err != nil {
+			return nil, err
+		}
+	}
+
+	if f.Type, err = typeToJSON(f.arrowType); err != nil {
 		return nil, err
 	}
 
@@ -244,190 +264,205 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &f.Field); err != nil {
-		return err
-	}
-
+func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow.DataType, err error) {
 	tmp := nameJSON{}
-	if err := json.Unmarshal(f.Type, &tmp); err != nil {
-		return err
+	if err = json.Unmarshal(typ, &tmp); err != nil {
+		return
 	}
 
 	switch tmp.Name {
 	case "null":
-		f.arrowType = arrow.Null
+		arrowType = arrow.Null
 	case "bool":
-		f.arrowType = arrow.FixedWidthTypes.Boolean
+		arrowType = arrow.FixedWidthTypes.Boolean
 	case "int":
 		t := bitWidthJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
 		switch t.Signed {
 		case true:
 			switch t.BitWidth {
 			case 8:
-				f.arrowType = arrow.PrimitiveTypes.Int8
+				arrowType = arrow.PrimitiveTypes.Int8
 			case 16:
-				f.arrowType = arrow.PrimitiveTypes.Int16
+				arrowType = arrow.PrimitiveTypes.Int16
 			case 32:
-				f.arrowType = arrow.PrimitiveTypes.Int32
+				arrowType = arrow.PrimitiveTypes.Int32
 			case 64:
-				f.arrowType = arrow.PrimitiveTypes.Int64
+				arrowType = arrow.PrimitiveTypes.Int64
 			}
 		default:
 			switch t.BitWidth {
 			case 8:
-				f.arrowType = arrow.PrimitiveTypes.Uint8
+				arrowType = arrow.PrimitiveTypes.Uint8
 			case 16:
-				f.arrowType = arrow.PrimitiveTypes.Uint16
+				arrowType = arrow.PrimitiveTypes.Uint16
 			case 32:
-				f.arrowType = arrow.PrimitiveTypes.Uint32
+				arrowType = arrow.PrimitiveTypes.Uint32
 			case 64:
-				f.arrowType = arrow.PrimitiveTypes.Uint64
+				arrowType = arrow.PrimitiveTypes.Uint64
 			}
 		}
 	case "floatingpoint":
 		t := floatJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
 		switch t.Precision {
 		case "HALF":
-			f.arrowType = arrow.FixedWidthTypes.Float16
+			arrowType = arrow.FixedWidthTypes.Float16
 		case "SINGLE":
-			f.arrowType = arrow.PrimitiveTypes.Float32
+			arrowType = arrow.PrimitiveTypes.Float32
 		case "DOUBLE":
-			f.arrowType = arrow.PrimitiveTypes.Float64
+			arrowType = arrow.PrimitiveTypes.Float64
 		}
 	case "binary":
-		f.arrowType = arrow.BinaryTypes.Binary
+		arrowType = arrow.BinaryTypes.Binary
 	case "utf8":
-		f.arrowType = arrow.BinaryTypes.String
+		arrowType = arrow.BinaryTypes.String
 	case "date":
 		t := unitZoneJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
 		switch t.Unit {
 		case "DAY":
-			f.arrowType = arrow.FixedWidthTypes.Date32
+			arrowType = arrow.FixedWidthTypes.Date32
 		case "MILLISECOND":
-			f.arrowType = arrow.FixedWidthTypes.Date64
+			arrowType = arrow.FixedWidthTypes.Date64
 		}
 	case "time":
 		t := bitWidthJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
 		switch t.BitWidth {
 		case 32:
 			switch t.Unit {
 			case "SECOND":
-				f.arrowType = arrow.FixedWidthTypes.Time32s
+				arrowType = arrow.FixedWidthTypes.Time32s
 			case "MILLISECOND":
-				f.arrowType = arrow.FixedWidthTypes.Time32ms
+				arrowType = arrow.FixedWidthTypes.Time32ms
 			}
 		case 64:
 			switch t.Unit {
 			case "MICROSECOND":
-				f.arrowType = arrow.FixedWidthTypes.Time64us
+				arrowType = arrow.FixedWidthTypes.Time64us
 			case "NANOSECOND":
-				f.arrowType = arrow.FixedWidthTypes.Time64ns
+				arrowType = arrow.FixedWidthTypes.Time64ns
 			}
 		}
 	case "timestamp":
 		t := unitZoneJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
-		f.arrowType = &arrow.TimestampType{TimeZone: t.TimeZone}
+		arrowType = &arrow.TimestampType{TimeZone: t.TimeZone}
 		switch t.Unit {
 		case "SECOND":
-			f.arrowType.(*arrow.TimestampType).Unit = arrow.Second
+			arrowType.(*arrow.TimestampType).Unit = arrow.Second
 		case "MILLISECOND":
-			f.arrowType.(*arrow.TimestampType).Unit = arrow.Millisecond
+			arrowType.(*arrow.TimestampType).Unit = arrow.Millisecond
 		case "MICROSECOND":
-			f.arrowType.(*arrow.TimestampType).Unit = arrow.Microsecond
+			arrowType.(*arrow.TimestampType).Unit = arrow.Microsecond
 		case "NANOSECOND":
-			f.arrowType.(*arrow.TimestampType).Unit = arrow.Nanosecond
+			arrowType.(*arrow.TimestampType).Unit = arrow.Nanosecond
 		}
 	case "list":
-		f.arrowType = arrow.ListOfField(arrow.Field{
-			Name:     f.Children[0].Name,
-			Type:     f.Children[0].arrowType,
-			Metadata: f.Children[0].arrowMeta,
-			Nullable: f.Children[0].Nullable,
+		arrowType = arrow.ListOfField(arrow.Field{
+			Name:     children[0].Name,
+			Type:     children[0].arrowType,
+			Metadata: children[0].arrowMeta,
+			Nullable: children[0].Nullable,
 		})
 	case "map":
 		t := mapJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
-		pairType := f.Children[0].arrowType
-		f.arrowType = arrow.MapOf(pairType.(*arrow.StructType).Field(0).Type, pairType.(*arrow.StructType).Field(1).Type)
-		f.arrowType.(*arrow.MapType).KeysSorted = t.KeysSorted
+		pairType := children[0].arrowType
+		arrowType = arrow.MapOf(pairType.(*arrow.StructType).Field(0).Type, pairType.(*arrow.StructType).Field(1).Type)
+		arrowType.(*arrow.MapType).KeysSorted = t.KeysSorted
 	case "struct":
-		f.arrowType = arrow.StructOf(fieldsFromJSON(f.Children)...)
+		arrowType = arrow.StructOf(fieldsFromJSON(children)...)
 	case "fixedsizebinary":
 		t := byteWidthJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
-		f.arrowType = &arrow.FixedSizeBinaryType{ByteWidth: t.ByteWidth}
+		arrowType = &arrow.FixedSizeBinaryType{ByteWidth: t.ByteWidth}
 	case "fixedsizelist":
 		t := listSizeJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
-		f.arrowType = arrow.FixedSizeListOfField(t.ListSize, arrow.Field{
-			Name:     f.Children[0].Name,
-			Type:     f.Children[0].arrowType,
-			Metadata: f.Children[0].arrowMeta,
-			Nullable: f.Children[0].Nullable,
+		arrowType = arrow.FixedSizeListOfField(t.ListSize, arrow.Field{
+			Name:     children[0].Name,
+			Type:     children[0].arrowType,
+			Metadata: children[0].arrowMeta,
+			Nullable: children[0].Nullable,
 		})
 	case "interval":
 		t := unitZoneJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
 		switch t.Unit {
 		case "YEAR_MONTH":
-			f.arrowType = arrow.FixedWidthTypes.MonthInterval
+			arrowType = arrow.FixedWidthTypes.MonthInterval
 		case "DAY_TIME":
-			f.arrowType = arrow.FixedWidthTypes.DayTimeInterval
+			arrowType = arrow.FixedWidthTypes.DayTimeInterval
 		case "MONTH_DAY_NANO":
-			f.arrowType = arrow.FixedWidthTypes.MonthDayNanoInterval
+			arrowType = arrow.FixedWidthTypes.MonthDayNanoInterval
 		}
 	case "duration":
 		t := unitZoneJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
-			return err
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
 		}
 		switch t.Unit {
 		case "SECOND":
-			f.arrowType = arrow.FixedWidthTypes.Duration_s
+			arrowType = arrow.FixedWidthTypes.Duration_s
 		case "MILLISECOND":
-			f.arrowType = arrow.FixedWidthTypes.Duration_ms
+			arrowType = arrow.FixedWidthTypes.Duration_ms
 		case "MICROSECOND":
-			f.arrowType = arrow.FixedWidthTypes.Duration_us
+			arrowType = arrow.FixedWidthTypes.Duration_us
 		case "NANOSECOND":
-			f.arrowType = arrow.FixedWidthTypes.Duration_ns
+			arrowType = arrow.FixedWidthTypes.Duration_ns
 		}
 	case "decimal":
 		t := decimalJSON{}
-		if err := json.Unmarshal(f.Type, &t); err != nil {
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
+		}
+		arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+	}
+
+
+	if arrowType == nil {
+		err = fmt.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
+	}
+	return
+}
+
+func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
+	var err error
+	if err = json.Unmarshal(data, &f.Field); err != nil {
+		return err
+	}
+
+	if f.arrowType, err = typeFromJSON(f.Type, f.Children); err != nil {
+		return err
+	}
+
+	if f.Dictionary != nil {
+		if f.Dictionary.idxType, err = typeFromJSON(f.Dictionary.Type, nil); err != nil {
 			return err
 		}
-		f.arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		f.arrowType = &arrow.DictionaryType{IndexType: f.Dictionary.idxType, ValueType: f.arrowType}
 	}
 
-	if f.arrowType == nil {
-		return fmt.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
-	}
-
-	var err error
 	if len(f.Metadata) > 0 { // unmarshal the key/value metadata pairs
 		var (
 			mdkeys         = make([]string, 0, len(f.Metadata))
@@ -538,20 +573,47 @@ type mapJSON struct {
 	KeysSorted bool   `json:"keysSorted,omitempty"`
 }
 
-func schemaToJSON(schema *arrow.Schema) Schema {
+func schemaToJSON(schema *arrow.Schema, mapper *dictutils.Mapper) Schema {
 	return Schema{
-		Fields:    fieldsToJSON(schema.Fields()),
+		Fields:    fieldsToJSON(schema.Fields(), dictutils.NewFieldPos(), mapper),
 		arrowMeta: schema.Metadata(),
 	}
 }
 
-func schemaFromJSON(schema Schema) *arrow.Schema {
-	return arrow.NewSchema(fieldsFromJSON(schema.Fields), &schema.arrowMeta)
+func schemaFromJSON(schema Schema, memo *dictutils.Memo) *arrow.Schema {
+	sc := arrow.NewSchema(fieldsFromJSON(schema.Fields), &schema.arrowMeta)
+	dictInfoFromJSONFields(schema.Fields, dictutils.NewFieldPos(), memo)
+	return sc
 }
 
-func fieldsToJSON(fields []arrow.Field) []FieldWrapper {
+func dictInfoFromJSONFields(fields []FieldWrapper, pos dictutils.FieldPos, memo *dictutils.Memo) {
+	for i, f := range fields {
+		dictInfoFromJSON(f, pos.Child(int32(i)), memo)
+	}
+}
+
+func dictInfoFromJSON(field FieldWrapper, pos dictutils.FieldPos, memo *dictutils.Memo) {
+	if field.Dictionary != nil {
+		typ := field.arrowType
+		if typ.ID() == arrow.EXTENSION {
+			typ = typ.(arrow.ExtensionType).StorageType()
+		}
+		valueType := typ.(*arrow.DictionaryType).ValueType
+
+		if err := memo.Mapper.AddField(int64(field.Dictionary.ID), pos.Path()); err != nil {
+			panic(err)
+		}
+		if err := memo.AddType(int64(field.Dictionary.ID), valueType); err != nil {
+			panic(err)
+		}
+	}
+	dictInfoFromJSONFields(field.Children, pos, memo)
+}
+
+func fieldsToJSON(fields []arrow.Field, parentPos dictutils.FieldPos, mapper *dictutils.Mapper) []FieldWrapper {
 	o := make([]FieldWrapper, len(fields))
 	for i, f := range fields {
+		pos := parentPos.Child(int32(i))
 		o[i] = FieldWrapper{Field{
 			Name:      f.Name,
 			arrowType: f.Type,
@@ -559,15 +621,33 @@ func fieldsToJSON(fields []arrow.Field) []FieldWrapper {
 			Children:  []FieldWrapper{},
 			arrowMeta: f.Metadata,
 		}}
-		switch dt := f.Type.(type) {
+		typ := f.Type
+		if typ.ID() == arrow.EXTENSION {
+			typ = typ.(arrow.ExtensionType).StorageType()
+		}
+		if typ.ID() == arrow.DICTIONARY {
+			dictType := typ.(*arrow.DictionaryType)
+			typ = dictType.ValueType
+			dictID, err := mapper.GetFieldID(pos.Path())
+			if err != nil {
+				panic(err)
+			}
+			o[i].Dictionary = &FieldDict{
+				idxType: dictType.IndexType,
+				ID:      int(dictID),
+				Ordered: dictType.Ordered,
+			}
+		}
+
+		switch dt := typ.(type) {
 		case *arrow.ListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()}, pos, mapper)
 		case *arrow.FixedSizeListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()}, pos, mapper)
 		case *arrow.StructType:
-			o[i].Children = fieldsToJSON(dt.Fields())
+			o[i].Children = fieldsToJSON(dt.Fields(), pos, mapper)
 		case *arrow.MapType:
-			o[i].Children = fieldsToJSON([]arrow.Field{dt.ValueField()})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ValueField()}, pos, mapper)
 		}
 	}
 	return o
@@ -590,27 +670,50 @@ func fieldFromJSON(f Field) arrow.Field {
 	}
 }
 
+type Dictionary struct {
+	ID   int64  `json:"id"`
+	Data Record `json:"data"`
+}
+
+func dictionariesFromJSON(mem memory.Allocator, dicts []Dictionary, memo *dictutils.Memo) {
+	for _, d := range dicts {
+		valueType, exists := memo.Type(d.ID)
+		if !exists {
+			panic(fmt.Errorf("arrow/json: no corresponding dictionary memo for id=%d", d.ID))
+		}
+
+		dict := arrayFromJSON(mem, valueType, d.Data.Columns[0])
+		defer dict.Release()
+		memo.Add(d.ID, dict)
+	}
+}
+
 type Record struct {
 	Count   int64   `json:"count"`
 	Columns []Array `json:"columns"`
 }
 
-func recordsFromJSON(mem memory.Allocator, schema *arrow.Schema, recs []Record) []arrow.Record {
+func recordsFromJSON(mem memory.Allocator, schema *arrow.Schema, recs []Record, memo *dictutils.Memo) []arrow.Record {
 	vs := make([]arrow.Record, len(recs))
 	for i, rec := range recs {
-		vs[i] = recordFromJSON(mem, schema, rec)
+		vs[i] = recordFromJSON(mem, schema, rec, memo)
 	}
 	return vs
 }
 
-func recordFromJSON(mem memory.Allocator, schema *arrow.Schema, rec Record) arrow.Record {
+func recordFromJSON(mem memory.Allocator, schema *arrow.Schema, rec Record, memo *dictutils.Memo) arrow.Record {
 	arrs := arraysFromJSON(mem, schema, rec.Columns)
-	defer func() {
-		for _, arr := range arrs {
-			arr.Release()
-		}
-	}()
-	return array.NewRecord(schema, arrs, int64(rec.Count))
+	if err := dictutils.ResolveDictionaries(memo, arrs, dictutils.NewFieldPos(), mem); err != nil {
+		panic(err)
+	}
+
+	cols := make([]arrow.Array, len(arrs))
+	for i, d := range arrs {
+		cols[i] = array.MakeFromData(d)
+		defer d.Release()
+		defer cols[i].Release()
+	}
+	return array.NewRecord(schema, cols, int64(rec.Count))
 }
 
 func recordToJSON(rec arrow.Record) Record {
@@ -629,8 +732,8 @@ type Array struct {
 	Children []Array       `json:"children,omitempty"`
 }
 
-func arraysFromJSON(mem memory.Allocator, schema *arrow.Schema, arrs []Array) []arrow.Array {
-	o := make([]arrow.Array, len(arrs))
+func arraysFromJSON(mem memory.Allocator, schema *arrow.Schema, arrs []Array) []arrow.ArrayData {
+	o := make([]arrow.ArrayData, len(arrs))
 	for i, v := range arrs {
 		o[i] = arrayFromJSON(mem, schema.Field(i).Type, v)
 	}
@@ -655,10 +758,17 @@ func validsToBitmap(valids []bool, mem memory.Allocator) *memory.Buffer {
 	return buf
 }
 
-func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Array {
+func returnNewArrayData(bldr array.Builder) arrow.ArrayData {
+	arr := bldr.NewArray()
+	defer arr.Release()
+	arr.Data().Retain()
+	return arr.Data()
+}
+
+func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.ArrayData {
 	switch dt := dt.(type) {
 	case *arrow.NullType:
-		return array.NewNull(arr.Count)
+		return array.NewNull(arr.Count).Data()
 
 	case *arrow.BooleanType:
 		bldr := array.NewBooleanBuilder(mem)
@@ -666,7 +776,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := boolsFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Int8Type:
 		bldr := array.NewInt8Builder(mem)
@@ -674,7 +784,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := i8FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Int16Type:
 		bldr := array.NewInt16Builder(mem)
@@ -682,7 +792,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := i16FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Int32Type:
 		bldr := array.NewInt32Builder(mem)
@@ -690,7 +800,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := i32FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Int64Type:
 		bldr := array.NewInt64Builder(mem)
@@ -698,7 +808,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := i64FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Uint8Type:
 		bldr := array.NewUint8Builder(mem)
@@ -706,7 +816,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := u8FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Uint16Type:
 		bldr := array.NewUint16Builder(mem)
@@ -714,7 +824,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := u16FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Uint32Type:
 		bldr := array.NewUint32Builder(mem)
@@ -722,7 +832,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := u32FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Uint64Type:
 		bldr := array.NewUint64Builder(mem)
@@ -730,7 +840,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := u64FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Float16Type:
 		bldr := array.NewFloat16Builder(mem)
@@ -738,7 +848,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := f16FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Float32Type:
 		bldr := array.NewFloat32Builder(mem)
@@ -746,7 +856,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := f32FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Float64Type:
 		bldr := array.NewFloat64Builder(mem)
@@ -754,7 +864,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := f64FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.StringType:
 		bldr := array.NewStringBuilder(mem)
@@ -762,7 +872,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := strFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.BinaryType:
 		bldr := array.NewBinaryBuilder(mem, dt)
@@ -770,7 +880,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := bytesFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.ListType:
 		valids := validsFromJSON(arr.Valids)
@@ -781,11 +891,9 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		defer bitmap.Release()
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
-		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
 			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
-			[]arrow.ArrayData{elems.Data()}, nulls, 0)
-		defer data.Release()
-		return array.NewListData(data)
+			[]arrow.ArrayData{elems}, nulls, 0)
 
 	case *arrow.FixedSizeListType:
 		valids := validsFromJSON(arr.Valids)
@@ -796,9 +904,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		defer bitmap.Release()
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
-		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, []arrow.ArrayData{elems.Data()}, nulls, 0)
-		defer data.Release()
-		return array.NewFixedSizeListData(data)
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, []arrow.ArrayData{elems}, nulls, 0)
 
 	case *arrow.StructType:
 		valids := validsFromJSON(arr.Valids)
@@ -811,13 +917,10 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		for i := range fields {
 			child := arrayFromJSON(mem, dt.Field(i).Type, arr.Children[i])
 			defer child.Release()
-			fields[i] = child.Data()
+			fields[i] = child
 		}
 
-		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, fields, nulls, 0)
-		defer data.Release()
-
-		return array.NewStructData(data)
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, fields, nulls, 0)
 
 	case *arrow.FixedSizeBinaryType:
 		bldr := array.NewFixedSizeBinaryBuilder(mem, dt)
@@ -836,7 +939,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		}
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.MapType:
 		valids := validsFromJSON(arr.Valids)
@@ -847,11 +950,9 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		defer bitmap.Release()
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
-		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
 			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
-			[]arrow.ArrayData{elems.Data()}, nulls, 0)
-		defer data.Release()
-		return array.NewMapData(data)
+			[]arrow.ArrayData{elems}, nulls, 0)
 
 	case *arrow.Date32Type:
 		bldr := array.NewDate32Builder(mem)
@@ -859,7 +960,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := date32FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Date64Type:
 		bldr := array.NewDate64Builder(mem)
@@ -867,7 +968,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := date64FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Time32Type:
 		bldr := array.NewTime32Builder(mem, dt)
@@ -875,7 +976,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := time32FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Time64Type:
 		bldr := array.NewTime64Builder(mem, dt)
@@ -883,7 +984,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := time64FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.TimestampType:
 		bldr := array.NewTimestampBuilder(mem, dt)
@@ -891,7 +992,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := timestampFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.MonthIntervalType:
 		bldr := array.NewMonthIntervalBuilder(mem)
@@ -899,7 +1000,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := monthintervalFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.DayTimeIntervalType:
 		bldr := array.NewDayTimeIntervalBuilder(mem)
@@ -907,7 +1008,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := daytimeintervalFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.MonthDayNanoIntervalType:
 		bldr := array.NewMonthDayNanoIntervalBuilder(mem)
@@ -915,7 +1016,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := monthDayNanointervalFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.DurationType:
 		bldr := array.NewDurationBuilder(mem, dt)
@@ -923,7 +1024,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := durationFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case *arrow.Decimal128Type:
 		bldr := array.NewDecimal128Builder(mem, dt)
@@ -931,17 +1032,21 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		data := decimal128FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
-		return bldr.NewArray()
+		return returnNewArrayData(bldr)
 
 	case arrow.ExtensionType:
 		storage := arrayFromJSON(mem, dt.StorageType(), arr)
 		defer storage.Release()
-		return array.NewExtensionArrayWithStorage(dt, storage)
+		return array.NewData(dt, storage.Len(), storage.Buffers(), storage.Children(), storage.NullN(), storage.Offset())
+
+	case *arrow.DictionaryType:
+		indices := arrayFromJSON(mem, dt.IndexType, arr)
+		defer indices.Release()
+		return array.NewData(dt, indices.Len(), indices.Buffers(), indices.Children(), indices.NullN(), indices.Offset())
 
 	default:
 		panic(fmt.Errorf("unknown data type %v %T", dt, dt))
 	}
-	panic("impossible")
 }
 
 func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
@@ -1209,10 +1314,12 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 	case array.ExtensionArray:
 		return arrayToJSON(field, arr.Storage())
 
+	case *array.Dictionary:
+		return arrayToJSON(field, arr.Indices())
+
 	default:
 		panic(fmt.Errorf("unknown array type %T", arr))
 	}
-	panic("impossible")
 }
 
 func validsFromJSON(vs []int) []bool {

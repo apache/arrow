@@ -357,7 +357,7 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
         std::size_t size = struct_type->fields().size();
         std::vector<std::shared_ptr<Array>> new_children(size, nullptr);
         for (std::size_t i = 0; i < size; i++) {
-          std::shared_ptr<Array> child = struct_array->field(i);
+          std::shared_ptr<Array> child = struct_array->field(static_cast<int>(i));
           const std::shared_ptr<Buffer> child_bitmap = child->null_bitmap();
           std::shared_ptr<Buffer> final_child_bitmap;
           if (child_bitmap == nullptr) {
@@ -649,7 +649,8 @@ Status WriteStructBatch(const Array& array, int64_t orc_offset,
   // Fill the fields
   for (std::size_t i = 0; i < size; i++) {
     batch->fields[i]->resize(orc_offset + arrow_length);
-    RETURN_NOT_OK(WriteBatch(*(struct_array->field(i)), orc_offset, batch->fields[i]));
+    RETURN_NOT_OK(WriteBatch(*(struct_array->field(static_cast<int>(i))), orc_offset,
+                             batch->fields[i]));
   }
   return Status::OK();
 }

@@ -321,7 +321,7 @@ size_t ThreadIndexer::operator()() {
 }
 
 size_t ThreadIndexer::Capacity() {
-  static size_t max_size = arrow::internal::ThreadPool::DefaultCapacity() + 1;
+  static size_t max_size = GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1;
   return max_size;
 }
 

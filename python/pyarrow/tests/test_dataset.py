@@ -35,7 +35,8 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler)
+                                FSProtocolClass, ProxyHandler,
+                                _configure_s3_limited_user)
 
 try:
     import pandas as pd
@@ -1247,7 +1248,8 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
     path = str(tempdir / "test_parquet_dataset_all_types")
 
     # write_to_dataset currently requires pandas
-    pq.write_to_dataset(table, path, chunk_size=chunk_size)
+    pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                        chunk_size=chunk_size)
 
     return table, ds.dataset(path, format="parquet", partitioning="hive")
 
@@ -1739,17 +1741,18 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_read_partition_keys_only(tempdir):
+    BATCH_SIZE = 2 ** 17
     # This is a regression test for ARROW-15318 which saw issues
     # reading only the partition keys from files with batches larger
     # than the default batch size (e.g. so we need to return two chunks)
     table = pa.table({
-        'key': pa.repeat(0, 2 ** 20 + 1),
-        'value': np.arange(2 ** 20 + 1)})
+        'key': pa.repeat(0, BATCH_SIZE + 1),
+        'value': np.arange(BATCH_SIZE + 1)})
     pq.write_to_dataset(
-        table[:2 ** 20],
+        table[:BATCH_SIZE],
         tempdir / 'one', partition_cols=['key'])
     pq.write_to_dataset(
-        table[:2 ** 20 + 1],
+        table[:BATCH_SIZE + 1],
         tempdir / 'two', partition_cols=['key'])
 
     table = pq.read_table(tempdir / 'one', columns=['key'])
@@ -3599,16 +3602,19 @@ def test_write_dataset_with_backpressure(tempdir):
     gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
 
     schema = pa.schema([pa.field('data', pa.int32())])
-    # By default, the dataset writer will queue up 64Mi rows so
-    # with batches of 1M it should only fit ~67 batches
+    # The scanner should queue ~ 8Mi rows (~8 batches) but due to ARROW-16258
+    # it always queues 32 batches.
     batch = pa.record_batch([pa.array(list(range(1_000_000)))], schema=schema)
     batches_read = 0
-    min_backpressure = 67
+    min_backpressure = 32
     end = 200
+    keep_going = True
 
     def counting_generator():
         nonlocal batches_read
         while batches_read < end:
+            if not keep_going:
+                return
             time.sleep(0.01)
             batches_read += 1
             yield batch
@@ -3650,9 +3656,11 @@ def test_write_dataset_with_backpressure(tempdir):
         assert backpressure_probably_hit
 
     finally:
+        # If any batches remain to be generated go ahead and
+        # skip them
+        keep_going = False
         consumer_gate.set()
         write_thread.join()
-    assert batches_read == end
 
 
 def test_write_dataset_with_dataset(tempdir):
@@ -4326,6 +4334,71 @@ def test_write_dataset_s3(s3_example_simple):
         "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
     assert result.equals(table)
+
+
+_minio_put_only_policy = """{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:ListBucket",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": [
+                "arn:aws:s3:::*"
+            ]
+        }
+    ]
+}"""
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_write_dataset_s3_put_only(s3_server):
+    # [ARROW-15892] Testing the create_dir flag which will restrict
+    # creating a new directory for writing a dataset. This is
+    # required while writing a dataset in s3 where we have very
+    # limited permissions and thus we can directly write the dataset
+    # without creating a directory.
+    from pyarrow.fs import S3FileSystem
+
+    # write dataset with s3 filesystem
+    host, port, _, _ = s3_server['connection']
+    fs = S3FileSystem(
+        access_key='limited',
+        secret_key='limited123',
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http'
+    )
+    _configure_s3_limited_user(s3_server, _minio_put_only_policy)
+
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
+    )
+    part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
+
+    # writing with filesystem object with create_dir flag set to false
+    ds.write_dataset(
+        table, "existing-bucket", filesystem=fs,
+        format="feather", create_dir=False, partitioning=part,
+        existing_data_behavior='overwrite_or_ignore'
+    )
+    # check roundtrip
+    result = ds.dataset(
+        "existing-bucket", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
+
+    with pytest.raises(OSError, match="Access Denied"):
+        ds.write_dataset(
+            table, "existing-bucket", filesystem=fs,
+            format="feather", create_dir=True,
+            existing_data_behavior='overwrite_or_ignore'
+        )
 
 
 @pytest.mark.parquet

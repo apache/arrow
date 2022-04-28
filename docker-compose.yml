@@ -1209,6 +1209,7 @@ services:
         devtoolset_version: ${DEVTOOLSET_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_custom_ccache: ${R_CUSTOM_CCACHE}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
@@ -1415,15 +1416,16 @@ services:
     # Usage:
     #   docker-compose build ubuntu-csharp
     #   docker-compose run ubuntu-csharp
-    image: ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
+    image: ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
     build:
       context: .
-      dockerfile: ci/docker/ubuntu-18.04-csharp.dockerfile
+      dockerfile: ci/docker/ubuntu-20.04-csharp.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
+        - ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
       args:
+        arch: ${ARCH}
         dotnet: ${DOTNET}
-        platform: bionic  # use bionic-arm64v8 for ARM
+        platform: focal
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: &csharp-command >
@@ -1581,7 +1583,10 @@ services:
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
-    command: archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc
+    command: >
+      /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
+        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
 
   ######################### Integration Tests #################################
 
@@ -1733,6 +1738,7 @@ services:
     command: >
       /bin/bash -c "
         apt update -y && apt install -y curl git gnupg tzdata wget &&
+        git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   almalinux-verify-rc:
@@ -1789,4 +1795,5 @@ services:
       TEST_YUM: 0
     command: >
       /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"

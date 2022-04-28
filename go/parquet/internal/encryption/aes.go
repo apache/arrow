@@ -191,6 +191,52 @@ func newAesDecryptor(alg parquet.Cipher, metadata bool) *aesDecryptor {
 // the length of the plaintext after decryption.
 func (a *aesDecryptor) CiphertextSizeDelta() int { return a.ciphertextSizeDelta }
 
+// DecryptFrom
+func (a *aesDecryptor) DecryptFrom(r io.Reader, key, aad []byte) []byte {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+
+	var writtenCiphertextLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &writtenCiphertextLen); err != nil {
+		panic(err)
+	}
+
+	cipherText := make([]byte, writtenCiphertextLen)
+	if n, err := io.ReadFull(r, cipherText); n != int(writtenCiphertextLen) || err != nil {
+		panic(err)
+	}
+
+	nonce := cipherText[:NonceLength]
+	cipherText = cipherText[NonceLength:]
+	if a.mode == gcmMode {
+		aead, err := cipher.NewGCM(block)
+		if err != nil {
+			panic(err)
+		}
+
+		plain, err := aead.Open(cipherText[:0], nonce, cipherText, aad)
+		if err != nil {
+			panic(err)
+		}
+		return plain
+	}
+
+	// Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
+	// counter field.
+	// The first 31 bits of the initial counter field are set to 0, the last bit
+	// is set to 1.
+	iv := make([]byte, ctrIVLen)
+	copy(iv, nonce)
+	iv[ctrIVLen-1] = 1
+
+	stream := cipher.NewCTR(block, iv)
+	// dst := make([]byte, len(cipherText))
+	stream.XORKeyStream(cipherText, cipherText)
+	return cipherText
+}
+
 // Decrypt returns the plaintext version of the given ciphertext when decrypted
 // with the provided key and AAD security bytes.
 func (a *aesDecryptor) Decrypt(cipherText, key, aad []byte) []byte {

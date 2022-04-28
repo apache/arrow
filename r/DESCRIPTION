@@ -36,7 +36,7 @@ Imports:
     R6,
     rlang,
     stats,
-    tidyselect,
+    tidyselect (>= 1.0.0),
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
@@ -116,7 +116,7 @@ Collate:
     'filesystem.R'
     'flight.R'
     'install-arrow.R'
-    'ipc_stream.R'
+    'ipc-stream.R'
     'json.R'
     'memory-pool.R'
     'message.R'

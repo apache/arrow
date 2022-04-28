@@ -193,7 +193,7 @@ tail_from_batches <- function(batches, n) {
 map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   # TODO: ARROW-15271 possibly refactor do_exec_plan to return a RecordBatchReader
   plan <- ExecPlan$create()
-  final_node <- plan$Build(X)
+  final_node <- plan$Build(as_adq(X))
   reader <- plan$Run(final_node)
   FUN <- as_mapper(FUN)
 

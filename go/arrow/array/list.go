@@ -122,7 +122,7 @@ func arrayEqualList(left, right *List) bool {
 			defer l.Release()
 			r := right.newListValue(i)
 			defer r.Release()
-			return ArrayEqual(l, r)
+			return Equal(l, r)
 		}()
 		if !o {
 			return false
@@ -342,6 +342,6 @@ func (b *ListBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*List)(nil)
-	_ Builder   = (*ListBuilder)(nil)
+	_ arrow.Array = (*List)(nil)
+	_ Builder     = (*ListBuilder)(nil)
 )

@@ -25,10 +25,10 @@ build_dir=${3}
 
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
+rm -rf ${build_dir}/build
 rm -rf ${build_dir}/install
 rm -rf ${source_dir}/python/dist
 rm -rf ${source_dir}/python/build
-rm -rf ${source_dir}/python/repaired_wheels
 rm -rf ${source_dir}/python/pyarrow/*.so
 rm -rf ${source_dir}/python/pyarrow/*.so.*
 

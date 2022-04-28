@@ -1118,6 +1118,7 @@ message CommandGetDbSchemas {
  *  - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
  *  - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *  - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *  - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
  *  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
@@ -1457,6 +1458,7 @@ message ActionClosePreparedStatementRequest {
  *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
  *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
@@ -1491,6 +1493,7 @@ message TicketStatementQuery {
  *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
  *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.

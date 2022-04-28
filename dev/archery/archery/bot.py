@@ -160,7 +160,7 @@ class CommentBot:
                 run_id=os.environ["GITHUB_RUN_ID"],
             )
             pull.create_issue_comment(
-                f"```\n{e}\nThe Archery job run can be found at: {url}```")
+                f"```\n{e}\nThe Archery job run can be found at: {url}\n```")
             comment.create_reaction('-1')
         else:
             comment.create_reaction('+1')

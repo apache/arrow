@@ -1661,24 +1661,20 @@ def get_generated_json_files(tempdir=None):
 
         # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case()
-        .skip_category('C#')
-        .skip_category('Go'),
+        .skip_category('C#'),
 
         generate_dictionary_unsigned_case()
         .skip_category('C#')
-        .skip_category('Go')     # TODO(ARROW-9378)
         .skip_category('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('Java')  # TODO(ARROW-7779)
         .skip_category('JS')
         .skip_category('Rust'),
 
         generate_extension_case()
         .skip_category('C#')
-        .skip_category('Go')  # TODO(ARROW-3039): requires dictionaries
         .skip_category('JS')
         .skip_category('Rust'),
     ]

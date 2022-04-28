@@ -346,5 +346,11 @@ int64_t GetRandomSeed();
 ARROW_EXPORT
 uint64_t GetThreadId();
 
+/// \brief Get the current memory used by the current process in bytes
+///
+/// This function supports Windows, Linux, and Mac and will return 0 otherwise
+ARROW_EXPORT
+int64_t GetCurrentRSS();
+
 }  // namespace internal
 }  // namespace arrow

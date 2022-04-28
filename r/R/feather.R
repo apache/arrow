@@ -100,11 +100,7 @@ write_feather <- function(x,
   compression <- compression_from_name(compression)
 
   x_out <- x
-  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
-    x <- Table$create(x)
-  }
-
-  assert_that(is_writable_table(x))
+  x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -194,7 +190,7 @@ FeatherReader <- R6Class("FeatherReader",
   inherit = ArrowObject,
   public = list(
     Read = function(columns) {
-      ipc___feather___Reader__Read(self, columns)
+      ipc___feather___Reader__Read(self, columns, on_old_windows())
     },
     print = function(...) {
       cat("FeatherReader:\n")
@@ -215,5 +211,5 @@ names.FeatherReader <- function(x) x$column_names
 
 FeatherReader$create <- function(file) {
   assert_is(file, "RandomAccessFile")
-  ipc___feather___Reader__Open(file)
+  ipc___feather___Reader__Open(file, on_old_windows())
 }

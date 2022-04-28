@@ -200,6 +200,7 @@ BufferReader$create <- function(x) {
   io___BufferReader__initialize(x)
 }
 
+
 #' Create a new read/write memory mapped file of a given size
 #'
 #' @param path file path
@@ -244,32 +245,59 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   }
   if (is.string(file)) {
     if (is_url(file)) {
-      fs_and_path <- FileSystem$from_uri(file)
-      filesystem <- fs_and_path$fs
-      file <- fs_and_path$path
+      file <- tryCatch({
+        fs_and_path <- FileSystem$from_uri(file)
+        filesystem <- fs_and_path$fs
+        fs_and_path$path
+      }, error = function(e) {
+        MakeRConnectionInputStream(url(file, open = "rb"))
+      })
     }
+
     if (is.null(compression)) {
       # Infer compression from the file path
       compression <- detect_compression(file)
     }
+
     if (!is.null(filesystem)) {
       file <- filesystem$OpenInputFile(file)
-    } else if (isTRUE(mmap)) {
+    } else if (is.string(file) && isTRUE(mmap)) {
       file <- mmap_open(file)
-    } else {
+    } else if (is.string(file)) {
       file <- ReadableFile$create(file)
     }
+
     if (!identical(compression, "uncompressed")) {
       file <- CompressedInputStream$create(file, compression)
     }
   } else if (inherits(file, c("raw", "Buffer"))) {
     file <- BufferReader$create(file)
+  } else if (inherits(file, "connection")) {
+    if (!isOpen(file)) {
+      open(file, "rb")
+    }
+
+    # Try to create a RandomAccessFile first because some readers need this
+    # (e.g., feather, parquet) but fall back on an InputStream for the readers
+    # that don't (e.g., IPC, CSV)
+    file <- tryCatch(
+      MakeRConnectionRandomAccessFile(file),
+      error = function(e) MakeRConnectionInputStream(file)
+    )
   }
   assert_is(file, "InputStream")
   file
 }
 
 make_output_stream <- function(x, filesystem = NULL) {
+  if (inherits(x, "connection")) {
+    if (!isOpen(x)) {
+      open(x, "wb")
+    }
+
+    return(MakeRConnectionOutputStream(x))
+  }
+
   if (inherits(x, "SubTreeFileSystem")) {
     filesystem <- x$base_fs
     x <- x$base_path
@@ -287,7 +315,10 @@ make_output_stream <- function(x, filesystem = NULL) {
 }
 
 detect_compression <- function(path) {
-  assert_that(is.string(path))
+  if (!is.string(path)) {
+    return("uncompressed")
+  }
+
   switch(tools::file_ext(path),
     bz2 = "bz2",
     gz = "gzip",

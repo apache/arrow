@@ -192,8 +192,6 @@ test_apt() {
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
-                "ubuntu:hirsute" \
-                "arm64v8/ubuntu:hirsute" \
                 "ubuntu:impish" \
                 "arm64v8/ubuntu:impish" \
                 "ubuntu:jammy" \
@@ -342,7 +340,7 @@ install_csharp() {
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=3.1.405
+    local dotnet_version=6.0.202
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -618,14 +616,13 @@ test_and_install_cpp() {
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
+  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
   cmake --build . --target install
 
   # Explicitly set site-package directory, otherwise the C++ tests are unable
   # to load numpy in a python virtualenv
   local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
 
-  # TODO: ARROW-5036: plasma-serialization_tests broken
-  # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
     --exclude-regex "plasma-serialization_tests" \
     -j$NPROC \
@@ -795,7 +792,7 @@ test_csharp() {
   fi
 
   sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb
+  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
 
   popd
 }
@@ -1088,6 +1085,14 @@ test_jars() {
          --package_type=jars
 
   verify_dir_artifact_signatures ${download_dir}
+
+  # TODO: This should be replaced with real verification by ARROW-15486.
+  # https://issues.apache.org/jira/browse/ARROW-15486
+  # [Release][Java] Verify staged maven artifacts
+  if [ ! -d "${download_dir}/arrow-memory/${VERSION}" ]; then
+    echo "Artifacts for ${VERSION} isn't uploaded yet."
+    return 1
+  fi
 }
 
 # By default test all functionalities.

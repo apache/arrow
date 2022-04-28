@@ -73,7 +73,7 @@ type JSONReader struct {
 	bldr *RecordBuilder
 
 	refs int64
-	cur  Record
+	cur  arrow.Record
 	err  error
 
 	chunk int
@@ -123,7 +123,7 @@ func (r *JSONReader) Schema() *arrow.Schema { return r.schema }
 
 // Record returns the last read in record. The returned record is only valid
 // until the next call to Next unless Retain is called on the record itself.
-func (r *JSONReader) Record() Record { return r.cur }
+func (r *JSONReader) Record() arrow.Record { return r.cur }
 
 func (r *JSONReader) Retain() {
 	atomic.AddInt64(&r.refs, 1)

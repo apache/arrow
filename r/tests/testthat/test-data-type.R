@@ -600,3 +600,18 @@ test_that("DataType$code()", {
   })
 
 })
+
+test_that("as_data_type() works for DataType", {
+  expect_equal(as_data_type(int32()), int32())
+})
+
+test_that("as_data_type() works for Field", {
+  expect_equal(as_data_type(field("a field", int32())), int32())
+})
+
+test_that("as_data_type() works for Schema", {
+  expect_equal(
+    as_data_type(schema(col1 = int32(), col2 = string())),
+    struct(col1 = int32(), col2 = string())
+  )
+})

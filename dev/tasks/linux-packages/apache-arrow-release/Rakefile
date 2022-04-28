@@ -40,8 +40,28 @@ class ApacheArrowReleasePackageTask < PackageTask
     file @archive_name => [repo_path] do
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
+      keys_path = "#{@archive_base_name}/KEYS"
       download("https://downloads.apache.org/arrow/KEYS",
-               "#{@archive_base_name}/KEYS")
+               keys_path)
+      keys = File.read(keys_path)
+      File.open(keys_path, "w") do |keys_file|
+        is_ed25519_key = false
+        keys.each_line do |line|
+          case line.chomp
+          when /\Apub\s+ed25519\s/
+            is_ed25519_key = true
+            next
+          when "-----END PGP PUBLIC KEY BLOCK-----"
+            if is_ed25519_key
+              is_ed25519_key = false
+              next
+            end
+          else
+            next if is_ed25519_key
+          end
+          keys_file.print(line)
+        end
+      end
       cp(repo_path, @archive_base_name)
       sh("tar", "czf", @archive_name, @archive_base_name)
       rm_rf(@archive_base_name)
@@ -53,6 +73,7 @@ class ApacheArrowReleasePackageTask < PackageTask
         rpm_archive_base_name = File.basename(rpm_archive_name, ".tar.gz")
         mv(@archive_base_name, rpm_archive_base_name)
         sh("tar", "czf", rpm_archive_name, rpm_archive_base_name)
+        rm_rf(rpm_archive_base_name)
       end
     end
   end

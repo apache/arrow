@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v8/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v8/arrow/memory"
@@ -34,7 +35,7 @@ func TestRWSchema(t *testing.T) {
 	meta := arrow.NewMetadata([]string{"k1", "k2", "k3"}, []string{"v1", "v2", "v3"})
 	for _, tc := range []struct {
 		schema *arrow.Schema
-		memo   dictMemo
+		memo   dictutils.Memo
 	}{
 		{
 			schema: arrow.NewSchema([]arrow.Field{
@@ -42,13 +43,14 @@ func TestRWSchema(t *testing.T) {
 				{Name: "f2", Type: arrow.PrimitiveTypes.Uint16},
 				{Name: "f3", Type: arrow.PrimitiveTypes.Float64},
 			}, &meta),
-			memo: newMemo(),
+			memo: dictutils.Memo{},
 		},
 	} {
 		t.Run("", func(t *testing.T) {
 			b := flatbuffers.NewBuilder(0)
 
-			offset := schemaToFB(b, tc.schema, &tc.memo)
+			tc.memo.Mapper.ImportSchema(tc.schema)
+			offset := schemaToFB(b, tc.schema, &tc.memo.Mapper)
 			b.Finish(offset)
 
 			buf := b.FinishedBytes()

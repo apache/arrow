@@ -271,87 +271,8 @@ bool KeyEncoder::KeyRowArray::has_any_nulls(const KeyEncoderContext* ctx) const 
   return has_any_nulls_;
 }
 
-KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata,
-                                           const KeyColumnArray& left,
-                                           const KeyColumnArray& right,
-                                           int buffer_id_to_replace) {
-  metadata_ = metadata;
-  length_ = left.length();
-  for (int i = 0; i < max_buffers_; ++i) {
-    buffers_[i] = left.buffers_[i];
-    mutable_buffers_[i] = left.mutable_buffers_[i];
-  }
-  buffers_[buffer_id_to_replace] = right.buffers_[buffer_id_to_replace];
-  mutable_buffers_[buffer_id_to_replace] = right.mutable_buffers_[buffer_id_to_replace];
-  bit_offset_[0] = left.bit_offset_[0];
-  bit_offset_[1] = left.bit_offset_[1];
-  if (buffer_id_to_replace < max_buffers_ - 1) {
-    bit_offset_[buffer_id_to_replace] = right.bit_offset_[buffer_id_to_replace];
-  }
-}
-
-KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata,
-                                           int64_t length, const uint8_t* buffer0,
-                                           const uint8_t* buffer1, const uint8_t* buffer2,
-                                           int bit_offset0, int bit_offset1) {
-  metadata_ = metadata;
-  length_ = length;
-  buffers_[0] = buffer0;
-  buffers_[1] = buffer1;
-  buffers_[2] = buffer2;
-  mutable_buffers_[0] = mutable_buffers_[1] = mutable_buffers_[2] = nullptr;
-  bit_offset_[0] = bit_offset0;
-  bit_offset_[1] = bit_offset1;
-}
-
-KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata,
-                                           int64_t length, uint8_t* buffer0,
-                                           uint8_t* buffer1, uint8_t* buffer2,
-                                           int bit_offset0, int bit_offset1) {
-  metadata_ = metadata;
-  length_ = length;
-  buffers_[0] = mutable_buffers_[0] = buffer0;
-  buffers_[1] = mutable_buffers_[1] = buffer1;
-  buffers_[2] = mutable_buffers_[2] = buffer2;
-  bit_offset_[0] = bit_offset0;
-  bit_offset_[1] = bit_offset1;
-}
-
-KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnArray& from, int64_t start,
-                                           int64_t length) {
-  metadata_ = from.metadata_;
-  length_ = length;
-  uint32_t fixed_size =
-      !metadata_.is_fixed_length ? sizeof(uint32_t) : metadata_.fixed_length;
-
-  buffers_[0] =
-      from.buffers_[0] ? from.buffers_[0] + (from.bit_offset_[0] + start) / 8 : nullptr;
-  mutable_buffers_[0] = from.mutable_buffers_[0]
-                            ? from.mutable_buffers_[0] + (from.bit_offset_[0] + start) / 8
-                            : nullptr;
-  bit_offset_[0] = (from.bit_offset_[0] + start) % 8;
-
-  if (fixed_size == 0 && !metadata_.is_null_type) {
-    buffers_[1] =
-        from.buffers_[1] ? from.buffers_[1] + (from.bit_offset_[1] + start) / 8 : nullptr;
-    mutable_buffers_[1] = from.mutable_buffers_[1] ? from.mutable_buffers_[1] +
-                                                         (from.bit_offset_[1] + start) / 8
-                                                   : nullptr;
-    bit_offset_[1] = (from.bit_offset_[1] + start) % 8;
-  } else {
-    buffers_[1] = from.buffers_[1] ? from.buffers_[1] + start * fixed_size : nullptr;
-    mutable_buffers_[1] = from.mutable_buffers_[1]
-                              ? from.mutable_buffers_[1] + start * fixed_size
-                              : nullptr;
-    bit_offset_[1] = 0;
-  }
-
-  buffers_[2] = from.buffers_[2];
-  mutable_buffers_[2] = from.mutable_buffers_[2];
-}
-
-KeyEncoder::KeyColumnArray KeyEncoder::TransformBoolean::ArrayReplace(
-    const KeyColumnArray& column, const KeyColumnArray& temp) {
+KeyColumnArray KeyEncoder::TransformBoolean::ArrayReplace(const KeyColumnArray& column,
+                                                          const KeyColumnArray& temp) {
   // Make sure that the temp buffer is large enough
   DCHECK(temp.length() >= column.length() && temp.metadata().is_fixed_length &&
          temp.metadata().fixed_length >= sizeof(uint8_t));
@@ -359,8 +280,7 @@ KeyEncoder::KeyColumnArray KeyEncoder::TransformBoolean::ArrayReplace(
   metadata.is_fixed_length = true;
   metadata.fixed_length = sizeof(uint8_t);
   constexpr int buffer_index = 1;
-  KeyColumnArray result = KeyColumnArray(metadata, column, temp, buffer_index);
-  return result;
+  return column.WithBufferFrom(temp, buffer_index).WithMetadata(metadata);
 }
 
 void KeyEncoder::TransformBoolean::PostDecode(const KeyColumnArray& input,
@@ -387,8 +307,8 @@ bool KeyEncoder::EncoderInteger::UsesTransform(const KeyColumnArray& column) {
   return IsBoolean(column.metadata());
 }
 
-KeyEncoder::KeyColumnArray KeyEncoder::EncoderInteger::ArrayReplace(
-    const KeyColumnArray& column, const KeyColumnArray& temp) {
+KeyColumnArray KeyEncoder::EncoderInteger::ArrayReplace(const KeyColumnArray& column,
+                                                        const KeyColumnArray& temp) {
   if (IsBoolean(column.metadata())) {
     return TransformBoolean::ArrayReplace(column, temp);
   }
@@ -955,7 +875,8 @@ void KeyEncoder::PrepareKeyColumnArrays(int64_t start_row, int64_t num_rows,
   uint32_t num_varbinary_visited = 0;
   for (uint32_t i = 0; i < num_cols; ++i) {
     const KeyColumnArray& col = cols_in[row_metadata_.column_order[i]];
-    KeyColumnArray col_window(col, start_row, num_rows);
+    KeyColumnArray col_window = col.Slice(start_row, num_rows);
+
     batch_all_cols_[i] = col_window;
     if (!col.metadata().is_fixed_length) {
       DCHECK(num_varbinary_visited < batch_varbinary_cols_.size());

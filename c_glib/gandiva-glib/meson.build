@@ -69,7 +69,7 @@ enums = gnome.mkenums('enums',
                       symbol_prefix: 'ggandiva',
                       c_template: 'enums.c.template',
                       h_template: 'enums.h.template',
-                      install_dir: join_paths(include_dir, meson.project_name()),
+                      install_dir: join_paths(include_dir, 'gandiva-glib'),
                       install_header: true)
 enums_source = enums[0]
 enums_header = enums[1]

@@ -328,7 +328,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
-    if (directory_.empty()) {
+    if (directory_.empty() || !write_options_.create_dir) {
       init_future_ = Future<>::MakeFinished();
     } else {
       if (write_options_.existing_data_behavior ==
@@ -423,7 +423,7 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
       // If the path doesn't exist then continue
       return Status::OK();
     }
-    if (maybe_files->size() > 1) {
+    if (maybe_files->size() > 0) {
       return Status::Invalid(
           "Could not write to ", options.base_dir,
           " as the directory is not empty and existing_data_behavior is to error");

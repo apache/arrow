@@ -113,5 +113,5 @@ func arrayEqualBoolean(left, right *Boolean) bool {
 }
 
 var (
-	_ Interface = (*Boolean)(nil)
+	_ arrow.Array = (*Boolean)(nil)
 )

@@ -190,6 +190,13 @@ class ARROW_EXPORT RecordBatchFileReader
   /// \return the read batch
   virtual Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) = 0;
 
+  /// \brief Read a particular record batch along with its custom metadada from the file.
+  /// Does not copy memory if the input source supports zero-copy.
+  ///
+  /// \param[in] i the index of the record batch to return
+  /// \return a struct containing the read batch and its custom metadata
+  virtual Result<RecordBatchWithMetadata> ReadRecordBatchWithCustomMetadata(int i) = 0;
+
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
 

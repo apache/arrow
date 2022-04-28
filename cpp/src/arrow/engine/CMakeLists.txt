@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_custom_target(arrow_engine)
+add_custom_target(arrow_substrait)
 
-arrow_install_all_headers("arrow/engine")
+arrow_install_all_headers("arrow/engine/substrait")
 
-set(ARROW_ENGINE_SRCS
+set(ARROW_SUBSTRAIT_SRCS
     substrait/expression_internal.cc
     substrait/extension_set.cc
     substrait/extension_types.cc
@@ -28,15 +28,15 @@ set(ARROW_ENGINE_SRCS
     substrait/relation_internal.cc
     substrait/type_internal.cc)
 
-add_arrow_lib(arrow_engine
+add_arrow_lib(arrow_substrait
               CMAKE_PACKAGE_NAME
-              ArrowEngine
+              ArrowSubstrait
               PKG_CONFIG_NAME
-              arrow-engine
+              arrow-substrait
               OUTPUTS
-              ARROW_ENGINE_LIBRARIES
+              ARROW_SUBSTRAIT_LIBRARIES
               SOURCES
-              ${ARROW_ENGINE_SRCS}
+              ${ARROW_SUBSTRAIT_SRCS}
               PRECOMPILED_HEADERS
               "$<$<COMPILE_LANGUAGE:CXX>:arrow/engine/pch.h>"
               SHARED_LINK_FLAGS
@@ -52,25 +52,25 @@ add_arrow_lib(arrow_engine
               PRIVATE_INCLUDES
               ${SUBSTRAIT_INCLUDES})
 
-foreach(LIB_TARGET ${ARROW_ENGINE_LIBRARIES})
+foreach(LIB_TARGET ${ARROW_SUBSTRAIT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING)
 endforeach()
 
-set(ARROW_ENGINE_TEST_LINK_LIBS ${ARROW_ENGINE_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
+set(ARROW_SUBSTRAIT_TEST_LINK_LIBS ${ARROW_SUBSTRAIT_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  list(APPEND ARROW_ENGINE_TEST_LINK_LIBS arrow_engine_static)
+  list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_static)
 else()
-  list(APPEND ARROW_ENGINE_TEST_LINK_LIBS arrow_engine_shared)
+  list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_shared)
 endif()
 
 add_arrow_test(substrait_test
                SOURCES
                substrait/serde_test.cc
                EXTRA_LINK_LIBS
-               ${ARROW_ENGINE_TEST_LINK_LIBS}
+               ${ARROW_SUBSTRAIT_TEST_LINK_LIBS}
                PREFIX
-               "arrow-engine"
+               "arrow-substrait"
                LABELS
-               "arrow_engine")
+               "arrow_substrait")
 
 add_subdirectory(substrait)

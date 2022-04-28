@@ -63,6 +63,13 @@ test_that("R metadata is not stored for types that map to Arrow types (factor, D
   expect_null(Table$create(example_with_times[1:3])$metadata$r)
 })
 
+test_that("R metadata is not stored for ExtensionType columns", {
+  tab <- Table$create(
+    x = vctrs::new_vctr(1:5, class = "special_integer")
+  )
+  expect_null(tab$metadata$r)
+})
+
 test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixed_size_binary (ARROW-14140)", {
   raws <- charToRaw("bonjour")
 
@@ -152,6 +159,7 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
+
   expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
 })
 
@@ -182,7 +190,7 @@ test_that("haven types roundtrip via feather", {
 
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
-  expect_r6_class(rb$schema$posixlt$type, "StructType")
+  expect_r6_class(rb$schema$posixlt$type, "VctrsExtensionType")
   expect_identical(as.data.frame(rb), example_with_times)
 })
 
@@ -310,31 +318,6 @@ test_that("Dataset writing does handle other metadata", {
   )
 })
 
-test_that("When we encounter SF cols, we warn", {
-  df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
-  class(df$x) <- c("sfc_MULTIPOLYGON", "sfc", "list")
-
-  expect_warning(
-    tab <- Table$create(df),
-    "One of the columns given appears to be an"
-  )
-
-  # but the table was read fine, just sans (row-level) metadata
-  r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
-  expect_null(r_metadata$columns$x$columns)
-
-  # But we can re-enable this / read data that has already been written with
-  # row-level metadata without a warning
-  withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE),
-    {
-      expect_warning(tab <- Table$create(df), NA)
-      expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
-      expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
-    }
-  )
-})
-
 test_that("dplyr with metadata", {
   skip_if_not_available("dataset")
 
@@ -358,7 +341,7 @@ test_that("dplyr with metadata", {
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(z = nchar(a)) %>%
+      mutate(z = nchar(d)) %>%
       select(z, a) %>%
       collect(),
     example_with_metadata
@@ -367,7 +350,7 @@ test_that("dplyr with metadata", {
   # of grouping columns appear to come through
   compare_dplyr_binding(
     .input %>%
-      group_by(a) %>%
+      group_by(d) %>%
       summarize(n()) %>%
       collect(),
     example_with_metadata
@@ -376,7 +359,7 @@ test_that("dplyr with metadata", {
   # carry through
   compare_dplyr_binding(
     .input %>%
-      mutate(a = nchar(a)) %>%
+      mutate(a = b) %>%
       select(a) %>%
       collect(),
     example_with_metadata

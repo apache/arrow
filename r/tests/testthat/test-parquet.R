@@ -113,10 +113,7 @@ test_that("write_parquet() handles grouped_df", {
 
 test_that("write_parquet() with invalid input type", {
   bad_input <- Array$create(1:5)
-  expect_error(
-    write_parquet(bad_input, tempfile()),
-    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
-  )
+  expect_snapshot_error(write_parquet(bad_input, tempfile()))
 })
 
 test_that("write_parquet() can truncate timestamps", {
@@ -199,6 +196,25 @@ test_that("Maps are preserved when writing/reading from Parquet", {
   expect_equal(df, df_read, ignore_attr = TRUE)
 })
 
+test_that("read_parquet() and write_parquet() accept connection objects", {
+  skip_if_not_available("snappy")
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # make this big enough that we might expose concurrency problems,
+  # but not so big that it slows down the tests
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_parquet(test_tbl, file(tf))
+  expect_identical(read_parquet(tf), test_tbl)
+  expect_identical(read_parquet(file(tf)), read_parquet(tf))
+})
+
 test_that("write_parquet() to stream", {
   df <- tibble::tibble(x = 1:5)
   tf <- tempfile()
@@ -229,6 +245,14 @@ test_that("write_parquet() handles version argument", {
   purrr::walk(list("3.0", 3.0, 3L, "A"), ~ {
     expect_error(write_parquet(df, tf, version = .x))
   })
+})
+
+test_that("ParquetFileReader raises an error for non-RandomAccessFile source", {
+  skip_if_not_available("gzip")
+  expect_error(
+    ParquetFileReader$create(CompressedInputStream$create(pq_file)),
+    'file must be a "RandomAccessFile"'
+  )
 })
 
 test_that("ParquetFileWriter raises an error for non-OutputStream sink", {

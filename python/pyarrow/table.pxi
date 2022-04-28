@@ -4092,7 +4092,6 @@ cdef class Table(_PandasConvertible):
         Yields
         ------
         ChunkedArray
-        ChunkedArray
 
         Examples
         --------

@@ -26,6 +26,8 @@ import (
 	"math"
 
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"golang.org/x/xerrors"
 )
@@ -39,7 +41,7 @@ const (
 func MinBufferSize(bitWidth int) int {
 	maxLiteralRunSize := 1 + bitutil.BytesForBits(int64(MaxValuesPerLiteralRun*bitWidth))
 	maxRepeatedRunSize := binary.MaxVarintLen32 + bitutil.BytesForBits(int64(bitWidth))
-	return int(Max(maxLiteralRunSize, maxRepeatedRunSize))
+	return int(utils.Max(maxLiteralRunSize, maxRepeatedRunSize))
 }
 
 func MaxBufferSize(width, numValues int) int {
@@ -50,7 +52,7 @@ func MaxBufferSize(width, numValues int) int {
 	minRepeatedRunSize := 1 + int(bitutil.BytesForBits(int64(width)))
 	repeatedMaxSize := int(bitutil.BytesForBits(int64(numValues))) * minRepeatedRunSize
 
-	return MaxInt(literalMaxSize, repeatedMaxSize)
+	return utils.MaxInt(literalMaxSize, repeatedMaxSize)
 }
 
 // Utility classes to do run length encoding (RLE) for fixed bit width values.  If runs
@@ -293,7 +295,7 @@ func (r *RleDecoder) getspacedUint64(dc DictionaryConverter, vals []uint64, batc
 	var indexbuffer [bufferSize]IndexType
 
 	// assume no bits to start
-	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
 	validRun := bitReader.NextRun()
 	for read < batchSize {
 		if validRun.Len == 0 {
@@ -343,7 +345,7 @@ func (r *RleDecoder) getspacedUint64(dc DictionaryConverter, vals []uint64, batc
 	return read, nil
 }
 
-func (r *RleDecoder) consumeRepeatCounts(read, batchSize, remain int, run BitRun, bitRdr BitRunReader) (int, int, BitRun) {
+func (r *RleDecoder) consumeRepeatCounts(read, batchSize, remain int, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun) {
 	// Consume the entire repeat counts incrementing repeat_batch to
 	// be the total of nulls + values consumed, we only need to
 	// get the total count because we can fill in the same value for
@@ -351,7 +353,7 @@ func (r *RleDecoder) consumeRepeatCounts(read, batchSize, remain int, run BitRun
 	repeatBatch := 0
 	for r.repCount > 0 && (read+repeatBatch) < batchSize {
 		if run.Set {
-			updateSize := int(Min(run.Len, int64(r.repCount)))
+			updateSize := int(utils.Min(run.Len, int64(r.repCount)))
 			r.repCount -= int32(updateSize)
 			repeatBatch += updateSize
 			run.Len -= int64(updateSize)
@@ -368,8 +370,8 @@ func (r *RleDecoder) consumeRepeatCounts(read, batchSize, remain int, run BitRun
 	return repeatBatch, remain, run
 }
 
-func (r *RleDecoder) consumeLiteralsUint64(dc DictionaryConverter, vals []uint64, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiteralsUint64(dc DictionaryConverter, vals []uint64, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -387,7 +389,7 @@ func (r *RleDecoder) consumeLiteralsUint64(dc DictionaryConverter, vals []uint64
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}

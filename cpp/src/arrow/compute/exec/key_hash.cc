@@ -375,7 +375,7 @@ void Hashing32::HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t 
   }
 }
 
-void Hashing32::HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& cols,
+void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
                                 KeyEncoder::KeyEncoderContext* ctx, uint32_t* hashes) {
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
@@ -799,7 +799,7 @@ void Hashing64::HashFixed(bool combine_hashes, uint32_t num_rows, uint64_t lengt
   }
 }
 
-void Hashing64::HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& cols,
+void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
                                 KeyEncoder::KeyEncoderContext* ctx, uint64_t* hashes) {
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 

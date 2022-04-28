@@ -187,18 +187,6 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     if (all(map_lgl(columns, is.null))) {
       columns <- NULL
     }
-  } else if (inherits(x, c("sfc", "sf"))) {
-    # Check if there are any columns that look like sf columns, warn that we will
-    # not be saving this data for now (but only if arrow.preserve_row_level_metadata
-    # is set to FALSE)
-    warning(
-      "One of the columns given appears to be an `sfc` SF column. Due to their unique ",
-      "nature, these columns do not convert to Arrow well. We are working on ",
-      "better ways to do this, but in the interim we recommend converting any `sfc` ",
-      "columns to WKB (well-known binary) columns before using them with Arrow ",
-      "(for example, with `sf::st_as_binary(col)`).",
-      call. = FALSE
-    )
   }
 
   if (length(att) || !is.null(columns)) {

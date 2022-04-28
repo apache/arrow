@@ -23,6 +23,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
 	"github.com/apache/arrow/go/v8/parquet"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -224,7 +225,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 	switch s := src.(type) {
 	case []int32:
 		o := out.([]int32)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -235,7 +236,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []int64:
 		o := out.([]int64)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -246,7 +247,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []float32:
 		o := out.([]float32)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -257,7 +258,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []float64:
 		o := out.([]float64)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -268,7 +269,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []parquet.ByteArray:
 		o := out.([]parquet.ByteArray)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -279,7 +280,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []parquet.FixedLenByteArray:
 		o := out.([]parquet.FixedLenByteArray)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -290,7 +291,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []bool:
 		o := out.([]bool)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {

@@ -21,8 +21,9 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/internal/bitutils"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 )
 
 // PlainByteArrayEncoder encodes byte arrays according to the spec for Plain encoding
@@ -30,7 +31,7 @@ import (
 type PlainByteArrayEncoder struct {
 	encoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // PutByteArray writes out the 4 bytes for the length followed by the data
@@ -56,7 +57,7 @@ func (enc *PlainByteArrayEncoder) Put(in []parquet.ByteArray) {
 func (enc *PlainByteArrayEncoder) PutSpaced(in []parquet.ByteArray, validBits []byte, validBitsOffset int64) {
 	if validBits != nil {
 		if enc.bitSetReader == nil {
-			enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+			enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
 		} else {
 			enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
 		}
@@ -114,7 +115,7 @@ func (enc *DictByteArrayEncoder) Put(in []parquet.ByteArray) {
 
 // PutSpaced like with the non-dict encoder leaves out the values where the validBits bitmap is 0
 func (enc *DictByteArrayEncoder) PutSpaced(in []parquet.ByteArray, validBits []byte, validBitsOffset int64) {
-	utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+	bitutils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
 		for i := int64(0); i < length; i++ {
 			enc.PutByteArray(in[i+pos])
 		}
