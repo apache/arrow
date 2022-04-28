@@ -16,7 +16,10 @@
 # under the License.
 
 import os
+import sys
 import pathlib
+import pytest
+
 import pyarrow as pa
 from pyarrow.lib import tobytes
 from pyarrow.lib import ArrowInvalid
@@ -30,9 +33,6 @@ try:
     import pyarrow.substrait as substrait
 except ImportError:
     substrait = None
-
-import pytest
-import sys
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not substrait'
@@ -49,7 +49,8 @@ def resource_root():
 
 
 @pytest.mark.skipif(sys.platform == 'win32',
-                    reason="ARROW-16392: file based URI is not fully supported for Windows")
+                    reason="ARROW-16392: file based URI is" +
+                    " not fully supported for Windows")
 def test_run_serialized_query():
     substrait_query = """
     {
