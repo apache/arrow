@@ -62,13 +62,13 @@ def _parse_json_plan(plan):
 
     Parameters
     ----------
-    plan: byte
+    plan: bytes
         Parse a Substrait plan in JSON to a serialized plan.
 
     Returns
     -------
     Buffer
-        pyarrow.Buffer object is returned.
+        A buffer containing the serialized Protobuf plan.
     """
 
     cdef:
@@ -76,10 +76,8 @@ def _parse_json_plan(plan):
         c_string c_str_plan
         shared_ptr[CBuffer] c_buf_plan
 
-    if isinstance(plan, bytes):
-        c_str_plan = plan
-        c_res_buffer = ParseJsonPlan(c_str_plan)
-        c_buf_plan = GetResultValue(c_res_buffer)
-    else:
-        raise ValueError("Expected plan in bytes.")
+    c_str_plan = plan
+    c_res_buffer = ParseJsonPlan(c_str_plan)
+    c_buf_plan = GetResultValue(c_res_buffer)
+
     return pyarrow_wrap_buffer(c_buf_plan)

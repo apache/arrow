@@ -20,13 +20,18 @@ import pathlib
 import pyarrow as pa
 from pyarrow.lib import tobytes
 from pyarrow.lib import ArrowInvalid
-import pyarrow.parquet as pq
-import pytest
+
+try:
+    import pyarrow.parquet as pq
+except ImportError:
+    pq = None
 
 try:
     import pyarrow.substrait as substrait
 except ImportError:
     substrait = None
+
+import pytest
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not engine'
@@ -84,7 +89,7 @@ def test_run_query():
     assert expected_tb.num_rows == res_tb.num_rows
 
 
-def test_run_query_in_bytes():
+def test_run_serialized_query():
     filename = str(resource_root() / "binary.parquet")
 
     query = tobytes(_substrait_query.replace("FILENAME_PLACEHOLDER", filename))
