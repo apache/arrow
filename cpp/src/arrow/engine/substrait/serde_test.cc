@@ -31,6 +31,10 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
 
+#include <filesystem>
+#include <iostream>
+#include <string>
+
 using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;
@@ -753,24 +757,12 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
           &ext_set));
 }
 
-Result<std::string> GetDataPath(const std::string& file_name) {
-  std::stringstream ss;
+Result<std::string> GetSubstraitJSON() {
   ARROW_ASSIGN_OR_RAISE(std::string dir_string,
                         arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
-  ss << dir_string;
-  ss << "/" << file_name;
-  return ss.str();
-}
-
-Result<std::string> GetSubstraitJSON() {
-  // TODO: testing the Windows build issue
-  //  following comments will be removed accordingly
-  // ARROW_ASSIGN_OR_RAISE(std::string dir_string,
-  //                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
-  // auto file_name =
-  //     arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
-  ARROW_ASSIGN_OR_RAISE(auto file_path, GetDataPath("binary.parquet"));
-  // auto file_path = file_name->ToString();
+  auto file_name =
+      arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
+  auto file_path = file_name->ToString();
   std::string substrait_json = R"({
     "relations": [
       {"rel": {
@@ -797,15 +789,6 @@ Result<std::string> GetSubstraitJSON() {
       }}
     ]
   })";
-// fixing path for OS
-#ifdef _WIN32
-  // Path is supposed to start with "X:/..."
-  file_path = "file:///" + file_path;
-#else
-  // Path is supposed to start with "/..."
-  file_path = "file://" + file_path;
-#endif
-  std::cout << "File Path : >>>>" << file_path << std::endl;
   std::string filename_placeholder = "FILENAME_PLACEHOLDER";
   substrait_json.replace(substrait_json.find(filename_placeholder),
                          filename_placeholder.size(), file_path);
@@ -813,11 +796,15 @@ Result<std::string> GetSubstraitJSON() {
 }
 
 TEST(Substrait, GetRecordBatchReader) {
+#ifdef _WIN32
+  GTEST_SKIP() << "Substrait File URI not supported for Windows";
+#else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, engine::ParseJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto reader, engine::ExecuteSerializedPlan(buf));
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
   EXPECT_GT(table->num_rows(), 0);
+#endif
 }
 
 TEST(Substrait, InvalidPlan) {
