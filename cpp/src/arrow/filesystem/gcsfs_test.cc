@@ -145,9 +145,9 @@ class GcsIntegrationTest : public ::testing::Test {
         google::cloud::Options{}
             .set<gcs::RestEndpointOption>("http://127.0.0.1:" + Testbench()->port())
             .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
-            .set<gcs::TransferStallTimeoutOption>(std::chrono::seconds(3))
+            .set<gcs::TransferStallTimeoutOption>(std::chrono::seconds(5))
             .set<gcs::RetryPolicyOption>(
-                gcs::LimitedTimeRetryPolicy(std::chrono::seconds(3)).clone()));
+                gcs::LimitedTimeRetryPolicy(std::chrono::seconds(5)).clone()));
 
     google::cloud::StatusOr<gcs::BucketMetadata> bucket = client.CreateBucketForProject(
         PreexistingBucketName(), "ignored-by-testbench", gcs::BucketMetadata{});
@@ -175,7 +175,7 @@ class GcsIntegrationTest : public ::testing::Test {
   GcsOptions TestGcsOptions() {
     auto options = GcsOptions::Anonymous();
     options.endpoint_override = "127.0.0.1:" + Testbench()->port();
-    options.retry_limit_seconds = 2;
+    options.retry_limit_seconds = 5;
     return options;
   }
 

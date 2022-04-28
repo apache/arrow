@@ -215,7 +215,7 @@ def gcsfs(request, gcs_server):
         scheme='http',
         # Mock endpoint doesn't check credentials.
         anonymous=True,
-        retry_time_limit=timedelta(seconds=3)
+        retry_time_limit=timedelta(seconds=5)
     )
     fs.create_dir(bucket)
 
@@ -1402,7 +1402,7 @@ def test_filesystem_from_uri_gcs(gcs_server):
 
     uri = ("gs://anonymous@" +
            f"mybucket/foo/bar?scheme=http&endpoint_override={host}:{port}&" +
-           "retry_limit_seconds=3")
+           "retry_limit_seconds=5")
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, GcsFileSystem)
