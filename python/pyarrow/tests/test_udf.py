@@ -241,7 +241,8 @@ def check_scalar_function(func_fixture,
     function, name = func_fixture
     if batch_length is None:
         try:
-            batch_length = len(inputs)
+            for input in inputs:
+                batch_length = len(inputs)
         except TypeError:
             pass
     expected_output = function(mock_udf_context(batch_length), *inputs)
