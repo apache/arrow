@@ -2229,7 +2229,7 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTest, TestCeilTemporalChangeOnBoundary) {
+TEST_F(ScalarTemporalTest, TestCeilTemporalStrictCeil) {
   std::string op = "ceil_temporal";
   RoundTemporalOptions round_to_1_nanoseconds =
       RoundTemporalOptions(1, CalendarUnit::NANOSECOND, true, true, false);
