@@ -361,11 +361,10 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   Expression filter;
 };
 
-
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
-  AsofJoinNodeOptions(FieldRef time, FieldRef keys, int64_t tolerance) :
-    time(std::move(time)), keys(std::move(keys)), _tolerance(tolerance) {}
+  AsofJoinNodeOptions(FieldRef time, FieldRef keys, int64_t tolerance)
+      : time(std::move(time)), keys(std::move(keys)), _tolerance(tolerance) {}
 
   // time column
   FieldRef time;

@@ -24,22 +24,22 @@
 #include <arrow/filesystem/api.h>
 #include <arrow/io/api.h>
 //#include <arrow/io/util_internal.h>
-#include <arrow/ipc/reader.h>
-#include <arrow/ipc/writer.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/options.h>
+#include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
 #include <arrow/util/async_generator.h>
-#include <arrow/util/thread_pool.h>
 #include <arrow/util/checked_cast.h>
-#include <arrow/util/counting_semaphore.h> // so we don't need to require C++20
+#include <arrow/util/counting_semaphore.h>  // so we don't need to require C++20
 #include <arrow/util/optional.h>
-#include <future>
+#include <arrow/util/thread_pool.h>
 #include <algorithm>
-#include <thread>
-#include <optional>
-#include <mutex>
 #include <atomic>
+#include <future>
+#include <mutex>
+#include <optional>
+#include <thread>
 
 #include <omp.h>
 
@@ -48,12 +48,7 @@
 namespace arrow {
 namespace compute {
 
-
-
-
-class AsofJoinBasicImpl : public AsofJoinImpl {
-
-};
+class AsofJoinBasicImpl : public AsofJoinImpl {};
 
 Result<std::unique_ptr<AsofJoinImpl>> AsofJoinImpl::MakeBasic() {
   std::unique_ptr<AsofJoinImpl> impl{new AsofJoinBasicImpl()};

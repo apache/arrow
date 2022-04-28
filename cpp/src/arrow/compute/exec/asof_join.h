@@ -23,6 +23,10 @@
 
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
+#include <arrow/util/async_generator.h>
+#include <arrow/util/checked_cast.h>
+#include <arrow/util/counting_semaphore.h>  // so we don't need to require C++20
+#include <arrow/util/thread_pool.h>
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/task_util.h"
@@ -30,10 +34,6 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/tracing_internal.h"
-#include <arrow/util/async_generator.h>
-#include <arrow/util/thread_pool.h>
-#include <arrow/util/checked_cast.h>
-#include <arrow/util/counting_semaphore.h> // so we don't need to require C++20
 
 #include "concurrent_bounded_queue.h"
 
@@ -43,7 +43,7 @@ namespace compute {
 typedef int32_t KeyType;
 
 // Maximum number of tables that can be joined
-#define MAX_JOIN_TABLES 6
+#define MAX_JOIN_TABLES 64
 
 // Capacity of the input queues (for flow control)
 // Why 2?
@@ -61,15 +61,12 @@ typedef int col_index_t;
 class AsofJoinSchema {
  public:
   std::shared_ptr<Schema> MakeOutputSchema(const std::vector<ExecNode*>& inputs,
-                                           const AsofJoinNodeOptions& options
-                                           );
-
+                                           const AsofJoinNodeOptions& options);
 };
 
 class AsofJoinImpl {
  public:
   static Result<std::unique_ptr<AsofJoinImpl>> MakeBasic();
-
 };
 
 }  // namespace compute
