@@ -230,6 +230,17 @@ class EmailReport(Report):
         self.recipient_email = recipient_email
         super().__init__(job)
 
+    def listing(self, tasks):
+        return '\n'.join(
+            sorted(
+                self.TASK.format(
+                    name=task_name,
+                    url=self.task_url(task)
+                )
+                for task_name, task in tasks.items()
+            )
+        )
+
     def header(self):
         url = self.url(self.job.branch)
         return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
