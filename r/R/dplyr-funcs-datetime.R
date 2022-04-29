@@ -369,9 +369,6 @@ register_bindings_duration <- function() {
       arrow_not_supported("multiple values for `format`")
     }
 
-    if (!missing(tz)) {
-      arrow_not_supported("Time zone argument")
-    }
     # `lt` controls the output `lt = TRUE` returns a POSIXlt (which doesn't play
     # well with mutate, for example)
     if (lt) {
@@ -382,9 +379,7 @@ register_bindings_duration <- function() {
       arrow_not_supported("`cutoff_2000` != 68L argument")
     }
 
-    unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
-
-    build_expr("strptime", x, options = list(format = format, unit = unit))
+    call_binding("strptime", x, format = format, unit = unit)
   })
   register_binding("parse_date_time", function(x,
                                                orders,
