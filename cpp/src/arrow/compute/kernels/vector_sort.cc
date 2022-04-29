@@ -1951,68 +1951,77 @@ class RankMetaFunction : public MetaFunction {
                      ExecContext* ctx) const {
     ArraySortOptions array_options(options.order, options.null_placement);
 
-    ARROW_ASSIGN_OR_RAISE(auto sort_indices, CallFunction("array_sort_indices", {array},
-                                                          &array_options, ctx));
+    auto length = array.length();
+    ARROW_ASSIGN_OR_RAISE(auto rankings,
+                          MakeMutableUInt64Array(uint64(), length, ctx->memory_pool()));
+    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
+    auto out_end = out_begin + length;
+    std::iota(out_begin, out_end, 0);
 
-    ARROW_ASSIGN_OR_RAISE(auto rankings, MakeMutableUInt64Array(uint64(), array.length(),
-                                                                ctx->memory_pool()));
+    auto physical_type = GetPhysicalType(array.type());
+    ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type));
 
-    auto* indices = sort_indices.make_array()->data()->GetValues<uint64_t>(1);
-    auto out_rankings = rankings->GetMutableValues<uint64_t>(1);
+    NullPartitionResult sorted =
+        array_sorter(out_begin, out_end, array, 0, array_options);
     uint64_t rank = 0;
 
+    auto it = sorted.overall_begin();
     switch (options.tiebreaker) {
       case RankOptions::Dense: {
         Datum prevValue, currValue;
-        for (auto i = 0; i < array.length(); i++) {
-          currValue = array.GetScalar(indices[i]).ValueOrDie();
-          if (i == 0 || (currValue != prevValue)) {
-            ++rank;
+        while (it < sorted.overall_end()) {
+          currValue = array.GetScalar(*it).ValueOrDie();
+          if (rank == 0 || (currValue != prevValue)) {
+            rank++;
           }
-          out_rankings[indices[i]] = rank;
+
+          out_begin[*it] = rank;
           prevValue = currValue;
+          it++;
         }
         break;
       }
       case RankOptions::First: {
-        for (auto i = 0; i < array.length(); i++) {
-          rank = i + 1;
-          out_rankings[indices[i]] = rank;
+        while (it != sorted.overall_end()) {
+          out_begin[*it] = ++rank;
+          it++;
         }
         break;
       }
       case RankOptions::Min: {
         Datum prevValue, currValue;
-        for (auto i = 0; i < array.length(); i++) {
-          currValue = array.GetScalar(indices[i]).ValueOrDie();
-          if (i == 0 || (currValue != prevValue)) {
-            rank = i + 1;
+        while (it != sorted.overall_end()) {
+          currValue = array.GetScalar(*it).ValueOrDie();
+          if (rank == 0 || (currValue != prevValue)) {
+            rank = (it - sorted.overall_begin()) + 1;
           }
-          out_rankings[indices[i]] = rank;
+          out_begin[*it] = rank;
           prevValue = currValue;
+          it++;
         }
         break;
       }
       case RankOptions::Max: {
         Datum prevValue, currValue;
         auto currentTieCount = 0;
-        for (auto i = 0; i < array.length(); i++) {
-          currValue = array.GetScalar(indices[i]).ValueOrDie();
-          if (i == 0 || currValue != prevValue) {
+        while (it != sorted.overall_end()) {
+          currValue = array.GetScalar(*it).ValueOrDie();
+          if (rank == 0 || currValue != prevValue) {
             currentTieCount = 0;
           } else {
             currentTieCount++;
           }
-          rank = i + 1;
+          rank = (it - sorted.overall_begin()) + 1;
 
           // This can be inefficient when dealing many tied values
           // Can alternately compare to nextValue and only write
           // at changes, at the expense of breaking consistency with
           // other tiebreakers
           for (auto j = 0; j < currentTieCount + 1; j++) {
-            out_rankings[indices[i - j]] = rank;
+            out_begin[*it - j] = rank;
           }
           prevValue = currValue;
+          it++;
         }
         break;
       }
