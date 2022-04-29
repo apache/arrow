@@ -171,8 +171,8 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       } else {
         ARROW_ASSIGN_OR_RAISE(auto output_type_desc,
                               FromProto(scalar_fn.output_type(), ext_set));
-        auto cast_options = compute::CastOptions::Safe(output_type_desc.first);
-        return compute::call(func_name, std::move(arguments), cast_options);
+        auto cast_options = compute::CastOptions::Safe(std::move(output_type_desc.first));
+        return compute::call(func_name, std::move(arguments), std::move(cast_options));
       }
     }
 
