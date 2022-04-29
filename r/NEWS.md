@@ -80,16 +80,22 @@
   [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
   installed.
 
-## Extension Array Support
+## Extensibility
 
-Custom [extension arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types) 
-can be created and registered, allowing other packages to
-define their own array types. Extension arrays wrap regular Arrow array types and
-provide customized behavior and/or storage. A common use-case for extension types 
-is to define a customized conversion between an an Arrow Array and an R object 
-when the default conversion is slow or loses metadata important to the interpretation
-of values in the array. For most types, the built-in vctrs extension type is probably 
-sufficient. See description and an example with `?new_extension_type`.
+* Added S3 generic conversion functions such as `as_arrow_array()`
+  and `as_arrow_table()` for main Arrow objects. This includes, Arrow tables,
+  record batches, arrays, chunked arrays, record batch readers, schemas, and
+  data types. This allows other packages to define custom conversions from their
+  types to Arrow objects, including extension arrays.
+* Custom [extension types and arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types) 
+  can be created and registered, allowing other packages to
+  define their own array types. Extension arrays wrap regular Arrow array types and
+  provide customized behavior and/or storage. See description and an example with
+  `?new_extension_type`.
+* Implemented a generic extension type and as_arrow_array() methods for all objects where     
+  `vctrs::vec_is()` returns TRUE (i.e., any object that can be used as a column in a 
+  `tibble::tibble()`), provided that the underlying `vctrs::vec_data()` can be converted 
+  to an Arrow Array.
 
 ## Concatenation Support
 
@@ -104,16 +110,6 @@ Arrow arrays and tables can be easily concatenated:
  * Record batches and tables support `cbind()`.
  * Arrow tables support `rbind()`. `concat_tables()` is also provided to 
    concatenate tables while unifying schemas.
-
-## S3 Conversion Generics
-
-Arrow now provides S3 generic conversion functions such as `as_arrow_array()`
-and `as_arrow_table()` for main Arrow objects. This includes, Arrow tables,
-Arrow provides S3 generic conversion functions such as `as_arrow_array()`
-and `as_chunked_array()` for main Arrow objects. This includes, Arrow tables,
-record batches, arrays, chunked arrays, record batch readers, schemas, and
-data types. This allows other packages to define custom conversions from their
-types to Arrow objects, including extension arrays.
 
 ## Other improvements and fixes
 
