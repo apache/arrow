@@ -100,7 +100,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     START_COMPUTE_SPAN(span_, "HashJoinBasicImpl",
                        {{"detail", filter.ToString()},
                         {"join.kind", ToString(join_type)},
-                        {"join.threads", static_cast<uint32_t>(num_threads)}});
+                        {"join.threads", static_cast<uint32_t>(num_threads_)}});
 
     ctx_ = ctx;
     join_type_ = join_type;
