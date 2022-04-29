@@ -91,6 +91,7 @@ Collate:
     'dplyr-arrange.R'
     'dplyr-collect.R'
     'dplyr-count.R'
+    'dplyr-datetime-helpers.R'
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
