@@ -1961,45 +1961,48 @@ class RankMetaFunction : public MetaFunction {
     auto* indices = sort_indices.make_array()->data()->GetValues<uint64_t>(1);
     auto out_rankings = rankings->GetMutableValues<uint64_t>(1);
     uint64_t rank = 0;
-    Datum prevValue, currValue;
 
     switch (options.tiebreaker) {
-      case RankOptions::Dense:
+      case RankOptions::Dense: {
+        Datum prevValue, currValue;
         for (auto i = 0; i < out_size; i++) {
           currValue = array.GetScalar(indices[i]).ValueOrDie();
-          if (i > 0 && currValue == prevValue) {
-          } else {
+          if (i == 0 || (currValue != prevValue)) {
             ++rank;
           }
           out_rankings[indices[i]] = rank;
           prevValue = currValue;
         }
         break;
-      case RankOptions::First:
+      }
+      case RankOptions::First: {
         for (auto i = 0; i < out_size; i++) {
           rank = i + 1;
           out_rankings[indices[i]] = rank;
         }
         break;
-      case RankOptions::Min:
+      }
+      case RankOptions::Min: {
+        Datum prevValue, currValue;
         for (auto i = 0; i < out_size; i++) {
           currValue = array.GetScalar(indices[i]).ValueOrDie();
-          if (i > 0 && currValue == prevValue) {
-          } else {
+          if (i == 0 || (currValue != prevValue)) {
             rank = i + 1;
           }
           out_rankings[indices[i]] = rank;
           prevValue = currValue;
         }
         break;
-      case RankOptions::Max:
+      }
+      case RankOptions::Max: {
+        Datum prevValue, currValue;
         auto currentTieCount = 0;
         for (auto i = 0; i < out_size; i++) {
           currValue = array.GetScalar(indices[i]).ValueOrDie();
-          if (i > 0 && currValue == prevValue) {
-            currentTieCount++;
-          } else {
+          if (i == 0 || currValue != prevValue) {
             currentTieCount = 0;
+          } else {
+            currentTieCount++;
           }
           rank = i + 1;
 
@@ -2013,6 +2016,7 @@ class RankMetaFunction : public MetaFunction {
           prevValue = currValue;
         }
         break;
+      }
     }
 
     return rankings;
