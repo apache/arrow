@@ -100,6 +100,7 @@ class PartitionLocks {
   void CleanUp();
   /// \brief Acquire a partition to work on one
   ///
+  /// \param thread_id The index of the thread trying to acquire the partition lock
   /// \param num_prtns Length of prtns_to_try, must be <= num_prtns used in Init
   /// \param prtns_to_try An array of partitions that still have remaining work
   /// \param limit_retries If false, this method will spinwait forever until success

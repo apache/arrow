@@ -40,6 +40,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
   struct ThreadLocalState;
 
  public:
+  HashJoinBasicImpl() : num_expected_bloom_filters_(0) {}
+
   Status InputReceived(size_t thread_index, int side, ExecBatch batch) override {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
