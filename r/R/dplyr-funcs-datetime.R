@@ -434,7 +434,7 @@ register_bindings_duration <- function() {
   })
 }
 
-register_bindings_duration_constructor <- function(){
+register_bindings_duration_constructor <- function() {
   register_binding("make_difftime", function(num = NULL,
                                              units = "secs",
                                              ...) {
@@ -464,7 +464,7 @@ register_bindings_duration_constructor <- function(){
   })
 }
 
-register_bindings_duration_helpers <- function(){
+register_bindings_duration_helpers <- function() {
   duration_helpers_map_factory <- function(value, unit) {
     force(value)
     force(unit)
