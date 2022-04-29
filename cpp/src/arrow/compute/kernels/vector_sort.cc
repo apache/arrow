@@ -1908,10 +1908,15 @@ class SelectKUnstableMetaFunction : public MetaFunction {
 // ----------------------------------------------------------------------
 // Rank implementation
 
+const RankOptions* GetDefaultRankOptions() {
+  static const auto kDefaultRankOptions = RankOptions::Defaults();
+  return &kDefaultRankOptions;
+}
+
 const FunctionDoc rank_doc(
     "Returns the ranking of an array",
     ("This function computes a rank of the input array.\n"
-     "By default, Null values are considered greater than any other value and\n"
+     "By default, null values are considered greater than any other value and\n"
      "are therefore sorted at the end of the input. For floating-point types,\n"
      "NaNs are considered greater than any other non-null value, but smaller\n"
      "than null values. The default tiebreaker is to assign ranks in order of\n"
@@ -1923,11 +1928,11 @@ const FunctionDoc rank_doc(
 class RankMetaFunction : public MetaFunction {
  public:
   RankMetaFunction()
-      : MetaFunction("rank", Arity::Unary(), &rank_doc, GetDefaultSortOptions()) {}
+      : MetaFunction("rank", Arity::Unary(), &rank_doc, GetDefaultRankOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options, ExecContext* ctx) const {
-    const RankOptions& sort_options = static_cast<const RankOptions&>(*options);
+    const RankOptions& sort_options = checked_cast<const RankOptions&>(*options);
     switch (args[0].kind()) {
       case Datum::ARRAY: {
         return Rank(*args[0].make_array(), sort_options, ctx);
@@ -1946,14 +1951,14 @@ class RankMetaFunction : public MetaFunction {
                      ExecContext* ctx) const {
     ArraySortOptions array_options(options.order, options.null_placement);
 
-    ARROW_ASSIGN_OR_RAISE(auto sortIndices, CallFunction("array_sort_indices", {array},
-                                                         &array_options, ctx));
+    ARROW_ASSIGN_OR_RAISE(auto sort_indices, CallFunction("array_sort_indices", {array},
+                                                          &array_options, ctx));
 
     auto out_size = array.length();
     ARROW_ASSIGN_OR_RAISE(auto rankings,
                           MakeMutableUInt64Array(uint64(), out_size, ctx->memory_pool()));
 
-    auto* indices = sortIndices.make_array()->data()->GetValues<uint64_t>(1);
+    auto* indices = sort_indices.make_array()->data()->GetValues<uint64_t>(1);
     auto out_rankings = rankings->GetMutableValues<uint64_t>(1);
     uint64_t rank = 0;
     Datum prevValue, currValue;
