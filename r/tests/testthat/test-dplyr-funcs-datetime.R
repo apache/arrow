@@ -1472,11 +1472,7 @@ test_that("make_difftime()", {
   )
 })
 
-test_that("parse_date_time()", {
-  test_df <- tibble(
-    dates = c("09-01-17", "02-Sep-17")
-  )
-
+test_that("parse_date_time() with year, month, and date components", {
   test_dates <- tibble::tibble(
     string_ymd = c(
       "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
@@ -1511,6 +1507,19 @@ test_that("parse_date_time()", {
       "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21", NA
     )
   )
+
+  test_dates_times <- tibble(
+    date_times = c("09-01-17 12:34:56", NA)
+  )
+
+  expect_warning(
+    test_dates_times %>%
+      arrow_table() %>%
+      mutate(parsed_date_ymd = parse_date_time(date_times, orders = "ymd_HMS")) %>%
+      collect(),
+    '"ymd_HMS" `orders` not supported in Arrow'
+  )
+
 
   skip_if_not_available("re2")
   compare_dplyr_binding(

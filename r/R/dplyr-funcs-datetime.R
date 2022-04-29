@@ -390,6 +390,20 @@ register_bindings_duration <- function() {
                                                orders,
                                                tz = "UTC") {
 
+    supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+    unsupported_passed_orders <- setdiff(orders, supported_orders)
+
+    if (length(unsupported_passed_orders) > 0) {
+      arrow_not_supported(
+        paste0(
+          oxford_paste(
+            unsupported_passed_orders
+          ),
+          " `orders`"
+        )
+      )
+    }
+
     # make all separators (non-letters and non-numbers) into "-"
     x <- call_binding("gsub", "[^A-Za-z0-9]", "-", x)
     # collapse multiple separators into a single one
