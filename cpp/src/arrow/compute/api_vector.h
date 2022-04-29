@@ -95,13 +95,6 @@ enum class NullPlacement {
   AtEnd,
 };
 
-enum class Tiebreaker {
-  Lowest,
-  Highest,
-  First,
-  Dense,
-};
-
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
@@ -184,9 +177,11 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
 /// \brief Rank options
 class ARROW_EXPORT RankOptions : public FunctionOptions {
  public:
+  enum Tiebreaker { Lowest, Highest, First, Dense };
+
   explicit RankOptions(SortOrder order = SortOrder::Ascending,
                        NullPlacement null_placement = NullPlacement::AtEnd,
-                       Tiebreaker tiebreaker = Tiebreaker::First);
+                       Tiebreaker = RankOptions::First);
   static constexpr char const kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
