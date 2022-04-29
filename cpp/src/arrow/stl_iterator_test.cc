@@ -249,10 +249,7 @@ TEST(ArrayIterator, StdMerge) {
 }
 
 TEST(ChunkedArrayIterator, Basics) {
-  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
-  auto chunk1 = ArrayFromJSON(int32(), "[6]");
-
-  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1}, int32()));
+  auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6])"});
   auto it = Iterate<Int32Type>(*result);
   optional<int32_t> v = *it;
   ASSERT_EQ(v, 4);
@@ -265,10 +262,8 @@ TEST(ChunkedArrayIterator, Basics) {
 }
 
 TEST(ChunkedArrayIterator, Arithmetic) {
-  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
-  auto chunk1 = ArrayFromJSON(int32(), "[6, null, 7]");
+  auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6, null, 7])"});
 
-  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1}, int32()));
   auto it = Iterate<Int32Type>(*result);
   auto it2 = it + 2;
   ASSERT_EQ(*it, 4);
@@ -296,12 +291,8 @@ TEST(ChunkedArrayIterator, Arithmetic) {
 }
 
 TEST(ChunkedArrayIterator, Comparison) {
-  auto array = checked_pointer_cast<Int32Array>(
-      ArrayFromJSON(int32(), "[4, 5, null, 6, null, 7]"));
-  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
-  auto chunk1 = ArrayFromJSON(int32(), "[6, null, 7]");
+  auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6, null, 7])"});
 
-  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1}, int32()));
   auto it = Iterate<Int32Type>(*result) + 2;
   auto it2 = Iterate<Int32Type>(*result) + 2;
   auto it3 = Iterate<Int32Type>(*result) + 4;
@@ -322,17 +313,8 @@ TEST(ChunkedArrayIterator, Comparison) {
 }
 
 TEST(ChunkedArrayIterator, MultipleChunks) {
-  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
-  auto chunk1 = ArrayFromJSON(int32(), "[6]");
-  auto chunk2 = ArrayFromJSON(int32(), "[7, 9, 10, 8]");
-  auto chunk3 = ArrayFromJSON(int32(), "[11, 13]");
-  auto chunk4 = ArrayFromJSON(int32(), "[14]");
-  auto chunk5 = ArrayFromJSON(int32(), "[15]");
-  auto chunk6 = ArrayFromJSON(int32(), "[16]");
+  auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6])", R"([7, 9, 10, 8])" ,R"([11, 13])", R"([14])", R"([15])" ,R"([16])"});
 
-  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1, chunk2, chunk3,
-                                                        chunk4, chunk5, chunk6},
-                                                       int32()));
   auto it = Iterate<Int32Type>(*result);
   ASSERT_EQ(it[8], 11);
   ASSERT_EQ(it[9], 13);
@@ -397,17 +379,8 @@ TEST(ChunkedArrayIterator, MultipleChunks) {
 }
 
 TEST(ChunkedArrayIterator, EmptyChunks) {
-  auto chunk0 = ArrayFromJSON(int32(), "[4, 5, null]");
-  auto chunk1 = ArrayFromJSON(int32(), "[]");
-  auto chunk2 = ArrayFromJSON(int32(), "[7, 9, 10, 8]");
-  auto chunk3 = ArrayFromJSON(int32(), "[11, 13]");
-  auto chunk4 = ArrayFromJSON(int32(), "[]");
-  auto chunk5 = ArrayFromJSON(int32(), "[]");
-  auto chunk6 = ArrayFromJSON(int32(), "[16]");
+  auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([])", R"([7, 9, 10, 8])" ,R"([11, 13])", R"([])", R"([])" ,R"([16])"});
 
-  ASSERT_OK_AND_ASSIGN(auto result, ChunkedArray::Make({chunk0, chunk1, chunk2, chunk3,
-                                                        chunk4, chunk5, chunk6},
-                                                       int32()));
   auto it = Iterate<Int32Type>(*result);
   ASSERT_EQ(it[8], 13);
   ASSERT_EQ(it[9], 16);

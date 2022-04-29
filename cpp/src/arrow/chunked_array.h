@@ -37,6 +37,8 @@ class Array;
 class DataType;
 class MemoryPool;
 
+class ChunkedArrayIterator;
+
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
 /// as one large array
@@ -141,9 +143,6 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Return the type of the chunked array
   const std::shared_ptr<DataType>& type() const { return type_; }
 
-  /// \brief Return chunk resolver of the chunked array
-  const internal::ChunkResolver& GetChunkResolver() const { return chunk_resolver_; }
-
   /// \brief Return a Scalar containing the value of this array at index
   Result<std::shared_ptr<Scalar>> GetScalar(int64_t index) const;
 
@@ -186,6 +185,7 @@ class ARROW_EXPORT ChunkedArray {
   int64_t null_count_;
 
  private:
+  friend class ChunkedArrayIterator;
   internal::ChunkResolver chunk_resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
