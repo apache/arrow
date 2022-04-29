@@ -1954,9 +1954,8 @@ class RankMetaFunction : public MetaFunction {
     ARROW_ASSIGN_OR_RAISE(auto sort_indices, CallFunction("array_sort_indices", {array},
                                                           &array_options, ctx));
 
-    auto out_size = array.length();
-    ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableUInt64Array(uint64(), out_size, ctx->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto rankings, MakeMutableUInt64Array(uint64(), array.length(),
+                                                                ctx->memory_pool()));
 
     auto* indices = sort_indices.make_array()->data()->GetValues<uint64_t>(1);
     auto out_rankings = rankings->GetMutableValues<uint64_t>(1);
@@ -1965,7 +1964,7 @@ class RankMetaFunction : public MetaFunction {
     switch (options.tiebreaker) {
       case RankOptions::Dense: {
         Datum prevValue, currValue;
-        for (auto i = 0; i < out_size; i++) {
+        for (auto i = 0; i < array.length(); i++) {
           currValue = array.GetScalar(indices[i]).ValueOrDie();
           if (i == 0 || (currValue != prevValue)) {
             ++rank;
@@ -1976,7 +1975,7 @@ class RankMetaFunction : public MetaFunction {
         break;
       }
       case RankOptions::First: {
-        for (auto i = 0; i < out_size; i++) {
+        for (auto i = 0; i < array.length(); i++) {
           rank = i + 1;
           out_rankings[indices[i]] = rank;
         }
@@ -1984,7 +1983,7 @@ class RankMetaFunction : public MetaFunction {
       }
       case RankOptions::Min: {
         Datum prevValue, currValue;
-        for (auto i = 0; i < out_size; i++) {
+        for (auto i = 0; i < array.length(); i++) {
           currValue = array.GetScalar(indices[i]).ValueOrDie();
           if (i == 0 || (currValue != prevValue)) {
             rank = i + 1;
@@ -1997,7 +1996,7 @@ class RankMetaFunction : public MetaFunction {
       case RankOptions::Max: {
         Datum prevValue, currValue;
         auto currentTieCount = 0;
-        for (auto i = 0; i < out_size; i++) {
+        for (auto i = 0; i < array.length(); i++) {
           currValue = array.GetScalar(indices[i]).ValueOrDie();
           if (i == 0 || currValue != prevValue) {
             currentTieCount = 0;
