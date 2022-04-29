@@ -250,7 +250,8 @@ Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) con
                         compute::literal(std::move(converted)));
 }
 
-Result<compute::Expression> KeyValuePartitioning::Parse(const PartitionPathFormat& path) const {
+Result<compute::Expression> KeyValuePartitioning::Parse(
+    const PartitionPathFormat& path) const {
   std::vector<compute::Expression> expressions;
 
   ARROW_ASSIGN_OR_RAISE(auto parsed, ParseKeys(path));
@@ -809,7 +810,7 @@ PartitionPathFormat StripPrefixAndFilename(const std::string& path,
   auto maybe_base_less = fs::internal::RemoveAncestor(prefix, path);
   auto base_less = maybe_base_less ? std::string(*maybe_base_less) : path;
   auto basename_filename = fs::internal::GetAbstractPathParent(base_less);
-  return PartitionPathFormat{basename_filename.first, basename_filename.second};
+  return PartitionPathFormat{std::move(basename_filename.first), std::move(basename_filename.second)};
 }
 
 std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,

@@ -1321,7 +1321,10 @@ cdef class Partitioning(_Weakrefable):
 
     def parse(self, directory="", prefix=""):
         cdef CResult[CExpression] result
-        result = self.partitioning.Parse(tobytes(directory), tobytes(prefix))
+        cdef CPartitionPathFormat path
+        path.directory = tobytes(directory)
+        path.prefix = tobytes(prefix)
+        result = self.partitioning.Parse(path)
         return Expression.wrap(GetResultValue(result))
 
     @property
