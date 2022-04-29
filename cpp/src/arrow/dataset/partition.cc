@@ -581,10 +581,10 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
   std::string type_name() const override { return "directory"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<std::string>& paths) override {
+      const std::vector<PartitionPathFormat>& paths) override {
     for (auto path : paths) {
       std::vector<std::string> segments;
-      segments = fs::internal::SplitAbstractPath(path);
+      segments = fs::internal::SplitAbstractPath(path.directory);
       RETURN_NOT_OK(InspectPartitionSegments(segments, field_names_));
     }
     return DoInspect();
@@ -628,11 +628,11 @@ class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
   std::string type_name() const override { return "filename"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<std::string>& paths) override {
+      const std::vector<PartitionPathFormat>& paths) override {
     for (const auto& path : paths) {
       std::vector<std::string> segments;
-      segments =
-          fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+      segments = fs::internal::SplitAbstractPath(StripNonPrefix(path.filename),
+                                                 kFilenamePartitionSep);
       RETURN_NOT_OK(InspectPartitionSegments(segments, field_names_));
     }
     return DoInspect();
@@ -761,10 +761,10 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
   std::string type_name() const override { return "hive"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<std::string>& paths) override {
+      const std::vector<PartitionPathFormat>& paths) override {
     auto options = options_.AsHivePartitioningOptions();
     for (auto path : paths) {
-      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path.directory)) {
         ARROW_ASSIGN_OR_RAISE(auto maybe_key,
                               HivePartitioning::ParseKey(segment, options));
         if (auto key = maybe_key) {
@@ -814,28 +814,28 @@ PartitionPathFormat StripPrefixAndFilename(const std::string& path,
                              std::move(basename_filename.second)};
 }
 
-std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,
-                                                const std::string& prefix) {
-  std::vector<std::string> result;
+std::vector<PartitionPathFormat> StripPrefixAndFilename(
+    const std::vector<std::string>& paths, const std::string& prefix) {
+  std::vector<PartitionPathFormat> result;
   result.reserve(paths.size());
   for (const auto& path : paths) {
-    result.emplace_back(StripPrefixAndFilename(path, prefix).directory);
+    result.emplace_back(StripPrefixAndFilename(path, prefix));
   }
   return result;
 }
 
-std::vector<std::string> StripPrefixAndFilename(const std::vector<fs::FileInfo>& files,
-                                                const std::string& prefix) {
-  std::vector<std::string> result;
+std::vector<PartitionPathFormat> StripPrefixAndFilename(
+    const std::vector<fs::FileInfo>& files, const std::string& prefix) {
+  std::vector<PartitionPathFormat> result;
   result.reserve(files.size());
   for (const auto& info : files) {
-    result.emplace_back(StripPrefixAndFilename(info.path(), prefix).directory);
+    result.emplace_back(StripPrefixAndFilename(info.path(), prefix));
   }
   return result;
 }
 
 Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
-    const std::vector<std::string>& paths) {
+    const std::vector<PartitionPathFormat>& paths) {
   if (auto part = partitioning()) {
     return part->schema();
   }

@@ -74,7 +74,7 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_EQ(simplified, literal(true));
   }
 
-  void AssertInspect(const std::vector<std::string>& paths,
+  void AssertInspect(const std::vector<PartitionPathFormat>& paths,
                      const std::vector<std::shared_ptr<Field>>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
@@ -122,7 +122,7 @@ class TestPartitioning : public ::testing::Test {
     AssertPartition(partitioning, record_batch, expected_batches, expected_expressions);
   }
 
-  void AssertInspectError(const std::vector<std::string>& paths) {
+  void AssertInspectError(const std::vector<PartitionPathFormat>& paths) {
     ASSERT_RAISES(Invalid, factory_->Inspect(paths));
   }
 
@@ -295,39 +295,39 @@ TEST_F(TestPartitioning, DiscoverSchemaDirectory) {
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
 
   // type is int32 if possible
-  AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
+  AssertInspect({{"/0/1", ""}}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
-  AssertInspect({"/0/1/what"}, {Int("alpha"), Int("beta")});
+  AssertInspect({{"/0/1/what", ""}}, {Int("alpha"), Int("beta")});
 
   // fall back to string if any segment for field alpha is not parseable as int
-  AssertInspect({"/0/1", "/hello/1"}, {Str("alpha"), Int("beta")});
+  AssertInspect({{"/0/1", ""}, {"/hello/1", ""}}, {Str("alpha"), Int("beta")});
 
   // If there are too many digits fall back to string
-  AssertInspect({"/3760212050/1"}, {Str("alpha"), Int("beta")});
+  AssertInspect({{"/3760212050/1", ""}}, {Str("alpha"), Int("beta")});
 
   // missing segment for beta doesn't cause an error or fallback
-  AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
+  AssertInspect({{"/0/1", ""}, {"/hello", ""}}, {Str("alpha"), Int("beta")});
 }
 
 TEST_F(TestPartitioning, DiscoverSchemaFilename) {
   factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"});
 
   // type is int32 if possible
-  AssertInspect({"0_1_"}, {Int("alpha"), Int("beta")});
+  AssertInspect({{"", "0_1_"}}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
-  AssertInspect({"0_1_what_"}, {Int("alpha"), Int("beta")});
+  AssertInspect({{"", "0_1_what_"}}, {Int("alpha"), Int("beta")});
 
   // fall back to string if any segment for field alpha is not parseable as int
-  AssertInspect({"0_1_", "hello_1_"}, {Str("alpha"), Int("beta")});
+  AssertInspect({{"", "0_1_"}, {"", "hello_1_"}}, {Str("alpha"), Int("beta")});
 
   // If there are too many digits fall back to string
-  AssertInspect({"3760212050_1_"}, {Str("alpha"), Int("beta")});
+  AssertInspect({{"", "3760212050_1_"}}, {Str("alpha"), Int("beta")});
 
   // Invalid syntax
-  AssertInspectError({"234-12"});
-  AssertInspectError({"hello"});
+  AssertInspectError({{"", "234-12"}});
+  AssertInspectError({{"", "hello"}});
 }
 
 TEST_F(TestPartitioning, DirectoryDictionaryInference) {
@@ -336,18 +336,21 @@ TEST_F(TestPartitioning, DirectoryDictionaryInference) {
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
 
   // type is still int32 if possible
-  AssertInspect({"/0/1"}, {DictInt("alpha"), DictInt("beta")});
+  AssertInspect({{"/0/1", ""}}, {DictInt("alpha"), DictInt("beta")});
 
   // If there are too many digits fall back to string
-  AssertInspect({"/3760212050/1"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"/3760212050/1", ""}}, {DictStr("alpha"), DictInt("beta")});
 
   // successful dictionary inference
-  AssertInspect({"/a/0"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"/a/0", "/a/1"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"/a/0", "/a"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"/0/a", "/1"}, {DictInt("alpha"), DictStr("beta")});
-  AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {DictStr("alpha"), DictStr("beta")});
+  AssertInspect({{"/a/0", ""}}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"/a/0", ""}, {"/a/1", ""}}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"/a/0", ""}, {"/a", ""}}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"/a/0", ""}, {"/b/0", ""}, {"/a/1", ""}, {"/b/1", ""}},
+                {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"/a/-", ""}, {"/b/-", ""}, {"/a/_", ""}, {"/b/_", ""}},
+                {DictStr("alpha"), DictStr("beta")});
+  AssertInspect({{"/a/-", ""}, {"/b/-", ""}, {"/a/_", ""}, {"/b/_", ""}},
+                {DictStr("alpha"), DictStr("beta")});
 }
 
 TEST_F(TestPartitioning, FilenameDictionaryInference) {
@@ -356,15 +359,16 @@ TEST_F(TestPartitioning, FilenameDictionaryInference) {
   factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
 
   // type is still int32 if possible
-  AssertInspect({"0_1_"}, {DictInt("alpha"), DictInt("beta")});
+  AssertInspect({{"", "0_1_"}}, {DictInt("alpha"), DictInt("beta")});
 
   // If there are too many digits fall back to string
-  AssertInspect({"3760212050_1_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"", "3760212050_1_"}}, {DictStr("alpha"), DictInt("beta")});
 
   // successful dictionary inference
-  AssertInspect({"a_0_"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"a_0_", "a_1_"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"a_0_", "b_0_", "a_1_", "b_1_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"", "a_0_"}}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"", "a_0_"}, {"", "a_1_"}}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"", "a_0_"}, {"", "b_0_"}, {"", "a_1_"}, {"", "b_1_"}},
+                {DictStr("alpha"), DictInt("beta")});
 }
 
 TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
@@ -373,7 +377,8 @@ TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
   factory_ = DirectoryPartitioning::MakeFactory({"alpha"}, options);
 
   auto alpha = DictStr("alpha");
-  AssertInspect({"/a", "/b", "/a", "/b", "/c", "/a"}, {alpha});
+  AssertInspect({{"/a", ""}, {"/b", ""}, {"/a", ""}, {"/b", ""}, {"/c", ""}, {"/a", ""}},
+                {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
   auto expected_dictionary =
@@ -395,7 +400,7 @@ TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
 TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
   // ARROW-7638
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
-  AssertInspectError({"oops.txt"});
+  AssertInspectError({{"oops.txt", ""}});
 }
 
 TEST_F(TestPartitioning, HivePartitioning) {
@@ -481,27 +486,29 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
   factory_ = HivePartitioning::MakeFactory(options);
 
   // type is int32 if possible
-  AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
+  AssertInspect({{"/alpha=0/beta=1", ""}}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
-  AssertInspect({"/gamma=0/unexpected/delta=1/dat.parquet"},
+  AssertInspect({{"/gamma=0/unexpected/delta=1/dat.parquet", ""}},
                 {Int("gamma"), Int("delta")});
 
   // schema field names are in order of first occurrence
   // (...so ensure your partitions are ordered the same for all paths)
-  AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3"}, {Int("alpha"), Int("beta")});
+  AssertInspect({{"/alpha=0/beta=1", ""}, {"/beta=2/alpha=3", ""}},
+                {Int("alpha"), Int("beta")});
 
   // Null fallback strings shouldn't interfere with type inference
-  AssertInspect({"/alpha=xyz/beta=x", "/alpha=7/beta=xyz"}, {Int("alpha"), Str("beta")});
+  AssertInspect({{"/alpha=xyz/beta=x", ""}, {"/alpha=7/beta=xyz", ""}},
+                {Int("alpha"), Str("beta")});
 
   // Cannot infer if the only values are null
-  AssertInspectError({"/alpha=xyz"});
+  AssertInspectError({{"/alpha=xyz", ""}});
 
   // If there are too many digits fall back to string
-  AssertInspect({"/alpha=3760212050"}, {Str("alpha")});
+  AssertInspect({{"/alpha=3760212050", ""}}, {Str("alpha")});
 
   // missing path segments will not cause an error
-  AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
+  AssertInspect({{"/alpha=0/beta=1", ""}, {"/beta=2/alpha=3", ""}, {"/gamma=what", ""}},
                 {Int("alpha"), Int("beta"), Str("gamma")});
 }
 
@@ -512,22 +519,27 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
   factory_ = HivePartitioning::MakeFactory(options);
 
   // type is still int32 if possible
-  AssertInspect({"/alpha=0/beta=1"}, {DictInt("alpha"), DictInt("beta")});
+  AssertInspect({{"/alpha=0/beta=1", ""}}, {DictInt("alpha"), DictInt("beta")});
 
   // If there are too many digits fall back to string
-  AssertInspect({"/alpha=3760212050"}, {DictStr("alpha")});
+  AssertInspect({{"/alpha=3760212050", ""}}, {DictStr("alpha")});
 
   // successful dictionary inference
-  AssertInspect({"/alpha=a/beta=0"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"/alpha=a/beta=0", "/alpha=a/1"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"/alpha=a/beta=0", "/alpha=xyz/beta=xyz"},
+  AssertInspect({{"/alpha=a/beta=0", ""}}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"/alpha=a/beta=0", ""}, {"/alpha=a/1", ""}},
                 {DictStr("alpha"), DictInt("beta")});
-  AssertInspect(
-      {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=a/beta=1", "/alpha=b/beta=1"},
-      {DictStr("alpha"), DictInt("beta")});
-  AssertInspect(
-      {"/alpha=a/beta=-", "/alpha=b/beta=-", "/alpha=a/beta=_", "/alpha=b/beta=_"},
-      {DictStr("alpha"), DictStr("beta")});
+  AssertInspect({{"/alpha=a/beta=0", ""}, {"/alpha=xyz/beta=xyz", ""}},
+                {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"/alpha=a/beta=0", ""},
+                 {"/alpha=b/beta=0", ""},
+                 {"/alpha=a/beta=1", ""},
+                 {"/alpha=b/beta=1", ""}},
+                {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({{"/alpha=a/beta=-", ""},
+                 {"/alpha=b/beta=-", ""},
+                 {"/alpha=a/beta=_", ""},
+                 {"/alpha=b/beta=_", ""}},
+                {DictStr("alpha"), DictStr("beta")});
 }
 
 TEST_F(TestPartitioning, HiveNullFallbackPassedOn) {
@@ -535,7 +547,7 @@ TEST_F(TestPartitioning, HiveNullFallbackPassedOn) {
   options.null_fallback = "xyz";
   factory_ = HivePartitioning::MakeFactory(options);
 
-  EXPECT_OK_AND_ASSIGN(auto schema, factory_->Inspect({"/alpha=a/beta=0"}));
+  EXPECT_OK_AND_ASSIGN(auto schema, factory_->Inspect({{"/alpha=a/beta=0", ""}}));
   EXPECT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema));
   ASSERT_EQ("xyz",
             std::static_pointer_cast<HivePartitioning>(partitioning)->null_fallback());
@@ -547,7 +559,12 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
   factory_ = HivePartitioning::MakeFactory(options);
 
   auto alpha = DictStr("alpha");
-  AssertInspect({"/alpha=a", "/alpha=b", "/alpha=a", "/alpha=b", "/alpha=c", "/alpha=a"},
+  AssertInspect({{"/alpha=a", ""},
+                 {"/alpha=b", ""},
+                 {"/alpha=a", ""},
+                 {"/alpha=b", ""},
+                 {"/alpha=c", ""},
+                 {"/alpha=a", ""}},
                 {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
@@ -574,22 +591,23 @@ TEST_F(TestPartitioning, ExistingSchemaDirectory) {
   options.schema = schema({field("alpha", int64()), field("beta", dict_type)});
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
 
-  AssertInspect({"/0/1"}, options.schema->fields());
-  AssertInspect({"/0/1/what"}, options.schema->fields());
+  AssertInspect({{"/0/1", ""}}, options.schema->fields());
+  AssertInspect({{"/0/1/what", ""}}, options.schema->fields());
 
   // fail if any segment is not parseable as schema type
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
-                                  factory_->Inspect({"/0/1", "/hello/1"}));
+                                  factory_->Inspect({{"/0/1", ""}, {"/hello/1", ""}}));
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
 
   // Now we don't fail since our type is large enough
-  AssertInspect({"/3760212050/1"}, options.schema->fields());
+  AssertInspect({{"/3760212050/1", ""}}, options.schema->fields());
   // If there are still too many digits, fail
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
-                                  factory_->Inspect({"/1038581385102940193760212050/1"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Failed to parse string"),
+      factory_->Inspect({{"/1038581385102940193760212050/1", ""}}));
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
 
-  AssertInspect({"/0/1", "/2"}, options.schema->fields());
+  AssertInspect({{"/0/1", ""}, {"/2", ""}}, options.schema->fields());
 }
 
 TEST_F(TestPartitioning, ExistingSchemaHive) {
@@ -599,33 +617,33 @@ TEST_F(TestPartitioning, ExistingSchemaHive) {
   options.schema = schema({field("a", int64()), field("b", dict_type)});
   factory_ = HivePartitioning::MakeFactory(options);
 
-  AssertInspect({"/a=0/b=1"}, options.schema->fields());
-  AssertInspect({"/a=0/b=1/what"}, options.schema->fields());
-  AssertInspect({"/a=0", "/b=1"}, options.schema->fields());
+  AssertInspect({{"/a=0/b=1", ""}}, options.schema->fields());
+  AssertInspect({{"/a=0/b=1/what", ""}}, options.schema->fields());
+  AssertInspect({{"/a=0", ""}, {"/b=1", ""}}, options.schema->fields());
 
   // fail if any segment for field alpha is not parseable as schema type
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
           "Could not cast segments for partition field a to requested type int64"),
-      factory_->Inspect({"/a=0/b=1", "/a=hello/b=1"}));
+      factory_->Inspect({{"/a=0/b=1", ""}, {"/a=hello/b=1", ""}}));
   factory_ = HivePartitioning::MakeFactory(options);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr("Requested schema has 2 fields, but only 1 were detected"),
-      factory_->Inspect({"/a=0", "/a=hello"}));
+      factory_->Inspect({{"/a=0", ""}, {"/a=hello", ""}}));
   factory_ = HivePartitioning::MakeFactory(options);
 
   // Now we don't fail since our type is large enough
-  AssertInspect({"/a=3760212050/b=1"}, options.schema->fields());
+  AssertInspect({{"/a=3760212050/b=1", ""}}, options.schema->fields());
   // If there are still too many digits, fail
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("Failed to parse string"),
-      factory_->Inspect({"/a=1038581385102940193760212050/b=1"}));
+      factory_->Inspect({{"/a=1038581385102940193760212050/b=1", ""}}));
   factory_ = HivePartitioning::MakeFactory(options);
 
-  AssertInspect({"/a=0/b=1", "/b=2"}, options.schema->fields());
+  AssertInspect({{"/a=0/b=1", ""}, {"/b=2", ""}}, options.schema->fields());
 }
 
 TEST_F(TestPartitioning, ExistingSchemaFilename) {
@@ -635,22 +653,23 @@ TEST_F(TestPartitioning, ExistingSchemaFilename) {
   options.schema = schema({field("alpha", int64()), field("beta", dict_type)});
   factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
 
-  AssertInspect({"0_1_"}, options.schema->fields());
-  AssertInspect({"0_1_what_"}, options.schema->fields());
+  AssertInspect({{"", "0_1_"}}, options.schema->fields());
+  AssertInspect({{"", "0_1_what_"}}, options.schema->fields());
 
   // fail if any segment is not parseable as schema type
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
-                                  factory_->Inspect({"0_1_", "hello_1_"}));
+                                  factory_->Inspect({{"", "0_1_"}, {"", "hello_1_"}}));
   factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
 
   // Now we don't fail since our type is large enough
-  AssertInspect({"3760212050_1_"}, options.schema->fields());
+  AssertInspect({{"", "3760212050_1_"}}, options.schema->fields());
   // If there are still too many digits, fail
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
-                                  factory_->Inspect({"1038581385102940193760212050_1_"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Failed to parse string"),
+      factory_->Inspect({{"", "1038581385102940193760212050_1_"}}));
   factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
 
-  AssertInspect({"0_1_", "2_"}, options.schema->fields());
+  AssertInspect({{"", "0_1_"}, {"", "2_"}}, options.schema->fields());
 }
 
 TEST_F(TestPartitioning, UrlEncodedDirectory) {
@@ -659,8 +678,8 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
   options.schema = schema({field("date", ts), field("time", ts), field("str", utf8())});
   factory_ = DirectoryPartitioning::MakeFactory(options.schema->field_names(), options);
 
-  AssertInspect({"/2021-05-04 00:00:00/2021-05-04 07:27:00/%24",
-                 "/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/foo"},
+  AssertInspect({{"/2021-05-04 00:00:00/2021-05-04 07:27:00/%24", ""},
+                 {"/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/foo", ""}},
                 options.schema->fields());
   auto date = std::make_shared<TimestampScalar>(1620086400, ts);
   auto time = std::make_shared<TimestampScalar>(1620113220, ts);
@@ -672,7 +691,7 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
 
   // Invalid UTF-8
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-                                  factory_->Inspect({"/%AF/%BF/%CF"}));
+                                  factory_->Inspect({{"/%AF/%BF/%CF", ""}}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   partitioning_->Parse({"/%AF/%BF/%CF", ""}));
 
@@ -680,8 +699,8 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
   options.schema =
       schema({field("date", utf8()), field("time", utf8()), field("str", utf8())});
   factory_ = DirectoryPartitioning::MakeFactory(options.schema->field_names(), options);
-  AssertInspect({"/2021-05-04 00:00:00/2021-05-04 07:27:00/%E3%81%8F%E3%81%BE",
-                 "/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/foo"},
+  AssertInspect({{"/2021-05-04 00:00:00/2021-05-04 07:27:00/%E3%81%8F%E3%81%BE", ""},
+                 {"/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/foo", ""}},
                 options.schema->fields());
   partitioning_ = std::make_shared<DirectoryPartitioning>(
       options.schema, ArrayVector(), options.AsPartitioningOptions());
@@ -699,9 +718,9 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   factory_ = HivePartitioning::MakeFactory(options);
 
   AssertInspect(
-      {"/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$",
-       "/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
-       "/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24"},
+      {{"/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$", ""},
+       {"/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE", ""},
+       {"/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24", ""}},
       options.schema->fields());
 
   auto date = std::make_shared<TimestampScalar>(1620086400, ts);
@@ -722,8 +741,9 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
                     equal(field_ref("time"), literal(time)), is_null(field_ref("str"))}));
 
   // Invalid UTF-8
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-                                  factory_->Inspect({"/date=%AF/time=%BF/str=%CF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      factory_->Inspect({{"/date=%AF/time=%BF/str=%CF", ""}}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("was not valid UTF-8"),
       partitioning_->Parse({"/date=%AF/time=%BF/str=%CF", ""}));
@@ -733,9 +753,9 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
       schema({field("date", utf8()), field("time", utf8()), field("str", utf8())});
   factory_ = HivePartitioning::MakeFactory(options);
   AssertInspect(
-      {"/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$",
-       "/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
-       "/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24"},
+      {{"/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$", ""},
+       {"/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE", ""},
+       {"/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24", ""}},
       options.schema->fields());
   partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
                                                      options.AsHivePartitioningOptions());
@@ -745,8 +765,9 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
                     equal(field_ref("str"), literal("%24"))}));
 
   // Invalid UTF-8
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-                                  factory_->Inspect({"/date=\xAF/time=\xBF/str=\xCF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      factory_->Inspect({{"/date=\xAF/time=\xBF/str=\xCF", ""}}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("was not valid UTF-8"),
       partitioning_->Parse({"/date=\xAF/time=\xBF/str=\xCF", ""}));
@@ -760,12 +781,15 @@ TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
   options.null_fallback = "$";
   factory_ = HivePartitioning::MakeFactory(options);
 
-  AssertInspect({"/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
-                 "07:27:00/str=$",
-                 "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
-                 "07:27:00/str=%E3%81%8F%E3%81%BE",
-                 "/test%27%3B%20date=2021-05-04 "
-                 "00%3A00%3A00/test%27%3B%20time=2021-05-04 07%3A27%3A00/str=%24"},
+  AssertInspect({{"/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+                  "07:27:00/str=$",
+                  ""},
+                 {"/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+                  "07:27:00/str=%E3%81%8F%E3%81%BE",
+                  ""},
+                 {"/test%27%3B%20date=2021-05-04 "
+                  "00%3A00%3A00/test%27%3B%20time=2021-05-04 07%3A27%3A00/str=%24",
+                  ""}},
                 options.schema->fields());
 
   auto date = std::make_shared<TimestampScalar>(1620086400, ts);
@@ -795,7 +819,7 @@ TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
   // Invalid UTF-8
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-      factory_->Inspect({"/%AF=2021-05-04/time=2021-05-04 07%3A27%3A00/str=%24"}));
+      factory_->Inspect({{"/%AF=2021-05-04/time=2021-05-04 07%3A27%3A00/str=%24", ""}}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("was not valid UTF-8"),
       partitioning_->Parse({"/%AF=2021-05-04/%BF=2021-05-04 07%3A27%3A00/str=%24", ""}));
@@ -975,9 +999,12 @@ TEST(TestStripPrefixAndFilename, Basic) {
   std::vector<std::string> input{"/data/year=2019/file.parquet",
                                  "/data/year=2019/month=12/file.parquet",
                                  "/data/year=2019/month=12/day=01/file.parquet"};
-  EXPECT_THAT(StripPrefixAndFilename(input, "/data"),
-              testing::ElementsAre("year=2019", "year=2019/month=12",
-                                   "year=2019/month=12/day=01"));
+  auto paths = StripPrefixAndFilename(input, "/data");
+  std::vector<std::string> path_directories;
+  std::transform(paths.begin(), paths.end(), std::back_inserter(path_directories),
+                 [](PartitionPathFormat const& path) { return path.directory; });
+  EXPECT_THAT(path_directories, testing::ElementsAre("year=2019", "year=2019/month=12",
+                                                     "year=2019/month=12/day=01"));
 }
 
 }  // namespace dataset
