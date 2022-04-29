@@ -94,6 +94,7 @@ class PartitionLocks {
   ~PartitionLocks();
   /// \brief Initializes the control, must be called before use
   ///
+  /// \param num_threads Maximum number of threads that will access the partitions
   /// \param num_prtns Number of partitions to synchronize
   void Init(size_t num_threads, int num_prtns);
   /// \brief Cleans up the control, it should not be used after this call
