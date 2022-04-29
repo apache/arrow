@@ -32,15 +32,15 @@
     if the query contains contains aggregations or joins.
   - now supports `dplyr::rename_with()`.
   - `dplyr::count()` now returns an ungrouped dataframe.
-* `write_dataset` now has more options for controlling row group and file sizes when
+* `write_dataset()` now has more options for controlling row group and file sizes when
   writing partitioned datasets, such as `max_open_files`, `max_rows_per_file`, 
   `min_rows_per_group`, and `max_rows_per_group`.
-* `write_csv_arrow` now accepts a `Dataset` or an Arrow dplyr query.
+* `write_csv_arrow()` can write a `Dataset` or an Arrow dplyr query to a single file.
 * Joining one or more datasets while `option(use_threads = FALSE)` no longer
   crashes R. That option is set by default on Windows.
 * `dplyr` joins now support the `suffix` argument to handle overlap in column names.
 * Filtering a Parquet dataset with `is.na()` no longer misses any rows.
-* `map_batches()` no longer errors if passed a `Dataset` object.
+* `map_batches()` correctly accepts `Dataset` objects.
 
 ## Enhancements to date and time support
 
@@ -69,7 +69,7 @@
   * `strptime()` now returns `NA` instead of erroring in case of format mismatch,
     just like `base::strptime()`.
 * Timezone operations are now supported on Windows if the 
-  [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
+  [tzdb package](https://cran.r-project.org/package=tzdb) is also
   installed.
 
 ## Extension Array Support
@@ -78,7 +78,7 @@ Custom extension arrays can be created and registered, allowing other packages t
 define their own array types. Extension arrays wrap regular Arrow array types and
 provide customized behavior and/or storage. A common use-case for extension types 
 is to define a customized conversion between an an Arrow Array and an R object 
-when the default conversion is slow or looses metadata important to the interpretation
+when the default conversion is slow or loses metadata important to the interpretation
 of values in the array. For most types, the built-in vctrs extension type is probably 
 sufficient. See description and an example with `?new_extension_type`.
 
@@ -88,15 +88,15 @@ Arrow arrays and tables can now be easily concatenated:
 
  * Arrays can now be concatenated with `concat_arrays()` or, if zero-copy is desired
    and chunking is acceptable, using `ChunkedArray$create()`.
- * Chunked arrays can now be concatenated with `c()`.
- * Record batches and tables now support `cbind()`.
- * Arrow tables now support `rbind()`. `concat_tables()` is also provided to 
+ * ChunkedArrays can be concatenated with `c()`.
+ * RecordBatches and Tables support `cbind()`.
+ * Tables support `rbind()`. `concat_tables()` is also provided to 
    concatenate tables while unifying schemas.
 
 ## S3 Conversion Generics
 
 Arrow now provides S3 generic conversion functions such as `as_arrow_array()`
-and `as_chunked_array()` for main Arrow objects. This includes, Arrow tables,
+and `as_arrow_table()` for main Arrow objects. This includes, Arrow tables,
 record batches, arrays, chunked arrays, record batch readers, schemas, and
 data types. This allows other packages to define custom conversions from their
 types to Arrow objects, including extension arrays.
@@ -115,7 +115,7 @@ types to Arrow objects, including extension arrays.
 * `Array$cast()` can now cast struct arrays into another struct type with the same field names
   and structure (or a subset of fields) but different field types.
 * The CSV writer is now much faster when writing string columns.
-* Removed Solaris workarounds, libarrow is now required.
+* Remove special handling for Solaris
 * Fixed an issue where `set_io_thread_count()` would set the CPU count instead of
   the IO thread count.
 * `RandomAccessFile` now has a `$ReadMetadata()` method that provides useful
