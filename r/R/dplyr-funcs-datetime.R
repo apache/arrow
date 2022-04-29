@@ -611,9 +611,9 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 }
 
 build_formats <- function(orders) {
-  year_chars <- sprintf("%%%s", c("y", "Y"))
-  month_chars <- sprintf("%%%s", c("m", "B", "b"))
-  day_chars <- sprintf("%%%s", "d")
+  year_chars <- c("%y", "%Y")
+  month_chars <- c("%m", "%B", "%b")
+  day_chars <- "%d"
 
   outcome <- switch(
     orders,
