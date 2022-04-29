@@ -33,151 +33,137 @@
 namespace arrow {
 namespace compute {
 
-class TestCumulativeOp : public ::testing::Test {
- protected:
-  std::shared_ptr<Array> array(std::shared_ptr<DataType>& type,
-                               const std::string& values) {
-    return ArrayFromJSON(type, values);
-  }
+void Assert(const std::string func, const std::shared_ptr<Scalar>& input,
+            const std::shared_ptr<Array>& expected, const FunctionOptions& options) {
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func, {Datum(input)}, &options));
 
-  std::shared_ptr<ChunkedArray> chunked_array(std::shared_ptr<DataType>& type,
-                                              const std::vector<std::string>& values) {
-    return ChunkedArrayFromJSON(type, values);
-  }
+  AssertArraysApproxEqual(*expected, *result.make_array(), false,
+                          EqualOptions::Defaults());
+}
 
-  template <typename OptionsType>
-  void Assert(const std::string func, const std::shared_ptr<Array>& input,
-              const std::shared_ptr<Array>& expected, const OptionsType& options) {
-    ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func, {Datum(input)}, &options));
+void Assert(const std::string func, const std::shared_ptr<Array>& input,
+            const std::shared_ptr<Array>& expected, const FunctionOptions& options) {
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func, {Datum(input)}, &options));
 
-    AssertArraysApproxEqual(*expected, *result.make_array(), false,
-                            EqualOptions::Defaults());
-  }
+  AssertArraysApproxEqual(*expected, *result.make_array(), false,
+                          EqualOptions::Defaults());
+}
 
-  template <typename OptionsType>
-  void Assert(std::shared_ptr<DataType>& type, const std::string func,
-              const std::shared_ptr<ChunkedArray>& input,
-              const std::shared_ptr<ChunkedArray>& expected, const OptionsType& options) {
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         CallFunction(func, {Datum(input)}, &options, nullptr));
+void Assert(const std::string func, std::shared_ptr<DataType>& type,
+            const std::shared_ptr<ChunkedArray>& input,
+            const std::shared_ptr<ChunkedArray>& expected,
+            const FunctionOptions& options) {
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       CallFunction(func, {Datum(input)}, &options, nullptr));
 
-    ChunkedArray actual(result.chunks(), type);
-    AssertChunkedApproxEquivalent(*expected, actual, EqualOptions::Defaults());
-  }
-};
+  ChunkedArray actual(result.chunks(), type);
+  AssertChunkedApproxEquivalent(*expected, actual, EqualOptions::Defaults());
+}
 
-struct CumulativeSumParam {
-  std::string start;
-  bool skip_nulls;
-  std::shared_ptr<DataType> type;
-  std::string json_arrays_input_no_nulls;
-  std::string json_arrays_expected_no_nulls;
-  std::string json_arrays_input_with_nulls;
-  std::string json_arrays_expected_with_nulls;
-  std::vector<std::string> json_chunked_arrays_input_no_nulls;
-  std::vector<std::string> json_chunked_arrays_expected_no_nulls;
-  std::vector<std::string> json_chunked_arrays_input_with_nulls;
-  std::vector<std::string> json_chunked_arrays_expected_with_nulls;
-};
-
-std::vector<CumulativeSumParam> GenerateCumulativeSumParams(
-    std::string start, bool skip_nulls, std::string json_arrays_input_no_nulls,
-    std::string json_arrays_expected_no_nulls, std::string json_arrays_input_with_nulls,
-    std::string json_arrays_expected_with_nulls,
-    std::vector<std::string> json_chunked_arrays_input_no_nulls,
-    std::vector<std::string> json_chunked_arrays_expected_no_nulls,
-    std::vector<std::string> json_chunked_arrays_input_with_nulls,
-    std::vector<std::string> json_chunked_arrays_expected_with_nulls) {
-  std::vector<CumulativeSumParam> param_vector;
-
+TEST(TestCumulativeSum, Empty) {
+  CumulativeSumOptions options;
   for (auto ty : NumericTypes()) {
-    param_vector.push_back(
-        {start, skip_nulls, ty, json_arrays_input_no_nulls, json_arrays_expected_no_nulls,
-         json_arrays_input_with_nulls, json_arrays_expected_with_nulls,
-         json_chunked_arrays_input_no_nulls, json_chunked_arrays_expected_no_nulls,
-         json_chunked_arrays_input_with_nulls, json_chunked_arrays_expected_with_nulls});
+    auto empty_arr = ArrayFromJSON(ty, "[]");
+    auto empty_chunked = ChunkedArrayFromJSON(ty, {"[]"});
+    Assert("cumulative_sum", empty_arr, empty_arr, options);
+    Assert("cumulative_sum", ty, empty_chunked, empty_chunked, options);
   }
-
-  return param_vector;
 }
 
-class TestCumulativeSum : public TestCumulativeOp,
-                          public testing::WithParamInterface<CumulativeSumParam> {
- protected:
-  CumulativeSumOptions generate_options(std::shared_ptr<DataType> type,
-                                        std::string start = "", bool skip_nulls = false,
-                                        bool check_overflow = false) {
-    return CumulativeSumOptions(ScalarFromJSON(type, start), skip_nulls, check_overflow);
+TEST(TestCumulativeSum, AllNulls) {
+  CumulativeSumOptions options;
+  for (auto ty : NumericTypes()) {
+    auto nulls_arr = ArrayFromJSON(ty, "[null, null, null]");
+    auto nulls_one_chunk = ChunkedArrayFromJSON(ty, {"[null, null, null]"});
+    auto nulls_three_chunks = ChunkedArrayFromJSON(ty, {"[null]", "[null]", "[null]"});
+    Assert("cumulative_sum", nulls_arr, nulls_arr, options);
+    Assert("cumulative_sum", ty, nulls_one_chunk, nulls_one_chunk, options);
+    Assert("cumulative_sum", ty, nulls_three_chunks, nulls_one_chunk, options);
   }
-
-  void Assert(std::shared_ptr<DataType> type, const std::string& values,
-              const std::string& expected, const CumulativeSumOptions& options) {
-    auto values_arr = TestCumulativeOp::array(type, values);
-    auto expected_arr = TestCumulativeOp::array(type, expected);
-    auto func_name = options.check_overflow ? "cumulative_sum_checked" : "cumulative_sum";
-    TestCumulativeOp::Assert(func_name, values_arr, expected_arr, options);
-  }
-
-  void Assert(std::shared_ptr<DataType> type, const std::vector<std::string>& values,
-              const std::vector<std::string>& expected,
-              const CumulativeSumOptions& options) {
-    auto values_arr = TestCumulativeOp::chunked_array(type, values);
-    auto expected_arr = TestCumulativeOp::chunked_array(type, expected);
-    auto func_name = options.check_overflow ? "cumulative_sum_checked" : "cumulative_sum";
-    TestCumulativeOp::Assert(type, func_name, values_arr, expected_arr, options);
-  }
-};
-
-TEST_P(TestCumulativeSum, CheckResult) {
-  const CumulativeSumParam param = GetParam();
-  CumulativeSumOptions options =
-      this->generate_options(param.type, param.start, param.skip_nulls);
-
-  std::vector<std::string> empty_chunked_array;
-  this->Assert(param.type, "[]", "[]", options);
-  this->Assert(param.type, empty_chunked_array, empty_chunked_array, options);
-  this->Assert(param.type, "[null, null, null]", "[null, null, null]", options);
-  this->Assert(param.type, param.json_arrays_input_no_nulls,
-               param.json_arrays_expected_no_nulls, options);
-  this->Assert(param.type, param.json_arrays_input_with_nulls,
-               param.json_arrays_expected_with_nulls, options);
-  this->Assert(param.type, param.json_chunked_arrays_input_no_nulls,
-               param.json_chunked_arrays_expected_no_nulls, options);
-  this->Assert(param.type, param.json_chunked_arrays_input_with_nulls,
-               param.json_chunked_arrays_expected_with_nulls, options);
 }
 
-INSTANTIATE_TEST_SUITE_P(NoStartNoSkip, TestCumulativeSum,
-                         ::testing::ValuesIn(GenerateCumulativeSumParams(
-                             "0", false, "[1, 2, 3, 4, 5, 6]", "[1, 3, 6, 10, 15, 21]",
-                             "[1, 2, null, 4, null, 6]", "[1, 3, null, null, null, null]",
-                             {"[1, 2, 3]", "[4, 5, 6]"}, {"[1, 3, 6, 10, 15, 21]"},
-                             {"[1, 2, null]", "[4, null, 6]"},
-                             {"[1, 3, null, null, null, null]"})));
+TEST(TestCumulativeSum, ScalarInput) {
+  CumulativeSumOptions no_start;
+  CumulativeSumOptions with_start(10);
+  for (auto ty : NumericTypes()) {
+    Assert("cumulative_sum", ScalarFromJSON(ty, "10"), ArrayFromJSON(ty, "[10]"),
+           no_start);
+    Assert("cumulative_sum", ScalarFromJSON(ty, "10"), ArrayFromJSON(ty, "[20]"),
+           with_start);
+  }
+}
 
-INSTANTIATE_TEST_SUITE_P(NoStartDoSkip, TestCumulativeSum,
-                         ::testing::ValuesIn(GenerateCumulativeSumParams(
-                             "0", true, "[1, 2, 3, 4, 5, 6]", "[1, 3, 6, 10, 15, 21]",
-                             "[1, 2, null, 4, null, 6]", "[1, 3, null, 7, null, 13]",
-                             {"[1, 2, 3]", "[4, 5, 6]"}, {"[1, 3, 6, 10, 15, 21]"},
-                             {"[1, 2, null]", "[4, null, 6]"},
-                             {"[1, 3, null, 7, null, 13]"})));
+TEST(TestCumulativeSum, NoStartNoSkip) {
+  CumulativeSumOptions options;
+  for (auto ty : NumericTypes()) {
+    Assert("cumulative_sum", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
+           ArrayFromJSON(ty, "[1, 3, 6, 10, 15, 21]"), options);
 
-INSTANTIATE_TEST_SUITE_P(
-    HasStartNoSkip, TestCumulativeSum,
-    ::testing::ValuesIn(GenerateCumulativeSumParams(
-        "10", false, "[1, 2, 3, 4, 5, 6]", "[11, 13, 16, 20, 25, 31]",
-        "[1, 2, null, 4, null, 6]", "[11, 13, null, null, null, null]",
-        {"[1, 2, 3]", "[4, 5, 6]"}, {"[11, 13, 16, 20, 25, 31]"},
-        {"[1, 2, null]", "[4, null, 6]"}, {"[11, 13, null, null, null, null]"})));
+    Assert("cumulative_sum", ArrayFromJSON(ty, "[1, 2, null, 4, null, 6]"),
+           ArrayFromJSON(ty, "[1, 3, null, null, null, null]"), options);
 
-INSTANTIATE_TEST_SUITE_P(HasStartDoSkip, TestCumulativeSum,
-                         ::testing::ValuesIn(GenerateCumulativeSumParams(
-                             "10", true, "[1, 2, 3, 4, 5, 6]", "[11, 13, 16, 20, 25, 31]",
-                             "[1, 2, null, 4, null, 6]", "[11, 13, null, 17, null, 23]",
-                             {"[1, 2, 3]", "[4, 5, 6]"}, {"[11, 13, 16, 20, 25, 31]"},
-                             {"[1, 2, null]", "[4, null, 6]"},
-                             {"[11, 13, null, 17, null, 23]"})));
+    Assert("cumulative_sum", ty, ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5, 6]"}),
+           ChunkedArrayFromJSON(ty, {"[1, 3, 6, 10, 15, 21]"}), options);
+
+    Assert("cumulative_sum", ty,
+           ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null, 6]"}),
+           ChunkedArrayFromJSON(ty, {"[1, 3, null, null, null, null]"}), options);
+  }
+}
+
+TEST(TestCumulativeSum, NoStartDoSkip) {
+  CumulativeSumOptions options(0, true);
+  for (auto ty : NumericTypes()) {
+    Assert("cumulative_sum", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
+           ArrayFromJSON(ty, "[1, 3, 6, 10, 15, 21]"), options);
+
+    Assert("cumulative_sum", ArrayFromJSON(ty, "[1, 2, null, 4, null, 6]"),
+           ArrayFromJSON(ty, "[1, 3, null, 7, null, 13]"), options);
+
+    Assert("cumulative_sum", ty, ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5, 6]"}),
+           ChunkedArrayFromJSON(ty, {"[1, 3, 6, 10, 15, 21]"}), options);
+
+    Assert("cumulative_sum", ty,
+           ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null, 6]"}),
+           ChunkedArrayFromJSON(ty, {"[1, 3, null, 7, null, 13]"}), options);
+  }
+}
+
+TEST(TestCumulativeSum, HasStartNoSkip) {
+  CumulativeSumOptions options(10);
+  for (auto ty : NumericTypes()) {
+    Assert("cumulative_sum", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
+           ArrayFromJSON(ty, "[11, 13, 16, 20, 25, 31]"), options);
+
+    Assert("cumulative_sum", ArrayFromJSON(ty, "[1, 2, null, 4, null, 6]"),
+           ArrayFromJSON(ty, "[11, 13, null, null, null, null]"), options);
+
+    Assert("cumulative_sum", ty, ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5, 6]"}),
+           ChunkedArrayFromJSON(ty, {"[11, 13, 16, 20, 25, 31]"}), options);
+
+    Assert("cumulative_sum", ty,
+           ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null, 6]"}),
+           ChunkedArrayFromJSON(ty, {"[11, 13, null, null, null, null]"}), options);
+  }
+}
+
+TEST(TestCumulativeSum, HasStartDoSkip) {
+  CumulativeSumOptions options(10, true);
+  for (auto ty : NumericTypes()) {
+    Assert("cumulative_sum", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
+           ArrayFromJSON(ty, "[11, 13, 16, 20, 25, 31]"), options);
+
+    Assert("cumulative_sum", ArrayFromJSON(ty, "[1, 2, null, 4, null, 6]"),
+           ArrayFromJSON(ty, "[11, 13, null, 17, null, 23]"), options);
+
+    Assert("cumulative_sum", ty, ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5, 6]"}),
+           ChunkedArrayFromJSON(ty, {"[11, 13, 16, 20, 25, 31]"}), options);
+
+    Assert("cumulative_sum", ty,
+           ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null, 6]"}),
+           ChunkedArrayFromJSON(ty, {"[11, 13, null, 17, null, 23]"}), options);
+  }
+}
 
 }  // namespace compute
 }  // namespace arrow
