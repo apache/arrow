@@ -1,0 +1,13 @@
+*Archery crossbow report for <{{ report.url(report.job.branch) }}|{{ report.job.branch }}>*
+
+:x: *{{ report.tasks_by_state["failure"] | length }} failed jobs*
+{% for task_name, task in report.tasks_by_state["failure"] | dictsort -%}
+- <{{ report.task_url(task) }}|{{ task_name }}>
+{% endfor %}
+:x: *{{ report.tasks_by_state["error"] | length }} errored jobs*
+{% for task_name, task in report.tasks_by_state["error"] | dictsort -%}
+- <{{ report.task_url(task) }}|{{ task_name }}>
+{% endfor %}
+:warning: *{{ report.tasks_by_state["pending"] | length }} pending jobs*
+
+:tada: *{{ report.tasks_by_state["success"] | length }} successful jobs*
