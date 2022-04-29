@@ -81,6 +81,11 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
     CRuntimeInfo GetRuntimeInfo()
 
 
+cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
+    cdef cppclass CFuture_Void" arrow::Future<>":
+        CStatus status()
+
+
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef enum Type" arrow::Type::type":
         _Type_NA" arrow::Type::NA"
@@ -2496,6 +2501,8 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         CStatus StartProducing()
         CStatus Validate()
         CStatus StopProducing()
+
+        CFuture_Void finished()
 
         vector[CExecNode*] sinks() const
         vector[CExecNode*] sources() const

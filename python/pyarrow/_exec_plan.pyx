@@ -27,7 +27,7 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
+from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table)
 from pyarrow.lib import tobytes
 from pyarrow._compute cimport Expression, _true
 from pyarrow._dataset cimport Dataset
@@ -73,6 +73,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
         vector[CDeclaration.Input] no_c_inputs
+        CStatus c_plan_status
 
     if use_threads:
         c_executor = GetCpuThreadPool()
@@ -157,7 +158,9 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     else:
         raise TypeError("Unsupported output type")
 
-    deref(c_exec_plan).StopProducing()
+    with nogil:
+        c_plan_status = deref(c_exec_plan).finished().status()
+    check_status(c_plan_status)
 
     return output
 
