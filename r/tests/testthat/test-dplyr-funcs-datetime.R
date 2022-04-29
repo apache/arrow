@@ -1512,6 +1512,9 @@ test_that("parse_date_time()", {
     )
   )
 
+  if (R.version$major < 4) {
+    skip_on_os("windows")
+  }
   compare_dplyr_binding(
     .input %>%
       mutate(
