@@ -1319,11 +1319,11 @@ cdef class Partitioning(_Weakrefable):
     cdef inline shared_ptr[CPartitioning] unwrap(self):
         return self.wrapped
 
-    def parse(self, directory="", prefix=""):
+    def parse(self, directory="", filename=""):
         cdef CResult[CExpression] result
         cdef CPartitionPathFormat path
         path.directory = tobytes(directory)
-        path.prefix = tobytes(prefix)
+        path.filename = tobytes(filename)
         result = self.partitioning.Parse(path)
         return Expression.wrap(GetResultValue(result))
 

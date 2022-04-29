@@ -58,12 +58,12 @@ class TestPartitioning : public ::testing::Test {
   }
 
   void AssertFormat(compute::Expression expr, const std::string& expected_directory,
-                    const std::string& expected_prefix = "") {
+                    const std::string& expected_filename = "") {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
     ASSERT_EQ(formatted.directory, expected_directory);
-    ASSERT_EQ(formatted.prefix, expected_prefix);
+    ASSERT_EQ(formatted.filename, expected_filename);
 
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr

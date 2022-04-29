@@ -39,7 +39,7 @@ namespace dataset {
 constexpr char kFilenamePartitionSep = '_';
 
 struct ARROW_DS_EXPORT PartitionPathFormat {
-  std::string directory, prefix;
+  std::string directory, filename;
 };
 
 // ----------------------------------------------------------------------

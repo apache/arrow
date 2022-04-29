@@ -279,7 +279,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CPartitionPathFormat "arrow::dataset::PartitionPathFormat":
         c_string directory
-        c_string prefix
+        c_string filename
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
