@@ -2582,6 +2582,43 @@ def test_open_dataset_from_fsspec(tempdir):
     assert dataset.schema.equals(table.schema)
 
 
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_inspect_file_fsspec(s3_server):
+    # https://issues.apache.org/jira/browse/ARROW-16413
+    from pyarrow.fs import S3FileSystem, _ensure_filesystem
+    import pyarrow.dataset as ds
+
+    host, port, access_key, secret_key = s3_server['connection']
+
+    # create bucket + file with pyarrow
+    fs = S3FileSystem(
+        access_key=access_key,
+        secret_key=secret_key,
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http'
+    )
+    fs.create_dir("mybucket")
+    table = pa.table({'a': [1, 2, 3]})
+    path = "mybucket/data.parquet"
+    with fs.open_output_stream(path) as out:
+        pq.write_table(table, out)
+
+    # read using fsspec filesystem
+    import s3fs
+    fsspec_fs = s3fs.S3FileSystem(
+        key=access_key, secret=secret_key,
+        client_kwargs={"endpoint_url": f"http://{host}:{port}"}
+    )
+    assert fsspec_fs.ls("mybucket") == ['mybucket/data.parquet']
+
+    # inspect using dataset file format
+    format = ds.ParquetFileFormat()
+    filesystem = _ensure_filesystem(fsspec_fs)
+    schema = format.inspect(path, filesystem)
+    assert schema.equals(table.schema)
+
+
 @pytest.mark.pandas
 def test_filter_timestamp(tempdir, dataset_reader):
     # ARROW-11379

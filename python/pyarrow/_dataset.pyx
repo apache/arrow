@@ -761,8 +761,12 @@ cdef class FileFormat(_Weakrefable):
         schema : Schema
             The schema inferred from the file
         """
-        c_source = _make_file_source(file, filesystem)
-        c_schema = GetResultValue(self.format.Inspect(c_source))
+        cdef:
+            CFileSource c_source = _make_file_source(file, filesystem)
+            CResult[shared_ptr[CSchema]] c_result
+        with nogil:
+            c_result = self.format.Inspect(c_source)
+        c_schema = GetResultValue(c_result)
         return pyarrow_wrap_schema(move(c_schema))
 
     def make_fragment(self, file, filesystem=None,
@@ -783,11 +787,17 @@ cdef class FileFormat(_Weakrefable):
         if partition_expression is None:
             partition_expression = _true
 
-        c_source = _make_file_source(file, filesystem)
-        c_fragment = <shared_ptr[CFragment]> GetResultValue(
-            self.format.MakeFragment(move(c_source),
-                                     partition_expression.unwrap(),
-                                     <shared_ptr[CSchema]>nullptr))
+        cdef:
+            CFileSource c_source = _make_file_source(file, filesystem)
+            CResult[shared_ptr[CFileFragment]] c_result
+            CExpression c_partition_expression = partition_expression.unwrap()
+
+        with nogil:
+            c_result = self.format.MakeFragment(
+                move(c_source), c_partition_expression,
+                <shared_ptr[CSchema]>nullptr)
+
+        c_fragment = <shared_ptr[CFragment]> GetResultValue(c_result)
         return Fragment.wrap(move(c_fragment))
 
     def make_write_options(self):
