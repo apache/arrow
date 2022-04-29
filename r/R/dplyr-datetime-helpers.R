@@ -1,3 +1,14 @@
+
+
+check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
+  if (tolower(Sys.info()[["sysname"]]) == "windows" & locale != "C") {
+    # MingW C++ std::locale only supports "C" and "POSIX"
+    stop(paste0("On Windows, time locales other than 'C' are not supported in Arrow. ",
+                "Consider setting `Sys.setlocale('LC_TIME', 'C')`"))
+  }
+  locale
+}
+
 .helpers_function_map <- list(
   "dminutes" = list(60, "s"),
   "dhours" = list(3600, "s"),
