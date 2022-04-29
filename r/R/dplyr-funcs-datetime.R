@@ -157,10 +157,6 @@ register_bindings_datetime <- function() {
       (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
   })
 
-  register_binding("leap_year", function(date) {
-    Expression$create("is_leap_year", date)
-  })
-
   register_binding("am", function(x) {
     hour <- Expression$create("hour", x)
     hour < 12
