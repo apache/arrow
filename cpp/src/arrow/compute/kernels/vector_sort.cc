@@ -1976,7 +1976,7 @@ class RankMetaFunction : public MetaFunction {
           out_rankings[indices[i]] = rank;
         }
         break;
-      case RankOptions::Lowest:
+      case RankOptions::Min:
         for (auto i = 0; i < out_size; i++) {
           currValue = array.GetScalar(indices[i]).ValueOrDie();
           if (i > 0 && currValue == prevValue) {
@@ -1987,7 +1987,7 @@ class RankMetaFunction : public MetaFunction {
           prevValue = currValue;
         }
         break;
-      case RankOptions::Highest:
+      case RankOptions::Max:
         auto currentTieCount = 0;
         for (auto i = 0; i < out_size; i++) {
           currValue = array.GetScalar(indices[i]).ValueOrDie();

@@ -91,15 +91,15 @@ struct EnumTraits<NullPlacement>
 };
 template <>
 struct EnumTraits<RankOptions::Tiebreaker>
-    : BasicEnumTraits<RankOptions::Tiebreaker, RankOptions::Lowest, RankOptions::Highest,
+    : BasicEnumTraits<RankOptions::Tiebreaker, RankOptions::Min, RankOptions::Max,
                       RankOptions::First, RankOptions::Dense> {
   static std::string name() { return "Tiebreaker"; }
   static std::string value_name(RankOptions::Tiebreaker value) {
     switch (value) {
-      case RankOptions::Lowest:
-        return "Lowest";
-      case RankOptions::Highest:
-        return "Highest";
+      case RankOptions::Min:
+        return "Min";
+      case RankOptions::Max:
+        return "Max";
       case RankOptions::First:
         return "First";
       case RankOptions::Dense:

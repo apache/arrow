@@ -177,7 +177,7 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
 /// \brief Rank options
 class ARROW_EXPORT RankOptions : public FunctionOptions {
  public:
-  enum Tiebreaker { Lowest, Highest, First, Dense };
+  enum Tiebreaker { Min, Max, First, Dense };
 
   explicit RankOptions(SortOrder order = SortOrder::Ascending,
                        NullPlacement null_placement = NullPlacement::AtEnd,
