@@ -265,6 +265,20 @@ TEST(PathUtil, ToSlashes) {
 #endif
 }
 
+TEST(PathUtil, Globber) {
+  Globber localfs_linux("/f?o/bar/a?/1*.txt");
+  ASSERT_TRUE(localfs_linux.Matches("/foo/bar/a1/1.txt"));
+  ASSERT_TRUE(localfs_linux.Matches("/f#o/bar/ab/1000.txt"));
+
+  Globber localfs_windows("C:/f?o/bar/a?/1*.txt");
+  ASSERT_TRUE(localfs_windows.Matches("C:/f_o/bar/ac/1000.txt"));
+
+  Globber remotefs("remote://my|bucket(#?)/foo{*}/[?]bar~/b&z/a: *-c.txt");
+  ASSERT_TRUE(remotefs.Matches("remote://my|bucket(#0)/foo{}/[?]bar~/b&z/a: -c.txt"));
+  ASSERT_TRUE(
+      remotefs.Matches("remote://my|bucket(#%)/foo{abc}/[_]bar~/b&z/a: ab-c.txt"));
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests
 

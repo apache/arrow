@@ -291,21 +291,19 @@ bool IsLikelyUri(util::string_view v) {
 struct Globber::Impl {
   std::regex pattern_;
 
-  explicit Impl(std::string p) : pattern_(std::regex(std::move(transform(p)))) {}
+  explicit Impl(const std::string& p) : pattern_(std::regex(PatternToRegex(p))) {}
 
-  std::string transform(std::string p) {
+  std::string PatternToRegex(const std::string& p) {
+    std::string special_chars_ = "()[]{}+-|^$\\.&~# \t\n\r\v\f";
     std::string transformed;
     for (char c : p) {
       if (c == '*') {
         transformed += ".*";
       } else if (c == '?') {
         transformed += ".";
-      } else if (c == '.') {
-        transformed += "\\.";
-      } else if (c == '[') {
-        transformed += "\\[";
-      } else if (c == ']') {
-        transformed += "\\]";
+      } else if (special_chars_.find(c) != std::string::npos) {
+        transformed += "\\";
+        transformed += c;
       } else {
         transformed += c;
       }

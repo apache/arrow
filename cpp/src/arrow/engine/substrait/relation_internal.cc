@@ -51,22 +51,16 @@ Status CheckRelCommon(const RelMessage& rel) {
 }
 
 Result<fs::FileInfoVector> GetGlobFiles(const std::shared_ptr<fs::FileSystem>& filesystem,
-                                        std::string& path) {
+                                        const std::string& glob) {
   fs::FileInfoVector results, temp;
   fs::FileSelector selector;
   std::string cur;
-  size_t i = 0;
 
-#if _WIN32
-  auto split_path = fs::internal::SplitAbstractPath(path, '\\');
-  ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(split_path[i++] + "\\"));
-#else
-  auto split_path = fs::internal::SplitAbstractPath(path, '/');
+  auto split_path = fs::internal::SplitAbstractPath(glob, '/');
   ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo("/"));
-#endif
   results.push_back(std::move(file));
 
-  for (; i < split_path.size(); i++) {
+  for (size_t i = 0; i < split_path.size(); i++) {
     if (split_path[i].find_first_of("*?") == std::string::npos) {
       if (cur.empty())
         cur = split_path[i];
@@ -86,8 +80,7 @@ Result<fs::FileInfoVector> GetGlobFiles(const std::shared_ptr<fs::FileSystem>& f
           }
         }
       }
-      results = temp;
-      temp.clear();
+      results = std::move(temp);
       cur.clear();
     }
   }
@@ -173,9 +166,9 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         }
 
         if (!util::string_view{path}.starts_with("file:///")) {
-          return Status::NotImplemented(
-              "substrait::ReadRel::LocalFiles::FileOrFiles::uri_path "
-              "with other than local filesystem (file:///)");
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
+                                        ") with other than local filesystem "
+                                        "(file:///)");
         }
 
         if (item.partition_index() != 0) {
