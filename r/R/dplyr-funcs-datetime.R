@@ -15,15 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
-  if (tolower(Sys.info()[["sysname"]]) == "windows" & locale != "C") {
-    # MingW C++ std::locale only supports "C" and "POSIX"
-    stop(paste0("On Windows, time locales other than 'C' are not supported in Arrow. ",
-                "Consider setting `Sys.setlocale('LC_TIME', 'C')`"))
-  }
-  locale
-}
-
 register_bindings_datetime <- function() {
   register_binding("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
                                         unit = "ms") {
