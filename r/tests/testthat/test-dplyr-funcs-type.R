@@ -873,7 +873,6 @@ test_that("`as.Date()` and `as_date()`", {
     fixed = TRUE
   )
 
-
   # we do not support as.Date() with double/ float (error surfaced from C++)
   # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
   expect_error(
@@ -958,7 +957,11 @@ test_that("`as_datetime()`", {
 })
 
 test_that("format date/time", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # locale issues
+  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16399 is done
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    withr::local_locale(LC_TIME = "C")
+  }
   # In 3.4 the lack of tzone attribute causes spurious failures
   skip_if_r_version("3.4.4")
 
