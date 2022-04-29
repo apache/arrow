@@ -810,7 +810,8 @@ PartitionPathFormat StripPrefixAndFilename(const std::string& path,
   auto maybe_base_less = fs::internal::RemoveAncestor(prefix, path);
   auto base_less = maybe_base_less ? std::string(*maybe_base_less) : path;
   auto basename_filename = fs::internal::GetAbstractPathParent(base_less);
-  return PartitionPathFormat{std::move(basename_filename.first), std::move(basename_filename.second)};
+  return PartitionPathFormat{std::move(basename_filename.first),
+                             std::move(basename_filename.second)};
 }
 
 std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,
