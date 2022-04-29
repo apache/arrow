@@ -814,5 +814,125 @@ TEST(Substrait, InvalidPlan) {
   ASSERT_RAISES(Invalid, substrait::ExecuteSerializedPlan(*buf));
 }
 
+TEST(Substrait, JoinRel) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "relations": [{
+    "rel": {
+      "project": {
+        "input": {
+          "join": {
+            "left": {
+              "read": {
+                "base_schema": {
+                  "names": ["A", "B", "C"],
+                  "struct": {
+                    "types": [{
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }]
+                  }
+                },
+                "local_files": { "items": [] }
+              }
+            },
+            "right": {
+              "read": {
+                "base_schema": {
+                  "names": ["X", "Y", "A"],
+                  "struct": {
+                    "types": [{
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }]
+                  }
+                },
+                "local_files": { "items": [] }
+              }
+            },
+            "expression": {
+              "scalarFunction": {
+                "functionReference": 0,
+                "args": [{
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 5
+                      }
+                    },
+                    "rootReference": {
+                    }
+                  }
+                }, {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 0
+                      }
+                    },
+                    "rootReference": {
+                    }
+                  }
+                }],
+                "outputType": {
+                  "bool": {}
+                }
+              }
+            },
+            "type": "JOIN_TYPE_INNER"
+          }
+        },
+        "expressions": [{
+          "selection": {
+            "directReference": {
+              "structField": {
+                "field": 1
+              }
+            },
+            "rootReference": {
+            }
+          }
+        }, {
+          "selection": {
+            "directReference": {
+              "structField": {
+                "field": 4
+              }
+            },
+            "rootReference": {
+            }
+          }
+        }]
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })"));
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlan(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
+
+}
+
 }  // namespace engine
 }  // namespace arrow

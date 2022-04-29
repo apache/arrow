@@ -237,10 +237,53 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         return Status::Invalid("substrait::JoinRel with no right relation");
       }
 
+      compute::JoinType join_type;
+      switch(join.type()) {
+        case 0:
+          return Status::NotImplemented("Unspecified join type is not supported");
+        case 1:
+          join_type = compute::JoinType::INNER;
+          break;
+        case 2:
+          break;
+        case 3:
+          break;
+        case 4:
+          break;
+        case 5:
+          break;
+        case 6:
+          break;
+        default:
+          break;
+      }
+
       ARROW_ASSIGN_OR_RAISE(auto left, FromProto(join.left(), ext_set));
       ARROW_ASSIGN_OR_RAISE(auto right, FromProto(join.right(), ext_set));
-    
-      break;
+      
+      std::cout << "We are in JOIN PHASE" << std::endl;
+      std::cout << "Left: " << left.factory_name << std::endl;
+      std::cout << "Right: " << right.factory_name << std::endl;
+      std::cout << "Join Type: " << ToString(join_type) << std::endl;
+
+      if (!join.has_expression()) {
+        return Status::Invalid("substrait::JoinRel with no expression");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto expression, FromProto(join.expression(), ext_set));
+
+      std::cout << "Expression : " << expression.ToString() << std::endl;
+      std::cout << "IsScalarExpr : " << expression.IsScalarExpression() << std::endl;
+
+      compute::HashJoinNodeOptions join_opts{join_type,
+                                                /*in_left_keys=*/{"lkey"},
+                                                /*in_right_keys=*/{"rkey"},
+                                                /*filter*/ arrow::compute::literal(true),
+                                                /*output_suffix_for_left*/ "_l",
+                                                /*output_suffix_for_right*/ "_r"};
+
+
+      return compute::Declaration::Sequence({});
     }
 
     default:
