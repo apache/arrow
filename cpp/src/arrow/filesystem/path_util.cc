@@ -298,9 +298,15 @@ struct Globber::Impl {
     std::string transformed;
     for (char c : p) {
       if (c == '*') {
-        transformed += ".*";
+        if (transformed.back() != '\\')
+          transformed += ".*";
+        else
+          transformed.back() = c;
       } else if (c == '?') {
-        transformed += ".";
+        if (transformed.back() != '\\')
+          transformed += ".";
+        else
+          transformed.back() = c;
       } else if (special_chars_.find(c) != std::string::npos) {
         transformed += "\\";
         transformed += c;

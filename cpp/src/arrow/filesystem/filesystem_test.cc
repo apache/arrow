@@ -277,6 +277,10 @@ TEST(PathUtil, Globber) {
   ASSERT_TRUE(remotefs.Matches("remote://my|bucket(#0)/foo{}/[?]bar~/b&z/a: -c.txt"));
   ASSERT_TRUE(
       remotefs.Matches("remote://my|bucket(#%)/foo{abc}/[_]bar~/b&z/a: ab-c.txt"));
+
+  Globber wildcards("remote://bucket?/f\\?o/\\*/*.parquet");
+  ASSERT_TRUE(wildcards.Matches("remote://bucket0/f?o/*/abc.parquet"));
+  ASSERT_FALSE(wildcards.Matches("remote://bucket0/foo/ab/a.parquet"));
 }
 
 ////////////////////////////////////////////////////////////////////////////
