@@ -331,7 +331,7 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
 
   VectorFunction(std::string name, const Arity& arity, FunctionDoc doc,
                  const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity, doc,
+      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity, std::move(doc),
                                            default_options) {}
 
   /// \brief Add a simple kernel with given input/output types, no required
