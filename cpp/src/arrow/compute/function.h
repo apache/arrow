@@ -353,7 +353,7 @@ class ARROW_EXPORT ScalarAggregateFunction
   ScalarAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
                           const FunctionOptions* default_options = NULLPTR)
       : detail::FunctionImpl<ScalarAggregateKernel>(
-            std::move(name), Function::SCALAR_AGGREGATE, arity, doc, default_options) {}
+            std::move(name), Function::SCALAR_AGGREGATE, arity, std::move(doc), default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -368,7 +368,7 @@ class ARROW_EXPORT HashAggregateFunction
   HashAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
                         const FunctionOptions* default_options = NULLPTR)
       : detail::FunctionImpl<HashAggregateKernel>(
-            std::move(name), Function::HASH_AGGREGATE, arity, doc, default_options) {}
+            std::move(name), Function::HASH_AGGREGATE, arity, std::move(doc), default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -394,7 +394,7 @@ class ARROW_EXPORT MetaFunction : public Function {
 
   MetaFunction(std::string name, const Arity& arity, FunctionDoc doc,
                const FunctionOptions* default_options = NULLPTR)
-      : Function(std::move(name), Function::META, arity, doc, default_options) {}
+      : Function(std::move(name), Function::META, arity, std::move(doc), default_options) {}
 };
 
 /// @}
