@@ -116,7 +116,8 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
   compute::OutputType output_type(options.output_type);
   PythonUdf exec{wrapper, std::make_shared<OwnedRefNoGIL>(user_function), output_type};
   compute::ScalarKernel kernel(
-      compute::KernelSignature::Make(input_types, output_type, options.arity.is_varargs),
+      compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
+                                     options.arity.is_varargs),
       std::move(exec));
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;

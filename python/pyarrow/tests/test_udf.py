@@ -251,6 +251,8 @@ def check_scalar_function(func_fixture,
 
     result = pc.call_function(name, inputs)
     assert result == expected_output
+    # At the moment there is an issue when handling nullary functions.
+    # See: ARROW-15286 and ARROW-16290.
     if run_in_dataset:
         field_names = [f'field{index}' for index, in_arr in inputs]
         table = pa.Table.from_arrays(inputs, field_names)
