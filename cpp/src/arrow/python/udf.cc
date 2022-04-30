@@ -109,9 +109,8 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
       options.func_name, options.arity, options.func_doc);
   Py_INCREF(user_function);
   std::vector<compute::InputType> input_types;
-  for (auto in_dtype : options.input_types) {
-    compute::InputType in_type(in_dtype);
-    input_types.push_back(in_type);
+  for (const auto& in_dtype : options.input_types) {
+    input_types.emplace_back(in_dtype);
   }
   compute::OutputType output_type(options.output_type);
   PythonUdf exec{wrapper, std::make_shared<OwnedRefNoGIL>(user_function), output_type};
