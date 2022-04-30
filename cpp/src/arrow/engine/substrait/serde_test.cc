@@ -799,7 +799,7 @@ TEST(Substrait, GetRecordBatchReader) {
   ASSERT_OK_AND_ASSIGN(auto buf, engine::ParseJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto reader, engine::ExecuteSerializedPlan(buf));
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
-  EXPECT_GT(table->num_rows(), 0);
+  EXPECT_EQ(table->num_rows(), 12);
 #endif
 }
 
