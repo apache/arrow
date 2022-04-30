@@ -1954,7 +1954,7 @@ HashJoinNodeOptions GenerateHashJoinNodeOptions(Random64Bit& rng, int num_left_c
   return opts;
 }
 
-    void TestSingleChainOfHashJoins(Random64Bit& rng, int test_id) {
+void TestSingleChainOfHashJoins(Random64Bit& rng) {
   int num_joins = rng.from_range(2, 5);
   std::vector<HashJoinNodeOptions> opts;
   int num_left_cols = rng.from_range(1, 8);
@@ -2045,7 +2045,7 @@ TEST(HashJoin, ChainedIntegerHashJoins) {
   int num_tests = 100;
   for (int i = 0; i < num_tests; i++) {
     ARROW_SCOPED_TRACE("Test ", std::to_string(i));
-    TestSingleChainOfHashJoins(rng, i);
+    TestSingleChainOfHashJoins(rng);
   }
 }
 

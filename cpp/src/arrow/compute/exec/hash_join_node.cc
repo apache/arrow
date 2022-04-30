@@ -596,7 +596,7 @@ class HashJoinNode : public ExecNode {
 
     for (ExecNode* candidate = inputs()[0]; candidate->kind_name() == this->kind_name();
          candidate = candidate->inputs()[0]) {
-      auto* candidate_as_join = checked_cast<HashJoinNode*>(inputs()[0]);
+      auto* candidate_as_join = checked_cast<HashJoinNode*>(candidate);
       SchemaProjectionMap candidate_output_to_input =
           candidate_as_join->schema_mgr_->proj_maps[0].map(HashJoinProjection::OUTPUT,
                                                            HashJoinProjection::INPUT);
