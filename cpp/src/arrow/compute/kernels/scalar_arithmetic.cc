@@ -1950,7 +1950,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
 template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
                                                               FunctionDoc doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1962,7 +1962,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
                                                             FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -1977,7 +1977,7 @@ template <typename Op, typename IntOutType>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
     std::string name, FunctionDoc doc) {
   auto int_out_ty = TypeTraits<IntOutType>::type_singleton();
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
     auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
@@ -1998,7 +1998,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(std::string name,
                                                                    FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -2079,7 +2079,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
   using State = RoundOptionsWrapper<OptionsType>;
   static const OptionsType kDefaultOptions = OptionsType::Defaults();
   auto func = std::make_shared<ArithmeticIntegerToFloatingPointFunction>(
-      name, Arity::Unary(), doc, &kDefaultOptions);
+      name, Arity::Unary(), std::move(doc), &kDefaultOptions);
   for (const auto& ty : {float32(), float64(), decimal128(1, 0), decimal256(1, 0)}) {
     auto type_id = ty->id();
     auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -2111,7 +2111,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
     std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     if (!arrow::is_unsigned_integer(ty->id())) {
       auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
@@ -2125,7 +2125,7 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
                                                            FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : IntTypes()) {
     auto exec = TypeAgnosticBitWiseExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -2137,7 +2137,7 @@ std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
                                                          FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : IntTypes()) {
     auto exec = ShiftExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -2149,7 +2149,7 @@ std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
 template <typename Op, typename FunctionImpl = ArithmeticFloatingPointFunction>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
     std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -2161,8 +2161,8 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
     std::string name, FunctionDoc doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -2174,8 +2174,8 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(std::string name,
                                                                     FunctionDoc doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -2187,8 +2187,8 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(std::string 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
     std::string name, FunctionDoc doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto output = is_integer(ty->id()) ? float64() : ty;
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryNotNullEqualTypes, Op>(ty);

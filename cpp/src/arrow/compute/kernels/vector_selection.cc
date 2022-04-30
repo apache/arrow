@@ -2334,8 +2334,8 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                const std::vector<SelectionKernelDescr>& descrs,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
-  auto func =
-      std::make_shared<VectorFunction>(name, Arity::Binary(), doc, default_options);
+  auto func = std::make_shared<VectorFunction>(name, Arity::Binary(), std::move(doc),
+                                               default_options);
   for (auto& descr : descrs) {
     base_kernel.signature = KernelSignature::Make(
         {std::move(descr.input), selection_type}, OutputType(FirstType));
@@ -2429,7 +2429,7 @@ Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out
 
 std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
                                                            FunctionDoc doc) {
-  auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), std::move(doc));
 
   VectorKernel kernel;
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;

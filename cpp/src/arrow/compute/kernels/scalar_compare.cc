@@ -241,7 +241,7 @@ struct VarArgsCompareFunction : ScalarFunction {
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
 
   DCHECK_OK(func->AddKernel(
       {boolean(), boolean()}, boolean(),
@@ -313,7 +313,8 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
 std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
                                                     const ScalarFunction& func,
                                                     FunctionDoc doc) {
-  auto flipped_func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
+  auto flipped_func =
+      std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
     flipped_kernel.exec = MakeFlippedBinaryExec(kernel->exec);
@@ -695,7 +696,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc d
       ElementWiseAggregateOptions::Defaults();
 
   auto func = std::make_shared<VarArgsCompareFunction>(
-      name, Arity::VarArgs(), doc, &default_element_wise_aggregate_options);
+      name, Arity::VarArgs(), std::move(doc), &default_element_wise_aggregate_options);
   for (const auto& ty : NumericTypes()) {
     auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,

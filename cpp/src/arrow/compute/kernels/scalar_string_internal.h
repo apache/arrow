@@ -173,7 +173,7 @@ template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernel(
     std::string name, FunctionRegistry* registry, FunctionDoc doc,
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<ExecFunctor>(ty);
     ScalarKernel kernel{{ty}, ty, std::move(exec)};
@@ -187,7 +187,7 @@ template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernelWithState(
     std::string name, FunctionRegistry* registry, FunctionDoc doc,
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   {
     using t32 = ExecFunctor<StringType>;
     ScalarKernel kernel{{utf8()}, utf8(), t32::Exec, t32::State::Init};
@@ -272,7 +272,7 @@ struct StringPredicateFunctor {
 template <typename Predicate>
 void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
                              FunctionDoc doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<StringPredicateFunctor, Predicate>(ty);
     DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));

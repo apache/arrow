@@ -47,7 +47,7 @@ struct PythonUdf {
 
   Status operator()(compute::KernelContext* ctx, const compute::ExecBatch& batch,
                     Datum* out) {
-    return SafeCallIntoPython([=]() -> Status { return Execute(ctx, batch, out); });
+    return SafeCallIntoPython([&]() -> Status { return Execute(ctx, batch, out); });
   }
 
   Status Execute(compute::KernelContext* ctx, const compute::ExecBatch& batch,

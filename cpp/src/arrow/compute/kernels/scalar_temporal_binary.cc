@@ -331,7 +331,8 @@ struct BinaryTemporalFactory {
     DCHECK_NE(sizeof...(WithTypes), 0);
     BinaryTemporalFactory self{
         out_type, init,
-        std::make_shared<ScalarFunction>(name, Arity::Binary(), doc, default_options)};
+        std::make_shared<ScalarFunction>(name, Arity::Binary(), std::move(doc),
+                                         default_options)};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }

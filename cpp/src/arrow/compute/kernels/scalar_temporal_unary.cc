@@ -1477,9 +1477,9 @@ struct UnaryTemporalFactory {
       std::string name, OutputType out_type, FunctionDoc doc,
       const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
     DCHECK_NE(sizeof...(WithTypes), 0);
-    UnaryTemporalFactory self{
-        out_type, init,
-        std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options)};
+    UnaryTemporalFactory self{out_type, init,
+                              std::make_shared<ScalarFunction>(
+                                  name, Arity::Unary(), std::move(doc), default_options)};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }
@@ -1504,7 +1504,8 @@ struct SimpleUnaryTemporalFactory {
     DCHECK_NE(sizeof...(WithTypes), 0);
     SimpleUnaryTemporalFactory self{
         out_type, init,
-        std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options)};
+        std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc),
+                                         default_options)};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }

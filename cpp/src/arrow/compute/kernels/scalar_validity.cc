@@ -192,7 +192,8 @@ void MakeFunction(std::string name, FunctionDoc doc, std::vector<InputType> in_t
                   const FunctionOptions* default_options = NULLPTR,
                   KernelInit init = NULLPTR) {
   Arity arity{static_cast<int>(in_types.size())};
-  auto func = std::make_shared<ScalarFunction>(name, arity, doc, default_options);
+  auto func =
+      std::make_shared<ScalarFunction>(name, arity, std::move(doc), default_options);
 
   ScalarKernel kernel(std::move(in_types), out_type, exec, init);
   kernel.null_handling = null_handling;
@@ -221,9 +222,8 @@ Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   return Status::OK();
 }
 
-std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
-                                                     const FunctionDoc doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
 
   AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsFiniteOperator>(float64(), func.get());
@@ -241,7 +241,7 @@ std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
 }
 
 std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
 
   AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsInfOperator>(float64(), func.get());
@@ -259,7 +259,7 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name, FunctionDoc 
 }
 
 std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
 
   AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsNanOperator>(float64(), func.get());
