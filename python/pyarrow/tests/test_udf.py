@@ -40,7 +40,7 @@ def mock_udf_context(batch_length=10):
 def unary_func_fixture():
     def unary_function(ctx, scalar1):
         return pc.call_function("add", [scalar1, 1])
-    func_name = "y=x+k"
+    func_name = "y=x+1"
     unary_doc = {"summary": "add function",
                  "description": "test add function"}
     pc.register_scalar_function(unary_function,

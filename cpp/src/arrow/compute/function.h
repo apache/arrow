@@ -331,8 +331,8 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
 
   VectorFunction(std::string name, const Arity& arity, FunctionDoc doc,
                  const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity, std::move(doc),
-                                           default_options) {}
+      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity,
+                                           std::move(doc), default_options) {}
 
   /// \brief Add a simple kernel with given input/output types, no required
   /// state initialization, no data preallocation, and no preallocation of the
@@ -352,8 +352,9 @@ class ARROW_EXPORT ScalarAggregateFunction
 
   ScalarAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
                           const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<ScalarAggregateKernel>(
-            std::move(name), Function::SCALAR_AGGREGATE, arity, std::move(doc), default_options) {}
+      : detail::FunctionImpl<ScalarAggregateKernel>(std::move(name),
+                                                    Function::SCALAR_AGGREGATE, arity,
+                                                    std::move(doc), default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -367,8 +368,9 @@ class ARROW_EXPORT HashAggregateFunction
 
   HashAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
                         const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<HashAggregateKernel>(
-            std::move(name), Function::HASH_AGGREGATE, arity, std::move(doc), default_options) {}
+      : detail::FunctionImpl<HashAggregateKernel>(std::move(name),
+                                                  Function::HASH_AGGREGATE, arity,
+                                                  std::move(doc), default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -394,7 +396,8 @@ class ARROW_EXPORT MetaFunction : public Function {
 
   MetaFunction(std::string name, const Arity& arity, FunctionDoc doc,
                const FunctionOptions* default_options = NULLPTR)
-      : Function(std::move(name), Function::META, arity, std::move(doc), default_options) {}
+      : Function(std::move(name), Function::META, arity, std::move(doc),
+                 default_options) {}
 };
 
 /// @}

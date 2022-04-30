@@ -2312,6 +2312,10 @@ cdef class ScalarUdfContext:
     def memory_pool(self):
         """
         A memory pool for allocations (:class:`MemoryPool`).
+
+        This is the memory pool supplied by the user when they invoked
+        the function and it should be used in any calls to arrow that the
+        UDF makes if that call accepts a memory_pool.
         """
         return box_memory_pool(self.c_context.pool)
 
@@ -2319,7 +2323,7 @@ cdef class ScalarUdfContext:
 cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     """
     Helper function to generate the FunctionDoc
-    This function accepts a dictionary and expect the 
+    This function accepts a dictionary and expects the 
     summary(str), description(str) and arg_names(List[str]) keys. 
     """
     cdef:
@@ -2369,7 +2373,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     A scalar function is a function that executes elementwise
     operations on arrays or scalars, i.e. a scalar function must
     be computed row-by-row with no state where each output row 
-    is computed by only from its corresponding input row.
+    is computed only from its corresponding input row.
     In other words, all argument arrays have the same length,
     and the output array is of the same length as the arguments.
     Scalar functions are the only functions allowed in query engine
@@ -2414,7 +2418,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     >>> func_doc["description"] = "add a constant to a scalar"
     >>> 
     >>> def add_constant(ctx, array):
-    ...     return pc.add(array, 1)
+    ...     return pc.add(array, 1, memory_pool=ctx.memory_pool)
     >>> 
     >>> func_name = "py_add_func"
     >>> in_types = {"array": pa.int64()}
