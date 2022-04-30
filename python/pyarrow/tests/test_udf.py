@@ -106,9 +106,6 @@ def varargs_func_fixture():
                                 {
                                     "array1": pa.int64(),
                                     "array2": pa.int64(),
-                                    "array3": pa.int64(),
-                                    "array4": pa.int64(),
-                                    "array5": pa.int64(),
                                 },
                                 pa.int64())
     return varargs_function, func_name
@@ -137,7 +134,7 @@ def random_with_udf_ctx_func_fixture():
 @pytest.fixture(scope="session")
 def output_check_func_fixture():
     # The objective of this fixture is to evaluate,
-    # how the UDF interface respond to unexpected
+    # how the UDF interface responds to unexpected
     # output types. The types chosen at the test
     # end are either of different Arrow data type
     # or non-Arrow type.
