@@ -2042,7 +2042,7 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
 
 TEST(HashJoin, ChainedIntegerHashJoins) {
   Random64Bit rng(42);
-  int num_tests = 100;
+  int num_tests = 30;
   for (int i = 0; i < num_tests; i++) {
     ARROW_SCOPED_TRACE("Test ", std::to_string(i));
     TestSingleChainOfHashJoins(rng);
