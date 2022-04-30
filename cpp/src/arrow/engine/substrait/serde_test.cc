@@ -799,6 +799,8 @@ TEST(Substrait, GetRecordBatchReader) {
   ASSERT_OK_AND_ASSIGN(auto buf, engine::ParseJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto reader, engine::ExecuteSerializedPlan(buf));
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
+  // Note: assuming the binary.parquet file contains fixed amount of records
+  // in case of a test failure, re-evalaute the content in the file
   EXPECT_EQ(table->num_rows(), 12);
 #endif
 }
