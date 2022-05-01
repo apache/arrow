@@ -34,16 +34,6 @@
 #include <unordered_map>
 #include <utility>
 
-#ifdef _WIN32
-// Undefine preprocessor macros that interfere with AWS function / method names
-#ifdef GetMessage
-#undef GetMessage
-#endif
-#ifdef GetObject
-#undef GetObject
-#endif
-#endif
-
 #include "arrow/util/windows_fixup.h"
 
 #include "arrow/buffer.h"
@@ -176,7 +166,6 @@ Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
 
 Result<AzureOptions> AzureOptions::FromUri(const Uri& uri, std::string* out_path) {
   AzureOptions options;
-  AZURE_ASSERT(uri.has_host());
   const auto container = uri.host();
   auto path = uri.path();
   if (container.empty()) {

@@ -68,47 +68,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-function(ADD_ARROW_TEST_AZURE REL_TEST_NAME)
-  set(options)
-  set(one_value_args PREFIX)
-  set(multi_value_args LABELS PRECOMPILED_HEADERS)
-  cmake_parse_arguments(ARG
-                        "${options}"
-                        "${one_value_args}"
-                        "${multi_value_args}"
-                        ${ARGN})
-
-  if(ARG_PREFIX)
-    set(PREFIX ${ARG_PREFIX})
-  else()
-    set(PREFIX "arrow")
-  endif()
-
-  if(ARG_LABELS)
-    set(LABELS ${ARG_LABELS})
-  else()
-    set(LABELS "arrow-tests")
-  endif()
-
-  # Because of https://gitlab.kitware.com/cmake/cmake/issues/20289,
-  # we must generate the precompiled header on an executable target.
-  # Do that on the first unit test target (here "arrow-array-test")
-  # and reuse the PCH for the other tests.
-  if(ARG_PRECOMPILED_HEADERS)
-    set(PCH_ARGS PRECOMPILED_HEADERS ${ARG_PRECOMPILED_HEADERS})
-  else()
-    set(PCH_ARGS PRECOMPILED_HEADER_LIB "arrow-array-test")
-  endif()
-
-  add_test_case_azure(${REL_TEST_NAME}
-                PREFIX
-                ${PREFIX}
-                LABELS
-                ${LABELS}
-                ${PCH_ARGS}
-                ${ARG_UNPARSED_ARGUMENTS})
-endfunction()
-
 function(ADD_ARROW_FUZZ_TARGET REL_FUZZING_NAME)
   set(options)
   set(one_value_args PREFIX)

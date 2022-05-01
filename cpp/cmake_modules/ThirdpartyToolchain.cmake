@@ -423,6 +423,46 @@ else()
            "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_AZURE_CORE_URL})
+  set(AZURE_CORE_SOURCE_URL "$ENV{ARROW_AZURE_CORE_URL}")
+else()
+  set_urls(AZURE_CORE_SOURCE_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/azure-core_${ARROW_AZURE_CORE_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AZURE_IDENTITY_URL})
+  set(AZURE_IDENTITY_SOURCE_URL "$ENV{ARROW_AZURE_IDENTITY_URL}")
+else()
+  set_urls(AZURE_IDENTITY_SOURCE_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/azure-identity_${ARROW_AZURE_IDENTITY_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AZURE_STORAGE_BLOB_URL})
+  set(AZURE_STORAGE_BLOB_SOURCE_URL "$ENV{ARROW_AZURE_STORAGE_BLOB_URL}")
+else()
+  set_urls(AZURE_STORAGE_BLOB_SOURCE_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/azure-storage-blobs_${ARROW_AZURE_STORAGE_BLOB_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AZURE_STORAGE_COMMON_URL})
+  set(AZURE_STORAGE_COMMON_SOURCE_URL "$ENV{ARROW_AZURE_STORAGE_COMMON_URL}")
+else()
+  set_urls(AZURE_STORAGE_COMMON_SOURCE_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/azure-storage-common_${ARROW_AZURE_STORAGE_COMMON_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AZURE_STORAGE_FILES_DATALAKE_URL})
+  set(AZURE_STORAGE_FILES_DATALAKE_SOURCE_URL "$ENV{ARROW_AZURE_STORAGE_FILES_DATALAKE_URL}")
+else()
+  set_urls(AZURE_STORAGE_FILES_DATALAKE_SOURCE_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/azure-storage-files-datalake_${ARROW_AZURE_STORAGE_FILES_DATALAKE_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
@@ -4542,22 +4582,74 @@ macro(build_azuresdk)
     string(REPLACE "-" "_" _AZURESDK_LIB_NAME_PREFIX ${_AZURESDK_LIB_UPPER})
     list(APPEND AZURESDK_LIBRARIES_CPP "${_AZURESDK_LIB}-cpp")
     set(_AZURESDK_TARGET_NAME Azure::${_AZURESDK_LIB})
+    set(_AZURESDK_STATIC_LIBRARY
+        "${AZURESDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AZURESDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+    add_library(${_AZURESDK_TARGET_NAME} STATIC IMPORTED)
+    set_target_properties(${_AZURESDK_TARGET_NAME}
+                          PROPERTIES IMPORTED_LOCATION ${_AZURESDK_STATIC_LIBRARY}
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${AZURESDK_INCLUDE_DIR}")
+    set("${_AZURESDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AZURESDK_STATIC_LIBRARY})
     list(APPEND AZURESDK_LIBRARIES ${_AZURESDK_TARGET_NAME})
   endforeach()
+
+  externalproject_add(azure_core_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AZURE_CORE_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AZURE_CORE_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AZURESDK_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AZURE_CORE_STATIC_LIBRARY})
+  add_dependencies(Azure::azure-core azure_core_ep)
+
+  externalproject_add(azure_identity_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AZURE_IDENTITY_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AZURE_IDENTITY_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AZURESDK_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AZURE_IDENTITY_STATIC_LIBRARY})
+  add_dependencies(Azure::azure-identity azure_identity_ep)
+
+  externalproject_add(azure_storage_blobs_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AZURE_STORAGE_BLOB_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AZURE_STORAGE_BLOB_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AZURESDK_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AZURE_STORAGE_BLOBS_STATIC_LIBRARY})
+  add_dependencies(Azure::azure-storage-blobs azure_storage_blobs_ep)
+
+  externalproject_add(azure_storage_common_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AZURE_STORAGE_COMMON_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AZURE_STORAGE_COMMON_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AZURESDK_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AZURE_STORAGE_COMMON_STATIC_LIBRARY})
+  add_dependencies(Azure::azure-storage-common azure_storage_common_ep)
+
+  externalproject_add(azure_storage_files_datalake_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AZURE_STORAGE_FILES_DATALAKE_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AZURE_STORAGE_FILES_DATALAKE_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AZURESDK_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY})
+  add_dependencies(Azure::azure-storage-files-datalake azure_storage_files_datalake_ep)
+
+  set_property(TARGET Azure::azure-core
+                APPEND
+                PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl LibXml2::LibXml2)
 
   set(AZURESDK_LINK_LIBRARIES ${AZURESDK_LIBRARIES})
 endmacro()
 
 if(ARROW_AZURE)
+  # TODO - use resolve_dependency
   build_azuresdk()
-
   foreach(AZURESDK_LIBRARY_CPP ${AZURESDK_LIBRARIES_CPP})
     find_package(${AZURESDK_LIBRARY_CPP} CONFIG REQUIRED)
   endforeach()
-
   include_directories(SYSTEM ${AZURESDK_INCLUDE_DIR})
-  message(STATUS "Found AZURE SDK headers: ${AZURESDK_INCLUDE_DIR}")
-  message(STATUS "Found AZURE SDK libraries: ${AZURESDK_LINK_LIBRARIES}")
+  message(STATUS "Found Azure SDK headers: ${AZURESDK_INCLUDE_DIR}")
+  message(STATUS "Found Azure SDK libraries: ${AZURESDK_LINK_LIBRARIES}")
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

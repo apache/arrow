@@ -18,19 +18,21 @@
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_arrow_lib_azure(azurefs
+add_arrow_lib(azurefs
+                    SOURCES
+                    azurefs.cc
                     SHARED_LINK_LIBS
-                    ${ARROW_AZURE_LINK_LIBS}
+                    ${ARROW_LINK_LIBS}
                     SHARED_PRIVATE_LINK_LIBS
-                    ${ARROW_AZURE_SHARED_PRIVATE_LINK_LIBS}
+                    ${ARROW_SHARED_PRIVATE_LINK_LIBS}
                     STATIC_LINK_LIBS
-                    ${ARROW_AZURE_STATIC_LINK_LIBS})
+                    ${ARROW_STATIC_LINK_LIBS})
 
 arrow_install_all_headers("arrow/filesystem/azure")
 
 set(TEST_LIBS_AZURE ${ARROW_TEST_LINK_LIBS})
 list(APPEND TEST_LIBS_AZURE azurefs_shared)
-add_arrow_test_azure(azurefs_test EXTRA_LABELS filesystem
+add_arrow_test(azurefs_test EXTRA_LABELS filesystem
                      STATIC_LINK_LIBS
                      ${TEST_LIBS_AZURE}
                      )

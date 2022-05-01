@@ -48,6 +48,8 @@ class AzureEnvTestMixin {
 
   AzureEnvTestMixin() {}
 
+  // Test account info is fetched from environment variables.
+  // To run azure tests, first set these environment variables.
   const std::string& GetAdlsGen2AccountName() {
     static const std::string accountName = [&]() -> std::string {
       return std::getenv("ADLS_GEN2_ACCOUNT_NAME");
@@ -96,16 +98,6 @@ class AzureEnvTestMixin {
     }();
     return clientSecret;
   }
-
-  //  private:
-  //   const std::string& AdlsGen2AccountName = std::getenv("ADLS_GEN2_ACCOUNT_NAME");
-  //   const std::string& AdlsGen2AccountKey = std::getenv("ADLS_GEN2_ACCOUNT_KEY");
-  //   const std::string& AdlsGen2ConnectionStringValue = std::getenv(
-  //                                                    "ADLS_GEN2_CONNECTION_STRING");
-  //   const std::string& AdlsGen2SasUrl = std::getenv("ADLS_GEN2_SASURL");
-  //   const std::string& AadTenantIdValue = std::getenv("AAD_TENANT_ID");
-  //   const std::string& AadClientIdValue = std::getenv("AAD_CLIENT_ID");
-  //   const std::string& AadClientSecretValue = std::getenv("AAD_CLIENT_SECRET");
 };
 
 AzureOptions AzureEnvTestMixin::options_;
@@ -113,6 +105,9 @@ std::shared_ptr<AzureBlobFileSystem> AzureEnvTestMixin::fs_;
 std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
     AzureEnvTestMixin::gen2Client_;
 std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> AzureEnvTestMixin::gen1Client_;
+
+// A global test environment for setting up directories and files inside the specified
+// container.
 
 class SetupEnvironment : public ::testing::Environment, public AzureEnvTestMixin {
  public:
