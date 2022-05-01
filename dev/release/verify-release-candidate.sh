@@ -445,7 +445,7 @@ install_conda() {
 
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
-  local env="conda-${ENV:-source}"
+  local env="conda-${CONDA_ENV:-source}"
   local pyver=${PYTHON_VERSION:-3}
 
   if [ "${USE_CONDA}" -gt 0 ]; then
@@ -476,7 +476,7 @@ maybe_setup_conda() {
 
 maybe_setup_virtualenv() {
   # Optionally setup pip virtualenv with the passed dependencies
-  local env="venv-${ENV:-source}"
+  local env="venv-${VENV_ENV:-source}"
   local pyver=${PYTHON_VERSION:-3}
   local python=${PYTHON:-"python${pyver}"}
   local virtualenv="${ARROW_TMPDIR}/${env}"
@@ -982,8 +982,8 @@ test_linux_wheels() {
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
@@ -1013,8 +1013,8 @@ test_macos_wheels() {
         check_s3=OFF
       fi
 
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
@@ -1031,7 +1031,7 @@ test_macos_wheels() {
 
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
-        ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
+        VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
         # install pyarrow's universal2 wheel
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
         # check the imports and execute the unittests
