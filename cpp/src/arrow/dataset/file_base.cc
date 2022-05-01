@@ -270,12 +270,11 @@ Future<> FileWriter::Finish() {
 
 namespace {
 
-Status WriteBatch(
-    std::shared_ptr<RecordBatch> batch,
-    compute::Expression guarantee,
-    FileSystemDatasetWriteOptions write_options,
-    std::function<Status(std::shared_ptr<RecordBatch>,
-                         const Partitioning::PartitionPathFormat&)> write) {
+Status WriteBatch(std::shared_ptr<RecordBatch> batch, compute::Expression guarantee,
+                  FileSystemDatasetWriteOptions write_options,
+                  std::function<Status(std::shared_ptr<RecordBatch>,
+                                       const Partitioning::PartitionPathFormat&)>
+                      write) {
   ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
   batch.reset();  // drop to hopefully conserve memory
 
@@ -335,24 +334,23 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
  private:
   Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
                         compute::Expression guarantee) {
-    return WriteBatch(batch,
-                      guarantee,
-                      write_options_,
-                      [this](std::shared_ptr<RecordBatch> next_batch,
-                             const Partitioning::PartitionPathFormat& destination) {
-      return task_group_.AddTask([this, next_batch, destination] {
-        Future<> has_room = dataset_writer_->WriteRecordBatch(
-            next_batch, destination.directory, destination.prefix);
-        if (!has_room.is_finished()) {
-          // We don't have to worry about sequencing backpressure here since task_group_
-          // serves as our sequencer.  If batches continue to arrive after we pause they
-          // will queue up in task_group_ until we free up and call Resume
-          backpressure_control_->Pause();
-          return has_room.Then([this] { backpressure_control_->Resume(); });
-        }
-        return has_room;
-      });
-    });
+    return WriteBatch(
+        batch, guarantee, write_options_,
+        [this](std::shared_ptr<RecordBatch> next_batch,
+               const Partitioning::PartitionPathFormat& destination) {
+          return task_group_.AddTask([this, next_batch, destination] {
+            Future<> has_room = dataset_writer_->WriteRecordBatch(
+                next_batch, destination.directory, destination.prefix);
+            if (!has_room.is_finished()) {
+              // We don't have to worry about sequencing backpressure here since task_group_
+              // serves as our sequencer.  If batches continue to arrive after we pause they
+              // will queue up in task_group_ until we free up and call Resume
+              backpressure_control_->Pause();
+              return has_room.Then([this] { backpressure_control_->Resume(); });
+            }
+            return has_room;
+          });
+        });
   }
 
   std::shared_ptr<const KeyValueMetadata> custom_metadata_;
@@ -436,13 +434,11 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
   TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
           std::unique_ptr<internal::DatasetWriter> dataset_writer,
-          FileSystemDatasetWriteOptions write_options,
-          bool async_mode)
+          FileSystemDatasetWriteOptions write_options, bool async_mode)
       : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
         dataset_writer_(std::move(dataset_writer)),
         write_options_(std::move(write_options)),
-        backpressure_control_(this) {
-  }
+        backpressure_control_(this) {}
 
   static Result<compute::ExecNode*> Make(compute::ExecPlan* plan,
                                          std::vector<compute::ExecNode*> inputs,
@@ -459,8 +455,7 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
                           internal::DatasetWriter::Make(write_options));
 
     return plan->EmplaceNode<TeeNode>(plan, std::move(inputs), std::move(schema),
-                                      std::move(dataset_writer),
-                                      std::move(write_options),
+                                      std::move(dataset_writer), std::move(write_options),
                                       /*async_mode=*/true);
   }
 
@@ -475,25 +470,24 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
 
   Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
                         compute::Expression guarantee) {
-    return WriteBatch(batch,
-                      guarantee,
-                      write_options_,
-                      [this](std::shared_ptr<RecordBatch> next_batch,
-                             const Partitioning::PartitionPathFormat& destination) {
-        return task_group_.AddTask([this, next_batch, destination] {
-          util::tracing::Span span;
-          START_COMPUTE_SPAN(span, "Tee",
-                             {{"tee.base_dir", ToStringExtra()},
-                              {"tee.length", next_batch->num_rows()}});
-          Future<> has_room = dataset_writer_->WriteRecordBatch(
-              next_batch, destination.directory, destination.prefix);
-          if (!has_room.is_finished()) {
-            backpressure_control_->Pause();
-            return has_room.Then([this] { backpressure_control_->Resume(); });
-          }
-          return has_room;
+    return WriteBatch(
+        batch, guarantee, write_options_,
+        [this](std::shared_ptr<RecordBatch> next_batch,
+               const Partitioning::PartitionPathFormat& destination) {
+          return task_group_.AddTask([this, next_batch, destination] {
+            util::tracing::Span span;
+            START_COMPUTE_SPAN(span, "Tee",
+                               {{"tee.base_dir", ToStringExtra()},
+                                {"tee.length", next_batch->num_rows()}});
+            Future<> has_room = dataset_writer_->WriteRecordBatch(
+                next_batch, destination.directory, destination.prefix);
+            if (!has_room.is_finished()) {
+              backpressure_control_->Pause();
+              return has_room.Then([this] { backpressure_control_->Resume(); });
+            }
+            return has_room;
+          });
         });
-    });
   }
 
   void InputReceived(compute::ExecNode* input, compute::ExecBatch batch) override {
