@@ -342,9 +342,10 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
             Future<> has_room = dataset_writer_->WriteRecordBatch(
                 next_batch, destination.directory, destination.prefix);
             if (!has_room.is_finished()) {
-              // We don't have to worry about sequencing backpressure here since task_group_
-              // serves as our sequencer.  If batches continue to arrive after we pause they
-              // will queue up in task_group_ until we free up and call Resume
+              // We don't have to worry about sequencing backpressure here since
+              // task_group_ serves as our sequencer.  If batches continue to arrive after
+              // we pause they will queue up in task_group_ until we free up and call
+              // Resume
               backpressure_control_->Pause();
               return has_room.Then([this] { backpressure_control_->Resume(); });
             }
@@ -447,8 +448,7 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
 
     const WriteNodeOptions write_node_options =
         checked_cast<const WriteNodeOptions&>(options);
-    const FileSystemDatasetWriteOptions& write_options =
-        write_node_options.write_options;
+    const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
     const std::shared_ptr<Schema> schema = inputs[0]->output_schema();
 
     ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
