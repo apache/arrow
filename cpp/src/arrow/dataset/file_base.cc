@@ -482,9 +482,9 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
                              const Partitioning::PartitionPathFormat& destination) {
         return task_group_.AddTask([this, next_batch, destination] {
           util::tracing::Span span;
-          START_SPAN(span, "Tee",
-                     {{"tee.base_dir", ToStringExtra()},
-                      {"tee.length", next_batch.length}});
+          START_COMPUTE_SPAN(span, "Tee",
+                             {{"tee.base_dir", ToStringExtra()},
+                              {"tee.length", next_batch->num_rows()}});
           Future<> has_room = dataset_writer_->WriteRecordBatch(
               next_batch, destination.directory, destination.prefix);
           if (!has_room.is_finished()) {
