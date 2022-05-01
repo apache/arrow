@@ -951,6 +951,16 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size) {
 
 RecordBatchWriter::~RecordBatchWriter() {}
 
+Status RecordBatchWriter::WriteRecordBatch(
+    const RecordBatch& batch,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata) {
+  if (custom_metadata == nullptr) {
+    return WriteRecordBatch(batch);
+  }
+  return Status::NotImplemented(
+      "Write record batch with custom metadata not implemented");
+}
+
 Status RecordBatchWriter::WriteTable(const Table& table, int64_t max_chunksize) {
   TableBatchReader reader(table);
 

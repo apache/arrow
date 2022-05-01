@@ -820,6 +820,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
 
+    cdef cppclass CRecordBatchWithMetadata" arrow::RecordBatchWithMetadata":
+        shared_ptr[CRecordBatch] batch
+        # The struct in C++ does not actually have these two `const` qualifiers, but adding `const` gets Cython to not complain
+        const shared_ptr[const CKeyValueMetadata] custom_metadata
+
     cdef cppclass CTable" arrow::Table":
         CTable(const shared_ptr[CSchema]& schema,
                const vector[shared_ptr[CChunkedArray]]& columns)
@@ -1584,6 +1589,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchWriter" arrow::ipc::RecordBatchWriter":
         CStatus Close()
         CStatus WriteRecordBatch(const CRecordBatch& batch)
+        CStatus WriteRecordBatch(
+            const CRecordBatch& batch,
+            const shared_ptr[const CKeyValueMetadata]& metadata)
         CStatus WriteTable(const CTable& table, int64_t max_chunksize)
 
         CIpcWriteStats stats()
@@ -1618,6 +1626,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int num_record_batches()
 
         CResult[shared_ptr[CRecordBatch]] ReadRecordBatch(int i)
+
+        CResult[CRecordBatchWithMetadata] ReadRecordBatchWithCustomMetadata(int i)
 
         CIpcReadStats stats()
 

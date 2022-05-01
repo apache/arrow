@@ -945,6 +945,30 @@ def test_ipc_zero_copy_numpy():
     assert_frame_equal(df, rdf)
 
 
+@pytest.mark.pandas
+def test_ipc_batch_with_custom_metadata_roundtrip():
+    df = pd.DataFrame({'foo': [1.5]})
+
+    batch = pa.RecordBatch.from_pandas(df)
+    sink = pa.BufferOutputStream()
+
+    batch_count = 2
+    with pa.ipc.new_file(sink, batch.schema) as writer:
+        for i in range(batch_count):
+            writer.write_batch(batch, {"batch_id": str(i)})
+
+    buffer = sink.getvalue()
+    source = pa.BufferReader(buffer)
+
+    with pa.ipc.open_file(source) as reader:
+        batch_with_metas = [reader.get_batch_with_custom_metadata(
+            i) for i in range(reader.num_record_batches)]
+
+    for i in range(batch_count):
+        assert batch_with_metas[i].batch.num_rows == 1
+        assert batch_with_metas[i].custom_metadata == {"batch_id": str(i)}
+
+
 def test_ipc_stream_no_batches():
     # ARROW-2307
     table = pa.Table.from_arrays([pa.array([1, 2, 3, 4]),

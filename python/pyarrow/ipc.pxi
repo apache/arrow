@@ -472,17 +472,22 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         else:
             raise ValueError(type(table_or_batch))
 
-    def write_batch(self, RecordBatch batch):
+    def write_batch(self, RecordBatch batch, custom_metadata=None):
         """
         Write RecordBatch to stream.
 
         Parameters
         ----------
         batch : RecordBatch
+        custom_metadata : dict
+            Keys and values must be string-like / coercible to bytes
         """
+        metadata = ensure_metadata(custom_metadata, allow_none=True)
+        c_meta = pyarrow_unwrap_metadata(metadata)
+
         with nogil:
             check_status(self.writer.get()
-                         .WriteRecordBatch(deref(batch.batch)))
+                         .WriteRecordBatch(deref(batch.batch), c_meta))
 
     def write_table(self, Table table, max_chunksize=None):
         """
@@ -832,6 +837,26 @@ cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
             self.writer = GetResultValue(
                 MakeFileWriter(c_sink, schema.sp_schema, self.options))
 
+_RecordBatchWithMetadata = namedtuple(
+    'RecordBatchWithMetadata',
+    ('batch', 'custom_metadata'))
+
+
+class RecordBatchWithMetadata(_RecordBatchWithMetadata):
+    """RecordBatch with its custom metadata
+
+    Parameters
+    ----------
+    batch: record batch
+    custom_metadata: record batch's custom metadata
+    """
+    __slots__ = ()
+
+
+@staticmethod
+cdef _wrap_record_batch_with_metadata(CRecordBatchWithMetadata c):
+    return RecordBatchWithMetadata(pyarrow_wrap_batch(c.batch), pyarrow_wrap_metadata(c.custom_metadata))
+
 
 cdef class _RecordBatchFileReader(_Weakrefable):
     cdef:
@@ -907,6 +932,32 @@ cdef class _RecordBatchFileReader(_Weakrefable):
     # TODO(wesm): ARROW-503: Function was renamed. Remove after a period of
     # time has passed
     get_record_batch = get_batch
+
+    def get_batch_with_custom_metadata(self, int i):
+        """
+        Read the record batch with the given index along with its custom metadata
+
+        Parameters
+        ----------
+        i : int
+            The index of the record batch in the IPC file.
+
+        Returns
+        -------
+        batch : RecordBatch
+        custom_metadata : KeyValueMetadata or dict
+        """
+        cdef:
+            CRecordBatchWithMetadata batch_with_metadata
+
+        if i < 0 or i >= self.num_record_batches:
+            raise ValueError('Batch number {0} out of range'.format(i))
+
+        with nogil:
+            batch_with_metadata = GetResultValue(
+                self.reader.get().ReadRecordBatchWithCustomMetadata(i))
+
+        return _wrap_record_batch_with_metadata(batch_with_metadata)
 
     def read_all(self):
         """

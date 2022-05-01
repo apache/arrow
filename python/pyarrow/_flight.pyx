@@ -1086,14 +1086,18 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         ----------
         batch : RecordBatch
         """
+        cdef:
+            shared_ptr[const CKeyValueMetadata] custom_metadata
+
         # Override superclass method to use check_flight_status so we
         # can generate FlightWriteSizeExceededError. We don't do this
         # for write_table as callers who intend to handle the error
         # and retry with a smaller batch should be working with
         # individual batches to have control.
+
         with nogil:
             check_flight_status(
-                self._writer().WriteRecordBatch(deref(batch.batch)))
+                self._writer().WriteRecordBatch(deref(batch.batch), custom_metadata))
 
     def write_table(self, Table table, max_chunksize=None, **kwargs):
         """
