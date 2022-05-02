@@ -105,6 +105,74 @@ struct NonZonedLocalizer {
     return t;
   }
 
+  template <typename Duration, typename Unit>
+  Duration GetOrigin(int64_t arg, const RoundTemporalOptions* options) const {
+    const Duration t = Duration{arg};
+    switch (options->unit) {
+      case compute::CalendarUnit::DAY:
+        return duration_cast<Duration>(floor<arrow_vendored::date::months>(t));
+      case compute::CalendarUnit::HOUR:
+        return duration_cast<Duration>(floor<days>(t));
+      case compute::CalendarUnit::MINUTE:
+        return duration_cast<Duration>(floor<std::chrono::hours>(t));
+      case compute::CalendarUnit::SECOND:
+        return duration_cast<Duration>(floor<std::chrono::minutes>(t));
+      case compute::CalendarUnit::MILLISECOND:
+        return duration_cast<Duration>(floor<std::chrono::seconds>(t));
+      case compute::CalendarUnit::MICROSECOND:
+        return duration_cast<Duration>(floor<std::chrono::milliseconds>(t));
+      case compute::CalendarUnit::NANOSECOND:
+        return duration_cast<Duration>(floor<std::chrono::microseconds>(t));
+      default:
+        return t;
+    }
+  }
+
+  template <typename Duration, typename Unit>
+  Duration FloorTimePoint(int64_t arg, const RoundTemporalOptions* options) const {
+    const sys_time<Duration> t = sys_time<Duration>(Duration{arg});
+
+    if (options->multiple == 1) {
+      // Round to a multiple of unit since epoch start (1970-01-01 00:00:00).
+      return duration_cast<Duration>(floor<Unit>(t).time_since_epoch());
+    } else if (options->calendar_based_origin) {
+      // Round to a multiple of units since the last greater unit.
+      // For example: round to multiple of days since the beginning of the month or
+      // to hours since the beginning of the day.
+      const Unit unit = Unit{options->multiple};
+      const Duration origin = GetOrigin<Duration, Unit>(arg, options);
+      return duration_cast<Duration>((t - origin).time_since_epoch() / unit * unit +
+                                     origin);
+    } else {
+      // Round to a multiple of units * options.multiple since epoch start
+      // (1970-01-01 00:00:00).
+      const Unit unit = Unit{options->multiple};
+      const Unit d = floor<Unit>(t).time_since_epoch();
+      const Unit m =
+          (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
+      return duration_cast<Duration>(m);
+    }
+  }
+
+  template <typename Duration, typename Unit>
+  Duration CeilTimePoint(int64_t arg, const RoundTemporalOptions* options) const {
+    const Duration d = FloorTimePoint<Duration, Unit>(arg, options);
+    if (options->strict_ceil || d.count() < arg) {
+      return d + duration_cast<Duration>(Unit{options->multiple});
+    }
+    return d;
+  }
+
+  template <typename Duration, typename Unit>
+  Duration RoundTimePoint(const int64_t arg, const RoundTemporalOptions* options) const {
+    const Duration f = FloorTimePoint<Duration, Unit>(arg, options);
+    Duration c = f;
+    if (f.count() < arg) {
+      c += duration_cast<Duration>(Unit{options->multiple});
+    }
+    return (arg - f.count() >= c.count() - arg) ? c : f;
+  }
+
   sys_days ConvertDays(sys_days d) const { return d; }
 };
 
@@ -119,19 +187,152 @@ struct ZonedLocalizer {
     return tz->to_local(sys_time<Duration>(Duration{t}));
   }
 
+  template <typename Duration, typename Unit>
+  inline Duration GetOrigin(local_time<Duration> lt,
+                            const RoundTemporalOptions* options) const {
+    const Unit unit = Unit{options->multiple};
+    switch (options->unit) {
+      case compute::CalendarUnit::DAY: {
+        const year_month_day ymd{floor<days>(lt)};
+        const local_days origin =
+            local_days{year_month_day(ymd.year() / ymd.month() / 1)};
+        return duration_cast<Duration>(
+            ((lt - origin) / unit * unit + origin).time_since_epoch());
+      }
+      case compute::CalendarUnit::HOUR: {
+        const auto origin = floor<days>(lt);
+        return duration_cast<Duration>(
+            ((lt - origin) / unit * unit + origin).time_since_epoch());
+      }
+      case compute::CalendarUnit::MINUTE: {
+        const auto origin = floor<std::chrono::hours>(lt);
+        return duration_cast<Duration>(
+            ((lt - origin) / unit * unit + origin).time_since_epoch());
+      }
+      case compute::CalendarUnit::SECOND: {
+        const auto origin = floor<std::chrono::minutes>(lt);
+        return duration_cast<Duration>(
+            ((lt - origin) / unit * unit + origin).time_since_epoch());
+      }
+      case compute::CalendarUnit::MILLISECOND: {
+        const auto origin = floor<std::chrono::seconds>(lt);
+        return duration_cast<Duration>(
+            ((lt - origin) / unit * unit + origin).time_since_epoch());
+      }
+      case compute::CalendarUnit::MICROSECOND: {
+        const auto origin = floor<std::chrono::milliseconds>(lt);
+        return duration_cast<Duration>(
+            ((lt - origin) / unit * unit + origin).time_since_epoch());
+      }
+      case compute::CalendarUnit::NANOSECOND: {
+        const auto origin = floor<std::chrono::microseconds>(lt);
+        return duration_cast<Duration>(
+            ((lt - origin) / unit * unit + origin).time_since_epoch());
+      }
+      default:
+        return lt.time_since_epoch();
+    }
+  }
+
+  template <typename Duration, typename Unit>
+  inline Duration FloorLocalToSys(const int64_t arg, const local_time<Duration> lt,
+                           const RoundTemporalOptions* options) const {
+    try {
+      return zoned_time<Duration>(tz, lt).get_sys_time().time_since_epoch();
+    } catch (const arrow_vendored::date::ambiguous_local_time&) {
+      // In case we hit an ambiguous period we round to a time multiple just prior,
+      // convert to UTC and add the time unit we're rounding to.
+      const arrow_vendored::date::local_info li = tz->get_info(lt);
+      const Unit unit = Unit{options->multiple};
+
+      const Duration d = zoned_time<Duration>(tz, lt - li.second.offset)
+                             .get_sys_time()
+                             .time_since_epoch();
+      const Unit t3 =
+          (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
+      const Duration t4 = duration_cast<Duration>(t3 + li.first.offset);
+      if (arg < t4.count()) {
+        return duration_cast<Duration>(t3 + li.second.offset);
+      }
+      return t4;
+    } catch (const arrow_vendored::date::nonexistent_local_time&) {
+      // In case we hit a nonexistent period we calculate the duration between the
+      // start of nonexistent period and rounded to moment in UTC (nonexistent_offset).
+      // We then floor the beginning of the nonexisting period in local time and add
+      // nonexistent_offset to that time point in UTC.
+      const arrow_vendored::date::local_info li = tz->get_info(lt);
+      const Unit unit = Unit{options->multiple};
+
+      const Duration d =
+          zoned_time<Duration>(tz, lt, arrow_vendored::date::choose::earliest)
+              .get_sys_time()
+              .time_since_epoch();
+      const Unit t3 =
+          (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
+      const Duration nonexistent_offset = d - lt.time_since_epoch();
+      return duration_cast<Duration>(t3 + li.second.offset) + nonexistent_offset;
+    }
+  }
+
+  template <typename Duration, typename Unit>
+  Duration FloorTimePoint(const int64_t arg, const RoundTemporalOptions* options) const {
+    local_time<Duration> lt = tz->to_local(sys_time<Duration>(Duration{arg}));
+    const Unit d = floor<Unit>(lt).time_since_epoch();
+    Unit d2;
+
+    if (options->multiple == 1) {
+      d2 = d;
+    } else if (options->calendar_based_origin) {
+      // Round to a multiple of units since the last greater unit.
+      // For example: round to multiple of days since the beginning of the month or
+      // to hours since the beginning of the day.
+      d2 = duration_cast<Unit>(GetOrigin<Duration, Unit>(lt, options));
+    } else {
+      const Unit unit = Unit{options->multiple};
+      d2 = (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
+    }
+    return FloorLocalToSys<Duration, Unit>(arg, local_time<Duration>(duration_cast<Duration>(d2)), options);
+  }
+
+  template <typename Duration, typename Unit>
+  Duration CeilTimePoint(const int64_t arg, const RoundTemporalOptions* options) const {
+    const Duration d = FloorTimePoint<Duration, Unit>(arg, options);
+    if (options->strict_ceil || options->calendar_based_origin) {
+      const local_time<Duration> lt = tz->to_local(sys_time<Duration>(d)) +
+                                      duration_cast<Duration>(Unit{options->multiple});
+      return FloorLocalToSys<Duration, Unit>(arg, lt, options);
+    }
+    if (d.count() < arg) {
+      return FloorTimePoint<Duration, Unit>(
+          arg + duration_cast<Duration>(Unit{options->multiple}).count(), options);
+    }
+    return d;
+  }
+
+  template <typename Duration, typename Unit>
+  Duration RoundTimePoint(const int64_t arg, const RoundTemporalOptions* options) const {
+    const Duration f = FloorTimePoint<Duration, Unit>(arg, options);
+    Duration c;
+    if (f.count() == arg) {
+      c = f;
+    } else {
+      if (options->strict_ceil || options->calendar_based_origin) {
+        const local_time<Duration> lt = tz->to_local(sys_time<Duration>(f)) +
+                                        duration_cast<Duration>(Unit{options->multiple});
+        c = FloorLocalToSys<Duration, Unit>(arg, lt, options);
+      } else {
+        c = FloorTimePoint<Duration, Unit>(
+            arg + duration_cast<Duration>(Unit{options->multiple}).count(), options);
+      }
+    }
+    return (arg - f.count() >= c.count() - arg) ? c : f;
+  }
+
   template <typename Duration>
   Duration ConvertLocalToSys(Duration t, Status* st) const {
-    try {
-      return zoned_time<Duration>{tz, local_time<Duration>(t)}
-          .get_sys_time()
-          .time_since_epoch();
-    } catch (const arrow_vendored::date::nonexistent_local_time& e) {
-      *st = Status::Invalid("Local time does not exist: ", e.what());
-      return Duration{0};
-    } catch (const arrow_vendored::date::ambiguous_local_time& e) {
-      *st = Status::Invalid("Local time is ambiguous: ", e.what());
-      return Duration{0};
-    }
+    return zoned_time<Duration>{tz, local_time<Duration>(t)}
+        .get_sys_time()
+        .time_since_epoch();
   }
 
   local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }

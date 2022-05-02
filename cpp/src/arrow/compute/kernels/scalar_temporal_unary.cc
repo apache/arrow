@@ -68,7 +68,11 @@ using arrow_vendored::date::literals::wed;
 using internal::applicator::SimpleUnary;
 using std::chrono::duration_cast;
 using std::chrono::hours;
+using std::chrono::microseconds;
+using std::chrono::milliseconds;
 using std::chrono::minutes;
+using std::chrono::nanoseconds;
+using std::chrono::seconds;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
 using WeekState = OptionsWrapper<WeekOptions>;
@@ -689,12 +693,36 @@ struct IsDaylightSavings {
 // Round temporal values to given frequency
 
 template <typename Duration, typename Localizer>
-year_month_day GetFlooredYmd(int64_t arg, int multiple, Localizer localizer_) {
+year_month_day GetFlooredYmd(int64_t arg, const int multiple,
+                             const RoundTemporalOptions& options, Localizer localizer_) {
   year_month_day ymd{floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
 
   if (multiple == 1) {
+    // Round to a multiple of months since epoch start (1970-01-01 00:00:00).
     return year_month_day(ymd.year() / ymd.month() / 1);
+  } else if (options.calendar_based_origin) {
+    // Round to a multiple of months since the last year.
+    //
+    // Note: compute::CalendarUnit::YEAR is the greatest unit so there is no logical time
+    // point to use as origin. compute::CalendarUnit::DAY is covered by FloorTimePoint.
+    // Therefore compute::CalendarUnit::YEAR and compute::CalendarUnit::DAY are not
+    // covered here.
+    switch (options.unit) {
+      case compute::CalendarUnit::MONTH: {
+        const auto m =
+            static_cast<uint32_t>(ymd.month()) / options.multiple * options.multiple;
+        return year_month_day(ymd.year() / 1 / 1) + months{m};
+      }
+      case compute::CalendarUnit::QUARTER: {
+        const auto m = static_cast<uint32_t>(ymd.month()) / (options.multiple * 3) *
+                       (options.multiple * 3);
+        return year_month_day(ymd.year() / 1 / 1) + months{m};
+      }
+      default:
+        return ymd;
+    }
   } else {
+    // Round to month * options.multiple since epoch start (1970-01-01 00:00:00).
     int32_t total_months_origin = 1970 * 12;
     int32_t total_months = static_cast<int32_t>(ymd.year()) * 12 +
                            static_cast<int32_t>(static_cast<uint32_t>(ymd.month())) - 1 -
@@ -705,41 +733,40 @@ year_month_day GetFlooredYmd(int64_t arg, int multiple, Localizer localizer_) {
     } else {
       total_months = (total_months - multiple + 1) / multiple * multiple;
     }
-    return year_month_day(year{1970} / jan / 0) + months{total_months};
-  }
-}
-
-template <typename Duration, typename Unit, typename Localizer>
-const Duration FloorTimePoint(const int64_t arg, const int64_t multiple,
-                              Localizer localizer_, Status* st) {
-  const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
-  const Unit d = floor<Unit>(t).time_since_epoch();
-
-  if (multiple == 1) {
-    return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(d),
-                                                           st);
-  } else {
-    const Unit unit = Unit{multiple};
-    const Unit m =
-        (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
-    return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(m),
-                                                           st);
+    return year_month_day(year{1970} / jan / 1) + months{total_months};
   }
 }
 
 template <typename Duration, typename Localizer>
-const Duration FloorWeekTimePoint(const int64_t arg, const int64_t multiple,
+const Duration FloorWeekTimePoint(const int64_t arg, const RoundTemporalOptions& options,
                                   Localizer localizer_, const Duration weekday_offset,
                                   Status* st) {
   const auto t = localizer_.template ConvertTimePoint<Duration>(arg) + weekday_offset;
   const weeks d = floor<weeks>(t).time_since_epoch();
 
-  if (multiple == 1) {
+  if (options.multiple == 1) {
+    // Round to a multiple of weeks since epoch start (1970-01-01 00:00:00).
     return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(d),
                                                            st) -
            weekday_offset;
+  } else if (options.calendar_based_origin) {
+    // Round to a multiple of weeks since year prior.
+    weekday wd_;
+    if (options.week_starts_monday) {
+      wd_ = thu;
+    } else {
+      wd_ = wed;
+    }
+    const auto y = year_month_day{floor<days>(t)}.year();
+    const auto start =
+        localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
+    const weeks unit = weeks{options.multiple};
+    const auto m = (t - start) / unit * unit + start;
+    return localizer_.template ConvertLocalToSys<Duration>(m.time_since_epoch(), st);
   } else {
-    const weeks unit = weeks{multiple};
+    // Round to a multiple of weeks * options.multiple since epoch start
+    // (1970-01-01 00:00:00).
+    const weeks unit = weeks{options.multiple};
     const weeks m =
         (d.count() >= 0) ? d / unit * unit : (d - unit + weeks{1}) / unit * unit;
     return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(m),
@@ -748,56 +775,31 @@ const Duration FloorWeekTimePoint(const int64_t arg, const int64_t multiple,
   }
 }
 
-template <typename Duration, typename Unit, typename Localizer>
-Duration CeilTimePoint(const int64_t arg, const int64_t multiple, Localizer localizer_,
-                       Status* st) {
-  const Duration f =
-      FloorTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
-  const auto cl =
-      localizer_.template ConvertTimePoint<Duration>(f.count()).time_since_epoch();
-  const Duration cs =
-      localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(cl), st);
-  if (cs >= Duration{arg}) {
-    return cs;
-  }
-  return localizer_.template ConvertLocalToSys<Duration>(
-      duration_cast<Duration>(cl + duration_cast<Duration>(Unit{multiple})), st);
-}
-
 template <typename Duration, typename Localizer>
-Duration CeilWeekTimePoint(const int64_t arg, const int64_t multiple,
+Duration CeilWeekTimePoint(const int64_t arg, const RoundTemporalOptions& options,
                            Localizer localizer_, const Duration weekday_offset,
                            Status* st) {
-  const Duration f = FloorWeekTimePoint<Duration, Localizer>(arg, multiple, localizer_,
+  const Duration f = FloorWeekTimePoint<Duration, Localizer>(arg, options, localizer_,
                                                              weekday_offset, st);
   const auto cl =
       localizer_.template ConvertTimePoint<Duration>(f.count()).time_since_epoch();
   const Duration cs =
       localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(cl), st);
-  if (cs >= Duration{arg}) {
-    return cs;
+  if (options.strict_ceil || cs < Duration{arg}) {
+    return localizer_.template ConvertLocalToSys<Duration>(
+        duration_cast<Duration>(cl + duration_cast<Duration>(weeks{options.multiple})),
+        st);
   }
-  return localizer_.template ConvertLocalToSys<Duration>(
-      duration_cast<Duration>(cl + duration_cast<Duration>(weeks{multiple})), st);
-}
-
-template <typename Duration, typename Unit, typename Localizer>
-Duration RoundTimePoint(const int64_t arg, const int64_t multiple, Localizer localizer_,
-                        Status* st) {
-  const Duration f =
-      FloorTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
-  const Duration c =
-      CeilTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
-  return (Duration{arg} - f >= c - Duration{arg}) ? c : f;
+  return cs;
 }
 
 template <typename Duration, typename Localizer>
-Duration RoundWeekTimePoint(const int64_t arg, const int64_t multiple,
+Duration RoundWeekTimePoint(const int64_t arg, const RoundTemporalOptions& options,
                             Localizer localizer_, const Duration weekday_offset,
                             Status* st) {
-  const Duration f = FloorWeekTimePoint<Duration, Localizer>(arg, multiple, localizer_,
+  const Duration f = FloorWeekTimePoint<Duration, Localizer>(arg, options, localizer_,
                                                              weekday_offset, st);
-  const Duration c = CeilWeekTimePoint<Duration, Localizer>(arg, multiple, localizer_,
+  const Duration c = CeilWeekTimePoint<Duration, Localizer>(arg, options, localizer_,
                                                             weekday_offset, st);
   return (Duration{arg} - f >= c - Duration{arg}) ? c : f;
 }
@@ -812,52 +814,45 @@ struct CeilTemporal {
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = CeilTimePoint<Duration, std::chrono::nanoseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template CeilTimePoint<Duration, nanoseconds>(arg, &options);
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = CeilTimePoint<Duration, std::chrono::microseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template CeilTimePoint<Duration, microseconds>(arg, &options);
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = CeilTimePoint<Duration, std::chrono::milliseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template CeilTimePoint<Duration, milliseconds>(arg, &options);
         break;
       case compute::CalendarUnit::SECOND:
-        t = CeilTimePoint<Duration, std::chrono::seconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template CeilTimePoint<Duration, seconds>(arg, &options);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = CeilTimePoint<Duration, minutes, Localizer>(arg, options.multiple, localizer_,
-                                                        st);
+        t = localizer_.template CeilTimePoint<Duration, minutes>(arg, &options);
         break;
       case compute::CalendarUnit::HOUR:
-        t = CeilTimePoint<Duration, std::chrono::hours, Localizer>(arg, options.multiple,
-                                                                   localizer_, st);
+        t = localizer_.template CeilTimePoint<Duration, hours>(arg, &options);
         break;
       case compute::CalendarUnit::DAY:
-        t = CeilTimePoint<Duration, days, Localizer>(arg, options.multiple, localizer_,
-                                                     st);
+        t = localizer_.template CeilTimePoint<Duration, days>(arg, &options);
         break;
       case compute::CalendarUnit::WEEK:
         if (options.week_starts_monday) {
-          t = CeilWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
-                                                     days{3}, st);
+          t = CeilWeekTimePoint<Duration, Localizer>(arg, options, localizer_, days{3},
+                                                     st);
         } else {
-          t = CeilWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
-                                                     days{4}, st);
+          t = CeilWeekTimePoint<Duration, Localizer>(arg, options, localizer_, days{4},
+                                                     st);
         }
         break;
       case compute::CalendarUnit::MONTH: {
-        year_month_day ymd =
-            GetFlooredYmd<Duration, Localizer>(arg, options.multiple, localizer_);
+        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, options.multiple,
+                                                                options, localizer_);
         ymd += months{options.multiple};
         t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
       }
       case compute::CalendarUnit::QUARTER: {
-        year_month_day ymd =
-            GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple, localizer_);
+        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple,
+                                                                options, localizer_);
         ymd += months{3 * options.multiple};
         t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
@@ -890,51 +885,44 @@ struct FloorTemporal {
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = FloorTimePoint<Duration, std::chrono::nanoseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template FloorTimePoint<Duration, nanoseconds>(arg, &options);
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = FloorTimePoint<Duration, std::chrono::microseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template FloorTimePoint<Duration, microseconds>(arg, &options);
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = FloorTimePoint<Duration, std::chrono::milliseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template FloorTimePoint<Duration, milliseconds>(arg, &options);
         break;
       case compute::CalendarUnit::SECOND:
-        t = FloorTimePoint<Duration, std::chrono::seconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template FloorTimePoint<Duration, seconds>(arg, &options);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = FloorTimePoint<Duration, minutes, Localizer>(arg, options.multiple,
-                                                         localizer_, st);
+        t = localizer_.template FloorTimePoint<Duration, minutes>(arg, &options);
         break;
       case compute::CalendarUnit::HOUR:
-        t = FloorTimePoint<Duration, std::chrono::hours, Localizer>(arg, options.multiple,
-                                                                    localizer_, st);
+        t = localizer_.template FloorTimePoint<Duration, hours>(arg, &options);
         break;
       case compute::CalendarUnit::DAY:
-        t = FloorTimePoint<Duration, days, Localizer>(arg, options.multiple, localizer_,
-                                                      st);
+        t = localizer_.template FloorTimePoint<Duration, days>(arg, &options);
         break;
       case compute::CalendarUnit::WEEK:
         if (options.week_starts_monday) {
-          t = FloorWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
-                                                      days{3}, st);
+          t = FloorWeekTimePoint<Duration, Localizer>(arg, options, localizer_, days{3},
+                                                      st);
         } else {
-          t = FloorWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
-                                                      days{4}, st);
+          t = FloorWeekTimePoint<Duration, Localizer>(arg, options, localizer_, days{4},
+                                                      st);
         }
         break;
       case compute::CalendarUnit::MONTH: {
-        year_month_day ymd =
-            GetFlooredYmd<Duration, Localizer>(arg, options.multiple, localizer_);
+        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, options.multiple,
+                                                                options, localizer_);
         t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
       }
       case compute::CalendarUnit::QUARTER: {
-        year_month_day ymd =
-            GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple, localizer_);
+        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple,
+                                                                options, localizer_);
         t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
       }
@@ -965,46 +953,39 @@ struct RoundTemporal {
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = RoundTimePoint<Duration, std::chrono::nanoseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template RoundTimePoint<Duration, nanoseconds>(arg, &options);
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = RoundTimePoint<Duration, std::chrono::microseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template RoundTimePoint<Duration, microseconds>(arg, &options);
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = RoundTimePoint<Duration, std::chrono::milliseconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template RoundTimePoint<Duration, milliseconds>(arg, &options);
         break;
       case compute::CalendarUnit::SECOND:
-        t = RoundTimePoint<Duration, std::chrono::seconds, Localizer>(
-            arg, options.multiple, localizer_, st);
+        t = localizer_.template RoundTimePoint<Duration, seconds>(arg, &options);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = RoundTimePoint<Duration, minutes, Localizer>(arg, options.multiple,
-                                                         localizer_, st);
+        t = localizer_.template RoundTimePoint<Duration, minutes>(arg, &options);
         break;
       case compute::CalendarUnit::HOUR:
-        t = RoundTimePoint<Duration, std::chrono::hours, Localizer>(arg, options.multiple,
-                                                                    localizer_, st);
+        t = localizer_.template RoundTimePoint<Duration, hours>(arg, &options);
         break;
       case compute::CalendarUnit::DAY:
-        t = RoundTimePoint<Duration, days, Localizer>(arg, options.multiple, localizer_,
-                                                      st);
+        t = localizer_.template RoundTimePoint<Duration, days>(arg, &options);
         break;
       case compute::CalendarUnit::WEEK:
         if (options.week_starts_monday) {
-          t = RoundWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
-                                                      days{3}, st);
+          t = RoundWeekTimePoint<Duration, Localizer>(arg, options, localizer_, days{3},
+                                                      st);
         } else {
-          t = RoundWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
-                                                      days{4}, st);
+          t = RoundWeekTimePoint<Duration, Localizer>(arg, options, localizer_, days{4},
+                                                      st);
         }
         break;
       case compute::CalendarUnit::MONTH: {
         auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
-        year_month_day ymd =
-            GetFlooredYmd<Duration, Localizer>(arg, options.multiple, localizer_);
+        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, options.multiple,
+                                                                options, localizer_);
 
         auto f = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
         ymd += months{options.multiple};
@@ -1015,8 +996,8 @@ struct RoundTemporal {
       }
       case compute::CalendarUnit::QUARTER: {
         auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
-        year_month_day ymd =
-            GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple, localizer_);
+        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple,
+                                                                options, localizer_);
 
         auto f = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
         ymd += months{3 * options.multiple};
