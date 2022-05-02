@@ -469,7 +469,7 @@ maybe_setup_conda() {
     conda activate $env
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
-    echo "Deactivate the environment using `conda deactive` before running the verification script."
+    echo "Deactivate the environment using \`conda deactivate\` before running the verification script."
     return 1
   fi
 }
