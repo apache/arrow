@@ -382,8 +382,8 @@ install_go() {
     return 0
   fi
 
-  if which go > /dev/null 2>&1; then
-    show_info "Found $(go version) at $(which go)"
+  if command -v go > /dev/null; then
+    show_info "Found $(go version) at $(command -v go)"
     return 0
   fi
 
