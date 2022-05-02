@@ -36,10 +36,18 @@ def mock_udf_context(batch_length=10):
     return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
 
 
+class MyError(RuntimeError):
+    pass
+
+
 @pytest.fixture(scope="session")
 def unary_func_fixture():
-    def unary_function(ctx, scalar1):
-        return pc.call_function("add", [scalar1, 1])
+    """
+    Register a unary scalar function.
+    """
+    def unary_function(ctx, x):
+        return pc.call_function("add", [x, 1],
+                                memory_pool=ctx.memory_pool)
     func_name = "y=x+1"
     unary_doc = {"summary": "add function",
                  "description": "test add function"}
@@ -53,8 +61,12 @@ def unary_func_fixture():
 
 @pytest.fixture(scope="session")
 def binary_func_fixture():
+    """
+    Register a binary scalar function.
+    """
     def binary_function(ctx, m, x):
-        return pc.call_function("multiply", [m, x])
+        return pc.call_function("multiply", [m, x],
+                                memory_pool=ctx.memory_pool)
     func_name = "y=mx"
     binary_doc = {"summary": "y=mx",
                   "description": "find y from y = mx"}
@@ -70,9 +82,14 @@ def binary_func_fixture():
 
 @pytest.fixture(scope="session")
 def ternary_func_fixture():
+    """
+    Register a ternary scalar function.
+    """
     def ternary_function(ctx, m, x, c):
-        mx = pc.call_function("multiply", [m, x])
-        return pc.call_function("add", [mx, c])
+        mx = pc.call_function("multiply", [m, x],
+                              memory_pool=ctx.memory_pool)
+        return pc.call_function("add", [mx, c],
+                                memory_pool=ctx.memory_pool)
     ternary_doc = {"summary": "y=mx+c",
                    "description": "find y from y = mx + c"}
     func_name = "y=mx+c"
@@ -90,12 +107,15 @@ def ternary_func_fixture():
 
 @pytest.fixture(scope="session")
 def varargs_func_fixture():
-    def varargs_function(ctx, *values):
-        base_val = values[:2]
-        res = pc.call_function("add", base_val)
-        for other_val in values[2:]:
-            res = pc.call_function("add", [res, other_val])
-        return res
+    """
+    Register a varargs scalar function with at least two arguments.
+    """
+    def varargs_function(ctx, first, *values):
+        acc = first
+        for val in values:
+            acc = pc.call_function("add", [acc, val],
+                                   memory_pool=ctx.memory_pool)
+        return acc
     func_name = "z=ax+by+c"
     varargs_doc = {"summary": "z=ax+by+c",
                    "description": "find z from z = ax + by + c"
@@ -112,52 +132,11 @@ def varargs_func_fixture():
 
 
 @pytest.fixture(scope="session")
-def random_with_udf_ctx_func_fixture():
-    def random_with_udf_ctx(context, one, two):
-        return pc.add(one, two, memory_pool=context.memory_pool)
-
-    in_types = {"one": pa.int64(),
-                "two": pa.int64(),
-                }
-    func_doc = {
-        "summary": "test udf context",
-        "description": "udf context test"
-    }
-    func_name = "test_udf_context"
-    pc.register_scalar_function(random_with_udf_ctx,
-                                func_name, func_doc,
-                                in_types,
-                                pa.int64())
-    return random_with_udf_ctx, func_name
-
-
-@pytest.fixture(scope="session")
-def output_check_func_fixture():
-    # The objective of this fixture is to evaluate,
-    # how the UDF interface responds to unexpected
-    # output types. The types chosen at the test
-    # end are either of different Arrow data type
-    # or non-Arrow type.
-    def output_check(ctx, array):
-        ar = pc.call_function("add", [array, 1])
-        ar = ar.cast(pa.int32())
-        return ar
-    func_name = "test_output_value"
-    in_types = {"array": pa.int64()}
-    out_type = pa.int64()
-    doc = {
-        "summary": "add function scalar",
-        "description": "add function"
-    }
-    pc.register_scalar_function(output_check, func_name, doc,
-                                in_types, out_type)
-    return output_check, func_name
-
-
-@pytest.fixture(scope="session")
-def nullary_check_func_fixture():
-    # this needs to return array values
-    def nullary_check(context):
+def nullary_func_fixture():
+    """
+    Register a nullary scalar function.
+    """
+    def nullary_func(context):
         return pa.array([42] * context.batch_length, type=pa.int64(),
                         memory_pool=context.memory_pool)
 
@@ -165,74 +144,98 @@ def nullary_check_func_fixture():
         "summary": "random function",
         "description": "generates a random value"
     }
-    func_name = "test_random_func"
-    pc.register_scalar_function(nullary_check,
+    func_name = "test_nullary_func"
+    pc.register_scalar_function(nullary_func,
                                 func_name,
                                 func_doc,
                                 {},
                                 pa.int64())
 
-    return nullary_check, func_name
+    return nullary_func, func_name
 
 
 @pytest.fixture(scope="session")
-def output_python_type_func_fixture():
-    # This fixture helps to check the response
-    # when the function return value is not an Arrow
-    # defined data type. Instead here the returned value
-    # is of type int in Python.
-    def const_return(ctx, scalar):
+def wrong_output_type_func_fixture():
+    """
+    Register a scalar function which returns something that is neither
+    a Arrow scalar or array.
+    """
+    def wrong_output_type(ctx):
         return 42
 
-    func_name = "test_output_type"
-    in_types = {"array": pa.int64()}
+    func_name = "test_wrong_output_type"
+    in_types = {}
     out_type = pa.int64()
     doc = {
-        "summary": "add function scalar",
-        "description": "add function"
+        "summary": "return wrong output type",
+        "description": ""
     }
-    pc.register_scalar_function(const_return, func_name, doc,
+    pc.register_scalar_function(wrong_output_type, func_name, doc,
                                 in_types, out_type)
-    return const_return, func_name
+    return wrong_output_type, func_name
 
 
 @pytest.fixture(scope="session")
-def varargs_check_func_fixture():
-    def varargs_check(ctx, *values):
-        base_val = values[:2]
-        res = pc.call_function("add", base_val)
-        for other_val in values[2:]:
-            res = pc.call_function("add", [res, other_val])
-        return res
-    func_name = "test_varargs_function"
-    in_types = {"array1": pa.int64(),
-                "array2": pa.int64(),
-                }
-    doc = {"summary": "n add function",
-           "description": "add N number of arrays"
-           }
-    pc.register_scalar_function(varargs_check, func_name, doc,
-                                in_types, pa.int64())
-
-    return varargs_check, func_name
+def wrong_output_datatype_func_fixture():
+    """
+    Register a scalar function whose actual output DataType doesn't
+    match the declared output DataType.
+    """
+    def wrong_output_datatype(ctx, array):
+        return pc.call_function("add", [array, 1])
+    func_name = "test_wrong_output_datatype"
+    in_types = {"array": pa.int64()}
+    # The actual output DataType will be int64.
+    out_type = pa.int16()
+    doc = {
+        "summary": "return wrong output datatype",
+        "description": ""
+    }
+    pc.register_scalar_function(wrong_output_datatype, func_name, doc,
+                                in_types, out_type)
+    return wrong_output_datatype, func_name
 
 
 @pytest.fixture(scope="session")
-def raise_func_fixture():
-    def raise_func(ctx):
-        raise ValueError("Test function with raise")
+def wrong_signature_func_fixture():
+    """
+    Register a scalar function with the wrong signature.
+    """
+    # Missing the context argument
+    def wrong_signature():
+        return pa.scalar(1, type=pa.int64())
+
+    func_name = "test_wrong_signature"
+    in_types = {}
+    out_type = pa.int64()
+    doc = {
+        "summary": "UDF with wrong signature",
+        "description": ""
+    }
+    pc.register_scalar_function(wrong_signature, func_name, doc,
+                                in_types, out_type)
+    return wrong_signature, func_name
+
+
+@pytest.fixture(scope="session")
+def raising_func_fixture():
+    """
+    Register a scalar function which raises a custom exception.
+    """
+    def raising_func(ctx):
+        raise MyError("error raised by scalar UDF")
     func_name = "test_raise"
     doc = {
-        "summary": "test function with raise",
-        "description": "function with a raise"
+        "summary": "raising function",
+        "description": ""
     }
-    pc.register_scalar_function(raise_func, func_name, doc,
+    pc.register_scalar_function(raising_func, func_name, doc,
                                 {}, pa.int64())
-    return raise_func, func_name
+    return raising_func, func_name
 
 
 def check_scalar_function(func_fixture,
-                          inputs,
+                          inputs, *,
                           run_in_dataset=True,
                           batch_length=None):
     function, name = func_fixture
@@ -343,24 +346,19 @@ def test_registration_errors():
     # second registration
     expected_expr = "Already have a function registered with name:" \
         + " test_reg_function"
-    with pytest.raises(pa.lib.ArrowKeyError, match=expected_expr):
+    with pytest.raises(KeyError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
                                     "test_reg_function", doc, {},
                                     out_type)
 
 
-def test_varargs_function_validation(varargs_check_func_fixture):
-    _, func_name = varargs_check_func_fixture
-    func = pc.get_function(func_name)
+def test_varargs_function_validation(varargs_func_fixture):
+    _, func_name = varargs_func_fixture
 
-    assert func.name == func_name
+    error_msg = r"VarArgs function 'z=ax\+by\+c' needs at least 2 arguments"
 
-    error_msg = "VarArgs function 'test_varargs_function'" \
-        + " needs at least 2 arguments"
-
-    with pytest.raises(pa.lib.ArrowInvalid, match=error_msg):
-        pc.call_function(func_name, [pa.array([1, 10]),
-                                     ])
+    with pytest.raises(ValueError, match=error_msg):
+        pc.call_function(func_name, [42])
 
 
 def test_function_doc_validation():
@@ -376,9 +374,8 @@ def test_function_doc_validation():
     def add_const(ctx, scalar):
         return pc.call_function("add", [scalar, 1])
 
-    expected_expr = "Function doc must contain a summary"
-
-    with pytest.raises(ValueError, match=expected_expr):
+    with pytest.raises(ValueError,
+                       match="Function doc must contain a summary"):
         pc.register_scalar_function(add_const, "test_no_summary",
                                     func_doc, in_types,
                                     out_type)
@@ -388,110 +385,119 @@ def test_function_doc_validation():
         "summary": "test summary"
     }
 
-    expected_expr = "Function doc must contain a description"
-
-    with pytest.raises(ValueError, match=expected_expr):
+    with pytest.raises(ValueError,
+                       match="Function doc must contain a description"):
         pc.register_scalar_function(add_const, "test_no_desc",
                                     func_doc, in_types,
                                     out_type)
 
-    # doc with empty dictionary
-    func_doc = {}
-    expected_expr = "Function doc must contain a summary"
-    with pytest.raises(ValueError, match=expected_expr):
-        pc.register_scalar_function(add_const,
-                                    "test_empty_dictionary",
-                                    func_doc, in_types,
-                                    out_type)
+
+def test_nullary_function(nullary_func_fixture):
+    # XXX the Python compute layer API doesn't let us override batch_length,
+    # so only test with the default value of 1.
+    check_scalar_function(nullary_func_fixture, [], run_in_dataset=False,
+                          batch_length=1)
 
 
-def test_nullary_functions(nullary_check_func_fixture):
-    check_scalar_function(nullary_check_func_fixture, [], False, 1)
+def test_wrong_output_type(wrong_output_type_func_fixture):
+    _, func_name = wrong_output_type_func_fixture
+
+    with pytest.raises(TypeError,
+                       match="Unexpected output type: int"):
+        pc.call_function(func_name, [])
 
 
-def test_output_datatype(output_check_func_fixture):
-    function, func_name = output_check_func_fixture
-    func = pc.get_function(func_name)
+def test_wrong_output_datatype(wrong_output_datatype_func_fixture):
+    _, func_name = wrong_output_datatype_func_fixture
 
-    assert func.name == func_name
+    expected_expr = ("Expected output datatype int16, "
+                     "but function returned datatype int64")
 
-    expected_expr = "Expected output type, int64," \
-        + " but function returned type int32"
-
-    with pytest.raises(pa.lib.ArrowTypeError, match=expected_expr):
+    with pytest.raises(TypeError, match=expected_expr):
         pc.call_function(func_name, [pa.array([20, 30])])
 
 
-def test_defined_output_value_type():
-    def get_output(ctx, array):
-        return pc.call_function("add", [array, 1])
-    func_name = "test_output_value"
+def test_wrong_signature(wrong_signature_func_fixture):
+    _, func_name = wrong_signature_func_fixture
+
+    expected_expr = (r"wrong_signature\(\) takes 0 positional arguments "
+                     "but 1 was given")
+
+    with pytest.raises(TypeError, match=expected_expr):
+        pc.call_function(func_name, [])
+
+
+def test_wrong_datatype_declaration():
+    def identity(ctx, val):
+        return val
+
+    func_name = "test_wrong_datatype_declaration"
     in_types = {"array": pa.int64()}
     out_type = {}
     doc = {
         "summary": "test output value",
         "description": "test output"
     }
-
-    expected_expr = "DataType expected, got <class 'dict'>"
-
-    with pytest.raises(TypeError, match=expected_expr):
-        pc.register_scalar_function(output_check_func_fixture, func_name, doc,
-                                    in_types, out_type)
+    with pytest.raises(TypeError,
+                       match="DataType expected, got <class 'dict'>"):
+        pc.register_scalar_function(identity, func_name,
+                                    doc, in_types, out_type)
 
 
-def test_output_type(output_python_type_func_fixture):
-    _, func_name = output_python_type_func_fixture
+def test_wrong_input_type_declaration():
+    def identity(ctx, val):
+        return val
 
-    func = pc.get_function(func_name)
-
-    assert func.name == func_name
-
-    expected_expr = "Unexpected output type: int"
-
-    with pytest.raises(pa.lib.ArrowTypeError, match=expected_expr):
-        pc.call_function(func_name, [pa.array([20, 30])])
-
-
-def test_input_type():
-    def const_return(ctx, scalar):
-        return 42
-
-    func_name = "test_input_type"
+    func_name = "test_wrong_input_type_declaration"
     in_types = {"array": None}
     out_type = pa.int64()
     doc = {
         "summary": "test invalid input type",
         "description": "invalid input function"
     }
-    expected_expr = "DataType expected, got <class 'NoneType'>"
-
-    with pytest.raises(TypeError, match=expected_expr):
-        pc.register_scalar_function(const_return, func_name, doc,
+    with pytest.raises(TypeError,
+                       match="DataType expected, got <class 'NoneType'>"):
+        pc.register_scalar_function(identity, func_name, doc,
                                     in_types, out_type)
 
 
-def test_udf_context(random_with_udf_ctx_func_fixture):
+def test_udf_context(unary_func_fixture):
+    # Check the memory_pool argument is properly propagated
     proxy_pool = pa.proxy_memory_pool(pa.default_memory_pool())
-    _, func_name = random_with_udf_ctx_func_fixture
+    _, func_name = unary_func_fixture
 
     res = pc.call_function(func_name,
-                           [pa.scalar(10), pa.scalar(20)],
+                           [pa.array([1] * 1000, type=pa.int64())],
                            memory_pool=proxy_pool)
-    assert res.as_py() == 30
-    assert proxy_pool.bytes_allocated() >= 0
+    assert res == pa.array([2] * 1000, type=pa.int64())
+    assert proxy_pool.bytes_allocated() == 1000 * 8
+    # Destroying Python array should destroy underlying C++ memory
+    res = None
+    assert proxy_pool.bytes_allocated() == 0
 
 
-def test_function_with_raise(raise_func_fixture):
-    _, func_name = raise_func_fixture
-    expected_expr = "Test function with raise"
-    with pytest.raises(ValueError, match=expected_expr):
+def test_raising_func(raising_func_fixture):
+    _, func_name = raising_func_fixture
+    with pytest.raises(MyError, match="error raised by scalar UDF"):
         pc.call_function(func_name, [])
 
 
-def test_non_uniform_input_udfs(ternary_func_fixture):
-    function, func_name = ternary_func_fixture
-    res = pc.call_function(func_name,
-                           [pa.scalar(10), pa.array([1, 2, 3]),
-                            pa.scalar(20)])
-    assert res == pa.array([30, 40, 50])
+def test_scalar_input(unary_func_fixture):
+    function, func_name = unary_func_fixture
+    res = pc.call_function(func_name, [pa.scalar(10)])
+    assert res == pa.scalar(11)
+
+
+def test_input_lifetime(unary_func_fixture):
+    function, func_name = unary_func_fixture
+
+    proxy_pool = pa.proxy_memory_pool(pa.default_memory_pool())
+    assert proxy_pool.bytes_allocated() == 0
+
+    v = pa.array([1] * 1000, type=pa.int64(), memory_pool=proxy_pool)
+    assert proxy_pool.bytes_allocated() == 1000 * 8
+    pc.call_function(func_name, [v])
+    assert proxy_pool.bytes_allocated() == 1000 * 8
+    # Calling a UDF should not have kept `v` alive longer than required
+    v = None
+    assert proxy_pool.bytes_allocated() == 0
