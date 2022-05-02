@@ -30,12 +30,6 @@
   to be streamed back into Arrow rather than materialized before continuing the pipeline.
   - no longer need to materialize the entire result table before writing to a dataset
     if the query contains contains aggregations or joins.
-  - now supports `dplyr::rename_with()`.
-  - `dplyr::count()` now returns an ungrouped dataframe.
-* `write_dataset()` now has more options for controlling row group and file sizes when
-  writing partitioned datasets, such as `max_open_files`, `max_rows_per_file`, 
-  `min_rows_per_group`, and `max_rows_per_group`.
-* `write_csv_arrow()` can write a `Dataset` or an Arrow dplyr query to a single file.
   - supports `dplyr::rename_with()`.
   - `dplyr::count()` returns an ungrouped dataframe.
 * `write_dataset` has more options for controlling row group and file sizes when
@@ -74,8 +68,6 @@
   * Arrow timestamp and date arrays support `base::format()`
   * `strptime()` returns `NA` instead of erroring in case of format mismatch,
     just like `base::strptime()`.
-* Timezone operations are now supported on Windows if the 
-  [tzdb package](https://cran.r-project.org/package=tzdb) is also
 * Timezone operations are supported on Windows if the 
   [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
   installed.
