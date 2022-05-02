@@ -382,6 +382,11 @@ install_go() {
     return 0
   fi
 
+  if which go > /dev/null 2>&1; then
+    show_info "Found $(go version) at $(which go)"
+    return 0
+  fi
+
   local version=1.16.12
   show_info "Installing go version ${version}..."
 
