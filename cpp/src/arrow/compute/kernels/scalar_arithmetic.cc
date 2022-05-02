@@ -2694,8 +2694,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
   // ----------------------------------------------------------------------
-  auto subtract_checked = MakeArithmeticFunctionNotNull<SubtractChecked>(
-      "subtract_checked", FunctionDoc::Empty());
+  auto subtract_checked =
+      MakeArithmeticFunctionNotNull<SubtractChecked>("subtract_checked", sub_checked_doc);
   AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", subtract_checked.get());
 
   // Add subtract_checked(timestamp, timestamp) -> duration
