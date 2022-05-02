@@ -97,10 +97,7 @@ Arrow arrays and tables can be easily concatenated:
    and chunking is acceptable, using `ChunkedArray$create()`.
  * ChunkedArrays can be concatenated with `c()`.
  * RecordBatches and Tables support `cbind()`.
- * Tables support `rbind()`. `concat_tables()` is also provided to 
- * Chunked arrays can be concatenated with `c()`.
- * Record batches and tables support `cbind()`.
- * Arrow tables support `rbind()`. `concat_tables()` is also provided to 
+ * Tables support `rbind()`. `concat_tables()` is also provided to
    concatenate tables while unifying schemas.
 
 ## Other improvements and fixes
@@ -116,7 +113,7 @@ Arrow arrays and tables can be easily concatenated:
 * `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
 * `Array$cast()` can cast struct arrays into another struct type with the same field names
   and structure (or a subset of fields) but different field types.
-* Remove special handling for Solaris
+* Removed special handling for Solaris.
 * The CSV writer is much faster when writing string columns.
 * Fixed an issue where `set_io_thread_count()` would set the CPU count instead of
   the IO thread count.
