@@ -15,8 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base
-FROM ${base}
+FROM ${arch}/maven:${maven}-jdk-${jdk}
 
 # pipefail is enabled for proper error detection in the `wget | apt-key add`
 # step

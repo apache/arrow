@@ -47,7 +47,7 @@ env:
 jobs:
 
   debian:
-    name: AMD64 Debian 9 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
@@ -57,15 +57,16 @@ jobs:
         jdk: [11, 17]
         include:
         - jdk: 11
-          maven: 3.6
-          jdk_name: jdk
+          title: AMD64 Debian 9 Java JDK 11 Maven 3.6.2
+          maven: 3.6.2
+          image: debian-java
         - jdk: 17
+          title: AMD64 Oracle Linux Server 8.5 Java JDK 17 Maven 3.8.5
           maven: 3.8.5
-          jdk_name: openjdk
+          image: oracle-java
     env:
       JDK: ${{ matrix.jdk }}
       MAVEN: ${{ matrix.maven }}
-      JDK_NAME: ${{ matrix.jdk_name }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -85,11 +86,11 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
-        run: archery docker run debian-java
+        run: archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        run: archery docker push debian-java
+        run: archery docker push ${{ matrix.image }}
 
   macos:
     name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}
