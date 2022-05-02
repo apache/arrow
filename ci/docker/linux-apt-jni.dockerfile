@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+ARG arch=amd64
+ARG jdk=8
+ARG maven=3.5.4
 FROM ${arch}/maven:${maven}-jdk-${jdk}
 
 # pipefail is enabled for proper error detection in the `wget | apt-key add`
