@@ -42,6 +42,8 @@
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
+    <error_prone_core.version>2.13.1</error_prone_core.version>
+    <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
   </properties>
 
   <scm>
@@ -376,7 +378,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.6.2</version>
+          <version>${maven-compiler-plugin.version}</version>
           <configuration>
             <annotationProcessorPaths>
               <path>
@@ -690,7 +692,7 @@
 
   <profiles>
     <profile>
-      <id>java-8</id>
+      <id>java-nodoclint</id>
       <activation>
         <jdk>[1.8,)</jdk>
       </activation>
@@ -729,13 +731,14 @@
     </profile>
 
     <profile>
-      <id>error-prone</id>
+      <id>error-prone-jdk8</id>
       <!--
            Do not activate Error Prone while running with Eclipse/M2E as it causes incompatibilities
            with other annotation processors.
            See https://github.com/jbosstools/m2e-apt/issues/62 for details
       -->
       <activation>
+        <jdk>1.8</jdk>
         <property>
            <name>!m2e.version</name>
         </property>
@@ -746,9 +749,11 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
             <configuration>
+              <fork>true</fork>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
                 <arg>-Xplugin:ErrorProne</arg>
+                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${errorprone.javac.version}/javac-${errorprone.javac.version}.jar</arg>
               </compilerArgs>
               <annotationProcessorPaths combine.children="append">
                 <path>
@@ -764,12 +769,11 @@
     </profile>
 
     <profile>
-      <id>error-prone-jdk8</id>
-      <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
+      <id>error-prone-jdk11+</id>
       <activation>
-        <jdk>1.8</jdk>
+        <jdk>[11,)</jdk>
         <property>
-           <name>!m2e.version</name>
+          <name>!m2e.version</name>
         </property>
       </activation>
       <build>
@@ -778,10 +782,40 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
             <configuration>
-              <fork>true</fork>
+              <source>8</source>
+              <target>8</target>
+              <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
-                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${errorprone.javac.version}/javac-${errorprone.javac.version}.jar</arg>
+                <arg>-XDcompilePolicy=simple</arg>
+                <arg>
+                  -Xplugin:ErrorProne \
+                  -XepExcludedPaths:.*/(target/generated-sources)/.*
+                </arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
               </compilerArgs>
+              <annotationProcessorPaths combine.children="append">
+                <path>
+                  <groupId>com.google.errorprone</groupId>
+                  <artifactId>error_prone_core</artifactId>
+                  <version>${error_prone_core.version}</version>
+                </path>
+              </annotationProcessorPaths>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
             </configuration>
           </plugin>
         </plugins>
