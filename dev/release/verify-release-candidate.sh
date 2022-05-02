@@ -882,7 +882,7 @@ ensure_source_directory() {
     fi
   else
     # Release tarball, testing repositories must be cloned separately
-    echo "Verifying official Arrow release candidate ${VERSION}-rc{$RC_NUMBER}"
+    echo "Verifying official Arrow release candidate ${VERSION}-rc${RC_NUMBER}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/${dist_name}"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
