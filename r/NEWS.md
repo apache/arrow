@@ -124,10 +124,8 @@ Arrow arrays and tables can be easily concatenated:
 * `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
 * `Array$cast()` can cast struct arrays into another struct type with the same field names
   and structure (or a subset of fields) but different field types.
-* The CSV writer is now much faster when writing string columns.
 * Remove special handling for Solaris
 * The CSV writer is much faster when writing string columns.
-* Removed Solaris workarounds, libarrow is required.
 * Fixed an issue where `set_io_thread_count()` would set the CPU count instead of
   the IO thread count.
 * `RandomAccessFile` has a `$ReadMetadata()` method that provides useful
