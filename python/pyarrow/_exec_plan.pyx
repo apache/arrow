@@ -56,7 +56,6 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     """
     cdef:
         CExecutor *c_executor
-        shared_ptr[CThreadPool] c_executor_sptr
         shared_ptr[CExecContext] c_exec_context
         shared_ptr[CExecPlan] c_exec_plan
         vector[CDeclaration] c_decls
@@ -64,8 +63,9 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         vector[CExecNode*] c_final_node_vec
         CExecNode *c_node
         CTable* c_table
+        shared_ptr[CTable] c_in_table
         shared_ptr[CTable] c_out_table
-        shared_ptr[CSourceNodeOptions] c_sourceopts
+        shared_ptr[CTableSourceNodeOptions] c_tablesourceopts
         shared_ptr[CScanNodeOptions] c_scanopts
         shared_ptr[CExecNodeOptions] c_input_node_opts
         shared_ptr[CSinkNodeOptions] c_sinkopts
@@ -78,8 +78,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     if use_threads:
         c_executor = GetCpuThreadPool()
     else:
-        c_executor_sptr = GetResultValue(CThreadPool.Make(1))
-        c_executor = c_executor_sptr.get()
+        c_executor = NULL
 
     c_exec_context = make_shared[CExecContext](
         c_default_memory_pool(), c_executor)
@@ -90,12 +89,12 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     # Create source nodes for each input
     for ipt in inputs:
         if isinstance(ipt, Table):
-            node_factory = "source"
-            c_in_table = pyarrow_unwrap_table(ipt).get()
-            c_sourceopts = GetResultValue(
-                CSourceNodeOptions.FromTable(deref(c_in_table), deref(c_exec_context).executor()))
-            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CSourceNodeOptions](
-                c_sourceopts)
+            node_factory = "table_source"
+            c_in_table = pyarrow_unwrap_table(ipt)
+            c_tablesourceopts = make_shared[CTableSourceNodeOptions](
+                c_in_table, 1 << 20)
+            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
+                c_tablesourceopts)
         elif isinstance(ipt, Dataset):
             node_factory = "scan"
             c_in_dataset = (<Dataset>ipt).unwrap()
@@ -348,6 +347,7 @@ def _perform_join(join_type, left_operand not None, left_keys,
 
     result_table = execplan([left_operand, right_operand],
                             plan=c_decl_plan,
-                            output_type=output_type)
+                            output_type=output_type,
+                            use_threads=use_threads)
 
     return result_table

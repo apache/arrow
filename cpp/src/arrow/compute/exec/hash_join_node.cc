@@ -634,16 +634,17 @@ class HashJoinNode : public ExecNode {
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
     auto executor = plan_->exec_context()->executor();
     if (executor) {
-      ARROW_ASSIGN_OR_RAISE(auto task_fut, executor->Submit([this, func] {
-        size_t thread_index = thread_indexer_();
-        Status status = func(thread_index);
-        if (!status.ok()) {
-          StopProducing();
-          ErrorIfNotOk(status);
-          return;
-        }
-      }));
-      return task_group_.AddTask(task_fut);
+      return task_group_.AddTask([this, executor, func] {
+        return DeferNotOk(executor->Submit([this, func] {
+          size_t thread_index = thread_indexer_();
+          Status status = func(thread_index);
+          if (!status.ok()) {
+            StopProducing();
+            ErrorIfNotOk(status);
+            return;
+          }
+        }));
+      });
     } else {
       // We should not get here in serial execution mode
       ARROW_DCHECK(false);
