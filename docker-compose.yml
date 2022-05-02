@@ -119,7 +119,7 @@ x-hierarchy:
   - debian-go:
     - debian-go-cgo
     - debian-go-cgo-python
-  - debian-java:
+  - debian-java
   - debian-java-jni
   - debian-js
   - fedora-cpp:
@@ -1441,6 +1441,9 @@ services:
     # Usage:
     #   docker-compose build debian-java
     #   docker-compose run debian-java
+    # Parameters:
+    #   MAVEN: 3.5.4, 3.6.2
+    #   JDK: 8, 11
     image: ${ARCH}/maven:${MAVEN}-jdk-${JDK}
     shm_size: *shm-size
     volumes: &java-volumes
