@@ -46,23 +46,34 @@ class AdbcFlightSqlTest : public ::testing::Test {
 
     ASSERT_OK_AND_ASSIGN(driver, adbc::AdbcDriver::Load("libadbc_driver_flight_sql.so"));
 
-    AdbcConnectionOptions options;
-    std::string target = "Location=grpc://localhost:" + std::to_string(server->port());
-    options.target = target.c_str();
-    options.target_length = target.size();
-    ADBC_ASSERT_OK_WITH_ERROR(driver, error,
-                              driver->ConnectionInit(&options, &connection, &error));
+    {
+      AdbcDatabaseOptions options;
+      std::string target = "Location=grpc://localhost:" + std::to_string(server->port());
+      options.target = target.c_str();
+      options.target_length = target.size();
+      ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                                driver->DatabaseInit(&options, &database, &error));
+    }
+
+    {
+      AdbcConnectionOptions options;
+      options.database = &database;
+      ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                                driver->ConnectionInit(&options, &connection, &error));
+    }
   }
 
   void TearDown() override {
     ADBC_ASSERT_OK_WITH_ERROR(driver, error,
                               driver->ConnectionRelease(&connection, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(driver, error, driver->DatabaseRelease(&database, &error));
     ASSERT_OK(server->Shutdown());
   }
 
  protected:
   std::shared_ptr<arrow::flight::sql::FlightSqlServerBase> server;
   std::unique_ptr<adbc::AdbcDriver> driver;
+  AdbcDatabase database;
   AdbcConnection connection;
   AdbcError error = {};
 };

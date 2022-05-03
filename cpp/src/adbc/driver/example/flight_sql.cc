@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <mutex>
+#include <string>
+
 #include "adbc/adbc.h"
 #include "adbc/driver/util.h"
 #include "arrow/c/bridge.h"
@@ -61,6 +64,49 @@ void SetError(struct AdbcError* error, Args&&... args) {
   message.copy(error->message, message.size());
   error->message[message.size()] = '\0';
 }
+
+class FlightSqlDatabaseImpl {
+ public:
+  explicit FlightSqlDatabaseImpl(std::unique_ptr<flightsql::FlightSqlClient> client)
+      : client_(std::move(client)), connection_count_(0) {}
+
+  flightsql::FlightSqlClient* Connect() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    ++connection_count_;
+    return client_.get();
+  }
+
+  AdbcStatusCode Disconnect(struct AdbcError* error) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (--connection_count_ < 0) {
+      SetError(error, "Connection count underflow");
+      return ADBC_STATUS_INTERNAL;
+    }
+    return ADBC_STATUS_OK;
+  }
+
+  AdbcStatusCode Release(struct AdbcError* error) {
+    std::lock_guard<std::mutex> guard(mutex_);
+
+    if (connection_count_ > 0) {
+      SetError(error, "Cannot release database with ", connection_count_,
+               " open connections");
+      return ADBC_STATUS_INTERNAL;
+    }
+
+    auto status = client_->Close();
+    if (!status.ok()) {
+      SetError(status, error);
+      return ADBC_STATUS_IO;
+    }
+    return ADBC_STATUS_OK;
+  }
+
+ private:
+  std::unique_ptr<flightsql::FlightSqlClient> client_;
+  int connection_count_;
+  std::mutex mutex_;
+};
 
 class FlightSqlStatementImpl : public arrow::RecordBatchReader {
  public:
@@ -185,21 +231,14 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
 
 class AdbcFlightSqlImpl {
  public:
-  explicit AdbcFlightSqlImpl(std::unique_ptr<flightsql::FlightSqlClient> client)
-      : client_(std::move(client)) {}
+  explicit AdbcFlightSqlImpl(std::shared_ptr<FlightSqlDatabaseImpl> database)
+      : database_(std::move(database)), client_(database_->Connect()) {}
 
   //----------------------------------------------------------
   // Common Functions
   //----------------------------------------------------------
 
-  AdbcStatusCode Close(struct AdbcError* error) {
-    auto status = client_->Close();
-    if (!status.ok()) {
-      SetError(status, error);
-      return ADBC_STATUS_UNKNOWN;
-    }
-    return ADBC_STATUS_OK;
-  }
+  AdbcStatusCode Close(struct AdbcError* error) { return database_->Disconnect(error); }
 
   //----------------------------------------------------------
   // Metadata
@@ -221,7 +260,7 @@ class AdbcFlightSqlImpl {
       SetError(status, error);
       return ADBC_STATUS_IO;
     }
-    impl->Init(client_.get(), std::move(flight_info));
+    impl->Init(client_, std::move(flight_info));
     return ADBC_STATUS_OK;
   }
 
@@ -247,7 +286,7 @@ class AdbcFlightSqlImpl {
       SetError(status, error);
       return ADBC_STATUS_IO;
     }
-    impl->Init(client_.get(), std::move(flight_info));
+    impl->Init(client_, std::move(flight_info));
     return ADBC_STATUS_OK;
   }
 
@@ -280,12 +319,13 @@ class AdbcFlightSqlImpl {
     std::unique_ptr<flight::FlightInfo> flight_info(
         new flight::FlightInfo(maybe_info.MoveValueUnsafe()));
 
-    impl->Init(client_.get(), std::move(flight_info));
+    impl->Init(client_, std::move(flight_info));
     return ADBC_STATUS_OK;
   }
 
  private:
-  std::unique_ptr<flightsql::FlightSqlClient> client_;
+  std::shared_ptr<FlightSqlDatabaseImpl> database_;
+  flightsql::FlightSqlClient* client_;
 };
 
 }  // namespace
@@ -295,29 +335,8 @@ void AdbcErrorRelease(struct AdbcError* error) {
   error->message = nullptr;
 }
 
-AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection* connection,
-                                                      const uint8_t* serialized_partition,
-                                                      size_t serialized_length,
-                                                      struct AdbcStatement* statement,
-                                                      struct AdbcError* error) {
-  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
-  auto* ptr =
-      reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
-  return (*ptr)->DeserializePartitionDesc(serialized_partition, serialized_length,
-                                          statement, error);
-}
-
-AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
-                                           struct AdbcStatement* statement,
-                                           struct AdbcError* error) {
-  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
-  auto* ptr =
-      reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
-  return (*ptr)->GetTableTypes(statement, error);
-}
-
-AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
-                                  struct AdbcConnection* out, struct AdbcError* error) {
+AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
+                                struct AdbcDatabase* out, struct AdbcError* error) {
   std::unordered_map<std::string, std::string> option_pairs;
   auto status = adbc::ParseConnectionString(
                     arrow::util::string_view(options->target, options->target_length))
@@ -348,7 +367,52 @@ AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
   std::unique_ptr<flightsql::FlightSqlClient> client(
       new flightsql::FlightSqlClient(std::move(flight_client)));
 
-  auto impl = std::make_shared<AdbcFlightSqlImpl>(std::move(client));
+  auto impl = std::make_shared<FlightSqlDatabaseImpl>(std::move(client));
+  out->private_data = new std::shared_ptr<FlightSqlDatabaseImpl>(impl);
+  return ADBC_STATUS_OK;
+}
+
+AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
+                                   struct AdbcError* error) {
+  if (!database->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto ptr =
+      reinterpret_cast<std::shared_ptr<FlightSqlDatabaseImpl>*>(database->private_data);
+  AdbcStatusCode status = (*ptr)->Release(error);
+  delete ptr;
+  database->private_data = nullptr;
+  return status;
+}
+
+AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection* connection,
+                                                      const uint8_t* serialized_partition,
+                                                      size_t serialized_length,
+                                                      struct AdbcStatement* statement,
+                                                      struct AdbcError* error) {
+  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
+  return (*ptr)->DeserializePartitionDesc(serialized_partition, serialized_length,
+                                          statement, error);
+}
+
+AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
+                                           struct AdbcStatement* statement,
+                                           struct AdbcError* error) {
+  if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto* ptr =
+      reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
+  return (*ptr)->GetTableTypes(statement, error);
+}
+
+AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
+                                  struct AdbcConnection* out, struct AdbcError* error) {
+  if (!options->database || !options->database->private_data) {
+    SetError(error, "Must provide database");
+    return ADBC_STATUS_INVALID_ARGUMENT;
+  }
+  auto ptr = reinterpret_cast<std::shared_ptr<FlightSqlDatabaseImpl>*>(
+      options->database->private_data);
+  auto impl = std::make_shared<AdbcFlightSqlImpl>(*ptr);
   out->private_data = new std::shared_ptr<AdbcFlightSqlImpl>(impl);
   return ADBC_STATUS_OK;
 }

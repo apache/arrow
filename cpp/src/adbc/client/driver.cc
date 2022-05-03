@@ -75,6 +75,9 @@ arrow::Result<std::unique_ptr<AdbcDriver>> AdbcDriver::Load(const std::string& d
 
   GET_FUNC(driver, handle, ErrorRelease);
 
+  GET_FUNC(driver, handle, DatabaseInit);
+  GET_FUNC(driver, handle, DatabaseRelease);
+
   GET_FUNC(driver, handle, ConnectionInit);
   GET_OPTIONAL(driver, handle, ConnectionDeserializePartitionDesc);
   GET_OPTIONAL(driver, handle, ConnectionGetTableTypes);

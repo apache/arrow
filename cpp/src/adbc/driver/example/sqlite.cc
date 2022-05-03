@@ -19,6 +19,7 @@
 
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "adbc/adbc.h"
@@ -62,6 +63,48 @@ void SetError(struct AdbcError* error, Args&&... args) {
   message.copy(error->message, message.size());
   error->message[message.size()] = '\0';
 }
+
+class SqliteDatabaseImpl {
+ public:
+  explicit SqliteDatabaseImpl(sqlite3* db) : db_(db), connection_count_(0) {}
+
+  sqlite3* Connect() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    ++connection_count_;
+    return db_;
+  }
+
+  AdbcStatusCode Disconnect(struct AdbcError* error) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (--connection_count_ < 0) {
+      SetError(error, "Connection count underflow");
+      return ADBC_STATUS_INTERNAL;
+    }
+    return ADBC_STATUS_OK;
+  }
+
+  AdbcStatusCode Release(struct AdbcError* error) {
+    std::lock_guard<std::mutex> guard(mutex_);
+
+    if (connection_count_ > 0) {
+      SetError(error, "Cannot release database with ", connection_count_,
+               " open connections");
+      return ADBC_STATUS_INTERNAL;
+    }
+
+    auto status = sqlite3_close(db_);
+    if (status != SQLITE_OK) {
+      // TODO:
+      return ADBC_STATUS_UNKNOWN;
+    }
+    return ADBC_STATUS_OK;
+  }
+
+ private:
+  sqlite3* db_;
+  int connection_count_;
+  std::mutex mutex_;
+};
 
 class SqliteStatementImpl : public arrow::RecordBatchReader {
  public:
@@ -202,22 +245,16 @@ std::shared_ptr<arrow::Schema> StatementToSchema(sqlite3_stmt* stmt) {
   return arrow::schema(std::move(fields));
 }
 
-class AdbcSqliteImpl {
+class SqliteConnectionImpl {
  public:
-  explicit AdbcSqliteImpl(sqlite3* db) : db_(db) {}
+  explicit SqliteConnectionImpl(std::shared_ptr<SqliteDatabaseImpl> database)
+      : database_(std::move(database)), db_(database_->Connect()) {}
 
   //----------------------------------------------------------
   // Common Functions
   //----------------------------------------------------------
 
-  AdbcStatusCode Release(struct AdbcError* error) {
-    auto status = sqlite3_close(db_);
-    if (status != SQLITE_OK) {
-      // TODO:
-      return ADBC_STATUS_UNKNOWN;
-    }
-    return ADBC_STATUS_OK;
-  }
+  AdbcStatusCode Release(struct AdbcError* error) { return database_->Disconnect(error); }
 
   //----------------------------------------------------------
   // SQL Semantics
@@ -266,6 +303,7 @@ class AdbcSqliteImpl {
   }
 
  private:
+  std::shared_ptr<SqliteDatabaseImpl> database_;
   sqlite3* db_;
 };
 
@@ -276,8 +314,8 @@ void AdbcErrorRelease(struct AdbcError* error) {
   error->message = nullptr;
 }
 
-AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
-                                  struct AdbcConnection* out, struct AdbcError* error) {
+AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
+                                struct AdbcDatabase* out, struct AdbcError* error) {
   sqlite3* db = nullptr;
   auto status = sqlite3_open_v2(
       ":memory:", &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, /*zVfs=*/nullptr);
@@ -288,15 +326,40 @@ AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
     return ADBC_STATUS_UNKNOWN;
   }
 
-  auto impl = std::make_shared<AdbcSqliteImpl>(db);
-  out->private_data = new std::shared_ptr<AdbcSqliteImpl>(impl);
+  auto impl = std::make_shared<SqliteDatabaseImpl>(db);
+  out->private_data = new std::shared_ptr<SqliteDatabaseImpl>(impl);
+  return ADBC_STATUS_OK;
+}
+
+AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
+                                   struct AdbcError* error) {
+  if (!database->private_data) return ADBC_STATUS_UNINITIALIZED;
+  auto ptr =
+      reinterpret_cast<std::shared_ptr<SqliteDatabaseImpl>*>(database->private_data);
+  AdbcStatusCode status = (*ptr)->Release(error);
+  delete ptr;
+  database->private_data = nullptr;
+  return status;
+}
+
+AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
+                                  struct AdbcConnection* out, struct AdbcError* error) {
+  if (!options->database || !options->database->private_data) {
+    SetError(error, "Must provide database");
+    return ADBC_STATUS_INVALID_ARGUMENT;
+  }
+  auto ptr = reinterpret_cast<std::shared_ptr<SqliteDatabaseImpl>*>(
+      options->database->private_data);
+  auto impl = std::make_shared<SqliteConnectionImpl>(*ptr);
+  out->private_data = new std::shared_ptr<SqliteConnectionImpl>(impl);
   return ADBC_STATUS_OK;
 }
 
 AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
                                      struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
-  auto ptr = reinterpret_cast<std::shared_ptr<AdbcSqliteImpl>*>(connection->private_data);
+  auto ptr =
+      reinterpret_cast<std::shared_ptr<SqliteConnectionImpl>*>(connection->private_data);
   AdbcStatusCode status = (*ptr)->Release(error);
   delete ptr;
   connection->private_data = nullptr;
@@ -309,7 +372,7 @@ AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
                                         struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
-      reinterpret_cast<std::shared_ptr<AdbcSqliteImpl>*>(connection->private_data);
+      reinterpret_cast<std::shared_ptr<SqliteConnectionImpl>*>(connection->private_data);
   return (*ptr)->SqlExecute(query, query_length, out, error);
 }
 

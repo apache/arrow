@@ -38,6 +38,9 @@ class AdbcDriver {
 
   decltype(&AdbcErrorRelease) ErrorRelease;
 
+  decltype(&AdbcDatabaseInit) DatabaseInit;
+  decltype(&AdbcDatabaseRelease) DatabaseRelease;
+
   decltype(&AdbcConnectionInit) ConnectionInit;
   decltype(&AdbcConnectionDeserializePartitionDesc) ConnectionDeserializePartitionDesc;
   decltype(&AdbcConnectionGetTableTypes) ConnectionGetTableTypes;

@@ -60,8 +60,10 @@ typedef uint8_t AdbcStatusCode;
 #define ADBC_STATUS_UNINITIALIZED 3
 /// The arguments are invalid.
 #define ADBC_STATUS_INVALID_ARGUMENT 4
+/// The object is in an invalid state for the given operation.
+#define ADBC_STATUS_INTERNAL 5
 /// An I/O error occurred.
-#define ADBC_STATUS_IO 5
+#define ADBC_STATUS_IO 6
 
 /// \brief A detailed error message for an operation.
 struct AdbcError {
@@ -441,8 +443,12 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
 /// This struct should only ever be used as a pointer. Applications
 /// that declare a `struct AdbcDriver foo;` can and will break.
 struct AdbcDriver {
+  // TODO: migrate drivers
   // Do not edit fields. New fields can only be appended to the end.
 };
+
+/// \brief Common entry point for drivers using dlopen(3).
+AdbcStatusCode AdbcDriverInit(struct AdbcDriver* driver, struct AdbcError* error);
 
 /// }@
 
