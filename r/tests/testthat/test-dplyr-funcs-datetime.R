@@ -1510,6 +1510,9 @@ test_that("parse_date_time() works with year, month, and date components", {
 
   Sys.getlocale(category = "LC_TIME")
 
+  a <- Array$create("2021 September 13")
+  call_function("strptime", a, options = list(format = "%Y %B %d", unit = 0L))
+
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
