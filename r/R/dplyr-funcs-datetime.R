@@ -309,8 +309,9 @@ register_bindings_duration <- function() {
 
     if (call_binding("is.character", x)) {
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-      # complex casting only due to cast type restrictions: time64 -> int64 -> duration(us)
+      # complex casting due to cast type restrictions: time64 -> int64 -> duration(us)
       # and then we cast to duration ("s") at the end
+      # we also need the casting chain to get the measurement units right
       x <- x$cast(time64("us"))$cast(int64())$cast(duration("us"))
     }
 
