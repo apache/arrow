@@ -2583,7 +2583,6 @@ def test_open_dataset_from_fsspec(tempdir):
 
 
 @pytest.mark.parquet
-@pytest.mark.s3
 def test_file_format_inspect_fsspec(tempdir):
     # https://issues.apache.org/jira/browse/ARROW-16413
     fsspec = pytest.importorskip("fsspec")
@@ -3085,17 +3084,17 @@ def test_feather_format(tempdir, dataset_reader):
         dataset_reader.to_table(ds.dataset(basedir, format="feather"))
 
 
-def _create_parquet_dataset_simple(root_path, filesystem=None):
+def _create_parquet_dataset_simple(root_path):
     """
     Creates a simple (flat files, no nested partitioning) Parquet dataset
     """
+
     metadata_collector = []
 
     for i in range(4):
         table = pa.table({'f1': [i] * 10, 'f2': np.random.randn(10)})
         pq.write_to_dataset(
-            table, str(root_path), filesystem=filesystem,
-            metadata_collector=metadata_collector
+            table, str(root_path), metadata_collector=metadata_collector
         )
 
     metadata_path = str(root_path / '_metadata')
@@ -3104,7 +3103,6 @@ def _create_parquet_dataset_simple(root_path, filesystem=None):
         table.schema, metadata_path,
         metadata_collector=metadata_collector
     )
-
     return metadata_path, table
 
 
@@ -3121,7 +3119,6 @@ def test_parquet_dataset_factory(tempdir):
 
 
 @pytest.mark.parquet
-@pytest.mark.s3
 def test_parquet_dataset_factory_fsspec(tempdir):
     # https://issues.apache.org/jira/browse/ARROW-16413
     fsspec = pytest.importorskip("fsspec")
