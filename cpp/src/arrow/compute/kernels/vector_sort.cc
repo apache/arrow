@@ -1952,24 +1952,28 @@ class RankMetaFunction : public MetaFunction {
     ArraySortOptions array_options(options.order, options.null_placement);
 
     auto length = array.length();
-    ARROW_ASSIGN_OR_RAISE(auto rankings,
+    ARROW_ASSIGN_OR_RAISE(auto sort_indices,
                           MakeMutableUInt64Array(uint64(), length, ctx->memory_pool()));
-    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
-    auto out_end = out_begin + length;
-    std::iota(out_begin, out_end, 0);
+    auto sort_begin = sort_indices->GetMutableValues<uint64_t>(1);
+    auto sort_end = sort_begin + length;
+    std::iota(sort_begin, sort_end, 0);
 
     auto physical_type = GetPhysicalType(array.type());
     ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type));
 
     NullPartitionResult sorted =
-        array_sorter(out_begin, out_end, array, 0, array_options);
+        array_sorter(sort_begin, sort_end, array, 0, array_options);
     uint64_t rank = 0;
+
+    ARROW_ASSIGN_OR_RAISE(auto rankings,
+                          MakeMutableUInt64Array(uint64(), length, ctx->memory_pool()));
+    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
 
     auto it = sorted.overall_begin();
     switch (options.tiebreaker) {
       case RankOptions::Dense: {
         Datum prevValue, currValue;
-        while (it < sorted.overall_end()) {
+        while (it != sorted.overall_end()) {
           currValue = array.GetScalar(*it).ValueOrDie();
           if (rank == 0 || (currValue != prevValue)) {
             rank++;
@@ -2017,8 +2021,8 @@ class RankMetaFunction : public MetaFunction {
           // Can alternately compare to nextValue and only write
           // at changes, at the expense of breaking consistency with
           // other tiebreakers
-          for (auto j = 0; j < currentTieCount + 1; j++) {
-            out_begin[*it - j] = rank;
+          for (auto j = 0; j <= currentTieCount; j++) {
+            out_begin[*(it - j)] = rank;
           }
           prevValue = currValue;
           it++;
