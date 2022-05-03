@@ -33,3 +33,5 @@ elif [ "${dask}" = "latest" ]; then
 else
   pip install dask[dataframe]==${dask}
 fi
+# additional dependencies needed for dask's s3 tests
+pip install moto flask requests
