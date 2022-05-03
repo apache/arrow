@@ -39,3 +39,4 @@ pytest -v --pyargs dask.dataframe.io.tests.test_orc
 # test_pandas_timestamp_overflow_pyarrow is skipped because of ARROW-15720 - can be removed once 2022.02.1 is out
 pytest -v --pyargs dask.dataframe.io.tests.test_parquet \
   -k "not test_to_parquet_pyarrow_w_inconsistent_schema_by_partition_fails_by_default and not test_timeseries_nulls_in_schema and not test_pandas_timestamp_overflow_pyarrow"
+pytest -v --pyargs dask.bytes.tests.test_s3
