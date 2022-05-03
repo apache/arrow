@@ -110,8 +110,8 @@ Arrow arrays and tables can be easily concatenated:
 * Parquet improvements:
   * Parquet writer supports Duration type columns.
   * The dataset Parquet reader consumes less memory.
-* `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
-* `Array$cast()` can cast struct arrays into another struct type with the same field names
+* `median()` and `quantile()` will warn only once about approximate calculations regardless of interactivity.
+* `Array$cast()` can cast StructArrays into another struct type with the same field names
   and structure (or a subset of fields) but different field types.
 * Removed special handling for Solaris.
 * The CSV writer is much faster when writing string columns.
@@ -120,7 +120,7 @@ Arrow arrays and tables can be easily concatenated:
 * `RandomAccessFile` has a `$ReadMetadata()` method that provides useful
   metadata provided by the filesystem.
 * `grepl` binding returns `FALSE` for `NA` inputs (previously it returned `NA`),
-  which matches the behavior of `base::grepl`.
+  to match the behavior of `base::grepl()`.
 * `create_package_with_all_dependencies()` works on Windows and Mac OS, instead
   of only Linux.
 
