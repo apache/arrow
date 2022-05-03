@@ -1524,7 +1524,7 @@ test_that("parse_date_time() works with year, month, and date components", {
   # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16443 is done
   # skip_on_os("windows")
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
-    withr::local_locale(LC_TIME = "en_US.UTF-8")
+    withr::local_locale(LC_TIME = "C")
   }
   compare_dplyr_binding(
     .input %>%
