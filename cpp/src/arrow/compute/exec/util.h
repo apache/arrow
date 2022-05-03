@@ -236,7 +236,7 @@ ARROW_EXPORT
 Result<std::shared_ptr<Table>> TableFromExecBatches(
     const std::shared_ptr<Schema>& schema, const std::vector<ExecBatch>& exec_batches);
 
-class AtomicCounter {
+class ARROW_EXPORT AtomicCounter {
  public:
   AtomicCounter() = default;
 

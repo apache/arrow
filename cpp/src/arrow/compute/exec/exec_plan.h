@@ -292,7 +292,7 @@ class ARROW_EXPORT ExecNode {
 /// takes a batch in and returns a batch.  This simple parallel runner also needs an
 /// executor (use simple synchronous runner if there is no executor)
 
-class MapNode : public ExecNode {
+class ARROW_EXPORT MapNode : public ExecNode {
  public:
   MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema, bool async_mode);
