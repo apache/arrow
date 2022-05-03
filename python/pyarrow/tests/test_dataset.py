@@ -2602,10 +2602,9 @@ def test_open_dataset_from_fsspec(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_inspect_file_fsspec(s3_filesystem):
+def test_file_format_inspect_fsspec(s3_filesystem):
     # https://issues.apache.org/jira/browse/ARROW-16413
     from pyarrow.fs import _ensure_filesystem
-    import pyarrow.dataset as ds
 
     fs, (host, port, access_key, secret_key) = s3_filesystem
 
@@ -2628,6 +2627,9 @@ def test_inspect_file_fsspec(s3_filesystem):
     filesystem = _ensure_filesystem(fsspec_fs)
     schema = format.inspect(path, filesystem)
     assert schema.equals(table.schema)
+
+    fragment = format.make_fragment(path, filesystem)
+    assert fragment.physical_schema.equals(table.schema)
 
 
 @pytest.mark.pandas
