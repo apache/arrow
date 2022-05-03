@@ -517,16 +517,14 @@ TEST(TestCompareTimestamps, ScalarArray) {
     auto expected = ArrayFromJSON(boolean(), expected_json);
     auto flip_expected = ArrayFromJSON(boolean(), flip_expected_json);
     for (auto array_case :
-         std::vector<ArrayCase>{
-             {scalar_side, array_side, expected},
-             {array_side, scalar_side, flip_expected}
-	 }) {
+         std::vector<ArrayCase>{{scalar_side, array_side, expected},
+                                {array_side, scalar_side, flip_expected} }) {
       auto lhs = array_case.side1, rhs = array_case.side2;
       if (scalar_type->Equals(array_type)) {
         ASSERT_OK_AND_ASSIGN(Datum result,
                              CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
-        AssertArraysEqual(
-            *array_case.expected.make_array(), *result.make_array(), /*verbose=*/true);
+        AssertArraysEqual(*array_case.expected.make_array(), *result.make_array(),
+                          /*verbose=*/true);
       } else {
         EXPECT_RAISES_WITH_MESSAGE_THAT(
             Invalid,
@@ -547,17 +545,17 @@ TEST(TestCompareTimestamps, ScalarArray) {
          }) {
       auto t0 = types.first, t1 = types.second;
       CheckArrayCase(t0, t1, CompareOperator::EQUAL, "[true, false, null, false]",
-          "[true, false, null, false]");
+                     "[true, false, null, false]");
       CheckArrayCase(t0, t1, CompareOperator::NOT_EQUAL, "[false, true, null, true]",
-          "[false, true, null, true]");
+                     "[false, true, null, true]");
       CheckArrayCase(t0, t1, CompareOperator::LESS, "[false, true, null, false]",
-          "[false, false, null, true]");
+                     "[false, false, null, true]");
       CheckArrayCase(t0, t1, CompareOperator::LESS_EQUAL, "[true, true, null, false]",
-          "[true, false, null, true]");
+                     "[true, false, null, true]");
       CheckArrayCase(t0, t1, CompareOperator::GREATER, "[false, false, null, true]",
-          "[false, true, null, false]");
+                     "[false, true, null, false]");
       CheckArrayCase(t0, t1, CompareOperator::GREATER_EQUAL, "[true, false, null, true]",
-          "[true, true, null, false]");
+                     "[true, true, null, false]");
     }
   }
 }
