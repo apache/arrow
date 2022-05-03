@@ -40,7 +40,7 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
-    auto options = static_cast<const OptionsType*>(args.options);
+    auto options = checked_cast<const OptionsType*>(args.options);
     if (!options) {
       return Status::Invalid(
           "Attempted to initialize KernelState from null FunctionOptions");
@@ -73,86 +73,103 @@ struct CumulativeGeneric {
   using OutValue = typename GetOutputType<OutType>::T;
   using ArgValue = typename GetViewType<ArgType>::T;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
-    auto start = UnboxScalar<OutType>::Unbox(*(options.start));
-    auto skip_nulls = options.skip_nulls;
-    bool encountered_null = false;
+  KernelContext* ctx;
+  ArgValue accumulator;
+  bool skip_nulls;
+  bool encountered_null = false;
+  Datum values;
+  NumericBuilder<OutType>* builder;
 
-    std::shared_ptr<ArrayData> out_arr;
-    NumericBuilder<OutType> builder;
-
-    switch (batch[0].kind()) {
+  Status Cumulate(std::shared_ptr<ArrayData>* out_arr) {
+    switch (values.kind()) {
       case Datum::SCALAR: {
-        auto in_value = UnboxScalar<OutType>::Unbox(*(batch[0].scalar()));
-        RETURN_NOT_OK(builder.Append(start + in_value));
+        auto in_value = UnboxScalar<OutType>::Unbox(*(values.scalar()));
+        Status st;
+        auto result = Op::template Call<OutValue, ArgValue, ArgValue>(ctx, accumulator,
+                                                                      in_value, &st);
+        RETURN_NOT_OK(st);
+        RETURN_NOT_OK(builder->Append(result));
         break;
       }
       case Datum::ARRAY: {
-        auto input = batch[0].array();
-
-        RETURN_NOT_OK(Call(ctx, *input, builder, &start, skip_nulls, &encountered_null));
+        auto arr_input = values.array();
+        builder->Reserve(arr_input->length);
+        RETURN_NOT_OK(Call(*arr_input));
         break;
       }
       case Datum::CHUNKED_ARRAY: {
-        const auto& input = batch[0].chunked_array();
+        const auto& chunked_input = values.chunked_array();
 
-        for (const auto& chunk : input->chunks()) {
-          RETURN_NOT_OK(
-              Call(ctx, *chunk->data(), builder, &start, skip_nulls, &encountered_null));
+        for (const auto& chunk : chunked_input->chunks()) {
+          builder->Reserve(chunk->length());
+          RETURN_NOT_OK(Call(*chunk->data()));
         }
         break;
       }
       default:
         return Status::NotImplemented(
             "Unsupported input type for function 'cumulative_<operator>': ",
-            batch[0].ToString());
+            values.ToString());
     }
 
-    RETURN_NOT_OK(builder.FinishInternal(&out_arr));
-    out->value = std::move(out_arr);
+    RETURN_NOT_OK(builder->FinishInternal(out_arr));
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& input,
-                     NumericBuilder<OutType>& builder, ArgValue* accumulator,
-                     bool skip_nulls, bool* encountered_null) {
+  Status Call(const ArrayData& input) {
     Status st = Status::OK();
-    ArgValue accumulator_tmp = *accumulator;
-    bool encountered_null_tmp = *encountered_null;
 
-    auto null_func = [&]() {
-      st &= builder.AppendNull();
-      encountered_null_tmp = true;
-    };
-
-    if (skip_nulls || (input.GetNullCount() == 0 && !encountered_null_tmp)) {
+    if (skip_nulls || (input.GetNullCount() == 0 && !encountered_null)) {
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {
-            accumulator_tmp = Op::template Call<OutValue, ArgValue, ArgValue>(
-                ctx, v, accumulator_tmp, &st);
-            st &= builder.Append(accumulator_tmp);
+            accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(
+                ctx, v, accumulator, &st);
+            builder->UnsafeAppend(accumulator);
           },
-          null_func);
+          [&]() {
+            builder->UnsafeAppendNull();
+          });
     } else {
+      auto nulls_start_idx = 0;
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {
-            if (encountered_null_tmp) {
-              st &= builder.AppendNull();
-            } else {
-              accumulator_tmp = Op::template Call<OutValue, ArgValue, ArgValue>(
-                  ctx, v, accumulator_tmp, &st);
-              st &= builder.Append(accumulator_tmp);
+            if (!encountered_null) {
+              accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(
+                  ctx, v, accumulator, &st);
+              builder->UnsafeAppend(accumulator);
+              ++nulls_start_idx;
             }
           },
-          null_func);
+          [&]() {
+            encountered_null = true;
+          });
+      
+      builder->AppendNulls(input.length - nulls_start_idx);
     }
 
-    *accumulator = accumulator_tmp;
-    *encountered_null = encountered_null_tmp;
     return st;
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
+
+    auto start = UnboxScalar<OutType>::Unbox(*(options.start));
+    auto skip_nulls = options.skip_nulls;
+    NumericBuilder<OutType> builder(ctx->memory_pool());
+
+    CumulativeGeneric self;
+    self.ctx = ctx;
+    self.accumulator = start;
+    self.skip_nulls = skip_nulls;
+    self.values = batch[0];
+    self.builder = &builder;
+
+    std::shared_ptr<ArrayData> out_arr;
+    RETURN_NOT_OK(self.Cumulate(&out_arr));
+    out->value = std::move(out_arr);
+    return Status::OK();
   }
 };
 
@@ -188,7 +205,7 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
   for (const auto& ty : types) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
-    kernel.null_handling = NullHandling::type::INTERSECTION;
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
     kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
