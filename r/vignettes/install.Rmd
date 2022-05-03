@@ -9,7 +9,7 @@ vignette: >
 
 TL;DR
 
-In most cases, `install.packages("arrow")` should just work. There are things you can do to make the installation faster (see below). If, for any reason, it doesn't work, set the environment variable `ARROW_R_DEV=true` in your `.Renviron`, retry, and share the logs with us.
+In most cases, `install.packages("arrow")` should just work. There are things you can do to make the installation faster (see below). If, for any reason, it doesn't work, set the environment variable `ARROW_R_DEV=true`, retry, and share the logs with us.
 
 ----
 
