@@ -435,20 +435,26 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
 /// \defgroup adbc-driver Driver initialization.
 /// @{
 
-/// \brief Function pointers for ADBC functions.
+/// \brief A table of function pointers for ADBC functions.
 ///
 /// This provides a common interface for implementation-specific
 /// driver initialization routines.
-///
-/// This struct should only ever be used as a pointer. Applications
-/// that declare a `struct AdbcDriver foo;` can and will break.
 struct AdbcDriver {
   // TODO: migrate drivers
   // Do not edit fields. New fields can only be appended to the end.
 };
 
 /// \brief Common entry point for drivers using dlopen(3).
-AdbcStatusCode AdbcDriverInit(struct AdbcDriver* driver, struct AdbcError* error);
+///
+/// \param[in] count The number of entries to initialize. Provides
+///   backwards compatibility if the struct definition is changed.
+/// \param[out] driver The table of function pointers to initialize.
+/// \param[out] initialized How much of the table was actually
+///   initialized (can be less than count).
+/// \param[out] error An optional location to return an error message if
+///   necessary.
+AdbcStatusCode AdbcDriverInit(size_t count, struct AdbcDriver* driver,
+                              size_t* initialized, struct AdbcError* error);
 
 /// }@
 
