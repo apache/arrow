@@ -49,22 +49,22 @@
 * For Arrow dplyr queries, added additional `{lubridate}` features and fixes:
   * New component extraction functions: 
     * `lubridate::tz()` (timezone),
-    * `lubridate::semester()` (semester), 
-    * `lubridate::dst()` (daylight savings time indicator),
-    * `lubridate::date()` (extract date), 
-    * `lubridate::epiyear()` (epiyear),
+    * `lubridate::semester()`,
+    * `lubridate::dst()` (daylight savings time boolean),
+    * `lubridate::date()`,
+    * `lubridate::epiyear()` (year according to epidemilogical week calendar),
   * `lubridate::month()` works with integer inputs.
-  * Added `lubridate::make_date()` & `lubridate::make_datetime()` + 
+  * `lubridate::make_date()` & `lubridate::make_datetime()` + 
     `lubridate::ISOdatetime()` & `lubridate::ISOdate()` to 
     create date-times from numeric representations. 
-  * Added `lubridate::decimal_date()` and `lubridate::date_decimal()`
-  * Added `lubridate::make_difftime()` (duration constructor)
-  * Added `?lubridate::duration` helper functions, such as `dyears()`, `dhours()`, `dseconds()`.
-  * Added `lubridate::leap_year()`
-  * Added `lubridate::as_date()` and `lubridate::as_datetime()`
-* Also for Arrow dplyr queries, added support for base date and time functions:
-  * Added `base::difftime` and `base::as.difftime()` 
-  * Added `base::as.Date()` to convert to date
+  * `lubridate::decimal_date()` and `lubridate::date_decimal()`
+  * `lubridate::make_difftime()` (duration constructor)
+  * `?lubridate::duration` helper functions, such as `dyears()`, `dhours()`, `dseconds()`.
+  * `lubridate::leap_year()`
+  * `lubridate::as_date()` and `lubridate::as_datetime()`
+* Also for Arrow dplyr queries, added support and fixes for base date and time functions:
+  * `base::difftime` and `base::as.difftime()`
+  * `base::as.Date()` to convert to date
   * Arrow timestamp and date arrays support `base::format()`
   * `strptime()` returns `NA` instead of erroring in case of format mismatch,
     just like `base::strptime()`.
