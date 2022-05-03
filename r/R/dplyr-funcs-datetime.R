@@ -381,7 +381,8 @@ register_bindings_duration <- function() {
     # collapse multiple separators into a single one
     x <- call_binding("gsub", "-{2,}", "-", x)
 
-    # TODO figure out how to parse strings that have no separators)
+    # TODO figure out how to parse strings that have no separators
+    # https://issues.apache.org/jira/browse/ARROW-16446
     # we could insert separators at the "likely" positions, but it might be
     # tricky given the possible combinations between dmy formats + locale
 
