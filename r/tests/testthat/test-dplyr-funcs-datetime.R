@@ -1508,6 +1508,8 @@ test_that("parse_date_time() works with year, month, and date components", {
     )
   )
 
+  Sys.getlocale(category = "LC_TIME")
+
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -1522,7 +1524,7 @@ test_that("parse_date_time() works with year, month, and date components", {
 
   # locale not working properly on windows
   # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16399 is done
-  skip_on_os("windows")
+  # test skip_on_os("windows")
   compare_dplyr_binding(
     .input %>%
       mutate(
