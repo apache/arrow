@@ -787,17 +787,11 @@ cdef class FileFormat(_Weakrefable):
         if partition_expression is None:
             partition_expression = _true
 
-        cdef:
-            CFileSource c_source = _make_file_source(file, filesystem)
-            CResult[shared_ptr[CFileFragment]] c_result
-            CExpression c_partition_expression = partition_expression.unwrap()
-
-        with nogil:
-            c_result = self.format.MakeFragment(
-                move(c_source), c_partition_expression,
-                <shared_ptr[CSchema]>nullptr)
-
-        c_fragment = <shared_ptr[CFragment]> GetResultValue(c_result)
+        c_source = _make_file_source(file, filesystem)
+        c_fragment = <shared_ptr[CFragment]> GetResultValue(
+            self.format.MakeFragment(move(c_source),
+                                     partition_expression.unwrap(),
+                                     <shared_ptr[CSchema]>nullptr))
         return Fragment.wrap(move(c_fragment))
 
     def make_write_options(self):
