@@ -788,7 +788,7 @@ cdef class ParquetDatasetFactory(DatasetFactory):
                  FileFormat format not None,
                  ParquetFactoryOptions options=None):
         cdef:
-            c_string path
+            c_string c_path
             shared_ptr[CFileSystem] c_filesystem
             shared_ptr[CParquetFileFormat] c_format
             CResult[shared_ptr[CDatasetFactory]] result
@@ -801,8 +801,9 @@ cdef class ParquetDatasetFactory(DatasetFactory):
         options = options or ParquetFactoryOptions()
         c_options = options.unwrap()
 
-        result = CParquetDatasetFactory.MakeFromMetaDataPath(
-            c_path, c_filesystem, c_format, c_options)
+        with nogil:
+            result = CParquetDatasetFactory.MakeFromMetaDataPath(
+                c_path, c_filesystem, c_format, c_options)
         self.init(GetResultValue(result))
 
     cdef init(self, shared_ptr[CDatasetFactory]& sp):
