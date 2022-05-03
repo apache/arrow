@@ -2444,24 +2444,6 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
 
 @pytest.fixture
 @pytest.mark.parquet
-def s3_filesystem(s3_server):
-    from pyarrow.fs import S3FileSystem
-
-    host, port, access_key, secret_key = s3_server['connection']
-
-    fs = S3FileSystem(
-        access_key=access_key,
-        secret_key=secret_key,
-        endpoint_override='{}:{}'.format(host, port),
-        scheme='http'
-    )
-    fs.create_dir("mybucket")
-
-    return fs, (host, port, access_key, secret_key)
-
-
-@pytest.fixture
-@pytest.mark.parquet
 def s3_example_simple(s3_server):
     from pyarrow.fs import FileSystem
 
@@ -2602,29 +2584,24 @@ def test_open_dataset_from_fsspec(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_file_format_inspect_fsspec(s3_filesystem):
+def test_file_format_inspect_fsspec(tempdir):
     # https://issues.apache.org/jira/browse/ARROW-16413
-    s3fs = pytest.importorskip("s3fs")
-    from pyarrow.fs import _ensure_filesystem
-
-    fs, (host, port, access_key, secret_key) = s3_filesystem
+    fsspec = pytest.importorskip("fsspec")
 
     # create bucket + file with pyarrow
     table = pa.table({'a': [1, 2, 3]})
-    path = "mybucket/data.parquet"
-    with fs.open_output_stream(path) as out:
-        pq.write_table(table, out)
+    path = tempdir / "data.parquet"
+    pq.write_table(table, path)
 
     # read using fsspec filesystem
-    fsspec_fs = s3fs.S3FileSystem(
-        key=access_key, secret=secret_key,
-        client_kwargs={"endpoint_url": f"http://{host}:{port}"}
-    )
-    assert fsspec_fs.ls("mybucket") == ['mybucket/data.parquet']
+    fsspec_fs = fsspec.filesystem("file")
+    assert fsspec_fs.ls(tempdir) == [str(path)]
 
     # inspect using dataset file format
     format = ds.ParquetFileFormat()
-    filesystem = _ensure_filesystem(fsspec_fs)
+    # manually creating a PyFileSystem instead of using fs._ensure_filesystem
+    # which would convert an fsspec local filesystem to a native one
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
     schema = format.inspect(path, filesystem)
     assert schema.equals(table.schema)
 
@@ -3108,27 +3085,6 @@ def test_feather_format(tempdir, dataset_reader):
         dataset_reader.to_table(ds.dataset(basedir, format="feather"))
 
 
-def _write_metadata_filesystem(
-    schema, path, filesystem, metadata_collector=None, **kwargs
-):
-    """
-    Version of pq.write_metadata that works with a filesystem
-    """
-    with filesystem.open_output_stream(path) as sink:
-        writer = pq.ParquetWriter(sink, schema, **kwargs)
-        writer.close()
-
-    if metadata_collector is not None:
-        # ParquetWriter doesn't expose the metadata until it's written. Write
-        # it and read it again.
-        with filesystem.open_input_file(path) as source:
-            metadata = pq.read_metadata(source)
-        for m in metadata_collector:
-            metadata.append_row_groups(m)
-        with filesystem.open_output_stream(path) as sink:
-            metadata.write_metadata_file(sink)
-
-
 def _create_parquet_dataset_simple(root_path, filesystem=None):
     """
     Creates a simple (flat files, no nested partitioning) Parquet dataset
@@ -3142,18 +3098,13 @@ def _create_parquet_dataset_simple(root_path, filesystem=None):
             metadata_collector=metadata_collector
         )
 
-    metadata_path = str(root_path) + '/_metadata'
+    metadata_path = str(root_path / '_metadata')
     # write _metadata file
-    if filesystem is None:
-        pq.write_metadata(
-            table.schema, metadata_path,
-            metadata_collector=metadata_collector
-        )
-    else:
-        _write_metadata_filesystem(
-            table.schema, metadata_path, filesystem,
-            metadata_collector=metadata_collector
-        )
+    pq.write_metadata(
+        table.schema, metadata_path,
+        metadata_collector=metadata_collector
+    )
+
     return metadata_path, table
 
 
@@ -3171,22 +3122,20 @@ def test_parquet_dataset_factory(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_parquet_dataset_factory_fsspec(s3_filesystem):
+def test_parquet_dataset_factory_fsspec(tempdir):
     # https://issues.apache.org/jira/browse/ARROW-16413
-    s3fs = pytest.importorskip("s3fs")
-    fs, (host, port, access_key, secret_key) = s3_filesystem
+    fsspec = pytest.importorskip("fsspec")
 
     # create dataset with pyarrow
-    root_path = "mybucket/test_parquet_dataset"
-    metadata_path, table = _create_parquet_dataset_simple(root_path, fs)
+    root_path = tempdir / "test_parquet_dataset"
+    metadata_path, table = _create_parquet_dataset_simple(root_path)
 
     # read using fsspec filesystem
-    fsspec_fs = s3fs.S3FileSystem(
-        key=access_key, secret=secret_key,
-        client_kwargs={"endpoint_url": f"http://{host}:{port}"}
-    )
-
-    dataset = ds.parquet_dataset(metadata_path, filesystem=fsspec_fs)
+    fsspec_fs = fsspec.filesystem("file")
+    # manually creating a PyFileSystem, because passing the local fsspec
+    # filesystem would internally be converted to native LocalFileSystem
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    dataset = ds.parquet_dataset(metadata_path, filesystem=filesystem)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
     result = dataset.to_table()
