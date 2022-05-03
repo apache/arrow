@@ -52,7 +52,7 @@
     * `lubridate::semester()`,
     * `lubridate::dst()` (daylight savings time boolean),
     * `lubridate::date()`,
-    * `lubridate::epiyear()` (year according to epidemilogical week calendar),
+    * `lubridate::epiyear()` (year according to epidemiological week calendar),
   * `lubridate::month()` works with integer inputs.
   * `lubridate::make_date()` & `lubridate::make_datetime()` + 
     `lubridate::ISOdatetime()` & `lubridate::ISOdate()` to 
