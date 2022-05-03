@@ -2604,6 +2604,7 @@ def test_open_dataset_from_fsspec(tempdir):
 @pytest.mark.s3
 def test_file_format_inspect_fsspec(s3_filesystem):
     # https://issues.apache.org/jira/browse/ARROW-16413
+    s3fs = pytest.importorskip("s3fs")
     from pyarrow.fs import _ensure_filesystem
 
     fs, (host, port, access_key, secret_key) = s3_filesystem
@@ -2615,7 +2616,6 @@ def test_file_format_inspect_fsspec(s3_filesystem):
         pq.write_table(table, out)
 
     # read using fsspec filesystem
-    import s3fs
     fsspec_fs = s3fs.S3FileSystem(
         key=access_key, secret=secret_key,
         client_kwargs={"endpoint_url": f"http://{host}:{port}"}
@@ -3173,6 +3173,7 @@ def test_parquet_dataset_factory(tempdir):
 @pytest.mark.s3
 def test_parquet_dataset_factory_fsspec(s3_filesystem):
     # https://issues.apache.org/jira/browse/ARROW-16413
+    s3fs = pytest.importorskip("s3fs")
     fs, (host, port, access_key, secret_key) = s3_filesystem
 
     # create dataset with pyarrow
@@ -3180,7 +3181,6 @@ def test_parquet_dataset_factory_fsspec(s3_filesystem):
     metadata_path, table = _create_parquet_dataset_simple(root_path, fs)
 
     # read using fsspec filesystem
-    import s3fs
     fsspec_fs = s3fs.S3FileSystem(
         key=access_key, secret=secret_key,
         client_kwargs={"endpoint_url": f"http://{host}:{port}"}
