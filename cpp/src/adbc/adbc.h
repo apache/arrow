@@ -77,13 +77,56 @@ const char* AdbcStatusCodeMessage(AdbcStatusCode code);
 
 /// }@
 
+// Forward declarations
 struct AdbcStatement;
+
+/// \defgroup adbc-database Database initialization.
+/// Clients first initialize a database, then connect to the database
+/// (below). For client-server databases, one of these steps may be a
+/// no-op; for in-memory or otherwise non-client-server databases,
+/// this gives the implementation a place to initialize and own any
+/// common connection state.
+/// @{
+
+/// \brief A set of database options.
+struct AdbcDatabaseOptions {
+  /// \brief A driver-specific database string.
+  ///
+  /// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
+  const char* target;
+  size_t target_length;
+};
+
+/// \brief An instance of a database.
+///
+/// Must be kept alive as long as any connections exist.
+struct AdbcDatabase {
+  /// \brief Opaque implementation-defined state.
+  /// This field is NULLPTR iff the connection is unintialized/freed.
+  void* private_data;
+};
+
+/// \brief Initialize a new database.
+AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
+                                struct AdbcDatabase* out, struct AdbcError* error);
+
+/// \brief Destroy this database. No connections may exist.
+/// \param[in] database The database to release.
+/// \param[out] error An optional location to return an error
+///   message if necessary.
+AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
+                                   struct AdbcError* error);
+
+/// }@
 
 /// \defgroup adbc-connection Connection establishment.
 /// @{
 
 /// \brief A set of connection options.
 struct AdbcConnectionOptions {
+  /// \brief The database to connect to.
+  struct AdbcDatabase* database;
+
   /// \brief A driver-specific connection string.
   ///
   /// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
@@ -384,6 +427,22 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
                                              struct AdbcError* error);
 
 /// }@
+
+/// }@
+
+/// \defgroup adbc-driver Driver initialization.
+/// @{
+
+/// \brief Function pointers for ADBC functions.
+///
+/// This provides a common interface for implementation-specific
+/// driver initialization routines.
+///
+/// This struct should only ever be used as a pointer. Applications
+/// that declare a `struct AdbcDriver foo;` can and will break.
+struct AdbcDriver {
+  // Do not edit fields. New fields can only be appended to the end.
+};
 
 /// }@
 
