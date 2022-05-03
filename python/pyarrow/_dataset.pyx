@@ -840,6 +840,7 @@ cdef class Fragment(_Weakrefable):
             # corresponding subclasses of FileFragment
             'ipc': FileFragment,
             'csv': FileFragment,
+            'orc': FileFragment,
             'parquet': _get_parquet_symbol('ParquetFileFragment'),
         }
 
