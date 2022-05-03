@@ -62,11 +62,12 @@ class ArrayIterator {
 
   // Value access
   value_type operator*() const {
-    return array_->IsNull(index_) ? value_type{} : array_->GetView(index_);
+    return !array_ || array_->IsNull(index_) ? value_type{} : array_->GetView(index_);
   }
 
   value_type operator[](difference_type n) const {
-    return array_->IsNull(index_ + n) ? value_type{} : array_->GetView(index_ + n);
+    return !array_ || array_->IsNull(index_ + n) ? value_type{}
+                                                 : array_->GetView(index_ + n);
   }
 
   int64_t index() const { return index_; }
@@ -147,12 +148,17 @@ class ChunkedArrayIterator {
   explicit ChunkedArrayIterator(const ChunkedArray& chunked_array, int64_t index = 0)
       : chunked_array_(&chunked_array), index_(index) {
     auto chunk_location = GetChunkLocation(this->index_);
-    current_array_iterator_ =
-        ArrayIterator<ArrayType>(*arrow::internal::checked_pointer_cast<ArrayType>(
-            chunked_array_->chunk(chunk_location.chunk_index)), index_);
+    if (chunked_array.length()) {
+      current_array_iterator_ = ArrayIterator<ArrayType>(
+          *arrow::internal::checked_pointer_cast<ArrayType>(
+              chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
+          index_);
+    } else {
+      current_array_iterator_ = {};
+    }
+
     this->current_chunk_index_ = chunk_location.chunk_index;
-    current_array_iterator_ -=
-        this->index() - chunk_location.index_in_chunk;
+    current_array_iterator_ -= this->index() - chunk_location.index_in_chunk;
   }
 
   // Value access
@@ -166,7 +172,7 @@ class ChunkedArrayIterator {
     } else {
       ArrayIterator<ArrayType> target_iterator{
           *arrow::internal::checked_pointer_cast<ArrayType>(
-              chunked_array_->chunk(chunk_location.chunk_index))};
+              chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index)))};
       return target_iterator[chunk_location.index_in_chunk];
     }
   }
@@ -219,10 +225,10 @@ class ChunkedArrayIterator {
       current_array_iterator_ -=
           current_array_iterator_.index() - chunk_location.index_in_chunk;
     } else {
-      current_array_iterator_ =
-          ArrayIterator<ArrayType>(*arrow::internal::checked_pointer_cast<ArrayType>(
-                                       chunked_array_->chunk(chunk_location.chunk_index)),
-                                   chunk_location.index_in_chunk);
+      current_array_iterator_ = ArrayIterator<ArrayType>(
+          *arrow::internal::checked_pointer_cast<ArrayType>(
+              chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
+          chunk_location.index_in_chunk);
       current_chunk_index_ = chunk_location.chunk_index;
     }
     return *this;

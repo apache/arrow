@@ -36,8 +36,10 @@ namespace arrow {
 class Array;
 class DataType;
 class MemoryPool;
-
+namespace stl {
+template <typename T, typename V>
 class ChunkedArrayIterator;
+}
 
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
@@ -185,7 +187,8 @@ class ARROW_EXPORT ChunkedArray {
   int64_t null_count_;
 
  private:
-  friend class ChunkedArrayIterator;
+  template <typename T, typename V>
+  friend class ::arrow::stl::ChunkedArrayIterator;
   internal::ChunkResolver chunk_resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };

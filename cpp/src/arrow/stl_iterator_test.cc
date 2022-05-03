@@ -313,7 +313,9 @@ TEST(ChunkedArrayIterator, Comparison) {
 }
 
 TEST(ChunkedArrayIterator, MultipleChunks) {
-  auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6])", R"([7, 9, 10, 8])" ,R"([11, 13])", R"([14])", R"([15])" ,R"([16])"});
+  auto result =
+      ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6])", R"([7, 9, 10, 8])",
+                                     R"([11, 13])", R"([14])", R"([15])", R"([16])"});
 
   auto it = Iterate<Int32Type>(*result);
   ASSERT_EQ(it[8], 11);
@@ -379,9 +381,19 @@ TEST(ChunkedArrayIterator, MultipleChunks) {
 }
 
 TEST(ChunkedArrayIterator, EmptyChunks) {
-  auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([])", R"([7, 9, 10, 8])" ,R"([11, 13])", R"([])", R"([])" ,R"([16])"});
-
+  auto result = ChunkedArrayFromJSON(int32(), {});
   auto it = Iterate<Int32Type>(*result);
+  ASSERT_EQ(*it, nullopt);
+  ASSERT_EQ(it[0], nullopt);
+  it++;
+  ASSERT_EQ(it[0], nullopt);
+  it += 2;
+  ASSERT_EQ(it[1], nullopt);
+
+  result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([])", R"([7, 9, 10, 8])",
+                                          R"([11, 13])", R"([])", R"([])", R"([16])"});
+
+  it = Iterate<Int32Type>(*result);
   ASSERT_EQ(it[8], 13);
   ASSERT_EQ(it[9], 16);
   it += 3;
