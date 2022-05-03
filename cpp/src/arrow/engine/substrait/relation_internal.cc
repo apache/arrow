@@ -238,7 +238,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       }
 
       compute::JoinType join_type;
-      switch(join.type()) {
+      switch (join.type()) {
         case 0:
           return Status::NotImplemented("Unspecified join type is not supported");
         case 1:
@@ -260,11 +260,6 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
 
       ARROW_ASSIGN_OR_RAISE(auto left, FromProto(join.left(), ext_set));
       ARROW_ASSIGN_OR_RAISE(auto right, FromProto(join.right(), ext_set));
-      
-      std::cout << "We are in JOIN PHASE" << std::endl;
-      std::cout << "Left: " << left.factory_name << std::endl;
-      std::cout << "Right: " << right.factory_name << std::endl;
-      std::cout << "Join Type: " << ToString(join_type) << std::endl;
 
       if (!join.has_expression()) {
         return Status::Invalid("substrait::JoinRel with no expression");
@@ -272,18 +267,19 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
 
       ARROW_ASSIGN_OR_RAISE(auto expression, FromProto(join.expression(), ext_set));
 
-      std::cout << "Expression : " << expression.ToString() << std::endl;
-      std::cout << "IsScalarExpr : " << expression.IsScalarExpression() << std::endl;
+      const auto& callptr = expression.call();
 
-      compute::HashJoinNodeOptions join_opts{join_type,
-                                                /*in_left_keys=*/{"lkey"},
-                                                /*in_right_keys=*/{"rkey"},
-                                                /*filter*/ arrow::compute::literal(true),
-                                                /*output_suffix_for_left*/ "_l",
-                                                /*output_suffix_for_right*/ "_r"};
-
-
-      return compute::Declaration::Sequence({});
+      compute::HashJoinNodeOptions join_options{
+          join_type,
+          /*in_left_keys=*/{std::move(*callptr->arguments[0].field_ref())},
+          /*in_right_keys=*/{std::move(*callptr->arguments[1].field_ref())},
+          /*filter*/ arrow::compute::literal(true),
+          /*output_suffix_for_left*/ "_l",
+          /*output_suffix_for_right*/ "_r"};
+      compute::Declaration join_dec{"hashjoin", join_options};
+      join_dec.inputs.emplace_back(left);
+      join_dec.inputs.emplace_back(right);
+      return join_dec;
     }
 
     default:

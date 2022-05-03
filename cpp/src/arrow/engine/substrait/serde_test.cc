@@ -931,7 +931,6 @@ TEST(Substrait, JoinRel) {
       DeserializePlan(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
-
 }
 
 }  // namespace engine

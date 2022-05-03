@@ -247,7 +247,8 @@ ExtensionIdRegistry* default_extension_id_registry() {
       // for Substrait, and include mappings for all of them here. See
       // ARROW-15535.
       for (util::string_view name : {
-               "add", "equal",
+               "add",
+               "equal",
            }) {
         DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
       }
