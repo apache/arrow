@@ -98,14 +98,14 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
   //----------------------------------------------------------
 
   // TODO: a lot of these could be implemented in a common mixin
-  enum AdbcStatusCode Close(struct AdbcError* error) { return ADBC_STATUS_OK; }
+  AdbcStatusCode Close(struct AdbcError* error) { return ADBC_STATUS_OK; }
 
   //----------------------------------------------------------
   // Statement Functions
   //----------------------------------------------------------
 
-  enum AdbcStatusCode GetStream(const std::shared_ptr<FlightSqlStatementImpl>& self,
-                                struct ArrowArrayStream* out, struct AdbcError* error) {
+  AdbcStatusCode GetStream(const std::shared_ptr<FlightSqlStatementImpl>& self,
+                           struct ArrowArrayStream* out, struct AdbcError* error) {
     if (!client_) {
       SetError(error, "Statement has not yet been executed");
       return ADBC_STATUS_UNINITIALIZED;
@@ -128,8 +128,7 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
     return ADBC_STATUS_OK;
   }
 
-  enum AdbcStatusCode GetPartitionDescSize(size_t* length,
-                                           struct AdbcError* error) const {
+  AdbcStatusCode GetPartitionDescSize(size_t* length, struct AdbcError* error) const {
     if (!client_) {
       SetError(error, "Statement has not yet been executed");
       return ADBC_STATUS_UNINITIALIZED;
@@ -144,7 +143,7 @@ class FlightSqlStatementImpl : public arrow::RecordBatchReader {
     return ADBC_STATUS_OK;
   }
 
-  enum AdbcStatusCode GetPartitionDesc(uint8_t* partition_desc, struct AdbcError* error) {
+  AdbcStatusCode GetPartitionDesc(uint8_t* partition_desc, struct AdbcError* error) {
     if (!client_) {
       SetError(error, "Statement has not yet been executed");
       return ADBC_STATUS_UNINITIALIZED;
@@ -193,7 +192,7 @@ class AdbcFlightSqlImpl {
   // Common Functions
   //----------------------------------------------------------
 
-  enum AdbcStatusCode Close(struct AdbcError* error) {
+  AdbcStatusCode Close(struct AdbcError* error) {
     auto status = client_->Close();
     if (!status.ok()) {
       SetError(status, error);
@@ -206,7 +205,7 @@ class AdbcFlightSqlImpl {
   // Metadata
   //----------------------------------------------------------
 
-  enum AdbcStatusCode GetTableTypes(struct AdbcStatement* out, struct AdbcError* error) {
+  AdbcStatusCode GetTableTypes(struct AdbcStatement* out, struct AdbcError* error) {
     if (!out->private_data) {
       SetError(error, "Statement is uninitialized, use AdbcStatementInit");
       return ADBC_STATUS_UNINITIALIZED;
@@ -230,8 +229,8 @@ class AdbcFlightSqlImpl {
   // SQL Semantics
   //----------------------------------------------------------
 
-  enum AdbcStatusCode SqlExecute(const char* query, size_t query_length,
-                                 struct AdbcStatement* out, struct AdbcError* error) {
+  AdbcStatusCode SqlExecute(const char* query, size_t query_length,
+                            struct AdbcStatement* out, struct AdbcError* error) {
     if (!out->private_data) {
       SetError(error, "Statement is uninitialized, use AdbcStatementInit");
       return ADBC_STATUS_UNINITIALIZED;
@@ -256,10 +255,10 @@ class AdbcFlightSqlImpl {
   // Partitioned Results
   //----------------------------------------------------------
 
-  enum AdbcStatusCode DeserializePartitionDesc(const uint8_t* serialized_partition,
-                                               size_t serialized_length,
-                                               struct AdbcStatement* out,
-                                               struct AdbcError* error) {
+  AdbcStatusCode DeserializePartitionDesc(const uint8_t* serialized_partition,
+                                          size_t serialized_length,
+                                          struct AdbcStatement* out,
+                                          struct AdbcError* error) {
     if (!out->private_data) {
       SetError(error, "Statement is uninitialized, use AdbcStatementInit");
       return ADBC_STATUS_UNINITIALIZED;
@@ -296,9 +295,11 @@ void AdbcErrorRelease(struct AdbcError* error) {
   error->message = nullptr;
 }
 
-enum AdbcStatusCode AdbcConnectionDeserializePartitionDesc(
-    struct AdbcConnection* connection, const uint8_t* serialized_partition,
-    size_t serialized_length, struct AdbcStatement* statement, struct AdbcError* error) {
+AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection* connection,
+                                                      const uint8_t* serialized_partition,
+                                                      size_t serialized_length,
+                                                      struct AdbcStatement* statement,
+                                                      struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
@@ -306,18 +307,17 @@ enum AdbcStatusCode AdbcConnectionDeserializePartitionDesc(
                                           statement, error);
 }
 
-enum AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
-                                                struct AdbcStatement* statement,
-                                                struct AdbcError* error) {
+AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
+                                           struct AdbcStatement* statement,
+                                           struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
   return (*ptr)->GetTableTypes(statement, error);
 }
 
-enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
-                                       struct AdbcConnection* out,
-                                       struct AdbcError* error) {
+AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
+                                  struct AdbcConnection* out, struct AdbcError* error) {
   std::unordered_map<std::string, std::string> option_pairs;
   auto status = adbc::ParseConnectionString(
                     arrow::util::string_view(options->target, options->target_length))
@@ -353,8 +353,8 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
   return ADBC_STATUS_OK;
 }
 
-enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
-                                          struct AdbcError* error) {
+AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
+                                     struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
@@ -364,53 +364,53 @@ enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
   return status;
 }
 
-enum AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
-                                             const char* query, size_t query_length,
-                                             struct AdbcStatement* out,
-                                             struct AdbcError* error) {
+AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
+                                        const char* query, size_t query_length,
+                                        struct AdbcStatement* out,
+                                        struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
   return (*ptr)->SqlExecute(query, query_length, out, error);
 }
 
-enum AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
-                                                  uint8_t* partition_desc,
-                                                  struct AdbcError* error) {
+AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
+                                             uint8_t* partition_desc,
+                                             struct AdbcError* error) {
   if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);
   return (*ptr)->GetPartitionDesc(partition_desc, error);
 }
 
-enum AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
-                                                      size_t* length,
-                                                      struct AdbcError* error) {
+AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
+                                                 size_t* length,
+                                                 struct AdbcError* error) {
   if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);
   return (*ptr)->GetPartitionDescSize(length, error);
 }
 
-enum AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
-                                           struct ArrowArrayStream* out,
-                                           struct AdbcError* error) {
+AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
+                                      struct ArrowArrayStream* out,
+                                      struct AdbcError* error) {
   if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);
   return (*ptr)->GetStream(*ptr, out, error);
 }
 
-enum AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
-                                      struct AdbcStatement* statement,
-                                      struct AdbcError* error) {
+AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
+                                 struct AdbcStatement* statement,
+                                 struct AdbcError* error) {
   auto impl = std::make_shared<FlightSqlStatementImpl>();
   statement->private_data = new std::shared_ptr<FlightSqlStatementImpl>(impl);
   return ADBC_STATUS_OK;
 }
 
-enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
-                                         struct AdbcError* error) {
+AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
+                                    struct AdbcError* error) {
   if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<FlightSqlStatementImpl>*>(statement->private_data);

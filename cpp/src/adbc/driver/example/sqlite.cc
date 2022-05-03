@@ -135,7 +135,7 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
   // Common Functions
   //----------------------------------------------------------
 
-  enum AdbcStatusCode Close(struct AdbcError* error) {
+  AdbcStatusCode Close(struct AdbcError* error) {
     if (stmt_) {
       auto status = sqlite3_finalize(stmt_);
       if (status != SQLITE_OK) {
@@ -151,8 +151,8 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
   // Statement Functions
   //----------------------------------------------------------
 
-  enum AdbcStatusCode GetStream(const std::shared_ptr<SqliteStatementImpl>& self,
-                                struct ArrowArrayStream* out, struct AdbcError* error) {
+  AdbcStatusCode GetStream(const std::shared_ptr<SqliteStatementImpl>& self,
+                           struct ArrowArrayStream* out, struct AdbcError* error) {
     if (!stmt_) {
       SetError(error, "Statement has not yet been executed");
       return ADBC_STATUS_UNINITIALIZED;
@@ -210,7 +210,7 @@ class AdbcSqliteImpl {
   // Common Functions
   //----------------------------------------------------------
 
-  enum AdbcStatusCode Release(struct AdbcError* error) {
+  AdbcStatusCode Release(struct AdbcError* error) {
     auto status = sqlite3_close(db_);
     if (status != SQLITE_OK) {
       // TODO:
@@ -223,8 +223,8 @@ class AdbcSqliteImpl {
   // SQL Semantics
   //----------------------------------------------------------
 
-  enum AdbcStatusCode SqlExecute(const char* query, size_t query_length,
-                                 struct AdbcStatement* out, struct AdbcError* error) {
+  AdbcStatusCode SqlExecute(const char* query, size_t query_length,
+                            struct AdbcStatement* out, struct AdbcError* error) {
     if (!out->private_data) {
       SetError(error, "Statement is uninitialized, use AdbcStatementInit");
       return ADBC_STATUS_UNINITIALIZED;
@@ -276,9 +276,8 @@ void AdbcErrorRelease(struct AdbcError* error) {
   error->message = nullptr;
 }
 
-enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
-                                       struct AdbcConnection* out,
-                                       struct AdbcError* error) {
+AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
+                                  struct AdbcConnection* out, struct AdbcError* error) {
   sqlite3* db = nullptr;
   auto status = sqlite3_open_v2(
       ":memory:", &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, /*zVfs=*/nullptr);
@@ -294,57 +293,57 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
   return ADBC_STATUS_OK;
 }
 
-enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
-                                          struct AdbcError* error) {
+AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
+                                     struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto ptr = reinterpret_cast<std::shared_ptr<AdbcSqliteImpl>*>(connection->private_data);
-  enum AdbcStatusCode status = (*ptr)->Release(error);
+  AdbcStatusCode status = (*ptr)->Release(error);
   delete ptr;
   connection->private_data = nullptr;
   return status;
 }
 
-enum AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
-                                             const char* query, size_t query_length,
-                                             struct AdbcStatement* out,
-                                             struct AdbcError* error) {
+AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
+                                        const char* query, size_t query_length,
+                                        struct AdbcStatement* out,
+                                        struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<AdbcSqliteImpl>*>(connection->private_data);
   return (*ptr)->SqlExecute(query, query_length, out, error);
 }
 
-enum AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
-                                                  uint8_t* partition_desc,
-                                                  struct AdbcError* error) {
+AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
+                                             uint8_t* partition_desc,
+                                             struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 
-enum AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
-                                                      size_t* length,
-                                                      struct AdbcError* error) {
+AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
+                                                 size_t* length,
+                                                 struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 
-enum AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
-                                           struct ArrowArrayStream* out,
-                                           struct AdbcError* error) {
+AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
+                                      struct ArrowArrayStream* out,
+                                      struct AdbcError* error) {
   if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<SqliteStatementImpl>*>(statement->private_data);
   return (*ptr)->GetStream(*ptr, out, error);
 }
 
-enum AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
-                                      struct AdbcStatement* statement,
-                                      struct AdbcError* error) {
+AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
+                                 struct AdbcStatement* statement,
+                                 struct AdbcError* error) {
   auto impl = std::make_shared<SqliteStatementImpl>();
   statement->private_data = new std::shared_ptr<SqliteStatementImpl>(impl);
   return ADBC_STATUS_OK;
 }
 
-enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
-                                         struct AdbcError* error) {
+AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
+                                    struct AdbcError* error) {
   if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<SqliteStatementImpl>*>(statement->private_data);

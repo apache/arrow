@@ -48,21 +48,20 @@ extern "C" {
 /// @{
 
 /// Error codes for operations that may fail.
-enum AdbcStatusCode {
-  /// No error.
-  ADBC_STATUS_OK = 0,
-  /// An unknown error occurred.
-  ADBC_STATUS_UNKNOWN = 1,
-  /// The operation is not implemented.
-  ADBC_STATUS_NOT_IMPLEMENTED = 2,
-  /// An operation was attempted on an uninitialized object.
-  ADBC_STATUS_UNINITIALIZED = 3,
-  /// The arguments are invalid.
-  ADBC_STATUS_INVALID_ARGUMENT = 4,
-  /// An I/O error occurred.
-  ADBC_STATUS_IO = 5,
-  // TODO: more codes as appropriate
-};
+typedef uint8_t AdbcStatusCode;
+
+/// No error.
+#define ADBC_STATUS_OK 0
+/// An unknown error occurred.
+#define ADBC_STATUS_UNKNOWN 1
+/// The operation is not implemented.
+#define ADBC_STATUS_NOT_IMPLEMENTED 2
+/// An operation was attempted on an uninitialized object.
+#define ADBC_STATUS_UNINITIALIZED 3
+/// The arguments are invalid.
+#define ADBC_STATUS_INVALID_ARGUMENT 4
+/// An I/O error occurred.
+#define ADBC_STATUS_IO 5
 
 /// \brief A detailed error message for an operation.
 struct AdbcError {
@@ -74,7 +73,7 @@ struct AdbcError {
 void AdbcErrorRelease(struct AdbcError* error);
 
 /// \brief Get a human-readable description of a status code.
-const char* AdbcStatusCodeMessage(enum AdbcStatusCode code);
+const char* AdbcStatusCodeMessage(AdbcStatusCode code);
 
 /// }@
 
@@ -106,16 +105,15 @@ struct AdbcConnection {
 };
 
 /// \brief Create a new connection to a database.
-enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
-                                       struct AdbcConnection* out,
-                                       struct AdbcError* error);
+AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
+                                  struct AdbcConnection* out, struct AdbcError* error);
 
 /// \brief Destroy this connection.
 /// \param[in] connection The connection to release.
 /// \param[out] error An optional location to return an error
 ///   message if necessary.
-enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
-                                          struct AdbcError* error);
+AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
+                                     struct AdbcError* error);
 
 /// \defgroup adbc-connection-sql SQL Semantics
 /// Functions for executing SQL queries, or querying SQL-related
@@ -134,19 +132,19 @@ enum AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
 /// \param[in] query_length The length of the query string.
 /// \param[in,out] statement The result set. Allocate with AdbcStatementInit.
 /// \param[out] error Error details, if an error occurs.
-enum AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
-                                             const char* query, size_t query_length,
-                                             struct AdbcStatement* statement,
-                                             struct AdbcError* error);
+AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
+                                        const char* query, size_t query_length,
+                                        struct AdbcStatement* statement,
+                                        struct AdbcError* error);
 
 /// \brief Prepare a query to be executed multiple times.
 ///
 /// TODO: this should return AdbcPreparedStatement to disaggregate
 /// preparation and execution
-enum AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection* connection,
-                                             const char* query, size_t query_length,
-                                             struct AdbcStatement* statement,
-                                             struct AdbcError* error);
+AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection* connection,
+                                        const char* query, size_t query_length,
+                                        struct AdbcStatement* statement,
+                                        struct AdbcError* error);
 
 /// }@
 
@@ -178,9 +176,11 @@ enum AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection* connection,
 ///   statement can then be read independently.
 ///
 /// A partition can be retrieved from AdbcStatementGetPartitionDesc.
-enum AdbcStatusCode AdbcConnectionDeserializePartitionDesc(
-    struct AdbcConnection* connection, const uint8_t* serialized_partition,
-    size_t serialized_length, struct AdbcStatement* statement, struct AdbcError* error);
+AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection* connection,
+                                                      const uint8_t* serialized_partition,
+                                                      size_t serialized_length,
+                                                      struct AdbcStatement* statement,
+                                                      struct AdbcError* error);
 
 /// }@
 
@@ -213,9 +213,9 @@ enum AdbcStatusCode AdbcConnectionDeserializePartitionDesc(
 /// \param[in] connection The database connection.
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-enum AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection* connection,
-                                              struct AdbcStatement* statement,
-                                              struct AdbcError* error);
+AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection* connection,
+                                         struct AdbcStatement* statement,
+                                         struct AdbcError* error);
 
 /// \brief Get a list of schemas in the database.
 ///
@@ -229,9 +229,9 @@ enum AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection* connection,
 /// \param[in] connection The database connection.
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-enum AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection* connection,
-                                               struct AdbcStatement* statement,
-                                               struct AdbcError* error);
+AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection* connection,
+                                          struct AdbcStatement* statement,
+                                          struct AdbcError* error);
 
 /// \brief Get a list of table types in the database.
 ///
@@ -244,9 +244,9 @@ enum AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection* connection
 /// \param[in] connection The database connection.
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-enum AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
-                                                struct AdbcStatement* statement,
-                                                struct AdbcError* error);
+AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
+                                           struct AdbcStatement* statement,
+                                           struct AdbcError* error);
 
 /// \brief Get a list of tables matching the given criteria.
 ///
@@ -282,7 +282,7 @@ enum AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connectio
 ///   table_types is NULL).
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-enum AdbcStatusCode AdbcConnectionGetTables(
+AdbcStatusCode AdbcConnectionGetTables(
     struct AdbcConnection* connection, const char* catalog, size_t catalog_length,
     const char* db_schema, size_t db_schema_length, const char* table_name,
     size_t table_name_length, const char** table_types, size_t table_types_length,
@@ -309,20 +309,20 @@ struct AdbcStatement {
 };
 
 /// \brief Create a new statement for a given connection.
-enum AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
-                                      struct AdbcStatement* statement,
-                                      struct AdbcError* error);
+AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
+                                 struct AdbcStatement* statement,
+                                 struct AdbcError* error);
 
 /// \brief Set an integer option on a statement.
-enum AdbcStatusCode AdbcStatementSetOptionInt64(struct AdbcStatement* statement,
-                                                struct AdbcError* error);
+AdbcStatusCode AdbcStatementSetOptionInt64(struct AdbcStatement* statement,
+                                           struct AdbcError* error);
 
 /// \brief Destroy a statement.
 /// \param[in] statement The statement to release.
 /// \param[out] error An optional location to return an error
 ///   message if necessary.
-enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
-                                         struct AdbcError* error);
+AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
+                                    struct AdbcError* error);
 
 /// \brief Read the result of a statement.
 ///
@@ -331,9 +331,9 @@ enum AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
 ///
 /// \return out A stream of Arrow data. The stream itself must be
 ///   released before the statement is released.
-enum AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
-                                           struct ArrowArrayStream* out,
-                                           struct AdbcError* error);
+AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
+                                      struct ArrowArrayStream* out,
+                                      struct AdbcError* error);
 
 /// \defgroup adbc-statement-partition Partitioned Results
 /// Some backends may internally partition the results. These
@@ -360,9 +360,8 @@ enum AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
 ///   are no more partitions.
 /// \param[out] error An optional location to return an error message if
 ///   necessary.
-enum AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
-                                                      size_t* length,
-                                                      struct AdbcError* error);
+AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
+                                                 size_t* length, struct AdbcError* error);
 
 /// \brief Get the serialized descriptor for the current partition, and advance
 ///   the iterator.
@@ -380,9 +379,9 @@ enum AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* stat
 ///   queried with AdbcStatementGetPartitionDescSize.
 /// \param[out] error An optional location to return an error message if
 ///   necessary.
-enum AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
-                                                  uint8_t* partition_desc,
-                                                  struct AdbcError* error);
+AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
+                                             uint8_t* partition_desc,
+                                             struct AdbcError* error);
 
 /// }@
 

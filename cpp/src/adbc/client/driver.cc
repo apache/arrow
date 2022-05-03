@@ -30,20 +30,20 @@
 namespace adbc {
 
 namespace {
-enum AdbcStatusCode DefaultConnectionDeserializePartitionDesc(
+AdbcStatusCode DefaultConnectionDeserializePartitionDesc(
     struct AdbcConnection* connection, const uint8_t* serialized_partition,
     size_t serialized_length, struct AdbcStatement* statement, struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
-enum AdbcStatusCode DefaultConnectionGetTableTypes(struct AdbcConnection* connection,
-                                                   struct AdbcStatement* statement,
-                                                   struct AdbcError* error) {
+AdbcStatusCode DefaultConnectionGetTableTypes(struct AdbcConnection* connection,
+                                              struct AdbcStatement* statement,
+                                              struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
-enum AdbcStatusCode DefaultConnectionSqlPrepare(struct AdbcConnection* connection,
-                                                const char* query, size_t query_length,
-                                                struct AdbcStatement* statement,
-                                                struct AdbcError* error) {
+AdbcStatusCode DefaultConnectionSqlPrepare(struct AdbcConnection* connection,
+                                           const char* query, size_t query_length,
+                                           struct AdbcStatement* statement,
+                                           struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 }  // namespace
