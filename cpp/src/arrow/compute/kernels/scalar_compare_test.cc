@@ -518,7 +518,7 @@ TEST(TestCompareTimestamps, ScalarArray) {
     auto flip_expected = ArrayFromJSON(boolean(), flip_expected_json);
     for (auto array_case :
          std::vector<ArrayCase>{{scalar_side, array_side, expected},
-                                {array_side, scalar_side, flip_expected} }) {
+                                {array_side, scalar_side, flip_expected}}) {
       auto lhs = array_case.side1, rhs = array_case.side2;
       if (scalar_type->Equals(array_type)) {
         ASSERT_OK_AND_ASSIGN(Datum result,
