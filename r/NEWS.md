@@ -30,7 +30,7 @@
   * Added `as_date()` and `as_datetime()`
   * Added `difftime` and `as.difftime()` 
   * Added `as.Date()` to convert to date
-  * Added `parse_date_time()` & `fast_strptime()` datetime parsers
+  * Added `parse_date_time()` datetime parser for year, month, and day components.
 * `median()` and `quantile()` will warn once about approximate calculations regardless of interactivity.
 * Removed Solaris workarounds, libarrow is now required.
 

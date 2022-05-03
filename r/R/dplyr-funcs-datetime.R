@@ -357,30 +357,7 @@ register_bindings_duration <- function() {
     delta <- delta$cast(int64())
     start + delta$cast(duration("s"))
   })
-  register_binding("fast_strptime", function(x,
-                                             format,
-                                             tz = "UTC",
-                                             lt = TRUE,
-                                             cutoff_2000 = 68L,
-                                             unit = "s") {
-    # TODO support multiple formats once
-    # https://issues.apache.org/jira/browse/ARROW-15665 is done
-    if (length(format) > 1) {
-      arrow_not_supported("multiple values for `format`")
-    }
 
-    # `lt` controls the output `lt = TRUE` returns a POSIXlt (which doesn't play
-    # well with mutate, for example)
-    if (lt) {
-      arrow_not_supported("`lt = TRUE` argument")
-    }
-
-    if (cutoff_2000 != 68L) {
-      arrow_not_supported("`cutoff_2000` != 68L argument")
-    }
-
-    call_binding("strptime", x, format = format, unit = unit)
-  })
   register_binding("parse_date_time", function(x,
                                                orders,
                                                tz = "UTC") {
