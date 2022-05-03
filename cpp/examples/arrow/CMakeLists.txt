@@ -133,4 +133,7 @@ if(ARROW_PARQUET AND ARROW_DATASET)
 
   add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(join-example parquet)
+
+  add_arrow_example(udf_example)
+
 endif()
