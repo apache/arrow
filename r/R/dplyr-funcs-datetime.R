@@ -422,8 +422,7 @@ register_bindings_difftime_constructors <- function() {
       duration <- duration_from_chunks(chunks)
     }
 
-    duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
-    duration$cast(duration("s"))
+    make_duration(duration, "s")
   })
 }
 
