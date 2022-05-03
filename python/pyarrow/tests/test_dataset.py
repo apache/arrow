@@ -2594,7 +2594,7 @@ def test_file_format_inspect_fsspec(tempdir):
 
     # read using fsspec filesystem
     fsspec_fs = fsspec.filesystem("file")
-    assert fsspec_fs.ls(tempdir) == [str(path)]
+    assert fsspec_fs.ls(tempdir)[0].endswith("data.parquet")
 
     # inspect using dataset file format
     format = ds.ParquetFileFormat()
@@ -3133,6 +3133,9 @@ def test_parquet_dataset_factory_fsspec(tempdir):
     # filesystem would internally be converted to native LocalFileSystem
     filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
     dataset = ds.parquet_dataset(metadata_path, filesystem=filesystem)
+    print(metadata_path)
+    print(dataset.files)
+    print(list(dataset.get_fragments())[0].path)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
     result = dataset.to_table()
