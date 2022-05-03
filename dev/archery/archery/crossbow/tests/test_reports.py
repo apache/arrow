@@ -18,7 +18,7 @@
 import textwrap
 
 from archery.crossbow.core import yaml
-from archery.crossbow.reports import ChatNightlyReport, CommentReport, Report
+from archery.crossbow.reports import ChatReport, CommentReport, Report
 
 
 def test_crossbow_comment_formatter(load_fixture):
@@ -40,6 +40,6 @@ def test_crossbow_report(load_fixture):
     job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
     report = Report(job)
     assert report.tasks_by_state is not None
-    report_chat = ChatNightlyReport(report=report)
+    report_chat = ChatReport(report=report)
 
     assert report_chat.render("text") == textwrap.dedent(expected_msg)

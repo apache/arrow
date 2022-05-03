@@ -167,7 +167,7 @@ class ConsoleReport(Report):
                                    asset))
 
 
-class ChatNightlyReport(JinjaReport):
+class ChatReport(JinjaReport):
     templates = {
         'text': 'chat_nightly_report.txt.j2',
     }

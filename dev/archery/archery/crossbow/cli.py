@@ -21,7 +21,7 @@ import time
 import click
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
-from .reports import (ChatNightlyReport, Report, ReportUtils, ConsoleReport,
+from .reports import (ChatReport, Report, ReportUtils, ConsoleReport,
                       EmailReport)
 from ..utils.source import ArrowSources
 
@@ -323,7 +323,7 @@ def report_chat(obj, job_name, send, webhook, fetch):
         queue.fetch()
 
     job = queue.get(job_name)
-    report_chat = ChatNightlyReport(report=Report(job))
+    report_chat = ChatReport(report=Report(job))
     if send:
         ReportUtils.send_message(webhook, report_chat.render("text"))
     else:
