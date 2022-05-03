@@ -2444,6 +2444,24 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
 
 @pytest.fixture
 @pytest.mark.parquet
+def s3_filesystem(s3_server):
+    from pyarrow.fs import S3FileSystem
+
+    host, port, access_key, secret_key = s3_server['connection']
+
+    fs = S3FileSystem(
+        access_key=access_key,
+        secret_key=secret_key,
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http'
+    )
+    fs.create_dir("mybucket")
+
+    return fs, (host, port, access_key, secret_key)
+
+
+@pytest.fixture
+@pytest.mark.parquet
 def s3_example_simple(s3_server):
     from pyarrow.fs import FileSystem
 
@@ -2584,21 +2602,14 @@ def test_open_dataset_from_fsspec(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_inspect_file_fsspec(s3_server):
+def test_inspect_file_fsspec(s3_filesystem):
     # https://issues.apache.org/jira/browse/ARROW-16413
-    from pyarrow.fs import S3FileSystem, _ensure_filesystem
+    from pyarrow.fs import _ensure_filesystem
     import pyarrow.dataset as ds
 
-    host, port, access_key, secret_key = s3_server['connection']
+    fs, (host, port, access_key, secret_key) = s3_filesystem
 
     # create bucket + file with pyarrow
-    fs = S3FileSystem(
-        access_key=access_key,
-        secret_key=secret_key,
-        endpoint_override='{}:{}'.format(host, port),
-        scheme='http'
-    )
-    fs.create_dir("mybucket")
     table = pa.table({'a': [1, 2, 3]})
     path = "mybucket/data.parquet"
     with fs.open_output_stream(path) as out:
@@ -3095,25 +3106,52 @@ def test_feather_format(tempdir, dataset_reader):
         dataset_reader.to_table(ds.dataset(basedir, format="feather"))
 
 
-def _create_parquet_dataset_simple(root_path):
+def _write_metadata_filesystem(
+    schema, path, filesystem, metadata_collector=None, **kwargs
+):
+    """
+    Version of pq.write_metadata that works with a filesystem
+    """
+    with filesystem.open_output_stream(path) as sink:
+        writer = pq.ParquetWriter(sink, schema, **kwargs)
+        writer.close()
+
+    if metadata_collector is not None:
+        # ParquetWriter doesn't expose the metadata until it's written. Write
+        # it and read it again.
+        with filesystem.open_input_file(path) as source:
+            metadata = pq.read_metadata(source)
+        for m in metadata_collector:
+            metadata.append_row_groups(m)
+        with filesystem.open_output_stream(path) as sink:
+            metadata.write_metadata_file(sink)
+
+
+def _create_parquet_dataset_simple(root_path, filesystem=None):
     """
     Creates a simple (flat files, no nested partitioning) Parquet dataset
     """
-
     metadata_collector = []
 
     for i in range(4):
         table = pa.table({'f1': [i] * 10, 'f2': np.random.randn(10)})
         pq.write_to_dataset(
-            table, str(root_path), metadata_collector=metadata_collector
+            table, str(root_path), filesystem=filesystem,
+            metadata_collector=metadata_collector
         )
 
-    metadata_path = str(root_path / '_metadata')
+    metadata_path = str(root_path) + '/_metadata'
     # write _metadata file
-    pq.write_metadata(
-        table.schema, metadata_path,
-        metadata_collector=metadata_collector
-    )
+    if filesystem is None:
+        pq.write_metadata(
+            table.schema, metadata_path,
+            metadata_collector=metadata_collector
+        )
+    else:
+        _write_metadata_filesystem(
+            table.schema, metadata_path, filesystem,
+            metadata_collector=metadata_collector
+        )
     return metadata_path, table
 
 
@@ -3123,6 +3161,30 @@ def test_parquet_dataset_factory(tempdir):
     root_path = tempdir / "test_parquet_dataset"
     metadata_path, table = _create_parquet_dataset_simple(root_path)
     dataset = ds.parquet_dataset(metadata_path)
+    assert dataset.schema.equals(table.schema)
+    assert len(dataset.files) == 4
+    result = dataset.to_table()
+    assert result.num_rows == 40
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_parquet_dataset_factory_fsspec(s3_filesystem):
+    # https://issues.apache.org/jira/browse/ARROW-16413
+    fs, (host, port, access_key, secret_key) = s3_filesystem
+
+    # create dataset with pyarrow
+    root_path = "mybucket/test_parquet_dataset"
+    metadata_path, table = _create_parquet_dataset_simple(root_path, fs)
+
+    # read using fsspec filesystem
+    import s3fs
+    fsspec_fs = s3fs.S3FileSystem(
+        key=access_key, secret=secret_key,
+        client_kwargs={"endpoint_url": f"http://{host}:{port}"}
+    )
+
+    dataset = ds.parquet_dataset(metadata_path, filesystem=fsspec_fs)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
     result = dataset.to_table()
