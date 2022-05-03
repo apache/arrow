@@ -326,12 +326,13 @@ struct BinaryTemporalFactory {
 
   template <typename... WithTypes>
   static std::shared_ptr<ScalarFunction> Make(
-      std::string name, OutputType out_type, const FunctionDoc* doc,
+      std::string name, OutputType out_type, FunctionDoc doc,
       const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
     DCHECK_NE(sizeof...(WithTypes), 0);
     BinaryTemporalFactory self{
         out_type, init,
-        std::make_shared<ScalarFunction>(name, Arity::Binary(), doc, default_options)};
+        std::make_shared<ScalarFunction>(name, Arity::Binary(), std::move(doc),
+                                         default_options)};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }
@@ -458,18 +459,18 @@ void RegisterScalarTemporalBinary(FunctionRegistry* registry) {
   // Temporal difference functions
   auto years_between =
       BinaryTemporalFactory<YearsBetween, TemporalBinary, Int64Type>::Make<
-          WithDates, WithTimestamps>("years_between", int64(), &years_between_doc);
+          WithDates, WithTimestamps>("years_between", int64(), years_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(years_between)));
 
   auto quarters_between =
       BinaryTemporalFactory<QuartersBetween, TemporalBinary, Int64Type>::Make<
-          WithDates, WithTimestamps>("quarters_between", int64(), &quarters_between_doc);
+          WithDates, WithTimestamps>("quarters_between", int64(), quarters_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(quarters_between)));
 
   auto month_interval_between =
       BinaryTemporalFactory<MonthsBetween, TemporalBinary, MonthIntervalType>::Make<
           WithDates, WithTimestamps>("month_interval_between", month_interval(),
-                                     &months_between_doc);
+                                     months_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(month_interval_between)));
 
   auto month_day_nano_interval_between =
@@ -477,13 +478,13 @@ void RegisterScalarTemporalBinary(FunctionRegistry* registry) {
                             MonthDayNanoIntervalType>::Make<WithDates, WithTimes,
                                                             WithTimestamps>(
           "month_day_nano_interval_between", month_day_nano_interval(),
-          &month_day_nano_interval_between_doc);
+          month_day_nano_interval_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(month_day_nano_interval_between)));
 
   static const auto default_day_of_week_options = DayOfWeekOptions::Defaults();
   auto weeks_between =
       BinaryTemporalFactory<WeeksBetween, TemporalDayOfWeekBinary, Int64Type>::Make<
-          WithDates, WithTimestamps>("weeks_between", int64(), &weeks_between_doc,
+          WithDates, WithTimestamps>("weeks_between", int64(), weeks_between_doc,
                                      &default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(weeks_between)));
 
@@ -491,49 +492,49 @@ void RegisterScalarTemporalBinary(FunctionRegistry* registry) {
       BinaryTemporalFactory<DayTimeBetween, TemporalBinary, DayTimeIntervalType>::Make<
           WithDates, WithTimes, WithTimestamps>("day_time_interval_between",
                                                 day_time_interval(),
-                                                &day_time_interval_between_doc);
+                                                day_time_interval_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_time_interval_between)));
 
   auto days_between =
       BinaryTemporalFactory<DaysBetween, TemporalBinary, Int64Type>::Make<WithDates,
                                                                           WithTimestamps>(
-          "days_between", int64(), &days_between_doc);
+          "days_between", int64(), days_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(days_between)));
 
   auto hours_between =
       BinaryTemporalFactory<HoursBetween, TemporalBinary, Int64Type>::Make<
           WithDates, WithTimes, WithTimestamps>("hours_between", int64(),
-                                                &hours_between_doc);
+                                                hours_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(hours_between)));
 
   auto minutes_between =
       BinaryTemporalFactory<MinutesBetween, TemporalBinary, Int64Type>::Make<
           WithDates, WithTimes, WithTimestamps>("minutes_between", int64(),
-                                                &minutes_between_doc);
+                                                minutes_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(minutes_between)));
 
   auto seconds_between =
       BinaryTemporalFactory<SecondsBetween, TemporalBinary, Int64Type>::Make<
           WithDates, WithTimes, WithTimestamps>("seconds_between", int64(),
-                                                &seconds_between_doc);
+                                                seconds_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(seconds_between)));
 
   auto milliseconds_between =
       BinaryTemporalFactory<MillisecondsBetween, TemporalBinary, Int64Type>::Make<
           WithDates, WithTimes, WithTimestamps>("milliseconds_between", int64(),
-                                                &milliseconds_between_doc);
+                                                milliseconds_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(milliseconds_between)));
 
   auto microseconds_between =
       BinaryTemporalFactory<MicrosecondsBetween, TemporalBinary, Int64Type>::Make<
           WithDates, WithTimes, WithTimestamps>("microseconds_between", int64(),
-                                                &microseconds_between_doc);
+                                                microseconds_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(microseconds_between)));
 
   auto nanoseconds_between =
       BinaryTemporalFactory<NanosecondsBetween, TemporalBinary, Int64Type>::Make<
           WithDates, WithTimes, WithTimestamps>("nanoseconds_between", int64(),
-                                                &nanoseconds_between_doc);
+                                                nanoseconds_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanoseconds_between)));
 }
 

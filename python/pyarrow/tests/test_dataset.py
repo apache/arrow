@@ -1197,6 +1197,25 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
         assert row_group.statistics is not None
 
 
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs):
+    # https://issues.apache.org/jira/browse/ARROW-15796
+    fs, assert_opens = open_logging_fs
+    _, dataset = _create_dataset_for_fragments(tempdir, filesystem=fs)
+    fragment = list(dataset.get_fragments())[1]
+
+    # second fragment hasn't yet loaded the metadata,
+    # and pickling it also should not read the metadata
+    with assert_opens([]):
+        pickled_fragment = pickle.loads(pickle.dumps(fragment))
+
+    # then accessing the row group info reads the metadata
+    with assert_opens([pickled_fragment.path]):
+        row_groups = pickled_fragment.row_groups
+    assert row_groups == [0]
+
+
 def _create_dataset_all_types(tempdir, chunk_size=None):
     table = pa.table(
         [

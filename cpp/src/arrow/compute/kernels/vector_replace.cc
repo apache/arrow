@@ -899,17 +899,17 @@ const FunctionDoc fill_null_backward_doc(
 void RegisterVectorReplace(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<VectorFunction>("replace_with_mask", Arity::Ternary(),
-                                                 &replace_with_mask_doc);
+                                                 replace_with_mask_doc);
     RegisterVectorFunction<ReplaceWithMaskFunctor>(registry, func);
   }
   {
     auto func = std::make_shared<VectorFunction>("fill_null_forward", Arity::Unary(),
-                                                 &fill_null_forward_doc);
+                                                 fill_null_forward_doc);
     RegisterVectorFunction<FillNullForwardFunctor>(registry, func);
   }
   {
     auto func = std::make_shared<VectorFunction>("fill_null_backward", Arity::Unary(),
-                                                 &fill_null_backward_doc);
+                                                 fill_null_backward_doc);
     RegisterVectorFunction<FillNullBackwardFunctor>(registry, func);
   }
 }

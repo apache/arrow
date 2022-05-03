@@ -803,7 +803,11 @@ test_that("nested structs can be created from scalars and existing data frames",
   })
 
 test_that("format date/time", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # locale issues
+  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16399 is done
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    withr::local_locale(LC_TIME = "C")
+  }
   # In 3.4 the lack of tzone attribute causes spurious failures
   skip_if_r_version("3.4.4")
 

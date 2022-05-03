@@ -236,6 +236,48 @@ TEST(TestStringOps, TestCharLength) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestConvertUtf8) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  // test first call to convert_from being empty string
+  std::string a("");
+  auto a_in_out_len = static_cast<int>(a.length());
+  const char* a_str =
+      convert_fromUTF8_binary(ctx_ptr, a.data(), a_in_out_len, &a_in_out_len);
+  EXPECT_EQ(std::string(a_str, a_in_out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // subsequent valid calls
+  std::string b("abc");
+  auto b_in_out_len = static_cast<int>(b.length());
+  const char* b_str =
+      convert_fromUTF8_binary(ctx_ptr, b.data(), b_in_out_len, &b_in_out_len);
+  EXPECT_EQ(std::string(b_str, b_in_out_len), "abc");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string c("hello");
+  auto c_in_out_len = static_cast<int>(c.length());
+  const char* c_str =
+      convert_fromUTF8_binary(ctx_ptr, c.data(), c_in_out_len, &c_in_out_len);
+  EXPECT_EQ(std::string(c_str, c_in_out_len), "hello");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d("zero length");
+  int d_in_out_len = 0;
+  const char* d_str =
+      convert_fromUTF8_binary(ctx_ptr, d.data(), d_in_out_len, &d_in_out_len);
+  EXPECT_EQ(std::string(d_str, d_in_out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string e("substring");
+  int e_in_out_len = 3;
+  const char* e_str =
+      convert_fromUTF8_binary(ctx_ptr, e.data(), e_in_out_len, &e_in_out_len);
+  EXPECT_EQ(std::string(e_str, e_in_out_len), "sub");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
