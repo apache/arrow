@@ -97,6 +97,8 @@ class InternalFileDecryptor {
   std::shared_ptr<Decryptor> footer_data_decryptor_;
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
+  // A weak reference to all decryptors that need to be wiped out when decryption is
+  // finished
   std::vector<std::weak_ptr<encryption::AesDecryptor>> all_decryptors_;
 
   ::arrow::MemoryPool* pool_;

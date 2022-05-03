@@ -137,10 +137,10 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
   // Create both data and metadata decryptors to avoid redundant retrieval of key
   // from the key_retriever.
   int key_len = static_cast<int>(footer_key.size());
-  auto aes_metadata_decryptor =
-      encryption::AesDecryptor::Make(algorithm_, key_len, true, &all_decryptors_);
-  auto aes_data_decryptor =
-      encryption::AesDecryptor::Make(algorithm_, key_len, false, &all_decryptors_);
+  auto aes_metadata_decryptor = encryption::AesDecryptor::Make(
+      algorithm_, key_len, /*metadata=*/true, &all_decryptors_);
+  auto aes_data_decryptor = encryption::AesDecryptor::Make(
+      algorithm_, key_len, /*metadata=*/false, &all_decryptors_);
 
   footer_metadata_decryptor_ = std::make_shared<Decryptor>(
       aes_metadata_decryptor, footer_key, file_aad_, aad, pool_);
@@ -201,10 +201,10 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   // Create both data and metadata decryptors to avoid redundant retrieval of key
   // using the key_retriever.
   int key_len = static_cast<int>(column_key.size());
-  auto aes_metadata_decryptor =
-      encryption::AesDecryptor::Make(algorithm_, key_len, true, &all_decryptors_);
-  auto aes_data_decryptor =
-      encryption::AesDecryptor::Make(algorithm_, key_len, false, &all_decryptors_);
+  auto aes_metadata_decryptor = encryption::AesDecryptor::Make(
+      algorithm_, key_len, /*metadata=*/true, &all_decryptors_);
+  auto aes_data_decryptor = encryption::AesDecryptor::Make(
+      algorithm_, key_len, /*metadata=*/false, &all_decryptors_);
 
   column_metadata_map_[column_path] = std::make_shared<Decryptor>(
       aes_metadata_decryptor, column_key, file_aad_, aad, pool_);
