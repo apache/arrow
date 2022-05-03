@@ -21,6 +21,7 @@ import posixpath
 import datetime
 import pathlib
 import pickle
+import sys
 import textwrap
 import tempfile
 import threading
@@ -2582,6 +2583,32 @@ def test_open_dataset_from_fsspec(tempdir):
     assert dataset.schema.equals(table.schema)
 
 
+@pytest.mark.parquet
+def test_file_format_inspect_fsspec(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-16413
+    fsspec = pytest.importorskip("fsspec")
+
+    # create bucket + file with pyarrow
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / "data.parquet"
+    pq.write_table(table, path)
+
+    # read using fsspec filesystem
+    fsspec_fs = fsspec.filesystem("file")
+    assert fsspec_fs.ls(tempdir)[0].endswith("data.parquet")
+
+    # inspect using dataset file format
+    format = ds.ParquetFileFormat()
+    # manually creating a PyFileSystem instead of using fs._ensure_filesystem
+    # which would convert an fsspec local filesystem to a native one
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    schema = format.inspect(path, filesystem)
+    assert schema.equals(table.schema)
+
+    fragment = format.make_fragment(path, filesystem)
+    assert fragment.physical_schema.equals(table.schema)
+
+
 @pytest.mark.pandas
 def test_filter_timestamp(tempdir, dataset_reader):
     # ARROW-11379
@@ -3088,6 +3115,30 @@ def test_parquet_dataset_factory(tempdir):
     root_path = tempdir / "test_parquet_dataset"
     metadata_path, table = _create_parquet_dataset_simple(root_path)
     dataset = ds.parquet_dataset(metadata_path)
+    assert dataset.schema.equals(table.schema)
+    assert len(dataset.files) == 4
+    result = dataset.to_table()
+    assert result.num_rows == 40
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas  # write_to_dataset currently requires pandas
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Results in FileNotFoundError on Windows")
+def test_parquet_dataset_factory_fsspec(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-16413
+    fsspec = pytest.importorskip("fsspec")
+
+    # create dataset with pyarrow
+    root_path = tempdir / "test_parquet_dataset"
+    metadata_path, table = _create_parquet_dataset_simple(root_path)
+
+    # read using fsspec filesystem
+    fsspec_fs = fsspec.filesystem("file")
+    # manually creating a PyFileSystem, because passing the local fsspec
+    # filesystem would internally be converted to native LocalFileSystem
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    dataset = ds.parquet_dataset(metadata_path, filesystem=filesystem)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
     result = dataset.to_table()
