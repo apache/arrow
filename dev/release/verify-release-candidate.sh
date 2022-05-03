@@ -908,13 +908,14 @@ ensure_source_directory() {
 test_source_distribution() {
   export ARROW_HOME=$ARROW_TMPDIR/install
   export PARQUET_HOME=$ARROW_TMPDIR/install
-  export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
+    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib:${DYLD_LIBRARY_PATH:-}
   else
     NPROC=$(nproc)
+    export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   fi
 
   pushd $ARROW_SOURCE_DIR
