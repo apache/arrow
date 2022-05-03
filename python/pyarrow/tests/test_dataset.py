@@ -21,6 +21,7 @@ import posixpath
 import datetime
 import pathlib
 import pickle
+import sys
 import textwrap
 import tempfile
 import threading
@@ -3119,6 +3120,9 @@ def test_parquet_dataset_factory(tempdir):
 
 
 @pytest.mark.parquet
+@pytest.mark.pandas  # write_to_dataset currently requires pandas
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Results in FileNotFoundError on Windows")
 def test_parquet_dataset_factory_fsspec(tempdir):
     # https://issues.apache.org/jira/browse/ARROW-16413
     fsspec = pytest.importorskip("fsspec")
@@ -3133,9 +3137,6 @@ def test_parquet_dataset_factory_fsspec(tempdir):
     # filesystem would internally be converted to native LocalFileSystem
     filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
     dataset = ds.parquet_dataset(metadata_path, filesystem=filesystem)
-    print(metadata_path)
-    print(dataset.files)
-    print(list(dataset.get_fragments())[0].path)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
     result = dataset.to_table()
