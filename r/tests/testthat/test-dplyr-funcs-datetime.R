@@ -1472,7 +1472,7 @@ test_that("make_difftime()", {
   )
 })
 
-test_that("parse_date_time() with year, month, and date components", {
+test_that("parse_date_time() works with year, month, and date components", {
   test_dates <- tibble::tibble(
     string_ymd = c(
       "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
@@ -1508,19 +1508,6 @@ test_that("parse_date_time() with year, month, and date components", {
     )
   )
 
-  test_dates_times <- tibble(
-    date_times = c("09-01-17 12:34:56", NA)
-  )
-
-  expect_warning(
-    test_dates_times %>%
-      arrow_table() %>%
-      mutate(parsed_date_ymd = parse_date_time(date_times, orders = "ymd_HMS")) %>%
-      collect(),
-    '"ymd_HMS" `orders` not supported in Arrow'
-  )
-
-
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -1535,7 +1522,7 @@ test_that("parse_date_time() with year, month, and date components", {
 
   # locale not working properly on windows
   # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16399 is done
-  # test skip_on_os("windows")
+  skip_on_os("windows")
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1545,5 +1532,19 @@ test_that("parse_date_time() with year, month, and date components", {
       ) %>%
       collect(),
     test_dates_locale
+  )
+})
+
+test_that("parse_date_time() doesn't work with hour, minutes, and second components", {
+  test_dates_times <- tibble(
+    date_times = c("09-01-17 12:34:56", NA)
+  )
+
+  expect_warning(
+    test_dates_times %>%
+      arrow_table() %>%
+      mutate(parsed_date_ymd = parse_date_time(date_times, orders = "ymd_HMS")) %>%
+      collect(),
+    '"ymd_HMS" `orders` not supported in Arrow'
   )
 })
