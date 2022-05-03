@@ -2880,6 +2880,8 @@ def test_orc_format(tempdir, dataset_reader):
     orc.write_table(table, path)
 
     dataset = ds.dataset(path, format=ds.OrcFileFormat())
+    fragments = list(dataset.get_fragments())
+    assert isinstance(fragments[0], ds.FileFragment)
     result = dataset_reader.to_table(dataset)
     result.validate(full=True)
     assert result.equals(table)
