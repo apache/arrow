@@ -106,7 +106,7 @@ class AesDecryptor {
  private:
   // PIMPL Idiom
   class AesDecryptorImpl;
-  std::shared_ptr<AesDecryptorImpl> impl_;
+  std::unique_ptr<AesDecryptorImpl> impl_;
 };
 
 std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,

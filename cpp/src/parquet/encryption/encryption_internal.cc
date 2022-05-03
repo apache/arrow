@@ -424,8 +424,8 @@ AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool m
 
 AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
                            bool contains_length)
-    : impl_{std::make_shared<AesDecryptorImpl>(alg_id, key_len, metadata,
-                                               contains_length)} {}
+    : impl_{std::unique_ptr<AesDecryptorImpl>(
+          new AesDecryptorImpl(alg_id, key_len, metadata, contains_length))} {}
 
 std::shared_ptr<AesDecryptor> AesDecryptor::Make(
     ParquetCipher::type alg_id, int key_len, bool metadata,
