@@ -198,6 +198,16 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 		return err
 	}
 
+	for {
+		_, err = stream.Recv()
+		if err != nil {
+			if err != io.EOF {
+				return err
+			}
+			break
+		}
+	}
+
 	info, err := client.GetFlightInfo(ctx, descr)
 	if err != nil {
 		return err
