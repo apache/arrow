@@ -148,17 +148,17 @@ class ChunkedArrayIterator {
   explicit ChunkedArrayIterator(const ChunkedArray& chunked_array, int64_t index = 0)
       : chunked_array_(&chunked_array), index_(index) {
     auto chunk_location = GetChunkLocation(this->index_);
-    if (chunked_array.length()) {
+    if (chunked_array.length() &&
+        static_cast<int>(chunk_location.chunk_index) < chunked_array.num_chunks()) {
       current_array_iterator_ = ArrayIterator<ArrayType>(
-          *arrow::internal::checked_pointer_cast<ArrayType>(
-              chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
-          index_);
+          arrow::internal::checked_cast<const ArrayType&>(
+              *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
+          chunk_location.index_in_chunk);
     } else {
       current_array_iterator_ = {};
     }
 
     this->current_chunk_index_ = chunk_location.chunk_index;
-    current_array_iterator_ -= this->index() - chunk_location.index_in_chunk;
   }
 
   // Value access
@@ -166,15 +166,15 @@ class ChunkedArrayIterator {
 
   value_type operator[](difference_type n) const {
     auto chunk_location = GetChunkLocation(index_ + n);
-    if (current_chunk_index_ == chunk_location.chunk_index) {
-      return current_array_iterator_[chunk_location.index_in_chunk -
-                                     current_array_iterator_.index()];
+    ArrayIterator<ArrayType> target_iterator;
+    if (chunk_location.chunk_index < chunked_array_->num_chunks()) {
+      target_iterator =
+          ArrayIterator<ArrayType>{arrow::internal::checked_cast<const ArrayType&>(
+              *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index)))};
     } else {
-      ArrayIterator<ArrayType> target_iterator{
-          *arrow::internal::checked_pointer_cast<ArrayType>(
-              chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index)))};
-      return target_iterator[chunk_location.index_in_chunk];
+      target_iterator = {};
     }
+    return target_iterator[chunk_location.index_in_chunk];
   }
 
   int64_t index() const { return index_; }
@@ -221,16 +221,15 @@ class ChunkedArrayIterator {
   ChunkedArrayIterator& operator+=(difference_type n) {
     index_ += n;
     auto chunk_location = GetChunkLocation(index_);
-    if (current_chunk_index_ == chunk_location.chunk_index) {
-      current_array_iterator_ -=
-          current_array_iterator_.index() - chunk_location.index_in_chunk;
-    } else {
+    if (static_cast<int>(chunk_location.chunk_index) < chunked_array_->num_chunks()) {
       current_array_iterator_ = ArrayIterator<ArrayType>(
-          *arrow::internal::checked_pointer_cast<ArrayType>(
-              chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
+          arrow::internal::checked_cast<const ArrayType&>(
+              *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
           chunk_location.index_in_chunk);
-      current_chunk_index_ = chunk_location.chunk_index;
+    } else {
+      current_array_iterator_ = {};
     }
+    current_chunk_index_ = chunk_location.chunk_index;
     return *this;
   }
   ChunkedArrayIterator& operator-=(difference_type n) {
