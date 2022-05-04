@@ -503,23 +503,24 @@ TEST(TestCompareTimestamps, DifferentParameters) {
 }
 
 TEST(TestCompareTimestamps, ScalarArray) {
-  const char* scalar_json = R"("1970-01-02")";
-  const char* array_json = R"(["1970-01-02","2000-02-01",null,"1900-02-28"])";
+  std::string scalar_json = R"("1970-01-02")";
+  std::string array_json = R"(["1970-01-02","2000-02-01",null,"1900-02-28"])";
 
   struct ArrayCase {
     Datum side1, side2, expected;
   };
   auto CheckArrayCase = [&](std::shared_ptr<DataType> scalar_type,
                             std::shared_ptr<DataType> array_type, CompareOperator op,
-                            const char* expected_json, const char* flip_expected_json) {
+                            const std::string& expected_json,
+                            const std::string& flip_expected_json) {
     auto scalar_side = ScalarFromJSON(scalar_type, scalar_json);
     auto array_side = ArrayFromJSON(array_type, array_json);
     auto expected = ArrayFromJSON(boolean(), expected_json);
     auto flip_expected = ArrayFromJSON(boolean(), flip_expected_json);
-    for (auto array_case :
+    for (const auto& array_case :
          std::vector<ArrayCase>{{scalar_side, array_side, expected},
                                 {array_side, scalar_side, flip_expected}}) {
-      auto lhs = array_case.side1, rhs = array_case.side2;
+      const auto& lhs = array_case.side1, rhs = array_case.side2;
       if (scalar_type->Equals(array_type)) {
         ASSERT_OK_AND_ASSIGN(Datum result,
                              CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
@@ -535,15 +536,15 @@ TEST(TestCompareTimestamps, ScalarArray) {
     }
   };
 
-  for (auto unit : TimeUnit::values()) {
-    for (auto types :
+  for (const auto& unit : TimeUnit::values()) {
+    for (const auto& types :
          std::vector<std::pair<std::shared_ptr<DataType>, std::shared_ptr<DataType>>>{
              {timestamp(unit), timestamp(unit)},
              {timestamp(unit), timestamp(unit, "utc")},
              {timestamp(unit, "utc"), timestamp(unit)},
              {timestamp(unit, "utc"), timestamp(unit, "utc")},
          }) {
-      auto t0 = types.first, t1 = types.second;
+      const auto& t0 = types.first, t1 = types.second;
       CheckArrayCase(t0, t1, CompareOperator::EQUAL, "[true, false, null, false]",
                      "[true, false, null, false]");
       CheckArrayCase(t0, t1, CompareOperator::NOT_EQUAL, "[false, true, null, true]",
