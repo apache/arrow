@@ -308,16 +308,24 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
   // Now, fill the batch
   batch->values.resize(args_.size());
   batch->length = iteration_size;
-  for (size_t i = 0; i < args_.size(); ++i) {
-    if (args_[i].is_scalar()) {
-      batch->values[i] = args_[i].scalar();
-    } else if (args_[i].is_array()) {
-      batch->values[i] = args_[i].array()->Slice(position_, iteration_size);
-    } else {
-      const ChunkedArray& carr = *args_[i].chunked_array();
-      const auto& chunk = carr.chunk(chunk_indexes_[i]);
-      batch->values[i] = chunk->data()->Slice(chunk_positions_[i], iteration_size);
-      chunk_positions_[i] += iteration_size;
+
+  if (iteration_size == length_) {
+    ARROW_DCHECK_EQ(position_, 0);
+    for (size_t i = 0; i < args_.size(); ++i) {
+      batch->values[i] = std::move(args_[i]);
+    }
+  } else {
+    for (size_t i = 0; i < args_.size(); ++i) {
+      if (args_[i].is_scalar()) {
+        batch->values[i] = args_[i].scalar();
+      } else if (args_[i].is_array()) {
+        batch->values[i] = args_[i].array()->Slice(position_, iteration_size);
+      } else {
+        const ChunkedArray& carr = *args_[i].chunked_array();
+        const auto& chunk = carr.chunk(chunk_indexes_[i]);
+        batch->values[i] = chunk->data()->Slice(chunk_positions_[i], iteration_size);
+        chunk_positions_[i] += iteration_size;
+      }
     }
   }
   position_ += iteration_size;
