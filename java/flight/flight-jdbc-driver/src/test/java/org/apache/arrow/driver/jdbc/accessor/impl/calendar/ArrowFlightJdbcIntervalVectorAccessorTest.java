@@ -167,6 +167,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
   @Test
   public void testShouldGetIntervalDay( ) {
+    Assert.assertEquals("-001 00:00:00.000", formatIntervalDay(parse("PT-24H")));
+    Assert.assertEquals("+001 00:00:00.000", formatIntervalDay(parse("PT+24H")));
     Assert.assertEquals("-000 01:00:00.000", formatIntervalDay(parse("PT-1H")));
     Assert.assertEquals("-000 01:00:00.001", formatIntervalDay(parse("PT-1H-0M-00.001S")));
     Assert.assertEquals("-000 01:01:01.000", formatIntervalDay(parse("PT-1H-1M-1S")));
