@@ -274,6 +274,10 @@ TEST(PathUtil, Globber) {
   ASSERT_TRUE(star.Matches("/b.csv"));
   ASSERT_FALSE(star.Matches("/foo/c.parquet"));
 
+  Globber question("/a?b");
+  ASSERT_TRUE(question.Matches("/acb"));
+  ASSERT_FALSE(question.Matches("/a/b"));
+
   Globber localfs_linux("/f?o/bar/a?/1*.txt");
   ASSERT_TRUE(localfs_linux.Matches("/foo/bar/a1/1.txt"));
   ASSERT_TRUE(localfs_linux.Matches("/f#o/bar/ab/1000.txt"));
