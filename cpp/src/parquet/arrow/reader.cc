@@ -250,6 +250,8 @@ class FileReaderImpl : public FileReader {
                              reader_->metadata()->key_value_metadata(), out);
   }
 
+  ARROW_DEPRECATED(
+      "Deprecated in 9.0.0. Use ReadColumn instead.")
   Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) override {
     auto included_leaves = VectorToSharedSet(Iota(reader_->metadata()->num_columns()));
     std::vector<int> row_groups = Iota(reader_->metadata()->num_row_groups());
