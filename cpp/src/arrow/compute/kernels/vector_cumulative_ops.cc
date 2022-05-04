@@ -123,13 +123,11 @@ struct CumulativeGeneric {
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {
-            accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(
-                ctx, v, accumulator, &st);
+            accumulator =
+                Op::template Call<OutValue, ArgValue, ArgValue>(ctx, v, accumulator, &st);
             builder->UnsafeAppend(accumulator);
           },
-          [&]() {
-            builder->UnsafeAppendNull();
-          });
+          [&]() { builder->UnsafeAppendNull(); });
     } else {
       auto nulls_start_idx = 0;
       VisitArrayValuesInline<ArgType>(
@@ -142,10 +140,8 @@ struct CumulativeGeneric {
               ++nulls_start_idx;
             }
           },
-          [&]() {
-            encountered_null = true;
-          });
-      
+          [&]() { encountered_null = true; });
+
       builder->AppendNulls(input.length - nulls_start_idx);
     }
 
@@ -174,7 +170,7 @@ struct CumulativeGeneric {
 };
 
 const FunctionDoc cumulative_sum_doc{
-    "Computes the cumulative sum over a numeric input",
+    "Compute the cumulative sum over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative sum computed over `values`. Results will wrap around on\n"
      "integer overflow. Use function \"cumulative_sum_checked\" if you want\n"
@@ -183,7 +179,7 @@ const FunctionDoc cumulative_sum_doc{
     "CumulativeSumOptions"};
 
 const FunctionDoc cumulative_sum_checked_doc{
-    "Computes the cumulative sum over a numeric input",
+    "Compute the cumulative sum over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative sum computed over `values`. This function returns an error\n"
      "on overflow. For a variant that doesn't fail on overflow, use\n"
