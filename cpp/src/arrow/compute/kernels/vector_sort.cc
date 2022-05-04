@@ -1913,6 +1913,116 @@ const RankOptions* GetDefaultRankOptions() {
   return &kDefaultRankOptions;
 }
 
+class ArrayRanker : public TypeVisitor {
+ public:
+  ArrayRanker(ExecContext* ctx, const Array& array, const RankOptions& options,
+              Datum* output)
+      : TypeVisitor(),
+        ctx_(ctx),
+        array_(array),
+        order_(options.order),
+        null_placement_(options.null_placement),
+        tiebreaker_(options.tiebreaker),
+        physical_type_(GetPhysicalType(array.type())),
+        output_(output) {}
+
+  Status Run() { return physical_type_->Accept(this); }
+
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) { return RankInternal<TYPE>(); }
+
+  VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+
+#undef VISIT
+
+  template <typename InType>
+  Status RankInternal() {
+    using GetView = GetViewType<InType>;
+    using ArrayType = typename TypeTraits<InType>::ArrayType;
+
+    ArrayType arr(array_.data());
+    ArraySortOptions array_options(order_, null_placement_);
+
+    auto length = array_.length();
+    ARROW_ASSIGN_OR_RAISE(auto sort_indices,
+                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
+    auto sort_begin = sort_indices->GetMutableValues<uint64_t>(1);
+    auto sort_end = sort_begin + length;
+    std::iota(sort_begin, sort_end, 0);
+
+    ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
+
+    NullPartitionResult sorted =
+        array_sorter(sort_begin, sort_end, array_, 0, array_options);
+    uint64_t rank = 0;
+
+    ARROW_ASSIGN_OR_RAISE(auto rankings,
+                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
+    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
+
+    switch (tiebreaker_) {
+      case RankOptions::Dense: {
+        auto currValue = GetView::LogicalValue(arr.GetView(0));
+        auto prevValue = GetView::LogicalValue(arr.GetView(0));
+        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
+          currValue = GetView::LogicalValue(arr.GetView(*it));
+          if (rank == 0 || (currValue != prevValue)) {
+            rank++;
+          }
+
+          out_begin[*it] = rank;
+          prevValue = currValue;
+        }
+        break;
+      }
+      case RankOptions::First: {
+        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
+          out_begin[*it] = ++rank;
+        }
+        break;
+      }
+      case RankOptions::Min: {
+        auto currValue = GetView::LogicalValue(arr.GetView(0));
+        auto prevValue = GetView::LogicalValue(arr.GetView(0));
+        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
+          currValue = GetView::LogicalValue(arr.GetView(*it));
+          if (rank == 0 || (currValue != prevValue)) {
+            rank = (it - sorted.overall_begin()) + 1;
+          }
+          out_begin[*it] = rank;
+          prevValue = currValue;
+        }
+        break;
+      }
+      case RankOptions::Max: {
+        auto currValue = GetView::LogicalValue(arr.GetView(0));
+        auto prevValue = GetView::LogicalValue(arr.GetView(0));
+        auto rank = sorted.overall_end() - sorted.overall_begin();
+        for (auto it = sorted.overall_end() - 1; it >= sorted.overall_begin(); it--) {
+          currValue = GetView::LogicalValue(arr.GetView(*it));
+          if (it < sorted.overall_end() && (currValue != prevValue)) {
+            rank = it - sorted.overall_begin() + 1;
+          }
+          out_begin[*it] = rank;
+          prevValue = currValue;
+        }
+        break;
+      }
+    }
+
+    *output_ = Datum(rankings);
+    return Status::OK();
+  }
+
+  ExecContext* ctx_;
+  const Array& array_;
+  SortOrder order_;
+  NullPlacement null_placement_;
+  RankOptions::Tiebreaker tiebreaker_;
+  const std::shared_ptr<DataType> physical_type_;
+  Datum* output_;
+};
+
 const FunctionDoc rank_doc(
     "Returns the ranking of an array",
     ("This function computes a rank of the input array.\n"
@@ -1949,74 +2059,10 @@ class RankMetaFunction : public MetaFunction {
  private:
   Result<Datum> Rank(const Array& array, const RankOptions& options,
                      ExecContext* ctx) const {
-    ArraySortOptions array_options(options.order, options.null_placement);
-
-    auto length = array.length();
-    ARROW_ASSIGN_OR_RAISE(auto sort_indices,
-                          MakeMutableUInt64Array(uint64(), length, ctx->memory_pool()));
-    auto sort_begin = sort_indices->GetMutableValues<uint64_t>(1);
-    auto sort_end = sort_begin + length;
-    std::iota(sort_begin, sort_end, 0);
-
-    auto physical_type = GetPhysicalType(array.type());
-    ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type));
-
-    NullPartitionResult sorted =
-        array_sorter(sort_begin, sort_end, array, 0, array_options);
-    uint64_t rank = 0;
-
-    ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableUInt64Array(uint64(), length, ctx->memory_pool()));
-    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
-
-    switch (options.tiebreaker) {
-      case RankOptions::Dense: {
-        Datum prevValue, currValue;
-        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
-          currValue = array.GetScalar(*it).ValueOrDie();
-          if (rank == 0 || (currValue != prevValue)) {
-            rank++;
-          }
-
-          out_begin[*it] = rank;
-          prevValue = currValue;
-        }
-        break;
-      }
-      case RankOptions::First: {
-        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
-          out_begin[*it] = ++rank;
-        }
-        break;
-      }
-      case RankOptions::Min: {
-        Datum prevValue, currValue;
-        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
-          currValue = array.GetScalar(*it).ValueOrDie();
-          if (rank == 0 || (currValue != prevValue)) {
-            rank = (it - sorted.overall_begin()) + 1;
-          }
-          out_begin[*it] = rank;
-          prevValue = currValue;
-        }
-        break;
-      }
-      case RankOptions::Max: {
-        Datum prevValue, currValue;
-        auto rank = sorted.overall_end() - sorted.overall_begin();
-        for (auto it = sorted.overall_end() - 1; it >= sorted.overall_begin(); it--) {
-          currValue = array.GetScalar(*it).ValueOrDie();
-          if (it < sorted.overall_end() && (currValue != prevValue)) {
-            rank = it - sorted.overall_begin() + 1;
-          }
-          out_begin[*it] = rank;
-          prevValue = currValue;
-        }
-        break;
-      }
-    }
-
-    return rankings;
+    Datum output;
+    ArrayRanker ranker(ctx, array, options, &output);
+    ARROW_RETURN_NOT_OK(ranker.Run());
+    return output;
   }
 };
 
