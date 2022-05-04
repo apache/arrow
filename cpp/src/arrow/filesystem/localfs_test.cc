@@ -399,19 +399,27 @@ TYPED_TEST(TestLocalFS, FileMTime) {
 }
 
 TYPED_TEST(TestLocalFS, GetGlobFiles) {
+  auto check_entries = [](const std::vector<FileInfo>& infos,
+                          std::vector<std::string> expected) -> void {
+    std::vector<std::string> actual(infos.size());
+    std::transform(infos.begin(), infos.end(), actual.begin(),
+                   [](const FileInfo& file) { return file.path(); });
+    std::sort(actual.begin(), actual.end());
+    ASSERT_EQ(actual, expected);
+  };
+
+  ASSERT_OK(this->fs_->CreateDir("A/CD"));
   ASSERT_OK(this->fs_->CreateDir("AB/CD"));
   ASSERT_OK(this->fs_->CreateDir("AB/CD/ab"));
-  ASSERT_OK(this->fs_->CreateDir("A/CD"));
+  CreateFile(this->fs_.get(), "A/CD/ab.txt", "data");
   CreateFile(this->fs_.get(), "AB/CD/a.txt", "data");
   CreateFile(this->fs_.get(), "AB/CD/abc.txt", "data");
   CreateFile(this->fs_.get(), "AB/CD/ab/c.txt", "data");
-  CreateFile(this->fs_.get(), "A/CD/ab.txt", "data");
 
   std::vector<FileInfo> infos;
   ASSERT_OK_AND_ASSIGN(infos, GetGlobFiles(this->fs_, "A*/CD/?b*.txt"));
   ASSERT_EQ(infos.size(), 2);
-  AssertFileInfo(infos[0], "AB/CD/abc.txt", FileType::File, 4);
-  AssertFileInfo(infos[1], "A/CD/ab.txt", FileType::File, 4);
+  check_entries(infos, {"A/CD/ab.txt", "AB/CD/abc.txt"});
 
   ASSERT_OK_AND_ASSIGN(infos, GetGlobFiles(this->fs_, "A*/CD/?/b*.txt"));
   ASSERT_EQ(infos.size(), 0);
