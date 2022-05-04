@@ -91,18 +91,6 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   return Status::OK();
 }
 
-namespace {
-template <typename Element, typename T>
-void SetElement(size_t i, const Element& element, std::vector<T>* vector) {
-  DCHECK_LE(i, 1 << 20);
-  if (i >= vector->size()) {
-    vector->resize(i + 1);
-  }
-  (*vector)[i] = static_cast<T>(element);
-}
-
-}  // namespace
-
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                                              ExtensionIdRegistry* registry) {
   std::unordered_map<uint32_t, util::string_view> uris;
