@@ -224,8 +224,8 @@ class KeyEncoder {
     mutable bool has_any_nulls_;
   };
 
-  void Init(const std::vector<KeyColumnMetadata>& cols, KeyEncoderContext* ctx,
-            int row_alignment, int string_alignment);
+  void Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
+            int string_alignment);
 
   const KeyRowMetadata& row_metadata() { return row_metadata_; }
 
@@ -501,17 +501,6 @@ inline void KeyEncoder::EncoderVarBinary::DecodeHelper(
     copy_fn(dst, src, length);
   }
 }
-
-KeyEncoder::KeyColumnMetadata ColumnMetadataFromDataType(
-    const std::shared_ptr<DataType>& type);
-KeyEncoder::KeyColumnArray ColumnArrayFromArrayData(
-    const std::shared_ptr<ArrayData>& array_data, int start_row, int num_rows);
-void ColumnMetadatasFromExecBatch(
-    const ExecBatch& batch, std::vector<KeyEncoder::KeyColumnMetadata>& column_metadatas);
-void ColumnArraysFromExecBatch(const ExecBatch& batch, int start_row, int num_rows,
-                               std::vector<KeyEncoder::KeyColumnArray>& column_arrays);
-void ColumnArraysFromExecBatch(const ExecBatch& batch,
-                               std::vector<KeyEncoder::KeyColumnArray>& column_arrays);
 
 }  // namespace compute
 }  // namespace arrow

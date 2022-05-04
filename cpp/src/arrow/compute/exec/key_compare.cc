@@ -33,7 +33,7 @@ template <bool use_selection>
 void KeyCompare::NullUpdateColumnToRow(
     uint32_t id_col, uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-    const KeyEncoder::KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
+    const KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
     uint8_t* match_bytevector, bool are_cols_in_encoding_order) {
   if (!rows.has_any_nulls(ctx) && !col.data(0)) {
     return;
@@ -234,7 +234,7 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
     uint32_t id_varbinary_col, uint32_t first_row_to_compare,
     uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-    const KeyEncoder::KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
+    const KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
     uint8_t* match_bytevector) {
   const uint32_t* offsets_left = col.offsets();
   const uint32_t* offsets_right = rows.offsets();
@@ -289,7 +289,7 @@ template <bool use_selection, bool is_first_varbinary_col>
 void KeyCompare::CompareVarBinaryColumnToRow(
     uint32_t id_varbinary_col, uint32_t num_rows_to_compare,
     const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-    KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
+    KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
     const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
   uint32_t num_processed = 0;
 #if defined(ARROW_HAVE_AVX2)
@@ -325,9 +325,8 @@ void KeyCompare::CompareColumnsToRows(
     uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
     uint32_t* out_num_rows, uint16_t* out_sel_left_maybe_same,
-    const std::vector<KeyEncoder::KeyColumnArray>& cols,
-    const KeyEncoder::KeyRowArray& rows, bool are_cols_in_encoding_order,
-    uint8_t* out_match_bitvector_maybe_null) {
+    const std::vector<KeyColumnArray>& cols, const KeyEncoder::KeyRowArray& rows,
+    bool are_cols_in_encoding_order, uint8_t* out_match_bitvector_maybe_null) {
   if (num_rows_to_compare == 0) {
     *out_num_rows = 0;
     return;
@@ -347,7 +346,7 @@ void KeyCompare::CompareColumnsToRows(
 
   bool is_first_column = true;
   for (size_t icol = 0; icol < cols.size(); ++icol) {
-    const KeyEncoder::KeyColumnArray& col = cols[icol];
+    const KeyColumnArray& col = cols[icol];
 
     if (col.metadata().is_null_type) {
       // If this null type col is the first column, the match_bytevector_A needs to be

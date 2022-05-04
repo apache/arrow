@@ -456,15 +456,16 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
   }
 }
 
-void Hashing32::HashBatch(const ExecBatch& key_batch, int start_row, int num_rows,
-                          uint32_t* hashes,
-                          std::vector<KeyEncoder::KeyColumnArray>& column_arrays,
-                          int64_t hardware_flags, util::TempVectorStack* temp_stack) {
-  ColumnArraysFromExecBatch(key_batch, start_row, num_rows, column_arrays);
+Status Hashing32::HashBatch(const ExecBatch& key_batch, int start_row, int num_rows,
+                            uint32_t* hashes, std::vector<KeyColumnArray>& column_arrays,
+                            int64_t hardware_flags, util::TempVectorStack* temp_stack) {
+  RETURN_NOT_OK(
+      ColumnArraysFromExecBatch(key_batch, start_row, num_rows, &column_arrays));
   KeyEncoder::KeyEncoderContext ctx;
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
   HashMultiColumn(column_arrays, &ctx, hashes);
+  return Status::OK();
 }
 
 inline uint64_t Hashing64::Avalanche(uint64_t acc) {
@@ -886,15 +887,16 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
   }
 }
 
-void Hashing64::HashBatch(const ExecBatch& key_batch, int start_row, int num_rows,
-                          uint64_t* hashes,
-                          std::vector<KeyEncoder::KeyColumnArray>& column_arrays,
-                          int64_t hardware_flags, util::TempVectorStack* temp_stack) {
-  ColumnArraysFromExecBatch(key_batch, start_row, num_rows, column_arrays);
+Status Hashing64::HashBatch(const ExecBatch& key_batch, int start_row, int num_rows,
+                            uint64_t* hashes, std::vector<KeyColumnArray>& column_arrays,
+                            int64_t hardware_flags, util::TempVectorStack* temp_stack) {
+  RETURN_NOT_OK(
+      ColumnArraysFromExecBatch(key_batch, start_row, num_rows, &column_arrays));
   KeyEncoder::KeyEncoderContext ctx;
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
   HashMultiColumn(column_arrays, &ctx, hashes);
+  return Status::OK();
 }
 
 }  // namespace compute
