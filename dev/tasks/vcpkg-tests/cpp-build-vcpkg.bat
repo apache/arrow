@@ -70,6 +70,7 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_WITH_SNAPPY=ON ^
       -DARROW_WITH_ZLIB=ON ^
       -DARROW_WITH_ZSTD=ON ^
+      -GTest_SOURCE=BUNDLED ^
       -DCMAKE_BUILD_TYPE=release ^
       -DCMAKE_UNITY_BUILD=ON ^
       .. || exit /B 1
