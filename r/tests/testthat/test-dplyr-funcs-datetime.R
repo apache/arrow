@@ -1692,5 +1692,5 @@ test_that("parse_date_time() doesn't work with hour, minutes, and second compone
       mutate(parsed_date_ymd = parse_date_time(date_times, orders = "ymd_HMS")) %>%
       collect(),
     '"ymd_HMS" `orders` not supported in Arrow'
-   )
+  )
 })
