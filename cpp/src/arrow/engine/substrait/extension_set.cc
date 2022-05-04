@@ -70,10 +70,11 @@ void ExtensionSet::AddUri(std::pair<uint32_t, util::string_view> uri) {
 }
 
 Status ExtensionSet::AddUri(Id id) {
-  if (uris_.find(uris_.size()) != uris_.end()) {
+  auto uris_size = static_cast<unsigned int>(uris_.size());
+  if (uris_.find(uris_size) != uris_.end()) {
     return Status::Invalid("Key already exist in the uris map");
   }
-  uris_[uris_.size()] = id.uri;
+  uris_[uris_size] = id.uri;
   return Status::OK();
 }
 
@@ -102,7 +103,7 @@ Result<ExtensionSet> ExtensionSet::Make(
 
   set.types_.reserve(type_ids.size());
 
-  for (size_t i = 0; i < type_ids.size(); ++i) {
+  for (unsigned int i = 0; i < static_cast<unsigned int>(type_ids.size()); ++i) {
     if (type_ids[i].empty()) continue;
     RETURN_NOT_OK(set.CheckHasUri(type_ids[i].uri));
 
@@ -115,7 +116,7 @@ Result<ExtensionSet> ExtensionSet::Make(
 
   set.functions_.reserve(function_ids.size());
 
-  for (size_t i = 0; i < function_ids.size(); ++i) {
+  for (unsigned int i = 0; i < static_cast<unsigned int>(function_ids.size()); ++i) {
     if (function_ids[i].empty()) continue;
     RETURN_NOT_OK(set.CheckHasUri(function_ids[i].uri));
 
@@ -146,10 +147,10 @@ Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
     auto it_success =
         types_map_.emplace(rec->id, static_cast<uint32_t>(types_map_.size()));
     if (it_success.second) {
-      if (types_.find(types_.size()) != types_.end()) {
+      if (types_.find(static_cast<unsigned int>(types_.size())) != types_.end()) {
         return Status::Invalid("Key already exist in the uris map");
       }
-      types_[types_.size()] = {rec->id, rec->type};
+      types_[static_cast<unsigned int>(types_.size())] = {rec->id, rec->type};
     }
     return it_success.first->second;
   }
@@ -170,10 +171,12 @@ Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
     auto it_success =
         functions_map_.emplace(rec->id, static_cast<uint32_t>(functions_map_.size()));
     if (it_success.second) {
-      if (functions_.find(functions_.size()) != functions_.end()) {
+      if (functions_.find(static_cast<unsigned int>(functions_.size())) !=
+          functions_.end()) {
         return Status::Invalid("Key already exist in the uris map");
       }
-      functions_[functions_.size()] = {rec->id, rec->function_name};
+      functions_[static_cast<unsigned int>(functions_.size())] = {rec->id,
+                                                                  rec->function_name};
     }
     return it_success.first->second;
   }
