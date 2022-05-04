@@ -1938,6 +1938,7 @@ class ArrayRanker : public TypeVisitor {
   template <typename InType>
   Status RankInternal() {
     using GetView = GetViewType<InType>;
+    using T = typename GetViewType<InType>::T;
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
     ArrayType arr(array_.data());
@@ -1962,8 +1963,7 @@ class ArrayRanker : public TypeVisitor {
 
     switch (tiebreaker_) {
       case RankOptions::Dense: {
-        auto currValue = GetView::LogicalValue(arr.GetView(0));
-        auto prevValue = GetView::LogicalValue(arr.GetView(0));
+        T currValue, prevValue;
         for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
           currValue = GetView::LogicalValue(arr.GetView(*it));
           if (rank == 0 || (currValue != prevValue)) {
@@ -1982,8 +1982,7 @@ class ArrayRanker : public TypeVisitor {
         break;
       }
       case RankOptions::Min: {
-        auto currValue = GetView::LogicalValue(arr.GetView(0));
-        auto prevValue = GetView::LogicalValue(arr.GetView(0));
+        T currValue, prevValue;
         for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
           currValue = GetView::LogicalValue(arr.GetView(*it));
           if (rank == 0 || (currValue != prevValue)) {
@@ -1995,8 +1994,7 @@ class ArrayRanker : public TypeVisitor {
         break;
       }
       case RankOptions::Max: {
-        auto currValue = GetView::LogicalValue(arr.GetView(0));
-        auto prevValue = GetView::LogicalValue(arr.GetView(0));
+        T currValue, prevValue;
         auto rank = sorted.overall_end() - sorted.overall_begin();
         for (auto it = sorted.overall_end() - 1; it >= sorted.overall_begin(); it--) {
           currValue = GetView::LogicalValue(arr.GetView(*it));
