@@ -21,7 +21,8 @@ import time
 import click
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
-from .reports import EmailReport, ConsoleReport
+from .reports import (ChatReport, Report, ReportUtils, ConsoleReport,
+                      EmailReport)
 from ..utils.source import ArrowSources
 
 
@@ -300,6 +301,33 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         )
     else:
         report.show(output)
+
+
+@crossbow.command()
+@click.argument('job-name', required=True)
+@click.option('--send/--dry-run', default=False,
+              help='Just display the report, don\'t send it')
+@click.option('--webhook', '-w',
+              help='Zulip/Slack Webhook address to send the report to')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.pass_obj
+def report_chat(obj, job_name, send, webhook, fetch):
+    """
+    Send a chat report to a webhook showing success/failure
+    of tasks in a Crossbow run.
+    """
+    output = obj['output']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+
+    job = queue.get(job_name)
+    report_chat = ChatReport(report=Report(job))
+    if send:
+        ReportUtils.send_message(webhook, report_chat.render("text"))
+    else:
+        output.write(report_chat.render("text"))
 
 
 @crossbow.command()
