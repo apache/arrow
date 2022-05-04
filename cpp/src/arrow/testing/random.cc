@@ -795,8 +795,13 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     case Type::type::DATE64: {
       using c_type = typename Date64Type::c_type;
       constexpr c_type kFullDayMillis = 1000 * 60 * 60 * 24;
-      constexpr c_type min_value = std::numeric_limits<c_type>::min() / kFullDayMillis;
-      constexpr c_type max_value = std::numeric_limits<c_type>::max() / kFullDayMillis;
+      constexpr c_type kDefaultMin = std::numeric_limits<c_type>::min() / kFullDayMillis;
+      constexpr c_type kDefaultMax = std::numeric_limits<c_type>::max() / kFullDayMillis;
+
+      const c_type min_value =
+          GetMetadata<c_type>(field.metadata().get(), "min", kDefaultMin);
+      const c_type max_value =
+          GetMetadata<c_type>(field.metadata().get(), "max", kDefaultMax);
 
       return *Numeric<Date64Type>(length, min_value, max_value, null_probability)
                   ->View(field.type());

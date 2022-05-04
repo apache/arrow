@@ -382,6 +382,11 @@ install_go() {
     return 0
   fi
 
+  if command -v go > /dev/null; then
+    show_info "Found $(go version) at $(command -v go)"
+    return 0
+  fi
+
   local version=1.16.12
   show_info "Installing go version ${version}..."
 
@@ -445,7 +450,7 @@ install_conda() {
 
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
-  local env="conda-${ENV:-source}"
+  local env="conda-${CONDA_ENV:-source}"
   local pyver=${PYTHON_VERSION:-3}
 
   if [ "${USE_CONDA}" -gt 0 ]; then
@@ -469,14 +474,14 @@ maybe_setup_conda() {
     conda activate $env
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
-    echo "Deactivate the environment using `conda deactive` before running the verification script."
+    echo "Deactivate the environment using \`conda deactivate\` before running the verification script."
     return 1
   fi
 }
 
 maybe_setup_virtualenv() {
   # Optionally setup pip virtualenv with the passed dependencies
-  local env="venv-${ENV:-source}"
+  local env="venv-${VENV_ENV:-source}"
   local pyver=${PYTHON_VERSION:-3}
   local python=${PYTHON:-"python${pyver}"}
   local virtualenv="${ARROW_TMPDIR}/${env}"
@@ -882,7 +887,7 @@ ensure_source_directory() {
     fi
   else
     # Release tarball, testing repositories must be cloned separately
-    echo "Verifying official Arrow release candidate ${VERSION}-rc{$RC_NUMBER}"
+    echo "Verifying official Arrow release candidate ${VERSION}-rc${RC_NUMBER}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/${dist_name}"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
@@ -908,13 +913,14 @@ ensure_source_directory() {
 test_source_distribution() {
   export ARROW_HOME=$ARROW_TMPDIR/install
   export PARQUET_HOME=$ARROW_TMPDIR/install
-  export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
+    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib:${DYLD_LIBRARY_PATH:-}
   else
     NPROC=$(nproc)
+    export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   fi
 
   pushd $ARROW_SOURCE_DIR
@@ -982,8 +988,8 @@ test_linux_wheels() {
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
@@ -1013,8 +1019,8 @@ test_macos_wheels() {
         check_s3=OFF
       fi
 
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
@@ -1031,7 +1037,7 @@ test_macos_wheels() {
 
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
-        ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
+        VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
         # install pyarrow's universal2 wheel
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
         # check the imports and execute the unittests

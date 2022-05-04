@@ -28,7 +28,7 @@ typedef int64_t (*add_vector_func_t)(int64_t* data, int n);
 
 class TestEngine : public ::testing::Test {
  protected:
-  llvm::Function* BuildVecAdd(Engine* engine) {
+  std::string BuildVecAdd(Engine* engine) {
     auto types = engine->types();
     llvm::IRBuilder<>* builder = engine->ir_builder();
     llvm::LLVMContext* context = engine->context();
@@ -95,10 +95,10 @@ class TestEngine : public ::testing::Test {
     // Loop exit
     builder->SetInsertPoint(loop_exit);
     builder->CreateRet(sum_update);
-    return fn;
+    return func_name;
   }
 
-  void BuildEngine() { ASSERT_OK(Engine::Make(TestConfiguration(), &engine)); }
+  void BuildEngine() { ASSERT_OK(Engine::Make(TestConfiguration(), false, &engine)); }
 
   std::unique_ptr<Engine> engine;
   std::shared_ptr<Configuration> configuration = TestConfiguration();
@@ -108,9 +108,9 @@ TEST_F(TestEngine, TestAddUnoptimised) {
   configuration->set_optimize(false);
   BuildEngine();
 
-  llvm::Function* ir_func = BuildVecAdd(engine.get());
+  std::string fn_name = BuildVecAdd(engine.get());
   ASSERT_OK(engine->FinalizeModule());
-  auto add_func = reinterpret_cast<add_vector_func_t>(engine->CompiledFunction(ir_func));
+  auto add_func = reinterpret_cast<add_vector_func_t>(engine->CompiledFunction(fn_name));
 
   int64_t my_array[] = {1, 3, -5, 8, 10};
   EXPECT_EQ(add_func(my_array, 5), 17);
@@ -120,9 +120,9 @@ TEST_F(TestEngine, TestAddOptimised) {
   configuration->set_optimize(true);
   BuildEngine();
 
-  llvm::Function* ir_func = BuildVecAdd(engine.get());
+  std::string fn_name = BuildVecAdd(engine.get());
   ASSERT_OK(engine->FinalizeModule());
-  auto add_func = reinterpret_cast<add_vector_func_t>(engine->CompiledFunction(ir_func));
+  auto add_func = reinterpret_cast<add_vector_func_t>(engine->CompiledFunction(fn_name));
 
   int64_t my_array[] = {1, 3, -5, 8, 10};
   EXPECT_EQ(add_func(my_array, 5), 17);

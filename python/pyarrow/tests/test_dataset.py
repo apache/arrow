@@ -21,6 +21,7 @@ import posixpath
 import datetime
 import pathlib
 import pickle
+import sys
 import textwrap
 import tempfile
 import threading
@@ -1195,6 +1196,25 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
         row_group = pickled_fragment.row_groups[0]
         assert row_group.id == 0
         assert row_group.statistics is not None
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs):
+    # https://issues.apache.org/jira/browse/ARROW-15796
+    fs, assert_opens = open_logging_fs
+    _, dataset = _create_dataset_for_fragments(tempdir, filesystem=fs)
+    fragment = list(dataset.get_fragments())[1]
+
+    # second fragment hasn't yet loaded the metadata,
+    # and pickling it also should not read the metadata
+    with assert_opens([]):
+        pickled_fragment = pickle.loads(pickle.dumps(fragment))
+
+    # then accessing the row group info reads the metadata
+    with assert_opens([pickled_fragment.path]):
+        row_groups = pickled_fragment.row_groups
+    assert row_groups == [0]
 
 
 def _create_dataset_all_types(tempdir, chunk_size=None):
@@ -2563,6 +2583,32 @@ def test_open_dataset_from_fsspec(tempdir):
     assert dataset.schema.equals(table.schema)
 
 
+@pytest.mark.parquet
+def test_file_format_inspect_fsspec(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-16413
+    fsspec = pytest.importorskip("fsspec")
+
+    # create bucket + file with pyarrow
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / "data.parquet"
+    pq.write_table(table, path)
+
+    # read using fsspec filesystem
+    fsspec_fs = fsspec.filesystem("file")
+    assert fsspec_fs.ls(tempdir)[0].endswith("data.parquet")
+
+    # inspect using dataset file format
+    format = ds.ParquetFileFormat()
+    # manually creating a PyFileSystem instead of using fs._ensure_filesystem
+    # which would convert an fsspec local filesystem to a native one
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    schema = format.inspect(path, filesystem)
+    assert schema.equals(table.schema)
+
+    fragment = format.make_fragment(path, filesystem)
+    assert fragment.physical_schema.equals(table.schema)
+
+
 @pytest.mark.pandas
 def test_filter_timestamp(tempdir, dataset_reader):
     # ARROW-11379
@@ -2861,6 +2907,8 @@ def test_orc_format(tempdir, dataset_reader):
     orc.write_table(table, path)
 
     dataset = ds.dataset(path, format=ds.OrcFileFormat())
+    fragments = list(dataset.get_fragments())
+    assert isinstance(fragments[0], ds.FileFragment)
     result = dataset_reader.to_table(dataset)
     result.validate(full=True)
     assert result.equals(table)
@@ -2985,6 +3033,22 @@ def test_csv_format_options(tempdir, dataset_reader):
         pa.table({'foo': pa.array(['skipped', 'col0', 'foo', 'bar'])}))
 
 
+def test_csv_format_options_generate_columns(tempdir, dataset_reader):
+    path = str(tempdir / 'test.csv')
+    with open(path, 'w') as sink:
+        sink.write('1,a,true,1\n')
+
+    dataset = ds.dataset(path, format=ds.CsvFileFormat(
+        read_options=pa.csv.ReadOptions(autogenerate_column_names=True)))
+    result = dataset_reader.to_table(dataset)
+    expected_column_names = ["f0", "f1", "f2", "f3"]
+    assert result.column_names == expected_column_names
+    assert result.equals(pa.table({'f0': pa.array([1]),
+                                   'f1': pa.array(["a"]),
+                                   'f2': pa.array([True]),
+                                   'f3': pa.array([1])}))
+
+
 def test_csv_fragment_options(tempdir, dataset_reader):
     path = str(tempdir / 'test.csv')
     with open(path, 'w') as sink:
@@ -3067,6 +3131,30 @@ def test_parquet_dataset_factory(tempdir):
     root_path = tempdir / "test_parquet_dataset"
     metadata_path, table = _create_parquet_dataset_simple(root_path)
     dataset = ds.parquet_dataset(metadata_path)
+    assert dataset.schema.equals(table.schema)
+    assert len(dataset.files) == 4
+    result = dataset.to_table()
+    assert result.num_rows == 40
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas  # write_to_dataset currently requires pandas
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Results in FileNotFoundError on Windows")
+def test_parquet_dataset_factory_fsspec(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-16413
+    fsspec = pytest.importorskip("fsspec")
+
+    # create dataset with pyarrow
+    root_path = tempdir / "test_parquet_dataset"
+    metadata_path, table = _create_parquet_dataset_simple(root_path)
+
+    # read using fsspec filesystem
+    fsspec_fs = fsspec.filesystem("file")
+    # manually creating a PyFileSystem, because passing the local fsspec
+    # filesystem would internally be converted to native LocalFileSystem
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    dataset = ds.parquet_dataset(metadata_path, filesystem=filesystem)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
     result = dataset.to_table()

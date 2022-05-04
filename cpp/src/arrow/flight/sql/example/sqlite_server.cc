@@ -206,7 +206,7 @@ std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
     return float64();
   } else if (boost::iequals(sqlite_type, "BLOB")) {
     return binary();
-  } else if (boost::iequals(sqlite_type, "TEXT") ||
+  } else if (boost::iequals(sqlite_type, "TEXT") || boost::iequals(sqlite_type, "DATE") ||
              boost::istarts_with(sqlite_type, "char") ||
              boost::istarts_with(sqlite_type, "varchar")) {
     return utf8();
@@ -227,7 +227,7 @@ int32_t GetSqlTypeFromTypeName(const char* sqlite_type) {
     return SQLITE_FLOAT;
   } else if (boost::iequals(sqlite_type, "BLOB")) {
     return SQLITE_BLOB;
-  } else if (boost::iequals(sqlite_type, "TEXT") ||
+  } else if (boost::iequals(sqlite_type, "TEXT") || boost::iequals(sqlite_type, "DATE") ||
              boost::istarts_with(sqlite_type, "char") ||
              boost::istarts_with(sqlite_type, "varchar")) {
     return SQLITE_TEXT;

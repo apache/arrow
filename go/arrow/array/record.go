@@ -353,6 +353,10 @@ func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
 
 		indices := b.schema.FieldIndices(key)
 		if len(indices) == 0 {
+			_, err = dec.Token()
+			if err != nil {
+				return err
+			}
 			continue
 		}
 
