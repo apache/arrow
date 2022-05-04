@@ -988,7 +988,7 @@ test_linux_wheels() {
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
@@ -1019,7 +1019,7 @@ test_macos_wheels() {
         check_s3=OFF
       fi
 
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
