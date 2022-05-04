@@ -24,6 +24,7 @@ register_bindings_datetime <- function() {
   register_bindings_duration()
   register_bindings_duration_constructor()
   register_bindings_duration_helpers()
+  register_bindings_datetime_parsers()
 }
 
 register_bindings_datetime_utility <- function() {
@@ -432,49 +433,6 @@ register_bindings_duration <- function() {
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
-
-  register_binding("parse_date_time", function(x,
-                                               orders,
-                                               tz = "UTC") {
-
-    supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
-    unsupported_passed_orders <- setdiff(orders, supported_orders)
-
-    if (length(unsupported_passed_orders) > 0) {
-      arrow_not_supported(
-        paste0(
-          oxford_paste(
-            unsupported_passed_orders
-          ),
-          " `orders`"
-        )
-      )
-    }
-
-    # make all separators (non-letters and non-numbers) into "-"
-    x <- call_binding("gsub", "[^A-Za-z0-9]", "-", x)
-    # collapse multiple separators into a single one
-    x <- call_binding("gsub", "-{2,}", "-", x)
-
-    # TODO figure out how to parse strings that have no separators
-    # https://issues.apache.org/jira/browse/ARROW-16446
-    # we could insert separators at the "likely" positions, but it might be
-    # tricky given the possible combinations between dmy formats + locale
-
-    # each order is translated into 6 possible formats
-    formats <- build_formats(orders)
-    coalesce_output <- build_expr(
-      "coalesce",
-      build_expr("strptime", x, options = list(format = formats[1], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[2], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[3], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[4], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[5], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[6], unit = 0L, error_is_null = TRUE))
-    )
-
-    build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
-  })
 }
 
 register_bindings_duration_constructor <- function() {
@@ -526,5 +484,50 @@ register_bindings_duration_helpers <- function() {
 
   register_binding("dpicoseconds", function(x = 1) {
     abort("Duration in picoseconds not supported in Arrow.")
+  })
+}
+
+register_bindings_datetime_parsers <- function() {
+  register_binding("parse_date_time", function(x,
+                                               orders,
+                                               tz = "UTC") {
+
+    supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+    unsupported_passed_orders <- setdiff(orders, supported_orders)
+
+    if (length(unsupported_passed_orders) > 0) {
+      arrow_not_supported(
+        paste0(
+          oxford_paste(
+            unsupported_passed_orders
+          ),
+          " `orders`"
+        )
+      )
+    }
+
+    # make all separators (non-letters and non-numbers) into "-"
+    x <- call_binding("gsub", "[^A-Za-z0-9]", "-", x)
+    # collapse multiple separators into a single one
+    x <- call_binding("gsub", "-{2,}", "-", x)
+
+    # TODO figure out how to parse strings that have no separators
+    # https://issues.apache.org/jira/browse/ARROW-16446
+    # we could insert separators at the "likely" positions, but it might be
+    # tricky given the possible combinations between dmy formats + locale
+
+    # each order is translated into 6 possible formats
+    formats <- build_formats(orders)
+    coalesce_output <- build_expr(
+      "coalesce",
+      build_expr("strptime", x, options = list(format = formats[1], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[2], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[3], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[4], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[5], unit = 0L, error_is_null = TRUE)),
+      build_expr("strptime", x, options = list(format = formats[6], unit = 0L, error_is_null = TRUE))
+    )
+
+    build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
 }
