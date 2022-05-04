@@ -436,7 +436,6 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         CStatus GetSchema(shared_ptr[CSchema]* out)
 
         CStatus ReadColumn(int i, shared_ptr[CChunkedArray]* out)
-        CStatus ReadSchemaField(int i, shared_ptr[CChunkedArray]* out)
 
         int num_row_groups()
         CStatus ReadRowGroup(int i, shared_ptr[CTable]* out)

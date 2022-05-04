@@ -1421,13 +1421,6 @@ cdef class ParquetReader(_Weakrefable):
                          .ReadColumn(column_index, &out))
         return pyarrow_wrap_chunked_array(out)
 
-    def read_schema_field(self, int field_index):
-        cdef shared_ptr[CChunkedArray] out
-        with nogil:
-            check_status(self.reader.get()
-                         .ReadSchemaField(field_index, &out))
-        return pyarrow_wrap_chunked_array(out)
-
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_dictionary=None,
