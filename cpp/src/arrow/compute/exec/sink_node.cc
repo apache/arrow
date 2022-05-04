@@ -267,7 +267,8 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
                     std::vector<std::string> names)
       : ExecNode(plan, std::move(inputs), {"to_consume"}, {},
                  /*num_outputs=*/0),
-        consumer_(std::move(consumer)), names_(std::move(names)) {}
+        consumer_(std::move(consumer)),
+        names_(std::move(names)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -297,7 +298,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
       int i = 0;
       for (auto& output_field : output_schema->fields()) {
         fields[i] = field(names_[i], output_field->type());
-	++i;
+        ++i;
       }
       output_schema = schema(std::move(fields));
     }
