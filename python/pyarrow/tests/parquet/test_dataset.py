@@ -1782,3 +1782,21 @@ def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
     with pytest.raises(ValueError, match="existing_data_behavior"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
                             existing_data_behavior='error')
+
+
+@pytest.mark.dataset
+def test_parquet_write_to_dataset_exposed_keywords(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+
+    # Check if the partitioning keyward is not ignored
+    pq.write_to_dataset(table, path, partitioning=["a"],
+                        use_legacy_dataset=False)
+    dataset = pq.ParquetDataset(path, use_legacy_dataset=False)
+    assert len(dataset.files) == 3
+
+    path2 = tempdir / 'data2.parquet'
+    # This should be single parquet file if partitioning keyword not set
+    pq.write_to_dataset(table, path2, use_legacy_dataset=False)
+    dataset2 = pq.ParquetDataset(path2, use_legacy_dataset=False)
+    assert len(dataset2.files) == 1
