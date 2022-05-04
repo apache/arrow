@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"testing"
 
 	"github.com/apache/arrow/go/v8/arrow"
@@ -59,6 +60,13 @@ func Example() {
 			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
 		}
 		n++
+	}
+
+	// check for reader errors indicating issues converting csv values
+	// to the arrow schema types
+	err := r.Err()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Output:
