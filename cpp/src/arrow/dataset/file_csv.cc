@@ -85,6 +85,16 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
   std::unordered_set<std::string> column_names;
 
+  if (read_options.autogenerate_column_names) {
+    column_names.reserve(parser.num_cols());
+    for (int32_t i = 0; i < parser.num_cols(); ++i) {
+      std::stringstream ss;
+      ss << "f" << i;
+      column_names.emplace(ss.str());
+    }
+    return column_names;
+  }
+
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
         // Skip BOM when reading column names (ARROW-14644)
