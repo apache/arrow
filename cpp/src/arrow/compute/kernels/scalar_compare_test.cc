@@ -520,7 +520,7 @@ TEST(TestCompareTimestamps, ScalarArray) {
     for (const auto& array_case :
          std::vector<ArrayCase>{{scalar_side, array_side, expected},
                                 {array_side, scalar_side, flip_expected}}) {
-      const auto& lhs = array_case.side1, rhs = array_case.side2;
+      const auto &lhs = array_case.side1, rhs = array_case.side2;
       if (scalar_type->Equals(array_type)) {
         ASSERT_OK_AND_ASSIGN(Datum result,
                              CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
@@ -544,7 +544,7 @@ TEST(TestCompareTimestamps, ScalarArray) {
              {timestamp(unit, "utc"), timestamp(unit)},
              {timestamp(unit, "utc"), timestamp(unit, "utc")},
          }) {
-      const auto& t0 = types.first, t1 = types.second;
+      const auto &t0 = types.first, t1 = types.second;
       CheckArrayCase(t0, t1, CompareOperator::EQUAL, "[true, false, null, false]",
                      "[true, false, null, false]");
       CheckArrayCase(t0, t1, CompareOperator::NOT_EQUAL, "[false, true, null, true]",
