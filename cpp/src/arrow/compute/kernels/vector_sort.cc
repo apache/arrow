@@ -1969,11 +1969,10 @@ class RankMetaFunction : public MetaFunction {
                           MakeMutableUInt64Array(uint64(), length, ctx->memory_pool()));
     auto out_begin = rankings->GetMutableValues<uint64_t>(1);
 
-    auto it = sorted.overall_begin();
     switch (options.tiebreaker) {
       case RankOptions::Dense: {
         Datum prevValue, currValue;
-        while (it != sorted.overall_end()) {
+        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
           currValue = array.GetScalar(*it).ValueOrDie();
           if (rank == 0 || (currValue != prevValue)) {
             rank++;
@@ -1981,51 +1980,37 @@ class RankMetaFunction : public MetaFunction {
 
           out_begin[*it] = rank;
           prevValue = currValue;
-          it++;
         }
         break;
       }
       case RankOptions::First: {
-        while (it != sorted.overall_end()) {
+        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
           out_begin[*it] = ++rank;
-          it++;
         }
         break;
       }
       case RankOptions::Min: {
         Datum prevValue, currValue;
-        while (it != sorted.overall_end()) {
+        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
           currValue = array.GetScalar(*it).ValueOrDie();
           if (rank == 0 || (currValue != prevValue)) {
             rank = (it - sorted.overall_begin()) + 1;
           }
           out_begin[*it] = rank;
           prevValue = currValue;
-          it++;
         }
         break;
       }
       case RankOptions::Max: {
         Datum prevValue, currValue;
-        auto currentTieCount = 0;
-        while (it != sorted.overall_end()) {
+        auto rank = sorted.overall_end() - sorted.overall_begin();
+        for (auto it = sorted.overall_end() - 1; it >= sorted.overall_begin(); it--) {
           currValue = array.GetScalar(*it).ValueOrDie();
-          if (rank == 0 || currValue != prevValue) {
-            currentTieCount = 0;
-          } else {
-            currentTieCount++;
+          if (it < sorted.overall_end() && (currValue != prevValue)) {
+            rank = it - sorted.overall_begin() + 1;
           }
-          rank = (it - sorted.overall_begin()) + 1;
-
-          // This can be inefficient when dealing many tied values
-          // Can alternately compare to nextValue and only write
-          // at changes, at the expense of breaking consistency with
-          // other tiebreakers
-          for (auto j = 0; j <= currentTieCount; j++) {
-            out_begin[*(it - j)] = rank;
-          }
+          out_begin[*it] = rank;
           prevValue = currValue;
-          it++;
         }
         break;
       }
