@@ -154,3 +154,21 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 
   x
 }
+
+build_formats <- function(orders) {
+  year_chars <- c("%y", "%Y")
+  month_chars <- c("%m", "%B", "%b")
+  day_chars <- "%d"
+
+  outcome <- switch(
+    orders,
+    "ymd" = expand.grid(year_chars, month_chars, day_chars),
+    "ydm" = expand.grid(year_chars, day_chars, month_chars),
+    "mdy" = expand.grid(month_chars, day_chars, year_chars),
+    "myd" = expand.grid(month_chars, year_chars, day_chars),
+    "dmy" = expand.grid(day_chars, month_chars, year_chars),
+    "dym" = expand.grid(day_chars, year_chars, month_chars)
+  )
+  outcome$format <- paste(outcome$Var1, outcome$Var2, outcome$Var3, sep = "-")
+  outcome$format
+}
