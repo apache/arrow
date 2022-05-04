@@ -26,7 +26,7 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
-#include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 
 namespace arrow {
 namespace engine {
@@ -48,52 +48,6 @@ Status CheckRelCommon(const RelMessage& rel) {
     return Status::NotImplemented("substrait AdvancedExtensions");
   }
   return Status::OK();
-}
-
-Result<fs::FileInfoVector> GetGlobFiles(const std::shared_ptr<fs::FileSystem>& filesystem,
-                                        const std::string& glob) {
-  fs::FileInfoVector results, temp;
-  fs::FileSelector selector;
-  std::string cur;
-
-  auto split_path = fs::internal::SplitAbstractPath(glob, '/');
-  ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo("/"));
-  results.push_back(std::move(file));
-
-  for (size_t i = 0; i < split_path.size(); i++) {
-    if (split_path[i].find_first_of("*?") == std::string::npos) {
-      if (cur.empty())
-        cur = split_path[i];
-      else
-        cur = fs::internal::ConcatAbstractPath(cur, split_path[i]);
-      continue;
-    } else {
-      for (auto res : results) {
-        if (res.type() != fs::FileType::Directory) continue;
-        selector.base_dir = res.path() + cur;
-        ARROW_ASSIGN_OR_RAISE(auto entries, filesystem->GetFileInfo(selector));
-        fs::internal::Globber globber(
-            fs::internal::ConcatAbstractPath(selector.base_dir, split_path[i]));
-        for (auto entry : entries) {
-          if (globber.Matches(entry.path())) {
-            temp.push_back(std::move(entry));
-          }
-        }
-      }
-      results = std::move(temp);
-      cur.clear();
-    }
-  }
-
-  if (!cur.empty()) {
-    for (size_t i = 0; i < results.size(); i++) {
-      ARROW_ASSIGN_OR_RAISE(
-          results[i], filesystem->GetFileInfo(
-                          fs::internal::ConcatAbstractPath(results[i].path(), cur)));
-    }
-  }
-
-  return results;
 }
 
 Result<compute::Declaration> FromProto(const substrait::Rel& rel,
@@ -213,7 +167,8 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
           std::move(discovered_files.begin(), discovered_files.end(),
                     std::back_inserter(files));
         } else {
-          ARROW_ASSIGN_OR_RAISE(auto discovered_files, GetGlobFiles(filesystem, path));
+          ARROW_ASSIGN_OR_RAISE(auto discovered_files,
+                                fs::internal::GetGlobFiles(filesystem, path));
           std::move(discovered_files.begin(), discovered_files.end(),
                     std::back_inserter(files));
         }

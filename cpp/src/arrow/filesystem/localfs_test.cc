@@ -398,6 +398,25 @@ TYPED_TEST(TestLocalFS, FileMTime) {
   AssertDurationBetween(t2 - infos[1].mtime(), -kTimeSlack, kTimeSlack);
 }
 
+TYPED_TEST(TestLocalFS, GetGlobFiles) {
+  ASSERT_OK(this->fs_->CreateDir("AB/CD"));
+  ASSERT_OK(this->fs_->CreateDir("AB/CD/ab"));
+  ASSERT_OK(this->fs_->CreateDir("A/CD"));
+  CreateFile(this->fs_.get(), "AB/CD/a.txt", "data");
+  CreateFile(this->fs_.get(), "AB/CD/abc.txt", "data");
+  CreateFile(this->fs_.get(), "AB/CD/ab/c.txt", "data");
+  CreateFile(this->fs_.get(), "A/CD/ab.txt", "data");
+
+  std::vector<FileInfo> infos;
+  ASSERT_OK_AND_ASSIGN(infos, GetGlobFiles(this->fs_, "A*/CD/?b*.txt"));
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "AB/CD/abc.txt", FileType::File, 4);
+  AssertFileInfo(infos[1], "A/CD/ab.txt", FileType::File, 4);
+
+  ASSERT_OK_AND_ASSIGN(infos, GetGlobFiles(this->fs_, "A*/CD/?/b*.txt"));
+  ASSERT_EQ(infos.size(), 0);
+}
+
 // TODO Should we test backslash paths on Windows?
 // SubTreeFileSystem isn't compatible with them.
 

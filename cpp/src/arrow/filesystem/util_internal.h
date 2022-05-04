@@ -49,6 +49,10 @@ Status NotAFile(const std::string& path);
 ARROW_EXPORT
 Status InvalidDeleteDirContents(const std::string& path);
 
+ARROW_EXPORT
+Result<FileInfoVector> GetGlobFiles(const std::shared_ptr<FileSystem>& filesystem,
+                                    const std::string& glob);
+
 extern FileSystemGlobalOptions global_options;
 
 }  // namespace internal

@@ -293,26 +293,27 @@ struct Globber::Impl {
 
   explicit Impl(const std::string& p) : pattern_(std::regex(PatternToRegex(p))) {}
 
-  std::string PatternToRegex(const std::string& p) {
-    std::string special_chars_ = "()[]{}+-|^$\\.&~# \t\n\r\v\f";
+  static std::string PatternToRegex(const std::string& p) {
+    std::string special_chars = "()[]{}+-|^$\\.&~# \t\n\r\v\f";
     std::string transformed;
-    for (char c : p) {
-      if (c == '*') {
-        if (transformed.back() != '\\')
-          transformed += ".*";
-        else
-          transformed.back() = c;
-      } else if (c == '?') {
-        if (transformed.back() != '\\')
-          transformed += ".";
-        else
-          transformed.back() = c;
-      } else if (special_chars_.find(c) != std::string::npos) {
+    auto it = p.begin();
+    while (it != p.end()) {
+      if (*it == '\\') {
+        transformed += '\\';
+        if (++it != p.end()) {
+          transformed += *it;
+        }
+      } else if (*it == '*') {
+        transformed += "[^/]*";
+      } else if (*it == '?') {
+        transformed += "[^/]";
+      } else if (special_chars.find(*it) != std::string::npos) {
         transformed += "\\";
-        transformed += c;
+        transformed += *it;
       } else {
-        transformed += c;
+        transformed += *it;
       }
+      it++;
     }
     return transformed;
   }
@@ -322,7 +323,9 @@ Globber::Globber(std::string pattern) : impl_(new Impl(pattern)) {}
 
 Globber::~Globber() {}
 
-bool Globber::Matches(std::string path) { return regex_match(path, impl_->pattern_); }
+bool Globber::Matches(const std::string& path) {
+  return regex_match(path, impl_->pattern_);
+}
 
 }  // namespace internal
 }  // namespace fs

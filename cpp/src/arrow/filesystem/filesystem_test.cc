@@ -266,9 +266,18 @@ TEST(PathUtil, ToSlashes) {
 }
 
 TEST(PathUtil, Globber) {
+  Globber empty("");
+  ASSERT_FALSE(empty.Matches("/1.txt"));
+
+  Globber star("/*");
+  ASSERT_TRUE(star.Matches("/a.txt"));
+  ASSERT_TRUE(star.Matches("/b.csv"));
+  ASSERT_FALSE(star.Matches("/foo/c.parquet"));
+
   Globber localfs_linux("/f?o/bar/a?/1*.txt");
   ASSERT_TRUE(localfs_linux.Matches("/foo/bar/a1/1.txt"));
   ASSERT_TRUE(localfs_linux.Matches("/f#o/bar/ab/1000.txt"));
+  ASSERT_FALSE(localfs_linux.Matches("/f#o/bar/ab/1/23.txt"));
 
   Globber localfs_windows("C:/f?o/bar/a?/1*.txt");
   ASSERT_TRUE(localfs_windows.Matches("C:/f_o/bar/ac/1000.txt"));

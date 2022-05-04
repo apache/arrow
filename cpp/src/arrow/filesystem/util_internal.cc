@@ -20,6 +20,7 @@
 #include <cerrno>
 
 #include "arrow/buffer.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
@@ -73,6 +74,61 @@ Status InvalidDeleteDirContents(const std::string& path) {
   return Status::Invalid(
       "DeleteDirContents called on invalid path '", path, "'. ",
       "If you wish to delete the root directory's contents, call DeleteRootDirContents.");
+}
+
+Result<FileInfoVector> GetGlobFiles(const std::shared_ptr<FileSystem>& filesystem,
+                                    const std::string& glob) {
+  FileInfoVector results, temp;
+  FileSelector selector;
+  std::string cur;
+
+  auto split_path = SplitAbstractPath(glob, '/');
+  ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo("/"));
+  results.push_back(std::move(file));
+
+  for (size_t i = 0; i < split_path.size(); i++) {
+    if (split_path[i].find_first_of("*?") == std::string::npos) {
+      if (cur.empty())
+        cur = split_path[i];
+      else
+        cur = ConcatAbstractPath(cur, split_path[i]);
+      continue;
+    } else {
+      for (auto res : results) {
+        if (res.type() != FileType::Directory) continue;
+        if (cur.empty())
+          selector.base_dir = res.path();
+        else
+          selector.base_dir = ConcatAbstractPath(res.path(), cur);
+        ARROW_ASSIGN_OR_RAISE(auto entries, filesystem->GetFileInfo(selector));
+        Globber globber(ConcatAbstractPath(selector.base_dir, split_path[i]));
+        for (auto entry : entries) {
+          if (globber.Matches(entry.path())) {
+            temp.push_back(std::move(entry));
+          }
+        }
+      }
+      results = std::move(temp);
+      cur.clear();
+    }
+  }
+
+  if (!cur.empty()) {
+    std::vector<std::string> paths;
+    for (size_t i = 0; i < results.size(); i++) {
+      paths.push_back(ConcatAbstractPath(results[i].path(), cur));
+    }
+    ARROW_ASSIGN_OR_RAISE(results, filesystem->GetFileInfo(paths));
+  }
+
+  std::vector<FileInfo> out;
+  for (const auto& file : results) {
+    if (file.type() != FileType::NotFound) {
+      out.push_back(std::move(file));
+    }
+  }
+
+  return out;
 }
 
 FileSystemGlobalOptions global_options;

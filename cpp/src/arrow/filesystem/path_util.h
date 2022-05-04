@@ -132,7 +132,7 @@ class ARROW_EXPORT Globber {
  public:
   ~Globber();
   explicit Globber(std::string pattern);
-  bool Matches(std::string path);
+  bool Matches(const std::string& path);
 
  protected:
   struct Impl;
