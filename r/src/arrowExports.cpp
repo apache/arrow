@@ -1767,11 +1767,11 @@ extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallbac
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<arrow::Schema> dataset___PartitioningFactory__Inspect(const std::shared_ptr<ds::PartitioningFactory>& factory, const std::vector<ds::PartitionPathFormat>& paths);
+std::shared_ptr<arrow::Schema> dataset___PartitioningFactory__Inspect(const std::shared_ptr<ds::PartitioningFactory>& factory, const std::vector<std::pair<std::string, std::string>>& paths);
 extern "C" SEXP _arrow_dataset___PartitioningFactory__Inspect(SEXP factory_sexp, SEXP paths_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::PartitioningFactory>&>::type factory(factory_sexp);
-	arrow::r::Input<const std::vector<ds::PartitionPathFormat>&>::type paths(paths_sexp);
+	arrow::r::Input<const std::vector<std::pair<std::string, std::string>>&>::type paths(paths_sexp);
 	return cpp11::as_sexp(dataset___PartitioningFactory__Inspect(factory, paths));
 END_CPP11
 }

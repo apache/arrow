@@ -386,8 +386,12 @@ std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory
 // [[dataset::export]]
 std::shared_ptr<arrow::Schema> dataset___PartitioningFactory__Inspect(
     const std::shared_ptr<ds::PartitioningFactory>& factory,
-    const std::vector<arrow::dataset::PartitionPathFormat>& paths) {
-  return ValueOrStop(factory->Inspect(paths));
+    const std::vector<std::pair<std::string, std::string>>& paths) {
+  std::vector<ds::PartitionPathFormat> partition_paths(paths.size());
+  for (auto& path : paths) {
+    partition_paths.emplace_back(ds::PartitionPathFormat{path.first, path.second});
+  }
+  return ValueOrStop(factory->Inspect(partition_paths));
 }
 
 // [[dataset::export]]
