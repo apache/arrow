@@ -3125,7 +3125,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
             "implementation."
         )
         metadata_collector = kwargs.pop('metadata_collector', None)
-        file_visitor = None
         if metadata_collector is not None:
             def file_visitor(written_file):
                 metadata_collector.append(written_file.metadata)
@@ -3140,7 +3139,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         if filesystem is not None:
             filesystem = _ensure_filesystem(filesystem)
 
-        partitioning = None
         if partition_cols:
             part_schema = table.select(partition_cols).schema
             partitioning = ds.partitioning(part_schema, flavor="hive")
