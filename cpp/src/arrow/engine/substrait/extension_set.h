@@ -74,11 +74,10 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   struct TypeRecord {
     Id id;
     const std::shared_ptr<DataType>& type;
-    bool is_variation;
   };
   virtual util::optional<TypeRecord> GetType(const DataType&) const = 0;
-  virtual util::optional<TypeRecord> GetType(Id, bool is_variation) const = 0;
-  virtual Status RegisterType(Id, std::shared_ptr<DataType>, bool is_variation) = 0;
+  virtual util::optional<TypeRecord> GetType(Id) const = 0;
+  virtual Status RegisterType(Id, std::shared_ptr<DataType>) = 0;
 
   /// \brief A mapping between a Substrait ID and an Arrow function
   ///
@@ -152,7 +151,6 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   struct TypeRecord {
     Id id;
     std::shared_ptr<DataType> type;
-    bool is_variation;
   };
 
   /// Construct an empty ExtensionSet to be populated during serialization.
@@ -174,9 +172,8 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// An extension set should instead be created using
   /// arrow::engine::GetExtensionSetFromPlan
   static Result<ExtensionSet> Make(
-      std::unordered_map<uint32_t, util::string_view> uris, std::vector<Id> type_ids,
-      std::vector<bool> type_is_variation, std::vector<Id> function_ids,
-      ExtensionIdRegistry* = default_extension_id_registry());
+      std::unordered_map<uint32_t, util::string_view> uris, std::unordered_map<uint32_t, Id> type_ids,
+      std::unordered_map<uint32_t, Id> function_ids, ExtensionIdRegistry* = default_extension_id_registry());
 
 
   const std::unordered_map<uint32_t, util::string_view>& uris() const { return uris_; }
@@ -241,13 +238,13 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   ExtensionIdRegistry* registry_;
   /// The subset of extension registry URIs referenced by this extension set
   std::unordered_map<uint32_t, util::string_view> uris_;
-  std::vector<TypeRecord> types_;
-  std::vector<FunctionRecord> functions_;
+  std::unordered_map<uint32_t, TypeRecord> types_;
+  std::unordered_map<uint32_t, FunctionRecord> functions_;
   std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_map_, functions_map_;
 
   Status CheckHasUri(util::string_view uri);
   void AddUri(std::pair<uint32_t, util::string_view> uri);
-  void AddUri(Id id);
+  Status AddUri(Id id);
 };
 
 }  // namespace engine

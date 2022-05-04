@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/engine/substrait/extension_set.h"
-
 #include <unordered_map>
 #include <unordered_set>
 
@@ -70,16 +69,17 @@ void ExtensionSet::AddUri(std::pair<uint32_t, util::string_view> uri) {
   uris_[uri.first] = uri.second;
 }
 
-void ExtensionSet::AddUri(Id id) {
-  if (functions_map_.find(id) != functions_map_.end() ||
-      types_map_.find(id) != types_map_.end())
-    return;
+Status ExtensionSet::AddUri(Id id) {
+  if(uris_.find(uris_.size()) != uris_.end()){
+    return Status::Invalid("Key already exist in the uris map");
+  }
   uris_[uris_.size()] = id.uri;
+  return Status::OK();
 }
 
 Result<ExtensionSet> ExtensionSet::Make(
-    std::unordered_map<uint32_t, util::string_view> uris, std::vector<Id> type_ids,
-    std::vector<bool> type_is_variation, std::vector<Id> function_ids,
+    std::unordered_map<uint32_t, util::string_view> uris, std::unordered_map<uint32_t, Id> type_ids,
+    std::unordered_map<uint32_t, Id> function_ids,
     ExtensionIdRegistry* registry) {
   ExtensionSet set;
   set.registry_ = registry;
@@ -96,30 +96,24 @@ Result<ExtensionSet> ExtensionSet::Make(
     if (it == uris_owned_by_registry.end()) {
       return Status::KeyError("Uri '", uri.second, "' not found in registry");
     }
-    uri = *it;  // Ensure uris point into the registry's memory
+    uri.second = *it;  // Ensure uris point into the registry's memory
     set.AddUri(uri);
   }
 
-  if (type_ids.size() != type_is_variation.size()) {
-    return Status::Invalid("Received ", type_ids.size(), " type ids but a ",
-                           type_is_variation.size(), "-long is_variation vector");
-  }
-
-  set.types_.resize(type_ids.size());
+  set.types_.reserve(type_ids.size());
 
   for (size_t i = 0; i < type_ids.size(); ++i) {
     if (type_ids[i].empty()) continue;
     RETURN_NOT_OK(set.CheckHasUri(type_ids[i].uri));
 
-    if (auto rec = registry->GetType(type_ids[i], type_is_variation[i])) {
-      set.types_[i] = {rec->id, rec->type, rec->is_variation};
+    if (auto rec = registry->GetType(type_ids[i])) {
+      set.types_[i] = {rec->id, rec->type};
       continue;
     }
-    return Status::Invalid("Type", (type_is_variation[i] ? " variation" : ""), " ",
-                           type_ids[i].uri, "#", type_ids[i].name, " not found");
+    return Status::Invalid("Type ",type_ids[i].uri, "#", type_ids[i].name, " not found");
   }
 
-  set.functions_.resize(function_ids.size());
+  set.functions_.reserve(function_ids.size());
 
   for (size_t i = 0; i < function_ids.size(); ++i) {
     if (function_ids[i].empty()) continue;
@@ -139,20 +133,23 @@ Result<ExtensionSet> ExtensionSet::Make(
 }
 
 Result<ExtensionSet::TypeRecord> ExtensionSet::DecodeType(uint32_t anchor) const {
-  if (anchor >= types_.size() || types_[anchor].id.empty()) {
+  if (types_.find(anchor) == types_.end() || types_.at(anchor).id.empty()) {
     return Status::Invalid("User defined type reference ", anchor,
                            " did not have a corresponding anchor in the extension set");
   }
-  return types_[anchor];
+  return types_.at(anchor);
 }
 
 Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
   if (auto rec = registry_->GetType(type)) {
-    this->AddUri(rec->id);
+    RETURN_NOT_OK(this->AddUri(rec->id));
     auto it_success =
         types_map_.emplace(rec->id, static_cast<uint32_t>(types_map_.size()));
     if (it_success.second) {
-      types_.push_back({rec->id, rec->type, rec->is_variation});
+        if(types_.find(types_.size()) != types_.end()){
+          return Status::Invalid("Key already exist in the uris map");
+        }
+      types_[types_.size()] = {rec->id, rec->type};
     }
     return it_success.first->second;
   }
@@ -160,20 +157,23 @@ Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
 }
 
 Result<ExtensionSet::FunctionRecord> ExtensionSet::DecodeFunction(uint32_t anchor) const {
-  if (anchor >= functions_.size() || functions_[anchor].id.empty()) {
+  if (functions_.find(anchor) == functions_.end() || functions_.at(anchor).id.empty()) {
     return Status::Invalid("User defined function reference ", anchor,
                            " did not have a corresponding anchor in the extension set");
   }
-  return functions_[anchor];
+  return functions_.at(anchor);
 }
 
 Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
   if (auto rec = registry_->GetFunction(function_name)) {
-    this->AddUri(rec->id);
+    RETURN_NOT_OK(this->AddUri(rec->id));
     auto it_success =
         functions_map_.emplace(rec->id, static_cast<uint32_t>(functions_map_.size()));
     if (it_success.second) {
-      functions_.push_back(FunctionRecord{rec->id, rec->function_name});
+      if(functions_.find(functions_.size()) != functions_.end()){
+        return Status::Invalid("Key already exist in the uris map");
+      }
+      functions_[functions_.size()] = {rec->id, rec->function_name};
     }
     return it_success.first->second;
   }
@@ -205,8 +205,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
                TypeName{uint64(), "u64"},
                TypeName{float16(), "fp16"},
            }) {
-        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
-                               /*is_variation=*/true));
+        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type)));
       }
 
       for (TypeName e : {
@@ -215,8 +214,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
                TypeName{day_time_interval(), "interval_day_milli"},
                TypeName{month_day_nano_interval(), "interval_month_day_nano"},
            }) {
-        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
-                               /*is_variation=*/false));
+        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type)));
       }
 
       // TODO: this is just a placeholder right now. We'll need a YAML file for
@@ -236,44 +234,40 @@ ExtensionIdRegistry* default_extension_id_registry() {
 
     util::optional<TypeRecord> GetType(const DataType& type) const override {
       if (auto index = GetIndex(type_to_index_, &type)) {
-        return TypeRecord{type_ids_[*index], types_[*index], type_is_variation_[*index]};
+        return TypeRecord{type_ids_[*index], types_[*index]};
       }
       return {};
     }
 
-    util::optional<TypeRecord> GetType(Id id, bool is_variation) const override {
+    util::optional<TypeRecord> GetType(Id id) const override {
       if (auto index =
-              GetIndex(is_variation ? variation_id_to_index_ : id_to_index_, id)) {
-        return TypeRecord{type_ids_[*index], types_[*index], type_is_variation_[*index]};
+              GetIndex(id_to_index_, id)) {
+        return TypeRecord{type_ids_[*index], types_[*index]};
       }
       return {};
     }
 
-    Status RegisterType(Id id, std::shared_ptr<DataType> type,
-                        bool is_variation) override {
+    Status RegisterType(Id id, std::shared_ptr<DataType> type) override {
       DCHECK_EQ(type_ids_.size(), types_.size());
-      DCHECK_EQ(type_ids_.size(), type_is_variation_.size());
 
       Id copied_id{*uris_.emplace(id.uri.to_string()).first,
                    *names_.emplace(id.name.to_string()).first};
 
       auto index = static_cast<int>(type_ids_.size());
 
-      auto* id_to_index = is_variation ? &variation_id_to_index_ : &id_to_index_;
-      auto it_success = id_to_index->emplace(copied_id, index);
+      auto it_success = id_to_index_.emplace(copied_id, index);
 
       if (!it_success.second) {
         return Status::Invalid("Type id was already registered");
       }
 
       if (!type_to_index_.emplace(type.get(), index).second) {
-        id_to_index->erase(it_success.first);
+        id_to_index_.erase(it_success.first);
         return Status::Invalid("Type was already registered");
       }
 
       type_ids_.push_back(copied_id);
       types_.push_back(std::move(type));
-      type_is_variation_.push_back(is_variation);
       return Status::OK();
     }
 
@@ -324,11 +318,10 @@ ExtensionIdRegistry* default_extension_id_registry() {
     //    unordered_set are not invalidated on insertion
     std::unordered_set<std::string> uris_, names_, function_names_;
     DataTypeVector types_;
-    std::vector<bool> type_is_variation_;
 
     // non-owning lookup helpers
     std::vector<Id> type_ids_, function_ids_;
-    std::unordered_map<Id, int, IdHashEq, IdHashEq> id_to_index_, variation_id_to_index_;
+    std::unordered_map<Id, int, IdHashEq, IdHashEq> id_to_index_;
     std::unordered_map<const DataType*, int, TypePtrHashEq, TypePtrHashEq> type_to_index_;
 
     std::vector<const std::string*> function_name_ptrs_;
