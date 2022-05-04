@@ -71,8 +71,10 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
         auto decl,
         FromProto(plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel(),
                   ext_set));
-    std::vector<std::string> names = plan_rel.has_root() ? plan_rel.root().names()
-        : std::vector<std::string>();
+    std::vector<std::string> names;
+    if (plan_rel.has_root()) {
+      names = plan_rel.root().names();
+    }
 
     // pipe each relation into a consuming_sink node
     auto sink_decl = compute::Declaration::Sequence({
