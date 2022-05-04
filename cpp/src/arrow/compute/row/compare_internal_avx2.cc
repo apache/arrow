@@ -602,7 +602,7 @@ uint32_t KeyCompare::CompareBinaryColumnToRow_avx2(
     // In this case we will access left column memory 4B at a time
     num_rows_safe =
         TailSkipForSIMD::FixBitAccess(sizeof(uint32_t), col.length(), col.bit_offset(1));
-  } else if (col_width == 1 && col_width == 2) {
+  } else if (col_width == 1 || col_width == 2) {
     // In this case we will access left column memory 4B at a time
     num_rows_safe =
         TailSkipForSIMD::FixBinaryAccess(sizeof(uint32_t), col.length(), col_width);

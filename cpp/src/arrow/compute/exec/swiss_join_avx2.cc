@@ -48,7 +48,6 @@ int RowArrayAccessor::Visit_avx2(const KeyEncoder::KeyRowArray& rows, int column
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
     const uint32_t* row_offsets = rows.offsets();
-    uint32_t field_offset_within_row, field_length;
 
     if (varbinary_column_id == 0) {
       // Case 1: This is the first varbinary column
@@ -132,7 +131,7 @@ int RowArrayAccessor::Visit_avx2(const KeyEncoder::KeyRowArray& rows, int column
       // Case 3: This is a fixed length column in fixed length row
       //
       const uint8_t* row_ptr_base = rows.data(1);
-      for (uint32_t i = 0; i < num_rows / unroll; ++i) {
+      for (int i = 0; i < num_rows / unroll; ++i) {
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
         __m256i row_offset = _mm256_mullo_epi32(row_id, field_length);
@@ -144,7 +143,7 @@ int RowArrayAccessor::Visit_avx2(const KeyEncoder::KeyRowArray& rows, int column
       //
       const uint8_t* row_ptr_base = rows.data(2);
       const uint32_t* row_offsets = rows.offsets();
-      for (uint32_t i = 0; i < num_rows / unroll; ++i) {
+      for (int i = 0; i < num_rows / unroll; ++i) {
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
         __m256i row_offset = _mm256_i32gather_epi32(
@@ -170,7 +169,7 @@ int RowArrayAccessor::VisitNulls_avx2(const KeyEncoder::KeyRowArray& rows, int c
   const uint8_t* null_masks = rows.null_masks();
   __m256i null_bits_per_row =
       _mm256_set1_epi32(8 * rows.metadata().null_masks_bytes_per_row);
-  for (uint32_t i = 0; i < num_rows / unroll; ++i) {
+  for (int i = 0; i < num_rows / unroll; ++i) {
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
     __m256i bit_id = _mm256_mullo_epi32(row_id, null_bits_per_row);
     bit_id = _mm256_add_epi32(bit_id, _mm256_set1_epi32(column_id));

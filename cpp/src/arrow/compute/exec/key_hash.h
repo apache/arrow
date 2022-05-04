@@ -52,10 +52,9 @@ class ARROW_EXPORT Hashing32 {
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
                           int64_t offset, int64_t length);
 
-  static void HashBatch(const ExecBatch& key_batch, int start_row, int num_rows,
-                        uint32_t* hashes,
-                        std::vector<KeyEncoder::KeyColumnArray>& column_arrays,
-                        int64_t hardware_flags, util::TempVectorStack* temp_stack);
+  static Status HashBatch(const ExecBatch& key_batch, int start_row, int num_rows,
+                          uint32_t* hashes, std::vector<KeyColumnArray>& column_arrays,
+                          int64_t hardware_flags, util::TempVectorStack* temp_stack);
 
  private:
   static const uint32_t PRIME32_1 = 0x9E3779B1;
@@ -169,10 +168,9 @@ class ARROW_EXPORT Hashing64 {
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
                           int64_t offset, int64_t length);
 
-  static void HashBatch(const ExecBatch& key_batch, int start_row, int num_rows,
-                        uint64_t* hashes,
-                        std::vector<KeyEncoder::KeyColumnArray>& column_arrays,
-                        int64_t hardware_flags, util::TempVectorStack* temp_stack);
+  static Status HashBatch(const ExecBatch& key_batch, int start_row, int num_rows,
+                          uint64_t* hashes, std::vector<KeyColumnArray>& column_arrays,
+                          int64_t hardware_flags, util::TempVectorStack* temp_stack);
 
  private:
   static const uint64_t PRIME64_1 = 0x9E3779B185EBCA87ULL;

@@ -350,7 +350,7 @@ void KeyCompare::CompareColumnsToRows(
 
   bool is_first_column = true;
   for (size_t icol = 0; icol < cols.size(); ++icol) {
-    const KeyEncoder::KeyColumnArray& col = cols[icol];
+    const KeyColumnArray& col = cols[icol];
 
     if (col.metadata().is_null_type) {
       // If this null type col is the first column, the match_bytevector_A needs to be

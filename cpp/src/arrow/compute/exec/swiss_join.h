@@ -24,121 +24,10 @@
 #include "arrow/compute/exec/partition_util.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/task_util.h"
+#include "arrow/compute/light_array.h"
 
 namespace arrow {
 namespace compute {
-
-class ResizableArrayData {
- public:
-  ResizableArrayData()
-      : log_num_rows_min_(0),
-        pool_(NULLPTR),
-        num_rows_(0),
-        num_rows_allocated_(0),
-        var_len_buf_size_(0) {}
-  ~ResizableArrayData() { Clear(true); }
-  void Init(const std::shared_ptr<DataType>& data_type, MemoryPool* pool,
-            int log_num_rows_min);
-  void Clear(bool release_buffers);
-  Status ResizeFixedLengthBuffers(int num_rows_new);
-  Status ResizeVaryingLengthBuffer();
-  int num_rows() const { return num_rows_; }
-  KeyEncoder::KeyColumnArray column_array() const;
-  KeyEncoder::KeyColumnMetadata column_metadata() const {
-    return ColumnMetadataFromDataType(data_type_);
-  }
-  std::shared_ptr<ArrayData> array_data() const;
-  uint8_t* mutable_data(int i) {
-    return i == 0   ? non_null_buf_->mutable_data()
-           : i == 1 ? fixed_len_buf_->mutable_data()
-                    : var_len_buf_->mutable_data();
-  }
-
- private:
-  static constexpr int64_t kNumPaddingBytes = 64;
-  int log_num_rows_min_;
-  std::shared_ptr<DataType> data_type_;
-  MemoryPool* pool_;
-  int num_rows_;
-  int num_rows_allocated_;
-  int var_len_buf_size_;
-  std::shared_ptr<ResizableBuffer> non_null_buf_;
-  std::shared_ptr<ResizableBuffer> fixed_len_buf_;
-  std::shared_ptr<ResizableBuffer> var_len_buf_;
-};
-
-class ExecBatchBuilder {
- public:
-  static Status AppendSelected(const std::shared_ptr<ArrayData>& source,
-                               ResizableArrayData& target, int num_rows_to_append,
-                               const uint16_t* row_ids, MemoryPool* pool);
-
-  static Status AppendNulls(const std::shared_ptr<DataType>& type,
-                            ResizableArrayData& target, int num_rows_to_append,
-                            MemoryPool* pool);
-
-  Status AppendSelected(MemoryPool* pool, const ExecBatch& batch, int num_rows_to_append,
-                        const uint16_t* row_ids, int num_cols,
-                        const int* col_ids = NULLPTR);
-
-  Status AppendSelected(MemoryPool* pool, const ExecBatch& batch, int num_rows_to_append,
-                        const uint16_t* row_ids, int* num_appended, int num_cols,
-                        const int* col_ids = NULLPTR);
-
-  Status AppendNulls(MemoryPool* pool,
-                     const std::vector<std::shared_ptr<DataType>>& types,
-                     int num_rows_to_append);
-
-  Status AppendNulls(MemoryPool* pool,
-                     const std::vector<std::shared_ptr<DataType>>& types,
-                     int num_rows_to_append, int* num_appended);
-
-  // Should only be called if num_rows() returns non-zero.
-  //
-  ExecBatch Flush();
-
-  int num_rows() const { return values_.empty() ? 0 : values_[0].num_rows(); }
-
-  static int num_rows_max() { return 1 << kLogNumRows; }
-
- private:
-  static constexpr int kLogNumRows = 15;
-
-  // Calculate how many rows to skip from the tail of the
-  // sequence of selected rows, such that the total size of skipped rows is at
-  // least equal to the size specified by the caller. Skipping of the tail rows
-  // is used to allow for faster processing by the caller of remaining rows
-  // without checking buffer bounds (useful with SIMD or fixed size memory loads
-  // and stores).
-  //
-  // The sequence of row_ids provided must be non-decreasing.
-  //
-  static int NumRowsToSkip(const std::shared_ptr<ArrayData>& column, int num_rows,
-                           const uint16_t* row_ids, int num_tail_bytes_to_skip);
-
-  // The supplied lambda will be called for each row in the given list of rows.
-  // The arguments given to it will be:
-  // - index of a row (within the set of selected rows),
-  // - pointer to the value,
-  // - byte length of the value.
-  //
-  // The information about nulls (validity bitmap) is not used in this call and
-  // has to be processed separately.
-  //
-  template <class PROCESS_VALUE_FN>
-  static void Visit(const std::shared_ptr<ArrayData>& column, int num_rows,
-                    const uint16_t* row_ids, PROCESS_VALUE_FN process_value_fn);
-
-  template <bool OUTPUT_BYTE_ALIGNED>
-  static void CollectBitsImp(const uint8_t* input_bits, int64_t input_bits_offset,
-                             uint8_t* output_bits, int64_t output_bits_offset,
-                             int num_rows, const uint16_t* row_ids);
-  static void CollectBits(const uint8_t* input_bits, int64_t input_bits_offset,
-                          uint8_t* output_bits, int64_t output_bits_offset, int num_rows,
-                          const uint16_t* row_ids);
-
-  std::vector<ResizableArrayData> values_;
-};
 
 class RowArrayAccessor {
  public:
@@ -215,10 +104,9 @@ struct RowArray {
   Status InitIfNeeded(MemoryPool* pool, const ExecBatch& batch);
   Status InitIfNeeded(MemoryPool* pool, const KeyEncoder::KeyRowMetadata& row_metadata);
 
-  Status AppendBatchSelection(
-      MemoryPool* pool, const ExecBatch& batch, int begin_row_id, int end_row_id,
-      int num_row_ids, const uint16_t* row_ids,
-      std::vector<KeyEncoder::KeyColumnArray>& temp_column_arrays);
+  Status AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch, int begin_row_id,
+                              int end_row_id, int num_row_ids, const uint16_t* row_ids,
+                              std::vector<KeyColumnArray>& temp_column_arrays);
 
   // This can only be called for a minibatch.
   //
@@ -226,7 +114,7 @@ struct RowArray {
                const uint16_t* batch_selection_maybe_null, const uint32_t* array_row_ids,
                uint32_t* out_num_not_equal, uint16_t* out_not_equal_selection,
                int64_t hardware_flags, util::TempVectorStack* temp_stack,
-               std::vector<KeyEncoder::KeyColumnArray>& temp_column_arrays,
+               std::vector<KeyColumnArray>& temp_column_arrays,
                uint8_t* out_match_bitvector_maybe_null = NULLPTR);
 
   // TODO: add AVX2 version
@@ -391,14 +279,14 @@ struct SwissTableWithKeys {
   struct Input {
     Input(const ExecBatch* in_batch, int in_batch_start_row, int in_batch_end_row,
           util::TempVectorStack* in_temp_stack,
-          std::vector<KeyEncoder::KeyColumnArray>* in_temp_column_arrays);
+          std::vector<KeyColumnArray>* in_temp_column_arrays);
 
     Input(const ExecBatch* in_batch, util::TempVectorStack* in_temp_stack,
-          std::vector<KeyEncoder::KeyColumnArray>* in_temp_column_arrays);
+          std::vector<KeyColumnArray>* in_temp_column_arrays);
 
     Input(const ExecBatch* in_batch, int in_num_selected, const uint16_t* in_selection,
           util::TempVectorStack* in_temp_stack,
-          std::vector<KeyEncoder::KeyColumnArray>* in_temp_column_arrays,
+          std::vector<KeyColumnArray>* in_temp_column_arrays,
           std::vector<uint32_t>* in_temp_group_ids);
 
     Input(const Input& base, int num_rows_to_skip, int num_rows_to_include);
@@ -417,7 +305,7 @@ struct SwissTableWithKeys {
     // Thread specific scratch buffers for storing temporary data.
     //
     util::TempVectorStack* temp_stack;
-    std::vector<KeyEncoder::KeyColumnArray>* temp_column_arrays;
+    std::vector<KeyColumnArray>* temp_column_arrays;
     std::vector<uint32_t>* temp_group_ids;
   };
 
@@ -474,7 +362,7 @@ class SwissTableForJoin {
   void Lookup(const ExecBatch& batch, int start_row, int num_rows,
               uint8_t* out_has_match_bitvector, uint32_t* out_key_ids,
               util::TempVectorStack* temp_stack,
-              std::vector<KeyEncoder::KeyColumnArray>* temp_column_arrays);
+              std::vector<KeyColumnArray>* temp_column_arrays);
   void UpdateHasMatchForKeys(int64_t thread_id, int num_rows, const uint32_t* key_ids);
   void MergeHasMatch();
 
@@ -528,9 +416,9 @@ class SwissTableForJoinBuild {
  public:
   Status Init(SwissTableForJoin* target, int dop, int64_t num_rows,
               bool reject_duplicate_keys, bool no_payload,
-              const std::vector<KeyEncoder::KeyColumnMetadata>& key_types,
-              const std::vector<KeyEncoder::KeyColumnMetadata>& payload_types,
-              MemoryPool* pool, int64_t hardware_flags);
+              const std::vector<KeyColumnMetadata>& key_types,
+              const std::vector<KeyColumnMetadata>& payload_types, MemoryPool* pool,
+              int64_t hardware_flags);
 
   // In the first phase of parallel hash table build, threads pick unprocessed
   // exec batches, partition the rows based on hash, and update all of the
@@ -628,7 +516,7 @@ class SwissTableForJoinBuild {
     std::vector<uint16_t> batch_prtn_row_ids;
     std::vector<int> temp_prtn_ids;
     std::vector<uint32_t> temp_group_ids;
-    std::vector<KeyEncoder::KeyColumnArray> temp_column_arrays;
+    std::vector<KeyColumnArray> temp_column_arrays;
   };
 
   std::vector<PartitionState> prtn_states_;
@@ -851,7 +739,7 @@ class JoinProbeProcessor {
             const std::vector<JoinKeyCmp>* cmp, OutputBatchFn output_batch_fn);
   Status OnNextBatch(int64_t thread_id, const ExecBatch& keypayload_batch,
                      util::TempVectorStack* temp_stack,
-                     std::vector<KeyEncoder::KeyColumnArray>* temp_column_arrays);
+                     std::vector<KeyColumnArray>* temp_column_arrays);
 
   // Must be called by a single-thread having exclusive access to the instance
   // of this class. The caller is responsible for ensuring that.

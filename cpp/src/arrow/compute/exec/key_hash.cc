@@ -458,7 +458,7 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 }
 
 Status Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
-                            std::vector<KeyEncoder::KeyColumnArray>& column_arrays,
+                            std::vector<KeyColumnArray>& column_arrays,
                             int64_t hardware_flags, util::TempVectorStack* temp_stack,
                             int64_t offset, int64_t length) {
   RETURN_NOT_OK(ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays));
@@ -890,7 +890,7 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 }
 
 Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
-                            std::vector<KeyEncoder::KeyColumnArray>& column_arrays,
+                            std::vector<KeyColumnArray>& column_arrays,
                             int64_t hardware_flags, util::TempVectorStack* temp_stack,
                             int64_t offset, int64_t length) {
   RETURN_NOT_OK(ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays));
