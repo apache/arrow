@@ -70,7 +70,6 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
     type->set_type_anchor(anchor);
     type->set_name(type_record.id.name.to_string());
     ext_decl->set_allocated_extension_type(type.release());
-    
     extensions->AddAllocated(ext_decl.release());
   }
 
@@ -107,7 +106,6 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
   std::unordered_map<uint32_t, Id> type_ids, function_ids;
   for (const auto& ext : plan.extensions()) {
     switch (ext.mapping_type_case()) {
-
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionTypeVariation: {
         return Status::NotImplemented("Type Variations are not yet implemented");
       }
@@ -131,8 +129,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
     }
   }
 
-  return ExtensionSet::Make(std::move(uris), std::move(type_ids),
-                            std::move(function_ids),
+  return ExtensionSet::Make(std::move(uris), std::move(type_ids), std::move(function_ids),
                             registry);
 }
 

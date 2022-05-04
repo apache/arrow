@@ -70,7 +70,7 @@ void ExtensionSet::AddUri(std::pair<uint32_t, util::string_view> uri) {
 }
 
 Status ExtensionSet::AddUri(Id id) {
-  if(uris_.find(uris_.size()) != uris_.end()){
+  if (uris_.find(uris_.size()) != uris_.end()) {
     return Status::Invalid("Key already exist in the uris map");
   }
   uris_[uris_.size()] = id.uri;
@@ -78,9 +78,9 @@ Status ExtensionSet::AddUri(Id id) {
 }
 
 Result<ExtensionSet> ExtensionSet::Make(
-    std::unordered_map<uint32_t, util::string_view> uris, std::unordered_map<uint32_t, Id> type_ids,
-    std::unordered_map<uint32_t, Id> function_ids,
-    ExtensionIdRegistry* registry) {
+    std::unordered_map<uint32_t, util::string_view> uris,
+    std::unordered_map<uint32_t, Id> type_ids,
+    std::unordered_map<uint32_t, Id> function_ids, ExtensionIdRegistry* registry) {
   ExtensionSet set;
   set.registry_ = registry;
 
@@ -110,7 +110,7 @@ Result<ExtensionSet> ExtensionSet::Make(
       set.types_[i] = {rec->id, rec->type};
       continue;
     }
-    return Status::Invalid("Type ",type_ids[i].uri, "#", type_ids[i].name, " not found");
+    return Status::Invalid("Type ", type_ids[i].uri, "#", type_ids[i].name, " not found");
   }
 
   set.functions_.reserve(function_ids.size());
@@ -146,9 +146,9 @@ Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
     auto it_success =
         types_map_.emplace(rec->id, static_cast<uint32_t>(types_map_.size()));
     if (it_success.second) {
-        if(types_.find(types_.size()) != types_.end()){
-          return Status::Invalid("Key already exist in the uris map");
-        }
+      if (types_.find(types_.size()) != types_.end()) {
+        return Status::Invalid("Key already exist in the uris map");
+      }
       types_[types_.size()] = {rec->id, rec->type};
     }
     return it_success.first->second;
@@ -170,7 +170,7 @@ Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
     auto it_success =
         functions_map_.emplace(rec->id, static_cast<uint32_t>(functions_map_.size()));
     if (it_success.second) {
-      if(functions_.find(functions_.size()) != functions_.end()){
+      if (functions_.find(functions_.size()) != functions_.end()) {
         return Status::Invalid("Key already exist in the uris map");
       }
       functions_[functions_.size()] = {rec->id, rec->function_name};
@@ -240,8 +240,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
     }
 
     util::optional<TypeRecord> GetType(Id id) const override {
-      if (auto index =
-              GetIndex(id_to_index_, id)) {
+      if (auto index = GetIndex(id_to_index_, id)) {
         return TypeRecord{type_ids_[*index], types_[*index]};
       }
       return {};

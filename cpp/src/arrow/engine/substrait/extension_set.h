@@ -172,9 +172,10 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// An extension set should instead be created using
   /// arrow::engine::GetExtensionSetFromPlan
   static Result<ExtensionSet> Make(
-      std::unordered_map<uint32_t, util::string_view> uris, std::unordered_map<uint32_t, Id> type_ids,
-      std::unordered_map<uint32_t, Id> function_ids, ExtensionIdRegistry* = default_extension_id_registry());
-
+      std::unordered_map<uint32_t, util::string_view> uris,
+      std::unordered_map<uint32_t, Id> type_ids,
+      std::unordered_map<uint32_t, Id> function_ids,
+      ExtensionIdRegistry* = default_extension_id_registry());
 
   const std::unordered_map<uint32_t, util::string_view>& uris() const { return uris_; }
 
