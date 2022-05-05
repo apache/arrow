@@ -156,12 +156,17 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 }
 
 build_formats <- function(orders) {
+  formats_list <- map(orders, build_format_from_order)
+  purrr::flatten_chr(formats_list)
+}
+
+build_format_from_order <- function(order) {
   year_chars <- c("%y", "%Y")
   month_chars <- c("%m", "%B", "%b")
   day_chars <- "%d"
 
   outcome <- switch(
-    orders,
+    order,
     "ymd" = expand.grid(year_chars, month_chars, day_chars),
     "ydm" = expand.grid(year_chars, day_chars, month_chars),
     "mdy" = expand.grid(month_chars, day_chars, year_chars),
