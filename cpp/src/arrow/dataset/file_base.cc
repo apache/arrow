@@ -469,21 +469,20 @@ class TeeNode : public compute::MapNode {
 
   Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
                         compute::Expression guarantee) {
-    return WriteBatch(
-        batch, guarantee, write_options_,
-        [this](std::shared_ptr<RecordBatch> next_batch,
-               const Partitioning::PartitionPathFormat& destination) {
-          return task_group_.AddTask([this, next_batch, destination] {
-            util::tracing::Span span;
-            Future<> has_room = dataset_writer_->WriteRecordBatch(
-                next_batch, destination.directory, destination.prefix);
-            if (!has_room.is_finished()) {
-              this->Pause();
-              return has_room.Then([this] { this->Resume(); });
-            }
-            return has_room;
-          });
-        });
+    return WriteBatch(batch, guarantee, write_options_,
+                      [this](std::shared_ptr<RecordBatch> next_batch,
+                             const Partitioning::PartitionPathFormat& destination) {
+                        return task_group_.AddTask([this, next_batch, destination] {
+                          util::tracing::Span span;
+                          Future<> has_room = dataset_writer_->WriteRecordBatch(
+                              next_batch, destination.directory, destination.prefix);
+                          if (!has_room.is_finished()) {
+                            this->Pause();
+                            return has_room.Then([this] { this->Resume(); });
+                          }
+                          return has_room;
+                        });
+                      });
   }
 
   void InputReceived(compute::ExecNode* input, compute::ExecBatch batch) override {
