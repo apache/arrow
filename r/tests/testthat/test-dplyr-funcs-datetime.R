@@ -1513,8 +1513,10 @@ test_that("`as.Date()` and `as_date()`", {
     dt_utc = ymd_hms("2010-08-03 00:50:50"),
     date_var = as.Date("2022-02-25"),
     difference_date = ymd_hms("2010-08-03 00:50:50", tz = "Pacific/Marquesas"),
-    character_ymd_var = "2022-02-25 00:00:01",
-    character_ydm_var = "2022/25/02 00:00:01",
+    character_ymd_hms_var = "2022-02-25 00:00:01",
+    character_ydm_hms_var = "2022/25/02 00:00:01",
+    character_ymd_var = "2022-02-25",
+    character_ydm_var = "2022/25/02",
     integer_var = 32L,
     integerish_var = 32,
     double_var = 34.56
@@ -1528,8 +1530,8 @@ test_that("`as.Date()` and `as_date()`", {
         date_pv_tz1 = as.Date(posixct_var, tz = "Pacific/Marquesas"),
         date_utc1 = as.Date(dt_utc),
         date_europe1 = as.Date(dt_europe),
-        date_char_ymd1 = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm1 = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_char_ymd_hms1 = as.Date(character_ymd_hms_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm_hms1 = as.Date(character_ydm_hms_var, format = "%Y/%d/%m %H:%M:%S"),
         date_int1 = as.Date(integer_var, origin = "1970-01-01"),
         date_int_origin1 = as.Date(integer_var, origin = "1970-01-03"),
         date_integerish1 = as.Date(integerish_var, origin = "1970-01-01"),
@@ -1538,8 +1540,8 @@ test_that("`as.Date()` and `as_date()`", {
         date_pv_tz2 = as_date(posixct_var, tz = "Pacific/Marquesas"),
         date_utc2 = as_date(dt_utc),
         date_europe2 = as_date(dt_europe),
-        date_char_ymd2 = as_date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm2 = as_date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_char_ymd2 = as_date(character_ymd_hms_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm2 = as_date(character_ydm_hms_var, format = "%Y/%d/%m %H:%M:%S"),
         date_int2 = as_date(integer_var, origin = "1970-01-01"),
         date_int_origin2 = as_date(integer_var, origin = "1970-01-03"),
         date_integerish2 = as_date(integerish_var, origin = "1970-01-01")
@@ -1547,6 +1549,17 @@ test_that("`as.Date()` and `as_date()`", {
       collect(),
     test_df
   )
+
+  # test_df %>%
+  #   arrow_table() %>%
+  #   mutate(
+  #     date_char_ymd = as.Date(
+  #       character_ymd_var,
+  #       tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+  #     ),
+  #     .keep = "used"
+  #   ) %>%
+  #   collect()
 
   # we do not support multiple tryFormats
   compare_dplyr_binding(
@@ -1565,14 +1578,14 @@ test_that("`as.Date()` and `as_date()`", {
   expect_error(
     test_df %>%
       arrow_table() %>%
-      mutate(date_char_ymd = as_date(character_ymd_var)) %>%
+      mutate(date_char_ymd = as_date(character_ymd_hms_var), .keep = "used") %>%
       collect()
   )
 
   expect_error(
     test_df %>%
       arrow_table() %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
+      mutate(date_char_ymd = as.Date(character_ymd_hms_var)) %>%
       collect(),
     regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
     fixed = TRUE

@@ -104,9 +104,10 @@ binding_as_date <- function(x,
                             format = NULL,
                             tryFormats = "%Y-%m-%d",
                             origin = "1970-01-01") {
-  if (is.null(format) && length(tryFormats) > 1) {
-    abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
-  }
+
+  # if (is.null(format) && length(tryFormats) > 1) {
+  #   abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+  # }
 
   if (call_binding("is.Date", x)) {
     return(x)
@@ -125,10 +126,27 @@ binding_as_date <- function(x,
 
 binding_as_date_character <- function(x,
                                       format = NULL,
-                                      tryFormats = "%Y-%m-%d") {
-  format <- format %||% tryFormats[[1]]
-  # unit = 0L is the identifier for seconds in valid_time32_units
-  build_expr("strptime", x, options = list(format = format, unit = 0L))
+                                      tryFormats = c("%Y-%m-%d", "%Y/%m/%d")) {
+
+  # format <- format %||% tryFormats[[1]]
+  # # unit = 0L is the identifier for seconds in valid_time32_units
+  # build_expr("strptime", x, options = list(format = format, unit = 0L))
+  if (missing(format)) {
+    parse_attempts <- list()
+    for (i in seq_along(tryFormats)) {
+      parse_attempts[[i]] <-
+        build_expr(
+          "strptime", x,
+          options = list(format = tryFormats[[i]], unit = 0L, error_is_null = TRUE)
+        )
+    }
+    # coalesce_output <- build_expr("coalesce", parse_attempts[[1]], parse_attempts[[2]])
+    coalesce_output <- build_expr("coalesce", args = parse_attempts)
+    return(coalesce_output)
+    # purrr::lift_dl(build_expr("coalesce"))(parse_attempts)
+  } else {
+    build_expr("strptime", x, options = list(format = format, unit = 0L))
+  }
 }
 
 binding_as_date_numeric <- function(x, origin = "1970-01-01") {
