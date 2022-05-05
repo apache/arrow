@@ -167,6 +167,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
   @Test
   public void testShouldGetIntervalDay( ) {
+    Assert.assertEquals("-001 00:00:00.000", formatIntervalDay(parse("PT-24H")));
+    Assert.assertEquals("+001 00:00:00.000", formatIntervalDay(parse("PT+24H")));
     Assert.assertEquals("-000 01:00:00.000", formatIntervalDay(parse("PT-1H")));
     Assert.assertEquals("-000 01:00:00.001", formatIntervalDay(parse("PT-1H-0M-00.001S")));
     Assert.assertEquals("-000 01:01:01.000", formatIntervalDay(parse("PT-1H-1M-1S")));
@@ -183,6 +185,14 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     Assert.assertEquals("+000 11:59:00.100", formatIntervalDay(parse("PT+11H59M00.100S")));
     Assert.assertEquals("+000 05:02:03.000", formatIntervalDay(parse("PT+5H2M3S")));
     Assert.assertEquals("+000 22:22:22.222", formatIntervalDay(parse("PT+22H22M22.222S")));
+  }
+
+  @Test
+  public void testIntervalDayWithJodaPeriodObject() {
+    Assert.assertEquals("+1567 00:00:00.000",
+        formatIntervalDay(new org.joda.time.Period().plusDays(1567)));
+    Assert.assertEquals("-1567 00:00:00.000",
+        formatIntervalDay(new org.joda.time.Period().minusDays(1567)));
   }
 
   @Test

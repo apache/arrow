@@ -19,11 +19,9 @@ package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
 import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatIntervalDay;
 import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatIntervalYear;
-import static org.joda.time.Period.parse;
+import static org.apache.arrow.vector.util.DateUtility.yearsToMonths;
 
 import java.sql.SQLException;
-import java.time.Duration;
-import java.time.Period;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
@@ -31,22 +29,17 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
+import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
+import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
+import org.joda.time.Period;
 
 /**
  * Accessor for the Arrow type {@link IntervalDayVector}.
  */
 public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  /**
-   * Functional interface used to unify Interval*Vector#getAsStringBuilder implementations.
-   */
-  @FunctionalInterface
-  interface StringBuilderGetter {
-    StringBuilder get(int index);
-  }
-
   private final BaseFixedWidthVector vector;
-  private final StringBuilderGetter stringBuilderGetter;
+  private final StringGetter stringGetter;
   private final Class<?> objectClass;
 
   /**
@@ -61,8 +54,18 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
                                                ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
-    this.stringBuilderGetter = vector::getAsStringBuilder;
-    this.objectClass = Duration.class;
+    stringGetter = (index) -> {
+      final NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
+      vector.get(index, holder);
+      if (holder.isSet == 0) {
+        return null;
+      } else {
+        final int days = holder.days;
+        final int millis = holder.milliseconds;
+        return formatIntervalDay(new Period().plusDays(days).plusMillis(millis));
+      }
+    };
+    objectClass = java.time.Duration.class;
   }
 
   /**
@@ -77,39 +80,47 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
                                                ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
-    this.stringBuilderGetter = vector::getAsStringBuilder;
-    this.objectClass = Period.class;
-  }
-
-  @Override
-  public Object getObject() {
-    Object object = this.vector.getObject(getCurrentRow());
-    this.wasNull = object == null;
-    this.wasNullConsumer.setWasNull(this.wasNull);
-
-    return object;
+    stringGetter = (index) -> {
+      final NullableIntervalYearHolder holder = new NullableIntervalYearHolder();
+      vector.get(index, holder);
+      if (holder.isSet == 0) {
+        return null;
+      } else {
+        final int interval = holder.value;
+        final int years = (interval / yearsToMonths);
+        final int months = (interval % yearsToMonths);
+        return formatIntervalYear(new Period().plusYears(years).plusMonths(months));
+      }
+    };
+    objectClass = java.time.Period.class;
   }
 
   @Override
   public Class<?> getObjectClass() {
-    return this.objectClass;
+    return objectClass;
   }
 
   @Override
   public String getString() throws SQLException {
-    Object object = getObject();
+    String result = stringGetter.get(getCurrentRow());
+    wasNull = result == null;
+    wasNullConsumer.setWasNull(wasNull);
+    return result;
+  }
 
-    this.wasNull = object == null;
-    this.wasNullConsumer.setWasNull(this.wasNull);
-    if (object == null) {
-      return null;
-    }
-    if (vector instanceof IntervalDayVector) {
-      return formatIntervalDay(parse(object.toString()));
-    } else if (vector instanceof IntervalYearVector) {
-      return formatIntervalYear(parse(object.toString()));
-    } else {
-      throw new SQLException("Invalid Interval vector instance");
-    }
+  @Override
+  public Object getObject() {
+    Object object = vector.getObject(getCurrentRow());
+    wasNull = object == null;
+    wasNullConsumer.setWasNull(wasNull);
+    return object;
+  }
+
+  /**
+   * Functional interface used to unify Interval*Vector#getAsStringBuilder implementations.
+   */
+  @FunctionalInterface
+  interface StringGetter {
+    String get(int index);
   }
 }
