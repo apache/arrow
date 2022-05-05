@@ -789,7 +789,6 @@ def _test_read_common_metadata_files(fs, base_path):
         pq.write_metadata(table.schema, f)
 
     dataset = pq.ParquetDataset(base_path, filesystem=fs)
-
     with pytest.warns(FutureWarning):
         assert dataset.common_metadata_path == str(metadata_path)
 
@@ -832,7 +831,6 @@ def test_read_metadata_files(tempdir):
         pq.write_metadata(table.schema, f)
 
     dataset = pq.ParquetDataset(tempdir, filesystem=fs)
-
     with pytest.warns(FutureWarning):
         assert dataset.metadata_path == str(metadata_path)
 
