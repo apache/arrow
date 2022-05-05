@@ -35,6 +35,7 @@
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_compatibility.h"
@@ -730,6 +731,32 @@ TEST(Memory, GetRSS) {
   ASSERT_EQ(GetCurrentRSS(), 0);
 #endif
 }
+
+// Some loose tests to check if the cpuinfo makes sense
+TEST(CpuInfo, Basic) {
+  const CpuInfo* ci = CpuInfo::GetInstance();
+
+  ASSERT_TRUE(ci->num_cores() >= 1 && ci->num_cores() <= 1000);
+
+  const auto l1 = ci->CacheSize(CpuInfo::CacheLevel::L1);
+  const auto l2 = ci->CacheSize(CpuInfo::CacheLevel::L2);
+  const auto l3 = ci->CacheSize(CpuInfo::CacheLevel::L3);
+  ASSERT_TRUE(l1 <= l2 && l2 <= l3);
+  ASSERT_TRUE(l1 >= 4 * 1024 && l1 <= 512 * 1024);
+  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 8 * 1024 * 1024);
+  ASSERT_TRUE(l3 >= 256 * 1024 && l3 <= 128 * 1024 * 1024);
+
+  // Toggle hardware flags
+  CpuInfo* ci_rw = const_cast<CpuInfo*>(ci);
+  const int64_t original_hardware_flags = ci->hardware_flags();
+  ci_rw->EnableFeature(original_hardware_flags, false);
+  ASSERT_EQ(ci->hardware_flags(), 0);
+  ci_rw->EnableFeature(original_hardware_flags, true);
+  ASSERT_EQ(ci->hardware_flags(), original_hardware_flags);
+}
+
+// Dump detecetd cpu features in CI for manual check, not a real test
+TEST(CpuInfo, DebugMessage) { FAIL() << CpuInfo::GetInstance()->DebugMessage(); }
 
 }  // namespace internal
 }  // namespace arrow
