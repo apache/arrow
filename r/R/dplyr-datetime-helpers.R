@@ -131,7 +131,10 @@ binding_as_date_character <- function(x,
   # format <- format %||% tryFormats[[1]]
   # # unit = 0L is the identifier for seconds in valid_time32_units
   # build_expr("strptime", x, options = list(format = format, unit = 0L))
-  if (missing(format)) {
+
+  # we need to split the logic between as_date() and as.Date() since `tryFormats`
+  # is an argument only for `as.Date()`
+  if (is.null(format)) {
     parse_attempts <- list()
     for (i in seq_along(tryFormats)) {
       parse_attempts[[i]] <-
