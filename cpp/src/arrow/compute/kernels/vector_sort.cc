@@ -2036,7 +2036,7 @@ const FunctionDoc rank_doc(
 class RankMetaFunction : public MetaFunction {
  public:
   RankMetaFunction()
-      : MetaFunction("rank", Arity::Unary(), &rank_doc, GetDefaultRankOptions()) {}
+      : MetaFunction("rank", Arity::Unary(), rank_doc, GetDefaultRankOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options, ExecContext* ctx) const {
