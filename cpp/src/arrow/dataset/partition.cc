@@ -836,7 +836,6 @@ std::vector<PartitionPathFormat> StripPrefixAndFilename(
 
 Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
     const std::vector<PartitionPathFormat>& paths) {
-
   if (auto part = partitioning()) {
     return part->schema();
   }
