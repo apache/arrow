@@ -814,33 +814,42 @@ PartitionPathFormat StripPrefixAndFilename(const std::string& path,
                              std::move(basename_filename.second)};
 }
 
-std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,
-                                                const std::string& prefix) {
-  std::vector<std::string> result;
+std::vector<PartitionPathFormat> StripPrefixAndFilename(
+    const std::vector<std::string>& paths, const std::string& prefix) {
+  std::vector<PartitionPathFormat> result;
   result.reserve(paths.size());
   for (const auto& path : paths) {
-    result.emplace_back(StripPrefixAndFilename(path, prefix).directory);
+    result.emplace_back(StripPrefixAndFilename(path, prefix));
   }
   return result;
 }
 
-std::vector<std::string> StripPrefixAndFilename(const std::vector<fs::FileInfo>& files,
-                                                const std::string& prefix) {
-  std::vector<std::string> result;
+std::vector<PartitionPathFormat> StripPrefixAndFilename(
+    const std::vector<fs::FileInfo>& files, const std::string& prefix) {
+  std::vector<PartitionPathFormat> result;
   result.reserve(files.size());
   for (const auto& info : files) {
-    result.emplace_back(StripPrefixAndFilename(info.path(), prefix).directory);
+    result.emplace_back(StripPrefixAndFilename(info.path(), prefix));
   }
   return result;
 }
 
 Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
-    const std::vector<std::string>& paths) {
+    const std::vector<PartitionPathFormat>& paths) {
+
   if (auto part = partitioning()) {
     return part->schema();
   }
+  std::vector<std::string> partition_paths(paths.size());
+  if (factory()->type_name() == "filename") {
+    std::transform(paths.begin(), paths.end(), std::back_inserter(partition_paths),
+                   [](PartitionPathFormat const& path) { return path.filename; });
+  } else {
+    std::transform(paths.begin(), paths.end(), std::back_inserter(partition_paths),
+                   [](PartitionPathFormat const& path) { return path.directory; });
+  }
 
-  return factory()->Inspect(paths);
+  return factory()->Inspect(partition_paths);
 }
 
 }  // namespace dataset

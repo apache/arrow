@@ -975,9 +975,12 @@ TEST(TestStripPrefixAndFilename, Basic) {
   std::vector<std::string> input{"/data/year=2019/file.parquet",
                                  "/data/year=2019/month=12/file.parquet",
                                  "/data/year=2019/month=12/day=01/file.parquet"};
-  EXPECT_THAT(StripPrefixAndFilename(input, "/data"),
-              testing::ElementsAre("year=2019", "year=2019/month=12",
-                                   "year=2019/month=12/day=01"));
+  auto paths = StripPrefixAndFilename(input, "/data");
+  std::vector<std::string> path_directories;
+  std::transform(paths.begin(), paths.end(), std::back_inserter(path_directories),
+                 [](PartitionPathFormat const& path) { return path.directory; });
+  EXPECT_THAT(path_directories, testing::ElementsAre("year=2019", "year=2019/month=12",
+                                                     "year=2019/month=12/day=01"));
 }
 
 }  // namespace dataset

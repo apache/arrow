@@ -366,11 +366,11 @@ ARROW_DS_EXPORT PartitionPathFormat StripPrefixAndFilename(const std::string& pa
                                                            const std::string& prefix);
 
 /// \brief Vector version of StripPrefixAndFilename.
-ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
+ARROW_DS_EXPORT std::vector<PartitionPathFormat> StripPrefixAndFilename(
     const std::vector<std::string>& paths, const std::string& prefix);
 
 /// \brief Vector version of StripPrefixAndFilename.
-ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
+ARROW_DS_EXPORT std::vector<PartitionPathFormat> StripPrefixAndFilename(
     const std::vector<fs::FileInfo>& files, const std::string& prefix);
 
 /// \brief Either a Partitioning or a PartitioningFactory
@@ -397,7 +397,8 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
   const std::shared_ptr<PartitioningFactory>& factory() const { return factory_; }
 
   /// \brief Get the partition schema, inferring it with the given factory if needed.
-  Result<std::shared_ptr<Schema>> GetOrInferSchema(const std::vector<std::string>& paths);
+  Result<std::shared_ptr<Schema>> GetOrInferSchema(
+      const std::vector<PartitionPathFormat>& paths);
 
  private:
   std::shared_ptr<PartitioningFactory> factory_;
