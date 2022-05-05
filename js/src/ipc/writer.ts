@@ -248,7 +248,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
 
     protected _writeRecordBatch(batch: RecordBatch<T>) {
         const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(batch);
-        const recordBatch = new metadata.RecordBatch(batch.numRows, nodes, bufferRegions);
+        const recordBatch = new metadata.RecordBatch(batch.numRows, nodes, bufferRegions, null);
         const message = Message.from(recordBatch, byteLength);
         return this
             ._writeDictionaries(batch)
@@ -259,7 +259,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
     protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
         this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(new Vector([dictionary]));
-        const recordBatch = new metadata.RecordBatch(dictionary.length, nodes, bufferRegions);
+        const recordBatch = new metadata.RecordBatch(dictionary.length, nodes, bufferRegions, null);
         const dictionaryBatch = new metadata.DictionaryBatch(recordBatch, id, isDelta);
         const message = Message.from(dictionaryBatch, byteLength);
         return this

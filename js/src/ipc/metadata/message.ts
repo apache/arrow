@@ -41,6 +41,7 @@ import { FixedSizeBinary as _FixedSizeBinary } from '../../fb/fixed-size-binary.
 import { FixedSizeList as _FixedSizeList } from '../../fb/fixed-size-list.js';
 import { Map as _Map } from '../../fb/map.js';
 import { Message as _Message } from '../../fb/message.js';
+import { CompressionType as _CompressionType } from '../../fb/compression-type.js';
 
 import { Schema, Field } from '../../schema.js';
 import { toUint8Array } from '../../util/buffer.js';
@@ -150,13 +151,16 @@ export class RecordBatch {
     protected _length: number;
     protected _nodes: FieldNode[];
     protected _buffers: BufferRegion[];
+    protected _compression: _CompressionType | null;
     public get nodes() { return this._nodes; }
     public get length() { return this._length; }
     public get buffers() { return this._buffers; }
-    constructor(length: Long | number, nodes: FieldNode[], buffers: BufferRegion[]) {
+    public get compression() { return this._compression; }
+    constructor(length: Long | number, nodes: FieldNode[], buffers: BufferRegion[], compression: _CompressionType | null) {
         this._nodes = nodes;
         this._buffers = buffers;
         this._length = typeof length === 'number' ? length : length.low;
+        this._compression = compression;
     }
 }
 
@@ -297,10 +301,7 @@ function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = ne
 
 /** @ignore */
 function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
-    if (batch.compression() !== null) {
-        throw new Error('Record batch compression not implemented');
-    }
-    return new RecordBatch(batch.length(), decodeFieldNodes(batch), decodeBuffers(batch, version));
+    return new RecordBatch(batch.length(), decodeFieldNodes(batch), decodeBuffers(batch, version), batch.compression()?.codec() || null);
 }
 
 /** @ignore */

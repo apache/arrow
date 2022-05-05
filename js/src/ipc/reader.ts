@@ -46,6 +46,7 @@ import {
     isFileHandle, isFetchResponse,
     isReadableDOMStream, isReadableNodeStream
 } from '../util/compat.js';
+import { compressionRegistry } from './compression.js';
 
 /** @ignore */ export type FromArg0 = ArrowJSONLike;
 /** @ignore */ export type FromArg1 = PromiseLike<ArrowJSONLike>;
@@ -352,12 +353,21 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
         return this;
     }
 
-    protected _loadRecordBatch(header: metadata.RecordBatch, body: any) {
+    protected _loadRecordBatch(header: metadata.RecordBatch, body: Uint8Array) {
+        if (header.compression) {
+          const codec = compressionRegistry.get(header.compression);
+          if (codec?.decode) {
+              body = codec.decode(body);
+          } else {
+              throw new Error('Record batch is compressed but codec not found');
+          }
+        }
+
         const children = this._loadVectors(header, body, this.schema.fields);
         const data = makeData({ type: new Struct(this.schema.fields), length: header.length, children });
         return new RecordBatch(this.schema, data);
     }
-    protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: any) {
+    protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: Uint8Array) {
         const { id, isDelta } = header;
         const { dictionaries, schema } = this;
         const dictionary = dictionaries.get(id);
@@ -370,7 +380,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
         }
         return dictionary.memoize();
     }
-    protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
+    protected _loadVectors(header: metadata.RecordBatch, body: Uint8Array, types: (Field | DataType)[]) {
         return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);
     }
 }
