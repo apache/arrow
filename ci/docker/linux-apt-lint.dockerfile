@@ -40,7 +40,7 @@ RUN apt-get update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ARG r=4.1
+ARG r=4.2
 RUN wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
         tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
     # NOTE: R 3.5 and 3.6 are available in the repos with -cran35 suffix
@@ -49,7 +49,7 @@ RUN wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc |
     # R 3.4 is available without the suffix but only for trusty and xenial
     # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
     # This is a hack to turn 3.6 into 35, and 4.0/4.1 into 40:
-    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran'$(echo "${r}" | tr -d . | tr 6 5 | tr 1 0)'/' && \
+    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran'$(echo "${r}" | tr -d . | tr 6 5 | tr 1-2 0)'/' && \
     apt-get install -y \
         r-base=${r}* \
         r-recommended=${r}* \
