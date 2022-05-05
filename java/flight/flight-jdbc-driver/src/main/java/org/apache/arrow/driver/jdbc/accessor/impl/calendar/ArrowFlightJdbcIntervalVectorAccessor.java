@@ -102,22 +102,18 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
 
   @Override
   public String getString() throws SQLException {
-    if (vector.isNull(getCurrentRow())) {
-      wasNull = true;
-      wasNullConsumer.setWasNull(true);
-      return null;
-    }
-    return stringGetter.get(getCurrentRow());
+    String result = stringGetter.get(getCurrentRow());
+    wasNull = result == null;
+    wasNullConsumer.setWasNull(wasNull);
+    return result;
   }
 
   @Override
   public Object getObject() {
-    if (vector.isNull(getCurrentRow())) {
-      wasNull = true;
-      wasNullConsumer.setWasNull(true);
-      return null;
-    }
-    return vector.getObject(getCurrentRow());
+    Object object = vector.getObject(getCurrentRow());
+    wasNull = object == null;
+    wasNullConsumer.setWasNull(wasNull);
+    return object;
   }
 
   /**
