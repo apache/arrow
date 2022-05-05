@@ -17,6 +17,7 @@
 
 import datetime
 import os
+import pathlib
 
 import numpy as np
 import pytest
@@ -1787,16 +1788,24 @@ def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
 @pytest.mark.dataset
 def test_parquet_write_to_dataset_exposed_keywords(tempdir):
     table = pa.table({'a': [1, 2, 3]})
-    path = tempdir / 'data.parquet'
+    path = tempdir / 'partitioning'
 
-    # Check if the partitioning keyward is not ignored
+    paths_written = []
+
+    def file_visitor(written_file):
+        paths_written.append(written_file.path)
+
+    basename_template = 'part-{i}.parquet'
+
     pq.write_to_dataset(table, path, partitioning=["a"],
+                        file_visitor=file_visitor,
+                        basename_template=basename_template,
                         use_legacy_dataset=False)
-    dataset = pq.ParquetDataset(path, use_legacy_dataset=False)
-    assert len(dataset.files) == 3
 
-    path2 = tempdir / 'data2.parquet'
-    # This should be single parquet file if partitioning keyword not set
-    pq.write_to_dataset(table, path2, use_legacy_dataset=False)
-    dataset2 = pq.ParquetDataset(path2, use_legacy_dataset=False)
-    assert len(dataset2.files) == 1
+    expected_paths = {
+        path / '1' / 'part-0.parquet',
+        path / '2' / 'part-0.parquet',
+        path / '3' / 'part-0.parquet'
+    }
+    paths_written_set = set(map(pathlib.Path, paths_written))
+    assert paths_written_set == expected_paths
