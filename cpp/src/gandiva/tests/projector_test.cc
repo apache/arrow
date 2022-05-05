@@ -2692,24 +2692,21 @@ TEST_F(TestProjector, TestCastVarbinary) {
   auto res_out1 = field("res_out1", arrow::binary());
 
   // Build expression
-  auto cast_expr_1 = TreeExprBuilder::MakeExpression("castVARBINARY", {field0, field1}, res_out1);
+  auto cast_expr_1 =
+      TreeExprBuilder::MakeExpression("castVARBINARY", {field0, field1}, res_out1);
 
   std::shared_ptr<Projector> projector;
 
-  auto status = Projector::Make(
-      schema, {cast_expr_1},
-      TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {cast_expr_1}, TestConfiguration(), &projector);
 
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
   int num_records = 2;
 
-  auto array0 = MakeArrowArrayUtf8(
-      {"a", "abc"}, {true, true});
+  auto array0 = MakeArrowArrayUtf8({"a", "abc"}, {true, true});
 
-  auto array1 = MakeArrowArrayInt64(
-      {1, 3}, {true, true});
+  auto array1 = MakeArrowArrayInt64({1, 3}, {true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
@@ -2722,7 +2719,6 @@ TEST_F(TestProjector, TestCastVarbinary) {
   EXPECT_TRUE(status.ok());
 
   EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
-
 }
 
 TEST_F(TestProjector, TestCastBinaryUTF) {
@@ -2737,17 +2733,14 @@ TEST_F(TestProjector, TestCastBinaryUTF) {
 
   std::shared_ptr<Projector> projector;
 
-  auto status = Projector::Make(
-      schema, {cast_expr_1},
-      TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {cast_expr_1}, TestConfiguration(), &projector);
 
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
   int num_records = 2;
 
-  auto array0 = MakeArrowArrayUtf8(
-      {"a", "abc"}, {true, true});
+  auto array0 = MakeArrowArrayUtf8({"a", "abc"}, {true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
@@ -2774,17 +2767,14 @@ TEST_F(TestProjector, TestCastBinaryBinary) {
 
   std::shared_ptr<Projector> projector;
 
-  auto status = Projector::Make(
-      schema, {cast_expr_1},
-      TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {cast_expr_1}, TestConfiguration(), &projector);
 
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
   int num_records = 2;
 
-  auto array0 = MakeArrowArrayUtf8(
-      {"\\x41\\x42\\x43", "\\x41\\x42"}, {true, true});
+  auto array0 = MakeArrowArrayUtf8({"\\x41\\x42\\x43", "\\x41\\x42"}, {true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 

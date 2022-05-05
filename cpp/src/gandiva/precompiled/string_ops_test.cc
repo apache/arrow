@@ -908,13 +908,13 @@ TEST(TestGdvFnStubs, TestCastBinaryBinary) {
   const char* input = "\\x41\\x42\\x43";
   const char* out;
 
-  out = castBINARY_binary(ctx_ptr, input, 12,&out_len);
+  out = castBINARY_binary(ctx_ptr, input, 12, &out_len);
   EXPECT_EQ(std::string(out, out_len), input);
 
-  out = castBINARY_binary(ctx_ptr, input, 8,&out_len);
+  out = castBINARY_binary(ctx_ptr, input, 8, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\\x41\\x42");
 
-  out = castBINARY_binary(ctx_ptr, input,-10, &out_len);
+  out = castBINARY_binary(ctx_ptr, input, -10, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Output buffer length can't be negative"));

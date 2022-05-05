@@ -705,20 +705,20 @@ CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 CAST_VARBINARY_FROM_STRING_AND_BINARY(utf8)
 CAST_VARBINARY_FROM_STRING_AND_BINARY(binary)
 
-#define CAST_BINARY_FROM_STRING_AND_BINARY(TYPE)                                       \
-  GANDIVA_EXPORT                                                                       \
-  const char* castBINARY_##TYPE(gdv_int64 context, const char* data,                   \
-                                           gdv_int32 data_len, int32_t* out_length) {  \
-    int32_t len = static_cast<int32_t>(data_len);                                      \
-    if (len < 0) {                                                                     \
-      gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative"); \
-      *out_length = 0;                                                                 \
-      return "";                                                                       \
-    }                                                                                  \
-                                                                                       \
-    *out_length = len;                                                                 \
-                                                                                       \
-    return data;                                                                       \
+#define CAST_BINARY_FROM_STRING_AND_BINARY(TYPE)                                         \
+  GANDIVA_EXPORT                                                                         \
+  const char* castBINARY_##TYPE(gdv_int64 context, const char* data, gdv_int32 data_len, \
+                                int32_t* out_length) {                                   \
+    int32_t len = static_cast<int32_t>(data_len);                                        \
+    if (len < 0) {                                                                       \
+      gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");   \
+      *out_length = 0;                                                                   \
+      return "";                                                                         \
+    }                                                                                    \
+                                                                                         \
+    *out_length = len;                                                                   \
+                                                                                         \
+    return data;                                                                         \
   }
 
 CAST_BINARY_FROM_STRING_AND_BINARY(utf8)
