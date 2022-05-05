@@ -1550,26 +1550,16 @@ test_that("`as.Date()` and `as_date()`", {
     test_df
   )
 
-  test_df %>%
-    arrow_table() %>%
-    mutate(
-      date_char_ymd = as.Date(
-        character_ymd_var,
-        tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-      ),
-      .keep = "used"
-    ) %>%
-    collect()
-
-  # we do not support multiple tryFormats
+  # we now support multiple tryFormats
   compare_dplyr_binding(
     .input %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var,
+      mutate(date_char_ymd = as.Date(
+        character_ymd_var,
         tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-      )) %>%
+      )
+      ) %>%
       collect(),
-    test_df#,
-    # warning = TRUE
+    test_df
   )
 
   # strptime does not support a partial format - testing an error surfaced from
@@ -1577,8 +1567,8 @@ test_that("`as.Date()` and `as_date()`", {
   # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
   expect_error(
     test_df %>%
-      # arrow_table() %>%
-      mutate(date_char_ymd = as_date(character_ymd_hms_var), .keep = "used") %>%
+      arrow_table() %>%
+      mutate(date_char_ymd_hms = as_date(character_ymd_hms_var), .keep = "used") %>%
       collect()
   )
 
