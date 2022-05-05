@@ -57,7 +57,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
     stringGetter = (index) -> {
       final NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
       vector.get(index, holder);
-      if (holder.isSet == 0 ) {
+      if (holder.isSet == 0) {
         return null;
       } else {
         final int days = holder.days;
@@ -83,7 +83,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
     stringGetter = (index) -> {
       final NullableIntervalYearHolder holder = new NullableIntervalYearHolder();
       vector.get(index, holder);
-      if (holder.isSet == 0 ) {
+      if (holder.isSet == 0) {
         return null;
       } else {
         final int interval = holder.value;
