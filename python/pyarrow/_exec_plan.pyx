@@ -393,4 +393,3 @@ def _filter_table(table, expression, output_type=Table):
         return InMemoryDataset(r.select(table.schema.names))
     else:
         raise TypeError("Unsupported output type")
-
