@@ -17,6 +17,7 @@
 
 import pytest
 import pyarrow as pa
+import pyarrow.compute as pc
 
 try:
     import pyarrow.dataset as ds
@@ -189,4 +190,32 @@ def test_table_join_keys_order():
         "colA": [1, 2, 6, 99],
         "colVals_l": ["a", "b", "f", None],
         "colVals_r": ["A", "B", None, "Z"],
+    })
+
+
+@pytest.mark.parametrize("use_datasets", [False, True])
+def test_filter_table(use_datasets):
+    t = pa.table({
+        "a": [1, 2, 3, 4, 5],
+        "b": [10, 20, 30, 40, 50]
+    })
+    if use_datasets:
+        t = ds.dataset([t])
+
+    result = ep._filter_table(
+        t, (pc.field("a") <= pc.scalar(3)) & (pc.field("b") == pc.scalar(20))
+    )
+    result = result.select(["a", "b"]).combine_chunks()
+    assert result == pa.table({
+        "a": [2],
+        "b": [20]
+    })
+
+    result = ep._filter_table(
+        t, pc.field("b") > pc.scalar(30)
+    )
+    result = result.select(["a", "b"]).combine_chunks()
+    assert result == pa.table({
+        "a": [4, 5],
+        "b": [40, 50]
     })

@@ -202,7 +202,7 @@ def _perform_join(join_type, left_operand not None, left_keys,
 
     Returns
     -------
-    result_table : Table
+    result_table : Table or InMemoryDataset
     """
     cdef:
         vector[CFieldRef] c_left_keys
@@ -351,3 +351,36 @@ def _perform_join(join_type, left_operand not None, left_keys,
                             use_threads=use_threads)
 
     return result_table
+
+
+def _filter_table(table, expression):
+    """Filter rows of a table or dataset based on the provided expression.
+
+    The result will be an output table with only the rows matching
+    the provided expression.
+
+    Parameters
+    ----------
+    table : Table or Dataset
+        Table or Dataset that should be filtered.
+    expression : Expression
+        The expression on which rows should be filtered.
+
+    Returns
+    -------
+    result_table : Table
+    """
+    cdef:
+        vector[CDeclaration] c_decl_plan
+        Expression expr = expression
+
+    c_decl_plan.push_back(
+        CDeclaration(tobytes("filter"), CFilterNodeOptions(
+            <CExpression>expr.unwrap(), True
+        ))
+    )
+
+    r = execplan([table], plan=c_decl_plan,
+                 output_type=Table)
+
+    return r
