@@ -430,7 +430,7 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
 
 namespace {
 
-class TeeNode : public compute::MapNode, public compute::BackpressureControl {
+class TeeNode : public compute::MapNode {
  public:
   TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
@@ -438,8 +438,7 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
           FileSystemDatasetWriteOptions write_options, bool async_mode)
       : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
         dataset_writer_(std::move(dataset_writer)),
-        write_options_(std::move(write_options)),
-        backpressure_control_(this) {}
+        write_options_(std::move(write_options)) {}
 
   static Result<compute::ExecNode*> Make(compute::ExecPlan* plan,
                                          std::vector<compute::ExecNode*> inputs,
@@ -476,14 +475,11 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
                const Partitioning::PartitionPathFormat& destination) {
           return task_group_.AddTask([this, next_batch, destination] {
             util::tracing::Span span;
-            START_COMPUTE_SPAN(span, "Tee",
-                               {{"tee.base_dir", ToStringExtra()},
-                                {"tee.length", next_batch->num_rows()}});
             Future<> has_room = dataset_writer_->WriteRecordBatch(
                 next_batch, destination.directory, destination.prefix);
             if (!has_room.is_finished()) {
-              backpressure_control_->Pause();
-              return has_room.Then([this] { backpressure_control_->Resume(); });
+              this->Pause();
+              return has_room.Then([this] { this->Resume(); });
             }
             return has_room;
           });
@@ -507,9 +503,9 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
     this->SubmitTask(std::move(func), std::move(batch));
   }
 
-  void Pause() override { inputs_[0]->PauseProducing(this, ++backpressure_counter_); }
+  void Pause() { inputs_[0]->PauseProducing(this, ++backpressure_counter_); }
 
-  void Resume() override { inputs_[0]->ResumeProducing(this, ++backpressure_counter_); }
+  void Resume() { inputs_[0]->ResumeProducing(this, ++backpressure_counter_); }
 
  protected:
   std::string ToStringExtra(int indent = 0) const override {
@@ -520,7 +516,6 @@ class TeeNode : public compute::MapNode, public compute::BackpressureControl {
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
   util::SerializedAsyncTaskGroup task_group_;
-  compute::BackpressureControl* backpressure_control_;
   int32_t backpressure_counter_ = 0;
 };
 
