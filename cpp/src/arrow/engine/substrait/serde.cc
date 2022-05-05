@@ -73,7 +73,7 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
                   ext_set));
     std::vector<std::string> names;
     if (plan_rel.has_root()) {
-      names = plan_rel.root().names();
+      names.assign(plan_rel.root().names().begin(), plan_rel.root().names().end());
     }
 
     // pipe each relation into a consuming_sink node
