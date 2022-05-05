@@ -188,6 +188,14 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
+  public void testIntervalDayWithJodaPeriodObject() {
+    Assert.assertEquals("+1567 00:00:00.000",
+        formatIntervalDay(new org.joda.time.Period().plusDays(1567)));
+    Assert.assertEquals("-1567 00:00:00.000",
+        formatIntervalDay(new org.joda.time.Period().minusDays(1567)));
+  }
+
+  @Test
   public void testShouldGetStringReturnCorrectString() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getString,
         (accessor, currentRow) -> is(getStringOnVector(vector, currentRow)));
