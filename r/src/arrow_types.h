@@ -36,6 +36,7 @@
 
 #if defined(ARROW_R_WITH_DATASET)
 #include <arrow/dataset/type_fwd.h>
+#include <arrow/dataset/partition.h>
 #endif
 
 #include <arrow/filesystem/type_fwd.h>

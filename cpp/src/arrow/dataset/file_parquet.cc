@@ -916,11 +916,20 @@ Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchem
 
   if (auto factory = options_.partitioning.factory()) {
     // Gather paths found in RowGroups' ColumnChunks.
-    std::vector<PartitionPathFormat> stripped(paths_with_row_group_ids_.size());
+    std::vector<std::string> stripped(paths_with_row_group_ids_.size());
 
     size_t i = 0;
-    for (const auto& e : paths_with_row_group_ids_) {
-      stripped[i++] = StripPrefixAndFilename(e.first, options_.partition_base_dir);
+
+    if (options_.partitioning.factory()->type_name() == "filename") {
+      for (const auto& e : paths_with_row_group_ids_) {
+        stripped[i++] =
+            StripPrefixAndFilename(e.first, options_.partition_base_dir).filename;
+      }
+    } else {
+      for (const auto& e : paths_with_row_group_ids_) {
+        stripped[i++] =
+            StripPrefixAndFilename(e.first, options_.partition_base_dir).directory;
+      }
     }
     ARROW_ASSIGN_OR_RAISE(auto partition_schema, factory->Inspect(stripped));
 

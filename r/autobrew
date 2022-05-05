@@ -1,0 +1,59 @@
+# Set the default bundle version in case we don't have the exact package version
+VERSION="${VERSION:0:5}"
+if [ "$VERSION" != "3.0.0" ] && [ "$VERSION" != "4.0.1" ] && [ "$VERSION" != "5.0.0" ] && [ "$VERSION" != "6.0.0" ] && [ "$VERSION" != "6.0.1" ] && [ "$VERSION" != "7.0.0" ]; then
+VERSION="7.0.0"
+fi
+
+# Find a bundle
+if [ $(arch | grep arm) ]; then
+bottle="https://autobrew.github.io/archive/arm64_big_sur/apache-arrow-${VERSION}-arm64_big_sur.tar.xz"
+# See: https://github.com/Homebrew/homebrew-core/issues/76537
+#elif [[ ${OSTYPE:6:2} -ge 20 ]]; then
+#bottle="https://autobrew.github.io/archive/big_sur/apache-arrow-${VERSION}-big_sur.tar.xz"
+elif [[ ${OSTYPE:6:2} -lt 17 ]] && [[ ${VERSION:0:1} -lt 7 ]]; then
+bottle="https://autobrew.github.io/archive/el_capitan/apache-arrow-${VERSION}-el_capitan.tar.xz"
+else
+bottle="https://autobrew.github.io/archive/high_sierra/apache-arrow-${VERSION}-high_sierra.tar.xz"
+fi
+
+# Skip if disabled
+if [ "$DISABLE_AUTOBREW" ]; then return 0; fi
+
+# Debug
+echo "Using autobrew bundle: $(basename $bottle)"
+
+# General setup
+BREWDIR="$PWD/.deps"
+mkdir -p $BREWDIR
+curl -sSL $bottle -o libs.tar.xz
+tar -xf libs.tar.xz --strip 1 -C $BREWDIR
+rm -f libs.tar.xz
+
+# Hardcoded flags
+AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common"
+
+# Aws-sdk-cpp 1.9.xxx requires extra flags
+if [ -f "$BREWDIR/lib/libaws-crt-cpp.a" ]; then
+echo "Linking to aws-sdk-cpp 1.9"
+AWS_LIBS="$AWS_LIBS -laws-crt-cpp -laws-c-io -laws-c-s3 -laws-c-auth -laws-c-http -laws-c-cal -laws-c-compression -laws-c-mqtt"
+fi
+
+PKG_LIBS="-L$BREWDIR/lib -lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lthrift -llz4 -lsnappy -lzstd $AWS_LIBS -lpthread -lcurl"
+PKG_CFLAGS="-I$BREWDIR/include -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON -DARROW_R_WITH_S3"
+
+# Prevent linking against other libs in /usr/local/lib
+for FILE in $BREWDIR/lib/*.a; do
+  BASENAME=$(basename $FILE)
+  LIBNAME=$(echo "${BASENAME%.*}" | cut -c4-)
+  cp -f $FILE $BREWDIR/lib/libbrew$LIBNAME.a
+  PKG_LIBS=$(echo $PKG_LIBS | sed "s/-l$LIBNAME /-lbrew$LIBNAME /g")
+done
+
+# Cleanup
+echo "rm -Rf .deps" >> cleanup
+chmod +x cleanup
+
+# Disable tests on R 3.6 due to buggy custom CRAN compiler
+if [ "${R_VERSION:0:1}" = "3" ]; then
+  rm -f tests/testthat.R
+fi
