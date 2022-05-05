@@ -353,7 +353,7 @@ def _perform_join(join_type, left_operand not None, left_keys,
     return result_table
 
 
-def _filter_table(table, expression):
+def _filter_table(table, expression, output_type=Table):
     """Filter rows of a table or dataset based on the provided expression.
 
     The result will be an output table with only the rows matching
@@ -365,10 +365,12 @@ def _filter_table(table, expression):
         Table or Dataset that should be filtered.
     expression : Expression
         The expression on which rows should be filtered.
+    output_type: Table or InMemoryDataset
+        The output type for the filtered result.
 
     Returns
     -------
-    result_table : Table
+    result_table : Table or InMemoryDataset
     """
     cdef:
         vector[CDeclaration] c_decl_plan
@@ -383,4 +385,11 @@ def _filter_table(table, expression):
     r = execplan([table], plan=c_decl_plan,
                  output_type=Table)
 
-    return r
+    if output_type == Table:
+        return r
+    elif output_type == InMemoryDataset:
+        # Get rid of special dataset columns
+        # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
+        return InMemoryDataset(r.select(table.schema.names))
+    else:
+        raise TypeError("Unsupported output type")

@@ -203,18 +203,22 @@ def test_filter_table(use_datasets):
         t = ds.dataset([t])
 
     result = ep._filter_table(
-        t, (pc.field("a") <= pc.scalar(3)) & (pc.field("b") == pc.scalar(20))
+        t, (pc.field("a") <= pc.scalar(3)) & (pc.field("b") == pc.scalar(20)),
+        output_type=pa.Table if not use_datasets else ds.InMemoryDataset
     )
-    result = result.select(["a", "b"]).combine_chunks()
+    if use_datasets:
+        result = result.to_table()
     assert result == pa.table({
         "a": [2],
         "b": [20]
     })
 
     result = ep._filter_table(
-        t, pc.field("b") > pc.scalar(30)
+        t, pc.field("b") > pc.scalar(30),
+        output_type=pa.Table if not use_datasets else ds.InMemoryDataset
     )
-    result = result.select(["a", "b"]).combine_chunks()
+    if use_datasets:
+        result = result.to_table()
     assert result == pa.table({
         "a": [4, 5],
         "b": [40, 50]
