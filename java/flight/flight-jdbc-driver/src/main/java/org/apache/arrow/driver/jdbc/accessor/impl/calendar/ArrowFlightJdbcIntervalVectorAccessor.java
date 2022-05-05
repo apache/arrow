@@ -57,9 +57,13 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
     stringGetter = (index) -> {
       final NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
       vector.get(index, holder);
-      final int days = holder.days;
-      final int millis = holder.milliseconds;
-      return formatIntervalDay(new Period().plusDays(days).plusMillis(millis));
+      if (holder.isSet == 0 ) {
+        return null;
+      } else {
+        final int days = holder.days;
+        final int millis = holder.milliseconds;
+        return formatIntervalDay(new Period().plusDays(days).plusMillis(millis));
+      }
     };
     objectClass = java.time.Duration.class;
   }
@@ -79,10 +83,14 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
     stringGetter = (index) -> {
       final NullableIntervalYearHolder holder = new NullableIntervalYearHolder();
       vector.get(index, holder);
-      final int interval = holder.value;
-      final int years = (interval / yearsToMonths);
-      final int months = (interval % yearsToMonths);
-      return formatIntervalYear(new Period().plusYears(years).plusMonths(months));
+      if (holder.isSet == 0 ) {
+        return null;
+      } else {
+        final int interval = holder.value;
+        final int years = (interval / yearsToMonths);
+        final int months = (interval % yearsToMonths);
+        return formatIntervalYear(new Period().plusYears(years).plusMonths(months));
+      }
     };
     objectClass = java.time.Period.class;
   }
