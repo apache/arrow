@@ -882,6 +882,8 @@ def test_filter_before_validate_schema(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
+@pytest.mark.filterwarnings(
+    "ignore:Specifying the 'metadata':FutureWarning")
 @parametrize_legacy_dataset
 def test_read_multiple_files(tempdir, use_legacy_dataset):
     nfiles = 10
