@@ -81,6 +81,13 @@ func Example_writer() {
 		n++
 	}
 
+	// check for reader errors indicating issues converting csv values
+	// to the arrow schema types
+	err = r.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Output:
 	// rec[0]["i64"]: [0]
 	// rec[0]["f64"]: [0]
