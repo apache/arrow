@@ -194,6 +194,8 @@ class bit_util {
                                  uint32_t num_bytes);
 
  private:
+  inline static uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes);
+  inline static void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value);
   inline static void bits_to_indexes_helper(uint64_t word, uint16_t base_index,
                                             int* num_indexes, uint16_t* indexes);
   inline static void bits_filter_indexes_helper(uint64_t word,
