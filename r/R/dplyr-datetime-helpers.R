@@ -135,18 +135,16 @@ binding_as_date_character <- function(x,
   # we need to split the logic between as_date() and as.Date() since `tryFormats`
   # is an argument only for `as.Date()`
   if (is.null(format)) {
-    parse_attempts <- list()
+    parse_attempt_expressions <- list()
     for (i in seq_along(tryFormats)) {
-      parse_attempts[[i]] <-
+      parse_attempt_expressions[[i]] <-
         build_expr(
           "strptime", x,
           options = list(format = tryFormats[[i]], unit = 0L, error_is_null = TRUE)
         )
     }
-    # coalesce_output <- build_expr("coalesce", parse_attempts[[1]], parse_attempts[[2]])
-    coalesce_output <- build_expr("coalesce", args = parse_attempts)
+    coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
     return(coalesce_output)
-    # purrr::lift_dl(build_expr("coalesce"))(parse_attempts)
   } else {
     build_expr("strptime", x, options = list(format = format, unit = 0L))
   }
