@@ -119,11 +119,12 @@ x-hierarchy:
   - debian-go:
     - debian-go-cgo
     - debian-go-cgo-python
-  - debian-java:
-    - debian-java-jni
+  - debian-java
+  - debian-java-jni
   - debian-js
   - fedora-cpp:
     - fedora-python
+  - oracle-java
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-c-glib:
@@ -1440,16 +1441,10 @@ services:
     # Usage:
     #   docker-compose build debian-java
     #   docker-compose run debian-java
-    image: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
-    build:
-      context: .
-      dockerfile: ci/docker/debian-9-java.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
-      args:
-        arch: ${ARCH}
-        jdk: ${JDK}
-        maven: ${MAVEN}
+    # Parameters:
+    #   MAVEN: 3.5.4, 3.6.2
+    #   JDK: 8, 11
+    image: ${ARCH}/maven:${MAVEN}-jdk-${JDK}
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
@@ -1472,7 +1467,6 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}-jni
       args:
-        base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
@@ -1487,6 +1481,18 @@ services:
         /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
+
+  oracle-java:
+    # Usage:
+    #   docker-compose build oracle-java
+    #   docker-compose run oracle-java
+    # Parameters:
+    #   MAVEN: 3.8.5
+    #   JDK: 17
+    image: ${ARCH}/maven:${MAVEN}-openjdk-${JDK}
+    shm_size: *shm-size
+    volumes: *java-volumes
+    command: *java-command
 
   ############################## Integration ##################################
 
