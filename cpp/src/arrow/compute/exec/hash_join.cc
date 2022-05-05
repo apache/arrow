@@ -116,10 +116,6 @@ class HashJoinBasicImpl : public HashJoinImpl {
       local_states_[i].is_initialized = false;
       local_states_[i].is_has_match_initialized = false;
     }
-    temp_stacks_.resize(num_threads_);
-    for (size_t i = 0; i < temp_stacks_.size(); i++)
-      RETURN_NOT_OK(temp_stacks_[i].Init(
-          ctx_->memory_pool(), 4 * util::MiniBatch::kMiniBatchLength * sizeof(uint32_t)));
 
     dict_probe_.Init(num_threads_);
 
@@ -204,7 +200,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     encoder->Clear();
   }
 
-  void InitLocalStateIfNeeded(size_t thread_index) {
+  Status InitLocalStateIfNeeded(size_t thread_index) {
     DCHECK_LT(thread_index, local_states_.size());
     ThreadLocalState& local_state = local_states_[thread_index];
     if (!local_state.is_initialized) {
@@ -214,9 +210,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
       if (has_payload) {
         InitEncoder(0, HashJoinProjection::PAYLOAD, &local_state.exec_batch_payloads);
       }
-
+      RETURN_NOT_OK(local_state.temp_stack.Init(
+          ctx_->memory_pool(), 4 * util::MiniBatch::kMiniBatchLength * sizeof(uint32_t)));
       local_state.is_initialized = true;
     }
+    return Status::OK();
   }
 
   Status EncodeBatch(int side, HashJoinProjection projection_handle, RowEncoder* encoder,
@@ -484,7 +482,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
         (schema_mgr_->proj_maps[1].num_cols(HashJoinProjection::PAYLOAD) > 0);
 
     ThreadLocalState& local_state = local_states_[thread_index];
-    InitLocalStateIfNeeded(thread_index);
+    RETURN_NOT_OK(InitLocalStateIfNeeded(thread_index));
 
     ExecBatch left_key;
     ExecBatch left_payload;
@@ -596,7 +594,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   Status ProbeBatch(size_t thread_index, const ExecBatch& batch) {
     ThreadLocalState& local_state = local_states_[thread_index];
-    InitLocalStateIfNeeded(thread_index);
+    RETURN_NOT_OK(InitLocalStateIfNeeded(thread_index));
 
     local_state.exec_batch_keys.Clear();
 
@@ -658,11 +656,12 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   Status ApplyBloomFiltersToBatch(size_t thread_index, ExecBatch& batch) {
     if (batch.length == 0) return Status::OK();
-    size_t bit_vector_bytes = (batch.length + 7) / 8;
+    int64_t bit_vector_bytes = bit_util::BytesForBits(batch.length);
     std::vector<uint8_t> selected(bit_vector_bytes);
     std::vector<uint32_t> hashes(batch.length);
     std::vector<uint8_t> bv(bit_vector_bytes);
 
+    RETURN_NOT_OK(InitLocalStateIfNeeded(thread_index));
     // Start with full selection for the current minibatch
     memset(selected.data(), 0xff, bit_vector_bytes);
     for (size_t ifilter = 0; ifilter < num_expected_bloom_filters_; ifilter++) {
@@ -674,7 +673,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
       ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(keys)));
       RETURN_NOT_OK(Hashing32::HashBatch(
           key_batch, hashes.data(), ctx_->cpu_info()->hardware_flags(),
-          &temp_stacks_[thread_index], 0, key_batch.length));
+          &local_states_[thread_index].temp_stack, 0, key_batch.length));
 
       pushed_bloom_filters_[ifilter]->Find(ctx_->cpu_info()->hardware_flags(),
                                            key_batch.length, hashes.data(), bv.data());
@@ -717,7 +716,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
     ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(key_columns)));
 
-    util::TempVectorHolder<uint32_t> hash_holder(&temp_stacks_[thread_index],
+    RETURN_NOT_OK(InitLocalStateIfNeeded(thread_index));
+    ThreadLocalState& tls = local_states_[thread_index];
+    util::TempVectorHolder<uint32_t> hash_holder(&tls.temp_stack,
                                                  util::MiniBatch::kMiniBatchLength);
     uint32_t* hashes = hash_holder.mutable_data();
     for (int64_t i = 0; i < key_batch.length; i += util::MiniBatch::kMiniBatchLength) {
@@ -725,7 +726,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
                                 static_cast<int64_t>(util::MiniBatch::kMiniBatchLength));
       RETURN_NOT_OK(Hashing32::HashBatch(key_batch, hashes,
                                          ctx_->cpu_info()->hardware_flags(),
-                                         &temp_stacks_[thread_index], i, length));
+                                         &tls.temp_stack, i, length));
       RETURN_NOT_OK(bloom_filter_builder_->PushNextBatch(thread_index, length, hashes));
     }
     return Status::OK();
@@ -950,7 +951,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
                                       hash_table_scan_unit_ * (task_id + 1)));
 
     ThreadLocalState& local_state = local_states_[thread_index];
-    InitLocalStateIfNeeded(thread_index);
+    RETURN_NOT_OK(InitLocalStateIfNeeded(thread_index));
 
     std::vector<int32_t>& id_left = local_state.no_match;
     std::vector<int32_t>& id_right = local_state.match;
@@ -1115,10 +1116,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     std::vector<int32_t> match_right;
     bool is_has_match_initialized;
     std::vector<uint8_t> has_match;
+    util::TempVectorStack temp_stack;
   };
   std::vector<ThreadLocalState> local_states_;
-  std::vector<util::TempVectorStack>
-      temp_stacks_;  // One per thread, but initialized earlier than ThreadLocalState
 
   // Shared runtime state
   //

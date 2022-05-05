@@ -580,8 +580,42 @@ class HashJoinNode : public ExecNode {
   // The first part of the pair is the HashJoin to actually perform the pushdown into.
   // The second part is a mapping such that column_map[i] is the index of key i in
   // the first part's input.
+  // If we should disable Bloom filter, returns nullptr and an empty vector, and sets
+  // the disable_bloom_filter_ flag.
   std::pair<HashJoinImpl*, std::vector<int>> GetPushdownTarget() {
-    ARROW_DCHECK(!disable_bloom_filter_);
+    // A build-side Bloom filter tells us if a row is definitely not in the build side.
+    // This allows us to early-eliminate rows or early-accept rows depending on the type
+    // of join. Left Outer Join and Full Outer Join output all rows, so a build-side Bloom
+    // filter would only allow us to early-output. Left Antijoin outputs only if there is
+    // no match, so again early output. We don't implement early output for now, so we
+    // must disallow these types of joins.
+    bool bloom_filter_does_not_apply_to_join = join_type_ == JoinType::LEFT_ANTI ||
+                                               join_type_ == JoinType::LEFT_OUTER ||
+                                               join_type_ == JoinType::FULL_OUTER;
+    disable_bloom_filter_ = disable_bloom_filter_ || bloom_filter_does_not_apply_to_join;
+
+    SchemaProjectionMap build_keys_to_input =
+        schema_mgr_->proj_maps[1].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
+    // Bloom filter currently doesn't support dictionaries.
+    for (int i = 0; i < build_keys_to_input.num_cols; i++) {
+      int idx = build_keys_to_input.get(i);
+      bool is_dict =
+          inputs_[1]->output_schema()->field(idx)->type()->id() == Type::DICTIONARY;
+      if (is_dict) {
+        disable_bloom_filter_ = true;
+        break;
+      }
+    }
+
+    bool all_comparisons_is = true;
+    for (JoinKeyCmp cmp : key_cmp_) all_comparisons_is &= cmp == JoinKeyCmp::IS;
+
+    if ((join_type_ == JoinType::RIGHT_OUTER || join_type_ == JoinType::FULL_OUTER) &&
+        all_comparisons_is)
+      disable_bloom_filter_ = true;
+
+    if (disable_bloom_filter_) return {nullptr, {}};
+
     // We currently only push Bloom filters on the probe side, and only if that input is
     // also a join.
     SchemaProjectionMap probe_key_to_input =
@@ -604,7 +638,9 @@ class HashJoinNode : public ExecNode {
       // Check if any of the keys are missing, if they are, break
       bool break_outer = false;
       for (int i = 0; i < num_keys; i++) {
-        // The output is from the candidate's build side
+        // Since all of the probe side columns are before the build side columns,
+        // if the index of an output is greater than the number of probe-side input
+        // columns, it must have come from the candidate's build side.
         if (bloom_to_target[i] >= candidate_output_to_input.num_cols) {
           break_outer = true;
           break;
@@ -614,6 +650,17 @@ class HashJoinNode : public ExecNode {
         ARROW_DCHECK_NE(candidate_input_idx, schema_mgr_->kMissingField());
       }
       if (break_outer) break;
+
+      // The Bloom filter will filter out nulls, which may cause a Right/Full Outer Join
+      // to incorrectly output some rows with nulls padding the probe-side rows. This may
+      // cause a row with all null keys to be emitted. This is normally not an issue
+      // with EQ, but if all comparisons are IS (i.e. all-null is accepted), this could
+      // produce incorrect rows.
+      bool can_produce_build_side_nulls =
+          candidate_as_join->join_type_ == JoinType::RIGHT_OUTER ||
+          candidate_as_join->join_type_ == JoinType::FULL_OUTER;
+
+      if (all_comparisons_is || can_produce_build_side_nulls) break;
 
       // All keys are present, we can update the mapping
       for (int i = 0; i < num_keys; i++) {
@@ -628,15 +675,10 @@ class HashJoinNode : public ExecNode {
   Status PrepareToProduce() override {
     bool use_sync_execution = !(plan_->exec_context()->executor());
     size_t num_threads = use_sync_execution ? 1 : thread_indexer_.Capacity();
-    bool bloom_filter_does_not_apply_to_join = join_type_ == JoinType::LEFT_ANTI ||
-                                               join_type_ == JoinType::LEFT_OUTER ||
-                                               join_type_ == JoinType::FULL_OUTER;
-    disable_bloom_filter_ = disable_bloom_filter_ || bloom_filter_does_not_apply_to_join;
 
     HashJoinImpl* pushdown_target = nullptr;
     std::vector<int> column_map;
-    if (!disable_bloom_filter_)
-      std::tie(pushdown_target, column_map) = GetPushdownTarget();
+    std::tie(pushdown_target, column_map) = GetPushdownTarget();
 
     return impl_->Init(
         plan_->exec_context(), join_type_, use_sync_execution, num_threads,

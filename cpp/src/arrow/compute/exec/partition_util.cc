@@ -65,7 +65,7 @@ bool PartitionLocks::AcquirePartitionLock(size_t thread_id, int num_prtns_to_try
     std::atomic<bool>* lock = lock_ptr(prtn_id);
 
     bool expected = false;
-    if (lock->compare_exchange_weak(expected, true)) {
+    if (lock->compare_exchange_weak(expected, true, std::memory_order_acquire)) {
       *locked_prtn_id = prtn_id;
       *locked_prtn_id_pos = prtn_id_pos;
       return true;
@@ -82,7 +82,7 @@ bool PartitionLocks::AcquirePartitionLock(size_t thread_id, int num_prtns_to_try
 void PartitionLocks::ReleasePartitionLock(int prtn_id) {
   ARROW_DCHECK(prtn_id >= 0 && prtn_id < num_prtns_);
   std::atomic<bool>* lock = lock_ptr(prtn_id);
-  lock->store(false);
+  lock->store(false, std::memory_order_release);
 }
 
 }  // namespace compute
