@@ -136,6 +136,122 @@ the profile:
 mvn -Pintegration-tests <rest of mvn arguments>
 ```
 
+## Java Module System
+
+We are starting to modularize the Arrow Java Components. This is the journey about how do 
+we migrate to module system:
+
+```bash
+############################
+# Review Arrow Java Format #
+############################
+
+$cd arrow/java/format
+
+# Review Arrow Java Format dependencies
+$ jar --describe-module --file target/arrow-format-8.0.0-SNAPSHOT.jar
+No module descriptor found. Derived automatic module.
+arrow.format@8.0.0-SNAPSHOT automatic
+requires java.base mandated
+contains org.apache.arrow.flatbuf
+
+$ jdeps target/arrow-format-8.0.0-SNAPSHOT.jar 
+arrow-format-8.0.0-SNAPSHOT.jar -> java.base
+arrow-format-8.0.0-SNAPSHOT.jar -> not found
+   org.apache.arrow.flatbuf                           -> com.google.flatbuffers                             not found
+   org.apache.arrow.flatbuf                           -> java.lang                                          java.base
+   org.apache.arrow.flatbuf                           -> java.nio                                           java.base
+# Then, create module-info.java and requires flatbuffers.java (the name is base on the jar name
+# downloaded by Maven that it is flatbuffers-java-1.12.0.jar, and from - to . by conventions)
+
+# Validate new module created
+$ jar --describe-module --file target/arrow-format-8.0.0-SNAPSHOT.jar
+org.apache.arrow.flatbuf@8.0.0-SNAPSHOT jar:file:///Users/arrow/java/format/target/arrow-format-8.0.0-SNAPSHOT.jar!/module-info.class
+exports org.apache.arrow.flatbuf
+requires flatbuffers.java
+requires java.base mandated
+
+############################
+# Review Arrow Java Memory #
+############################
+
+# Review Arrow Java Memory -> Core
+$cd arrow/java/memory/memory-core
+
+# Review Arrow Java Memory
+$ jar --describe-module --file target/arrow-memory-core-8.0.0-SNAPSHOT.jar 
+No module descriptor found. Derived automatic module.
+
+arrow.memory.core@8.0.0-SNAPSHOT automatic
+requires java.base mandated
+contains org.apache.arrow.memory
+contains org.apache.arrow.memory.rounding
+contains org.apache.arrow.memory.util
+contains org.apache.arrow.memory.util.hash
+contains org.apache.arrow.util
+
+$ jdeps target/arrow-memory-core-8.0.0-SNAPSHOT.jar 
+arrow-memory-core-8.0.0-SNAPSHOT.jar -> java.base
+arrow-memory-core-8.0.0-SNAPSHOT.jar -> jdk.unsupported
+arrow-memory-core-8.0.0-SNAPSHOT.jar -> not found
+   org.apache.arrow.memory                            -> java.io                                            java.base
+   org.apache.arrow.memory                            -> java.lang                                          java.base
+   org.apache.arrow.memory                            -> java.lang.invoke                                   java.base
+   org.apache.arrow.memory                            -> java.lang.reflect                                  java.base
+   org.apache.arrow.memory                            -> java.net                                           java.base
+   org.apache.arrow.memory                            -> java.nio                                           java.base
+   org.apache.arrow.memory                            -> java.util                                          java.base
+   org.apache.arrow.memory                            -> java.util.concurrent.atomic                        java.base
+   org.apache.arrow.memory                            -> java.util.function                                 java.base
+   org.apache.arrow.memory                            -> javax.annotation                                   not found
+   org.apache.arrow.memory                            -> org.apache.arrow.memory.rounding                   arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory                            -> org.apache.arrow.memory.util                       arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory                            -> org.apache.arrow.util                              arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory                            -> org.immutables.value                               not found
+   org.apache.arrow.memory                            -> org.slf4j                                          not found
+   org.apache.arrow.memory                            -> sun.misc                                           JDK internal API (jdk.unsupported)
+   org.apache.arrow.memory.rounding                   -> java.lang                                          java.base
+   org.apache.arrow.memory.rounding                   -> org.apache.arrow.memory.util                       arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory.rounding                   -> org.apache.arrow.util                              arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory.rounding                   -> org.slf4j                                          not found
+   org.apache.arrow.memory.util                       -> java.lang                                          java.base
+   org.apache.arrow.memory.util                       -> java.lang.reflect                                  java.base
+   org.apache.arrow.memory.util                       -> java.nio                                           java.base
+   org.apache.arrow.memory.util                       -> java.security                                      java.base
+   org.apache.arrow.memory.util                       -> java.util                                          java.base
+   org.apache.arrow.memory.util                       -> java.util.concurrent.locks                         java.base
+   org.apache.arrow.memory.util                       -> org.apache.arrow.memory                            arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory.util                       -> org.apache.arrow.memory.util.hash                  arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory.util                       -> org.apache.arrow.util                              arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory.util                       -> org.slf4j                                          not found
+   org.apache.arrow.memory.util                       -> sun.misc                                           JDK internal API (jdk.unsupported)
+   org.apache.arrow.memory.util.hash                  -> java.lang                                          java.base
+   org.apache.arrow.memory.util.hash                  -> org.apache.arrow.memory                            arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory.util.hash                  -> org.apache.arrow.memory.util                       arrow-memory-core-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory.util.hash                  -> sun.misc                                           JDK internal API (jdk.unsupported)
+   org.apache.arrow.util                              -> java.lang                                          java.base
+   org.apache.arrow.util                              -> java.lang.annotation                               java.base
+   org.apache.arrow.util                              -> java.lang.invoke                                   java.base
+   org.apache.arrow.util                              -> java.util                                          java.base
+   org.apache.arrow.util                              -> java.util.function                                 java.base
+   org.apache.arrow.util                              -> java.util.stream                                   java.base
+
+# Validate new module created
+$ jar --describe-module --file target/arrow-memory-core-8.0.0-SNAPSHOT.jar 
+arrow.memory_core@8.0.0-SNAPSHOT jar:file:///Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/memory/memory-core/target/arrow-memory-core-8.0.0-SNAPSHOT.jar/!module-info.class
+requires java.base mandated
+requires jdk.unsupported
+requires jsr305
+requires org.immutables.value
+requires org.slf4j
+opens org.apache.arrow.memory
+opens org.apache.arrow.util
+
+# Review Arrow Java Memory -> Netty
+$ cd arrow/java/memory/memory-netty
+
+```
+
 [1]: https://logback.qos.ch/manual/configuration.html
 [2]: https://github.com/apache/arrow/blob/master/cpp/README.md
 [3]: http://google.github.io/styleguide/javaguide.html
