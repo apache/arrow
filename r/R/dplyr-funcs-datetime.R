@@ -518,15 +518,19 @@ register_bindings_datetime_parsers <- function() {
 
     # each order is translated into 6 possible formats
     formats <- build_formats(orders)
-    coalesce_output <- build_expr(
-      "coalesce",
-      build_expr("strptime", x, options = list(format = formats[1], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[2], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[3], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[4], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[5], unit = 0L, error_is_null = TRUE)),
-      build_expr("strptime", x, options = list(format = formats[6], unit = 0L, error_is_null = TRUE))
-    )
+
+    # build a list of expressions for each format
+    parse_attempt_expressions <- list()
+
+    for (i in seq_along(formats)) {
+      parse_attempt_expressions[[i]] <- build_expr(
+        "strptime",
+        x,
+        options = list(format = formats[[i]], unit = 0L, error_is_null = TRUE)
+      )
+    }
+
+    coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
 
     build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
