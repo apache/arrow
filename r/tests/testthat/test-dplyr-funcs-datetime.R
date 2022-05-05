@@ -1575,7 +1575,7 @@ test_that("`as.Date()` and `as_date()`", {
   expect_error(
     test_df %>%
       arrow_table() %>%
-      mutate(date_char_ymd = as.Date(character_ymd_hms_var)) %>%
+      mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var), .keep = "used") %>%
       collect(),
     regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
     fixed = TRUE
