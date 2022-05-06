@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @title Schema class
 #'
 #' @description A `Schema` is an Arrow object containing [Field]s, which map names to
@@ -375,5 +375,5 @@ as_schema.Schema <- function(x, ...) {
 #' @rdname as_schema
 #' @export
 as_schema.StructType <- function(x, ...) {
-  schema(!!! x$fields())
+  schema(!!!x$fields())
 }

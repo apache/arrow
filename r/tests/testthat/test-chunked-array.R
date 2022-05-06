@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+int_types <- c(int8(), int16(), int32(), int64())
+uint_types <- c(uint8(), uint16(), uint32(), uint64())
+float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
+all_numeric_types <- c(int_types, uint_types, float_types)
 
 expect_chunked_roundtrip <- function(x, type) {
   a <- ChunkedArray$create(!!!x)
@@ -270,15 +274,6 @@ test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
 })
 
 test_that("integer types casts for ChunkedArray (ARROW-3741)", {
-  int_types <- c(int8(), int16(), int32(), int64())
-  uint_types <- c(uint8(), uint16(), uint32(), uint64())
-  float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
-  all_types <- c(
-    int_types,
-    uint_types,
-    float_types
-  )
-
   a <- chunked_array(1:10, 1:10)
   for (type in c(int_types, uint_types)) {
     casted <- a$cast(type)
@@ -294,7 +289,7 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
 test_that("chunked_array() supports the type= argument. conversion from INTSXP and int64 to all int types", {
   num_int32 <- 12L
   num_int64 <- bit64::as.integer64(10)
-  for (type in all_types) {
+  for (type in all_numeric_types) {
     expect_type_equal(chunked_array(num_int32, type = type)$type, type)
     expect_type_equal(chunked_array(num_int64, type = type)$type, type)
   }
@@ -353,7 +348,7 @@ test_that("chunked_array() makes chunks of the same type", {
 })
 
 test_that("chunked_array() handles 0 chunks if given a type", {
-  for (type in all_types) {
+  for (type in all_numeric_types) {
     a <- chunked_array(type = type)
     expect_type_equal(a$type, as_type(type))
     expect_equal(length(a), 0L)

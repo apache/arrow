@@ -56,7 +56,7 @@ read_json_arrow <- function(file,
   tab
 }
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @rdname CsvTableReader
 #' @usage NULL
 #' @format NULL

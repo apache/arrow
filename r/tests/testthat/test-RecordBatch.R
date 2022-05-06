@@ -15,17 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_that("RecordBatch", {
-  # Note that we're reusing `tbl` and `batch` throughout the tests in this file
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  batch <- record_batch(tbl)
+# Note that we're reusing `tbl` and `batch` throughout the tests in this file
+tbl <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  chr = letters[1:10],
+  fct = factor(letters[1:10])
+)
+batch <- record_batch(tbl)
 
+test_that("RecordBatch", {
   expect_equal(batch, batch)
   expect_equal(
     batch$schema,

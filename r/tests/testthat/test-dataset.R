@@ -173,6 +173,7 @@ test_that("URI-decoding with hive partitioning", {
     fs, selector, NULL, fmt,
     partitioning = partitioning
   )
+  schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_scan_result(ds, schm)
 

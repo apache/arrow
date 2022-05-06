@@ -49,7 +49,7 @@
 #' @param ... Additional arguments passed to `install.packages()`
 #' @export
 #' @importFrom utils install.packages
-#' @seealso [arrow_available()] to see if the package was configured with
+#' @seealso [arrow_info()] to see if the package was configured with
 #' necessary C++ dependencies. `vignette("install", package = "arrow")` for
 #' more ways to tune installation on Linux.
 install_arrow <- function(nightly = FALSE,

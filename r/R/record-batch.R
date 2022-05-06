@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @include array.R
 #' @title RecordBatch class
 #' @description A record batch is a collection of equal-length arrays matching
@@ -202,7 +202,8 @@ cbind_check_length <- function(inputs, call = caller_env()) {
     first_bad_one <- which.min(ok_lengths)
     abort(
       c("Non-scalar inputs must have an equal number of rows.",
-        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])),
+        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])
+      ),
       call = call
     )
   }
@@ -230,17 +231,19 @@ cbind.RecordBatch <- function(...) {
       as.list(input)
     } else if (inherits(input, "Table") || inherits(input, "ChunkedArray")) {
       abort("Cannot cbind a RecordBatch with Tables or ChunkedArrays",
-            i = "Hint: consider converting the RecordBatch into a Table first")
+        i = "Hint: consider converting the RecordBatch into a Table first"
+      )
     } else {
       if (name == "") {
         abort("Vector and array arguments must have names",
-              i = sprintf("Argument ..%d is missing a name", i))
+          i = sprintf("Argument ..%d is missing a name", i)
+        )
       }
       list2("{name}" := input)
     }
   }))
 
-  RecordBatch$create(!!! columns)
+  RecordBatch$create(!!!columns)
 }
 
 #' Convert an object to an Arrow RecordBatch
@@ -286,7 +289,7 @@ as_record_batch.Table <- function(x, ..., schema = NULL) {
 
   arrays_out <- lapply(x$columns, as_arrow_array)
   names(arrays_out) <- names(x)
-  out <- RecordBatch$create(!!! arrays_out)
+  out <- RecordBatch$create(!!!arrays_out)
   if (!is.null(schema)) {
     out <- out$cast(schema)
   }

@@ -15,15 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+tbl <- tibble::tibble(
+  x = 1:10,
+  y = letters[1:10]
+)
+batch <- record_batch(tbl)
+tab <- Table$create(tbl)
 
 test_that("RecordBatchStreamReader / Writer", {
-  tbl <- tibble::tibble(
-    x = 1:10,
-    y = letters[1:10]
-  )
-  batch <- record_batch(tbl)
-  tab <- Table$create(tbl)
-
   sink <- BufferOutputStream$create()
   expect_equal(sink$tell(), 0)
   writer <- RecordBatchStreamWriter$create(sink, batch$schema)

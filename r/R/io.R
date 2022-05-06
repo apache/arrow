@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @include enums.R
 #' @include buffer.R
 
@@ -245,13 +245,16 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   }
   if (is.string(file)) {
     if (is_url(file)) {
-      file <- tryCatch({
-        fs_and_path <- FileSystem$from_uri(file)
-        filesystem <- fs_and_path$fs
-        fs_and_path$path
-      }, error = function(e) {
-        MakeRConnectionInputStream(url(file, open = "rb"))
-      })
+      file <- tryCatch(
+        {
+          fs_and_path <- FileSystem$from_uri(file)
+          filesystem <- fs_and_path$fs
+          fs_and_path$path
+        },
+        error = function(e) {
+          MakeRConnectionInputStream(url(file, open = "rb"))
+        }
+      )
     }
 
     if (is.null(compression)) {

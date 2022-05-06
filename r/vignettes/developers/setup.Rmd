@@ -221,7 +221,7 @@ cmake \
 
 `..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
 
-**For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows. 
+**For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows.
 
 
 ```{bash, save=run & !sys_install, hide=TRUE}
@@ -369,8 +369,6 @@ withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(
   in the `tools/cpp/thirdparty/download/` subfolder of the tar.gz file.
   `create_package_with_all_dependencies()` creates that subfolder.
   Regardless of this flag's value, `cmake` will be downloaded if it's unavailable.
-* `TEST_R_WITHOUT_LIBARROW`: When set to `true`, skip tests that would require
-  the C++ Arrow library (that is, almost everything).
 
 # Troubleshooting
 

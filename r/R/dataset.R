@@ -123,7 +123,7 @@
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet()
 #' # Set up directory for examples
 #' tf <- tempfile()
