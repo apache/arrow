@@ -527,8 +527,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     const auto& other = checked_cast<const TypedStatisticsImpl&>(raw_other);
 
     if (has_min_max_ != other.has_min_max_) return false;
+    if (has_min_max_) {
+      if (!MinMaxEqual(other)) return false;
+    }
 
-    return (has_min_max_ && MinMaxEqual(other)) && null_count() == other.null_count() &&
+    return null_count() == other.null_count() &&
            distinct_count() == other.distinct_count() &&
            num_values() == other.num_values();
   }
@@ -672,7 +675,7 @@ inline bool TypedStatisticsImpl<FLBAType>::MinMaxEqual(
 template <typename DType>
 bool TypedStatisticsImpl<DType>::MinMaxEqual(
     const TypedStatisticsImpl<DType>& other) const {
-  return min_ != other.min_ && max_ != other.max_;
+  return min_ == other.min_ && max_ == other.max_;
 }
 
 template <>
