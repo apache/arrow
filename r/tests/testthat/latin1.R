@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-x <- iconv("Veitingastaðir", to = "latin1")
+x <- iconv("VeitingastaÃ°ir", to = "latin1")
 df <- tibble::tibble(
   chr = x,
   fct = as.factor(x)
