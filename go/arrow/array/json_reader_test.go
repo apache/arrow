@@ -115,3 +115,27 @@ func TestJSONReaderChunked(t *testing.T) {
 	assert.Equal(t, 4, n)
 	assert.NoError(t, rdr.Err())
 }
+
+func TestUnmarshalJSON(t *testing.T) {
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "region", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "model", Type: arrow.BinaryTypes.String},
+		{Name: "sales", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+	}, nil)
+
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	recordBuilder := array.NewRecordBuilder(mem, schema)
+	defer recordBuilder.Release()
+
+	jsondata := `{"region": "NY", "model": "3", "sales": 742.0, "extra": 1234}`
+
+	err := recordBuilder.UnmarshalJSON([]byte(jsondata))
+	assert.NoError(t, err)
+
+	record := recordBuilder.NewRecord()
+	defer record.Release()
+
+	assert.NotNil(t, record)
+}

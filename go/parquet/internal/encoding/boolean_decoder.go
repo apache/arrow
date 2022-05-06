@@ -18,6 +18,7 @@ package encoding
 
 import (
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"golang.org/x/xerrors"
@@ -41,7 +42,7 @@ func (PlainBooleanDecoder) Type() parquet.Type {
 //
 // Returns the number of values decoded
 func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
-	max := utils.MinInt(len(out), dec.nvals)
+	max := shared_utils.MinInt(len(out), dec.nvals)
 
 	unalignedExtract := func(start, end, curBitOffset int) int {
 		i := start

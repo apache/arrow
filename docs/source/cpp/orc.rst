@@ -29,7 +29,7 @@ standardized open-source columnar storage format for use in data analysis
 systems. It was created originally for use in `Apache Hadoop
 <http://hadoop.apache.org/>`_ with systems like `Apache Drill
 <http://drill.apache.org>`_, `Apache Hive <http://hive.apache.org>`_, `Apache
-Impala (incubating) <http://impala.apache.org>`_, and `Apache Spark
+Impala <http://impala.apache.org>`_, and `Apache Spark
 <http://spark.apache.org>`_ adopting it as a shared standard for high
 performance data IO.
 
@@ -91,10 +91,10 @@ Here are a list of ORC types and mapped Arrow types.
 * \(1) We do not support writing UNION types.
 
 * \(2) On the read side the ORC type is read as the first corresponding Arrow type in the table.
-  
+
 * \(3) On the read side the ORC TIMESTAMP type is read as the Arrow Timestamp type with
-  :type:`arrow::TimeUnit::NANO`. Also we currently don't support timezones.
-       
+  :cpp:enumerator:`arrow::TimeUnit::NANO`. Also we currently don't support timezones.
+
 
 Compression
 -----------

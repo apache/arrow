@@ -58,10 +58,10 @@ func (UUIDType) Serialize() string { return "uuid-serialized" }
 // "uuid-serialized" in order to correctly create a UuidType for testing deserialize.
 func (UUIDType) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if string(data) != "uuid-serialized" {
-		return nil, xerrors.Errorf("type identifier did not match: '%s'", string(data))
+		return nil, fmt.Errorf("type identifier did not match: '%s'", string(data))
 	}
 	if !arrow.TypeEqual(storageType, &arrow.FixedSizeBinaryType{ByteWidth: 16}) {
-		return nil, xerrors.Errorf("invalid storage type for UuidType: %s", storageType.Name())
+		return nil, fmt.Errorf("invalid storage type for UuidType: %s", storageType.Name())
 	}
 	return NewUUIDType(), nil
 }
@@ -124,7 +124,7 @@ func (p *Parametric1Type) Serialize() string {
 // Deserialize requires storage to be an int32 type and data should be a 4 byte little endian int32 value
 func (Parametric1Type) Deserialize(storage arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if len(data) != 4 {
-		return nil, xerrors.Errorf("parametric1type: invalid serialized data size: %d", len(data))
+		return nil, fmt.Errorf("parametric1type: invalid serialized data size: %d", len(data))
 	}
 
 	if storage.ID() != arrow.INT32 {
@@ -179,7 +179,7 @@ func (p *Parametric2Type) Serialize() string {
 // Deserialize expects storage to be int32 type and data must be a 4 byte little endian slice.
 func (Parametric2Type) Deserialize(storage arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if len(data) != 4 {
-		return nil, xerrors.Errorf("parametric1type: invalid serialized data size: %d", len(data))
+		return nil, fmt.Errorf("parametric1type: invalid serialized data size: %d", len(data))
 	}
 
 	if storage.ID() != arrow.INT32 {

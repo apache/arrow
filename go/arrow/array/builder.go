@@ -296,6 +296,8 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.SPARSE_UNION:
 	case arrow.DENSE_UNION:
 	case arrow.DICTIONARY:
+		typ := dtype.(*arrow.DictionaryType)
+		return NewDictionaryBuilder(mem, typ)
 	case arrow.LARGE_STRING:
 	case arrow.LARGE_BINARY:
 	case arrow.LARGE_LIST:

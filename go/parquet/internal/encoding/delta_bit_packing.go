@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"golang.org/x/xerrors"
@@ -159,7 +160,7 @@ func (d *DeltaBitPackInt32Decoder) unpackNextMini() error {
 // Decode retrieves min(remaining values, len(out)) values from the data and returns the number
 // of values actually decoded and any errors encountered.
 func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
-	max := utils.MinInt(len(out), d.nvals)
+	max := shared_utils.MinInt(len(out), d.nvals)
 	if max == 0 {
 		return 0, nil
 	}
@@ -185,7 +186,7 @@ func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
 
 		// copy as many values from our mini block as we can into out
 		start := int(d.valsPerMini - d.currentMiniBlockVals)
-		end := utils.MinInt(int(d.valsPerMini), len(out))
+		end := shared_utils.MinInt(int(d.valsPerMini), len(out))
 		copy(out, d.miniBlockValues[start:end])
 
 		numCopied := end - start
@@ -248,7 +249,7 @@ func (d *DeltaBitPackInt64Decoder) unpackNextMini() error {
 // Decode retrieves min(remaining values, len(out)) values from the data and returns the number
 // of values actually decoded and any errors encountered.
 func (d *DeltaBitPackInt64Decoder) Decode(out []int64) (int, error) {
-	max := utils.MinInt(len(out), d.nvals)
+	max := shared_utils.MinInt(len(out), d.nvals)
 	if max == 0 {
 		return 0, nil
 	}
@@ -274,7 +275,7 @@ func (d *DeltaBitPackInt64Decoder) Decode(out []int64) (int, error) {
 		}
 
 		start := int(d.valsPerMini - d.currentMiniBlockVals)
-		end := utils.MinInt(int(d.valsPerMini), len(out))
+		end := shared_utils.MinInt(int(d.valsPerMini), len(out))
 		copy(out, d.miniBlockValues[start:end])
 
 		numCopied := end - start
@@ -364,7 +365,7 @@ func (enc *deltaBitPackEncoder) flushBlock() {
 
 	valuesToWrite := int64(len(enc.deltas))
 	for i := 0; i < int(enc.numMiniBlocks); i++ {
-		n := utils.Min(int64(enc.miniBlockSize), valuesToWrite)
+		n := shared_utils.Min(int64(enc.miniBlockSize), valuesToWrite)
 		if n == 0 {
 			break
 		}
@@ -372,7 +373,7 @@ func (enc *deltaBitPackEncoder) flushBlock() {
 		maxDelta := int64(math.MinInt64)
 		start := i * int(enc.miniBlockSize)
 		for _, val := range enc.deltas[start : start+int(n)] {
-			maxDelta = utils.Max(maxDelta, val)
+			maxDelta = shared_utils.Max(maxDelta, val)
 		}
 
 		// compute bit width to store (max_delta - min_delta)

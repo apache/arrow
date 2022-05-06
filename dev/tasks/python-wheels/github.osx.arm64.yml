@@ -25,7 +25,6 @@
 env:
   ARROW_FLIGHT: OFF
   ARROW_JEMALLOC: OFF
-  ARROW_SIMD_LEVEL: "{{ arrow_simd_level }}"
   CC: "clang"
   CMAKE_BUILD_TYPE: release
   CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
@@ -35,7 +34,6 @@ env:
   PYARROW_VERSION: "{{ arrow.no_rc_version }}"
   PYTHON_VERSION: "{{ python_version }}"
   PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
-  VCPKG_DEFAULT_TRIPLET: {{ arch }}-osx-static-release
   VCPKG_FEATURE_FLAGS: "manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
@@ -46,36 +44,29 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Cleanup
-        shell: bash
-        run: rm -rf arrow vcpkg build crossbow-env build-env test-*-env
+        run: rm -rf arrow vcpkg build crossbow-env build-*-env test-*-env
 
       {{ macros.github_checkout_arrow()|indent }}
 
       - name: Add Brew's Bison to PATH
-        shell: bash
         run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
 
       - name: Retrieve VCPKG version from arrow/.env
-        shell: bash
         run: |
           vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
       - name: Install Vcpkg
-        shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
       - name: Add Vcpkg to PATH
-        shell: bash
         run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
 
-      - name: Install OpenSSL
-        shell: bash
-        run: arch -arm64 vcpkg install openssl:arm64-osx-static-release
-
-      - name: Install Packages
+      - name: Install ARM64 Packages
+        env:
+          VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
         run: |
            arch -arm64 vcpkg install \
             --clean-after-build \
@@ -86,33 +77,54 @@ jobs:
             --x-feature=json \
             --x-feature=parquet
 
-      {% if arch == "universal2" %}
-      # OpenSSL doesn't provide an universal2 configuration yet, so vcpkg is
-      # unable to propagate the list of architectures from VCPKG_OSX_ARCHIETCTURES.
-      # In order to prevent link time warnings (which may turn out to be errors)
-      # we compile OpenSSL separately for the two architectures and merge the
-      # binaries into universal2 ones using `lipo`.
-      - name: Create universal binaries for OpenSSL
-        shell: bash
+      - name: Build ARM64 Wheel
+        env:
+          ARROW_SIMD_LEVEL: "DEFAULT"
+          VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
         run: |
-          mkdir -p $VCPKG_ROOT/installed/universal2-osx-static-release/lib
-          for arch in arm64 amd64; do
-            arch -arm64 vcpkg install openssl:${arch}-osx-static-release
-          done
-          for lib in libcrypto libssl; do
-            lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
-                         $VCPKG_ROOT/installed/amd64-osx-static-release/lib/${lib}.a \
-                 -output $VCPKG_ROOT/installed/universal2-osx-static-release/lib/${lib}.a
-          done
-      {% endif %}
-
-      - name: Build Wheel
-        shell: bash
-        run: |
-          $PYTHON -m venv build-env
-          source build-env/bin/activate
+          $PYTHON -m venv build-arm64-env
+          source build-arm64-env/bin/activate
           pip install --upgrade pip wheel
-          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh {{ arch }} $(pwd)/arrow $(pwd)/build
+          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
+
+      {% if arch == "universal2" %}
+      - name: Install AMD64 Packages
+        env:
+          VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
+        run: |
+           arch -arm64 vcpkg install \
+            --clean-after-build \
+            --x-install-root=${VCPKG_ROOT}/installed \
+            --x-manifest-root=arrow/ci/vcpkg \
+            --x-feature=flight \
+            --x-feature=gcs \
+            --x-feature=json \
+            --x-feature=parquet
+
+      - name: Build AMD64 Wheel
+        env:
+          ARROW_SIMD_LEVEL: "NONE"
+          VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
+        run: |
+          $PYTHON -m venv build-amd64-env
+          source build-amd64-env/bin/activate
+          pip install --upgrade pip wheel
+          arch -x86_64 arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
+
+      - name: Fuse AMD64 and ARM64 wheels
+        run: |
+          source build-amd64-env/bin/activate
+          pip install delocate
+
+          amd64_wheel=$(ls arrow/python/repaired_wheels/pyarrow*x86_64.whl)
+          arm64_wheel=$(ls arrow/python/repaired_wheels/pyarrow*arm64.whl)
+          echo "Fusing ${amd64_wheel} and ${arm64_wheel} into an universal2 wheel..."
+          delocate-fuse $amd64_wheel $arm64_wheel -w .
+
+          fused_wheel=$(ls *x86_64.whl)
+          rm arrow/python/repaired_wheels/*.whl
+          mv $fused_wheel arrow/python/repaired_wheels/${fused_wheel/x86_64/universal2}
+      {% endif %}
 
       - name: Test Wheel on ARM64
         shell: bash

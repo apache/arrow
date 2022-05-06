@@ -1344,8 +1344,8 @@ void AddNullExec(ScalarFunction* func) {
 
 template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
-                                                       const FunctionDoc* doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), doc);
+                                                       FunctionDoc doc) {
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1358,8 +1358,8 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
 // only on non-null output.
 template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
-                                                              const FunctionDoc* doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), doc);
+                                                              FunctionDoc doc) {
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1370,8 +1370,8 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
-                                                            const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+                                                            FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -1384,9 +1384,9 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
 // output type for integral inputs.
 template <typename Op, typename IntOutType>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
-    std::string name, const FunctionDoc* doc) {
+    std::string name, FunctionDoc doc) {
   auto int_out_ty = TypeTraits<IntOutType>::type_singleton();
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
     auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
@@ -1405,9 +1405,9 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
 // Like MakeUnaryArithmeticFunction, but for arithmetic ops that need to run
 // only on non-null output.
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(
-    std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(std::string name,
+                                                                   FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -1484,11 +1484,11 @@ Status ExecRound(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // kernel dispatch based on RoundMode, only on non-null output.
 template <template <typename, RoundMode, typename...> class Op, typename OptionsType>
 std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
-                                                       const FunctionDoc* doc) {
+                                                       FunctionDoc doc) {
   using State = RoundOptionsWrapper<OptionsType>;
   static const OptionsType kDefaultOptions = OptionsType::Defaults();
   auto func = std::make_shared<ArithmeticIntegerToFloatingPointFunction>(
-      name, Arity::Unary(), doc, &kDefaultOptions);
+      name, Arity::Unary(), std::move(doc), &kDefaultOptions);
   for (const auto& ty : {float32(), float64(), decimal128(1, 0), decimal256(1, 0)}) {
     auto type_id = ty->id();
     auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -1519,8 +1519,8 @@ std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
 // only on non-null output.
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
-    std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+    std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     if (!arrow::is_unsigned_integer(ty->id())) {
       auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
@@ -1533,8 +1533,8 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
-                                                           const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+                                                           FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : IntTypes()) {
     auto exec = TypeAgnosticBitWiseExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1545,8 +1545,8 @@ std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
-                                                         const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+                                                         FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : IntTypes()) {
     auto exec = ShiftExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1557,8 +1557,8 @@ std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
 
 template <typename Op, typename FunctionImpl = ArithmeticFloatingPointFunction>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
-    std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Unary(), doc);
+    std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -1569,9 +1569,9 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
-    std::string name, const FunctionDoc* doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(), doc);
+    std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -1581,10 +1581,10 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
 }
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(
-    std::string name, const FunctionDoc* doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(), doc);
+std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(std::string name,
+                                                                    FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1595,9 +1595,9 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
-    std::string name, const FunctionDoc* doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(), doc);
+    std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto output = is_integer(ty->id()) ? float64() : ty;
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryNotNullEqualTypes, Op>(ty);
@@ -1982,18 +1982,18 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   auto absolute_value =
-      MakeUnaryArithmeticFunction<AbsoluteValue>("abs", &absolute_value_doc);
+      MakeUnaryArithmeticFunction<AbsoluteValue>("abs", absolute_value_doc);
   AddDecimalUnaryKernels<AbsoluteValue>(absolute_value.get());
   DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
 
   // ----------------------------------------------------------------------
   auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
-      "abs_checked", &absolute_value_checked_doc);
+      "abs_checked", absolute_value_checked_doc);
   AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
 
   // ----------------------------------------------------------------------
-  auto add = MakeArithmeticFunction<Add>("add", &add_doc);
+  auto add = MakeArithmeticFunction<Add>("add", add_doc);
   AddDecimalBinaryKernels<Add>("add", add.get());
 
   // Add add(timestamp, duration) -> timestamp
@@ -2018,7 +2018,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   auto add_checked =
-      MakeArithmeticFunctionNotNull<AddChecked>("add_checked", &add_checked_doc);
+      MakeArithmeticFunctionNotNull<AddChecked>("add_checked", add_checked_doc);
   AddDecimalBinaryKernels<AddChecked>("add_checked", add_checked.get());
 
   // Add add_checked(timestamp, duration) -> timestamp
@@ -2045,7 +2045,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------
-  auto subtract = MakeArithmeticFunction<Subtract>("subtract", &sub_doc);
+  auto subtract = MakeArithmeticFunction<Subtract>("subtract", sub_doc);
   AddDecimalBinaryKernels<Subtract>("subtract", subtract.get());
 
   // Add subtract(timestamp, timestamp) -> duration
@@ -2103,8 +2103,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
   // ----------------------------------------------------------------------
-  auto subtract_checked = MakeArithmeticFunctionNotNull<SubtractChecked>(
-      "subtract_checked", &sub_checked_doc);
+  auto subtract_checked =
+      MakeArithmeticFunctionNotNull<SubtractChecked>("subtract_checked", sub_checked_doc);
   AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", subtract_checked.get());
 
   // Add subtract_checked(timestamp, timestamp) -> duration
@@ -2169,7 +2169,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
   // ----------------------------------------------------------------------
-  auto multiply = MakeArithmeticFunction<Multiply>("multiply", &mul_doc);
+  auto multiply = MakeArithmeticFunction<Multiply>("multiply", mul_doc);
   AddDecimalBinaryKernels<Multiply>("multiply", multiply.get());
 
   // Add multiply(duration, int64) -> duration
@@ -2182,8 +2182,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
   // ----------------------------------------------------------------------
-  auto multiply_checked = MakeArithmeticFunctionNotNull<MultiplyChecked>(
-      "multiply_checked", &mul_checked_doc);
+  auto multiply_checked =
+      MakeArithmeticFunctionNotNull<MultiplyChecked>("multiply_checked", mul_checked_doc);
   AddDecimalBinaryKernels<MultiplyChecked>("multiply_checked", multiply_checked.get());
 
   // Add multiply_checked(duration, int64) -> duration
@@ -2199,7 +2199,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 
   // ----------------------------------------------------------------------
-  auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", &div_doc);
+  auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", div_doc);
   AddDecimalBinaryKernels<Divide>("divide", divide.get());
 
   // Add divide(duration, int64) -> duration
@@ -2212,7 +2212,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   auto divide_checked =
-      MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
+      MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", div_checked_doc);
   AddDecimalBinaryKernels<DivideChecked>("divide_checked", divide_checked.get());
 
   // Add divide_checked(duration, int64) -> duration
@@ -2225,47 +2225,47 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
-  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", &negate_doc);
+  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
   auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
-      "negate_checked", &negate_checked_doc);
+      "negate_checked", negate_checked_doc);
   AddDecimalUnaryKernels<NegateChecked>(negate_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
   auto power = MakeArithmeticFunction<Power, ArithmeticDecimalToFloatingPointFunction>(
-      "power", &pow_doc);
+      "power", pow_doc);
   DCHECK_OK(registry->AddFunction(std::move(power)));
 
   // ----------------------------------------------------------------------
   auto power_checked =
       MakeArithmeticFunctionNotNull<PowerChecked,
                                     ArithmeticDecimalToFloatingPointFunction>(
-          "power_checked", &pow_checked_doc);
+          "power_checked", pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
-  auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", &sqrt_doc);
+  auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", sqrt_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt)));
 
   // ----------------------------------------------------------------------
   auto sqrt_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
-      "sqrt_checked", &sqrt_checked_doc);
+      "sqrt_checked", sqrt_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt_checked)));
 
   // ----------------------------------------------------------------------
   auto sign =
-      MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", &sign_doc);
+      MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", sign_doc);
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------
   // Bitwise functions
   {
     auto bit_wise_not = std::make_shared<ArithmeticFunction>(
-        "bit_wise_not", Arity::Unary(), &bit_wise_not_doc);
+        "bit_wise_not", Arity::Unary(), bit_wise_not_doc);
     for (const auto& ty : IntTypes()) {
       auto exec = TypeAgnosticBitWiseExecFromOp<ScalarUnaryNotNull, BitWiseNot>(ty);
       DCHECK_OK(bit_wise_not->AddKernel({ty}, ty, exec));
@@ -2275,110 +2275,109 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   }
 
   auto bit_wise_and =
-      MakeBitWiseFunctionNotNull<BitWiseAnd>("bit_wise_and", &bit_wise_and_doc);
+      MakeBitWiseFunctionNotNull<BitWiseAnd>("bit_wise_and", bit_wise_and_doc);
   DCHECK_OK(registry->AddFunction(std::move(bit_wise_and)));
 
   auto bit_wise_or =
-      MakeBitWiseFunctionNotNull<BitWiseOr>("bit_wise_or", &bit_wise_or_doc);
+      MakeBitWiseFunctionNotNull<BitWiseOr>("bit_wise_or", bit_wise_or_doc);
   DCHECK_OK(registry->AddFunction(std::move(bit_wise_or)));
 
   auto bit_wise_xor =
-      MakeBitWiseFunctionNotNull<BitWiseXor>("bit_wise_xor", &bit_wise_xor_doc);
+      MakeBitWiseFunctionNotNull<BitWiseXor>("bit_wise_xor", bit_wise_xor_doc);
   DCHECK_OK(registry->AddFunction(std::move(bit_wise_xor)));
 
-  auto shift_left = MakeShiftFunctionNotNull<ShiftLeft>("shift_left", &shift_left_doc);
+  auto shift_left = MakeShiftFunctionNotNull<ShiftLeft>("shift_left", shift_left_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_left)));
 
   auto shift_left_checked = MakeShiftFunctionNotNull<ShiftLeftChecked>(
-      "shift_left_checked", &shift_left_checked_doc);
+      "shift_left_checked", shift_left_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_left_checked)));
 
-  auto shift_right =
-      MakeShiftFunctionNotNull<ShiftRight>("shift_right", &shift_right_doc);
+  auto shift_right = MakeShiftFunctionNotNull<ShiftRight>("shift_right", shift_right_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_right)));
 
   auto shift_right_checked = MakeShiftFunctionNotNull<ShiftRightChecked>(
-      "shift_right_checked", &shift_right_checked_doc);
+      "shift_right_checked", shift_right_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_right_checked)));
 
   // ----------------------------------------------------------------------
   // Trig functions
-  auto sin = MakeUnaryArithmeticFunctionFloatingPoint<Sin>("sin", &sin_doc);
+  auto sin = MakeUnaryArithmeticFunctionFloatingPoint<Sin>("sin", sin_doc);
   DCHECK_OK(registry->AddFunction(std::move(sin)));
 
   auto sin_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SinChecked>(
-      "sin_checked", &sin_checked_doc);
+      "sin_checked", sin_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(sin_checked)));
 
-  auto cos = MakeUnaryArithmeticFunctionFloatingPoint<Cos>("cos", &cos_doc);
+  auto cos = MakeUnaryArithmeticFunctionFloatingPoint<Cos>("cos", cos_doc);
   DCHECK_OK(registry->AddFunction(std::move(cos)));
 
   auto cos_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<CosChecked>(
-      "cos_checked", &cos_checked_doc);
+      "cos_checked", cos_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(cos_checked)));
 
-  auto tan = MakeUnaryArithmeticFunctionFloatingPoint<Tan>("tan", &tan_doc);
+  auto tan = MakeUnaryArithmeticFunctionFloatingPoint<Tan>("tan", tan_doc);
   DCHECK_OK(registry->AddFunction(std::move(tan)));
 
   auto tan_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<TanChecked>(
-      "tan_checked", &tan_checked_doc);
+      "tan_checked", tan_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(tan_checked)));
 
-  auto asin = MakeUnaryArithmeticFunctionFloatingPoint<Asin>("asin", &asin_doc);
+  auto asin = MakeUnaryArithmeticFunctionFloatingPoint<Asin>("asin", asin_doc);
   DCHECK_OK(registry->AddFunction(std::move(asin)));
 
   auto asin_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<AsinChecked>(
-      "asin_checked", &asin_checked_doc);
+      "asin_checked", asin_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(asin_checked)));
 
-  auto acos = MakeUnaryArithmeticFunctionFloatingPoint<Acos>("acos", &acos_doc);
+  auto acos = MakeUnaryArithmeticFunctionFloatingPoint<Acos>("acos", acos_doc);
   DCHECK_OK(registry->AddFunction(std::move(acos)));
 
   auto acos_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<AcosChecked>(
-      "acos_checked", &acos_checked_doc);
+      "acos_checked", acos_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(acos_checked)));
 
-  auto atan = MakeUnaryArithmeticFunctionFloatingPoint<Atan>("atan", &atan_doc);
+  auto atan = MakeUnaryArithmeticFunctionFloatingPoint<Atan>("atan", atan_doc);
   DCHECK_OK(registry->AddFunction(std::move(atan)));
 
-  auto atan2 = MakeArithmeticFunctionFloatingPoint<Atan2>("atan2", &atan2_doc);
+  auto atan2 = MakeArithmeticFunctionFloatingPoint<Atan2>("atan2", atan2_doc);
   DCHECK_OK(registry->AddFunction(std::move(atan2)));
 
   // ----------------------------------------------------------------------
   // Logarithms
-  auto ln = MakeUnaryArithmeticFunctionFloatingPoint<LogNatural>("ln", &ln_doc);
+  auto ln = MakeUnaryArithmeticFunctionFloatingPoint<LogNatural>("ln", ln_doc);
   DCHECK_OK(registry->AddFunction(std::move(ln)));
 
   auto ln_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<LogNaturalChecked>(
-      "ln_checked", &ln_checked_doc);
+      "ln_checked", ln_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(ln_checked)));
 
-  auto log10 = MakeUnaryArithmeticFunctionFloatingPoint<Log10>("log10", &log10_doc);
+  auto log10 = MakeUnaryArithmeticFunctionFloatingPoint<Log10>("log10", log10_doc);
   DCHECK_OK(registry->AddFunction(std::move(log10)));
 
   auto log10_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log10Checked>(
-      "log10_checked", &log10_checked_doc);
+      "log10_checked", log10_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(log10_checked)));
 
-  auto log2 = MakeUnaryArithmeticFunctionFloatingPoint<Log2>("log2", &log2_doc);
+  auto log2 = MakeUnaryArithmeticFunctionFloatingPoint<Log2>("log2", log2_doc);
   DCHECK_OK(registry->AddFunction(std::move(log2)));
 
   auto log2_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log2Checked>(
-      "log2_checked", &log2_checked_doc);
+      "log2_checked", log2_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(log2_checked)));
 
-  auto log1p = MakeUnaryArithmeticFunctionFloatingPoint<Log1p>("log1p", &log1p_doc);
+  auto log1p = MakeUnaryArithmeticFunctionFloatingPoint<Log1p>("log1p", log1p_doc);
   DCHECK_OK(registry->AddFunction(std::move(log1p)));
 
   auto log1p_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log1pChecked>(
-      "log1p_checked", &log1p_checked_doc);
+      "log1p_checked", log1p_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(log1p_checked)));
 
-  auto logb = MakeArithmeticFunctionFloatingPoint<Logb>("logb", &logb_doc);
+  auto logb = MakeArithmeticFunctionFloatingPoint<Logb>("logb", logb_doc);
   DCHECK_OK(registry->AddFunction(std::move(logb)));
 
   auto logb_checked = MakeArithmeticFunctionFloatingPointNotNull<LogbChecked>(
-      "logb_checked", &logb_checked_doc);
+      "logb_checked", logb_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(logb_checked)));
 
   // ----------------------------------------------------------------------
@@ -2386,7 +2385,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto floor =
       MakeUnaryArithmeticFunctionFloatingPoint<Floor,
                                                ArithmeticIntegerToFloatingPointFunction>(
-          "floor", &floor_doc);
+          "floor", floor_doc);
   DCHECK_OK(floor->AddKernel(
       {InputType(Type::DECIMAL128)}, OutputType(FirstType),
       FixedRoundDecimalExec<Decimal128Type, RoundMode::DOWN, /*ndigits=*/0>));
@@ -2398,7 +2397,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto ceil =
       MakeUnaryArithmeticFunctionFloatingPoint<Ceil,
                                                ArithmeticIntegerToFloatingPointFunction>(
-          "ceil", &ceil_doc);
+          "ceil", ceil_doc);
   DCHECK_OK(ceil->AddKernel(
       {InputType(Type::DECIMAL128)}, OutputType(FirstType),
       FixedRoundDecimalExec<Decimal128Type, RoundMode::UP, /*ndigits=*/0>));
@@ -2410,7 +2409,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto trunc =
       MakeUnaryArithmeticFunctionFloatingPoint<Trunc,
                                                ArithmeticIntegerToFloatingPointFunction>(
-          "trunc", &trunc_doc);
+          "trunc", trunc_doc);
   DCHECK_OK(trunc->AddKernel(
       {InputType(Type::DECIMAL128)}, OutputType(FirstType),
       FixedRoundDecimalExec<Decimal128Type, RoundMode::TOWARDS_ZERO, /*ndigits=*/0>));
@@ -2419,12 +2418,12 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
       FixedRoundDecimalExec<Decimal256Type, RoundMode::TOWARDS_ZERO, /*ndigits=*/0>));
   DCHECK_OK(registry->AddFunction(std::move(trunc)));
 
-  auto round = MakeUnaryRoundFunction<Round, RoundOptions>("round", &round_doc);
+  auto round = MakeUnaryRoundFunction<Round, RoundOptions>("round", round_doc);
   DCHECK_OK(registry->AddFunction(std::move(round)));
 
   auto round_to_multiple =
       MakeUnaryRoundFunction<RoundToMultiple, RoundToMultipleOptions>(
-          "round_to_multiple", &round_to_multiple_doc);
+          "round_to_multiple", round_to_multiple_doc);
   DCHECK_OK(registry->AddFunction(std::move(round_to_multiple)));
 }
 

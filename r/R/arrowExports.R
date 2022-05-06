@@ -420,6 +420,10 @@ ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, materialized_field_names)
 }
 
+ExecPlan_Write <- function(plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
+}
+
 ExecNode_Filter <- function(input, filter) {
   .Call(`_arrow_ExecNode_Filter`, input, filter)
 }
@@ -444,12 +448,12 @@ ExecNode_TableSourceNode <- function(plan, table) {
   .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
 }
 
-engine__internal__SubstraitToJSON <- function(serialized_plan) {
-  .Call(`_arrow_engine__internal__SubstraitToJSON`, serialized_plan)
+substrait__internal__SubstraitToJSON <- function(serialized_plan) {
+  .Call(`_arrow_substrait__internal__SubstraitToJSON`, serialized_plan)
 }
 
-engine__internal__SubstraitFromJSON <- function(substrait_json) {
-  .Call(`_arrow_engine__internal__SubstraitFromJSON`, substrait_json)
+substrait__internal__SubstraitFromJSON <- function(substrait_json) {
+  .Call(`_arrow_substrait__internal__SubstraitFromJSON`, substrait_json)
 }
 
 ExecPlan_run_substrait <- function(plan, serialized_plan) {
@@ -746,10 +750,6 @@ dataset___Scanner__head <- function(scanner, n) {
 
 dataset___Scanner__schema <- function(sc) {
   .Call(`_arrow_dataset___Scanner__schema`, sc)
-}
-
-dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
-  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
 }
 
 dataset___Scanner__TakeRows <- function(scanner, indices) {
@@ -1112,12 +1112,12 @@ ipc___feather___Reader__version <- function(reader) {
   .Call(`_arrow_ipc___feather___Reader__version`, reader)
 }
 
-ipc___feather___Reader__Read <- function(reader, columns) {
-  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns)
+ipc___feather___Reader__Read <- function(reader, columns, on_old_windows) {
+  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns, on_old_windows)
 }
 
-ipc___feather___Reader__Open <- function(stream) {
-  .Call(`_arrow_ipc___feather___Reader__Open`, stream)
+ipc___feather___Reader__Open <- function(stream, on_old_windows) {
+  .Call(`_arrow_ipc___feather___Reader__Open`, stream, on_old_windows)
 }
 
 ipc___feather___Reader__schema <- function(reader) {
@@ -1382,6 +1382,18 @@ io___BufferOutputStream__Tell <- function(stream) {
 
 io___BufferOutputStream__Write <- function(stream, bytes) {
   invisible(.Call(`_arrow_io___BufferOutputStream__Write`, stream, bytes))
+}
+
+MakeRConnectionInputStream <- function(con) {
+  .Call(`_arrow_MakeRConnectionInputStream`, con)
+}
+
+MakeRConnectionOutputStream <- function(con) {
+  .Call(`_arrow_MakeRConnectionOutputStream`, con)
+}
+
+MakeRConnectionRandomAccessFile <- function(con) {
+  .Call(`_arrow_MakeRConnectionRandomAccessFile`, con)
 }
 
 MakeReencodeInputStream <- function(wrapped, from) {
@@ -1712,6 +1724,14 @@ RecordBatchReader__batches <- function(reader) {
   .Call(`_arrow_RecordBatchReader__batches`, reader)
 }
 
+RecordBatchReader__from_batches <- function(batches, schema_sxp) {
+  .Call(`_arrow_RecordBatchReader__from_batches`, batches, schema_sxp)
+}
+
+RecordBatchReader__from_Table <- function(table) {
+  .Call(`_arrow_RecordBatchReader__from_Table`, table)
+}
+
 Table__from_RecordBatchReader <- function(reader) {
   .Call(`_arrow_Table__from_RecordBatchReader`, reader)
 }
@@ -1966,6 +1986,10 @@ Table__from_record_batches <- function(batches, schema_sxp) {
 
 Table__ReferencedBufferSize <- function(table) {
   .Call(`_arrow_Table__ReferencedBufferSize`, table)
+}
+
+Table__ConcatenateTables <- function(tables, unify_schemas) {
+  .Call(`_arrow_Table__ConcatenateTables`, tables, unify_schemas)
 }
 
 GetCpuThreadPoolCapacity <- function() {

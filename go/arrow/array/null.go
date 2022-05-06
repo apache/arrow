@@ -189,6 +189,6 @@ func (b *NullBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*Null)(nil)
-	_ Builder   = (*NullBuilder)(nil)
+	_ arrow.Array = (*Null)(nil)
+	_ Builder     = (*NullBuilder)(nil)
 )

@@ -19,13 +19,14 @@ package flight
 import (
 	"context"
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v8/arrow/flight/internal/flight"
-	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -205,7 +206,7 @@ func (cs *clientStream) SendMsg(m interface{}) error {
 
 func (cs *clientStream) RecvMsg(m interface{}) error {
 	err := cs.ClientStream.RecvMsg(m)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		cs.finishFn(nil)
 		return err
 	} else if err != nil {
@@ -326,7 +327,7 @@ func (c *client) AuthenticateBasicToken(ctx context.Context, username, password 
 		}
 	}
 
-	return ctx, xerrors.Errorf("flight: no authorization header on the response")
+	return ctx, fmt.Errorf("flight: no authorization header on the response")
 }
 
 func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) error {

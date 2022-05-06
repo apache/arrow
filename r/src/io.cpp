@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include "./safe-call-into-r.h"
+
 #include <R_ext/Riconv.h>
 
 #include <arrow/buffer_builder.h>
@@ -207,7 +209,199 @@ void io___BufferOutputStream__Write(
   StopIfNotOk(stream->Write(RAW(bytes), bytes.size()));
 }
 
-// TransformInputStream::TransformFunc wrapper
+// ------ RConnectionInputStream / RConnectionOutputStream
+
+class RConnectionFileInterface : public virtual arrow::io::FileInterface {
+ public:
+  explicit RConnectionFileInterface(cpp11::sexp connection_sexp)
+      : connection_sexp_(connection_sexp), closed_(false) {
+    check_closed();
+  }
+
+  arrow::Status Close() {
+    if (closed_) {
+      return arrow::Status::OK();
+    }
+
+    closed_ = true;
+
+    return SafeCallIntoRVoid(
+        [&]() { cpp11::package("base")["close"](connection_sexp_); });
+  }
+
+  arrow::Result<int64_t> Tell() const {
+    if (closed()) {
+      return arrow::Status::IOError("R connection is closed");
+    }
+
+    return SafeCallIntoR<int64_t>([&]() {
+      cpp11::sexp result = cpp11::package("base")["seek"](connection_sexp_);
+      return cpp11::as_cpp<int64_t>(result);
+    });
+  }
+
+  bool closed() const { return closed_; }
+
+ protected:
+  cpp11::sexp connection_sexp_;
+
+  // Define the logic here because multiple inheritance makes it difficult
+  // for this base class, the InputStream and the RandomAccessFile
+  // interfaces to co-exist.
+  arrow::Result<int64_t> ReadBase(int64_t nbytes, void* out) {
+    if (closed()) {
+      return arrow::Status::IOError("R connection is closed");
+    }
+
+    return SafeCallIntoR<int64_t>([&] {
+      cpp11::function read_bin = cpp11::package("base")["readBin"];
+      cpp11::writable::raws ptype((R_xlen_t)0);
+      cpp11::integers n = cpp11::as_sexp<int>(nbytes);
+
+      cpp11::sexp result = read_bin(connection_sexp_, ptype, n);
+
+      int64_t result_size = cpp11::safe[Rf_xlength](result);
+      memcpy(out, cpp11::safe[RAW](result), result_size);
+      return result_size;
+    });
+  }
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> ReadBase(int64_t nbytes) {
+    arrow::BufferBuilder builder;
+    RETURN_NOT_OK(builder.Reserve(nbytes));
+
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, ReadBase(nbytes, builder.mutable_data()));
+    builder.UnsafeAdvance(bytes_read);
+    return builder.Finish();
+  }
+
+  arrow::Status WriteBase(const void* data, int64_t nbytes) {
+    if (closed()) {
+      return arrow::Status::IOError("R connection is closed");
+    }
+
+    return SafeCallIntoRVoid([&]() {
+      cpp11::writable::raws data_raw(nbytes);
+      memcpy(cpp11::safe[RAW](data_raw), data, nbytes);
+
+      cpp11::function write_bin = cpp11::package("base")["writeBin"];
+      write_bin(data_raw, connection_sexp_);
+    });
+  }
+
+  arrow::Status SeekBase(int64_t pos) {
+    if (closed()) {
+      return arrow::Status::IOError("R connection is closed");
+    }
+
+    return SafeCallIntoRVoid([&]() {
+      cpp11::package("base")["seek"](connection_sexp_, cpp11::as_sexp<double>(pos));
+    });
+  }
+
+ private:
+  bool closed_;
+
+  bool check_closed() {
+    if (closed_) {
+      return true;
+    }
+
+    auto is_open_result = SafeCallIntoR<bool>([&]() {
+      cpp11::sexp result = cpp11::package("base")["isOpen"](connection_sexp_);
+      return cpp11::as_cpp<bool>(result);
+    });
+
+    if (!is_open_result.ok()) {
+      closed_ = true;
+    } else {
+      closed_ = !is_open_result.ValueUnsafe();
+    }
+
+    return closed_;
+  }
+};
+
+class RConnectionInputStream : public virtual arrow::io::InputStream,
+                               public RConnectionFileInterface {
+ public:
+  explicit RConnectionInputStream(cpp11::sexp connection_sexp)
+      : RConnectionFileInterface(connection_sexp) {}
+
+  arrow::Result<int64_t> Read(int64_t nbytes, void* out) { return ReadBase(nbytes, out); }
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) {
+    return ReadBase(nbytes);
+  }
+};
+
+class RConnectionRandomAccessFile : public arrow::io::RandomAccessFile,
+                                    public RConnectionFileInterface {
+ public:
+  explicit RConnectionRandomAccessFile(cpp11::sexp connection_sexp)
+      : RConnectionFileInterface(connection_sexp) {
+    // save the current position to seek back to it
+    auto current_pos = Tell();
+    if (!current_pos.ok()) {
+      cpp11::stop("Tell() returned an error");
+    }
+    int64_t initial_pos = current_pos.ValueUnsafe();
+
+    cpp11::package("base")["seek"](connection_sexp_, 0, "end");
+    current_pos = Tell();
+    if (!current_pos.ok()) {
+      cpp11::stop("Tell() returned an error");
+    }
+    size_ = current_pos.ValueUnsafe();
+
+    auto status = Seek(initial_pos);
+    if (!status.ok()) {
+      cpp11::stop("Seek() returned an error");
+    }
+  }
+
+  arrow::Result<int64_t> GetSize() { return size_; }
+
+  arrow::Status Seek(int64_t pos) { return SeekBase(pos); }
+
+  arrow::Result<int64_t> Read(int64_t nbytes, void* out) { return ReadBase(nbytes, out); }
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) {
+    return ReadBase(nbytes);
+  }
+
+ private:
+  int64_t size_;
+};
+
+class RConnectionOutputStream : public arrow::io::OutputStream,
+                                public RConnectionFileInterface {
+ public:
+  explicit RConnectionOutputStream(cpp11::sexp connection_sexp)
+      : RConnectionFileInterface(connection_sexp) {}
+
+  arrow::Status Write(const void* data, int64_t nbytes) {
+    return WriteBase(data, nbytes);
+  }
+};
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::InputStream> MakeRConnectionInputStream(cpp11::sexp con) {
+  return std::make_shared<RConnectionInputStream>(con);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::OutputStream> MakeRConnectionOutputStream(cpp11::sexp con) {
+  return std::make_shared<RConnectionOutputStream>(con);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::RandomAccessFile> MakeRConnectionRandomAccessFile(
+    cpp11::sexp con) {
+  return std::make_shared<RConnectionRandomAccessFile>(con);
+}
+
+// ------ MakeReencodeInputStream()
 
 class RIconvWrapper {
  public:

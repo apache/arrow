@@ -17,7 +17,7 @@
 
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
-#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep imap imap_chr
+#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep imap imap_chr flatten
 #' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
@@ -161,8 +161,8 @@ arrow_with_dataset <- function() {
 
 #' @rdname arrow_available
 #' @export
-arrow_with_engine <- function() {
-  tryCatch(.Call(`_engine_available`), error = function(e) {
+arrow_with_substrait <- function() {
+  tryCatch(.Call(`_substrait_available`), error = function(e) {
     return(FALSE)
   })
 }
@@ -234,7 +234,7 @@ arrow_info <- function() {
     out <- c(out, list(
       capabilities = c(
         dataset = arrow_with_dataset(),
-        engine = arrow_with_engine(),
+        substrait = arrow_with_substrait(),
         parquet = arrow_with_parquet(),
         json = arrow_with_json(),
         s3 = arrow_with_s3(),
@@ -269,7 +269,7 @@ arrow_info <- function() {
 some_features_are_off <- function(features) {
   # `features` is a named logical vector (as in arrow_info()$capabilities)
   # Let's exclude some less relevant ones
-  blocklist <- c("lzo", "bz2", "brotli", "engine")
+  blocklist <- c("lzo", "bz2", "brotli", "substrait")
   # Return TRUE if any of the other features are FALSE
   !all(features[setdiff(names(features), blocklist)])
 }

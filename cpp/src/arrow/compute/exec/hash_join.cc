@@ -90,10 +90,10 @@ class HashJoinBasicImpl : public HashJoinImpl {
               TaskScheduler::ScheduleImpl schedule_task_callback) override {
     num_threads = std::max(num_threads, static_cast<size_t>(1));
 
-    START_SPAN(span_, "HashJoinBasicImpl",
-               {{"detail", filter.ToString()},
-                {"join.kind", ToString(join_type)},
-                {"join.threads", static_cast<uint32_t>(num_threads)}});
+    START_COMPUTE_SPAN(span_, "HashJoinBasicImpl",
+                       {{"detail", filter.ToString()},
+                        {"join.kind", ToString(join_type)},
+                        {"join.threads", static_cast<uint32_t>(num_threads)}});
 
     ctx_ = ctx;
     join_type_ = join_type;
@@ -103,12 +103,14 @@ class HashJoinBasicImpl : public HashJoinImpl {
     filter_ = std::move(filter);
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
-    local_states_.resize(num_threads + 1);  // +1 for calling thread + worker threads
+    // TODO(ARROW-15732)
+    // Each side of join might have an IO thread being called from.
+    local_states_.resize(GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1);
     for (size_t i = 0; i < local_states_.size(); ++i) {
       local_states_[i].is_initialized = false;
       local_states_[i].is_has_match_initialized = false;
     }
-    dict_probe_.Init(num_threads);
+    dict_probe_.Init(GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1);
 
     has_hash_table_ = false;
     num_batches_produced_.store(0);

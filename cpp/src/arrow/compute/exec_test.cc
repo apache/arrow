@@ -681,8 +681,8 @@ class TestCallScalarFunction : public TestComputeInternals {
 
     // This function simply copies memory from the input argument into the
     // (preallocated) output
-    auto func =
-        std::make_shared<ScalarFunction>("test_copy", Arity::Unary(), /*doc=*/nullptr);
+    auto func = std::make_shared<ScalarFunction>("test_copy", Arity::Unary(),
+                                                 /*doc=*/FunctionDoc::Empty());
 
     // Add a few kernels. Our implementation only accepts arrays
     ASSERT_OK(func->AddKernel({InputType::Array(uint8())}, uint8(), ExecCopy));
@@ -691,8 +691,8 @@ class TestCallScalarFunction : public TestComputeInternals {
     ASSERT_OK(registry->AddFunction(func));
 
     // A version which doesn't want the executor to call PropagateNulls
-    auto func2 = std::make_shared<ScalarFunction>("test_copy_computed_bitmap",
-                                                  Arity::Unary(), /*doc=*/nullptr);
+    auto func2 = std::make_shared<ScalarFunction>(
+        "test_copy_computed_bitmap", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
     ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecComputedBitmap);
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     ASSERT_OK(func2->AddKernel(kernel));
@@ -705,9 +705,9 @@ class TestCallScalarFunction : public TestComputeInternals {
     // A function that allocates its own output memory. We have cases for both
     // non-preallocated data and non-preallocated validity bitmap
     auto f1 = std::make_shared<ScalarFunction>("test_nopre_data", Arity::Unary(),
-                                               /*doc=*/nullptr);
-    auto f2 = std::make_shared<ScalarFunction>("test_nopre_validity_or_data",
-                                               Arity::Unary(), /*doc=*/nullptr);
+                                               /*doc=*/FunctionDoc::Empty());
+    auto f2 = std::make_shared<ScalarFunction>(
+        "test_nopre_validity_or_data", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
 
     ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecNoPreallocatedData);
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
@@ -727,7 +727,7 @@ class TestCallScalarFunction : public TestComputeInternals {
     // This function's behavior depends on a static parameter that is made
     // available to the kernel's execution function through its Options object
     auto func = std::make_shared<ScalarFunction>("test_stateful", Arity::Unary(),
-                                                 /*doc=*/nullptr);
+                                                 /*doc=*/FunctionDoc::Empty());
 
     ScalarKernel kernel({InputType::Array(int32())}, int32(), ExecStateful, InitStateful);
     ASSERT_OK(func->AddKernel(kernel));
@@ -738,7 +738,7 @@ class TestCallScalarFunction : public TestComputeInternals {
     auto registry = GetFunctionRegistry();
 
     auto func = std::make_shared<ScalarFunction>("test_scalar_add_int32", Arity::Binary(),
-                                                 /*doc=*/nullptr);
+                                                 /*doc=*/FunctionDoc::Empty());
     ASSERT_OK(func->AddKernel({InputType::Scalar(int32()), InputType::Scalar(int32())},
                               int32(), ExecAddInt32));
     ASSERT_OK(registry->AddFunction(func));

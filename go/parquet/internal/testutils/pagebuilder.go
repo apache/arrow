@@ -22,11 +22,11 @@ import (
 	"reflect"
 
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/compress"
 	"github.com/apache/arrow/go/v8/parquet/file"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet/schema"
 	"github.com/stretchr/testify/mock"
 )
@@ -220,7 +220,7 @@ func (m *MockPageReader) Err() error {
 	return m.Called().Error(0)
 }
 
-func (m *MockPageReader) Reset(io.ReadSeeker, int64, compress.Compression, *file.CryptoContext) {
+func (m *MockPageReader) Reset(parquet.BufferedReader, int64, compress.Compression, *file.CryptoContext) {
 }
 
 func (m *MockPageReader) SetMaxPageHeaderSize(int) {}

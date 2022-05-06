@@ -18,13 +18,13 @@ package flight
 
 import (
 	"bytes"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/internal/debug"
 	"github.com/apache/arrow/go/v8/arrow/ipc"
 	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 // DataStreamReader is an interface for receiving flight data messages on a stream
@@ -124,7 +124,7 @@ func NewRecordReader(r DataStreamReader, opts ...ipc.Option) (*Reader, error) {
 	rdr := &Reader{dmr: &dataMessageReader{rdr: r}}
 	var err error
 	if rdr.Reader, err = ipc.NewReaderFromMessageReader(rdr.dmr, opts...); err != nil {
-		return nil, xerrors.Errorf("arrow/flight: could not create flight reader: %w", err)
+		return nil, fmt.Errorf("arrow/flight: could not create flight reader: %w", err)
 	}
 
 	return rdr, nil

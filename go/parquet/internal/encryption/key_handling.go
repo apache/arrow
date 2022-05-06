@@ -18,9 +18,8 @@ package encryption
 
 import (
 	"encoding/binary"
+	"fmt"
 	"unsafe"
-
-	"golang.org/x/xerrors"
 )
 
 // StringKeyIDRetriever implements the KeyRetriever interface GetKey
@@ -37,7 +36,7 @@ func (s StringKeyIDRetriever) PutKey(keyID, key string) {
 func (s StringKeyIDRetriever) GetKey(keyMetadata []byte) string {
 	k, ok := s[*(*string)(unsafe.Pointer(&keyMetadata))]
 	if !ok {
-		panic(xerrors.Errorf("parquet: key missing for id %s", keyMetadata))
+		panic(fmt.Errorf("parquet: key missing for id %s", keyMetadata))
 	}
 	return k
 }
@@ -56,7 +55,7 @@ func (i IntegerKeyIDRetriever) GetKey(keyMetadata []byte) string {
 	keyID := binary.LittleEndian.Uint32(keyMetadata)
 	k, ok := i[keyID]
 	if !ok {
-		panic(xerrors.Errorf("parquet: key missing for id %d", keyID))
+		panic(fmt.Errorf("parquet: key missing for id %d", keyID))
 	}
 	return k
 }

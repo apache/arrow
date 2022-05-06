@@ -45,7 +45,7 @@ class ARROW_EXPORT Hashing32 {
   friend void TestBloomSmall(BloomFilterBuildStrategy, int64_t, int, bool, bool);
 
  public:
-  static void HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& cols,
+  static void HashMultiColumn(const std::vector<KeyColumnArray>& cols,
                               KeyEncoder::KeyEncoderContext* ctx, uint32_t* out_hash);
 
  private:
@@ -153,7 +153,7 @@ class ARROW_EXPORT Hashing64 {
   friend void TestBloomSmall(BloomFilterBuildStrategy, int64_t, int, bool, bool);
 
  public:
-  static void HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& cols,
+  static void HashMultiColumn(const std::vector<KeyColumnArray>& cols,
                               KeyEncoder::KeyEncoderContext* ctx, uint64_t* hashes);
 
  private:

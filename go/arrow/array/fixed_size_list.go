@@ -90,7 +90,7 @@ func arrayEqualFixedSizeList(left, right *FixedSizeList) bool {
 			defer l.Release()
 			r := right.newListValue(i)
 			defer r.Release()
-			return ArrayEqual(l, r)
+			return Equal(l, r)
 		}()
 		if !o {
 			return false
@@ -323,6 +323,6 @@ func (b *FixedSizeListBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*FixedSizeList)(nil)
-	_ Builder   = (*FixedSizeListBuilder)(nil)
+	_ arrow.Array = (*FixedSizeList)(nil)
+	_ Builder     = (*FixedSizeListBuilder)(nil)
 )

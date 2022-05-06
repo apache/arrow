@@ -84,10 +84,10 @@ func TestMapArray(t *testing.T) {
 	assert.False(t, array.ArrayEqual(equalArr, unequalArr))
 	assert.False(t, array.ArrayEqual(unequalArr, equalArr))
 
-	assert.True(t, array.ArraySliceEqual(arr, 0, 1, unequalArr, 0, 1))
-	assert.False(t, array.ArraySliceEqual(arr, 0, 2, unequalArr, 0, 2))
-	assert.False(t, array.ArraySliceEqual(arr, 1, 2, unequalArr, 1, 2))
-	assert.True(t, array.ArraySliceEqual(arr, 2, 3, unequalArr, 2, 3))
+	assert.True(t, array.SliceEqual(arr, 0, 1, unequalArr, 0, 1))
+	assert.False(t, array.SliceEqual(arr, 0, 2, unequalArr, 0, 2))
+	assert.False(t, array.SliceEqual(arr, 1, 2, unequalArr, 1, 2))
+	assert.True(t, array.SliceEqual(arr, 2, 3, unequalArr, 2, 3))
 }
 
 func TestMapArrayBuildIntToInt(t *testing.T) {

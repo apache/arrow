@@ -43,8 +43,9 @@ class GANDIVA_EXPORT Engine {
   /// Factory method to create and initialize the engine object.
   ///
   /// \param[in] config the engine configuration
+  /// \param[in] cached flag to mark if the module is already compiled and cached
   /// \param[out] engine the created engine
-  static Status Make(const std::shared_ptr<Configuration>& config,
+  static Status Make(const std::shared_ptr<Configuration>& config, bool cached,
                      std::unique_ptr<Engine>* engine);
 
   /// Add the function to the list of IR functions that need to be compiled.
@@ -57,15 +58,13 @@ class GANDIVA_EXPORT Engine {
   /// Optimise and compile the module.
   Status FinalizeModule();
 
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   /// Set LLVM ObjectCache.
   void SetLLVMObjectCache(GandivaObjectCache& object_cache) {
     execution_engine_->setObjectCache(&object_cache);
   }
-#endif
 
   /// Get the compiled function corresponding to the irfunction.
-  void* CompiledFunction(llvm::Function* irFunction);
+  void* CompiledFunction(std::string& function);
 
   // Create and add a mapping for the cpp function to make it accessible from LLVM.
   void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
@@ -74,10 +73,14 @@ class GANDIVA_EXPORT Engine {
   /// Return the generated IR for the module.
   std::string DumpIR();
 
+  /// Load the function IRs that can be accessed in the module.
+  Status LoadFunctionIRs();
+
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::LLVMContext> ctx,
-         std::unique_ptr<llvm::ExecutionEngine> engine, llvm::Module* module);
+         std::unique_ptr<llvm::ExecutionEngine> engine, llvm::Module* module,
+         bool cached);
 
   // Post construction init. This _must_ be called after the constructor.
   Status Init();
@@ -106,6 +109,8 @@ class GANDIVA_EXPORT Engine {
 
   bool optimize_ = true;
   bool module_finalized_ = false;
+  bool cached_;
+  bool functions_loaded_ = false;
 };
 
 }  // namespace gandiva

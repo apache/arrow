@@ -68,6 +68,17 @@ class TestParquetFileMetadata < Test::Unit::TestCase
     assert_equal(2, @metadata.n_row_groups)
   end
 
+  sub_test_case("#get_row_group") do
+    test("out of range") do
+      message = "[parquet][file-metadata][get-row-group]: IOError: " +
+                "The file only has 2 row groups, " +
+                "requested metadata for row group: 2"
+      assert_raise(Arrow::Error::Io.new(message)) do
+        @metadata.get_row_group(2)
+      end
+    end
+  end
+
   test("#created_by") do
     assert_equal("parquet-cpp-arrow version 1.0.0",
                  @metadata.created_by.gsub(/ [\d.]+(?:-SNAPSHOT)?\z/, " 1.0.0"))

@@ -407,6 +407,7 @@ if(ARROW_COMPUTE)
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc
+       compute/light_array.cc
        compute/registry.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
@@ -731,7 +732,7 @@ if(ARROW_COMPUTE)
   add_subdirectory(compute)
 endif()
 
-if(ARROW_ENGINE)
+if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
 endif()
 

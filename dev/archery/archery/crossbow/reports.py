@@ -23,6 +23,10 @@ import functools
 from io import StringIO
 import textwrap
 
+import requests
+
+from archery.utils.report import JinjaReport
+
 
 # TODO(kszucs): use archery.report.JinjaReport instead
 class Report:
@@ -39,6 +43,35 @@ class Report:
             tasks = [(name, task) for name, task in tasks if name in filtered]
 
         self._tasks = dict(tasks)
+
+    @property
+    def repo_url(self):
+        url = self.job.queue.remote_url
+        return url[:-4] if url.endswith('.git') else url
+
+    def url(self, query):
+        return '{}/branches/all?query={}'.format(self.repo_url, query)
+
+    def branch_url(self, branch):
+        return '{}/tree/{}'.format(self.repo_url, branch)
+
+    def task_url(self, task):
+        if task.status().build_links:
+            # show link to the actual build, some CI providers implement
+            # the statuses API others implement the checks API, retrieve any.
+            return task.status().build_links[0]
+        else:
+            # show link to the branch if no status build link was found.
+            return self.branch_url(task.branch)
+
+    @property
+    @functools.lru_cache(maxsize=1)
+    def tasks_by_state(self):
+        tasks_by_state = collections.defaultdict(dict)
+        for task_name, task in self.job.tasks.items():
+            state = task.status().combined_state
+            tasks_by_state[state][task_name] = task
+        return tasks_by_state
 
     @property
     def tasks(self):
@@ -134,6 +167,34 @@ class ConsoleReport(Report):
                                    asset))
 
 
+class ChatReport(JinjaReport):
+    templates = {
+        'text': 'chat_nightly_report.txt.j2',
+    }
+    fields = [
+        'report',
+    ]
+
+
+class ReportUtils:
+
+    @classmethod
+    def send_message(cls, webhook, message):
+        resp = requests.post(webhook, json={
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                            "type": "mrkdwn",
+                            "text": message
+                    }
+                }
+            ]
+        }
+        )
+        return resp
+
+
 class EmailReport(Report):
 
     HEADER = textwrap.dedent("""
@@ -169,22 +230,13 @@ class EmailReport(Report):
         self.recipient_email = recipient_email
         super().__init__(job)
 
-    @property
-    def repo_url(self):
-        url = self.job.queue.remote_url
-        return url[:-4] if url.endswith('.git') else url
-
-    def url(self, query):
-        return '{}/branches/all?query={}'.format(self.repo_url, query)
-
-    def branch_url(self, branch):
-        return '{}/tree/{}'.format(self.repo_url, branch)
-
     def listing(self, tasks):
         return '\n'.join(
             sorted(
                 self.TASK.format(
-                    name=task_name, url=self.branch_url(task.branch))
+                    name=task_name,
+                    url=self.task_url(task)
+                )
                 for task_name, task in tasks.items()
             )
         )
@@ -194,22 +246,21 @@ class EmailReport(Report):
         return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
 
     def subject(self):
+        failures = len(self.tasks_by_state.get("failure", []))
+        errors = len(self.tasks_by_state.get("error", []))
+        pending = len(self.tasks_by_state.get("pending", []))
         return (
-            "[NIGHTLY] Arrow Build Report for Job {}".format(self.job.branch)
+            f"[NIGHTLY] Arrow Build Report for Job {self.job.branch}: "
+            f"{failures+errors} failed, {pending} pending"
         )
 
     def body(self):
         buffer = StringIO()
         buffer.write(self.header())
 
-        tasks_by_state = collections.defaultdict(dict)
-        for task_name, task in self.job.tasks.items():
-            state = task.status().combined_state
-            tasks_by_state[state][task_name] = task
-
         for state in ('failure', 'error', 'pending', 'success'):
-            if state in tasks_by_state:
-                tasks = tasks_by_state[state]
+            if state in self.tasks_by_state:
+                tasks = self.tasks_by_state[state]
                 buffer.write('\n')
                 buffer.write(self.STATUS_HEADERS[state])
                 buffer.write('\n')

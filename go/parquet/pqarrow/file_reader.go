@@ -18,6 +18,7 @@ package pqarrow
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -246,7 +247,7 @@ func (fr *FileReader) ReadTable(ctx context.Context) (arrow.Table, error) {
 func (fr *FileReader) checkCols(indices []int) (err error) {
 	for _, col := range indices {
 		if col < 0 || col >= fr.rdr.MetaData().Schema.NumColumns() {
-			err = xerrors.Errorf("invalid column index specified %d out of %d", col, fr.rdr.MetaData().Schema.NumColumns())
+			err = fmt.Errorf("invalid column index specified %d out of %d", col, fr.rdr.MetaData().Schema.NumColumns())
 			break
 		}
 	}
@@ -256,7 +257,7 @@ func (fr *FileReader) checkCols(indices []int) (err error) {
 func (fr *FileReader) checkRowGroups(indices []int) (err error) {
 	for _, rg := range indices {
 		if rg < 0 || rg >= fr.rdr.NumRowGroups() {
-			err = xerrors.Errorf("invalid row group specified: %d, file only has %d row groups", rg, fr.rdr.NumRowGroups())
+			err = fmt.Errorf("invalid row group specified: %d, file only has %d row groups", rg, fr.rdr.NumRowGroups())
 			break
 		}
 	}
@@ -378,7 +379,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 
 func (fr *FileReader) getColumnReader(ctx context.Context, i int, colFactory itrFactory) (*ColumnReader, error) {
 	if i < 0 || i >= fr.rdr.MetaData().Schema.NumColumns() {
-		return nil, xerrors.Errorf("invalid column index chosen %d, there are only %d columns", i, fr.rdr.MetaData().Schema.NumColumns())
+		return nil, fmt.Errorf("invalid column index chosen %d, there are only %d columns", i, fr.rdr.MetaData().Schema.NumColumns())
 	}
 
 	ctx = context.WithValue(ctx, rdrCtxKey{}, readerCtx{
@@ -510,7 +511,7 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 		case *arrow.FixedSizeListType:
 			out = newFixedSizeListReader(&rctx, &arrowField, field.LevelInfo, childReader)
 		default:
-			return nil, xerrors.Errorf("unknown list type: %s", field.Field.String())
+			return nil, fmt.Errorf("unknown list type: %s", field.Field.String())
 		}
 	}
 	return

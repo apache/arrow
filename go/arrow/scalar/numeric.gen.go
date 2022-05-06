@@ -23,8 +23,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v8/arrow"	
 )
 
 type Int8 struct {
@@ -84,7 +83,7 @@ func (s *Int8) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type int8 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type int8 to type %s", dt)
 }
 
 func NewInt8Scalar(val int8) *Int8 {
@@ -148,7 +147,7 @@ func (s *Int16) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type int16 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type int16 to type %s", dt)
 }
 
 func NewInt16Scalar(val int16) *Int16 {
@@ -212,7 +211,7 @@ func (s *Int32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type int32 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type int32 to type %s", dt)
 }
 
 func NewInt32Scalar(val int32) *Int32 {
@@ -276,7 +275,7 @@ func (s *Int64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type int64 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type int64 to type %s", dt)
 }
 
 func NewInt64Scalar(val int64) *Int64 {
@@ -340,7 +339,7 @@ func (s *Uint8) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type uint8 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type uint8 to type %s", dt)
 }
 
 func NewUint8Scalar(val uint8) *Uint8 {
@@ -404,7 +403,7 @@ func (s *Uint16) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type uint16 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type uint16 to type %s", dt)
 }
 
 func NewUint16Scalar(val uint16) *Uint16 {
@@ -468,7 +467,7 @@ func (s *Uint32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type uint32 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type uint32 to type %s", dt)
 }
 
 func NewUint32Scalar(val uint32) *Uint32 {
@@ -532,7 +531,7 @@ func (s *Uint64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type uint64 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type uint64 to type %s", dt)
 }
 
 func NewUint64Scalar(val uint64) *Uint64 {
@@ -596,7 +595,7 @@ func (s *Float32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type float32 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type float32 to type %s", dt)
 }
 
 func NewFloat32Scalar(val float32) *Float32 {
@@ -660,7 +659,7 @@ func (s *Float64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type float64 to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type float64 to type %s", dt)
 }
 
 func NewFloat64Scalar(val float64) *Float64 {

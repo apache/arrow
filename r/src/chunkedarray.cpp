@@ -141,7 +141,8 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
     }
   }
 
-  return std::make_shared<arrow::ChunkedArray>(std::move(vec));
+  // Use Make so we validate that chunk types are all the same
+  return ValueOrStop(arrow::ChunkedArray::Make(std::move(vec)));
 }
 
 // [[arrow::export]]

@@ -397,6 +397,7 @@ TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
+TEST_P(TestCsvFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),

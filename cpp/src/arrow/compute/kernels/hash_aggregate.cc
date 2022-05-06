@@ -237,19 +237,18 @@ struct GrouperFastImpl : Grouper {
         auto bit_width = checked_cast<const FixedWidthType&>(*key).bit_width();
         ARROW_DCHECK(bit_width % 8 == 0);
         impl->col_metadata_[icol] =
-            arrow::compute::KeyEncoder::KeyColumnMetadata(true, bit_width / 8);
+            arrow::compute::KeyColumnMetadata(true, bit_width / 8);
       } else if (key->id() == Type::BOOL) {
-        impl->col_metadata_[icol] =
-            arrow::compute::KeyEncoder::KeyColumnMetadata(true, 0);
+        impl->col_metadata_[icol] = arrow::compute::KeyColumnMetadata(true, 0);
       } else if (is_fixed_width(key->id())) {
-        impl->col_metadata_[icol] = arrow::compute::KeyEncoder::KeyColumnMetadata(
+        impl->col_metadata_[icol] = arrow::compute::KeyColumnMetadata(
             true, checked_cast<const FixedWidthType&>(*key).bit_width() / 8);
       } else if (is_binary_like(key->id())) {
         impl->col_metadata_[icol] =
-            arrow::compute::KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
+            arrow::compute::KeyColumnMetadata(false, sizeof(uint32_t));
       } else if (key->id() == Type::NA) {
-        impl->col_metadata_[icol] = arrow::compute::KeyEncoder::KeyColumnMetadata(
-            true, 0, /*is_null_type_in=*/true);
+        impl->col_metadata_[icol] =
+            arrow::compute::KeyColumnMetadata(true, 0, /*is_null_type_in=*/true);
       } else {
         return Status::NotImplemented("Keys of type ", *key);
       }
@@ -352,11 +351,10 @@ struct GrouperFastImpl : Grouper {
 
       int64_t offset = batch[icol].array()->offset;
 
-      auto col_base = arrow::compute::KeyEncoder::KeyColumnArray(
+      auto col_base = arrow::compute::KeyColumnArray(
           col_metadata_[icol], offset + num_rows, non_nulls, fixedlen, varlen);
 
-      cols_[icol] =
-          arrow::compute::KeyEncoder::KeyColumnArray(col_base, offset, num_rows);
+      cols_[icol] = col_base.Slice(offset, num_rows);
     }
 
     // Split into smaller mini-batches
@@ -434,8 +432,8 @@ struct GrouperFastImpl : Grouper {
       if (col_metadata_[i].is_null_type) {
         uint8_t* non_nulls = NULLPTR;
         uint8_t* fixedlen = NULLPTR;
-        cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
-            col_metadata_[i], num_groups, non_nulls, fixedlen, NULLPTR);
+        cols_[i] = arrow::compute::KeyColumnArray(col_metadata_[i], num_groups, non_nulls,
+                                                  fixedlen, NULLPTR);
         continue;
       }
       ARROW_ASSIGN_OR_RAISE(non_null_bufs[i], AllocatePaddedBitmap(num_groups));
@@ -451,7 +449,7 @@ struct GrouperFastImpl : Grouper {
         ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i],
                               AllocatePaddedBuffer((num_groups + 1) * sizeof(uint32_t)));
       }
-      cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
+      cols_[i] = arrow::compute::KeyColumnArray(
           col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
           fixedlen_bufs[i]->mutable_data(), nullptr);
     }
@@ -470,7 +468,7 @@ struct GrouperFastImpl : Grouper {
           auto varlen_size =
               reinterpret_cast<const uint32_t*>(fixedlen_bufs[i]->data())[num_groups];
           ARROW_ASSIGN_OR_RAISE(varlen_bufs[i], AllocatePaddedBuffer(varlen_size));
-          cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
+          cols_[i] = arrow::compute::KeyColumnArray(
               col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
               fixedlen_bufs[i]->mutable_data(), varlen_bufs[i]->mutable_data());
         }
@@ -534,8 +532,8 @@ struct GrouperFastImpl : Grouper {
   arrow::compute::KeyEncoder::KeyEncoderContext encode_ctx_;
 
   std::vector<std::shared_ptr<arrow::DataType>> key_types_;
-  std::vector<arrow::compute::KeyEncoder::KeyColumnMetadata> col_metadata_;
-  std::vector<arrow::compute::KeyEncoder::KeyColumnArray> cols_;
+  std::vector<arrow::compute::KeyColumnMetadata> col_metadata_;
+  std::vector<arrow::compute::KeyColumnArray> cols_;
   std::vector<uint32_t> minibatch_hashes_;
 
   std::vector<std::shared_ptr<Array>> dictionaries_;
@@ -3556,7 +3554,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count", Arity::Binary(), &hash_count_doc, &default_count_options);
+        "hash_count", Arity::Binary(), hash_count_doc, &default_count_options);
 
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, HashAggregateInit<GroupedCountImpl>)));
@@ -3565,7 +3563,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_sum", Arity::Binary(), &hash_sum_doc, &default_scalar_aggregate_options);
+        "hash_sum", Arity::Binary(), hash_sum_doc, &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(), GroupedSumFactory::Make, func.get()));
@@ -3580,7 +3578,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_product", Arity::Binary(), &hash_product_doc,
+        "hash_product", Arity::Binary(), hash_product_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedProductFactory::Make, func.get()));
     DCHECK_OK(
@@ -3598,7 +3596,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_mean", Arity::Binary(), &hash_mean_doc, &default_scalar_aggregate_options);
+        "hash_mean", Arity::Binary(), hash_mean_doc, &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(
@@ -3614,7 +3612,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_stddev", Arity::Binary(), &hash_stddev_doc, &default_variance_options);
+        "hash_stddev", Arity::Binary(), hash_stddev_doc, &default_variance_options);
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
                                 GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
@@ -3628,7 +3626,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_variance", Arity::Binary(), &hash_variance_doc, &default_variance_options);
+        "hash_variance", Arity::Binary(), hash_variance_doc, &default_variance_options);
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
                                 GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
@@ -3643,7 +3641,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   HashAggregateFunction* tdigest_func = nullptr;
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_tdigest", Arity::Binary(), &hash_tdigest_doc, &default_tdigest_options);
+        "hash_tdigest", Arity::Binary(), hash_tdigest_doc, &default_tdigest_options);
     DCHECK_OK(
         AddHashAggKernels(SignedIntTypes(), GroupedTDigestFactory::Make, func.get()));
     DCHECK_OK(
@@ -3659,7 +3657,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_approximate_median", Arity::Binary(), &hash_approximate_median_doc,
+        "hash_approximate_median", Arity::Binary(), hash_approximate_median_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeApproximateMedianKernel(tdigest_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3668,7 +3666,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   HashAggregateFunction* min_max_func = nullptr;
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_min_max", Arity::Binary(), &hash_min_max_doc,
+        "hash_min_max", Arity::Binary(), hash_min_max_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedMinMaxFactory::Make, func.get()));
@@ -3684,7 +3682,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_min", Arity::Binary(), &hash_min_or_max_doc,
+        "hash_min", Arity::Binary(), hash_min_or_max_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeMinOrMaxKernel<MinOrMax::Min>(min_max_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3692,7 +3690,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_max", Arity::Binary(), &hash_min_or_max_doc,
+        "hash_max", Arity::Binary(), hash_min_or_max_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeMinOrMaxKernel<MinOrMax::Max>(min_max_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3700,21 +3698,21 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_any", Arity::Binary(), &hash_any_doc, &default_scalar_aggregate_options);
+        "hash_any", Arity::Binary(), hash_any_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAnyImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_all", Arity::Binary(), &hash_all_doc, &default_scalar_aggregate_options);
+        "hash_all", Arity::Binary(), hash_all_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAllImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count_distinct", Arity::Binary(), &hash_count_distinct_doc,
+        "hash_count_distinct", Arity::Binary(), hash_count_distinct_doc,
         &default_count_options);
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedCountDistinctImpl>)));
@@ -3723,7 +3721,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_distinct", Arity::Binary(), &hash_distinct_doc, &default_count_options);
+        "hash_distinct", Arity::Binary(), hash_distinct_doc, &default_count_options);
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3731,7 +3729,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_one", Arity::Binary(),
-                                                        &hash_one_doc);
+                                                        hash_one_doc);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedOneFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedOneFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedOneFactory::Make, func.get()));
@@ -3743,7 +3741,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_list", Arity::Binary(),
-                                                        &hash_list_doc);
+                                                        hash_list_doc);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedListFactory::Make, func.get()));

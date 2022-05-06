@@ -279,4 +279,24 @@ void PrintTo(const Datum& datum, std::ostream* os) {
   }
 }
 
+std::string ToString(Datum::Kind kind) {
+  switch (kind) {
+    case Datum::NONE:
+      return "None";
+    case Datum::SCALAR:
+      return "Scalar";
+    case Datum::ARRAY:
+      return "Array";
+    case Datum::CHUNKED_ARRAY:
+      return "ChunkedArray";
+    case Datum::RECORD_BATCH:
+      return "RecordBatch";
+    case Datum::TABLE:
+      return "Table";
+    default:
+      DCHECK(false);
+      return "";
+  }
+}
+
 }  // namespace arrow

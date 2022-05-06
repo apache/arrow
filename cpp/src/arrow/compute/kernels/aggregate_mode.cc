@@ -428,7 +428,7 @@ const FunctionDoc mode_doc{
 
 void RegisterScalarAggregateMode(FunctionRegistry* registry) {
   static auto default_options = ModeOptions::Defaults();
-  auto func = std::make_shared<VectorFunction>("mode", Arity::Unary(), &mode_doc,
+  auto func = std::make_shared<VectorFunction>("mode", Arity::Unary(), mode_doc,
                                                &default_options);
   DCHECK_OK(func->AddKernel(
       NewModeKernel(boolean(), ModeExecutor<StructType, BooleanType>::Exec)));

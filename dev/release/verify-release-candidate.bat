@@ -73,7 +73,8 @@ call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 @rem for more context, see https://issues.apache.org/jira/browse/ARROW-15378
 call conda remove -y gtest gmock || exit /B 1
 
-set GENERATOR=Visual Studio 15 2017 Win64
+set GENERATOR=Visual Studio 16 2019
+set ARCHITECTURE=x64
 set CONFIGURATION=release
 
 pushd !ARROW_SOURCE!
@@ -93,6 +94,7 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tool
 @rem generator used
 
 cmake -G "%GENERATOR%" ^
+      -A "%ARCHITECTURE%" ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
@@ -119,7 +121,7 @@ cmake --build . --target INSTALL --config Release || exit /B 1
 @rem Needed so python-test.exe works
 set PYTHONPATH_ORIGINAL=%PYTHONPATH%
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
-ctest -VV  || exit /B 1
+ctest -j%NUMBER_OF_PROCESSORS% --output-on-failure  || exit /B 1
 set PYTHONPATH=%PYTHONPATH_ORIGINAL%
 popd
 
@@ -133,6 +135,7 @@ set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_PARQUET_ENCRYPTION=1
 set PYARROW_WITH_DATASET=1
+set PYARROW_TEST_CYTHON=OFF
 python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel || exit /B 1
 pytest pyarrow -v -s --enable-parquet || exit /B 1
 

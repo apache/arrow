@@ -150,6 +150,7 @@ TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
+TEST_P(TestIpcFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
   auto reader = GetRecordBatchReader(
       // ARROW-12077: on Windows/mimalloc/release, nullable list column leads to crash

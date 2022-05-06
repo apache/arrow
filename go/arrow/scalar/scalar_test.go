@@ -733,7 +733,7 @@ func TestMapScalarBasics(t *testing.T) {
 
 	expectedScalarType := arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int8)
 	assert.True(t, arrow.TypeEqual(s.DataType(), expectedScalarType))
-	assert.True(t, array.ArrayEqual(value, s.GetList()))
+	assert.True(t, array.Equal(value, s.GetList()))
 
 	checkMakeNullScalar(t, expectedScalarType)
 }

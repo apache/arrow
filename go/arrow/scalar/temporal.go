@@ -23,7 +23,6 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/v8/arrow"
-	"golang.org/x/xerrors"
 )
 
 func temporalToString(s TemporalScalar) string {
@@ -170,7 +169,7 @@ func castTemporal(from TemporalScalar, to arrow.DataType) (Scalar, error) {
 		}
 	}
 
-	return nil, xerrors.Errorf("")
+	return nil, fmt.Errorf("")
 }
 
 type Date32 struct {
@@ -347,7 +346,7 @@ func (s *MonthInterval) CastTo(to arrow.DataType) (Scalar, error) {
 	}
 
 	if !arrow.TypeEqual(s.DataType(), to) {
-		return nil, xerrors.Errorf("non-null monthinterval scalar cannot be cast to anything other than monthinterval")
+		return nil, fmt.Errorf("non-null monthinterval scalar cannot be cast to anything other than monthinterval")
 	}
 
 	return s, nil
@@ -401,7 +400,7 @@ func (s *DayTimeInterval) CastTo(to arrow.DataType) (Scalar, error) {
 	}
 
 	if !arrow.TypeEqual(s.DataType(), to) {
-		return nil, xerrors.Errorf("non-null daytimeinterval scalar cannot be cast to anything other than monthinterval")
+		return nil, fmt.Errorf("non-null daytimeinterval scalar cannot be cast to anything other than monthinterval")
 	}
 
 	return s, nil
@@ -443,7 +442,7 @@ func (s *MonthDayNanoInterval) CastTo(to arrow.DataType) (Scalar, error) {
 	}
 
 	if !arrow.TypeEqual(s.DataType(), to) {
-		return nil, xerrors.Errorf("non-null month_day_nano_interval scalar cannot be cast to anything other than monthinterval")
+		return nil, fmt.Errorf("non-null month_day_nano_interval scalar cannot be cast to anything other than monthinterval")
 	}
 
 	return s, nil

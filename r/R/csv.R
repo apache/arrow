@@ -346,6 +346,7 @@ CsvTableReader$create <- function(file,
 #' - `autogenerate_column_names` Logical: generate column names instead of
 #' using the first non-skipped row (the default)? If `TRUE`, column names will
 #' be "f0", "f1", ..., "fN".
+#' - `encoding` The file encoding. (default `"UTF-8"`)
 #'
 #' `CsvParseOptions$create()` takes the following arguments:
 #'
@@ -367,9 +368,9 @@ CsvTableReader$create <- function(file,
 #' - `check_utf8` Logical: check UTF8 validity of string columns? (default `TRUE`)
 #' - `null_values` character vector of recognized spellings for null values.
 #'    Analogous to the `na.strings` argument to
-#'    [`read.csv()`][utils::read.csv()] or `na` in `readr::read_csv()`.
+#'    [`read.csv()`][utils::read.csv()] or `na` in [readr::read_csv()].
 #' - `strings_can_be_null` Logical: can string / binary columns have
-#'    null values? Similar to the `quoted_na` argument to `readr::read_csv()`.
+#'    null values? Similar to the `quoted_na` argument to [readr::read_csv()].
 #'    (default `FALSE`)
 #' - `true_values` character vector of recognized spellings for `TRUE` values
 #' - `false_values` character vector of recognized spellings for `FALSE` values
@@ -392,7 +393,6 @@ CsvTableReader$create <- function(file,
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
-#' - `encoding` The file encoding.
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.

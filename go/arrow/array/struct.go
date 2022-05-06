@@ -140,7 +140,7 @@ func (a *Struct) MarshalJSON() ([]byte, error) {
 func arrayEqualStruct(left, right *Struct) bool {
 	for i, lf := range left.fields {
 		rf := right.fields[i]
-		if !ArrayEqual(lf, rf) {
+		if !Equal(lf, rf) {
 			return false
 		}
 	}
@@ -372,6 +372,6 @@ func (b *StructBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*Struct)(nil)
-	_ Builder   = (*StructBuilder)(nil)
+	_ arrow.Array = (*Struct)(nil)
+	_ Builder     = (*StructBuilder)(nil)
 )

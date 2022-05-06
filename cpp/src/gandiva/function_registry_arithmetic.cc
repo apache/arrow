@@ -176,6 +176,18 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
                      "negative_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("negative", {}, DataTypeVector{decimal128()}, decimal128(),
+                     kResultNullIfNull, "negative_decimal",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("negative", {}, DataTypeVector{month_interval()}, month_interval(),
+                     kResultNullIfNull, "negative_month_interval",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("negative", {}, DataTypeVector{day_time_interval()},
+                     day_time_interval(), kResultNullIfNull, "negative_daytimeinterval",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),
       BINARY_RELATIONAL_BOOL_FN(not_equal, {}),

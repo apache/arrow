@@ -180,11 +180,13 @@ ExtensionType <- R6Class("ExtensionType",
       } else if (inherits(extension_array, "ExtensionArray")) {
         extension_array$storage()$as_vector()
       } else {
-        classes <- paste(class(extension_array), collapse = " / ")
         abort(
           c(
             "`extension_array` must be a ChunkedArray or ExtensionArray",
-            i = glue::glue("Got object of type {classes}")
+            i = sprintf(
+              "Got object of type %s",
+              paste(class(extension_array), collapse = " / ")
+            )
           )
         )
       }
@@ -309,7 +311,7 @@ ExtensionType$create <- function(storage_type,
 #'      and `reregister_extension_type()` return `NULL`, invisibly.
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' # Create the R6 type whose methods control how Array objects are
 #' # converted to R objects, how equality between types is computed,
 #' # and how types are printed.
@@ -509,7 +511,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 #'     extension name "arrow.r.vctrs".
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' (array <- vctrs_extension_array(as.POSIXlt("2022-01-02 03:45", tz = "UTC")))
 #' array$type
 #' as.vector(array)
@@ -532,9 +534,9 @@ vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
 
 #' @rdname vctrs_extension_array
 #' @export
-vctrs_extension_type <- function(ptype,
-                                 storage_type = type(vctrs::vec_data(ptype))) {
-  ptype <- vctrs::vec_ptype(ptype)
+vctrs_extension_type <- function(x,
+                                 storage_type = infer_type(vctrs::vec_data(x))) {
+  ptype <- vctrs::vec_ptype(x)
 
   new_extension_type(
     storage_type = storage_type,

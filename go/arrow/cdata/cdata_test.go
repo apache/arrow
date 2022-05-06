@@ -24,6 +24,7 @@
 package cdata
 
 import (
+	"errors"
 	"io"
 	"runtime"
 	"testing"
@@ -458,7 +459,7 @@ func TestPrimitiveSliced(t *testing.T) {
 	imported, err := ImportCArrayWithType(carr, arr.DataType())
 	assert.NoError(t, err)
 	assert.True(t, array.ArrayEqual(sl, imported))
-	assert.True(t, array.ArraySliceEqual(arr, 1, 2, imported, 0, int64(imported.Len())))
+	assert.True(t, array.SliceEqual(arr, 1, 2, imported, 0, int64(imported.Len())))
 	assert.True(t, isReleased(carr))
 
 	imported.Release()
@@ -602,7 +603,7 @@ func TestRecordReaderStream(t *testing.T) {
 	for {
 		rec, err := rdr.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			assert.NoError(t, err)

@@ -66,6 +66,10 @@ Expression cast(Expression argument, std::shared_ptr<DataType> to_type) {
               compute::CastOptions::Safe(std::move(to_type)));
 }
 
+Expression true_unless_null(Expression argument) {
+  return call("true_unless_null", {std::move(argument)});
+}
+
 template <typename Actual, typename Expected>
 void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
   using MaybeActual = typename EnsureResult<typename std::decay<Actual>::type>::type;
@@ -250,8 +254,8 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal(3).ToString(), "3");
   EXPECT_EQ(literal("a").ToString(), "\"a\"");
   EXPECT_EQ(literal("a\nb").ToString(), "\"a\\nb\"");
-  EXPECT_EQ(literal(std::make_shared<BooleanScalar>()).ToString(), "null");
-  EXPECT_EQ(literal(std::make_shared<Int64Scalar>()).ToString(), "null");
+  EXPECT_EQ(literal(std::make_shared<BooleanScalar>()).ToString(), "null[bool]");
+  EXPECT_EQ(literal(std::make_shared<Int64Scalar>()).ToString(), "null[int64]");
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
@@ -388,29 +392,49 @@ TEST(Expression, IsScalarExpression) {
 }
 
 TEST(Expression, IsSatisfiable) {
+  auto Bind = [](Expression expr) { return expr.Bind(*kBoringSchema).ValueOrDie(); };
+
   EXPECT_TRUE(literal(true).IsSatisfiable());
   EXPECT_FALSE(literal(false).IsSatisfiable());
 
   auto null = std::make_shared<BooleanScalar>();
   EXPECT_FALSE(literal(null).IsSatisfiable());
 
-  EXPECT_TRUE(field_ref("a").IsSatisfiable());
+  // NB: no implicit conversion to bool
+  EXPECT_TRUE(literal(0).IsSatisfiable());
 
-  EXPECT_TRUE(equal(field_ref("a"), literal(1)).IsSatisfiable());
+  EXPECT_TRUE(field_ref("i32").IsSatisfiable());
+  EXPECT_TRUE(Bind(field_ref("i32")).IsSatisfiable());
+
+  EXPECT_TRUE(equal(field_ref("i32"), literal(1)).IsSatisfiable());
+  EXPECT_TRUE(Bind(equal(field_ref("i32"), literal(1))).IsSatisfiable());
 
   // NB: no constant folding here
-  EXPECT_TRUE(equal(literal(0), literal(1)).IsSatisfiable());
+  EXPECT_TRUE(Bind(equal(literal(0), literal(1))).IsSatisfiable());
 
-  // When a top level conjunction contains an Expression which is certain to evaluate to
-  // null, it can only evaluate to null or false.
-  auto never_true = and_(literal(null), field_ref("a"));
-  // This may appear in satisfiable filters if coalesced (for example, wrapped in fill_na)
-  EXPECT_TRUE(call("is_null", {never_true}).IsSatisfiable());
-  // ... but at the top level it is not satisfiable.
+  // Special case invert(true_unless_null(x)): arises in simplification against a
+  // guarantee with a nullable caveat.
+  EXPECT_FALSE(Bind(not_(true_unless_null(field_ref("i32")))).IsSatisfiable());
+  // NB: no effort to examine unbound expressions
+  EXPECT_TRUE(not_(true_unless_null(field_ref("i32"))).IsSatisfiable());
+
+  // When a top level conjunction contains an Expression which is not satisfiable
+  // (guaranteed to evaluate to null or false), it can only evaluate to null or false.
   // This special case arises when (for example) an absent column has made
-  // one member of the conjunction always-null. This is fairly common and
-  // would be a worthwhile optimization to support.
-  // EXPECT_FALSE(null_or_false).IsSatisfiable());
+  // one member of the conjunction always-null.
+  for (const auto& never_true : {
+           // N.B. this is "and_kleene"
+           and_(literal(false), field_ref("bool")),
+           and_(literal(null), field_ref("bool")),
+           call("and", {literal(false), field_ref("bool")}),
+           call("and", {literal(null), field_ref("bool")}),
+       }) {
+    ARROW_SCOPED_TRACE(never_true.ToString());
+    EXPECT_FALSE(Bind(never_true).IsSatisfiable());
+    // ... but it may appear in satisfiable filters if coalesced (for example, wrapped in
+    // fill_na)
+    EXPECT_TRUE(Bind(call("is_null", {never_true})).IsSatisfiable());
+  }
 }
 
 TEST(Expression, FieldsInExpression) {
@@ -846,6 +870,10 @@ TEST(Expression, FoldConstants) {
                      }),
                 literal(4));
 
+  // INTERSECTION null handling and null input -> null output
+  ExpectFoldsTo(call("equal", {field_ref("i32"), null_literal(int32())}),
+                null_literal(boolean()));
+
   // nested call against literals with one field_ref
   // (i32 - (2 * 3)) + 2 == (i32 - 6) + 2
   // NB this could be improved further by using associativity of addition; another pass
@@ -1066,8 +1094,7 @@ TEST(Expression, CanonicalizeAnd) {
                         and_(and_(and_(and_(null_, null_), true_), b), c));
 
   // catches and_kleene even when it's a subexpression
-  ExpectCanonicalizesTo(call("is_valid", {and_(b, true_)}),
-                        call("is_valid", {and_(true_, b)}));
+  ExpectCanonicalizesTo(is_valid(and_(b, true_)), is_valid(and_(true_, b)));
 }
 
 TEST(Expression, CanonicalizeComparison) {
@@ -1279,13 +1306,89 @@ TEST(Expression, SimplifyWithGuarantee) {
       .WithGuarantee(not_(equal(field_ref("i32"), literal(7))))
       .Expect(equal(field_ref("i32"), literal(7)));
 
+  // In the absence of is_null(i32) we assume i32 is valid
+  Simplify{
+      is_null(field_ref("i32")),
+  }
+      .WithGuarantee(greater_equal(field_ref("i32"), literal(1)))
+      .Expect(false);
+
+  Simplify{
+      is_null(field_ref("i32")),
+  }
+      .WithGuarantee(
+          or_(greater_equal(field_ref("i32"), literal(1)), is_null(field_ref("i32"))))
+      .Expect(is_null(field_ref("i32")));
+
+  Simplify{
+      is_null(field_ref("i32")),
+  }
+      .WithGuarantee(
+          and_(greater_equal(field_ref("i32"), literal(1)), is_valid(field_ref("i32"))))
+      .Expect(false);
+
+  Simplify{
+      is_valid(field_ref("i32")),
+  }
+      .WithGuarantee(greater_equal(field_ref("i32"), literal(1)))
+      .Expect(true);
+
+  Simplify{
+      is_valid(field_ref("i32")),
+  }
+      .WithGuarantee(
+          or_(greater_equal(field_ref("i32"), literal(1)), is_null(field_ref("i32"))))
+      .Expect(is_valid(field_ref("i32")));
+
+  Simplify{
+      is_valid(field_ref("i32")),
+  }
+      .WithGuarantee(
+          and_(greater_equal(field_ref("i32"), literal(1)), is_valid(field_ref("i32"))))
+      .Expect(true);
+}
+
+TEST(Expression, SimplifyWithValidityGuarantee) {
   Simplify{is_null(field_ref("i32"))}
       .WithGuarantee(is_null(field_ref("i32")))
       .Expect(literal(true));
 
   Simplify{is_valid(field_ref("i32"))}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(literal(false));
+
+  Simplify{is_valid(field_ref("i32"))}
       .WithGuarantee(is_valid(field_ref("i32")))
+      .Expect(literal(true));
+
+  Simplify{is_valid(field_ref("i32"))}
+      .WithGuarantee(is_valid(field_ref("dict_i32")))  // different field
       .Expect(is_valid(field_ref("i32")));
+
+  Simplify{is_null(field_ref("i32"))}
+      .WithGuarantee(is_valid(field_ref("i32")))
+      .Expect(literal(false));
+
+  Simplify{true_unless_null(field_ref("i32"))}
+      .WithGuarantee(is_valid(field_ref("i32")))
+      .Expect(literal(true));
+}
+
+TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
+  auto i32_is_2_or_null =
+      or_(equal(field_ref("i32"), literal(2)), is_null(field_ref("i32")));
+
+  Simplify{equal(field_ref("i32"), literal(2))}
+      .WithGuarantee(i32_is_2_or_null)
+      .Expect(true_unless_null(field_ref("i32")));
+
+  // XXX: needs a rule for 'true_unless_null(x) || is_null(x)'
+  // Simplify{i32_is_2_or_null}.WithGuarantee(i32_is_2_or_null).Expect(literal(true));
+
+  Simplify{equal(field_ref("i32"), literal(3))}
+      .WithGuarantee(i32_is_2_or_null)
+      .Expect(not_(
+          true_unless_null(field_ref("i32"))));  // not satisfiable, will drop row group
 }
 
 TEST(Expression, SimplifyThenExecute) {

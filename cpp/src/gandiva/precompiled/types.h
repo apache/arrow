@@ -208,6 +208,15 @@ gdv_float64 positive_float64(gdv_float64 in);
 gdv_float32 negative_float32(gdv_float32 in);
 gdv_float64 negative_float64(gdv_float64 in);
 
+void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
+                      int32_t /*precision*/, int32_t /*scale*/, int32_t /*out_precision*/,
+                      int32_t /*out_scale*/, int64_t* out_high_bits,
+                      uint64_t* out_low_bits);
+
+gdv_month_interval negative_month_interval(gdv_int64 context,
+                                           gdv_month_interval interval);
+gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval interval);
+
 gdv_int64 divide_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 
 gdv_int64 div_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
@@ -634,6 +643,9 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 from_str_len, const char* to_str,
                                    gdv_int32 to_str_len, gdv_int32* out_len);
 
+const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
+                                    gdv_int32* out_len);
+
 const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char* text_in,
                                                     int32_t text_len,
                                                     const char* char_to_replace,
@@ -682,8 +694,8 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
                                            gdv_int32 text_len, gdv_int32 offset,
                                            gdv_int32 length, gdv_int32* out_len);
 
-const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
-                         int32_t* out_len);
+const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
+                         bool in_validity, bool* out_valid, int32_t* out_len);
 
 const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
                                    gdv_int64 out_len, gdv_int32* out_length);

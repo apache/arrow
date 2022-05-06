@@ -1474,12 +1474,12 @@ struct UnaryTemporalFactory {
 
   template <typename... WithTypes>
   static std::shared_ptr<ScalarFunction> Make(
-      std::string name, OutputType out_type, const FunctionDoc* doc,
+      std::string name, OutputType out_type, FunctionDoc doc,
       const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
     DCHECK_NE(sizeof...(WithTypes), 0);
-    UnaryTemporalFactory self{
-        out_type, init,
-        std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options)};
+    UnaryTemporalFactory self{out_type, init,
+                              std::make_shared<ScalarFunction>(
+                                  name, Arity::Unary(), std::move(doc), default_options)};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }
@@ -1499,12 +1499,13 @@ struct SimpleUnaryTemporalFactory {
 
   template <typename... WithTypes>
   static std::shared_ptr<ScalarFunction> Make(
-      std::string name, OutputType out_type, const FunctionDoc* doc,
+      std::string name, OutputType out_type, FunctionDoc doc,
       const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
     DCHECK_NE(sizeof...(WithTypes), 0);
     SimpleUnaryTemporalFactory self{
         out_type, init,
-        std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options)};
+        std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc),
+                                         default_options)};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }
@@ -1763,35 +1764,35 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   auto year =
       UnaryTemporalFactory<Year, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("year", int64(),
-                                                                       &year_doc);
+                                                                       year_doc);
   DCHECK_OK(registry->AddFunction(std::move(year)));
 
   auto is_leap_year =
       UnaryTemporalFactory<IsLeapYear, TemporalComponentExtract, BooleanType>::Make<
-          WithDates, WithTimestamps>("is_leap_year", boolean(), &is_leap_year_doc);
+          WithDates, WithTimestamps>("is_leap_year", boolean(), is_leap_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(is_leap_year)));
 
   auto month =
       UnaryTemporalFactory<Month, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("month", int64(),
-                                                                       &month_doc);
+                                                                       month_doc);
   DCHECK_OK(registry->AddFunction(std::move(month)));
 
   auto day =
       UnaryTemporalFactory<Day, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("day", int64(),
-                                                                       &day_doc);
+                                                                       day_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
   auto year_month_day =
       SimpleUnaryTemporalFactory<YearMonthDay>::Make<WithDates, WithTimestamps>(
-          "year_month_day", YearMonthDayType(), &year_month_day_doc);
+          "year_month_day", YearMonthDayType(), year_month_day_doc);
   DCHECK_OK(registry->AddFunction(std::move(year_month_day)));
 
   static const auto default_day_of_week_options = DayOfWeekOptions::Defaults();
   auto day_of_week =
       UnaryTemporalFactory<DayOfWeek, TemporalComponentExtractDayOfWeek, Int64Type>::Make<
-          WithDates, WithTimestamps>("day_of_week", int64(), &day_of_week_doc,
+          WithDates, WithTimestamps>("day_of_week", int64(), day_of_week_doc,
                                      &default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
@@ -1799,110 +1800,110 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
       UnaryTemporalFactory<DayOfYear, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("day_of_year",
                                                                        int64(),
-                                                                       &day_of_year_doc);
+                                                                       day_of_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_of_year)));
 
   auto iso_year =
       UnaryTemporalFactory<ISOYear, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("iso_year",
                                                                        int64(),
-                                                                       &iso_year_doc);
+                                                                       iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
   auto us_year =
       UnaryTemporalFactory<USYear, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("us_year", int64(),
-                                                                       &us_year_doc);
+                                                                       us_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(us_year)));
 
   static const auto default_iso_week_options = WeekOptions::ISODefaults();
   auto iso_week =
       UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
-          WithDates, WithTimestamps>("iso_week", int64(), &iso_week_doc,
+          WithDates, WithTimestamps>("iso_week", int64(), iso_week_doc,
                                      &default_iso_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
   static const auto default_us_week_options = WeekOptions::USDefaults();
   auto us_week =
       UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
-          WithDates, WithTimestamps>("us_week", int64(), &us_week_doc,
+          WithDates, WithTimestamps>("us_week", int64(), us_week_doc,
                                      &default_us_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(us_week)));
 
   static const auto default_week_options = WeekOptions();
   auto week = UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
-      WithDates, WithTimestamps>("week", int64(), &week_doc, &default_week_options,
+      WithDates, WithTimestamps>("week", int64(), week_doc, &default_week_options,
                                  WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(week)));
 
   auto iso_calendar =
       SimpleUnaryTemporalFactory<ISOCalendar>::Make<WithDates, WithTimestamps>(
-          "iso_calendar", IsoCalendarType(), &iso_calendar_doc);
+          "iso_calendar", IsoCalendarType(), iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
   auto quarter =
       UnaryTemporalFactory<Quarter, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("quarter", int64(),
-                                                                       &quarter_doc);
+                                                                       quarter_doc);
   DCHECK_OK(registry->AddFunction(std::move(quarter)));
 
   // Date / time extractors
   auto hour =
       UnaryTemporalFactory<Hour, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("hour", int64(),
-                                                                       &hour_doc);
+                                                                       hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
   auto minute =
       UnaryTemporalFactory<Minute, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("minute", int64(),
-                                                                       &minute_doc);
+                                                                       minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
   auto second =
       UnaryTemporalFactory<Second, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("second", int64(),
-                                                                       &second_doc);
+                                                                       second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond =
       UnaryTemporalFactory<Millisecond, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("millisecond",
                                                                        int64(),
-                                                                       &millisecond_doc);
+                                                                       millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
   auto microsecond =
       UnaryTemporalFactory<Microsecond, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("microsecond",
                                                                        int64(),
-                                                                       &microsecond_doc);
+                                                                       microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
   auto nanosecond =
       UnaryTemporalFactory<Nanosecond, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("nanosecond",
                                                                        int64(),
-                                                                       &nanosecond_doc);
+                                                                       nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
   auto subsecond =
       UnaryTemporalFactory<Subsecond, TemporalComponentExtract,
                            DoubleType>::Make<WithTimes, WithTimestamps>("subsecond",
                                                                         float64(),
-                                                                        &subsecond_doc);
+                                                                        subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
   // Timezone-related functions
   static const auto default_strftime_options = StrftimeOptions();
   auto strftime =
       SimpleUnaryTemporalFactory<Strftime>::Make<WithTimes, WithDates, WithTimestamps>(
-          "strftime", utf8(), &strftime_doc, &default_strftime_options,
+          "strftime", utf8(), strftime_doc, &default_strftime_options,
           StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
 
   auto strptime = SimpleUnaryTemporalFactory<Strptime>::Make<WithStringTypes>(
-      "strptime", OutputType::Resolver(ResolveStrptimeOutput), &strptime_doc, nullptr,
+      "strptime", OutputType::Resolver(ResolveStrptimeOutput), strptime_doc, nullptr,
       StrptimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strptime)));
 
@@ -1910,13 +1911,13 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
       UnaryTemporalFactory<AssumeTimezone, AssumeTimezoneExtractor, TimestampType>::Make<
           WithTimestamps>("assume_timezone",
                           OutputType::Resolver(ResolveAssumeTimezoneOutput),
-                          &assume_timezone_doc, nullptr, AssumeTimezoneState::Init);
+                          assume_timezone_doc, nullptr, AssumeTimezoneState::Init);
   DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
 
   auto is_dst =
       UnaryTemporalFactory<IsDaylightSavings, DaylightSavingsExtractor,
                            BooleanType>::Make<WithTimestamps>("is_dst", boolean(),
-                                                              &is_dst_doc);
+                                                              is_dst_doc);
   DCHECK_OK(registry->AddFunction(std::move(is_dst)));
 
   // Temporal rounding functions
@@ -1924,19 +1925,19 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   auto floor_temporal = UnaryTemporalFactory<FloorTemporal, TemporalComponentExtractRound,
                                              TimestampType>::Make<WithDates, WithTimes,
                                                                   WithTimestamps>(
-      "floor_temporal", OutputType(FirstType), &floor_temporal_doc,
+      "floor_temporal", OutputType(FirstType), floor_temporal_doc,
       &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(floor_temporal)));
   auto ceil_temporal = UnaryTemporalFactory<CeilTemporal, TemporalComponentExtractRound,
                                             TimestampType>::Make<WithDates, WithTimes,
                                                                  WithTimestamps>(
-      "ceil_temporal", OutputType(FirstType), &ceil_temporal_doc,
+      "ceil_temporal", OutputType(FirstType), ceil_temporal_doc,
       &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(ceil_temporal)));
   auto round_temporal = UnaryTemporalFactory<RoundTemporal, TemporalComponentExtractRound,
                                              TimestampType>::Make<WithDates, WithTimes,
                                                                   WithTimestamps>(
-      "round_temporal", OutputType(FirstType), &round_temporal_doc,
+      "round_temporal", OutputType(FirstType), round_temporal_doc,
       &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(round_temporal)));
 }

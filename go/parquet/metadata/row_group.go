@@ -17,13 +17,13 @@
 package metadata
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
 	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v8/parquet/schema"
-	"golang.org/x/xerrors"
 )
 
 // RowGroupMetaData is a proxy around the thrift RowGroup meta data object
@@ -73,7 +73,7 @@ func (r *RowGroupMetaData) Ordinal() int16 { return r.rowGroup.GetOrdinal() }
 // ColumnChunk returns the metadata for the requested (0-based) chunk index
 func (r *RowGroupMetaData) ColumnChunk(i int) (*ColumnChunkMetaData, error) {
 	if i >= r.NumColumns() {
-		panic(xerrors.Errorf("parquet: the file only has %d columns, requested metadata for column: %d", r.NumColumns(), i))
+		panic(fmt.Errorf("parquet: the file only has %d columns, requested metadata for column: %d", r.NumColumns(), i))
 	}
 
 	return NewColumnChunkMetaData(r.rowGroup.Columns[i], r.Schema.Column(i), r.version, r.rowGroup.GetOrdinal(), int16(i), r.fileDecryptor)
@@ -126,7 +126,7 @@ func (r *RowGroupMetaDataBuilder) CurrentColumn() int { return r.nextCol - 1 }
 // and returns a builder for that column chunk's metadata
 func (r *RowGroupMetaDataBuilder) NextColumnChunk() *ColumnChunkMetaDataBuilder {
 	if r.nextCol >= r.NumColumns() {
-		panic(xerrors.Errorf("parquet: the schema only has %d columns, requested metadata for col: %d", r.NumColumns(), r.nextCol))
+		panic(fmt.Errorf("parquet: the schema only has %d columns, requested metadata for col: %d", r.NumColumns(), r.nextCol))
 	}
 
 	col := r.schema.Column(r.nextCol)
@@ -145,7 +145,7 @@ func (r *RowGroupMetaDataBuilder) NextColumnChunk() *ColumnChunkMetaDataBuilder 
 // being written. e.g. first row group should be 0, second is 1, and so on...
 func (r *RowGroupMetaDataBuilder) Finish(totalBytesWritten int64, ordinal int16) error {
 	if r.nextCol != r.NumColumns() {
-		return xerrors.Errorf("parquet: only %d out of %d columns are initialized", r.nextCol-1, r.schema.NumColumns())
+		return fmt.Errorf("parquet: only %d out of %d columns are initialized", r.nextCol-1, r.schema.NumColumns())
 	}
 
 	var (
@@ -155,7 +155,7 @@ func (r *RowGroupMetaDataBuilder) Finish(totalBytesWritten int64, ordinal int16)
 
 	for idx, col := range r.rg.Columns {
 		if col.FileOffset < 0 {
-			return xerrors.Errorf("parquet: Column %d is not complete", idx)
+			return fmt.Errorf("parquet: Column %d is not complete", idx)
 		}
 		if idx == 0 {
 			if col.MetaData.IsSetDictionaryPageOffset() && col.MetaData.GetDictionaryPageOffset() > 0 {
