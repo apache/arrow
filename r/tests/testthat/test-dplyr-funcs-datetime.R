@@ -1681,6 +1681,24 @@ test_that("parse_date_time() works with year, month, and date components", {
   )
 })
 
+test_that("parse_date_time() works with a mix of formats and orders", {
+  test_df <- tibble(
+    string_combi = c("2021-09-1", "2/09//2021", "09.3.2021")
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_from_string = parse_date_time(
+          string_combi,
+          orders = c("ymd", "%d/%m//%Y", "%m.%d.%Y")
+        )
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("parse_date_time() doesn't work with hour, minutes, and second components", {
   test_dates_times <- tibble(
     date_times = c("09-01-17 12:34:56", NA)
