@@ -190,7 +190,7 @@ const FunctionDoc cumulative_sum_checked_doc{
 
 template <typename Op, typename OptionsType>
 void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string func_name,
-                                  const FunctionDoc* doc) {
+                                  const FunctionDoc doc) {
   static const OptionsType kDefaultOptions = OptionsType::Defaults();
   auto func =
       std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &kDefaultOptions);
@@ -214,9 +214,9 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
   MakeVectorCumulativeFunction<Add, CumulativeSumOptions>(registry, "cumulative_sum",
-                                                          &cumulative_sum_doc);
+                                                          cumulative_sum_doc);
   MakeVectorCumulativeFunction<AddChecked, CumulativeSumOptions>(
-      registry, "cumulative_sum_checked", &cumulative_sum_checked_doc);
+      registry, "cumulative_sum_checked", cumulative_sum_checked_doc);
 }
 
 }  // namespace internal
