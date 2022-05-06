@@ -255,7 +255,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         case 6:
           return Status::NotImplemented("Anti join type is not supported");
         default:
-          break;
+          return Status::Invalid("Unsupported join type");
       }
 
       ARROW_ASSIGN_OR_RAISE(auto left, FromProto(join.left(), ext_set));
