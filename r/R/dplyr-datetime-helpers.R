@@ -156,14 +156,16 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 }
 
 build_formats <- function(orders) {
-  # allow the users to pass strptime-like formats (with "%")
-  # separate formats (strings containing "%") from orders
-  formats_passsed_via_orders <- grep("%", orders, value = TRUE)
-  pure_orders <- grep("%", orders, value = TRUE, invert = TRUE)
+
+  # only keep the letters and the underscore as separator -> allow the users to
+  # pass strptime-like formats (with "%"). Processing is neede (instead of passing
+  # formats as-is) due to the processing of the character vector in parse_date_time()
+  orders <- gsub("[^A-Za-z_]", "", orders)
+  orders <- gsub("Y", "y", orders)
 
   supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
-  unsupported_passed_orders <- setdiff(pure_orders, supported_orders)
-  supported_passed_orders <- intersect(pure_orders, supported_orders)
+  unsupported_passed_orders <- setdiff(orders, supported_orders)
+  supported_passed_orders <- intersect(orders, supported_orders)
 
   # error only if there isn't at least one valid order we can try
   if (length(supported_passed_orders) == 0) {
@@ -178,8 +180,7 @@ build_formats <- function(orders) {
   }
 
   formats_list <- map(orders, build_format_from_order)
-  formats_from_order <- purrr::flatten_chr(formats_list)
-  c(formats_passsed_via_orders, formats_from_order)
+  purrr::flatten_chr(formats_list)
 }
 
 build_format_from_order <- function(order) {
