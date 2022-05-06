@@ -114,6 +114,7 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer) {
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
+  // TODO(ARROW-15732)
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool());
   arrow::engine::SubstraitExecutor executor(&sink_gen, std::move(plan), exec_context);
