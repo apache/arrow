@@ -112,6 +112,7 @@ x-hierarchy:
         - conda-python-spark
         - conda-python-turbodbc
   - conda-verify-rc
+  - conan
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -197,7 +198,7 @@ services:
     # Base image for conda builds.
     #
     # Usage:
-    #   docker-compose build con
+    #   docker-compose build conda
     #   docker-compose run --rm conda
     # Parameters:
     #   ARCH: amd64, arm32v7
@@ -499,6 +500,25 @@ services:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}fedora-ccache:/ccache:delegated
     command: *cpp-command
+
+  conan:
+    # Base service for Conan.
+    #
+    # Usage:
+    #   docker-compose run --rm conan
+    # Parameters:
+    #   CONAN: gcc11, gcc11-armv7, ...
+    #   See https://github.com/conan-io/conan-docker-tools#readme for
+    #   available images.
+    image: conanio/${CONAN}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    volumes:
+      - .:/arrow:delegated
+    command: >-
+      /bin/bash -c "
+        /arrow/ci/scripts/conan_setup.sh &&
+        /arrow/ci/scripts/conan_build.sh /arrow /build"
 
   ############################### C GLib ######################################
 
