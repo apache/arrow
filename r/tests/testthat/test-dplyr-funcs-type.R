@@ -187,8 +187,10 @@ test_that("explicit type conversions with as.*()", {
       ) %>%
       collect() %>%
       # need to use toupper() *after* collect() or else skip if utf8proc not available
-      mutate(lgl2chr = toupper(lgl2chr),
-             rlgl2chr = toupper(rlgl2chr)), # ... but we need "TRUE", "FALSE"
+      mutate(
+        lgl2chr = toupper(lgl2chr),
+        rlgl2chr = toupper(rlgl2chr)
+      ), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
       int = c(1L, 0L, NA_integer_),
@@ -282,9 +284,11 @@ test_that("type checks with is() giving Arrow types", {
       collect() %>%
       t() %>%
       as.vector(),
-    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
+    c(
+      TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
       FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
-      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
+      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE
+    )
   )
   # with class2=string
   expect_equal(
@@ -799,8 +803,7 @@ test_that("nested structs can be created from scalars and existing data frames",
       collect(),
     tibble(a = 1:2)
   )
-
-  })
+})
 
 test_that("format date/time", {
   # locale issues
@@ -848,8 +851,10 @@ test_that("format date/time", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = format(1),
-             y = format(13.7, nsmall = 3)) %>%
+      mutate(
+        x = format(1),
+        y = format(13.7, nsmall = 3)
+      ) %>%
       collect(),
     times
   )

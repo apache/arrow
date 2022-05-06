@@ -48,9 +48,9 @@ test_that("to_duckdb", {
       # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
       select(!fct) %>%
       arrange(int),
-      example_data %>%
-        select(!fct) %>%
-        arrange(int)
+    example_data %>%
+      select(!fct) %>%
+      arrange(int)
   )
 
   expect_identical(

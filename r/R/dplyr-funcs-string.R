@@ -118,8 +118,8 @@ format_string_replacement <- function(replacement, ignore.case, fixed) {
 stop_if_locale_provided <- function(locale) {
   if (!identical(locale, "en")) {
     stop("Providing a value for 'locale' other than the default ('en') is not supported in Arrow. ",
-         "To change locale, use 'Sys.setlocale()'",
-         call. = FALSE
+      "To change locale, use 'Sys.setlocale()'",
+      call. = FALSE
     )
   }
 }
@@ -133,7 +133,6 @@ register_bindings_string <- function() {
 }
 
 register_bindings_string_join <- function() {
-
   arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
     # the `binary_join_element_wise` Arrow C++ compute kernel takes the separator
     # as the last argument, so pass `sep` as the last dots arg to this function
@@ -191,7 +190,6 @@ register_bindings_string_join <- function() {
 }
 
 register_bindings_string_regex <- function() {
-
   create_string_match_expr <- function(arrow_fun, string, pattern, ignore_case) {
     out <- Expression$create(
       arrow_fun,
@@ -216,9 +214,10 @@ register_bindings_string_regex <- function() {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     arrow_fun <- ifelse(opts$fixed, "match_substring", "match_substring_regex")
     out <- create_string_match_expr(arrow_fun,
-                                    string = string,
-                                    pattern = opts$pattern,
-                                    ignore_case = opts$ignore_case)
+      string = string,
+      pattern = opts$pattern,
+      ignore_case = opts$ignore_case
+    )
     if (negate) {
       out <- !out
     }
@@ -333,7 +332,7 @@ register_bindings_string_regex <- function() {
   register_binding("str_replace_all", arrow_stringr_string_replace_function(-1L))
 
   register_binding("strsplit", function(x, split, fixed = FALSE, perl = FALSE,
-                                            useBytes = FALSE) {
+                                        useBytes = FALSE) {
     assert_that(is.string(split))
 
     arrow_fun <- ifelse(fixed, "split_pattern", "split_pattern_regex")
@@ -383,7 +382,6 @@ register_bindings_string_regex <- function() {
 }
 
 register_bindings_string_other <- function() {
-
   register_binding("nchar", function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
     if (allowNA) {
       arrow_not_supported("allowNA = TRUE")

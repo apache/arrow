@@ -159,7 +159,6 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
-
   expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
 })
 

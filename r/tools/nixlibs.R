@@ -373,8 +373,8 @@ ensure_cmake <- function() {
       postfix <- "-linux-x86_64.tar.gz"
     } else {
       stop(paste0(
-         "*** cmake was not found locally.\n",
-         "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
+        "*** cmake was not found locally.\n",
+        "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
       ))
     }
     cmake_binary_url <- paste0(
@@ -591,10 +591,10 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
       cat(paste0(
-      "*** Building libarrow from source\n",
-      "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
-      "    See install vignette for details:\n",
-      "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
+        "*** Building libarrow from source\n",
+        "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
+        "    See install vignette for details:\n",
+        "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
       ))
       build_libarrow(src_dir, dst_dir)
     } else {

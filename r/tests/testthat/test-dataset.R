@@ -591,7 +591,9 @@ test_that("UnionDataset can merge schemas", {
   ds <- open_dataset(list(ds1, ds2), unify_schemas = FALSE)
   expected <- as_tibble(sub_df1) %>%
     union_all(sub_df2 %>% as_tibble() %>% select(x))
-  actual <- ds %>% collect() %>% arrange(x)
+  actual <- ds %>%
+    collect() %>%
+    arrange(x)
   expect_equal(colnames(actual), c("x", "y"))
   expect_equal(actual, expected)
 })

@@ -132,12 +132,14 @@ test_that("strptime returns NA when format doesn't match the data", {
       arrow_table() %>%
       mutate(
         r_obj_parsed_date = strptime("03-27/2022", format = "%m-%d/%Y"),
-        r_obj_parsed_na = strptime("03-27/2022", format = "Y%-%m-%d")) %>%
+        r_obj_parsed_na = strptime("03-27/2022", format = "Y%-%m-%d")
+      ) %>%
       collect(),
     df %>%
       mutate(
         r_obj_parsed_date = as.POSIXct(strptime("03-27/2022", format = "%m-%d/%Y")),
-        r_obj_parsed_na = as.POSIXct(strptime("03-27/2022", format = "Y%-%m-%d"))),
+        r_obj_parsed_na = as.POSIXct(strptime("03-27/2022", format = "Y%-%m-%d"))
+      ),
     ignore_attr = "tzone"
   )
 
@@ -146,8 +148,8 @@ test_that("strptime returns NA when format doesn't match the data", {
       record_batch() %>%
       mutate(parsed_date = strptime(str_date, format = "%Y-%m-%d")) %>%
       collect(),
-   df %>%
-     mutate(parsed_date = as.POSIXct(strptime(str_date, format = "%Y-%m-%d"))),
+    df %>%
+      mutate(parsed_date = as.POSIXct(strptime(str_date, format = "%Y-%m-%d"))),
     ignore_attr = "tzone"
   )
 
@@ -771,16 +773,16 @@ test_that("extract tz", {
     call_binding("tz", 1L),
     "timezone extraction for objects of class `int32` not supported in Arrow"
   )
-   expect_error(
+  expect_error(
     call_binding("tz", 1.1),
     "timezone extraction for objects of class `double` not supported in Arrow"
   )
 
   # Test one expression
-   expect_error(
-     call_binding("tz", Expression$scalar("2020-10-01")),
-     "timezone extraction for objects of class `string` not supported in Arrow"
-   )
+  expect_error(
+    call_binding("tz", Expression$scalar("2020-10-01")),
+    "timezone extraction for objects of class `string` not supported in Arrow"
+  )
 })
 
 test_that("semester works with temporal types and integers", {
@@ -792,11 +794,13 @@ test_that("semester works with temporal types and integers", {
 
   # semester extraction from dates
   compare_dplyr_binding(
-     .input %>%
-      mutate(sem_wo_year = semester(dates),
-             sem_w_year = semester(dates, with_year = TRUE)) %>%
+    .input %>%
+      mutate(
+        sem_wo_year = semester(dates),
+        sem_w_year = semester(dates, with_year = TRUE)
+      ) %>%
       collect(),
-     test_df
+    test_df
   )
 
   compare_dplyr_binding(
@@ -830,39 +834,39 @@ test_that("dst extracts daylight savings time correctly", {
 })
 
 test_that("month() supports integer input", {
-    test_df_month <- tibble(
-      month_as_int = c(1:12, NA)
-    )
+  test_df_month <- tibble(
+    month_as_int = c(1:12, NA)
+  )
 
-    compare_dplyr_binding(
-      .input %>%
-        mutate(month_int_input = month(month_as_int)) %>%
-        collect(),
-      test_df_month
-    )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(month_int_input = month(month_as_int)) %>%
+      collect(),
+    test_df_month
+  )
 
-    compare_dplyr_binding(
-      .input %>%
-        # R returns ordered factor whereas Arrow returns character
-        mutate(
-          month_int_input = as.character(month(month_as_int, label = TRUE))
-        ) %>%
-        collect(),
-      test_df_month
-    )
+  compare_dplyr_binding(
+    .input %>%
+      # R returns ordered factor whereas Arrow returns character
+      mutate(
+        month_int_input = as.character(month(month_as_int, label = TRUE))
+      ) %>%
+      collect(),
+    test_df_month
+  )
 
-    compare_dplyr_binding(
-      .input %>%
-        # R returns ordered factor whereas Arrow returns character
-        mutate(
-          month_int_input = as.character(
-            month(month_as_int, label = TRUE, abbr = FALSE)
-          )
-        ) %>%
-        collect(),
-      test_df_month
-    )
-  })
+  compare_dplyr_binding(
+    .input %>%
+      # R returns ordered factor whereas Arrow returns character
+      mutate(
+        month_int_input = as.character(
+          month(month_as_int, label = TRUE, abbr = FALSE)
+        )
+      ) %>%
+      collect(),
+    test_df_month
+  )
+})
 
 test_that("month() errors with double input and returns NA with int outside 1:12", {
   test_df_month <- tibble(
@@ -906,7 +910,8 @@ test_that("date works in arrow", {
   # since as.Date returns the UTC date and date() doesn't
   test_df <- tibble(
     posixct_date = as.POSIXct(c("2012-03-26 23:12:13", NA), tz = "America/New_York"),
-    integer_var = c(32L, NA))
+    integer_var = c(32L, NA)
+  )
 
   r_date_object <- lubridate::ymd_hms("2012-03-26 23:12:13")
 
@@ -953,8 +958,10 @@ test_that("date works in arrow", {
       select(integer_var) %>%
       mutate(date_int = date(integer_var)) %>%
       collect(),
-    tibble(integer_var = c(32L, NA),
-           date_int = as.Date(c("1970-02-02", NA)))
+    tibble(
+      integer_var = c(32L, NA),
+      date_int = as.Date(c("1970-02-02", NA))
+    )
   )
 })
 
@@ -1022,7 +1029,8 @@ test_that("make_date & make_datetime", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        composed_datetime_r_obj = make_datetime(1999, 12, 31, 14, 15, 16)) %>%
+        composed_datetime_r_obj = make_datetime(1999, 12, 31, 14, 15, 16)
+      ) %>%
       collect(),
     test_df,
     # the make_datetime binding uses strptime which does not support tz, hence
@@ -1066,7 +1074,8 @@ test_that("ISO_datetime & ISOdate", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        composed_datetime = ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")) %>%
+        composed_datetime = ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")
+      ) %>%
       collect(),
     test_df,
     # the make_datetime binding uses strptime which does not support tz, hence
@@ -1077,7 +1086,8 @@ test_that("ISO_datetime & ISOdate", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        composed_datetime_r_obj = ISOdatetime(1999, 12, 31, 14, 15, 16)) %>%
+        composed_datetime_r_obj = ISOdatetime(1999, 12, 31, 14, 15, 16)
+      ) %>%
       collect(),
     test_df,
     # the make_datetime binding uses strptime which does not support tz, hence
@@ -1093,7 +1103,7 @@ test_that("difftime works correctly", {
     ),
     time2 = as.POSIXct(
       c("2021-02-20 00:02:01", "2021-07-31 00:03:54", "2021-10-30 00:05:45", "2021-01-31 00:07:36")
-      ),
+    ),
     secs = c(121L, 234L, 345L, 456L)
   )
 
@@ -1224,11 +1234,15 @@ test_that("as.difftime()", {
 
 test_that("`decimal_date()` and `date_decimal()`", {
   test_df <- tibble(
-    a = c(2007.38998954347, 1970.77732069883, 2020.96061799722,
-          2009.43465948477, 1975.71251467871, NA),
+    a = c(
+      2007.38998954347, 1970.77732069883, 2020.96061799722,
+      2009.43465948477, 1975.71251467871, NA
+    ),
     b = as.POSIXct(
-      c("2007-05-23 08:18:30", "1970-10-11 17:19:45", "2020-12-17 14:04:06",
-        "2009-06-08 15:37:01", "1975-09-18 01:37:42", NA)
+      c(
+        "2007-05-23 08:18:30", "1970-10-11 17:19:45", "2020-12-17 14:04:06",
+        "2009-06-08 15:37:01", "1975-09-18 01:37:42", NA
+      )
     ),
     c = as.Date(
       c("2007-05-23", "1970-10-11", "2020-12-17", "2009-06-08", "1975-09-18", NA)
@@ -1401,7 +1415,7 @@ test_that("make_difftime()", {
         ),
         duration_from_num = make_difftime(
           num = number,
-          units =  "secs"
+          units = "secs"
         ),
         duration_from_r_num = make_difftime(
           num = 154,
@@ -1428,8 +1442,10 @@ test_that("make_difftime()", {
           err_difftime = make_difftime(month = 2)
         ) %>%
         collect(),
-      paste0("named `difftime` units other than: `second`, `minute`, `hour`,",
-             " `day`, and `week` not supported in Arrow.")
+      paste0(
+        "named `difftime` units other than: `second`, `minute`, `hour`,",
+        " `day`, and `week` not supported in Arrow."
+      )
     )
   )
 
@@ -1513,7 +1529,8 @@ test_that("`as.Date()` and `as_date()`", {
   compare_dplyr_binding(
     .input %>%
       mutate(date_char_ymd = as.Date(character_ymd_var,
-                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
+        tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+      )) %>%
       collect(),
     test_df,
     warning = TRUE
@@ -1558,7 +1575,7 @@ test_that("`as.Date()` and `as_date()`", {
   )
 
   # difference between as.Date() and as_date():
-  #`as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
+  # `as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
   # to `as.Date()`
   # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
   # passsed if`tz` is NULL

@@ -287,7 +287,8 @@ test_that("array uses local timezone for POSIXct without timezone", {
     times_with_tz <- strptime(
       "2019-02-03 12:34:56",
       format = "%Y-%m-%d %H:%M:%S",
-      tz = "Asia/Katmandu") + 1:10
+      tz = "Asia/Katmandu"
+    ) + 1:10
     expect_equal(attr(times, "tzone"), "Asia/Katmandu")
     expect_array_roundtrip(times, timestamp("us", "Asia/Katmandu"))
   })
@@ -598,8 +599,10 @@ test_that("Array$create() handles list of dataframes -> map arrays", {
   expect_r6_class(Array$create(list(), type = map_of(utf8(), boolean())), "MapArray")
 
   # MapType is alias for List<Struct<keys, values>>
-  data <- list(data.frame(key = c("a", "b"), value = c(1, 2), stringsAsFactors = FALSE),
-               data.frame(key = c("a", "c"), value = c(4, 7), stringsAsFactors = FALSE))
+  data <- list(
+    data.frame(key = c("a", "b"), value = c(1, 2), stringsAsFactors = FALSE),
+    data.frame(key = c("a", "c"), value = c(4, 7), stringsAsFactors = FALSE)
+  )
   arr <- Array$create(data, type = map_of(utf8(), int32()))
 
   expect_r6_class(arr, "MapArray")
