@@ -95,7 +95,7 @@ configure_tzdb <- function() {
 
 .onAttach <- function(libname, pkgname) {
   # Just to be extra safe, let's wrap this in a try();
-  # we don't a failed startup message to prevent the package from loading
+  # we don't want a failed startup message to prevent the package from loading
   try({
     features <- arrow_info()$capabilities
     # That has all of the #ifdef features, plus the compression libs and the
