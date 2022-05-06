@@ -24,7 +24,7 @@
     * `orders` currently only works with shorter formats (without the `%`). Supported formats: `"ymd"`, `"ydm"`, `"mdy"`, `"myd"`, `"dmy"`, and `"dym"`. 
     * strings with no separators (e.g. 20210917) will likely fail to parse so you might want to try using the `strptime()` binding instead.
 
-# arrow 8.0.0
+# arrow 7.0.0.9000
 
 ## Enhancements to dplyr and datasets
 
