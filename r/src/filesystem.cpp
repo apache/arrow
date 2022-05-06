@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
 
@@ -273,8 +271,6 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
   StopIfNotOk(fs::CopyFiles(source_fs, *source_sel, destination_fs, destination_base_dir,
                             io::default_io_context(), chunk_size, use_threads));
 }
-
-#endif
 
 #if defined(ARROW_R_WITH_S3)
 

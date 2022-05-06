@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
@@ -414,7 +412,5 @@ std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
 
   return ValueOrStop(arrow::Table::FromRecordBatches(std::move(all_batches)));
 }
-
-#endif
 
 #endif
