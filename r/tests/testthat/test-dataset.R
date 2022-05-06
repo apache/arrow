@@ -608,7 +608,7 @@ test_that("UnionDataset handles InMemoryDatasets", {
   ds1 <- InMemoryDataset$create(sub_df1)
   ds2 <- InMemoryDataset$create(sub_df2)
   ds <- c(ds1, ds2)
-  actual <- ds %>% collect()
+  actual <- ds %>% collect(as_data_frame = FALSE)
   expected <- concat_tables(sub_df1, sub_df2)
   expect_equal(actual, expected)
 })
