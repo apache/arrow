@@ -355,12 +355,15 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
 
     protected _loadRecordBatch(header: metadata.RecordBatch, body: Uint8Array) {
         if (header.compression) {
-          const codec = compressionRegistry.get(header.compression);
-          if (codec?.decode) {
-              body = codec.decode(body);
-          } else {
-              throw new Error('Record batch is compressed but codec not found');
-          }
+            const codec = compressionRegistry.get(header.compression);
+            if (codec?.decode) {
+                // TODO: does this need to be offset by 8 bytes? Since the uncompressed length is
+                // written in the first 8 bytes:
+                // https://github.com/apache/arrow/blob/1fc251f18d5b48f0c9fe8af8168237e7e6d05a45/format/Message.fbs#L59-L65
+                body = codec.decode(body);
+            } else {
+                throw new Error('Record batch is compressed but codec not found');
+            }
         }
 
         const children = this._loadVectors(header, body, this.schema.fields);
