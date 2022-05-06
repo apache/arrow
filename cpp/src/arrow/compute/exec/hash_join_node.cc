@@ -455,13 +455,13 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
 }
 
 Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
-  if (join_options.key_cmp.size() < 1 || join_options.left_keys.size() < 1 ||
-      join_options.right_keys.size() < 1) {
+  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
+      join_options.right_keys.empty()) {
     return Status::Invalid("key_cmp and keys cannot be empty");
   }
 
   if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
-      (join_options.key_cmp.size() != join_options.right_keys.size()) {
+      (join_options.key_cmp.size() != join_options.right_keys.size())) {
     return Status::Invalid("key_cmp and keys must have the same size");
   }
 
