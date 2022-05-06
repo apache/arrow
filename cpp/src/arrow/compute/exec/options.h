@@ -238,6 +238,9 @@ class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
 
   std::shared_ptr<SinkNodeConsumer> consumer;
   /// \brief Names to rename the sink's schema fields to
+  ///
+  /// If specified then names must be provided for all fields. Currently, only a flat
+  /// schema is supported (see ARROW-15901).
   std::vector<std::string> names;
 };
 
