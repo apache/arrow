@@ -74,6 +74,7 @@ export {
     RecordBatch,
     util,
     Builder, makeBuilder, builderThroughIterable, builderThroughAsyncIterable,
+    compressionRegistry, CompressionType,
 } from './Arrow.js';
 
 export {
