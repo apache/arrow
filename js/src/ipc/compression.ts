@@ -34,7 +34,7 @@ class _CompressionRegistry {
     }
 
     get(compression?: CompressionType): Codec | null {
-        if (compression) {
+        if (compression !== undefined) {
             return this.registry?.[compression] || null;
         }
         return null;
