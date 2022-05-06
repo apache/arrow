@@ -93,7 +93,7 @@ struct CumulativeGeneric {
       }
       case Datum::ARRAY: {
         auto arr_input = values.array();
-        builder->Reserve(arr_input->length);
+        RETURN_NOT_OK(builder->Reserve(arr_input->length));
         RETURN_NOT_OK(Call(*arr_input));
         break;
       }
@@ -101,7 +101,7 @@ struct CumulativeGeneric {
         const auto& chunked_input = values.chunked_array();
 
         for (const auto& chunk : chunked_input->chunks()) {
-          builder->Reserve(chunk->length());
+          RETURN_NOT_OK(builder->Reserve(chunk->length()));
           RETURN_NOT_OK(Call(*chunk->data()));
         }
         break;
@@ -142,7 +142,7 @@ struct CumulativeGeneric {
           },
           [&]() { encountered_null = true; });
 
-      builder->AppendNulls(input.length - nulls_start_idx);
+      RETURN_NOT_OK(builder->AppendNulls(input.length - nulls_start_idx));
     }
 
     return st;
