@@ -29,3 +29,6 @@
 :warning: *{{ report.tasks_by_state["pending"] | length }} pending jobs*
 
 :tada: *{{ report.tasks_by_state["success"] | length }} successful jobs*
+{% if extra_message %}
+{{ extra_message }}
+{% endif %}
