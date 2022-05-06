@@ -79,8 +79,8 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
     // pipe each relation into a consuming_sink node
     auto sink_decl = compute::Declaration::Sequence({
         std::move(decl),
-        {"consuming_sink", compute::ConsumingSinkNodeOptions{consumer_factory(),
-                                                             std::move(names)}},
+        {"consuming_sink",
+         compute::ConsumingSinkNodeOptions{consumer_factory(), std::move(names)}},
     });
     sink_decls.push_back(std::move(sink_decl));
   }

@@ -616,8 +616,8 @@ TEST(ExecPlanExecution, ConsumingSinkNames) {
                      SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
     ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
                            ConsumingSinkNodeOptions(consumer, names)));
-    if (names.size() != 0
-          && names.size() != static_cast<size_t>(basic_data.batches[0].num_values())) {
+    if (names.size() != 0 &&
+        names.size() != static_cast<size_t>(basic_data.batches[0].num_values())) {
       ASSERT_RAISES(Invalid, plan->StartProducing());
     } else {
       auto expected_names = names.size() == 0 ? basic_data.schema->field_names() : names;
