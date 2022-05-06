@@ -156,9 +156,8 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 }
 
 build_formats <- function(orders) {
-
   # only keep the letters and the underscore as separator -> allow the users to
-  # pass strptime-like formats (with "%"). Processing is neede (instead of passing
+  # pass strptime-like formats (with "%"). Processing is needed (instead of passing
   # formats as-is) due to the processing of the character vector in parse_date_time()
   orders <- gsub("[^A-Za-z_]", "", orders)
   orders <- gsub("Y", "y", orders)
