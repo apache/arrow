@@ -31,11 +31,12 @@ version=$(grep '^set(ARROW_VERSION ' ${ARROW_HOME}/cpp/CMakeLists.txt | \
             grep -E -o '([0-9.]*)')
 
 rm -rf ${build_dir}/conan || sudo rm -rf ${build_dir}/conan
-mkdir -p ${build_dir} || sudo mkdir -p ${build_dir}
+mkdir -p ${build_dir}/conan || sudo mkdir -p ${build_dir}/conan
 if [ -w ${build_dir} ]; then
-  cp -a ${source_dir}/ci/conan/all ${build_dir}/conan
+  cp -a ${source_dir}/ci/conan/* ${build_dir}/conan/
 else
-  sudo cp -a ${source_dir}/ci/conan/all ${build_dir}/conan
+  sudo cp -a ${source_dir}/ci/conan/* ${build_dir}/conan/
+  sudo chown -R $(id -u):$(id -g) ${build_dir}/conan/
 fi
-cd ${build_dir}/conan
+cd ${build_dir}/conan/all
 conan create . arrow/${version}@ "$@"
