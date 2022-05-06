@@ -62,9 +62,13 @@ TEST_F(TestInMemoryDataset, ReplaceSchema) {
       schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
   // drop field
-  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  auto new_schema = schema({field("i32", int32())});
+  ASSERT_OK_AND_ASSIGN(auto new_dataset, dataset->ReplaceSchema(new_schema));
+  AssertDatasetHasSchema(new_dataset, new_schema);
   // add field (will be materialized as null during projection)
-  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  new_schema = schema({field("str", utf8())});
+  ASSERT_OK_AND_ASSIGN(new_dataset, dataset->ReplaceSchema(new_schema));
+  AssertDatasetHasSchema(new_dataset, new_schema);
   // incompatible type
   ASSERT_RAISES(TypeError,
                 dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
@@ -131,9 +135,13 @@ TEST_F(TestUnionDataset, ReplaceSchema) {
   AssertDatasetEquals(reader.get(), dataset.get());
 
   // drop field
-  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  auto new_schema = schema({field("i32", int32())});
+  ASSERT_OK_AND_ASSIGN(auto new_dataset, dataset->ReplaceSchema(new_schema));
+  AssertDatasetHasSchema(new_dataset, new_schema);
   // add nullable field (will be materialized as null during projection)
-  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  new_schema = schema({field("str", utf8())});
+  ASSERT_OK_AND_ASSIGN(new_dataset, dataset->ReplaceSchema(new_schema));
+  AssertDatasetHasSchema(new_dataset, new_schema);
   // incompatible type
   ASSERT_RAISES(TypeError,
                 dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
