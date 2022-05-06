@@ -50,8 +50,8 @@ if(${CMAKE_VERSION} VERSION_LESS "3.18.0" OR ARROW_BUILD_TESTS)
   # When building arrow-python-test, we need libpython to be present, so ask for
   # the full "Development" component.  Also ask for it on CMake < 3.18,
   # where "Development.Module" is not available.
-  find_package(Python3 ${Python3Alt_FIND_PACKAGE_OPTIONS}
-               COMPONENTS Interpreter Development NumPy)
+  find_package(Python3 ${Python3Alt_FIND_PACKAGE_OPTIONS} COMPONENTS Interpreter
+                                                                     Development NumPy)
 else()
   find_package(Python3 ${Python3Alt_FIND_PACKAGE_OPTIONS}
                COMPONENTS Interpreter Development.Module NumPy)
