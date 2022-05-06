@@ -20,8 +20,6 @@ import collections
 import operator
 import fnmatch
 import functools
-from io import StringIO
-import textwrap
 
 import requests
 
@@ -194,103 +192,28 @@ class ReportUtils:
         )
         return resp
 
-
-class EmailReport(Report):
-
-    HEADER = textwrap.dedent("""
-        Arrow Build Report for Job {job_name}
-
-        All tasks: {all_tasks_url}
-    """)
-
-    TASK = textwrap.dedent("""
-          - {name}:
-            URL: {url}
-    """).strip()
-
-    EMAIL = textwrap.dedent("""
-        From: {sender_name} <{sender_email}>
-        To: {recipient_email}
-        Subject: {subject}
-
-        {body}
-    """).strip()
-
-    STATUS_HEADERS = {
-        # from CombinedStatus
-        'error': 'Errored Tasks:',
-        'failure': 'Failed Tasks:',
-        'pending': 'Pending Tasks:',
-        'success': 'Succeeded Tasks:',
-    }
-
-    def __init__(self, job, sender_name, sender_email, recipient_email):
-        self.sender_name = sender_name
-        self.sender_email = sender_email
-        self.recipient_email = recipient_email
-        super().__init__(job)
-
-    def listing(self, tasks):
-        return '\n'.join(
-            sorted(
-                self.TASK.format(
-                    name=task_name,
-                    url=self.task_url(task)
-                )
-                for task_name, task in tasks.items()
-            )
-        )
-
-    def header(self):
-        url = self.url(self.job.branch)
-        return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
-
-    def subject(self):
-        failures = len(self.tasks_by_state.get("failure", []))
-        errors = len(self.tasks_by_state.get("error", []))
-        pending = len(self.tasks_by_state.get("pending", []))
-        return (
-            f"[NIGHTLY] Arrow Build Report for Job {self.job.branch}: "
-            f"{failures+errors} failed, {pending} pending"
-        )
-
-    def body(self):
-        buffer = StringIO()
-        buffer.write(self.header())
-
-        for state in ('failure', 'error', 'pending', 'success'):
-            if state in self.tasks_by_state:
-                tasks = self.tasks_by_state[state]
-                buffer.write('\n')
-                buffer.write(self.STATUS_HEADERS[state])
-                buffer.write('\n')
-                buffer.write(self.listing(tasks))
-                buffer.write('\n')
-
-        return buffer.getvalue()
-
-    def email(self):
-        return self.EMAIL.format(
-            sender_name=self.sender_name,
-            sender_email=self.sender_email,
-            recipient_email=self.recipient_email,
-            subject=self.subject(),
-            body=self.body()
-        )
-
-    def show(self, outstream):
-        outstream.write(self.email())
-
-    def send(self, smtp_user, smtp_password, smtp_server, smtp_port):
+    @classmethod
+    def send_email(cls, smtp_user, smtp_password, smtp_server, smtp_port,
+                   recipient_email, message):
         import smtplib
-
-        email = self.email()
 
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         server.ehlo()
         server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_user, self.recipient_email, email)
+        server.sendmail(smtp_user, recipient_email, message)
         server.close()
+
+
+class EmailReport(JinjaReport):
+    templates = {
+        'text': 'email_nightly_report.txt.j2',
+    }
+    fields = [
+        'report',
+        'sender_name',
+        'sender_email',
+        'recipient_email',
+    ]
 
 
 class CommentReport(Report):

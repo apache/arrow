@@ -279,8 +279,8 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         queue.fetch()
 
     job = queue.get(job_name)
-    report = EmailReport(
-        job=job,
+    email_report = EmailReport(
+        report=Report(job),
         sender_name=sender_name,
         sender_email=sender_email,
         recipient_email=recipient_email
@@ -293,14 +293,16 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         )
 
     if send:
-        report.send(
+        ReportUtils.send_email(
             smtp_user=smtp_user,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
-            smtp_port=smtp_port
+            smtp_port=smtp_port,
+            recipient_email=recipient_email,
+            message=email_report.render("text")
         )
     else:
-        report.show(output)
+        output.write(email_report.render("text"))
 
 
 @crossbow.command()
