@@ -29,20 +29,15 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   }
   minio_path <- function(...) paste(now, ..., sep = "/")
 
-  test_that("minio setup", {
-    # Create a "bucket" on minio for this test run, which we'll delete when done.
-    fs <- S3FileSystem$create(
-      access_key = minio_key,
-      secret_key = minio_secret,
-      scheme = "http",
-      endpoint_override = paste0("localhost:", minio_port)
-    )
-    expect_r6_class(fs, "S3FileSystem")
-    now <- as.character(as.numeric(Sys.time()))
-    # If minio isn't running, this will hang for a few seconds and fail with a
-    # curl timeout, causing `run_these` to be set to FALSE and skipping the tests
-    fs$CreateDir(now)
-  })
+  # Create a "bucket" on minio for this test run, which we'll delete when done.
+  fs <- S3FileSystem$create(
+    access_key = minio_key,
+    secret_key = minio_secret,
+    scheme = "http",
+    endpoint_override = paste0("localhost:", minio_port)
+  )
+  now <- as.character(as.numeric(Sys.time()))
+  fs$CreateDir(now)
   # Clean up when we're all done
   on.exit(fs$DeleteDir(now))
 
