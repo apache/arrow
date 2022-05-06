@@ -60,8 +60,8 @@
   }
 
   # Create the .cache$functions list at package load time.
-  # We can't do this at build time because list_compute_functions() may error
-  # if arrow_available() is FALSE
+  # We can't do this at package build time because list_compute_functions()
+  # needs the C++ library loaded
   create_binding_cache()
 
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
