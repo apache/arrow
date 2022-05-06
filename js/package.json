@@ -99,6 +99,7 @@
     "jest": "27.5.1",
     "jest-silent-reporter": "0.5.0",
     "lerna": "4.0.0",
+    "lz4js": "0.2.0",
     "memfs": "3.4.1",
     "mkdirp": "1.0.4",
     "multistream": "4.1.0",
