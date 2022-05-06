@@ -111,6 +111,38 @@ TEST_F(TestInMemoryDataset, InMemoryFragment) {
   AssertSchemaEqual(batch->schema(), schema);
 }
 
+TEST_F(TestInMemoryDataset, HandlesDifferingSchemas) {
+  constexpr int64_t kBatchSize = 1024;
+
+  // These schemas can be merged
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch1 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  SetSchema({field("i32", int64())});
+  auto batch2 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  RecordBatchVector batches{batch1, batch2};
+
+  auto dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  ASSERT_EQ(*table->schema(), *schema_);
+  ASSERT_EQ(table->num_rows(), 2 * kBatchSize);
+
+  // These cannot be merged
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  batch1 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  SetSchema({field("i32", struct_({field("x", date32())}))});
+  batch2 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  batches = RecordBatchVector({batch1, batch2});
+
+  dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+
+  ASSERT_OK_AND_ASSIGN(scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(scanner, scanner_builder->Finish());
+  ASSERT_NOT_OK(scanner->ToTable());
+}
+
 class TestUnionDataset : public DatasetFixtureMixin {};
 
 TEST_F(TestUnionDataset, ReplaceSchema) {
