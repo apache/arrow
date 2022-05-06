@@ -1623,6 +1623,7 @@ test_that("`as_datetime()`", {
 })
 
 test_that("parse_date_time() works with year, month, and date components", {
+  # string processing requires RE2 library (not available on Windows with R 3.6)
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -1682,6 +1683,8 @@ test_that("parse_date_time() works with year, month, and date components", {
 })
 
 test_that("parse_date_time() works with a mix of formats and orders", {
+  # string processing requires RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
   test_df <- tibble(
     string_combi = c("2021-09-1", "2/09//2021", "09.3.2021")
   )
