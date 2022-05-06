@@ -435,7 +435,7 @@ turn_off_all_optional_features <- function(env_var_list) {
   # Because these are done as environment variables (as opposed to build flags),
   # setting these to "OFF" overrides any previous setting. We don't need to
   # check the existing value.
-  # Some features turn on other features (e.g. engine -> substrait -> protobuf),
+  # Some features turn on other features (e.g. substrait -> protobuf),
   # So the list of things to turn off is long. See:
   # https://github.com/apache/arrow/blob/master/cpp/cmake_modules/ThirdpartyToolchain.cmake#L275
   turn_off <- c(
@@ -448,8 +448,7 @@ turn_off_all_optional_features <- function(env_var_list) {
     "ARROW_GCS" = "OFF",
     "ARROW_WITH_GOOGLE_CLOUD_CPP" = "OFF",
     "ARROW_WITH_NLOHMANN_JSON" = "OFF",
-    "ARROW_ENGINE" = "OFF",
-    "ARROW_WITH_SUBSTRAIT" = "OFF",
+    "ARROW_SUBSTRAIT" = "OFF",
     "ARROW_WITH_PROTOBUF" = "OFF",
     "ARROW_WITH_BROTLI" = "OFF",
     "ARROW_WITH_BZ2" = "OFF",
@@ -475,7 +474,7 @@ get_component_names <- function() {
   if (!isTRUE(Sys.which("bash") != "")) {
     stop("nixlibs.R requires bash to be installed and available in your PATH")
   }
-  deps_bash <- normalizePath("tools/download_dependencies_R.sh", mustWork = TRUE)
+  deps_bash <- "tools/download_dependencies_R.sh"
   csv_tempfile <- tempfile(fileext = ".csv")
   deps_bash_success <- system2("bash", deps_bash, stdout = csv_tempfile) == 0
   if (!deps_bash_success) {
