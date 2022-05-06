@@ -883,11 +883,11 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 cdef class _RoundTemporalOptions(FunctionOptions):
     def _set_options(self, multiple, unit, week_starts_monday,
-                     strict_ceil, calendar_based_origin):
+                     ceil_on_boundary, calendar_based_origin):
         self.wrapped.reset(
             new CRoundTemporalOptions(
                 multiple, unwrap_round_temporal_unit(unit),
-                week_starts_monday, strict_ceil,
+                week_starts_monday, ceil_on_boundary,
                 calendar_based_origin)
         )
 
@@ -907,9 +907,9 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         "nanosecond".
     week_starts_monday : bool, default True
         If True, weeks start on Monday; if False, on Sunday.
-    strict_ceil : bool, default False
+    ceil_on_boundary : bool, default False
         If True times exactly on unit multiple boundary will be rounded
-        one unit multiple up. This applies for ceiling only.
+        up one unit. This applies for ceiling only.
     multiple_since_greater_unit : bool, default False
         By default origin is 1970-01-01T00:00:00. By setting this to True,
         rounding origin will be beginning of one less precise calendar unit.
@@ -921,16 +921,16 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         calendar unit.
         For example: rounding to multiple of days since the beginning of the
         month or to hours since the beginning of the day.
-        Please note: week and quarter are not used as greater units,
+        Exceptions: week and quarter are not used as greater units,
         therefor days will will be rounded to the beginning of the month not
-        week.
+        week. Greater unit of week is a year.
 
     """
 
     def __init__(self, multiple=1, unit="day", *, week_starts_monday=True,
-                 strict_ceil=False, multiple_since_greater_unit=False):
+                 ceil_on_boundary=False, multiple_since_greater_unit=False):
         self._set_options(multiple, unit, week_starts_monday,
-                          strict_ceil, multiple_since_greater_unit)
+                          ceil_on_boundary, multiple_since_greater_unit)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):

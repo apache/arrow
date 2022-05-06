@@ -107,7 +107,8 @@ enum class CalendarUnit : int8_t {
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
-                                bool week_starts_monday = true, bool strict_ceil = false,
+                                bool week_starts_monday = true,
+                                bool ceil_on_boundary = false,
                                 bool multiple_since_greater_unit = false);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
@@ -118,16 +119,17 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   CalendarUnit unit;
   /// What day does the week start with (Monday=true, Sunday=false)
   bool week_starts_monday;
-  /// Times exactly on unit multiple boundary will be rounded one unit multiple up.
+  /// If True times exactly on unit multiple boundary will be rounded up one unit.
   /// This applies for ceiling only.
-  bool strict_ceil;
+  bool ceil_on_boundary;
   /// By default time is rounded to a multiple of units since 1970-01-01T00:00:00.
   /// By setting multiple_since_greater_unit to true, time will be rounded to number
   /// of units since the last greater calendar unit.
   /// For example: rounding to multiple of days since the beginning of the month or
   /// to hours since the beginning of the day.
-  /// Please note: week and quarter are not used as greater units, therefor days will
-  /// will be rounded to the beginning of the month not week.
+  /// Exceptions: week and quarter are not used as greater units, therefor days will
+  /// will be rounded to the beginning of the month not week. Greater unit of week
+  /// is year.
   bool multiple_since_greater_unit;
 };
 
