@@ -1051,8 +1051,6 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
           &ext_set));
 }
 
-//  {"literal": {"list": {"values": []}}}
-
 TEST(Substrait, JoinPlanInvalidExpression) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
   "relations": [{
