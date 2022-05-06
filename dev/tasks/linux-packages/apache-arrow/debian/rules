@@ -31,11 +31,17 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=cmake+ninja				\
 	  --							\
+	  -DARROW_COMPUTE=ON					\
+	  -DARROW_CSV=ON					\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
+	  -DARROW_DATASET=ON					\
+	  -DARROW_FILESYSTEM=ON					\
 	  -DARROW_FLIGHT=ON					\
 	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_GCS=ON					\
+	  -DARROW_HDFS=ON					\
+	  -DARROW_JSON=ON					\
 	  -DARROW_MIMALLOC=ON					\
 	  -DARROW_ORC=ON					\
 	  -DARROW_PACKAGE_KIND=deb				\
