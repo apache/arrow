@@ -24,16 +24,6 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 
-case "$(uname -s)-$(uname -m)" in
-  Linux-x86_64|Darwin-*)
-    : # OK
-    ;;
-  *)
-    echo "GCS testbench won't install on non-x86 architecture Linux"
-    exit 0
-    ;;
-esac
-
 version=$1
 if [[ "${version}" -eq "default" ]]; then
   version="v0.16.0"
