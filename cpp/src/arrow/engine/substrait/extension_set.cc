@@ -249,6 +249,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
       for (util::string_view name : {
                "add",
                "equal",
+               "is_not_distinct_from",
            }) {
         DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
       }

@@ -245,15 +245,15 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
           join_type = compute::JoinType::INNER;
           break;
         case 2:
-          break;
+          return Status::NotImplemented("Outer join type is not supported");
         case 3:
-          break;
+          return Status::NotImplemented("Left join type is not supported");
         case 4:
-          break;
+          return Status::NotImplemented("Right join type is not supported");
         case 5:
-          break;
+          return Status::NotImplemented("Semi join type is not supported");
         case 6:
-          break;
+          return Status::NotImplemented("Anti join type is not supported");
         default:
           break;
       }
@@ -268,18 +268,34 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       ARROW_ASSIGN_OR_RAISE(auto expression, FromProto(join.expression(), ext_set));
 
       const auto& callptr = expression.call();
+      if (!callptr) {
+        return Status::Invalid(
+            "Only support call expressions as the join key comparison.");
+      }
 
+      compute::JoinKeyCmp join_key_cmp;
+      if (callptr->function_name == "equal") {
+        join_key_cmp = compute::JoinKeyCmp::EQ;
+      } else if (callptr->function_name == "is_not_distinct_from") {
+        join_key_cmp = compute::JoinKeyCmp::IS;
+      } else {
+        return Status::Invalid(
+            "Only Support `equal` or `is_not_distinct_from` for join key comparison");
+      }
+
+      // TODO: Add Suffix support for Substrait
       compute::HashJoinNodeOptions join_options{
           join_type,
-          /*in_left_keys=*/{std::move(*callptr->arguments[0].field_ref())},
-          /*in_right_keys=*/{std::move(*callptr->arguments[1].field_ref())},
-          /*filter*/ arrow::compute::literal(true),
-          /*output_suffix_for_left*/ "_l",
-          /*output_suffix_for_right*/ "_r"};
+          {std::move(*callptr->arguments[0].field_ref())},
+          {std::move(*callptr->arguments[1].field_ref())},
+          {join_key_cmp},
+          arrow::compute::literal(true),
+          "_l",
+          "_r"};
       compute::Declaration join_dec{"hashjoin", join_options};
       join_dec.inputs.emplace_back(left);
       join_dec.inputs.emplace_back(right);
-      return join_dec;
+      return compute::Declaration::Sequence({join_dec});
     }
 
     default:
