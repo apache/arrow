@@ -77,14 +77,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
-# TODO(wesm): External GTest shared libraries are not currently
-# supported when building with MSVC because of the way that
-# conda-forge packages have 4 variants of the libraries packaged
-# together
-if(MSVC AND "${GTest_SOURCE}" STREQUAL "")
-  set(GTest_SOURCE "BUNDLED")
-endif()
-
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
 # We renamed "BOOST" dependency name to "Boost" in 3.0.0 because
