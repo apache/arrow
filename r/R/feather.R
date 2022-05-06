@@ -45,7 +45,7 @@
 #' @export
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @seealso [Schema] for information about schemas and metadata handling.
-#' @examples()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
@@ -127,7 +127,7 @@ write_feather <- function(x,
 #'
 #' @export
 #' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
-#' @examples()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)

@@ -68,7 +68,7 @@ Field$import_from_c <- ImportField
 #' @param metadata currently ignored
 #' @param nullable TRUE if field is nullable
 #'
-#' @examples()
+#' @examples
 #' field("x", int32())
 #' @rdname Field
 #' @export

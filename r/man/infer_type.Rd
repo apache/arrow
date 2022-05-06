@@ -22,7 +22,6 @@ An arrow \link[=data-type]{data type}
 Infer the arrow Array type from an R object
 }
 \examples{
-()
 infer_type(1:10)
 infer_type(1L:10L)
 infer_type(c(1, 1.5, 2))

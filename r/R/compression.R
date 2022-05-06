@@ -64,7 +64,7 @@ Codec$create <- function(type = "gzip", compression_level = NA) {
 #' "zstd", "lz4", "lzo", or "bz2", case insensitive.
 #' @return Logical: is `type` available?
 #' @export
-#' @examples()
+#' @examples
 #' codec_is_available("gzip")
 codec_is_available <- function(type) {
   util___Codec__IsAvailable(compression_from_name(type))

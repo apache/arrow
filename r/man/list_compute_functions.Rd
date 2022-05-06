@@ -38,7 +38,6 @@ be called directly on Arrow objects, as well as some tidyverse-flavored versions
 available inside \code{dplyr} verbs.
 }
 \examples{
-()
 available_funcs <- list_compute_functions()
 utf8_funcs <- list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
 }

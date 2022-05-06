@@ -206,7 +206,6 @@ to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
 }
 
 \examples{
-()
 tf <- tempfile()
 on.exit(unlink(tf))
 write.csv(mtcars, file = tf)

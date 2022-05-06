@@ -42,7 +42,6 @@ the stream will be left open.
 Write CSV file to disk
 }
 \examples{
-()
 tf <- tempfile()
 on.exit(unlink(tf))
 write_csv_arrow(mtcars, tf)

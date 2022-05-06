@@ -36,7 +36,6 @@ When passing indices in \code{...}, \code{args}, or \code{options}, express them
 0-based integers (consistent with C++).
 }
 \examples{
-()
 a <- Array$create(c(1L, 2L, 3L, NA, 5L))
 s <- Scalar$create(4L)
 call_function("coalesce", a, s)

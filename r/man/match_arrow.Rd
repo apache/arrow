@@ -27,7 +27,6 @@ per element of \code{x} it it is present in \code{table}.
 it. This function exposes the analogous functions in the Arrow C++ library.
 }
 \examples{
-()
 # note that the returned value is 0-indexed
 cars_tbl <- arrow_table(name = rownames(mtcars), mtcars)
 match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)

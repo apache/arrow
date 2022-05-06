@@ -63,7 +63,7 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' @param ... Passed to S3 methods
 #'
 #' @return An arrow [data type][data-type]
-#' @examples()
+#' @examples
 #' infer_type(1:10)
 #' infer_type(1L:10L)
 #' infer_type(c(1, 1.5, 2))
@@ -355,7 +355,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @return An Arrow type object inheriting from DataType.
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.
-#' @examples()
+#' @examples
 #' bool()
 #' struct(a = int32(), b = double())
 #' timestamp("ms", timezone = "CEST")
@@ -757,7 +757,7 @@ canonical_type_str <- function(type_str) {
 #' @return A [DataType][data-type] object.
 #' @export
 #'
-#' @examples()
+#' @examples
 #' as_data_type(int32())
 #'
 as_data_type <- function(x, ...) {

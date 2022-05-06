@@ -201,7 +201,6 @@ Use \code{decimal128()} or \code{decimal256()} as the names are more informative
 \code{decimal()}.
 }
 \examples{
-()
 bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")

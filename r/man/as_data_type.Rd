@@ -27,7 +27,6 @@ A \link[=data-type]{DataType} object.
 Convert an object to an Arrow DataType
 }
 \examples{
-()
 as_data_type(int32())
 
 }

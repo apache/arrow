@@ -129,7 +129,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examples()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write.csv(mtcars, file = tf)
@@ -654,7 +654,7 @@ readr_to_csv_convert_options <- function(na,
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
 #' @export
-#' @examples()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_csv_arrow(mtcars, tf)

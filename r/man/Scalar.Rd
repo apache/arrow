@@ -42,7 +42,6 @@ to a different type
 }
 
 \examples{
-()
 Scalar$create(pi)
 Scalar$create(404)
 # If you pass a vector into Scalar$create, you get a list containing your items
