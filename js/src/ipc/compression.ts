@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { CompressionType } from "../fb/compression-type.js";
+import { CompressionType } from '../fb/compression-type.js';
 
 export interface Codec {
     encode?(data: Uint8Array): Uint8Array;
