@@ -16,8 +16,15 @@
   specific language governing permissions and limitations
   under the License.
 -->
+# arrow 8.0.0.9000
 
-# arrow 7.0.0.9000
+  * `lubridate::parse_date_time()` datetime parser (only for year, month, and day components with separators). Not all functionality has been implemented:
+    * the `orders` argument in the Arrow binding works slightly different than in `lubridate::parse_date_time()` and closer to `lubridate::parse_date_time2()` and `lubridate::fast_strptime()`: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place. `lubridate::parse_date_time()` usually "trains" formats on a subset of the input vector and then applies them according to performance on the training set. 
+    * currently only `orders` containing the year, month, and day components are supported. In a future release `orders` containing other datetime components (such as hours, minutes, seconds, etc) will be supported.
+    * `orders` currently only works with shorter formats (without the `%`). Supported formats: `"ymd"`, `"ydm"`, `"mdy"`, `"myd"`, `"dmy"`, and `"dym"`. 
+    * strings with no separators (e.g. 20210917) will likely fail to parse so you might want to try using the `strptime()` binding instead.
+
+# arrow 8.0.0
 
 ## Enhancements to dplyr and datasets
 
@@ -62,7 +69,6 @@
   * `?lubridate::duration` helper functions, such as `dyears()`, `dhours()`, `dseconds()`.
   * `lubridate::leap_year()`
   * `lubridate::as_date()` and `lubridate::as_datetime()`
-  * `lubridate::parse_date_time()` datetime parser (only for year, month, and day components with separators).
 * Also for Arrow dplyr queries, added support and fixes for base date and time functions:
   * `base::difftime` and `base::as.difftime()`
   * `base::as.Date()` to convert to date
