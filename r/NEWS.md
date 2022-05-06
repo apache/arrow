@@ -16,7 +16,7 @@
   specific language governing permissions and limitations
   under the License.
 -->
-# arrow 8.0.0.9000
+# development version
 
   * `lubridate::parse_date_time()` datetime parser (only for year, month, and day components with separators). Not all functionality has been implemented:
     * the `orders` argument in the Arrow binding works slightly different than in `lubridate::parse_date_time()` and closer to `lubridate::parse_date_time2()` and `lubridate::fast_strptime()`: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place. `lubridate::parse_date_time()` usually "trains" formats on a subset of the input vector and then applies them according to performance on the training set. 
