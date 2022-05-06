@@ -41,7 +41,18 @@ def test_crossbow_chat_report(load_fixture):
     job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
     report = Report(job)
     assert report.tasks_by_state is not None
-    report_chat = ChatReport(report=report)
+    report_chat = ChatReport(report=report, extra_message=None)
+
+    assert report_chat.render("text") == textwrap.dedent(expected_msg)
+
+
+def test_crossbow_chat_report_extra_message(load_fixture):
+    expected_msg = load_fixture('chat-report-extra-message.txt')
+    job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
+    report = Report(job)
+    assert report.tasks_by_state is not None
+    report_chat = ChatReport(report=report,
+                             extra_message="This message is extended")
 
     assert report_chat.render("text") == textwrap.dedent(expected_msg)
 

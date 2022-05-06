@@ -171,6 +171,7 @@ class ChatReport(JinjaReport):
     }
     fields = [
         'report',
+        'extra_message',
     ]
 
 
