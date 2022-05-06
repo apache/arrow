@@ -19,8 +19,8 @@ package array
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 

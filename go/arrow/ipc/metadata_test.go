@@ -21,12 +21,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v8/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v9/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/stretchr/testify/assert"
 )
