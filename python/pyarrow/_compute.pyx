@@ -910,17 +910,27 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     strict_ceil : bool, default False
         If True times exactly on unit multiple boundary will be rounded
         one unit multiple up. This applies for ceiling only.
-    calendar_based_origin : bool, default False
+    multiple_since_greater_unit : bool, default False
         By default origin is 1970-01-01T00:00:00. By setting this to True,
         rounding origin will be beginning of one less precise calendar unit.
         E.g.: rounding to hours will use beginning of day as origin.
 
+        By default time is rounded to a multiple of units since
+        1970-01-01T00:00:00. By setting multiple_since_greater_unit to true,
+        time will be rounded to number of units since the last greater
+        calendar unit.
+        For example: rounding to multiple of days since the beginning of the
+        month or to hours since the beginning of the day.
+        Please note: week and quarter are not used as greater units,
+        therefor days will will be rounded to the beginning of the month not
+        week.
+
     """
 
     def __init__(self, multiple=1, unit="day", *, week_starts_monday=True,
-                 strict_ceil=False, calendar_based_origin=False):
+                 strict_ceil=False, multiple_since_greater_unit=False):
         self._set_options(multiple, unit, week_starts_monday,
-                          strict_ceil, calendar_based_origin)
+                          strict_ceil, multiple_since_greater_unit)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):

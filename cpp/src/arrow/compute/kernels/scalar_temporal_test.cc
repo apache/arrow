@@ -2468,7 +2468,7 @@ TEST_F(ScalarTemporalTest, TestCeilTemporalStrictCeil) {
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTest, TestCeilTemporalCalendarBasedOrigin) {
+TEST_F(ScalarTemporalTest, TestCeilTemporalMultipleSinceGreaterUnit) {
   std::string op = "ceil_temporal";
   RoundTemporalOptions round_to_15_nanoseconds =
       RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
@@ -2781,7 +2781,7 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
   CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTest, TestFloorTemporalCalendarBasedOrigin) {
+TEST_F(ScalarTemporalTest, TestFloorTemporalMultipleSinceGreaterUnit) {
   std::string op = "floor_temporal";
   RoundTemporalOptions round_to_15_nanoseconds =
       RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
@@ -3117,7 +3117,7 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {
   CheckScalarUnary("round_temporal", unit, times, unit, round_2_hours, &round_to_2_hours);
 }
 
-TEST_F(ScalarTemporalTest, TestRoundTemporalCalendarBasedOrigin) {
+TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnit) {
   std::string op = "round_temporal";
   RoundTemporalOptions round_to_15_nanoseconds =
       RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);

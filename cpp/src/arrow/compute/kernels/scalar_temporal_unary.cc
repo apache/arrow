@@ -696,7 +696,7 @@ year_month_day GetFlooredYmd(int64_t arg, const int multiple,
   if (multiple == 1) {
     // Round to a multiple of months since epoch start (1970-01-01 00:00:00).
     return year_month_day(ymd.year() / ymd.month() / 1);
-  } else if (options.calendar_based_origin) {
+  } else if (options.multiple_since_greater_unit) {
     // Round to a multiple of months since the last year.
     //
     // Note: compute::CalendarUnit::YEAR is the greatest unit so there is no logical time
@@ -743,7 +743,7 @@ const Duration FloorTimePoint(const int64_t arg, const RoundTemporalOptions& opt
     const Unit d = floor<Unit>(t).time_since_epoch();
     return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(d),
                                                            st);
-  } else if (options.calendar_based_origin) {
+  } else if (options.multiple_since_greater_unit) {
     // Round to a multiple of units since the last greater unit.
     // For example: round to multiple of days since the beginning of the month or
     // to hours since the beginning of the day.
@@ -813,7 +813,7 @@ const Duration FloorWeekTimePoint(const int64_t arg, const RoundTemporalOptions&
     return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(d),
                                                            st) -
            weekday_offset;
-  } else if (options.calendar_based_origin) {
+  } else if (options.multiple_since_greater_unit) {
     // Round to a multiple of weeks since year prior.
     weekday wd_;
     if (options.week_starts_monday) {
