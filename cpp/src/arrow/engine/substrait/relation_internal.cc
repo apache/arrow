@@ -292,10 +292,10 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
           arrow::compute::literal(true),
           "_l",
           "_r"};
-      compute::Declaration join_dec{"hashjoin", join_options};
-      join_dec.inputs.emplace_back(left);
-      join_dec.inputs.emplace_back(right);
-      return compute::Declaration::Sequence({join_dec});
+      compute::Declaration join_dec{"hashjoin", std::move(join_options)};
+      join_dec.inputs.emplace_back(std::move(left));
+      join_dec.inputs.emplace_back(std::move(right));
+      return compute::Declaration::Sequence({std::move(join_dec)});
     }
 
     default:
