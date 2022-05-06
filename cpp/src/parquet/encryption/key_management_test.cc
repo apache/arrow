@@ -40,18 +40,6 @@ namespace encryption {
 namespace test {
 
 class TestEncryptionKeyManagement : public ::testing::Test {
- public:
-  void SetUp() {
-#ifndef ARROW_WITH_SNAPPY
-    GTEST_SKIP() << "Test requires Snappy compression";
-#endif
-    key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
-                            kFooterMasterKey);
-    column_key_mapping_ = BuildColumnKeyMapping();
-  }
-
-  static void SetUpTestCase();
-
  protected:
   std::unique_ptr<TemporaryDir> temp_dir_;
   FileEncryptor encryptor_;
@@ -65,6 +53,9 @@ class TestEncryptionKeyManagement : public ::testing::Test {
   bool wrap_locally_;
 
   void SetUp() {
+#ifndef ARROW_WITH_SNAPPY
+    GTEST_SKIP() << "Test requires Snappy compression";
+#endif
     key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
                             kFooterMasterKey);
     new_key_list_ = BuildKeyMap(kColumnMasterKeyIds, kNewColumnMasterKeys,
