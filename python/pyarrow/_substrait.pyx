@@ -16,6 +16,7 @@
 # under the License.
 
 # cython: language_level = 3
+from cython.operator cimport dereference as deref
 
 from pyarrow import Buffer
 from pyarrow.lib cimport *
@@ -40,7 +41,7 @@ def run_query(plan):
         shared_ptr[CBuffer] c_buf_plan
 
     c_buf_plan = pyarrow_unwrap_buffer(plan)
-    c_res_reader = ExecuteSerializedPlan(c_buf_plan)
+    c_res_reader = ExecuteSerializedPlan(deref(c_buf_plan))
 
     c_reader = GetResultValue(c_res_reader)
 

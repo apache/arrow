@@ -28,7 +28,7 @@ namespace engine {
 
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    std::shared_ptr<Buffer> substrait_buffer);
+    const Buffer& substrait_buffer);
 
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.

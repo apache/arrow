@@ -36,7 +36,7 @@ except ImportError:
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not substrait'
-pytestmark = [pytest.mark.parquet, pytest.mark.substrait]
+pytestmark = [pytest.mark.dataset, pytest.mark.parquet, pytest.mark.substrait]
 
 
 def resource_root():
@@ -103,6 +103,6 @@ def test_invalid_plan():
     }
     """
     buf = pa._substrait._parse_json_plan(tobytes(query))
-    exec_message = "ExecPlan has no node"
+    exec_message = "Empty substrait plan is passed."
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf)

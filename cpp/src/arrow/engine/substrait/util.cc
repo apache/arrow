@@ -47,7 +47,6 @@ class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
       AsyncGenerator<util::optional<compute::ExecBatch>>* out_gen);
 
   Future<> Finish() override {
-    producer_.Push(IterationEnd<util::optional<compute::ExecBatch>>());
     ARROW_UNUSED(producer_.Close());
     return Future<>::MakeFinished();
   }
@@ -62,13 +61,9 @@ class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
 class SubstraitExecutor {
  public:
   explicit SubstraitExecutor(
-      std::shared_ptr<Buffer> substrait_buffer,
       AsyncGenerator<util::optional<compute::ExecBatch>>* generator,
       std::shared_ptr<compute::ExecPlan> plan, compute::ExecContext exec_context)
-      : substrait_buffer_(std::move(substrait_buffer)),
-        generator_(generator),
-        plan_(std::move(plan)),
-        exec_context_(exec_context) {}
+      : generator_(generator), plan_(std::move(plan)), exec_context_(exec_context) {}
 
   Result<std::shared_ptr<RecordBatchReader>> Execute() {
     for (const compute::Declaration& decl : declarations_) {
@@ -86,20 +81,19 @@ class SubstraitExecutor {
 
   Status Close() { return plan_->finished().status(); }
 
-  Status Init() {
-    if (substrait_buffer_ == NULLPTR) {
-      return Status::Invalid("Buffer containing Substrait plan is null.");
+  Status Init(const Buffer& substrait_buffer) {
+    if (substrait_buffer.size() == 0) {
+      return Status::Invalid("Empty substrait plan is passed.");
     }
     std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
       return std::make_shared<SubstraitSinkConsumer>(generator_);
     };
     ARROW_ASSIGN_OR_RAISE(declarations_,
-                          engine::DeserializePlan(*substrait_buffer_, consumer_factory));
+                          engine::DeserializePlan(substrait_buffer, consumer_factory));
     return Status::OK();
   }
 
  private:
-  std::shared_ptr<Buffer> substrait_buffer_;
   AsyncGenerator<util::optional<compute::ExecBatch>>* generator_;
   std::vector<compute::Declaration> declarations_;
   std::shared_ptr<compute::ExecPlan> plan_;
@@ -117,14 +111,13 @@ SubstraitSinkConsumer::MakeProducer(
 }  // namespace
 
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    std::shared_ptr<Buffer> substrait_buffer) {
+    const Buffer& substrait_buffer) {
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool());
-  arrow::engine::SubstraitExecutor executor(std::move(substrait_buffer), &sink_gen,
-                                            std::move(plan), exec_context);
-  RETURN_NOT_OK(executor.Init());
+  arrow::engine::SubstraitExecutor executor(&sink_gen, std::move(plan), exec_context);
+  RETURN_NOT_OK(executor.Init(substrait_buffer));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   RETURN_NOT_OK(executor.Close());
   return sink_reader;

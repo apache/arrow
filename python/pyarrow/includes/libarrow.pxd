@@ -2698,5 +2698,5 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options)
 
 cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
-    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(shared_ptr[CBuffer] substrait_buffer)
+    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer)
     CResult[shared_ptr[CBuffer]] ParseJsonPlan(const c_string& substrait_json)
