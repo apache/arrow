@@ -21,6 +21,11 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
+	if python3 -c 'import numpy' > /dev/null 2>&1; then	\
+	  ARROW_PYTHON=ON;					\
+	else							\
+	  ARROW_PYTHON=OFF;					\
+	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
 	  --builddirectory=cpp_build				\
@@ -36,7 +41,7 @@ override_dh_auto_configure:
 	  -DARROW_PACKAGE_KIND=deb				\
 	  -DARROW_PARQUET=ON					\
 	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
-	  -DARROW_PYTHON=ON					\
+	  -DARROW_PYTHON=$${ARROW_PYTHON}			\
 	  -DARROW_S3=ON						\
 	  -DARROW_USE_CCACHE=OFF				\
 	  -DARROW_WITH_BROTLI=ON				\

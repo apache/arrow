@@ -51,10 +51,10 @@ RUN \
     ninja-build \
     openssl-devel \
     pkg-config \
-    python3 \
-    python3-devel \
-    python3-numpy \
-    python3-pip \
+    python39 \
+    python39-devel \
+    python39-numpy \
+    python39-pip \
     re2-devel \
     rapidjson-devel \
     rpmdevtools \

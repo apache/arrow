@@ -73,6 +73,7 @@ case "${distribution}-${distribution_version}" in
     cmake_command=cmake3
     have_flight=no
     have_gandiva=no
+    have_python=no
     install_command="yum install -y"
     ;;
   centos-*)
