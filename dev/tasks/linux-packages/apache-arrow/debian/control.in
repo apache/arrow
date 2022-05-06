@@ -40,7 +40,7 @@ Build-Depends-Indep: libglib2.0-doc
 Standards-Version: 3.9.8
 Homepage: https://arrow.apache.org/
 
-Package: libarrow800
+Package: libarrow900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -52,7 +52,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files.
 
-Package: libarrow-cuda800
+Package: libarrow-cuda900
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
@@ -60,12 +60,12 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow800 (= ${binary:Version})
+  libarrow900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for CUDA support.
 
-Package: libarrow-dataset800
+Package: libarrow-dataset900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -73,13 +73,13 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow800 (= ${binary:Version}),
-  libparquet800 (= ${binary:Version})
+  libarrow900 (= ${binary:Version}),
+  libparquet900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Dataset module.
 
-Package: libarrow-flight800
+Package: libarrow-flight900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -87,12 +87,12 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow800 (= ${binary:Version})
+  libarrow900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Flight RPC system.
 
-Package: libarrow-python800
+Package: libarrow-python900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -100,14 +100,14 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow800 (= ${binary:Version}),
+  libarrow900 (= ${binary:Version}),
   python3,
   python3-numpy
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Python support.
 
-Package: libarrow-python-flight800
+Package: libarrow-python-flight900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -115,8 +115,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-flight800 (= ${binary:Version}),
-  libarrow-python800 (= ${binary:Version})
+  libarrow-flight900 (= ${binary:Version}),
+  libarrow-python900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Flight and Python support.
@@ -127,7 +127,7 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow800 (= ${binary:Version}),
+  libarrow900 (= ${binary:Version}),
   libbrotli-dev,
   libbz2-dev,
 @USE_SYSTEM_C_ARES@  libc-ares-dev,
@@ -153,7 +153,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-cuda800 (= ${binary:Version})
+  libarrow-cuda900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for CUDA support.
@@ -165,7 +165,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-dataset800 (= ${binary:Version}),
+  libarrow-dataset900 (= ${binary:Version}),
   libparquet-dev (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -178,7 +178,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-flight800 (= ${binary:Version})
+  libarrow-flight900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Flight RPC system.
@@ -190,7 +190,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-python800 (= ${binary:Version})
+  libarrow-python900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Python support.
@@ -203,12 +203,12 @@ Depends:
   ${misc:Depends},
   libarrow-flight-dev (= ${binary:Version}),
   libarrow-python-dev (= ${binary:Version}),
-  libarrow-python-flight800 (= ${binary:Version})
+  libarrow-python-flight900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Flight and Python support.
 
-Package: libgandiva800
+Package: libgandiva900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -216,7 +216,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow800 (= ${binary:Version})
+  libarrow900 (= ${binary:Version})
 Description: Gandiva is a toolset for compiling and evaluating expressions
  on Arrow Data.
  .
@@ -229,13 +229,13 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libgandiva800 (= ${binary:Version})
+  libgandiva900 (= ${binary:Version})
 Description: Gandiva is a toolset for compiling and evaluating expressions
  on Arrow Data.
  .
  This package provides C++ header files.
 
-Package: libplasma800
+Package: libplasma900
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
@@ -243,7 +243,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-cuda800 (= ${binary:Version})
+  libarrow-cuda900 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides C++ library files to connect plasma-store-server.
@@ -255,7 +255,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libplasma800 (= ${binary:Version})
+  libplasma900 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides plasma-store-server.
@@ -267,12 +267,12 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-cuda-dev (= ${binary:Version}),
-  libplasma800 (= ${binary:Version})
+  libplasma900 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides C++ header files.
 
-Package: libparquet800
+Package: libparquet900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -291,12 +291,12 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libparquet800 (= ${binary:Version})
+  libparquet900 (= ${binary:Version})
 Description: Apache Parquet is a columnar storage format
  .
  This package provides C++ header files.
 
-Package: libarrow-glib800
+Package: libarrow-glib900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -304,7 +304,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow800 (= ${binary:Version})
+  libarrow900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files.
@@ -328,7 +328,7 @@ Depends:
   ${misc:Depends},
   libglib2.0-dev,
   libarrow-dev (= ${binary:Version}),
-  libarrow-glib800 (= ${binary:Version}),
+  libarrow-glib900 (= ${binary:Version}),
   gir1.2-arrow-1.0 (= ${binary:Version})
 Suggests: libarrow-glib-doc
 Description: Apache Arrow is a data processing library for analysis
@@ -346,7 +346,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations.
 
-Package: libarrow-cuda-glib800
+Package: libarrow-cuda-glib900
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
@@ -354,8 +354,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib800 (= ${binary:Version}),
-  libarrow-cuda800 (= ${binary:Version})
+  libarrow-glib900 (= ${binary:Version}),
+  libarrow-cuda900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files for CUDA support.
@@ -379,13 +379,13 @@ Depends:
   ${misc:Depends},
   libarrow-cuda-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libarrow-cuda-glib800 (= ${binary:Version}),
+  libarrow-cuda-glib900 (= ${binary:Version}),
   gir1.2-arrow-cuda-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based header files for CUDA support.
 
-Package: libarrow-dataset-glib800
+Package: libarrow-dataset-glib900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -393,8 +393,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib800 (= ${binary:Version}),
-  libarrow-dataset800 (= ${binary:Version})
+  libarrow-glib900 (= ${binary:Version}),
+  libarrow-dataset900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files for dataset module.
@@ -418,7 +418,7 @@ Depends:
   ${misc:Depends},
   libarrow-dataset-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libarrow-dataset-glib800 (= ${binary:Version}),
+  libarrow-dataset-glib900 (= ${binary:Version}),
   gir1.2-arrow-dataset-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -435,7 +435,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations for dataset module.
 
-Package: libarrow-flight-glib800
+Package: libarrow-flight-glib900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -443,8 +443,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib800 (= ${binary:Version}),
-  libarrow-flight800 (= ${binary:Version})
+  libarrow-glib900 (= ${binary:Version}),
+  libarrow-flight900 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files for Apache Arrow Flight.
@@ -469,7 +469,7 @@ Depends:
   ${misc:Depends},
   libarrow-flight-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libarrow-flight-glib800 (= ${binary:Version}),
+  libarrow-flight-glib900 (= ${binary:Version}),
   gir1.2-arrow-flight-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -486,7 +486,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations for Apache Arrow Flight.
 
-Package: libgandiva-glib800
+Package: libgandiva-glib900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -494,8 +494,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib800 (= ${binary:Version}),
-  libgandiva800 (= ${binary:Version})
+  libarrow-glib900 (= ${binary:Version}),
+  libgandiva900 (= ${binary:Version})
 Description: Gandiva is a toolset for compiling and evaluating expressions
  on Arrow Data.
  .
@@ -521,7 +521,7 @@ Depends:
   ${misc:Depends},
   libgandiva-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libgandiva-glib800 (= ${binary:Version}),
+  libgandiva-glib900 (= ${binary:Version}),
   gir1.2-gandiva-1.0 (= ${binary:Version})
 Description: Gandiva is a toolset for compiling and evaluating expressions
  on Arrow Data.
@@ -540,7 +540,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
  .
  This package provides documentations.
 
-Package: libplasma-glib800
+Package: libplasma-glib900
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
@@ -548,8 +548,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-cuda-glib800 (= ${binary:Version}),
-  libplasma800 (= ${binary:Version})
+  libarrow-cuda-glib900 (= ${binary:Version}),
+  libplasma900 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides GLib based library files to connect plasma-store-server.
@@ -573,7 +573,7 @@ Depends:
   ${misc:Depends},
   libplasma-dev (= ${binary:Version}),
   libarrow-cuda-glib-dev (= ${binary:Version}),
-  libplasma-glib800 (= ${binary:Version}),
+  libplasma-glib900 (= ${binary:Version}),
   gir1.2-plasma-1.0 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
@@ -590,7 +590,7 @@ Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides documentations.
 
-Package: libparquet-glib800
+Package: libparquet-glib900
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -598,8 +598,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib800 (= ${binary:Version}),
-  libparquet800 (= ${binary:Version})
+  libarrow-glib900 (= ${binary:Version}),
+  libparquet900 (= ${binary:Version})
 Description: Apache Parquet is a columnar storage format
  .
  This package provides GLib based library files.
@@ -623,7 +623,7 @@ Depends:
   ${misc:Depends},
   libarrow-glib-dev (= ${binary:Version}),
   libparquet-dev (= ${binary:Version}),
-  libparquet-glib800 (= ${binary:Version}),
+  libparquet-glib900 (= ${binary:Version}),
   gir1.2-parquet-1.0 (= ${binary:Version})
 Suggests: libparquet-glib-doc
 Description: Apache Parquet is a columnar storage format
