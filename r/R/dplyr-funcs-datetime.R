@@ -492,19 +492,8 @@ register_bindings_datetime_parsers <- function() {
                                                orders,
                                                tz = "UTC") {
 
-    supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
-    unsupported_passed_orders <- setdiff(orders, supported_orders)
-
-    if (length(unsupported_passed_orders) > 0) {
-      arrow_not_supported(
-        paste0(
-          oxford_paste(
-            unsupported_passed_orders
-          ),
-          " `orders`"
-        )
-      )
-    }
+    # each order is translated into possible formats
+    formats <- build_formats(orders)
 
     # make all separators (non-letters and non-numbers) into "-"
     x <- call_binding("gsub", "[^A-Za-z0-9]", "-", x)
@@ -515,9 +504,6 @@ register_bindings_datetime_parsers <- function() {
     # https://issues.apache.org/jira/browse/ARROW-16446
     # we could insert separators at the "likely" positions, but it might be
     # tricky given the possible combinations between dmy formats + locale
-
-    # each order is translated into 6 possible formats
-    formats <- build_formats(orders)
 
     # build a list of expressions for each format
     parse_attempt_expressions <- list()

@@ -156,6 +156,26 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 }
 
 build_formats <- function(orders) {
+  # only keep the letters and the underscore as separator -> allow the users to
+  # pass strptime-like formats (with "%")
+  orders <- str_remove_all(orders, "[^A-Za-z_]")
+
+  supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+  unsupported_passed_orders <- setdiff(orders, supported_orders)
+  supported_passed_orders <- intersect(orders, supported_orders)
+
+  # error only if there isn't at least one valid order we can try
+  if (length(supported_passed_orders) == 0) {
+    arrow_not_supported(
+      paste0(
+        oxford_paste(
+          unsupported_passed_orders
+        ),
+        " `orders`"
+      )
+    )
+  }
+
   formats_list <- map(orders, build_format_from_order)
   purrr::flatten_chr(formats_list)
 }
