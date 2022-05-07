@@ -32,8 +32,8 @@ Build-Depends:
   nvidia-cuda-toolkit [!arm64],
   pkg-config,
 @USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
-  python3-dev,
-  python3-numpy,
+@ENABLE_PYTHON@  python3-dev,
+@ENABLE_PYTHON@  python3-numpy,
   tzdata,
   zlib1g-dev
 Build-Depends-Indep: libglib2.0-doc
@@ -92,34 +92,34 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Flight RPC system.
 
-Package: libarrow-python900
-Section: libs
-Architecture: any
-Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends:
-  ${misc:Depends},
-  ${shlibs:Depends},
-  libarrow900 (= ${binary:Version}),
-  python3,
-  python3-numpy
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ library files for Python support.
+@ENABLE_PYTHON@Package: libarrow-python900
+@ENABLE_PYTHON@Section: libs
+@ENABLE_PYTHON@Architecture: any
+@ENABLE_PYTHON@Multi-Arch: same
+@ENABLE_PYTHON@Pre-Depends: ${misc:Pre-Depends}
+@ENABLE_PYTHON@Depends:
+@ENABLE_PYTHON@  ${misc:Depends},
+@ENABLE_PYTHON@  ${shlibs:Depends},
+@ENABLE_PYTHON@  libarrow900 (= ${binary:Version}),
+@ENABLE_PYTHON@  python3,
+@ENABLE_PYTHON@  python3-numpy
+@ENABLE_PYTHON@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_PYTHON@ .
+@ENABLE_PYTHON@ This package provides C++ library files for Python support.
 
-Package: libarrow-python-flight900
-Section: libs
-Architecture: any
-Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends:
-  ${misc:Depends},
-  ${shlibs:Depends},
-  libarrow-flight900 (= ${binary:Version}),
-  libarrow-python900 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ library files for Flight and Python support.
+@ENABLE_PYTHON@Package: libarrow-python-flight900
+@ENABLE_PYTHON@Section: libs
+@ENABLE_PYTHON@Architecture: any
+@ENABLE_PYTHON@Multi-Arch: same
+@ENABLE_PYTHON@Pre-Depends: ${misc:Pre-Depends}
+@ENABLE_PYTHON@Depends:
+@ENABLE_PYTHON@  ${misc:Depends},
+@ENABLE_PYTHON@  ${shlibs:Depends},
+@ENABLE_PYTHON@  libarrow-flight900 (= ${binary:Version}),
+@ENABLE_PYTHON@  libarrow-python900 (= ${binary:Version})
+@ENABLE_PYTHON@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_PYTHON@ .
+@ENABLE_PYTHON@ This package provides C++ library files for Flight and Python support.
 
 Package: libarrow-dev
 Section: libdevel
@@ -183,30 +183,30 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Flight RPC system.
 
-Package: libarrow-python-dev
-Section: libdevel
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${misc:Depends},
-  libarrow-dev (= ${binary:Version}),
-  libarrow-python900 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ header files for Python support.
+@ENABLE_PYTHON@Package: libarrow-python-dev
+@ENABLE_PYTHON@Section: libdevel
+@ENABLE_PYTHON@Architecture: any
+@ENABLE_PYTHON@Multi-Arch: same
+@ENABLE_PYTHON@Depends:
+@ENABLE_PYTHON@  ${misc:Depends},
+@ENABLE_PYTHON@  libarrow-dev (= ${binary:Version}),
+@ENABLE_PYTHON@  libarrow-python900 (= ${binary:Version})
+@ENABLE_PYTHON@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_PYTHON@ .
+@ENABLE_PYTHON@ This package provides C++ header files for Python support.
 
-Package: libarrow-python-flight-dev
-Section: libdevel
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${misc:Depends},
-  libarrow-flight-dev (= ${binary:Version}),
-  libarrow-python-dev (= ${binary:Version}),
-  libarrow-python-flight900 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ header files for Flight and Python support.
+@ENABLE_PYTHON@Package: libarrow-python-flight-dev
+@ENABLE_PYTHON@Section: libdevel
+@ENABLE_PYTHON@Architecture: any
+@ENABLE_PYTHON@Multi-Arch: same
+@ENABLE_PYTHON@Depends:
+@ENABLE_PYTHON@  ${misc:Depends},
+@ENABLE_PYTHON@  libarrow-flight-dev (= ${binary:Version}),
+@ENABLE_PYTHON@  libarrow-python-dev (= ${binary:Version}),
+@ENABLE_PYTHON@  libarrow-python-flight900 (= ${binary:Version})
+@ENABLE_PYTHON@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_PYTHON@ .
+@ENABLE_PYTHON@ This package provides C++ header files for Flight and Python support.
 
 Package: libgandiva900
 Section: libs

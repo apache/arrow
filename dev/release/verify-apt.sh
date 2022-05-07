@@ -63,6 +63,7 @@ esac
 
 have_flight=yes
 have_plasma=yes
+have_python=yes
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
   debian-*)
@@ -70,6 +71,9 @@ case "${distribution}-${code_name}" in
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
       /etc/apt/sources.list
+    ;;
+  ubuntu-bionic)
+    have_python=no
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
@@ -173,9 +177,11 @@ if [ "${have_flight}" = "yes" ]; then
 fi
 
 
-echo "::group::Test libarrow-python"
-${APT_INSTALL} libarrow-python-dev=${package_version}
-echo "::endgroup::"
+if [ "${have_python}" = "yes" ]; then
+  echo "::group::Test libarrow-python"
+  ${APT_INSTALL} libarrow-python-dev=${package_version}
+  echo "::endgroup::"
+fi
 
 
 if [ "${have_plasma}" = "yes" ]; then

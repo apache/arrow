@@ -30,12 +30,6 @@
   if [ %{rhel} -lt 8 ]; then \
     echo 3; \
   fi)
-%define python_version %( \
-  if [ %{rhel} -eq 7 ]; then \
-    echo 36; \
-  else \
-    echo 3; \
-  fi)
 
 %define lz4_requirement %( \
   if [ %{_amzn} -eq 0 ]; then \
@@ -48,7 +42,7 @@
 %define use_gcs (%{rhel} >= 8 || %{is_amazon_linux})
 %define use_gflags (!%{is_amazon_linux})
 %define use_mimalloc (%{rhel} >= 8)
-%define use_python (!%{is_amazon_linux})
+%define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
 # %define use_s3 (%{rhel} >= 8)
@@ -99,8 +93,8 @@ BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
 %if %{use_python}
-BuildRequires:	python%{python_version}-devel
-BuildRequires:	python%{python_version}-numpy
+BuildRequires:	python39-devel
+BuildRequires:	python39-numpy
 %endif
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
@@ -418,7 +412,7 @@ Libraries and header files for Gandiva.
 Summary:	Python integration library for Apache Arrow
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	python%{python_version}-numpy
+Requires:	python39-numpy
 
 %description -n %{name}%{major_version}-python-libs
 This package contains the Python integration library for Apache Arrow.
@@ -433,7 +427,7 @@ Summary:	Libraries and header files for Python integration library for Apache Ar
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-python-libs = %{version}-%{release}
 Requires:	%{name}-devel = %{version}-%{release}
-Requires:	python%{python_version}-devel
+Requires:	python39-devel
 
 %description python-devel
 Libraries and header files for Python integration library for Apache Arrow.
