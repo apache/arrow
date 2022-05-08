@@ -43,7 +43,7 @@ Building requires:
   sufficient. For Windows, at least Visual Studio 2017 is required.
 * CMake 3.5 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
-* At least 1GB of RAM for a minimal build, 4GB for a minimal  
+* At least 1GB of RAM for a minimal build, 4GB for a minimal
   debug build with tests and 8GB for a full build using
   :ref:`docker <docker-builds>`.
 
@@ -65,7 +65,7 @@ On Alpine Linux:
            g++ \
            gcc \
            make
-           
+
 On Fedora Linux:
 
 .. code-block:: shell
@@ -95,7 +95,7 @@ On macOS, you can use `Homebrew <https://brew.sh/>`_:
 With `vcpkg <https://github.com/Microsoft/vcpkg>`_:
 
 .. code-block:: shell
-   
+
    git clone https://github.com/apache/arrow.git
    cd arrow
    vcpkg install \
@@ -150,7 +150,7 @@ using ``cmake --list-presets``:
 
 .. code-block::
 
-   $ cmake --list-presets   # from inside the `cpp` subdirectory
+   $ cmake --list-presets .  # from inside the `cpp` subdirectory
    Available configure presets:
 
      "ninja-debug-minimal"     - Debug build without anything enabled
@@ -180,7 +180,7 @@ You can also create a build from a given preset:
 
    $ mkdir build   # from inside the `cpp` subdirectory
    $ cd build
-   $ cmake .. --preset ninja-debug-minimal
+   $ cmake --preset ninja-debug-minimal ..
       Preset CMake variables:
 
         ARROW_BUILD_INTEGRATION="OFF"
@@ -214,7 +214,7 @@ the preset-defined ones, for example:
 
 .. code-block::
 
-   $ cmake .. --preset ninja-debug-minimal -DCMAKE_INSTALL_PREFIX=/usr/local
+   $ cmake --preset ninja-debug-minimal -DCMAKE_INSTALL_PREFIX=/usr/local ..
 
 .. note::
    The CMake presets are provided as a help to get started with Arrow
@@ -330,7 +330,7 @@ boolean flags to ``cmake``.
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
 * ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
-* ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
+* ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default
 * ``-DARROW_JSON=ON``: JSON reader module
 * ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
@@ -344,7 +344,7 @@ boolean flags to ``cmake``.
   this option also enables ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
   ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON``.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
-* ``-DARROW_WITH_RE2=ON`` Build with support for regular expressions using the re2 
+* ``-DARROW_WITH_RE2=ON`` Build with support for regular expressions using the re2
   library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA`` is ``ON``
 * ``-DARROW_WITH_UTF8PROC=ON``: Build with support for Unicode properties using
   the utf8proc library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA``
@@ -433,7 +433,7 @@ The build system supports a number of third-party dependencies
   * ``c-ares``: a dependency of gRPC
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``GLOG``: for logging
-  * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires 
+  * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires
     system cURL and can use the ``BUNDLED`` method described below
   * ``gRPC``: for remote procedure calls
   * ``GTest``: Googletest, for testing
