@@ -1942,125 +1942,94 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
 
 // Ranking Tests
 //
-TEST(ArrayRankFunction, Array) {
-  auto arr = ArrayFromJSON(int16(), "[0, 1, -3, -42, 5]");
-  auto expectedAsc = ArrayFromJSON(uint64(), "[3, 4, 2, 1, 5]");
+
+template <typename T>
+void AssertRank(const std::shared_ptr<T>& input, SortOrder order,
+                NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker,
+                const std::shared_ptr<Array>& expected) {
+  RankOptions options(order, null_placement, tiebreaker);
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {input}, &options));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+};
+
+void AssertRank(const std::shared_ptr<DataType>& type, const std::string& values,
+                SortOrder order, NullPlacement null_placement,
+                RankOptions::Tiebreaker tiebreaker, const std::string& expected) {
+  AssertRank(ArrayFromJSON(type, values), order, null_placement, tiebreaker,
+             ArrayFromJSON(uint64(), expected));
+}
+
+class TestRankBase : public ::testing::Test {
+ public:
+  virtual std::shared_ptr<DataType> type() = 0;
+
+  virtual void AssertRank(const std::string& values, SortOrder order,
+                          NullPlacement null_placement,
+                          RankOptions::Tiebreaker tiebreaker,
+                          const std::string& expected) {
+    arrow::compute::AssertRank(this->type(), values, order, null_placement, tiebreaker,
+                               expected);
+  }
+};
+
+template <typename ArrowType>
+class TestRank : public TestRankBase {
+ public:
+  std::shared_ptr<DataType> type() override {
+    // Will choose default parameters for temporal types
+    return std::make_shared<ArrowType>();
+  }
+};
+
+template <typename ArrowType>
+class TestRankForIntegral : public TestRank<ArrowType> {};
+TYPED_TEST_SUITE(TestRankForIntegral, IntegralArrowTypes);
+
+TYPED_TEST(TestRankForIntegral, RankIntegral) {
   for (auto null_placement : AllNullPlacements()) {
     for (auto tiebreaker : AllTiebreakers()) {
-      RankOptions options(SortOrder::Ascending, null_placement, tiebreaker);
-      ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {arr}, &options));
-      AssertDatumsEqual(expectedAsc, actual, /*verbose=*/true);
+      this->AssertRank("[2, 3, 1, 0, 5]", SortOrder::Ascending, null_placement,
+                       tiebreaker, "[3, 4, 2, 1, 5]");
+      this->AssertRank("[2, 3, 1, 0, 5]", SortOrder::Descending, null_placement,
+                       tiebreaker, "[3, 2, 4, 5, 1]");
     }
   }
 
-  auto expectedDesc = ArrayFromJSON(uint64(), "[3, 2, 4, 5, 1]");
-  for (auto null_placement : AllNullPlacements()) {
-    for (auto tiebreaker : AllTiebreakers()) {
-      RankOptions options(SortOrder::Descending, null_placement, tiebreaker);
-      ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {arr}, &options));
-      AssertDatumsEqual(expectedDesc, actual, /*verbose=*/true);
-    }
-  }
-}
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 1, 4, 6, 4, 6, 1]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 2, 5, 7, 5, 7, 2]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 1, 4, 6, 5, 7, 2]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 1, 3, 4, 3, 4, 1]");
 
-TEST(ArrayRankFunction, SortAscNullsAtEnd) {
-  auto arr = ArrayFromJSON(int16(), "[1, -5, 5, null, 5, null, -5]");
-  auto expectedMin = ArrayFromJSON(uint64(), "[3, 1, 4, 6, 4, 6, 1]");
-  RankOptions optionsMin(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min);
-  ASSERT_OK_AND_ASSIGN(auto actualMin, CallFunction("rank", {arr}, &optionsMin));
-  AssertDatumsEqual(expectedMin, actualMin, /*verbose=*/true);
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 3, 6, 1, 6, 1, 3]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 4, 7, 2, 7, 2, 4]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 3, 6, 1, 7, 2, 4]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 2, 4, 1, 4, 1, 2]");
 
-  auto expectedMax = ArrayFromJSON(uint64(), "[3, 2, 5, 7, 5, 7, 2]");
-  RankOptions optionsMax(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max);
-  ASSERT_OK_AND_ASSIGN(auto actualMax, CallFunction("rank", {arr}, &optionsMax));
-  AssertDatumsEqual(expectedMax, actualMax, /*verbose=*/true);
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 4, 1, 6, 1, 6, 4]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 5, 2, 7, 2, 7, 5]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 4, 1, 6, 2, 7, 5]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 3, 1, 4, 1, 4, 3]");
 
-  auto expectedFirst = ArrayFromJSON(uint64(), "[3, 1, 4, 6, 5, 7, 2]");
-  RankOptions optionsFirst(SortOrder::Ascending, NullPlacement::AtEnd,
-                           RankOptions::First);
-  ASSERT_OK_AND_ASSIGN(auto actualFirst, CallFunction("rank", {arr}, &optionsFirst));
-  AssertDatumsEqual(expectedFirst, actualFirst, /*verbose=*/true);
-
-  auto expectedDense = ArrayFromJSON(uint64(), "[2, 1, 3, 4, 3, 4, 1]");
-  RankOptions optionsDense(SortOrder::Ascending, NullPlacement::AtEnd,
-                           RankOptions::Dense);
-  ASSERT_OK_AND_ASSIGN(auto actualDense, CallFunction("rank", {arr}, &optionsDense));
-  AssertDatumsEqual(expectedDense, actualDense, /*verbose=*/true);
-}
-
-TEST(ArrayRankFunction, SortAscNullsAtStart) {
-  auto arr = ArrayFromJSON(int16(), "[1, -5, 5, null, 5, null, -5]");
-  auto expectedMin = ArrayFromJSON(uint64(), "[5, 3, 6, 1, 6, 1, 3]");
-  RankOptions optionsMin(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min);
-  ASSERT_OK_AND_ASSIGN(auto actualMin, CallFunction("rank", {arr}, &optionsMin));
-  AssertDatumsEqual(expectedMin, actualMin, /*verbose=*/true);
-
-  auto expectedMax = ArrayFromJSON(uint64(), "[5, 4, 7, 2, 7, 2, 4]");
-  RankOptions optionsMax(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max);
-  ASSERT_OK_AND_ASSIGN(auto actualMax, CallFunction("rank", {arr}, &optionsMax));
-  AssertDatumsEqual(expectedMax, actualMax, /*verbose=*/true);
-
-  auto expectedFirst = ArrayFromJSON(uint64(), "[5, 3, 6, 1, 7, 2, 4]");
-  RankOptions optionsFirst(SortOrder::Ascending, NullPlacement::AtStart,
-                           RankOptions::First);
-  ASSERT_OK_AND_ASSIGN(auto actualFirst, CallFunction("rank", {arr}, &optionsFirst));
-  AssertDatumsEqual(expectedFirst, actualFirst, /*verbose=*/true);
-
-  auto expectedDense = ArrayFromJSON(uint64(), "[3, 2, 4, 1, 4, 1, 2]");
-  RankOptions optionsDense(SortOrder::Ascending, NullPlacement::AtStart,
-                           RankOptions::Dense);
-  ASSERT_OK_AND_ASSIGN(auto actualDense, CallFunction("rank", {arr}, &optionsDense));
-  AssertDatumsEqual(expectedDense, actualDense, /*verbose=*/true);
-}
-
-TEST(ArrayRankFunction, SortDescNullsAtEnd) {
-  auto arr = ArrayFromJSON(int16(), "[1, -5, 5, null, 5, null, -5]");
-  auto expectedMin = ArrayFromJSON(uint64(), "[3, 4, 1, 6, 1, 6, 4]");
-  RankOptions optionsMin(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min);
-  ASSERT_OK_AND_ASSIGN(auto actualMin, CallFunction("rank", {arr}, &optionsMin));
-  AssertDatumsEqual(expectedMin, actualMin, /*verbose=*/true);
-
-  auto expectedMax = ArrayFromJSON(uint64(), "[3, 5, 2, 7, 2, 7, 5]");
-  RankOptions optionsMax(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max);
-  ASSERT_OK_AND_ASSIGN(auto actualMax, CallFunction("rank", {arr}, &optionsMax));
-  AssertDatumsEqual(expectedMax, actualMax, /*verbose=*/true);
-
-  auto expectedFirst = ArrayFromJSON(uint64(), "[3, 4, 1, 6, 2, 7, 5]");
-  RankOptions optionsFirst(SortOrder::Descending, NullPlacement::AtEnd,
-                           RankOptions::First);
-  ASSERT_OK_AND_ASSIGN(auto actualFirst, CallFunction("rank", {arr}, &optionsFirst));
-  AssertDatumsEqual(expectedFirst, actualFirst, /*verbose=*/true);
-
-  auto expectedDense = ArrayFromJSON(uint64(), "[2, 3, 1, 4, 1, 4, 3]");
-  RankOptions optionsDense(SortOrder::Descending, NullPlacement::AtEnd,
-                           RankOptions::Dense);
-  ASSERT_OK_AND_ASSIGN(auto actualDense, CallFunction("rank", {arr}, &optionsDense));
-  AssertDatumsEqual(expectedDense, actualDense, /*verbose=*/true);
-}
-
-TEST(ArrayRankFunction, SortDescNullsAtStart) {
-  auto arr = ArrayFromJSON(int16(), "[1, -5, 5, null, 5, null, -5]");
-  auto expectedMin = ArrayFromJSON(uint64(), "[5, 6, 3, 1, 3, 1, 6]");
-  RankOptions optionsMin(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min);
-  ASSERT_OK_AND_ASSIGN(auto actualMin, CallFunction("rank", {arr}, &optionsMin));
-  AssertDatumsEqual(expectedMin, actualMin, /*verbose=*/true);
-
-  auto expectedMax = ArrayFromJSON(uint64(), "[5, 7, 4, 2, 4, 2, 7]");
-  RankOptions optionsMax(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max);
-  ASSERT_OK_AND_ASSIGN(auto actualMax, CallFunction("rank", {arr}, &optionsMax));
-  AssertDatumsEqual(expectedMax, actualMax, /*verbose=*/true);
-
-  auto expectedFirst = ArrayFromJSON(uint64(), "[5, 6, 3, 1, 4, 2, 7]");
-  RankOptions optionsFirst(SortOrder::Descending, NullPlacement::AtStart,
-                           RankOptions::First);
-  ASSERT_OK_AND_ASSIGN(auto actualFirst, CallFunction("rank", {arr}, &optionsFirst));
-  AssertDatumsEqual(expectedFirst, actualFirst, /*verbose=*/true);
-
-  auto expectedDense = ArrayFromJSON(uint64(), "[3, 4, 2, 1, 2, 1, 4]");
-  RankOptions optionsDense(SortOrder::Descending, NullPlacement::AtStart,
-                           RankOptions::Dense);
-  ASSERT_OK_AND_ASSIGN(auto actualDense, CallFunction("rank", {arr}, &optionsDense));
-  AssertDatumsEqual(expectedDense, actualDense, /*verbose=*/true);
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 6, 3, 1, 3, 1, 6]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 7, 4, 2, 4, 2, 7]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 6, 3, 1, 4, 2, 7]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 4, 2, 1, 2, 1, 4]");
 }
 
 // Some first keys will have duplicates, others not
