@@ -1998,7 +1998,7 @@ class ArrayRanker : public TypeVisitor {
         auto rank = sorted.overall_end() - sorted.overall_begin();
         for (auto it = sorted.overall_end() - 1; it >= sorted.overall_begin(); it--) {
           currValue = GetView::LogicalValue(arr.GetView(*it));
-          if (it < sorted.overall_end() && (currValue != prevValue)) {
+          if (it < sorted.overall_end() - 1 && (currValue != prevValue)) {
             rank = it - sorted.overall_begin() + 1;
           }
           out_begin[*it] = rank;
