@@ -595,6 +595,24 @@ test_that("UnionDataset can merge schemas", {
   expect_equal(actual, expected)
 })
 
+test_that("UnionDataset handles InMemoryDatasets", {
+  sub_df1 <- Table$create(
+    x = Array$create(c(1, 2, 3)),
+    y = Array$create(c("a", "b", "c"))
+  )
+  sub_df2 <- Table$create(
+    x = Array$create(c(4, 5)),
+    z = Array$create(c("d", "e"))
+  )
+
+  ds1 <- InMemoryDataset$create(sub_df1)
+  ds2 <- InMemoryDataset$create(sub_df2)
+  ds <- c(ds1, ds2)
+  actual <- ds %>% collect(as_data_frame = FALSE)
+  expected <- concat_tables(sub_df1, sub_df2)
+  expect_equal(actual, expected)
+})
+
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
