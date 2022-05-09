@@ -318,7 +318,7 @@ def _make_global_functions():
 _make_global_functions()
 
 
-def cast(arr, target_type, safe=True):
+def cast(arr, target_type, safe=True, options=None):
     """
     Cast array values to another data type. Can also be invoked as an array
     instance method.
@@ -369,10 +369,11 @@ def cast(arr, target_type, safe=True):
     """
     if target_type is None:
         raise ValueError("Cast target type must not be None")
-    if safe:
-        options = CastOptions.safe(target_type)
-    else:
-        options = CastOptions.unsafe(target_type)
+    if options is None:
+        if safe:
+            options = CastOptions.safe(target_type)
+        else:
+            options = CastOptions.unsafe(target_type)
     return call_function("cast", [arr], options)
 
 

@@ -490,7 +490,7 @@ cdef class ChunkedArray(_PandasConvertible):
             return values
         return values.astype(dtype)
 
-    def cast(self, object target_type, safe=True):
+    def cast(self, object target_type, safe=True, options=None):
         """
         Cast array values to another data type
 
@@ -520,7 +520,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs_seconds.type
         DurationType(duration[s])
         """
-        return _pc().cast(self, target_type, safe=safe)
+        return _pc().cast(self, target_type, safe=safe, options=options)
 
     def dictionary_encode(self, null_encoding='mask'):
         """
