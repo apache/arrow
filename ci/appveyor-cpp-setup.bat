@@ -79,11 +79,6 @@ if "%JOB%" NEQ "Build_Debug" (
     "python=%PYTHON%" ^
     || exit /B
 
-  @rem On Windows, GTest is always bundled from source instead of using
-  @rem conda binaries, avoid any interference between the two versions.
-  if "%JOB%" == "Toolchain" (
-    mamba uninstall -n arrow -q -y -c conda-forge gtest || exit /B
-  )
 )
 
 @rem
