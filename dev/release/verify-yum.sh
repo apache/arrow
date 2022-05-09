@@ -53,6 +53,8 @@ have_parquet=yes
 have_python=yes
 install_command="dnf install -y --enablerepo=powertools"
 
+echo "::group::Prepare repository"
+
 case "${distribution}-${distribution_version}" in
   almalinux-*)
     distribution_prefix="almalinux"
@@ -152,6 +154,10 @@ else
   esac
 fi
 
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow C++"
 ${install_command} --enablerepo=epel arrow-devel-${package_version}
 ${install_command} \
   ${cmake_package} \
@@ -161,7 +167,7 @@ ${install_command} \
   make \
   pkg-config
 mkdir -p build
-cp -a /arrow/cpp/examples/minimal_build build
+cp -a /arrow/cpp/examples/minimal_build build/
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
@@ -169,42 +175,62 @@ make -j$(nproc)
 c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
 ./arrow-example
 popd
+echo "::endgroup::"
 
 if [ "${have_glib}" = "yes" ]; then
+  echo "::group::Test Apache Arrow GLib"
   ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
+
+  ${install_command} vala
+  cp -a /arrow/c_glib/example/vala build/
+  pushd build/vala
+  valac --pkg arrow-glib --pkg posix build.vala
+  ./build
+  popd
+  echo "::endgroup::"
+fi
+
+if [ "${have_flight}" = "yes" ]; then
+  echo "::group::Test Apache Arrow Flight"
+  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
+  echo "::endgroup::"
 fi
 
 if [ "${have_python}" = "yes" ]; then
+  echo "::group::Test libarrow-python"
   ${install_command} --enablerepo=epel arrow-python-devel-${package_version}
+  echo "::endgroup::"
 fi
 
+echo "::group::Test Plasma"
 if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
   ${install_command} --enablerepo=epel plasma-glib-doc-${package_version}
 else
   ${install_command} --enablerepo=epel plasma-devel-${package_version}
 fi
-
-if [ "${have_flight}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
-fi
+echo "::endgroup::"
 
 if [ "${have_gandiva}" = "yes" ]; then
+  echo "::group::Test Gandiva"
   if [ "${have_glib}" = "yes" ]; then
     ${install_command} --enablerepo=epel gandiva-glib-devel-${package_version}
     ${install_command} --enablerepo=epel gandiva-glib-doc-${package_version}
   else
     ${install_command} --enablerepo=epel gandiva-devel-${package_version}
   fi
+  echo "::endgroup::"
 fi
 
 if [ "${have_parquet}" = "yes" ]; then
+  echo "::group::Test Apache Parquet"
   if [ "${have_glib}" = "yes" ]; then
     ${install_command} --enablerepo=epel parquet-glib-devel-${package_version}
     ${install_command} --enablerepo=epel parquet-glib-doc-${package_version}
   else
     ${install_command} --enablerepo=epel parquet-devel-${package_version}
   fi
+  echo "::endgroup::"
 fi

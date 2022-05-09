@@ -52,6 +52,10 @@ base_include_directories = [
 ]
 
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
+generate_vapi = have_gi and get_option('vala')
+if generate_vapi
+  add_languages('vala')
+endif
 
 arrow_cpp_build_dir = get_option('arrow_cpp_build_dir')
 arrow_cpp_build_type = get_option('arrow_cpp_build_type')

@@ -63,6 +63,7 @@ RUN \
     python3-wheel \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   (echo "includedir=/usr/include" && \
    echo "libdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)" && \

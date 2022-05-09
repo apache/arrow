@@ -93,11 +93,12 @@ COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
-ENV ARROW_FLIGHT=ON \
-    ARROW_PYTHON=ON \
-    ARROW_S3=ON \
-    ARROW_BUILD_STATIC=OFF \
+ENV ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
+    ARROW_FLIGHT=ON \
+    ARROW_GLIB_VALA=false \
+    ARROW_PYTHON=ON \
+    ARROW_S3=ON \
     ARROW_USE_GLOG=OFF \
     CMAKE_UNITY_BUILD=ON

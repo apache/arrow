@@ -85,20 +85,32 @@ pkgconfig.generate(libarrow_dataset_glib,
                    requires: ['arrow-glib', 'arrow-dataset'])
 
 if have_gi
-  gnome.generate_gir(libarrow_dataset_glib,
-                     dependencies: declare_dependency(sources: arrow_glib_gir),
-                     sources: sources + c_headers + enums,
-                     namespace: 'ArrowDataset',
-                     nsversion: api_version,
-                     identifier_prefix: 'GADataset',
-                     symbol_prefix: 'gadataset',
-                     export_packages: 'arrow-dataset-glib',
-                     includes: [
-                       'Arrow-1.0',
-                     ],
-                     install: true,
-                     extra_args: [
-                       '--warn-all',
-                       '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                     ])
+  dataset_glib_gir = \
+    gnome.generate_gir(libarrow_dataset_glib,
+                       dependencies: declare_dependency(sources: arrow_glib_gir),
+                       export_packages: 'arrow-dataset-glib',
+                       extra_args: [
+                         '--warn-all',
+                         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                       ],
+                       header: 'arrow-dataset-glib/arrow-dataset-glib.h',
+                       identifier_prefix: 'GADataset',
+                       includes: [
+                         'Arrow-1.0',
+                       ],
+                       install: true,
+                       namespace: 'ArrowDataset',
+                       nsversion: api_version,
+                       sources: sources + c_headers + enums,
+                       symbol_prefix: 'gadataset')
+
+  if generate_vapi
+    gnome.generate_vapi('arrow-dataset-glib',
+                        install: true,
+                        packages: [
+                          arrow_glib_vapi,
+                          'gio-2.0',
+                        ],
+                        sources: [dataset_glib_gir[0]])
+  endif
 endif

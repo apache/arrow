@@ -42,6 +42,7 @@ class ApacheArrowGlib < Formula
   depends_on "meson" => :build
   depends_on "ninja" => :build
   depends_on "pkg-config" => :build
+  depends_on "vala" => :build
   depends_on "apache-arrow"
   depends_on "glib"
 
@@ -53,7 +54,7 @@ class ApacheArrowGlib < Formula
 
   def install
     mkdir "build" do
-      system "meson", *std_meson_args, "../c_glib"
+      system "meson", *std_meson_args, "-Dvala=true", "../c_glib"
       system "ninja", "-v"
       system "ninja", "install", "-v"
     end

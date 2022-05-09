@@ -17,34 +17,32 @@
   under the License.
 -->
 
-# Arrow Lua example
+# Arrow Vala example
 
-There are Lua example codes in this directory.
+There are Vala example codes in this directory.
 
-## How to run
+## How to build
 
-All example codes use [LGI](https://github.com/pavouk/lgi) to use
-Arrow GLib based bindings.
-
-Here are command lines to install LGI on Debian GNU/Linux and Ubuntu:
+Here is a command line to build an example in this directory:
 
 ```console
-$ sudo apt install -y luarocks
-$ sudo luarocks install lgi
+$ valac --pkg arrow-glib --pkg posix XXX.vala
 ```
 
-## Lua example codes
+## Vala example codes
 
 Here are example codes in this directory:
 
-  * `write-file.lua`: It shows how to write Arrow array to file in
+  * `build.vala`: It shows how to create an array by array builder.
+
+  * `write-file.vala`: It shows how to write Arrow array to file in
     file format.
 
-  * `read-file.lua`: It shows how to read Arrow array from file in
+  * `read-file.vala`: It shows how to read Arrow array from file in
     file format.
 
-  * `write-stream.lua`: It shows how to write Arrow array to file in
+  * `write-stream.vala`: It shows how to write Arrow array to file in
     stream format.
 
-  * `read-stream.lua`: It shows how to read Arrow array from file in
+  * `read-stream.vala`: It shows how to read Arrow array from file in
     stream format.

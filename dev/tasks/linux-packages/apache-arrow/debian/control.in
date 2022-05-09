@@ -34,6 +34,7 @@ Build-Depends:
 @USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
 @ENABLE_PYTHON@  python3-dev,
 @ENABLE_PYTHON@  python3-numpy,
+  valac,
   tzdata,
   zlib1g-dev
 Build-Depends-Indep: libglib2.0-doc

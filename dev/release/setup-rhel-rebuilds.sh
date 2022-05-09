@@ -46,6 +46,7 @@ dnf -y install \
   python38-pip \
   ruby-devel \
   sqlite-devel \
+  vala-devel \
   wget \
   which
 npm install -g yarn

@@ -115,6 +115,7 @@ BuildRequires:	ncurses-devel
 
 BuildRequires:	gobject-introspection-devel
 BuildRequires:	gtk-doc
+BuildRequires:	vala-devel
 
 %description
 Apache Arrow is a data processing library for analysis.
@@ -179,7 +180,8 @@ meson setup build \
   --prefix=%{_prefix} \
   -Darrow_cpp_build_dir=../cpp/build \
   -Darrow_cpp_build_type=$cpp_build_type \
-  -Dgtk_doc=true
+  -Dgtk_doc=true \
+  -Dvala=true
 LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
   ninja -C build %{?_smp_mflags}
 cd -
@@ -600,6 +602,7 @@ Libraries and header files for Apache Arrow GLib.
 %{_libdir}/pkgconfig/arrow-orc-glib.pc
 %{_libdir}/girepository-1.0/Arrow-1.0.typelib
 %{_datadir}/arrow-glib/example/
+%{_datadir}/vala/vapi/arrow-glib.*
 
 %package glib-doc
 Summary:	Documentation for Apache Arrow GLib
@@ -647,6 +650,7 @@ Libraries and header files for Apache Arrow Dataset GLib.
 %{_libdir}/libarrow-dataset-glib.so
 %{_libdir}/pkgconfig/arrow-dataset-glib.pc
 %{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
+%{_datadir}/vala/vapi/arrow-dataset-glib.*
 
 %package dataset-glib-doc
 Summary:	Documentation for Apache Arrow Dataset GLib
@@ -694,6 +698,7 @@ Libraries and header files for Apache Arrow Flight GLib.
 %{_libdir}/libarrow-flight-glib.so
 %{_libdir}/pkgconfig/arrow-flight-glib.pc
 %{_libdir}/girepository-1.0/ArrowFlight-1.0.typelib
+%{_datadir}/vala/vapi/arrow-flight-glib.*
 
 %package flight-glib-doc
 Summary:	Documentation for Apache Arrow Flight GLib
@@ -742,6 +747,7 @@ Libraries and header files for Gandiva GLib.
 %{_libdir}/libgandiva-glib.so
 %{_libdir}/pkgconfig/gandiva-glib.pc
 %{_libdir}/girepository-1.0/Gandiva-1.0.typelib
+%{_datadir}/vala/vapi/gandiva-glib.*
 
 %package -n gandiva-glib-doc
 Summary:	Documentation for Gandiva GLib
@@ -789,6 +795,7 @@ Libraries and header files for Plasma GLib.
 %{_libdir}/libplasma-glib.so
 %{_libdir}/pkgconfig/plasma-glib.pc
 %{_libdir}/girepository-1.0/Plasma-1.0.typelib
+%{_datadir}/vala/vapi/plasma-glib.*
 
 %package -n plasma-glib-doc
 Summary:	Documentation for Plasma GLib
@@ -835,6 +842,7 @@ Libraries and header files for Apache Parquet GLib.
 %{_libdir}/libparquet-glib.so
 %{_libdir}/pkgconfig/parquet-glib.pc
 %{_libdir}/girepository-1.0/Parquet-1.0.typelib
+%{_datadir}/vala/vapi/parquet-glib.*
 
 %package -n parquet-glib-doc
 Summary:	Documentation for Apache Parquet GLib

@@ -243,6 +243,7 @@ test_yum() {
     esac
     if ! docker run \
            --rm \
+           --security-opt="seccomp=unconfined" \
            --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
@@ -258,6 +259,7 @@ test_yum() {
       if ! docker run \
              --platform linux/arm64 \
              --rm \
+             --security-opt="seccomp=unconfined" \
              --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
              "${target}" \
              /arrow/dev/release/verify-yum.sh \

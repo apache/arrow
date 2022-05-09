@@ -62,6 +62,12 @@ if have_gi
     '--warn-all',
     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
   ]
+  if generate_vapi
+    vapi_packages = [
+      arrow_glib_vapi,
+      'gio-2.0',
+    ]
+  endif
 endif
 if arrow_cuda.found()
   dependencies += [arrow_cuda_glib]
@@ -71,6 +77,9 @@ if arrow_cuda.found()
     gir_dependencies += [declare_dependency(sources: arrow_cuda_glib_gir)]
     gir_includes += ['ArrowCUDA-1.0']
     gir_extra_args += ['--include-uninstalled=./arrow-cuda-glib/ArrowCUDA-1.0.gir']
+    if generate_vapi
+      vapi_packages += [arrow_cuda_glib_vapi]
+    endif
   endif
 endif
 libplasma_glib = library('plasma-glib',
@@ -93,15 +102,24 @@ pkgconfig.generate(libplasma_glib,
                    requires: pkg_config_requires)
 
 if have_gi
-  gnome.generate_gir(libplasma_glib,
-                     dependencies: gir_dependencies,
-                     sources: sources + c_headers,
-                     namespace: 'Plasma',
-                     nsversion: api_version,
-                     identifier_prefix: 'GPlasma',
-                     symbol_prefix: 'gplasma',
-                     export_packages: 'plasma-glib',
-                     includes: gir_includes,
-                     install: true,
-                     extra_args: gir_extra_args)
+  plasma_glib_gir = \
+    gnome.generate_gir(libplasma_glib,
+                       dependencies: gir_dependencies,
+                       export_packages: 'plasma-glib',
+                       extra_args: gir_extra_args,
+                       header: 'plasma-glib/plasma-glib.h',
+                       identifier_prefix: 'GPlasma',
+                       includes: gir_includes,
+                       install: true,
+                       namespace: 'Plasma',
+                       nsversion: api_version,
+                       sources: sources + c_headers,
+                       symbol_prefix: 'gplasma')
+
+  if generate_vapi
+    gnome.generate_vapi('plasma-glib',
+                        install: true,
+                        packages: vapi_packages,
+                        sources: plasma_glib_gir[0])
+  endif
 endif

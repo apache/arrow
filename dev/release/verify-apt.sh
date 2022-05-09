@@ -61,7 +61,6 @@ case "${TYPE}" in
     ;;
 esac
 
-have_flight=yes
 have_plasma=yes
 have_python=yes
 workaround_missing_packages=()
@@ -147,7 +146,7 @@ required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
 ${APT_INSTALL} ${required_packages[@]}
 mkdir -p build
-cp -a /arrow/cpp/examples/minimal_build build
+cp -a /arrow/cpp/examples/minimal_build build/
 pushd build/minimal_build
 cmake .
 make -j$(nproc)
@@ -162,19 +161,32 @@ echo "::group::Test Apache Arrow GLib"
 ${APT_INSTALL} libarrow-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-glib-doc=${package_version}
 
+${APT_INSTALL} valac
+cp -a /arrow/c_glib/example/vala build/
+pushd build/vala
+valac --pkg arrow-glib --pkg posix build.vala
+./build
+popd
+
+
 ${APT_INSTALL} ruby-dev rubygems-integration
 gem install gobject-introspection
 ruby -r gi -e "p GI.load('Arrow')"
 echo "::endgroup::"
 
 
-if [ "${have_flight}" = "yes" ]; then
-  echo "::group::Test Apache Arrow Flight"
-  ${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
-  ${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
-  ruby -r gi -e "p GI.load('ArrowFlight')"
-  echo "::endgroup::"
-fi
+echo "::group::Test Apache Arrow Dataset"
+${APT_INSTALL} libarrow-dataset-glib-dev=${package_version}
+${APT_INSTALL} libarrow-dataset-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowDataset')"
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow Flight"
+${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
+${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowFlight')"
+echo "::endgroup::"
 
 
 if [ "${have_python}" = "yes" ]; then
@@ -205,11 +217,4 @@ echo "::group::Test Apache Parquet"
 ${APT_INSTALL} libparquet-glib-dev=${package_version}
 ${APT_INSTALL} libparquet-glib-doc=${package_version}
 ruby -r gi -e "p GI.load('Parquet')"
-echo "::endgroup::"
-
-
-echo "::group::Test Apache Arrow Dataset"
-${APT_INSTALL} libarrow-dataset-glib-dev=${package_version}
-${APT_INSTALL} libarrow-dataset-glib-doc=${package_version}
-ruby -r gi -e "p GI.load('ArrowDataset')"
 echo "::endgroup::"
