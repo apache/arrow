@@ -93,7 +93,7 @@ public class FlightStreamQueue implements AutoCloseable {
    */
   @FunctionalInterface
   interface FlightStreamSupplier {
-    Future<FlightStream> get() throws SQLTimeoutException;
+    Future<FlightStream> get() throws SQLException;
   }
 
   private FlightStream next(final FlightStreamSupplier flightStreamSupplier) throws SQLException {
@@ -107,7 +107,7 @@ public class FlightStreamQueue implements AutoCloseable {
           return stream;
         }
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
-        throw AvaticaConnection.HELPER.wrap("Query canceled", e);
+        throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
       }
     }
     return null;
@@ -147,7 +147,7 @@ public class FlightStreamQueue implements AutoCloseable {
       try {
         return completionService.take();
       } catch (final InterruptedException e) {
-        throw AvaticaConnection.HELPER.wrap("Query canceled", e);
+        throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
       }
     });
   }
