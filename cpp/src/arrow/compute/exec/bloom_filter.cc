@@ -155,7 +155,11 @@ void BlockedBloomFilter::FindImp(int64_t num_rows, const T* hashes,
       uint64_t result = Find(hashes[i]) ? 1ULL : 0ULL;
       bits |= result << (i & 63);
       if ((i & 63) == 63) {
+#if ARROW_LITTLE_ENDIAN
         reinterpret_cast<uint64_t*>(result_bit_vector)[i / 64] = bits;
+#else
+        reinterpret_cast<uint64_t*>(result_bit_vector)[i / 64] = BYTESWAP(bits);
+#endif
         bits = 0ULL;
       }
     }
@@ -166,7 +170,11 @@ void BlockedBloomFilter::FindImp(int64_t num_rows, const T* hashes,
     uint64_t result = Find(hashes[i]) ? 1ULL : 0ULL;
     bits |= result << (i & 63);
     if ((i & 63) == 63) {
+#if ARROW_LITTLE_ENDIAN
       reinterpret_cast<uint64_t*>(result_bit_vector)[i / 64] = bits;
+#else
+      reinterpret_cast<uint64_t*>(result_bit_vector)[i / 64] = BYTESWAP(bits);
+#endif
       bits = 0ULL;
     }
   }
@@ -371,6 +379,7 @@ void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num
       std::max(0, build_target_->log_num_blocks() - kLogBlocksKeptTogether);
   const int log_num_prtns_mod = std::min(log_num_prtns_, log_num_prtns_max);
   int num_prtns = 1 << log_num_prtns_mod;
+
   ThreadLocalState& local_state = thread_local_states_[thread_id];
   local_state.partition_ranges.resize(num_prtns + 1);
   local_state.partitioned_hashes_64.resize(num_rows);
