@@ -1,9 +1,5 @@
 # arrow
 
-[![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
-[![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amaster+event%3Apush)
-[![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
-
 **[Apache Arrow](https://arrow.apache.org/) is a cross-language
 development platform for in-memory data.** It specifies a standardized
 language-independent columnar memory format for flat and hierarchical
@@ -138,7 +134,7 @@ returns an R `data.frame`. To return an Arrow `Table`, set argument
 -   `read_json_arrow()`: read a JSON data file
 
 For writing data to single files, the `arrow` package provides the
-functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`. 
+functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`.
 These can be used with R `data.frame` and Arrow `Table` objects.
 
 For example, let’s write the Star Wars characters data that’s included
@@ -270,7 +266,7 @@ sw %>%
 ```
 
 Additionally, equality joins (e.g. `left_join()`, `inner_join()`) are supported
-for joining multiple tables. 
+for joining multiple tables.
 
 ```r
 jedi <- data.frame(
