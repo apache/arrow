@@ -25,11 +25,14 @@ import gc
 import numpy as np
 import os
 import random
+import re
+import shutil
 import signal
 import socket
 import string
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -350,3 +353,97 @@ def signal_wakeup_fd(*, warn_on_full_buffer=False):
             signal.set_wakeup_fd(old_fd)
         r.close()
         w.close()
+
+
+def _ensure_minio_component_version(component, minimum_year):
+    full_args = [component, '--version']
+    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, encoding='utf-8')
+    if proc.wait(10) != 0:
+        return False
+    stdout = proc.stdout.read()
+    pattern = component + r' version RELEASE\.(\d+)-.*'
+    version_match = re.search(pattern, stdout)
+    if version_match:
+        version_year = version_match.group(1)
+        return int(version_year) >= minimum_year
+    else:
+        raise FileNotFoundError("minio component older than the minimum year")
+
+
+def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
+    start = time.time()
+    while time.time() - start < 10:
+        try:
+            _run_mc_command(mcdir, 'alias', 'set', 'myminio',
+                            f'http://{address}', access_key, secret_key)
+            return
+        except ChildProcessError:
+            time.sleep(1)
+    raise Exception("mc command could not connect to local minio")
+
+
+def _run_mc_command(mcdir, *args):
+    full_args = ['mc', '-C', mcdir] + list(args)
+    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, encoding='utf-8')
+    retval = proc.wait(10)
+    cmd_str = ' '.join(full_args)
+    print(f'Cmd: {cmd_str}')
+    print(f'  Return: {retval}')
+    print(f'  Stdout: {proc.stdout.read()}')
+    print(f'  Stderr: {proc.stderr.read()}')
+    if retval != 0:
+        raise ChildProcessError("Could not run mc")
+
+
+def _configure_s3_limited_user(s3_server, policy):
+    """
+    Attempts to use the mc command to configure the minio server
+    with a special user limited:limited123 which does not have
+    permission to create buckets.  This mirrors some real life S3
+    configurations where users are given strict permissions.
+
+    Arrow S3 operations should still work in such a configuration
+    (e.g. see ARROW-13685)
+    """
+
+    if sys.platform == 'win32':
+        # Can't rely on FileNotFound check because
+        # there is sometimes an mc command on Windows
+        # which is unrelated to the minio mc
+        pytest.skip('The mc command is not installed on Windows')
+
+    try:
+        # ensuring version of mc and minio for the capabilities we need
+        _ensure_minio_component_version('mc', 2021)
+        _ensure_minio_component_version('minio', 2021)
+
+        tempdir = s3_server['tempdir']
+        host, port, access_key, secret_key = s3_server['connection']
+        address = '{}:{}'.format(host, port)
+
+        mcdir = os.path.join(tempdir, 'mc')
+        if os.path.exists(mcdir):
+            shutil.rmtree(mcdir)
+        os.mkdir(mcdir)
+        policy_path = os.path.join(tempdir, 'limited-buckets-policy.json')
+        with open(policy_path, mode='w') as policy_file:
+            policy_file.write(policy)
+        # The s3_server fixture starts the minio process but
+        # it takes a few moments for the process to become available
+        _wait_for_minio_startup(mcdir, address, access_key, secret_key)
+        # These commands create a limited user with a specific
+        # policy and creates a sample bucket for that user to
+        # write to
+        _run_mc_command(mcdir, 'admin', 'policy', 'add',
+                        'myminio/', 'no-create-buckets', policy_path)
+        _run_mc_command(mcdir, 'admin', 'user', 'add',
+                        'myminio/', 'limited', 'limited123')
+        _run_mc_command(mcdir, 'admin', 'policy', 'set',
+                        'myminio', 'no-create-buckets', 'user=limited')
+        _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
+                        '--ignore-existing')
+
+    except FileNotFoundError:
+        pytest.skip("Configuring limited s3 user failed")

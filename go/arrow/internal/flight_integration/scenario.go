@@ -26,13 +26,13 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/flight"
-	"github.com/apache/arrow/go/v8/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v8/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v8/arrow/ipc"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/flight"
+	"github.com/apache/arrow/go/v9/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v9/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v9/arrow/ipc"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -196,6 +196,16 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 
 	if err := stream.CloseSend(); err != nil {
 		return err
+	}
+
+	for {
+		_, err = stream.Recv()
+		if err != nil {
+			if err != io.EOF {
+				return err
+			}
+			break
+		}
 	}
 
 	info, err := client.GetFlightInfo(ctx, descr)

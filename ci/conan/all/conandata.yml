@@ -1,0 +1,68 @@
+# MIT License
+#
+# Copyright (c) 2019 Conan.io
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+sources:
+  "7.0.0":
+    url: "https://github.com/apache/arrow/archive/apache-arrow-7.0.0.tar.gz"
+    sha256: "57e13c62f27b710e1de54fd30faed612aefa22aa41fa2c0c3bacd204dd18a8f3"
+  "2.0.0":
+    url: "https://github.com/apache/arrow/archive/apache-arrow-2.0.0.tar.gz"
+    sha256: "ea299df9cf440cfc43393ce12ee6d9a4c9d0dfa9fde33c3bc9b70ec25520a844"
+  "1.0.0":
+    url: "https://github.com/apache/arrow/archive/apache-arrow-1.0.0.tar.gz"
+    sha256: "08fbd4c633c08939850d619ca0224c75d7a0526467c721c0838b8aa7efccb270"
+patches:
+  "7.0.0":
+    - base_path: "source_subfolder"
+      patch_file: "patches/7.0.0-0001-cmake.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/7.0.0-0002-jemalloc.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/7.0.0-0003-mallctl-takes-size_t.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/7.0.0-0004-remove-find-modules.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/7.0.0-0005-use-find-package.patch"
+  "2.0.0":
+    - base_path: "source_subfolder"
+      patch_file: "patches/2.0.0-0001-cmake.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/2.0.0-0002-jemalloc.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/2.0.0-0003-fix-shared-msvc.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/1.0.0-0004-mallctl-takes-size_t.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/2.0.0-0005-gandiva-engine.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/2.0.0-0006-gandiva-llvm-re2.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/2.0.0-0007-fix-protoc-cmake.patch"
+  "1.0.0":
+    - base_path: "source_subfolder"
+      patch_file: "patches/1.0.0-0001-cmake.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/1.0.0-0002-jemalloc.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/1.0.0-0003-fix-shared-msvc.patch"
+    - base_path: "source_subfolder"
+      patch_file: "patches/1.0.0-0004-mallctl-takes-size_t.patch"

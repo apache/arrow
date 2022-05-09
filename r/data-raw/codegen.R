@@ -44,7 +44,7 @@
 # Ensure that all machines are sorting the same way
 invisible(Sys.setlocale("LC_COLLATE", "C"))
 
-features <- c("arrow", "dataset", "engine", "parquet", "s3", "json")
+features <- c("arrow", "dataset", "substrait", "parquet", "s3", "json")
 
 suppressPackageStartupMessages({
   library(decor)

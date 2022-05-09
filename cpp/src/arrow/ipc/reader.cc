@@ -654,7 +654,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
                          reader.get());
 }
 
-Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
+Result<RecordBatchWithMetadata> ReadRecordBatchInternal(
     const Buffer& metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, IpcReadContext& context,
     io::RandomAccessFile* file) {
@@ -676,7 +676,15 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
   }
   context.compression = compression;
   context.metadata_version = internal::GetMetadataVersion(message->version());
-  return LoadRecordBatch(batch, schema, inclusion_mask, context, file);
+
+  std::shared_ptr<KeyValueMetadata> custom_metadata;
+  if (message->custom_metadata() != nullptr) {
+    RETURN_NOT_OK(
+        internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto record_batch,
+                        LoadRecordBatch(batch, schema, inclusion_mask, context, file));
+  return RecordBatchWithMetadata{record_batch, custom_metadata};
 }
 
 // If we are selecting only certain fields, populate an inclusion mask for fast lookups.
@@ -756,7 +764,10 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
   IpcReadContext context(const_cast<DictionaryMemo*>(dictionary_memo), options, false);
   RETURN_NOT_OK(GetInclusionMaskAndOutSchema(schema, context.options.included_fields,
                                              &inclusion_mask, &out_schema));
-  return ReadRecordBatchInternal(metadata, schema, inclusion_mask, context, file);
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch_and_custom_metadata,
+      ReadRecordBatchInternal(metadata, schema, inclusion_mask, context, file));
+  return batch_and_custom_metadata.batch;
 }
 
 Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
@@ -852,15 +863,21 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    ARROW_ASSIGN_OR_RAISE(auto batch_with_metadata, ReadNext());
+    *batch = std::move(batch_with_metadata.batch);
+    return Status::OK();
+  }
+
+  Result<RecordBatchWithMetadata> ReadNext() override {
     if (!have_read_initial_dictionaries_) {
       RETURN_NOT_OK(ReadInitialDictionaries());
     }
 
+    RecordBatchWithMetadata batch_with_metadata;
     if (empty_stream_) {
       // ARROW-6006: Degenerate case where stream contains no data, we do not
       // bother trying to read a RecordBatch message from the stream
-      *batch = nullptr;
-      return Status::OK();
+      return batch_with_metadata;
     }
 
     // Continue to read other dictionaries, if any
@@ -874,16 +891,14 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
     if (message == nullptr) {
       // End of stream
-      *batch = nullptr;
-      return Status::OK();
+      return batch_with_metadata;
     }
 
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
     return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                   context, reader.get())
-        .Value(batch);
+                                   context, reader.get());
   }
 
   std::shared_ptr<Schema> schema() const override { return out_schema_; }
@@ -1158,12 +1173,26 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   }
 
   Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) override {
+    ARROW_ASSIGN_OR_RAISE(auto batch_with_metadata, ReadRecordBatchWithCustomMetadata(i));
+    return batch_with_metadata.batch;
+  }
+
+  Result<RecordBatchWithMetadata> ReadRecordBatchWithCustomMetadata(int i) override {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, num_record_batches());
 
     auto cached_metadata = cached_metadata_.find(i);
     if (cached_metadata != cached_metadata_.end()) {
-      return ReadCachedRecordBatch(i, cached_metadata->second).result();
+      auto result = ReadCachedRecordBatch(i, cached_metadata->second).result();
+      ARROW_ASSIGN_OR_RAISE(auto batch, result);
+      ARROW_ASSIGN_OR_RAISE(auto message_obj, cached_metadata->second.result());
+      ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
+      std::shared_ptr<KeyValueMetadata> custom_metadata;
+      if (message->custom_metadata() != nullptr) {
+        RETURN_NOT_OK(
+            internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
+      }
+      return RecordBatchWithMetadata{std::move(batch), std::move(custom_metadata)};
     }
 
     RETURN_NOT_OK(WaitForDictionaryReadFinished());
@@ -1185,11 +1214,12 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
-    ARROW_ASSIGN_OR_RAISE(auto batch, ReadRecordBatchInternal(
-                                          *message->metadata(), schema_,
-                                          field_inclusion_mask_, context, reader.get()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto batch_with_metadata,
+        ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                context, reader.get()));
     ++stats_.num_record_batches;
-    return batch;
+    return batch_with_metadata;
   }
 
   Result<int64_t> CountRows() override {
@@ -1832,8 +1862,11 @@ Result<std::shared_ptr<RecordBatch>> WholeIpcFileRecordBatchGenerator::ReadRecor
   CHECK_HAS_BODY(*message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
   IpcReadContext context(&state->dictionary_memo_, state->options_, state->swap_endian_);
-  return ReadRecordBatchInternal(*message->metadata(), state->schema_,
-                                 state->field_inclusion_mask_, context, reader.get());
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch_with_metadata,
+      ReadRecordBatchInternal(*message->metadata(), state->schema_,
+                              state->field_inclusion_mask_, context, reader.get()));
+  return batch_with_metadata.batch;
 }
 
 Status Listener::OnEOS() { return Status::OK(); }
@@ -1938,11 +1971,11 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
       IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
       ARROW_ASSIGN_OR_RAISE(
-          auto batch,
+          auto batch_with_metadata,
           ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
                                   context, reader.get()));
       ++stats_.num_record_batches;
-      return listener_->OnRecordBatchDecoded(std::move(batch));
+      return listener_->OnRecordBatchDecoded(std::move(batch_with_metadata.batch));
     }
   }
 

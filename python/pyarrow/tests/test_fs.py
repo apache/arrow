@@ -20,17 +20,14 @@ import gzip
 import os
 import pathlib
 import pickle
-import re
-import subprocess
-import sys
-import time
 
 import pytest
 import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
-from pyarrow.tests.util import _filesystem_uri, ProxyHandler
+from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
+                                _configure_s3_limited_user)
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
@@ -261,104 +258,6 @@ _minio_limited_policy = """{
 }"""
 
 
-def _run_mc_command(mcdir, *args):
-    full_args = ['mc', '-C', mcdir] + list(args)
-    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, encoding='utf-8')
-    retval = proc.wait(10)
-    cmd_str = ' '.join(full_args)
-    print(f'Cmd: {cmd_str}')
-    print(f'  Return: {retval}')
-    print(f'  Stdout: {proc.stdout.read()}')
-    print(f'  Stderr: {proc.stderr.read()}')
-    if retval != 0:
-        raise ChildProcessError("Could not run mc")
-
-
-def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
-    start = time.time()
-    while time.time() - start < 10:
-        try:
-            _run_mc_command(mcdir, 'alias', 'set', 'myminio',
-                            f'http://{address}', access_key, secret_key)
-            return
-        except ChildProcessError:
-            time.sleep(1)
-    raise Exception("mc command could not connect to local minio")
-
-
-def _ensure_minio_component_version(component, minimum_year):
-    full_args = [component, '--version']
-    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, encoding='utf-8')
-    if proc.wait(10) != 0:
-        return False
-    stdout = proc.stdout.read()
-    pattern = component + r' version RELEASE\.(\d+)-.*'
-    version_match = re.search(pattern, stdout)
-    if version_match:
-        version_year = version_match.group(1)
-        return int(version_year) >= minimum_year
-    else:
-        return False
-
-
-def _configure_limited_user(tmpdir, address, access_key, secret_key):
-    """
-    Attempts to use the mc command to configure the minio server
-    with a special user limited:limited123 which does not have
-    permission to create buckets.  This mirrors some real life S3
-    configurations where users are given strict permissions.
-
-    Arrow S3 operations should still work in such a configuration
-    (e.g. see ARROW-13685)
-    """
-    try:
-        if not _ensure_minio_component_version('mc', 2021):
-            # mc version is too old for the capabilities we need
-            return False
-        if not _ensure_minio_component_version('minio', 2021):
-            # minio version is too old for the capabilities we need
-            return False
-        mcdir = os.path.join(tmpdir, 'mc')
-        os.mkdir(mcdir)
-        policy_path = os.path.join(tmpdir, 'limited-buckets-policy.json')
-        with open(policy_path, mode='w') as policy_file:
-            policy_file.write(_minio_limited_policy)
-        # The s3_server fixture starts the minio process but
-        # it takes a few moments for the process to become available
-        _wait_for_minio_startup(mcdir, address, access_key, secret_key)
-        # These commands create a limited user with a specific
-        # policy and creates a sample bucket for that user to
-        # write to
-        _run_mc_command(mcdir, 'admin', 'policy', 'add',
-                        'myminio/', 'no-create-buckets', policy_path)
-        _run_mc_command(mcdir, 'admin', 'user', 'add',
-                        'myminio/', 'limited', 'limited123')
-        _run_mc_command(mcdir, 'admin', 'policy', 'set',
-                        'myminio', 'no-create-buckets', 'user=limited')
-        _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket')
-        return True
-    except FileNotFoundError:
-        # If mc is not found, skip these tests
-        return False
-
-
-@pytest.fixture(scope='session')
-def limited_s3_user(request, s3_server):
-    if sys.platform == 'win32':
-        # Can't rely on FileNotFound check because
-        # there is sometimes an mc command on Windows
-        # which is unrelated to the minio mc
-        pytest.skip('The mc command is not installed on Windows')
-    request.config.pyarrow.requires('s3')
-    tempdir = s3_server['tempdir']
-    host, port, access_key, secret_key = s3_server['connection']
-    address = '{}:{}'.format(host, port)
-    if not _configure_limited_user(tempdir, address, access_key, secret_key):
-        pytest.skip('Could not locate mc command to configure limited user')
-
-
 @pytest.fixture
 def hdfs(request, hdfs_connection):
     request.config.pyarrow.requires('hdfs')
@@ -531,9 +430,9 @@ def skip_fsspec_s3fs(fs):
 
 
 @pytest.mark.s3
-def test_s3fs_limited_permissions_create_bucket(s3_server, limited_s3_user):
+def test_s3fs_limited_permissions_create_bucket(s3_server):
     from pyarrow.fs import S3FileSystem
-
+    _configure_s3_limited_user(s3_server, _minio_limited_policy)
     host, port, _, _ = s3_server['connection']
 
     fs = S3FileSystem(

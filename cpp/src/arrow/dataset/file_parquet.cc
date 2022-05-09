@@ -384,6 +384,48 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
       });
 }
 
+struct SlicingGenerator {
+  SlicingGenerator(RecordBatchGenerator source, int64_t batch_size)
+      : state(std::make_shared<State>(source, batch_size)) {}
+
+  Future<std::shared_ptr<RecordBatch>> operator()() {
+    if (state->current) {
+      return state->SliceOffABatch();
+    } else {
+      auto state_capture = state;
+      return state->source().Then(
+          [state_capture](const std::shared_ptr<RecordBatch>& next) {
+            if (IsIterationEnd(next)) {
+              return next;
+            }
+            state_capture->current = next;
+            return state_capture->SliceOffABatch();
+          });
+    }
+  }
+
+  struct State {
+    State(RecordBatchGenerator source, int64_t batch_size)
+        : source(std::move(source)), current(), batch_size(batch_size) {}
+
+    std::shared_ptr<RecordBatch> SliceOffABatch() {
+      if (current->num_rows() <= batch_size) {
+        auto sliced = current;
+        current = nullptr;
+        return sliced;
+      }
+      auto slice = current->Slice(0, batch_size);
+      current = current->Slice(batch_size);
+      return slice;
+    }
+
+    RecordBatchGenerator source;
+    std::shared_ptr<RecordBatch> current;
+    int64_t batch_size;
+  };
+  std::shared_ptr<State> state;
+};
+
 Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& file) const {
@@ -399,6 +441,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     pre_filtered = true;
     if (row_groups.empty()) return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
   }
+  int64_t batch_size = options->batch_size;
   // Open the reader and pay the real IO cost.
   auto make_generator =
       [=](const std::shared_ptr<parquet::arrow::FileReader>& reader) mutable
@@ -418,11 +461,15 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
         GetFragmentScanOptions<ParquetFragmentScanOptions>(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
+    int64_t rows_to_readahead = batch_readahead * batch_size;
     ARROW_ASSIGN_OR_RAISE(auto generator,
                           reader->GetRecordBatchGenerator(
                               reader, row_groups, column_projection,
-                              ::arrow::internal::GetCpuThreadPool(), batch_readahead));
-    return generator;
+                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    RecordBatchGenerator sliced = SlicingGenerator(std::move(generator), batch_size);
+    RecordBatchGenerator sliced_readahead =
+        MakeSerialReadaheadGenerator(std::move(sliced), batch_readahead);
+    return sliced_readahead;
   };
   auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
                                       .Then(std::move(make_generator)));

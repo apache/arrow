@@ -346,8 +346,9 @@ struct RandomDataType {
           }
         }
       } else {
-        result.fixed_length =
-            ((1ULL << log_type) == constraints.kBool) ? 0 : (1ULL << log_type);
+        result.fixed_length = ((1ULL << log_type) == constraints.kBool)
+                                  ? 0
+                                  : static_cast<int>(1ULL << log_type);
       }
     } else {
       // Pick parameters for string

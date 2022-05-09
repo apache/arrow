@@ -62,7 +62,7 @@ branch in Git.**
       $ git checkout -b <branch-name>
 
    or (does the same thing)
-   
+
    .. code:: console
 
       $ git switch --create <branch-name>
@@ -77,7 +77,7 @@ made in the library use this two commands:
 
 .. _create_pr:
 
-Creating a pull request 
+Creating a pull request
 ==========================
 
 Once you are satisfied with the changes, run the :ref:`tests <testing>`
@@ -86,14 +86,14 @@ and :ref:`linters<styling>` and then go ahead and commit the changes.
 3. Add and commit the changes
 
    .. code:: console
-         
+
       $ git add <filenames>
       $ git commit -m "<message>"
 
    Alternatively, you can add and commit in one step, if all the files changed
    are to be committed (-a to add all, -m for message)
-   
-   .. code:: console      
+
+   .. code:: console
 
       $ git commit -am "<message>"
 
@@ -123,7 +123,7 @@ If all is set, you can make the pull request!
    once again the changes you have made.
 
    .. seealso::
-      
+
       Get more details on naming the pull request in Arrow repository
       and other additional information :ref:`pull-request-and-review`
       section.
@@ -170,7 +170,7 @@ Besides the CI jobs that check the changes in GitHub repository
 (opening or merging of a pull request) we also use CI for nightly
 builds and releases of the Apache Arrow library.
 
-Also, on-demand triggering jobs can be used in your pull request for
+Also, extended triggering jobs can be used in your pull request for
 example adding a comment with ``@github-actions crossbow submit python``
 will run PyArrow tests via GitHub actions. These are mostly used to run
 tests on environments that are less common and are normally
@@ -196,7 +196,7 @@ How to get your pull request to be reviewed?
 
 Arrow maintainers will be notified when a pull request is created and
 they will get to it as soon as possible. If days pass and it still had
-not been reviewed go ahead and mention the reporter of the JIRA issue 
+not been reviewed go ahead and mention the reporter of the JIRA issue
 or a developer that you communicated with via JIRA comments, mailing
 list or GitHub.
 
@@ -277,7 +277,7 @@ The steps for updating the pull request would then be as follows:
 .. seealso::
 
    See more about updating the branch (we use ``rebase``, not ``merge``)
-   and squashing local commits in :ref:`git-conventions`. 
+   and squashing local commits in :ref:`git-conventions`.
 
 If the review process is successful your pull request will get merged.
 

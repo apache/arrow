@@ -531,7 +531,7 @@ const FunctionDoc quantile_doc{
 
 void RegisterScalarAggregateQuantile(FunctionRegistry* registry) {
   static QuantileOptions default_options;
-  auto func = std::make_shared<VectorFunction>("quantile", Arity::Unary(), &quantile_doc,
+  auto func = std::make_shared<VectorFunction>("quantile", Arity::Unary(), quantile_doc,
                                                &default_options);
   AddQuantileKernels(func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));

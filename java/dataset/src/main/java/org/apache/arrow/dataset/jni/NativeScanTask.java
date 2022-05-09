@@ -18,6 +18,7 @@
 package org.apache.arrow.dataset.jni;
 
 import org.apache.arrow.dataset.scanner.ScanTask;
+import org.apache.arrow.vector.ipc.ArrowReader;
 
 /**
  * Native implementation of {@link ScanTask}. Currently RecordBatches are iterated directly by the scanner
@@ -35,7 +36,7 @@ public class NativeScanTask implements ScanTask {
   }
 
   @Override
-  public BatchIterator execute() {
+  public ArrowReader execute() {
     return scanner.execute();
   }
 

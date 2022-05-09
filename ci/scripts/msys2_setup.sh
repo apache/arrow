@@ -56,6 +56,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gobject-introspection)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtk-doc)
     packages+=(${MINGW_PACKAGE_PREFIX}-meson)
+    packages+=(${MINGW_PACKAGE_PREFIX}-vala)
     ;;
 esac
 

@@ -1053,7 +1053,7 @@ class BinaryTask
   end
 
   def tmp_dir
-    "binary/tmp"
+    "/tmp"
   end
 
   def rc_dir

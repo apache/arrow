@@ -300,7 +300,7 @@ ExecNode <- R6Class("ExecNode",
 
 do_exec_plan_substrait <- function(substrait_plan) {
   if (is.string(substrait_plan)) {
-    substrait_plan <- engine__internal__SubstraitFromJSON(substrait_plan)
+    substrait_plan <- substrait__internal__SubstraitFromJSON(substrait_plan)
   } else if (is.raw(substrait_plan)) {
     substrait_plan <- buffer(substrait_plan)
   } else {

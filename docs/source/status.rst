@@ -20,8 +20,9 @@ Implementation Status
 =====================
 
 The following tables summarize the features available in the various official
-Arrow libraries.  Unless otherwise stated, the Python, R, Ruby and C/GLib
-libraries follow the C++ Arrow library.
+Arrow libraries. All libraries currently follow version 1.0.0 of the Arrow
+format. See :doc:`versioning` for details about versioning. Unless otherwise stated,
+the Python, R, Ruby and C/GLib libraries follow the C++ Arrow library.
 
 Data Types
 ==========

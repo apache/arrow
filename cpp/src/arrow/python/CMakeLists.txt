@@ -19,7 +19,7 @@
 # arrow_python
 #
 
-find_package(Python3Alt REQUIRED)
+find_package(Python3Alt 3.7 REQUIRED)
 
 add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
@@ -44,7 +44,8 @@ set(ARROW_PYTHON_SRCS
     numpy_to_arrow.cc
     python_to_arrow.cc
     pyarrow.cc
-    serialize.cc)
+    serialize.cc
+    udf.cc)
 
 set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)

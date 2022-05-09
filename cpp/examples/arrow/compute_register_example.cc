@@ -126,7 +126,7 @@ const cp::FunctionDoc func_doc{
 
 int main(int argc, char** argv) {
   const std::string name = "compute_register_example";
-  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc);
+  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), func_doc);
   cp::ScalarKernel kernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
                           ExampleFunctionImpl);
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;

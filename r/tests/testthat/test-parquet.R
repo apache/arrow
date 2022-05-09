@@ -197,6 +197,8 @@ test_that("Maps are preserved when writing/reading from Parquet", {
 })
 
 test_that("read_parquet() and write_parquet() accept connection objects", {
+  skip_if_not_available("snappy")
+
   tf <- tempfile()
   on.exit(unlink(tf))
 

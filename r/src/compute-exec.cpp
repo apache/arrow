@@ -334,9 +334,9 @@ std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
   return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
 }
 
-#if defined(ARROW_R_WITH_ENGINE)
+#if defined(ARROW_R_WITH_SUBSTRAIT)
 
-#include <arrow/engine/api.h>
+#include <arrow/engine/substrait/api.h>
 
 // Just for example usage until a C++ method is available that implements
 // a RecordBatchReader output (ARROW-15849)
@@ -367,19 +367,19 @@ class AccumulatingConsumer : public compute::SinkNodeConsumer {
 
 // Expose these so that it's easier to write tests
 
-// [[engine::export]]
-std::string engine__internal__SubstraitToJSON(
+// [[substrait::export]]
+std::string substrait__internal__SubstraitToJSON(
     const std::shared_ptr<arrow::Buffer>& serialized_plan) {
   return ValueOrStop(arrow::engine::internal::SubstraitToJSON("Plan", *serialized_plan));
 }
 
-// [[engine::export]]
-std::shared_ptr<arrow::Buffer> engine__internal__SubstraitFromJSON(
+// [[substrait::export]]
+std::shared_ptr<arrow::Buffer> substrait__internal__SubstraitFromJSON(
     std::string substrait_json) {
   return ValueOrStop(arrow::engine::internal::SubstraitFromJSON("Plan", substrait_json));
 }
 
-// [[engine::export]]
+// [[substrait::export]]
 std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::Buffer>& serialized_plan) {

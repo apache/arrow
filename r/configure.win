@@ -108,9 +108,9 @@ function configure_dev() {
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
   fi
 
-  if [ $(cmake_option ARROW_ENGINE) -eq 1 ]; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ENGINE"
-    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-engine"
+  if [ $(cmake_option ARROW_SUBSTRAIT) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_SUBSTRAIT"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-substrait"
   fi
 
   PKG_CFLAGS="$(pkg-config --cflags $PKG_CONFIG_PACKAGES) $PKG_CFLAGS"

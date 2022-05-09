@@ -87,21 +87,25 @@ public class JniWrapper {
 
   /**
    * Release the Scanner by destroying its reference held by JNI wrapper.
+   *
    * @param scannerId the native pointer of the arrow::dataset::Scanner instance.
    */
   public native void closeScanner(long scannerId);
 
   /**
    * Read next record batch from the specified scanner.
+   *
    * @param scannerId the native pointer of the arrow::dataset::Scanner instance.
-   * @return an instance of {@link NativeRecordBatchHandle} describing the overall layout of the native record batch.
+   * @param arrowArray pointer to an empty {@link org.apache.arrow.c.ArrowArray} struct to
+   *                    store C++ side record batch that conforms to C data interface.
+   * @return true if valid record batch is returned; false if stream ended.
    */
-  public native NativeRecordBatchHandle nextRecordBatch(long scannerId);
+  public native boolean nextRecordBatch(long scannerId, long arrowArray);
 
   /**
    * Release the Buffer by destroying its reference held by JNI wrapper.
+   *
    * @param bufferId the native pointer of the arrow::Buffer instance.
    */
   public native void releaseBuffer(long bufferId);
-
 }

@@ -77,14 +77,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
-# TODO(wesm): External GTest shared libraries are not currently
-# supported when building with MSVC because of the way that
-# conda-forge packages have 4 variants of the libraries packaged
-# together
-if(MSVC AND "${GTest_SOURCE}" STREQUAL "")
-  set(GTest_SOURCE "BUNDLED")
-endif()
-
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
 # We renamed "BOOST" dependency name to "Boost" in 3.0.0 because
@@ -322,11 +314,7 @@ if(ARROW_ORC
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
-if(ARROW_ENGINE)
-  set(ARROW_WITH_SUBSTRAIT ON)
-endif()
-
-if(ARROW_WITH_SUBSTRAIT)
+if(ARROW_SUBSTRAIT)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -1554,7 +1542,7 @@ if(ARROW_WITH_PROTOBUF)
     # google::protobuf::MessageLite::ByteSize() is deprecated since
     # Protobuf 3.4.0.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
-  elseif(ARROW_ENGINE)
+  elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
   else()
@@ -1705,7 +1693,7 @@ macro(build_substrait)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
 endmacro()
 
-if(ARROW_WITH_SUBSTRAIT)
+if(ARROW_SUBSTRAIT)
   # Currently, we can only build Substrait from source.
   set(Substrait_SOURCE "BUNDLED")
   resolve_dependency(Substrait)

@@ -776,21 +776,21 @@ const auto ascii_is_title_doc = StringPredicateDoc(
      "an uppercase character."));
 
 void AddAsciiStringPredicates(FunctionRegistry* registry) {
-  AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, &string_is_ascii_doc);
+  AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, string_is_ascii_doc);
 
   AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_is_alnum", registry,
-                                               &ascii_is_alnum_doc);
-  AddUnaryStringPredicate<IsAlphaAscii>("ascii_is_alpha", registry, &ascii_is_alpha_doc);
+                                               ascii_is_alnum_doc);
+  AddUnaryStringPredicate<IsAlphaAscii>("ascii_is_alpha", registry, ascii_is_alpha_doc);
   AddUnaryStringPredicate<IsDecimalAscii>("ascii_is_decimal", registry,
-                                          &ascii_is_decimal_doc);
+                                          ascii_is_decimal_doc);
   // no is_digit for ascii, since it is the same as is_decimal
-  AddUnaryStringPredicate<IsLowerAscii>("ascii_is_lower", registry, &ascii_is_lower_doc);
+  AddUnaryStringPredicate<IsLowerAscii>("ascii_is_lower", registry, ascii_is_lower_doc);
   // no is_numeric for ascii, since it is the same as is_decimal
   AddUnaryStringPredicate<IsPrintableAscii>("ascii_is_printable", registry,
-                                            &ascii_is_printable_doc);
-  AddUnaryStringPredicate<IsSpaceAscii>("ascii_is_space", registry, &ascii_is_space_doc);
-  AddUnaryStringPredicate<IsUpperAscii>("ascii_is_upper", registry, &ascii_is_upper_doc);
-  AddUnaryStringPredicate<IsTitleAscii>("ascii_is_title", registry, &ascii_is_title_doc);
+                                            ascii_is_printable_doc);
+  AddUnaryStringPredicate<IsSpaceAscii>("ascii_is_space", registry, ascii_is_space_doc);
+  AddUnaryStringPredicate<IsUpperAscii>("ascii_is_upper", registry, ascii_is_upper_doc);
+  AddUnaryStringPredicate<IsTitleAscii>("ascii_is_title", registry, ascii_is_title_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -929,15 +929,15 @@ void AddAsciiStringCaseConversion(FunctionRegistry* registry) {
   // Some kernels are able to reuse the original offsets buffer, so don't
   // preallocate them in the output. Only kernels that invoke
   // "StringDataTransform" support no preallocation.
-  MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc,
+  MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, ascii_upper_doc,
                                          MemAllocation::NO_PREALLOCATE);
-  MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
+  MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, ascii_lower_doc,
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiSwapCase>(
-      "ascii_swapcase", registry, &ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
+      "ascii_swapcase", registry, ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiCapitalize>("ascii_capitalize", registry,
-                                              &ascii_capitalize_doc);
-  MakeUnaryStringBatchKernel<AsciiTitle>("ascii_title", registry, &ascii_title_doc);
+                                              ascii_capitalize_doc);
+  MakeUnaryStringBatchKernel<AsciiTitle>("ascii_title", registry, ascii_title_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -971,7 +971,7 @@ const FunctionDoc binary_length_doc(
 
 void AddAsciiStringLength(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary(),
-                                               &binary_length_doc);
+                                               binary_length_doc);
   for (const auto& ty : {binary(), utf8()}) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int32Type, BinaryLength>(
@@ -1041,14 +1041,14 @@ const FunctionDoc ascii_reverse_doc(
 void AddAsciiStringReverse(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("binary_reverse", Arity::Unary(),
-                                                 &binary_reverse_doc);
+                                                 binary_reverse_doc);
     for (const auto& ty : BinaryTypes()) {
       DCHECK_OK(
           func->AddKernel({ty}, ty, GenerateVarBinaryToVarBinary<BinaryReverse>(ty)));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
-  MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, &ascii_reverse_doc);
+  MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, ascii_reverse_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1189,17 +1189,17 @@ const FunctionDoc ascii_rtrim_whitespace_doc(
     {"strings"});
 
 void AddAsciiStringTrim(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry, &ascii_trim_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry, ascii_trim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,
-                                                  &ascii_ltrim_doc);
+                                                  ascii_ltrim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiRTrim>("ascii_rtrim", registry,
-                                                  &ascii_rtrim_doc);
+                                                  ascii_rtrim_doc);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
-                                                  &ascii_trim_whitespace_doc);
+                                                  ascii_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiLTrimWhitespace>("ascii_ltrim_whitespace", registry,
-                                                   &ascii_ltrim_whitespace_doc);
+                                                   ascii_ltrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiRTrimWhitespace>("ascii_rtrim_whitespace", registry,
-                                                   &ascii_rtrim_whitespace_doc);
+                                                   ascii_rtrim_whitespace_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1284,10 +1284,10 @@ const FunctionDoc ascii_center_doc(
     {"strings"}, "PadOptions", /*options_required=*/true);
 
 void AddAsciiStringPad(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<AsciiLPad>("ascii_lpad", registry, &ascii_lpad_doc);
-  MakeUnaryStringBatchKernelWithState<AsciiRPad>("ascii_rpad", registry, &ascii_rpad_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiLPad>("ascii_lpad", registry, ascii_lpad_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiRPad>("ascii_rpad", registry, ascii_rpad_doc);
   MakeUnaryStringBatchKernelWithState<AsciiCenter>("ascii_center", registry,
-                                                   &ascii_center_doc);
+                                                   ascii_center_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1717,7 +1717,7 @@ const FunctionDoc match_like_doc(
 void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
-                                                 &match_substring_doc);
+                                                 match_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainSubstringMatcher>(ty);
       DCHECK_OK(
@@ -1727,7 +1727,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   }
   {
     auto func =
-        std::make_shared<ScalarFunction>("starts_with", Arity::Unary(), &starts_with_doc);
+        std::make_shared<ScalarFunction>("starts_with", Arity::Unary(), starts_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec =
           GenerateVarBinaryToVarBinary<MatchSubstring, PlainStartsWithMatcher>(ty);
@@ -1738,7 +1738,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   }
   {
     auto func =
-        std::make_shared<ScalarFunction>("ends_with", Arity::Unary(), &ends_with_doc);
+        std::make_shared<ScalarFunction>("ends_with", Arity::Unary(), ends_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainEndsWithMatcher>(ty);
       DCHECK_OK(
@@ -1749,7 +1749,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>("match_substring_regex", Arity::Unary(),
-                                                 &match_substring_regex_doc);
+                                                 match_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, RegexSubstringMatcher>(ty);
       DCHECK_OK(
@@ -1759,7 +1759,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   }
   {
     auto func =
-        std::make_shared<ScalarFunction>("match_like", Arity::Unary(), &match_like_doc);
+        std::make_shared<ScalarFunction>("match_like", Arity::Unary(), match_like_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchLike>(ty);
       DCHECK_OK(
@@ -1861,7 +1861,7 @@ const FunctionDoc find_substring_regex_doc(
 void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
-                                                 &find_substring_doc);
+                                                 find_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
@@ -1876,7 +1876,7 @@ void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>("find_substring_regex", Arity::Unary(),
-                                                 &find_substring_regex_doc);
+                                                 find_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
@@ -2010,7 +2010,7 @@ const FunctionDoc count_substring_regex_doc(
 void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
-                                                 &count_substring_doc);
+                                                 count_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
@@ -2025,7 +2025,7 @@ void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>("count_substring_regex", Arity::Unary(),
-                                                 &count_substring_regex_doc);
+                                                 count_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
@@ -2251,7 +2251,7 @@ const FunctionDoc replace_substring_regex_doc(
 void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("replace_substring", Arity::Unary(),
-                                                 &replace_substring_doc);
+                                                 replace_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringPlain>(ty);
       ScalarKernel kernel{{ty}, ty, std::move(exec), ReplaceState::Init};
@@ -2263,7 +2263,7 @@ void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>(
-        "replace_substring_regex", Arity::Unary(), &replace_substring_regex_doc);
+        "replace_substring_regex", Arity::Unary(), replace_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringRegex>(ty);
       ScalarKernel kernel{{ty}, ty, std::move(exec), ReplaceState::Init};
@@ -2446,7 +2446,7 @@ const FunctionDoc extract_regex_doc(
 
 void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
-                                               &extract_regex_doc);
+                                               extract_regex_doc);
   OutputType out_ty(ResolveExtractRegexOutput);
   for (const auto& ty : BaseBinaryTypes()) {
     ScalarKernel kernel{{ty},
@@ -2534,7 +2534,7 @@ const FunctionDoc binary_replace_slice_doc(
 
 void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_replace_slice", Arity::Unary(),
-                                               &binary_replace_slice_doc);
+                                               binary_replace_slice_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     DCHECK_OK(func->AddKernel({ty}, ty,
                               GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
@@ -2620,7 +2620,7 @@ const FunctionDoc split_pattern_doc(
 
 void AddAsciiStringSplitPattern(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern", Arity::Unary(),
-                                               &split_pattern_doc);
+                                               split_pattern_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitPatternExec, ListType>(ty);
     DCHECK_OK(
@@ -2690,7 +2690,7 @@ void AddAsciiStringSplitWhitespace(FunctionRegistry* registry) {
   static const SplitOptions default_options{};
   auto func =
       std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
-                                       &ascii_split_whitespace_doc, &default_options);
+                                       ascii_split_whitespace_doc, &default_options);
 
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
@@ -2760,7 +2760,7 @@ const FunctionDoc split_pattern_regex_doc(
 
 void AddAsciiStringSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
-                                               &split_pattern_regex_doc);
+                                               split_pattern_regex_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitRegexExec, ListType>(ty);
     DCHECK_OK(
@@ -3265,8 +3265,8 @@ void AddBinaryJoinForListType(ScalarFunction* func) {
 
 void AddAsciiStringJoin(FunctionRegistry* registry) {
   {
-    auto func = std::make_shared<ScalarFunction>("binary_join", Arity::Binary(),
-                                                 &binary_join_doc);
+    auto func =
+        std::make_shared<ScalarFunction>("binary_join", Arity::Binary(), binary_join_doc);
     AddBinaryJoinForListType<ListType>(func.get());
     AddBinaryJoinForListType<LargeListType>(func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3274,7 +3274,7 @@ void AddAsciiStringJoin(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>(
         "binary_join_element_wise", Arity::VarArgs(/*min_args=*/1),
-        &binary_join_element_wise_doc, GetDefaultJoinOptions());
+        binary_join_element_wise_doc, GetDefaultJoinOptions());
     for (const auto& ty : BaseBinaryTypes()) {
       ScalarKernel kernel{KernelSignature::Make({InputType(ty)}, ty, /*is_varargs=*/true),
                           GenerateTypeAgnosticVarBinaryBase<BinaryJoinElementWise>(ty),
@@ -3412,7 +3412,7 @@ const FunctionDoc binary_repeat_doc(
 
 void AddAsciiStringRepeat(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarCTypeToInt64Function>(
-      "binary_repeat", Arity::Binary(), &binary_repeat_doc);
+      "binary_repeat", Arity::Binary(), binary_repeat_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<BinaryRepeat, Int64Type>(ty);
     ScalarKernel kernel{{ty, int64()}, ty, exec};

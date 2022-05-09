@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include "arrow/util/basic_decimal.h"
 
 extern "C" {
 
@@ -385,9 +386,43 @@ NUMERIC_FUNCTION_FOR_REAL(NEGATIVE)
 
 NEGATIVE_INTEGER(int32, 32)
 NEGATIVE_INTEGER(int64, 64)
+NEGATIVE_INTEGER(month_interval, 32)
+
+const int64_t INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME = 9223372034707292159;
+const int64_t INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME = -9223372030412324863;
+
+gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval interval) {
+  if (interval > INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME ||
+      interval < INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME) {
+    gdv_fn_context_set_error_msg(
+        context, "Interval day time is out of boundaries for the negative function");
+    return 0;
+  }
+
+  int64_t left = interval >> 32;
+  int64_t right = interval & 0x00000000FFFFFFFF;
+
+  left = -1 * left;
+  right = -1 * right;
+
+  gdv_int64 out = (left & 0x00000000FFFFFFFF) << 32;
+  out |= (right & 0x00000000FFFFFFFF);
+
+  return out;
+}
 
 #undef NEGATIVE
 #undef NEGATIVE_INTEGER
+
+void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
+                      int32_t /*precision*/, int32_t /*scale*/, int32_t /*out_precision*/,
+                      int32_t /*out_scale*/, int64_t* out_high_bits,
+                      uint64_t* out_low_bits) {
+  arrow::BasicDecimal128 res = arrow::BasicDecimal128(high_bits, low_bits).Negate();
+
+  *out_high_bits = res.high_bits();
+  *out_low_bits = res.low_bits();
+}
 
 #define DIV(TYPE)                                                                     \
   FORCE_INLINE                                                                        \

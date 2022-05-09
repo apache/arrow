@@ -67,27 +67,21 @@ template <typename TYPE,
                                              arrow::is_temporal_type<TYPE>::value>::type>
 arrow::Result<std::shared_ptr<arrow::Array>> GetArrayDataSample(
     const std::vector<typename TYPE::c_type>& values) {
-  using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
-  using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
-  ARROW_BUILDER_TYPE builder;
+  using ArrowBuilderType = typename arrow::TypeTraits<TYPE>::BuilderType;
+  ArrowBuilderType builder;
   ARROW_RETURN_NOT_OK(builder.Reserve(values.size()));
-  std::shared_ptr<ARROW_ARRAY_TYPE> array;
   ARROW_RETURN_NOT_OK(builder.AppendValues(values));
-  ARROW_RETURN_NOT_OK(builder.Finish(&array));
-  return array;
+  return builder.Finish();
 }
 
 template <class TYPE>
 arrow::Result<std::shared_ptr<arrow::Array>> GetBinaryArrayDataSample(
     const std::vector<std::string>& values) {
-  using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
-  using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
-  ARROW_BUILDER_TYPE builder;
+  using ArrowBuilderType = typename arrow::TypeTraits<TYPE>::BuilderType;
+  ArrowBuilderType builder;
   ARROW_RETURN_NOT_OK(builder.Reserve(values.size()));
-  std::shared_ptr<ARROW_ARRAY_TYPE> array;
   ARROW_RETURN_NOT_OK(builder.AppendValues(values));
-  ARROW_RETURN_NOT_OK(builder.Finish(&array));
-  return array;
+  return builder.Finish();
 }
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
