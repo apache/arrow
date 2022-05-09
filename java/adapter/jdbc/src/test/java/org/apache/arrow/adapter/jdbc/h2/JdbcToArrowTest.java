@@ -265,7 +265,11 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             .setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
 
     ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
-    assertFalse("Iterator on zero row ResultSet should not haveNext()", iter.hasNext());
+    assertTrue("Iterator on zero row ResultSet should haveNext() before use", iter.hasNext());
+    VectorSchemaRoot root = iter.next();
+    assertNotNull("VectorSchemaRoot from first next() result should never be null", root);
+    assertEquals("VectorSchemaRoot from empty ResultSet should have zero rows", 0, root.getRowCount());
+    assertFalse("hasNext() should return false on empty ResultSets after initial next() call", iter.hasNext());
   }
 
   private class FakeResultSet implements ResultSet {
