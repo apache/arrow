@@ -376,7 +376,7 @@ void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num
   // concurrent access to a block.
   constexpr int kLogBlocksKeptTogether = 7;
   constexpr int kPrtnIdBitOffset =
-        BloomFilterMasks::kLogNumMasks + 6 + kLogBlocksKeptTogether;
+      BloomFilterMasks::kLogNumMasks + 6 + kLogBlocksKeptTogether;
 
   const int log_num_prtns_max =
       std::max(0, build_target_->log_num_blocks() - kLogBlocksKeptTogether);
