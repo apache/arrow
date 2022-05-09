@@ -269,6 +269,6 @@ def test_complex_filter_table():
     )
 
     assert result == pa.table({
-        "a": [2, 4, 6],  # second six should be emitted because 6*10 != 61
+        "a": [2, 4, 6],  # second six must be omitted because 6*10 != 61
         "b": [20, 40, 60]
     })
