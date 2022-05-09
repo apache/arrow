@@ -351,8 +351,8 @@ register_bindings_datetime_conversion <- function() {
 
     fraction <- decimal - y
     delta <- build_expr("floor", seconds * fraction)
-    delta <- delta$cast(int64())
-    start + delta$cast(duration("s"))
+    delta <- make_duration(delta, "s")
+    start + delta
   })
 }
 
