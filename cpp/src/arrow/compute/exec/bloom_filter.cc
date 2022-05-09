@@ -375,6 +375,9 @@ void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num
   // ensures that each block is contained entirely within a partition and prevents
   // concurrent access to a block.
   constexpr int kLogBlocksKeptTogether = 7;
+  constexpr int kPrtnIdBitOffset =
+        BloomFilterMasks::kLogNumMasks + 6 + kLogBlocksKeptTogether;
+
   const int log_num_prtns_max =
       std::max(0, build_target_->log_num_blocks() - kLogBlocksKeptTogether);
   const int log_num_prtns_mod = std::min(log_num_prtns_, log_num_prtns_max);
@@ -391,8 +394,6 @@ void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num
   PartitionSort::Eval(
       num_rows, num_prtns, partition_ranges,
       [=](int64_t row_id) {
-        constexpr int kPrtnIdBitOffset =
-            BloomFilterMasks::kLogNumMasks + 6 + kLogBlocksKeptTogether;
         return (hashes[row_id] >> (kPrtnIdBitOffset)) & (num_prtns - 1);
       },
       [=](int64_t row_id, int output_pos) {
