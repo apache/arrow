@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The following S3 methods are registered on load if dplyr is present
+
 union.arrow_dplyr_query <- function(x, y, ...) {
   x <- as_adq(x)
   y <- as_adq(y)

@@ -26,6 +26,23 @@ test_that("union_all", {
       collect(),
     example_data
   )
+
+  test_table <- arrow_table(x = 1:10)
+
+  # Union with empty table produces same dataset
+  expect_equal(
+    test_table |>
+      union_all(test_table$Slice(0, 0)) |>
+      collect(test_table, as_data_frame = FALSE),
+    test_table
+  )
+
+  expect_error(
+    test_table |>
+      union_all(arrow_table(y = 1:10)) |>
+      collect(),
+    regex = "input schemas must all match"
+  )
 })
 
 test_that("union", {
@@ -34,5 +51,22 @@ test_that("union", {
       dplyr::union(example_data) %>%
       collect(),
     example_data
+  )
+
+  test_table <- arrow_table(x = 1:10)
+
+  # Union with empty table produces same dataset
+  expect_equal(
+    test_table |>
+      dplyr::union(test_table$Slice(0, 0)) |>
+      collect(test_table, as_data_frame = FALSE),
+    test_table
+  )
+
+  expect_error(
+    test_table |>
+      dplyr::union(arrow_table(y = 1:10)) |>
+      collect(),
+    regex = "input schemas must all match"
   )
 })
