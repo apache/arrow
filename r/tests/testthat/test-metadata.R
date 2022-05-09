@@ -159,7 +159,6 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
-
   expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
 })
 
@@ -306,7 +305,11 @@ test_that("Dataset writing does handle other metadata", {
   skip_if_not_available("parquet")
 
   dst_dir <- make_temp_dir()
-  write_dataset(example_with_metadata, dst_dir, partitioning = "b")
+  tab <- Table$create(example_with_metadata)
+  # Tack on extra non-R metadata: sfarrow 0.4.1 relies on this
+  tab$metadata[["other_stuff"]] <- "hello"
+
+  write_dataset(tab, dst_dir, partitioning = "b")
 
   ds <- open_dataset(dst_dir)
   expect_equal(
@@ -316,6 +319,9 @@ test_that("Dataset writing does handle other metadata", {
       collect(),
     example_with_metadata
   )
+
+  # Check for that extra metadata in the schema:
+  expect_equal(ds$metadata$other_stuff, "hello")
 })
 
 test_that("dplyr with metadata", {
