@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <iostream>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -75,6 +76,7 @@ struct ExecPlanImpl : public ExecPlan {
       return Status::Invalid("ExecPlan has no node");
     }
     for (const auto& node : nodes_) {
+      std::cerr << node->kind_name() << "\n";
       RETURN_NOT_OK(node->Validate());
     }
     return Status::OK();

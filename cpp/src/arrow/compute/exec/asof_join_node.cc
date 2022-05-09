@@ -617,10 +617,10 @@ class AsofJoinNode : public ExecNode {
   // }
 
   void process_thread() {
-    std::cerr << "AsOfMergeNode::process_thread started.\n";
+    std::cerr << "AsofJoinNode::process_thread started.\n";
     for (;;) {
       if (!_process.pop()) {
-        std::cerr << "AsOfMergeNode::process_thread done.\n";
+        std::cerr << "AsofJoinNode::process_thread done.\n";
         return;
       }
       process();
@@ -630,7 +630,9 @@ class AsofJoinNode : public ExecNode {
   static void process_thread_wrapper(AsofJoinNode* node) { node->process_thread(); }
 
  public:
-  AsofJoinNode(ExecPlan* plan, NodeVector inputs, const AsofJoinNodeOptions& join_options,
+  AsofJoinNode(ExecPlan* plan, NodeVector inputs,
+	       std::vector<std::string> input_labels,
+	       const AsofJoinNodeOptions& join_options,
                std::shared_ptr<Schema> output_schema,
                std::unique_ptr<AsofJoinSchema> schema_mgr,
                std::unique_ptr<AsofJoinImpl> impl);
@@ -650,7 +652,16 @@ class AsofJoinNode : public ExecNode {
         schema_mgr->MakeOutputSchema(inputs, join_options);
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<AsofJoinImpl> impl, AsofJoinImpl::MakeBasic());
 
-    return plan->EmplaceNode<AsofJoinNode>(plan, inputs, join_options,
+    std::cerr << "Input size: " << inputs.size() << "\n";
+    std::vector<std::string> input_labels(inputs.size());
+    input_labels[0] = "left";
+    for(size_t i = 1; i < inputs.size(); ++i) {
+      input_labels[i] = "right_" + std::to_string(i);
+    }   
+    
+    return plan->EmplaceNode<AsofJoinNode>(plan, inputs,
+					   std::move(input_labels),
+					   join_options,
                                            std::move(output_schema),
                                            std::move(schema_mgr), std::move(impl));
   }
@@ -819,11 +830,12 @@ std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(
 }
 
 AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
+			   std::vector<std::string> input_labels,
                            const AsofJoinNodeOptions& join_options,
                            std::shared_ptr<Schema> output_schema,
                            std::unique_ptr<AsofJoinSchema> schema_mgr,
                            std::unique_ptr<AsofJoinImpl> impl)
-    : ExecNode(plan, inputs, {"left", "right"},
+    : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
       impl_(std::move(impl)),

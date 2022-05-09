@@ -64,7 +64,8 @@ BatchesWithSchema GenerateBatchesFromString(
 }
 
 void CheckRunOutput(const BatchesWithSchema& l_batches,
-                    const BatchesWithSchema& r_batches,
+                    const BatchesWithSchema& r0_batches,
+		    const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches, const FieldRef time,
                     const FieldRef keys, const long tolerance) {
   auto exec_ctx =
@@ -77,7 +78,9 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false)}});
   join.inputs.emplace_back(Declaration{
-      "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
+      "source", SourceNodeOptions{r0_batches.schema, r0_batches.gen(false, false)}});
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{r1_batches.schema, r1_batches.gen(false, false)}});
 
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
@@ -94,37 +97,127 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   AssertTablesEqual(*exp_table, *res_table,
                     /*same_chunk_layout=*/false, /*flatten=*/true);
 
-  std::cerr << "Result Equals"
-            << "\n";
+  std::cerr << "Result Equals" << "\n";
 }
 
 void RunNonEmptyTest(bool exact_matches) {
   auto l_schema =
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())});
-  auto r_schema =
-      schema({field("time", int64()), field("key", int32()), field("r_v0", float64())});
+  auto r0_schema =
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())});
+  auto r1_schema =
+      schema({field("time", int64()), field("key", int32()), field("r1_v0", float64())});
+
   auto exp_schema = schema({
       field("time", int64()),
       field("key", int32()),
       field("l_v0", float64()),
-      field("r_v0", float64()),
+      field("r0_v0", float64()),
+      field("r1_v0", float64()),
   });
 
-  BatchesWithSchema l_batches, r_batches, exp_batches;
+  // Test three table join
+  BatchesWithSchema l_batches, r0_batches, r1_batches, exp_batches;
 
-  l_batches = GenerateBatchesFromString(l_schema, {R"([[1000, 1, 1.0]])"});
-  r_batches = GenerateBatchesFromString(r_schema, {R"([[0, 1, 2.0]])"});
-  exp_batches = GenerateBatchesFromString(exp_schema, {R"([[1000, 1, 1.0, 2.0]])"});
+  // Single key, single batch
+  l_batches = GenerateBatchesFromString(l_schema,
+					{R"([[0, 1, 1.0], [1000, 1, 2.0]])"}
+					);
+  r0_batches = GenerateBatchesFromString(r0_schema, {R"([[0, 1, 11.0]])"});
+  r1_batches = GenerateBatchesFromString(r1_schema, {R"([[1000, 1, 101.0]])"});
+  exp_batches = GenerateBatchesFromString(exp_schema,
+					  {R"([[0, 1, 1.0, 11.0, 0.0], [1000, 1, 2.0, 11.0, 101.0]])"}
+					  );
+  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
 
-  CheckRunOutput(l_batches, r_batches, exp_batches, "time", "key", 1000);
+  // Single key, multiple batches
+  l_batches = GenerateBatchesFromString(l_schema,
+					{R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"}
+					);
+  r0_batches = GenerateBatchesFromString(r0_schema,
+					 {R"([[0, 1, 11.0]])", R"([[1000, 1, 12.0]])"}
+					 );
+  r1_batches = GenerateBatchesFromString(r1_schema,
+					 {R"([[0, 1, 101.0]])", R"([[1000, 1, 102.0]])"}
+					 );
+  exp_batches = GenerateBatchesFromString(exp_schema,
+					  {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"}
+					  );
+  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
 
-  l_batches = GenerateBatchesFromString(l_schema, {R"([[1000, 1, 1.0]])"});
-  r_batches = GenerateBatchesFromString(r_schema, {R"([[0, 1, 2.0]])"});
-  // This is wrong
-  // TODO: Fix null values in the result
-  exp_batches = GenerateBatchesFromString(exp_schema, {R"([[1000, 1, 1.0, 0.0]])"});
+  // Single key, multiple left batches, single right batches
 
-  CheckRunOutput(l_batches, r_batches, exp_batches, "time", "key", 999);
+  l_batches = GenerateBatchesFromString(l_schema,
+					{R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"}
+					);
+
+  r0_batches = GenerateBatchesFromString(r0_schema,
+					 {R"([[0, 1, 11.0], [1000, 1, 12.0]])"}
+					 );
+  r1_batches = GenerateBatchesFromString(r1_schema,
+					 {R"([[0, 1, 101.0], [1000, 1, 102.0]])"}
+					 );
+  exp_batches = GenerateBatchesFromString(exp_schema,
+					  {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"}
+					  );
+  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
+
+  // Multi key, multiple batches, misaligned batches
+  l_batches = GenerateBatchesFromString(l_schema,
+					{R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+					 R"([[2000, 1, 4.0], [2000, 2, 24.0]])"}
+					);
+  r0_batches = GenerateBatchesFromString(r0_schema,
+					 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+					  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"
+					 });
+  r1_batches = GenerateBatchesFromString(r0_schema,
+					 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+					  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"
+					 });
+  exp_batches = GenerateBatchesFromString(exp_schema,
+					  {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 1001.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+					   R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"}
+					   );
+  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
+
+  // Multi key, multiple batches, misaligned batches, smaller tolerance
+  l_batches = GenerateBatchesFromString(l_schema,
+					{R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+					 R"([[2000, 1, 4.0], [2000, 2, 24.0]])"}
+					);
+  r0_batches = GenerateBatchesFromString(r0_schema,
+					 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+					  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"
+					 });
+  r1_batches = GenerateBatchesFromString(r0_schema,
+					 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+					  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"
+					 });
+  exp_batches = GenerateBatchesFromString(exp_schema,
+					  {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 0.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+					   R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"}
+					   );
+  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 500);
+
+  // Multi key, multiple batches, misaligned batches, 0 tolerance
+  l_batches = GenerateBatchesFromString(l_schema,
+					{R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+					 R"([[2000, 1, 4.0], [2000, 2, 24.0]])"}
+					);
+  r0_batches = GenerateBatchesFromString(r0_schema,
+					 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+					  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"
+					 });
+  r1_batches = GenerateBatchesFromString(r0_schema,
+					 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+					  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"
+					 });
+  exp_batches = GenerateBatchesFromString(exp_schema,
+					  {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 0.0, 101.0], [1000, 2, 22.0, 0.0, 0.0], [1500, 1, 3.0, 0.0, 0.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+					   R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 0.0, 0.0]])"}
+					   );
+  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 0);
 }
 
 class AsofJoinTest : public testing::TestWithParam<std::tuple<bool>> {};
