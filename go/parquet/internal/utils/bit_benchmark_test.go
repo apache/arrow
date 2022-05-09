@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/internal/bitutils"
-	"github.com/apache/arrow/go/v8/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/internal/bitutils"
+	"github.com/apache/arrow/go/v9/parquet/internal/testutils"
 )
 
 type linearBitRunReader struct {

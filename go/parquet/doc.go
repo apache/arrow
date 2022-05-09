@@ -26,9 +26,9 @@
 // Install
 //
 // You can download the library and cli utilities via:
-//   go get -u github.com/apache/arrow/go/v8/parquet
-//   go install github.com/apache/arrow/go/v8/parquet/cmd/parquet_reader@latest
-//   go install github.com/apache/arrow/go/v8/parquet/cmd/parquet_schema@latest
+//   go get -u github.com/apache/arrow/go/v9/parquet
+//   go install github.com/apache/arrow/go/v9/parquet/cmd/parquet_reader@latest
+//   go install github.com/apache/arrow/go/v9/parquet/cmd/parquet_schema@latest
 //
 // Modules
 //

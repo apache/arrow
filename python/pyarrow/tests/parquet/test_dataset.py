@@ -880,6 +880,8 @@ def test_filter_before_validate_schema(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
+@pytest.mark.filterwarnings(
+    "ignore:Specifying the 'metadata':FutureWarning")
 @parametrize_legacy_dataset
 def test_read_multiple_files(tempdir, use_legacy_dataset):
     nfiles = 10
@@ -1411,7 +1413,9 @@ def test_write_to_dataset_no_partitions_s3fs(
         path, use_legacy_dataset, filesystem=fs)
 
 
-@pytest.mark.filterwarnings("ignore:'ParquetDataset:FutureWarning")
+@pytest.mark.filterwarnings(
+    "ignore:'ParquetDataset:FutureWarning",
+    "ignore:'partition_filename_cb':FutureWarning")
 @pytest.mark.pandas
 @parametrize_legacy_dataset_not_supported
 def test_write_to_dataset_with_partitions_and_custom_filenames(

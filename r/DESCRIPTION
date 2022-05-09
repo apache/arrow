@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 7.0.0.9000
+Version: 8.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -91,6 +91,7 @@ Collate:
     'dplyr-arrange.R'
     'dplyr-collect.R'
     'dplyr-count.R'
+    'dplyr-datetime-helpers.R'
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'

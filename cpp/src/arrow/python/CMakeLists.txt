@@ -19,7 +19,7 @@
 # arrow_python
 #
 
-find_package(Python3Alt REQUIRED)
+find_package(Python3Alt 3.7 REQUIRED)
 
 add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)

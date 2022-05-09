@@ -65,17 +65,30 @@ if have_gi
     '--warn-all',
     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
   ]
-  arrow_cuda_glib_gir = gnome.generate_gir(libarrow_cuda_glib,
-                                           dependencies: gir_dependencies,
-                                           sources: sources + c_headers,
-                                           namespace: 'ArrowCUDA',
-                                           nsversion: api_version,
-                                           identifier_prefix: 'GArrowCUDA',
-                                           symbol_prefix: 'garrow_cuda',
-                                           export_packages: 'arrow-cuda-glib',
-                                           includes: [
-                                             'Arrow-1.0',
-                                           ],
-                                           install: true,
-                                           extra_args: gir_extra_args)
+  arrow_cuda_glib_gir = \
+    gnome.generate_gir(libarrow_cuda_glib,
+                       dependencies: gir_dependencies,
+                       export_packages: 'arrow-cuda-glib',
+                       extra_args: gir_extra_args,
+                       header: 'arrow-cuda-glib/arrow-cuda-glib.h',
+                       identifier_prefix: 'GArrowCUDA',
+                       includes: [
+                         'Arrow-1.0',
+                       ],
+                       install: true,
+                       namespace: 'ArrowCUDA',
+                       nsversion: api_version,
+                       sources: sources + c_headers,
+                       symbol_prefix: 'garrow_cuda')
+
+  if generate_vapi
+    arrow_cuda_glib_vapi = \
+      gnome.generate_vapi('arrow-cuda-glib',
+                          install: true,
+                          packages: [
+                            arrow_glib_vapi,
+                            'gio-2.0',
+                          ],
+                          sources: [arrow_cuda_glib_gir[0]])
+  endif
 endif

@@ -40,7 +40,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getDoubleValue
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getFloatValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -251,15 +251,31 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
       allocator.close();
     }
 
-    assertEquals(x, targetRows);
+    assertEquals(targetRows, x);
+  }
+
+  @Test
+  public void testZeroRowResultSet() throws Exception {
+    BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+    int x = 0;
+    final int targetRows = 0;
+    ResultSet rs = new FakeResultSet(targetRows);
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
+            allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
+
+    ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
+    assertFalse("Iterator on zero row ResultSet should not haveNext()", iter.hasNext());
   }
 
   private class FakeResultSet implements ResultSet {
 
     public int numRows;
+    public boolean empty;
 
     FakeResultSet(int numRows) {
       this.numRows = numRows;
+      this.empty = numRows <= 0;
     }
 
     @Override
@@ -629,6 +645,9 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
     @Override
     public boolean isAfterLast() throws SQLException {
+      if (empty) {
+        return false;
+      }
       return numRows < 0;
     }
 
@@ -639,7 +658,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
     @Override
     public boolean isLast() throws SQLException {
-      return false;
+      return numRows <= 0;
     }
 
     @Override

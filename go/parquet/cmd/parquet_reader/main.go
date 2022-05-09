@@ -23,9 +23,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v8/parquet/file"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v9/parquet/file"
+	"github.com/apache/arrow/go/v9/parquet/metadata"
+	"github.com/apache/arrow/go/v9/parquet/schema"
 	"github.com/docopt/docopt-go"
 )
 

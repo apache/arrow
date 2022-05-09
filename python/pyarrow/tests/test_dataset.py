@@ -21,6 +21,7 @@ import posixpath
 import datetime
 import pathlib
 import pickle
+import sys
 import textwrap
 import tempfile
 import threading
@@ -983,6 +984,8 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
@@ -1031,6 +1034,8 @@ def test_fragments_implicit_cast(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_reconstruct(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
@@ -1093,6 +1098,8 @@ def test_fragments_reconstruct(tempdir, dataset_reader):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1159,6 +1166,8 @@ def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
@@ -1275,6 +1284,8 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_parquet_fragment_statistics(tempdir):
     table, dataset = _create_dataset_all_types(tempdir)
 
@@ -1342,6 +1353,8 @@ def test_parquet_empty_row_group_statistics(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups_predicate(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1366,6 +1379,8 @@ def test_fragments_parquet_row_groups_predicate(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1408,6 +1423,8 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
                                       dataset_reader):
     fs, assert_opens = open_logging_fs
@@ -1437,6 +1454,8 @@ def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_filter(tempdir, open_logging_fs,
                                          dataset_reader):
     fs, assert_opens = open_logging_fs
@@ -1470,6 +1489,8 @@ def test_fragments_parquet_subset_filter(tempdir, open_logging_fs,
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_invalid(tempdir):
     _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
     fragment = list(dataset.get_fragments())[0]
@@ -2582,6 +2603,32 @@ def test_open_dataset_from_fsspec(tempdir):
     assert dataset.schema.equals(table.schema)
 
 
+@pytest.mark.parquet
+def test_file_format_inspect_fsspec(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-16413
+    fsspec = pytest.importorskip("fsspec")
+
+    # create bucket + file with pyarrow
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / "data.parquet"
+    pq.write_table(table, path)
+
+    # read using fsspec filesystem
+    fsspec_fs = fsspec.filesystem("file")
+    assert fsspec_fs.ls(tempdir)[0].endswith("data.parquet")
+
+    # inspect using dataset file format
+    format = ds.ParquetFileFormat()
+    # manually creating a PyFileSystem instead of using fs._ensure_filesystem
+    # which would convert an fsspec local filesystem to a native one
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    schema = format.inspect(path, filesystem)
+    assert schema.equals(table.schema)
+
+    fragment = format.make_fragment(path, filesystem)
+    assert fragment.physical_schema.equals(table.schema)
+
+
 @pytest.mark.pandas
 def test_filter_timestamp(tempdir, dataset_reader):
     # ARROW-11379
@@ -2880,6 +2927,8 @@ def test_orc_format(tempdir, dataset_reader):
     orc.write_table(table, path)
 
     dataset = ds.dataset(path, format=ds.OrcFileFormat())
+    fragments = list(dataset.get_fragments())
+    assert isinstance(fragments[0], ds.FileFragment)
     result = dataset_reader.to_table(dataset)
     result.validate(full=True)
     assert result.equals(table)
@@ -3004,6 +3053,22 @@ def test_csv_format_options(tempdir, dataset_reader):
         pa.table({'foo': pa.array(['skipped', 'col0', 'foo', 'bar'])}))
 
 
+def test_csv_format_options_generate_columns(tempdir, dataset_reader):
+    path = str(tempdir / 'test.csv')
+    with open(path, 'w') as sink:
+        sink.write('1,a,true,1\n')
+
+    dataset = ds.dataset(path, format=ds.CsvFileFormat(
+        read_options=pa.csv.ReadOptions(autogenerate_column_names=True)))
+    result = dataset_reader.to_table(dataset)
+    expected_column_names = ["f0", "f1", "f2", "f3"]
+    assert result.column_names == expected_column_names
+    assert result.equals(pa.table({'f0': pa.array([1]),
+                                   'f1': pa.array(["a"]),
+                                   'f2': pa.array([True]),
+                                   'f3': pa.array([1])}))
+
+
 def test_csv_fragment_options(tempdir, dataset_reader):
     path = str(tempdir / 'test.csv')
     with open(path, 'w') as sink:
@@ -3094,7 +3159,33 @@ def test_parquet_dataset_factory(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas  # write_to_dataset currently requires pandas
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Results in FileNotFoundError on Windows")
+def test_parquet_dataset_factory_fsspec(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-16413
+    fsspec = pytest.importorskip("fsspec")
+
+    # create dataset with pyarrow
+    root_path = tempdir / "test_parquet_dataset"
+    metadata_path, table = _create_parquet_dataset_simple(root_path)
+
+    # read using fsspec filesystem
+    fsspec_fs = fsspec.filesystem("file")
+    # manually creating a PyFileSystem, because passing the local fsspec
+    # filesystem would internally be converted to native LocalFileSystem
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    dataset = ds.parquet_dataset(metadata_path, filesystem=filesystem)
+    assert dataset.schema.equals(table.schema)
+    assert len(dataset.files) == 4
+    result = dataset.to_table()
+    assert result.num_rows == 40
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas  # write_to_dataset currently requires pandas
 @pytest.mark.parametrize('use_legacy_dataset', [False, True])
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
     # Simple test to ensure we can roundtrip dataset to
     # _metadata/common_metadata and back.  A more complex test
@@ -3440,6 +3531,8 @@ def test_write_to_dataset_given_null_just_works(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas
+@pytest.mark.filterwarnings(
+    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_legacy_write_to_dataset_drops_null(tempdir):
     schema = pa.schema([
         pa.field('col', pa.int64()),

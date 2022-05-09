@@ -75,6 +75,7 @@
   "mday" = "day",
   "yday" = "day_of_year",
   "year" = "year",
+  "leap_year" = "is_leap_year",
 
   # type conversion functions
   "as.factor" = "dictionary_encode"

@@ -243,6 +243,7 @@ test_yum() {
     esac
     if ! docker run \
            --rm \
+           --security-opt="seccomp=unconfined" \
            --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
@@ -258,6 +259,7 @@ test_yum() {
       if ! docker run \
              --platform linux/arm64 \
              --rm \
+             --security-opt="seccomp=unconfined" \
              --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
              "${target}" \
              /arrow/dev/release/verify-yum.sh \
@@ -379,6 +381,11 @@ install_go() {
   # Install go
   if [ "${GO_ALREADY_INSTALLED:-0}" -gt 0 ]; then
     show_info "$(go version) already installed at $(which go)"
+    return 0
+  fi
+
+  if command -v go > /dev/null; then
+    show_info "Found $(go version) at $(command -v go)"
     return 0
   fi
 
@@ -983,7 +990,7 @@ test_linux_wheels() {
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
@@ -1014,7 +1021,7 @@ test_macos_wheels() {
         check_s3=OFF
       fi
 
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl

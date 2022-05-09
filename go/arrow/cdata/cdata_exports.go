@@ -39,10 +39,10 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/endian"
-	"github.com/apache/arrow/go/v8/arrow/ipc"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/endian"
+	"github.com/apache/arrow/go/v9/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
