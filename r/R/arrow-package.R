@@ -72,12 +72,7 @@
     options(arrow.use_threads = FALSE)
 
     # Try to set timezone database
-    if (requireNamespace("tzdb", quietly = TRUE)) {
-      tzdb::tzdb_initialize()
-      set_timezone_database(tzdb::tzdb_path("text"))
-    } else {
-      packageStartupMessage("The tzdb package is not installed. Timezones will not be available.")
-    }
+    configure_tzdb()
   }
 
   if (arrow_available()) {
@@ -86,6 +81,20 @@
   }
 
   invisible()
+}
+
+configure_tzdb <- function() {
+  # This is needed on Windows to support timezone-aware calculations
+  if (requireNamespace("tzdb", quietly = TRUE)) {
+    tzdb::tzdb_initialize()
+    set_timezone_database(tzdb::tzdb_path("text"))
+  } else {
+    msg <- paste(
+      "The tzdb package is not installed.",
+      "Timezones will not be available to Arrow compute functions."
+    )
+    packageStartupMessage(msg)
+  }
 }
 
 .onAttach <- function(libname, pkgname) {
