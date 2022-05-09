@@ -116,6 +116,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "go/parquet/writer_properties.go",
+        hunks: [
+          ["-\tDefaultCreatedBy          = \"parquet-go version #{@previous_version}\"",
+           "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\""]
+        ],
+      }.
+      {
         path: "docs/source/_static/versions.json",
         hunks: [
           [
