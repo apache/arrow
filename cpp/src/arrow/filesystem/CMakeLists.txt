@@ -32,6 +32,28 @@ if(ARROW_GCS)
   add_arrow_test(gcsfs_test EXTRA_LABELS filesystem)
 endif()
 
+if(ARROW_AZURE)
+  add_arrow_lib(azurefs
+                SOURCES
+                azurefs.cc
+                SHARED_LINK_LIBS
+                ${ARROW_LINK_LIBS}
+                SHARED_PRIVATE_LINK_LIBS
+                ${ARROW_SHARED_PRIVATE_LINK_LIBS}
+                STATIC_LINK_LIBS
+                ${ARROW_STATIC_LINK_LIBS})
+
+  set_target_properties(azurefs_objlib PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
+
+  set(TEST_LIBS_AZURE ${ARROW_TEST_LINK_LIBS})
+  list(APPEND TEST_LIBS_AZURE azurefs_shared)
+  add_arrow_test(azurefs_test EXTRA_LABELS filesystem
+                  STATIC_LINK_LIBS
+                  ${TEST_LIBS_AZURE}
+  )
+  set_target_properties(arrow-azurefs-test PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
+endif()
+
 if(ARROW_S3)
   add_arrow_test(s3fs_test
                  SOURCES

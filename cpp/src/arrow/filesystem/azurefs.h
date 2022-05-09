@@ -59,6 +59,8 @@ struct ARROW_EXPORT AzureOptions {
 
   AzureOptions();
 
+  std::string GetAccountNameFromConnectionString(const std::string& connectionString);
+
   void ConfigureAnonymousCredentials(const std::string& account_name);
 
   void ConfigureAccountKeyCredentials(const std::string& account_name,

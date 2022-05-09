@@ -485,10 +485,6 @@ if(ARROW_FILESYSTEM)
                                            SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
 
-  if(ARROW_AZURE)
-    add_subdirectory(filesystem/azure)
-  endif()
-
   list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
 endif()
 

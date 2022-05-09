@@ -68,6 +68,44 @@ static const char kSep = '/';
 
 AzureOptions::AzureOptions() {}
 
+std::string GetAccountNameFromConnectionString(const std::string& connectionString) {
+  std::map<std::string, std::string> connectionStringMap;
+  std::string::const_iterator cur = connectionString.begin();
+
+  while (cur != connectionString.end()) {
+    auto key_begin = cur;
+    auto key_end = std::find(cur, connectionString.end(), '=');
+    std::string key = std::string(key_begin, key_end);
+    cur = key_end;
+    if (cur != connectionString.end()) {
+      ++cur;
+    }
+    auto value_begin = cur;
+    auto value_end = std::find(cur, connectionString.end(), ';');
+    std::string value = std::string(value_begin, value_end);
+    cur = value_end;
+    if (cur != connectionString.end()) {
+      ++cur;
+    }
+    if (!key.empty() || !value.empty()) {
+      connectionStringMap[std::move(key)] = std::move(value);
+    }
+  }
+
+  auto getWithDefault = [](const std::map<std::string, std::string>& m,
+                           const std::string& key,
+                           const std::string& defaultValue = std::string()) {
+    auto ite = m.find(key);
+    return ite == m.end() ? defaultValue : ite->second;
+  };
+
+  std::string accountName = getWithDefault(connectionStringMap, "AccountName");
+  if (accountName.empty()) {
+    throw std::runtime_error("Cannot find account name in connection string.");
+  }
+  return accountName;
+}
+
 void AzureOptions::ConfigureAnonymousCredentials(const std::string& account_name) {
   account_dfs_url = "https://" + account_name + ".dfs.core.windows.net/";
   account_blob_url = "https://" + account_name + ".blob.core.windows.net/";
@@ -86,8 +124,7 @@ void AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_nam
 
 void AzureOptions::ConfigureConnectionStringCredentials(
     const std::string& connection_string_uri) {
-  auto account_name =
-      Azure::Storage::_internal::ParseConnectionString(connection_string_uri).AccountName;
+  auto account_name = GetAccountNameFromConnectionString(connection_string_uri);
   account_dfs_url = "https://" + account_name + ".dfs.core.windows.net/";
   account_blob_url = "https://" + account_name + ".blob.core.windows.net/";
   connection_string = connection_string_uri;
@@ -714,9 +751,9 @@ void FileObjectToInfo(
     FileInfo* info) {
   info->set_type(FileType::File);
   info->set_size(static_cast<int64_t>(properties.FileSize));
-  info->set_mtime(
-      ToTimePoint(Azure::Core::_internal::PosixTimeConverter::DateTimeToPosixTime(
-          properties.LastModified)));
+  info->set_mtime(ToTimePoint(std::chrono::duration_cast<std::chrono::seconds>(
+                                  properties.LastModified - Azure::DateTime(1970))
+                                  .count()));
 }
 
 void PathInfoToFileInfo(const std::string path, const FileType type, const int64_t size,
@@ -724,8 +761,9 @@ void PathInfoToFileInfo(const std::string path, const FileType type, const int64
   info->set_type(type);
   info->set_size(size);
   info->set_path(path);
-  info->set_mtime(
-      ToTimePoint(Azure::Core::_internal::PosixTimeConverter::DateTimeToPosixTime(dt)));
+  info->set_mtime(ToTimePoint(
+      std::chrono::duration_cast<std::chrono::seconds>(dt - Azure::DateTime(1970))
+          .count()));
 }
 
 }  // namespace
