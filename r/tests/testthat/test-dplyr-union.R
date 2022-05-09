@@ -19,6 +19,8 @@ skip_if(on_old_windows())
 
 library(dplyr, warn.conflicts = FALSE)
 
+withr::local_options(list(arrow.summarise.sort = FALSE))
+
 test_that("union_all", {
   compare_dplyr_binding(
     .input %>%
