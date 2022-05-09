@@ -311,8 +311,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
 
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Union(
-  const std::shared_ptr<compute::ExecNode>& input,
-  const std::shared_ptr<compute::ExecNode>& right_data) {
+    const std::shared_ptr<compute::ExecNode>& input,
+    const std::shared_ptr<compute::ExecNode>& right_data) {
   return MakeExecNodeOrStop("union", input->plan(), {input.get(), right_data.get()}, {});
 }
 
