@@ -415,7 +415,7 @@ register_bindings_duration <- function() {
       # complex casting due to cast type restrictions: time64 -> int64 -> duration(us)
       # and then we cast to duration ("s") at the end
       # we also need the casting chain to get the measurement units right
-      x <- x$cast(time64("us"))$cast(int64())$cast(duration("us"))
+      x <- make_duration(x$cast(time64("us")), unit = "us")
     }
 
     # numeric -> duration not supported in Arrow yet so we use int64() as an
