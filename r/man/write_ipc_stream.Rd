@@ -32,7 +32,6 @@ the function that will write the desired IPC format (stream or file) since
 either can be written to a file or \code{OutputStream}.
 }
 \examples{
-()
 tf <- tempfile()
 on.exit(unlink(tf))
 write_ipc_stream(mtcars, tf)

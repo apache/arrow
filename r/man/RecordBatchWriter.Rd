@@ -46,7 +46,6 @@ to be closed separately.
 }
 
 \examples{
-()
 tf <- tempfile()
 on.exit(unlink(tf))
 

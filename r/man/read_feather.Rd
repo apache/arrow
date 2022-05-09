@@ -35,7 +35,6 @@ This function reads both the original, limited specification of the format
 and the version 2 specification, which is the Apache Arrow IPC file format.
 }
 \examples{
-()
 tf <- tempfile()
 on.exit(unlink(tf))
 write_feather(mtcars, tf)

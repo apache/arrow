@@ -31,6 +31,5 @@ field(name, type, metadata, nullable = TRUE)
 }
 
 \examples{
-()
 field("x", int32())
 }
