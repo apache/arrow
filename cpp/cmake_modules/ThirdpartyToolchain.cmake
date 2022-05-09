@@ -78,10 +78,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
-# cmake does not detect the gtest version installed by conda so we havte to use the bundled version
-if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA" AND MSVC AND "${GTest_SOURCE}" STREQUAL "")
-  set(GTest_SOURCE "BUNDLED")
-endif()
 
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
@@ -2054,11 +2050,16 @@ macro(build_gtest)
 endmacro()
 
 if(ARROW_TESTING)
+  if(CMAKE_VERSION VERSION_LESS 3.23)
+     set(GTEST_USE_CONFIG TRUE)
+    else()
+      set(GTEST_USE_CONFIG FALSE)
+    endif()
   resolve_dependency(GTest
                      REQUIRED_VERSION
                      1.10.0
                      USE_CONFIG
-                     TRUE)
+                     ${GTEST_USE_CONFIG})
 
   if(NOT GTEST_VENDORED)
     # TODO(wesm): This logic does not work correctly with the MSVC static libraries
