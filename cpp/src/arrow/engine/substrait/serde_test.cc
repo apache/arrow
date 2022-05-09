@@ -926,7 +926,7 @@ TEST(Substrait, JoinPlanBasic) {
       checked_cast<const compute::HashJoinNodeOptions&>(*join_rel->options);
 
   EXPECT_EQ(join_rel->factory_name, "hashjoin");
-  EXPECT_EQ(compute::ToString(join_options.join_type), "INNER");
+  EXPECT_EQ(join_options.join_type, compute::JoinType::INNER);
 
   const auto& left_rel = join_rel->inputs[0].get<compute::Declaration>();
   const auto& right_rel = join_rel->inputs[1].get<compute::Declaration>();
@@ -943,7 +943,7 @@ TEST(Substrait, JoinPlanBasic) {
       r_options.dataset->schema(),
       schema({field("X", int32()), field("Y", int32()), field("A", int32())}));
 
-  EXPECT_EQ((int)join_options.key_cmp[0], (int)compute::JoinKeyCmp::EQ);
+  EXPECT_EQ(join_options.key_cmp[0], compute::JoinKeyCmp::EQ);
 }
 
 TEST(Substrait, JoinPlanInvalidKeyCmp) {
