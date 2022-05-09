@@ -238,7 +238,6 @@ html_theme = 'pydata_sphinx_theme'
 #
 html_theme_options = {
     "show_toc_level": 2,
-    "google_analytics_id": "UA-107500873-1",
     "use_edit_page_button": True,
 }
 
