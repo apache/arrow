@@ -117,7 +117,7 @@ TEST_F(TestInMemoryDataset, HandlesDifferingSchemas) {
   // These schemas can be merged
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch1 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  SetSchema({field("i32", int64())});
+  SetSchema({field("i32", int32())});
   auto batch2 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   RecordBatchVector batches{batch1, batch2};
 
@@ -140,7 +140,9 @@ TEST_F(TestInMemoryDataset, HandlesDifferingSchemas) {
 
   ASSERT_OK_AND_ASSIGN(scanner_builder, dataset->NewScan());
   ASSERT_OK_AND_ASSIGN(scanner, scanner_builder->Finish());
-  ASSERT_NOT_OK(scanner->ToTable());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, testing::HasSubstr("fields had matching names but differing types"),
+      scanner->ToTable());
 }
 
 class TestUnionDataset : public DatasetFixtureMixin {};

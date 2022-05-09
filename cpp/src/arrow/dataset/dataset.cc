@@ -202,6 +202,7 @@ Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(compute::Expression) 
 
   auto create_fragment =
       [schema](std::shared_ptr<RecordBatch> batch) -> Result<std::shared_ptr<Fragment>> {
+    RETURN_NOT_OK(CheckProjectable(*schema, *batch->schema()));
     return std::make_shared<InMemoryFragment>(RecordBatchVector{std::move(batch)});
   };
 
