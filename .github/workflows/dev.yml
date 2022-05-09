@@ -58,9 +58,16 @@ jobs:
         run: archery docker push ubuntu-lint
 
   release:
-    name: Source Release and Merge Script
-    runs-on: ubuntu-20.04
+    name: Source Release and Merge Script on ${{ matrix.runs-on }}
+    runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - macos-latest
+          - ubuntu-latest
     env:
       GIT_AUTHOR_NAME: Github Actions
       GIT_AUTHOR_EMAIL: github@actions
@@ -68,7 +75,7 @@ jobs:
       GIT_COMMITTER_EMAIL: github@actions
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Python
@@ -78,7 +85,11 @@ jobs:
       - name: Install Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '2.6'
+          ruby-version: '2.7'
+      - name: Install .NET
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '6.0.x'
       - name: Install Dependencies
         shell: bash
         run: |
