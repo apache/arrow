@@ -206,9 +206,13 @@ write_dataset <- function(dataset,
   validate_positive_int_value(min_rows_per_group)
   validate_positive_int_value(max_rows_per_group)
 
+  source_schema <- source_data(dataset)$schema
+  # For backwards compatibility with Scanner-based writer (arrow <= 7.0.0):
+  # retain metadata from source dataset
+  output_schema$metadata <- source_schema$metadata
   new_r_meta <- get_r_metadata_from_old_schema(
     output_schema,
-    source_data(dataset)$schema,
+    source_schema,
     drop_attributes = has_aggregation(dataset)
   )
   if (!is.null(new_r_meta)) {
