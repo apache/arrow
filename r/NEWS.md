@@ -17,13 +17,15 @@
   under the License.
 -->
 
-# arrow 7.0.0.9000
+# arrow 8.0.0.9000
+
+# arrow 8.0.0
 
 ## Enhancements to dplyr and datasets
 
 * `open_dataset()`:
   - correctly supports the `skip` argument for skipping header rows in CSV datasets.
-  - can take a list of datasets with differing schemas and attempt to unify the 
+  - can take a list of datasets with differing schemas and attempt to unify the
     schemas to produce a `UnionDataset`.
 * Arrow `{dplyr}` queries:
   - are supported on `RecordBatchReader`. This allows, for example, results from DuckDB
@@ -33,7 +35,7 @@
   - supports `dplyr::rename_with()`.
   - `dplyr::count()` returns an ungrouped dataframe.
 * `write_dataset` has more options for controlling row group and file sizes when
-  writing partitioned datasets, such as `max_open_files`, `max_rows_per_file`, 
+  writing partitioned datasets, such as `max_open_files`, `max_rows_per_file`,
   `min_rows_per_group`, and `max_rows_per_group`.
 * `write_csv_arrow` accepts a `Dataset` or an Arrow dplyr query.
 * Joining one or more datasets while `option(use_threads = FALSE)` no longer
@@ -47,16 +49,16 @@
 * `read_csv_arrow()`'s readr-style type `T` is mapped to `timestamp(unit = "ns")` 
   instead of `timestamp(unit = "s")`.
 * For Arrow dplyr queries, added additional `{lubridate}` features and fixes:
-  * New component extraction functions: 
+  * New component extraction functions:
     * `lubridate::tz()` (timezone),
     * `lubridate::semester()`,
     * `lubridate::dst()` (daylight savings time boolean),
     * `lubridate::date()`,
     * `lubridate::epiyear()` (year according to epidemiological week calendar),
   * `lubridate::month()` works with integer inputs.
-  * `lubridate::make_date()` & `lubridate::make_datetime()` + 
-    `lubridate::ISOdatetime()` & `lubridate::ISOdate()` to 
-    create date-times from numeric representations. 
+  * `lubridate::make_date()` & `lubridate::make_datetime()` +
+    `lubridate::ISOdatetime()` & `lubridate::ISOdate()` to
+    create date-times from numeric representations.
   * `lubridate::decimal_date()` and `lubridate::date_decimal()`
   * `lubridate::make_difftime()` (duration constructor)
   * `?lubridate::duration` helper functions, such as `dyears()`, `dhours()`, `dseconds()`.
@@ -68,7 +70,7 @@
   * Arrow timestamp and date arrays support `base::format()`
   * `strptime()` returns `NA` instead of erroring in case of format mismatch,
     just like `base::strptime()`.
-* Timezone operations are supported on Windows if the 
+* Timezone operations are supported on Windows if the
   [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
   installed.
 
