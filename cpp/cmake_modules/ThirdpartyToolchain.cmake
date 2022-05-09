@@ -78,6 +78,11 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
+# cmake does not detect the gtest version installed by conda so we havte to use the bundled version
+if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA" AND MSVC AND "${GTest_SOURCE}" STREQUAL "")
+  set(GTest_SOURCE "BUNDLED")
+endif()
+
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
 # We renamed "BOOST" dependency name to "Boost" in 3.0.0 because
