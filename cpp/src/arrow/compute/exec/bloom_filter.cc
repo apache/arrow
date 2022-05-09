@@ -114,7 +114,7 @@ Status BlockedBloomFilter::CreateEmpty(int64_t num_rows_to_insert, MemoryPool* p
 }
 
 template <typename T>
-NO_TSAN void BlockedBloomFilter::InsertImp(int64_t num_rows, const T* hashes) {
+void BlockedBloomFilter::InsertImp(int64_t num_rows, const T* hashes) {
   for (int64_t i = 0; i < num_rows; ++i) {
     Insert(hashes[i]);
   }
@@ -143,9 +143,8 @@ void BlockedBloomFilter::Insert(int64_t hardware_flags, int64_t num_rows,
 }
 
 template <typename T>
-NO_TSAN void BlockedBloomFilter::FindImp(int64_t num_rows, const T* hashes,
-                                         uint8_t* result_bit_vector,
-                                         bool enable_prefetch) const {
+void BlockedBloomFilter::FindImp(int64_t num_rows, const T* hashes,
+                                 uint8_t* result_bit_vector, bool enable_prefetch) const {
   int64_t num_processed = 0;
   uint64_t bits = 0ULL;
 
@@ -364,7 +363,14 @@ Status BloomFilterBuilder_Parallel::PushNextBatch(size_t thread_id, int64_t num_
 template <typename T>
 void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num_rows,
                                                    const T* hashes) {
-  int num_prtns = 1 << log_num_prtns_;
+  // Partition IDs are calculated using the higher bits of the block ID.  This
+  // ensures that each block is contained entirely within a partition and prevents
+  // concurrent access to a block.
+  constexpr int kLogBlocksKeptTogether = 7;
+  const int log_num_prtns_max =
+      std::max(0, build_target_->log_num_blocks() - kLogBlocksKeptTogether);
+  const int log_num_prtns_mod = std::min(log_num_prtns_, log_num_prtns_max);
+  int num_prtns = 1 << log_num_prtns_mod;
   ThreadLocalState& local_state = thread_local_states_[thread_id];
   local_state.partition_ranges.resize(num_prtns + 1);
   local_state.partitioned_hashes_64.resize(num_rows);
@@ -376,7 +382,6 @@ void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num
   PartitionSort::Eval(
       num_rows, num_prtns, partition_ranges,
       [hashes, num_prtns](int64_t row_id) {
-        constexpr int kLogBlocksKeptTogether = 7;
         constexpr int kPrtnIdBitOffset =
             BloomFilterMasks::kLogNumMasks + 6 + kLogBlocksKeptTogether;
         return (hashes[row_id] >> (kPrtnIdBitOffset)) & (num_prtns - 1);

@@ -102,7 +102,7 @@ int64_t BlockedBloomFilter::Find_avx2(int64_t num_rows, const uint64_t* hashes,
 }
 
 template <typename T>
-NO_TSAN int64_t BlockedBloomFilter::InsertImp_avx2(int64_t num_rows, const T* hashes) {
+int64_t BlockedBloomFilter::InsertImp_avx2(int64_t num_rows, const T* hashes) {
   constexpr int unroll = 4;
 
   for (int64_t i = 0; i < num_rows / unroll; ++i) {

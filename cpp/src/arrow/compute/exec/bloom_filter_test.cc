@@ -72,7 +72,6 @@ Status BuildBloomFilter_Parallel(
 
   std::condition_variable cv;
   std::mutex mutex;
-  bool done = false;
   auto group = scheduler->RegisterTaskGroup(
       [&](size_t thread_index, int64_t task_id) -> Status {
         int batch_size = static_cast<int>(std::min(num_rows - task_id * kBatchSizeMax,
@@ -91,9 +90,8 @@ Status BuildBloomFilter_Parallel(
       [&](size_t thread_index) -> Status {
         {
           std::unique_lock<std::mutex> lk(mutex);
-          done = true;
+          cv.notify_all();
         }
-        cv.notify_all();
         return Status::OK();
       });
   scheduler->RegisterEnd();
@@ -110,7 +108,7 @@ Status BuildBloomFilter_Parallel(
   {
     std::unique_lock<std::mutex> lk(mutex);
     RETURN_NOT_OK(scheduler->StartTaskGroup(0, group, num_batches));
-    cv.wait(lk, [&]() { return done; });
+    cv.wait(lk);
   }
   return Status::OK();
 }
