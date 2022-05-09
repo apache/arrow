@@ -199,8 +199,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         hunk << "+#{new_line}"
       end
       if path == "go/parquet/writer_properties.go"
-        hunk << "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\""
-        hunk << "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\""        
+        hunk.append("-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"")
+        hunk.append("+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"")
       end
       expected_changes << {hunks: [hunk], path: path}
     end
