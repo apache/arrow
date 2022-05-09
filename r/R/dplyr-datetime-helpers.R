@@ -154,3 +154,48 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 
   x
 }
+
+build_formats <- function(orders) {
+  # only keep the letters and the underscore as separator -> allow the users to
+  # pass strptime-like formats (with "%"). Processing is needed (instead of passing
+  # formats as-is) due to the processing of the character vector in parse_date_time()
+  orders <- gsub("[^A-Za-z_]", "", orders)
+  orders <- gsub("Y", "y", orders)
+
+  supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+  unsupported_passed_orders <- setdiff(orders, supported_orders)
+  supported_passed_orders <- intersect(orders, supported_orders)
+
+  # error only if there isn't at least one valid order we can try
+  if (length(supported_passed_orders) == 0) {
+    arrow_not_supported(
+      paste0(
+        oxford_paste(
+          unsupported_passed_orders
+        ),
+        " `orders`"
+      )
+    )
+  }
+
+  formats_list <- map(orders, build_format_from_order)
+  purrr::flatten_chr(formats_list)
+}
+
+build_format_from_order <- function(order) {
+  year_chars <- c("%y", "%Y")
+  month_chars <- c("%m", "%B", "%b")
+  day_chars <- "%d"
+
+  outcome <- switch(
+    order,
+    "ymd" = expand.grid(year_chars, month_chars, day_chars),
+    "ydm" = expand.grid(year_chars, day_chars, month_chars),
+    "mdy" = expand.grid(month_chars, day_chars, year_chars),
+    "myd" = expand.grid(month_chars, year_chars, day_chars),
+    "dmy" = expand.grid(day_chars, month_chars, year_chars),
+    "dym" = expand.grid(day_chars, year_chars, month_chars)
+  )
+  outcome$format <- paste(outcome$Var1, outcome$Var2, outcome$Var3, sep = "-")
+  outcome$format
+}

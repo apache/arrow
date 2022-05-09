@@ -1429,7 +1429,7 @@ test_that("make_difftime()", {
         ) %>%
         collect(),
       paste0("named `difftime` units other than: `second`, `minute`, `hour`,",
-            " `day`, and `week` not supported in Arrow.")
+             " `day`, and `week` not supported in Arrow.")
     )
   )
 
@@ -1619,5 +1619,99 @@ test_that("`as_datetime()`", {
       ) %>%
       collect(),
     regexp = "Float value 10.1 was truncated converting to int64"
+  )
+})
+
+test_that("parse_date_time() works with year, month, and date components", {
+  # string processing requires RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_ymd, orders = "ymd"),
+        parsed_date_dmy = parse_date_time(string_dmy, orders = "dmy"),
+        parsed_date_mdy = parse_date_time(string_mdy, orders = "mdy")
+      ) %>%
+      collect(),
+    tibble::tibble(
+      string_ymd = c(
+        "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
+        "2021 09   6", "21-09-07", "21/09/08", "21.09.9", "21,09,10", "21:09:11",
+        # not yet working for strings with no separators, like "20210917", "210918" or "2021Sep19
+        # no separators and %b or %B are even more complicated (and they work in
+        # lubridate). not to mention locale
+        NA
+      ),
+      string_dmy = c(
+        "1-09-2021", "2/09//2021", "03.09.2021", "04,09,2021", "5:::09:2021",
+        "6  09  2021", "07-09-21", "08/09/21", "9.09.21", "10,09,21", "11:09:21",
+        # not yet working for strings with no separators, like "10092021", "100921",
+        NA
+      ),
+      string_mdy = c(
+        "09-01-2021", "09/2/2021", "09.3.2021", "09,04,2021", "09:05:2021",
+        "09 6 2021", "09-7-21", "09/08/21", "09.9.21", "09,10,21", "09:11:21",
+        # not yet working for strings with no separators, like "09102021", "091021",
+        NA
+      )
+    )
+  )
+
+  # locale (affecting "%b% and "%B" formats) does not work properly on Windows
+  # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16443 is done
+  skip_on_os("windows")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_ymd, orders = "ymd"),
+        parsed_date_dmy = parse_date_time(string_dmy, orders = "dmy"),
+        parsed_date_mdy = parse_date_time(string_mdy, orders = "mdy")
+      ) %>%
+      collect(),
+    tibble::tibble(
+      string_ymd = c(
+        "2021 Sep 12", "2021 September 13", "21 Sep 14", "21 September 15", NA
+      ),
+      string_dmy = c(
+        "12 Sep 2021", "13 September 2021", "14 Sep 21", "15 September 21", NA
+      ),
+      string_mdy = c(
+        "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21", NA
+      )
+    )
+  )
+})
+
+test_that("parse_date_time() works with a mix of formats and orders", {
+  # string processing requires RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+  test_df <- tibble(
+    string_combi = c("2021-09-1", "2/09//2021", "09.3.2021")
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_from_string = parse_date_time(
+          string_combi,
+          orders = c("ymd", "%d/%m//%Y", "%m.%d.%Y")
+        )
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("parse_date_time() doesn't work with hour, minutes, and second components", {
+  test_dates_times <- tibble(
+    date_times = c("09-01-17 12:34:56", NA)
+  )
+
+  expect_warning(
+    test_dates_times %>%
+      arrow_table() %>%
+      mutate(parsed_date_ymd = parse_date_time(date_times, orders = "ymd_HMS")) %>%
+      collect(),
+    '"ymd_HMS" `orders` not supported in Arrow'
   )
 })
