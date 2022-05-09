@@ -608,7 +608,7 @@ class HashJoinNode : public ExecNode {
     }
 
     bool all_comparisons_is = true;
-    for (JoinKeyCmp cmp : key_cmp_) all_comparisons_is &= cmp == JoinKeyCmp::IS;
+    for (JoinKeyCmp cmp : key_cmp_) all_comparisons_is &= (cmp == JoinKeyCmp::IS);
 
     if ((join_type_ == JoinType::RIGHT_OUTER || join_type_ == JoinType::FULL_OUTER) &&
         all_comparisons_is)
