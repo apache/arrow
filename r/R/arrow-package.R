@@ -89,7 +89,11 @@ configure_tzdb <- function() {
     tzdb::tzdb_initialize()
     set_timezone_database(tzdb::tzdb_path("text"))
   } else {
-    packageStartupMessage("The tzdb package is not installed. Timezones will not be available to Arrow compute functions.")
+    msg <- paste(
+      "The tzdb package is not installed.",
+      "Timezones will not be available to Arrow compute functions."
+    )
+    packageStartupMessage(msg)
   }
 }
 
