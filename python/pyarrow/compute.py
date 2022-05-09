@@ -330,6 +330,8 @@ def cast(arr, target_type, safe=True, options=None):
         Type to cast to
     safe : bool, default True
         Check for overflows or other unsafe conversions
+    options : CastOptions, default None
+        Additional checks pass by CastOptions
 
     Examples
     --------

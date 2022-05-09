@@ -907,6 +907,8 @@ cdef class Array(_PandasConvertible):
             Type to cast array to.
         safe : boolean, default True
             Whether to check for conversion errors such as overflow.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
