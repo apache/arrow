@@ -114,14 +114,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
            "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
         ],
-      },
-      {
-        path: "go/parquet/writer_properties.go",
-        hunks: [
-          ["-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
-           "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\""]
-        ],
-      },
+      },      
       {
         path: "docs/source/_static/versions.json",
         hunks: [
@@ -204,6 +197,10 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           "v#{@next_major_version}"
         end
         hunk << "+#{new_line}"
+      end
+      if path == "go/parquet/writer_properties.go"
+        hunk << "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\""
+        hunk << "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\""        
       end
       expected_changes << {hunks: [hunk], path: path}
     end
