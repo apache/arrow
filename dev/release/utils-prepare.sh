@@ -153,6 +153,9 @@ update_versions() {
   find . "(" -name "*.go*" -o -name "go.mod" ")" -exec sed -i.bak -E -e \
     "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|" {} \;
   find . -name "*.bak" -exec rm {} \;
+  # update parquet writer version
+  sed -i -E -e "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/"
+
   git add .
   popd
 
