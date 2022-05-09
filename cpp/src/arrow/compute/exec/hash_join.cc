@@ -162,6 +162,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     scheduler_->Abort(std::move(pos_abort_callback));
   }
 
+  // Called by a downstream node after they have constructed a bloom filter
+  // that this node can use to filter inputs.
   Status PushBloomFilter(size_t thread_index, std::unique_ptr<BlockedBloomFilter> filter,
                          std::vector<int> column_map) override {
     bool proceed;
@@ -662,7 +664,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     std::vector<uint8_t> bv(bit_vector_bytes);
 
     RETURN_NOT_OK(InitLocalStateIfNeeded(thread_index));
-    // Start with full selection for the current minibatch
+    // Start with full selection for the current batch
     memset(selected.data(), 0xff, bit_vector_bytes);
     for (size_t ifilter = 0; ifilter < num_expected_bloom_filters_; ifilter++) {
       std::vector<Datum> keys(bloom_filter_column_maps_[ifilter].size());
@@ -790,6 +792,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
       return Status::Cancelled("Hash join cancelled");
     }
 
+    right_batches_.clear();
+
     bool proceed;
     {
       std::lock_guard<std::mutex> lock(left_batches_mutex_);
@@ -801,7 +805,6 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
     if (proceed) RETURN_NOT_OK(ProbeQueuedBatches(thread_index));
 
-    right_batches_.clear();
     return Status::OK();
   }
 

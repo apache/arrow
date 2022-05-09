@@ -88,11 +88,9 @@ Status BuildBloomFilter_Parallel(
         return Status::OK();
       },
       [&](size_t thread_index) -> Status {
-        {
           std::unique_lock<std::mutex> lk(mutex);
           cv.notify_all();
-        }
-        return Status::OK();
+          return Status::OK();
       });
   scheduler->RegisterEnd();
   auto tp = arrow::internal::GetCpuThreadPool();

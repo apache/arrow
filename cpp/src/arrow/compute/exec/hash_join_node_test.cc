@@ -1000,7 +1000,7 @@ TEST(HashJoin, Random) {
   Random64Bit rng(42);
 #if defined(THREAD_SANITIZER) || defined(ARROW_VALGRIND)
   const int num_tests = 15;
-#elsif defined(ADDRESS_SANITIZER)
+#elif defined(ADDRESS_SANITIZER)
   const int num_tests = 50;
 #else
   const int num_tests = 100;

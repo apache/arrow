@@ -282,7 +282,7 @@ class ARROW_EXPORT AtomicCounter {
   std::atomic<bool> complete_{false};
 };
 
-class ARROW_EXPORT ThreadIndexer {
+class ThreadIndexer {
  public:
   size_t operator()();
 
