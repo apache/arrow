@@ -18,10 +18,10 @@
 -->
 # development version
 
-  * `lubridate::parse_date_time()` datetime parser (only for year, month, and day components with separators). Not all functionality has been implemented:
-    * the `orders` argument in the Arrow binding works slightly different than in `lubridate::parse_date_time()` and closer to `lubridate::parse_date_time2()` and `lubridate::fast_strptime()`: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place. `lubridate::parse_date_time()` usually "trains" formats on a subset of the input vector and then applies them according to performance on the training set. 
-    * currently only `orders` containing the year, month, and day components are supported. In a future release `orders` containing other datetime components (such as hours, minutes, seconds, etc) will be supported.
-    * strings with no separators (e.g. 20210917) will likely fail to parse so you might want to try using the `strptime()` binding instead.
+  * `lubridate::parse_date_time()` datetime parser:
+    * currently only `orders` containing the year, month, and day components are supported. In a future release `orders` containing other datetime components (such as hours, minutes, seconds, etc) will be added.
+    * strings with no separators (e.g. `"20210917"`) could be ambiguous and are not yet supported.
+    * the `orders` argument in the Arrow binding worksas follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
 
 # arrow 7.0.0.9000
 
