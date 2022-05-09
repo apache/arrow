@@ -250,7 +250,7 @@ TEST(ArrayIterator, StdMerge) {
 
 TEST(ChunkedArrayIterator, Basics) {
   auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6])"});
-  auto it = Iterate<Int32Type>(*result);
+  auto it = Begin<Int32Type>(*result);
   optional<int32_t> v = *it;
   ASSERT_EQ(v, 4);
   ASSERT_EQ(it[0], 4);
@@ -264,7 +264,7 @@ TEST(ChunkedArrayIterator, Basics) {
 TEST(ChunkedArrayIterator, Arithmetic) {
   auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6, null, 7])"});
 
-  auto it = Iterate<Int32Type>(*result);
+  auto it = Begin<Int32Type>(*result);
   auto it2 = it + 2;
   ASSERT_EQ(*it, 4);
   ASSERT_EQ(*it2, nullopt);
@@ -293,9 +293,9 @@ TEST(ChunkedArrayIterator, Arithmetic) {
 TEST(ChunkedArrayIterator, Comparison) {
   auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6, null, 7])"});
 
-  auto it = Iterate<Int32Type>(*result) + 2;
-  auto it2 = Iterate<Int32Type>(*result) + 2;
-  auto it3 = Iterate<Int32Type>(*result) + 4;
+  auto it = Begin<Int32Type>(*result) + 2;
+  auto it2 = Begin<Int32Type>(*result) + 2;
+  auto it3 = Begin<Int32Type>(*result) + 4;
 
   ASSERT_TRUE(it == it2);
   ASSERT_TRUE(it <= it2);
@@ -317,7 +317,7 @@ TEST(ChunkedArrayIterator, MultipleChunks) {
       ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6])", R"([7, 9, 10, 8])",
                                      R"([11, 13])", R"([14])", R"([15])", R"([16])"});
 
-  auto it = Iterate<Int32Type>(*result);
+  auto it = Begin<Int32Type>(*result);
   ASSERT_EQ(it[8], 11);
   ASSERT_EQ(it[9], 13);
   it += 3;
@@ -382,7 +382,7 @@ TEST(ChunkedArrayIterator, MultipleChunks) {
 
 TEST(ChunkedArrayIterator, EmptyChunks) {
   auto result = ChunkedArrayFromJSON(int32(), {});
-  auto it = Iterate<Int32Type>(*result);
+  auto it = Begin<Int32Type>(*result);
   ASSERT_EQ(*it, nullopt);
   ASSERT_EQ(it[0], nullopt);
   it++;
@@ -393,7 +393,7 @@ TEST(ChunkedArrayIterator, EmptyChunks) {
   result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([])", R"([7, 9, 10, 8])",
                                           R"([11, 13])", R"([])", R"([])", R"([16])"});
 
-  it = Iterate<Int32Type>(*result);
+  it = Begin<Int32Type>(*result);
   ASSERT_EQ(it[8], 13);
   ASSERT_EQ(it[9], 16);
   it += 3;
@@ -448,23 +448,36 @@ TEST(ChunkedArrayIterator, EmptyChunks) {
 
 TEST(ChunkedArrayIterator, StdFind) {
   auto chunked_array1 =
-      ChunkedArrayFromJSON(int8(), {R"([5, 10])", R"([null])", R"([16])"});
-  auto it1 = Iterate<Int8Type>(*chunked_array1);
+      ChunkedArrayFromJSON(int32(), {R"([5, 10])", R"([null])", R"([16])"});
+  auto it_begin = Begin<Int32Type>(*chunked_array1);
+  auto it_end = End<Int32Type>(*chunked_array1);
 
-  auto it = std::find(it1, it1 + chunked_array1->length(), 10);
+  auto it = std::find(it_begin, it_end, 10);
   ASSERT_EQ(it.index(), 1);
-  it = std::find(it1, it1 + chunked_array1->length(), nullopt);
+  it = std::find(it_begin, it_end, nullopt);
   ASSERT_EQ(it.index(), 2);
-  it = std::find(it1, it1 + chunked_array1->length(), 20);
-  ASSERT_EQ(it, it1 + chunked_array1->length());
+  it = std::find(it_begin, it_end, 20);
+  ASSERT_EQ(it, it_end);
+}
+
+TEST(ChunkedArrayIterator, StdFindIf) {
+  auto chunked_array =
+      ChunkedArrayFromJSON(int32(), {R"([5, 10])", R"([null])", R"([16])"});
+  auto it_begin = Begin<Int32Type>(*chunked_array);
+  auto it_end = End<Int32Type>(*chunked_array);
+
+  auto it = std::find_if(it_begin, it_end, [](optional<int32_t> item) {
+    return item.has_value() && *item >= 10;
+  });
+  ASSERT_EQ(it.index(), 1);
 }
 
 TEST(ChunkedArrayIterator, StdCountIf) {
   auto chunked_array1 =
       ChunkedArrayFromJSON(boolean(), {R"([true, null])", R"([null])", R"([false])"});
-  auto it1 = Iterate<BooleanType>(*chunked_array1);
 
-  auto n = std::count_if(it1, it1 + chunked_array1->length(),
+  auto n = std::count_if(Begin<BooleanType>(*chunked_array1),
+                         End<BooleanType>(*chunked_array1),
                          [](optional<bool> v) { return !v.has_value(); });
   ASSERT_EQ(n, 2);
 }
@@ -472,10 +485,10 @@ TEST(ChunkedArrayIterator, StdCountIf) {
 TEST(ChunkedArrayIterator, StdCopy) {
   auto chunked_array1 =
       ChunkedArrayFromJSON(int8(), {R"([4, 5])", R"([6])", R"([null, 8])"});
-  auto it1 = Iterate<Int8Type>(*chunked_array1);
+  auto it1 = Begin<Int8Type>(*chunked_array1);
 
   std::vector<optional<int8_t>> values;
-  std::copy(it1 + 1, it1 + chunked_array1->length(), std::back_inserter(values));
+  std::copy(it1 + 1, End<Int8Type>(*chunked_array1), std::back_inserter(values));
   std::vector<optional<int8_t>> expected{5, 6, {}, 8};
   ASSERT_EQ(values, expected);
 }
@@ -491,13 +504,25 @@ TEST(ChunkedArrayIterator, StdMerge) {
     return u.has_value() && (!v.has_value() || *u < *v);
   };
 
-  auto it1 = Iterate<Int8Type>(*chunked_array1);
-  auto it2 = Iterate<Int8Type>(*chunked_array2);
   std::vector<optional<int8_t>> values;
 
-  std::merge(it1, it1 + chunked_array1->length(), it2, it2 + chunked_array2->length(),
+  std::merge(Begin<Int8Type>(*chunked_array1), End<Int8Type>(*chunked_array1),
+             Begin<Int8Type>(*chunked_array2), End<Int8Type>(*chunked_array2),
              std::back_inserter(values), cmp_lt);
   std::vector<optional<int8_t>> expected{4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, {}};
+  ASSERT_EQ(values, expected);
+}
+
+TEST(ChunkedArrayIterator, ForEachIterator) {
+  auto chunked_array =
+      ChunkedArrayFromJSON(int8(), {R"([4, 5])", R"([6])", R"([null, 8])"});
+  std::vector<int8_t> expected = {4, 5, 6, 8};
+  std::vector<int8_t> values;
+  for (auto elem : Iterate<Int8Type>(*chunked_array)) {
+    if (elem.has_value()) {
+      values.push_back(*elem);
+    }
+  }
   ASSERT_EQ(values, expected);
 }
 
