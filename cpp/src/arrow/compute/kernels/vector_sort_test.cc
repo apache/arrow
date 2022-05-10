@@ -1950,7 +1950,7 @@ void AssertRank(const std::shared_ptr<T>& input, SortOrder order,
   RankOptions options(order, null_placement, tiebreaker);
   ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {input}, &options));
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
-};
+}
 
 void AssertRank(const std::shared_ptr<DataType>& type, const std::string& values,
                 SortOrder order, NullPlacement null_placement,
