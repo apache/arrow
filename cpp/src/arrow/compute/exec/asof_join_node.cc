@@ -60,7 +60,7 @@ class concurrent_queue {
  public:
   T pop() {
     std::unique_lock<std::mutex> lock(mutex_);
-    cond_.wait(lock, [&] { return !queue_.empty();});
+    cond_.wait(lock, [&] { return !queue_.empty(); });
     auto item = queue_.front();
     queue_.pop();
     return item;
@@ -358,7 +358,7 @@ class CompositeReferenceTable {
 
   // Adds a RecordBatch ref to the mapping, if needed
   void add_record_batch_ref(const std::shared_ptr<RecordBatch>& ref) {
-    if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t) ref.get()] = ref;
+    if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
 
  public:
@@ -577,7 +577,7 @@ class AsofJoinNode : public ExecNode {
 
       // Only update if we have up-to-date information for the LHS row
       if (is_up_to_date_for_lhs_row()) {
-        dst.emplace(_state, _options._tolerance);
+        dst.emplace(_state, _options.tolerance);
         if (!lhs.advance()) break;  // if we can't advance LHS, we're done for this batch
       } else {
         if ((!any_advanced) && (_state.size() > 1)) break;  // need to wait for new data
@@ -588,7 +588,7 @@ class AsofJoinNode : public ExecNode {
     if (!lhs.empty()) {
       for (size_t i = 1; i < _state.size(); ++i) {
         _state[i]->remove_memo_entries_with_lesser_time(lhs.get_latest_time() -
-                                                        _options._tolerance);
+                                                        _options.tolerance);
       }
     }
 
@@ -648,8 +648,7 @@ class AsofJoinNode : public ExecNode {
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
                const AsofJoinNodeOptions& join_options,
                std::shared_ptr<Schema> output_schema,
-               std::unique_ptr<AsofJoinSchema> schema_mgr,
-               std::unique_ptr<AsofJoinImpl> impl);
+               std::unique_ptr<AsofJoinSchema> schema_mgr);
 
   virtual ~AsofJoinNode() {
     _process.push(false);  // poison pill
@@ -664,7 +663,6 @@ class AsofJoinNode : public ExecNode {
     const auto& join_options = checked_cast<const AsofJoinNodeOptions&>(options);
     std::shared_ptr<Schema> output_schema =
         schema_mgr->MakeOutputSchema(inputs, join_options);
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<AsofJoinImpl> impl, AsofJoinImpl::MakeBasic());
 
     std::vector<std::string> input_labels(inputs.size());
     input_labels[0] = "left";
@@ -674,7 +672,7 @@ class AsofJoinNode : public ExecNode {
 
     return plan->EmplaceNode<AsofJoinNode>(plan, inputs, std::move(input_labels),
                                            join_options, std::move(output_schema),
-                                           std::move(schema_mgr), std::move(impl));
+                                           std::move(schema_mgr));
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
@@ -746,7 +744,6 @@ class AsofJoinNode : public ExecNode {
 
  private:
   std::unique_ptr<AsofJoinSchema> schema_mgr_;
-  std::unique_ptr<AsofJoinImpl> impl_;
   Future<> finished_;
   // InputStates
   // Each input state correponds to an input table
@@ -795,12 +792,10 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
                            const AsofJoinNodeOptions& join_options,
                            std::shared_ptr<Schema> output_schema,
-                           std::unique_ptr<AsofJoinSchema> schema_mgr,
-                           std::unique_ptr<AsofJoinImpl> impl)
+                           std::unique_ptr<AsofJoinSchema> schema_mgr)
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
-      impl_(std::move(impl)),
       _options(join_options),
       _process(),
       _process_thread(&AsofJoinNode::process_thread_wrapper, this) {

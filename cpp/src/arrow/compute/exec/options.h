@@ -364,14 +364,14 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
   AsofJoinNodeOptions(FieldRef time, FieldRef keys, int64_t tolerance)
-      : time(std::move(time)), keys(std::move(keys)), _tolerance(tolerance) {}
+      : time(std::move(time)), keys(std::move(keys)), tolerance(tolerance) {}
 
   // time column
   FieldRef time;
   // keys used for the join. All tables must have the same join key.
   FieldRef keys;
-
-  int64_t _tolerance;
+  // tolerance for the inexact timestamp matching in nanoseconds
+  int64_t tolerance;
 };
 
 /// \brief Make a node which select top_k/bottom_k rows passed through it

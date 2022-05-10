@@ -42,15 +42,6 @@ typedef int32_t KeyType;
 
 // Maximum number of tables that can be joined
 #define MAX_JOIN_TABLES 64
-
-// Capacity of the input queues (for flow control)
-// Why 2?
-// It needs to be at least 1 to enable progress (otherwise queues have no capacity)
-// It needs to be at least 2 to enable addition of a new queue entry while processing
-// is being done for another input.
-// There's no clear performance benefit to greater than 2.
-#define QUEUE_CAPACITY 2
-
 // The max rows per batch is dictated by the data type for row index
 #define MAX_ROWS_PER_BATCH 0xFFFFFFFF
 typedef uint32_t row_index_t;
@@ -60,11 +51,6 @@ class AsofJoinSchema {
  public:
   std::shared_ptr<Schema> MakeOutputSchema(const std::vector<ExecNode*>& inputs,
                                            const AsofJoinNodeOptions& options);
-};
-
-class AsofJoinImpl {
- public:
-  static Result<std::unique_ptr<AsofJoinImpl>> MakeBasic();
 };
 
 }  // namespace compute
