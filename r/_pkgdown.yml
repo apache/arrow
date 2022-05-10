@@ -22,7 +22,25 @@ title: Arrow R Package
 template:
   params:
     bootswatch: cosmo
-    ganalytics: UA-107500873-1
+  includes:
+    in_header: |
+      <!-- Matomo -->
+      <script>
+        var _paq = window._paq = window._paq || [];
+        /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+        /* We explicitly disable cookie tracking to avoid privacy issues */
+        _paq.push(['disableCookies']);
+        _paq.push(['trackPageView']);
+        _paq.push(['enableLinkTracking']);
+        (function() {
+          var u="https://analytics.apache.org/";
+          _paq.push(['setTrackerUrl', u+'matomo.php']);
+          _paq.push(['setSiteId', '20']);
+          var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+          g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+        })();
+      </script>
+      <!-- End Matomo Code -->
   opengraph:
     image:
       src: https://arrow.apache.org/img/arrow-logo_horizontal_black-txt_white-bg.png
