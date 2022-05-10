@@ -28,8 +28,6 @@ CPP_BUILD_DIR=$HOME/arrow-cpp-build
 ARROW_ROOT=/arrow
 PYTHON=3.10
 
-git clone --depth=100 https://github.com/apache/arrow.git /arrow
-
 #----------------------------------------------------------------------
 # Run these only once
 

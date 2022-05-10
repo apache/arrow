@@ -102,6 +102,10 @@ groups:
     - test-*spark*
     # - test-*turbodbc*
 
+  minimal:
+    - minimal-fedora*
+    - minimal-ubuntu*
+
   example:
     - example-*
 
@@ -143,6 +147,7 @@ groups:
     - centos-*
     - conan-*
     - conda-*
+    - minimal-*
     - java-jars
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
@@ -157,6 +162,7 @@ groups:
   nightly-tests:
     - test-*
     - example-*
+    - minimal-*
 
   nightly-packaging:
     - almalinux-*
@@ -202,6 +208,32 @@ tasks:
       flags: >-
         -e ARROW_CONAN_WITH_LZ4=True
       image: conan
+      
+  ############################## Minimal ##################################
+
+  minimal-fedora-conda:
+    ci: github
+    template: python-minimal-build/github.linux.yml
+    params:
+      image: minimal-fedora-conda
+
+  minimal-fedora-venv:
+    ci: github
+    template: python-minimal-build/github.linux.yml
+    params:
+      image: minimal-fedora-venv
+
+  minimal-ubuntu-conda:
+    ci: github
+    template: python-minimal-build/github.linux.yml
+    params:
+      image: minimal-ubuntu-conda
+
+  minimal-ubuntu-venv:
+    ci: github
+    template: python-minimal-build/github.linux.yml
+    params:
+      image: minimal-ubuntu-venv
 
   ############################## Conda Linux ############################
 
