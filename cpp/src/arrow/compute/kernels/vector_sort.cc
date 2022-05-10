@@ -1966,7 +1966,8 @@ class ArrayRanker : public TypeVisitor {
         T currValue, prevValue;
         for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
           currValue = GetView::LogicalValue(arr.GetView(*it));
-          if (rank == 0 || (currValue != prevValue)) {
+          if (rank == 0 || it == sorted.nulls_begin || it == sorted.nulls_end ||
+              currValue != prevValue) {
             rank++;
           }
 
@@ -1985,7 +1986,8 @@ class ArrayRanker : public TypeVisitor {
         T currValue, prevValue;
         for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
           currValue = GetView::LogicalValue(arr.GetView(*it));
-          if (rank == 0 || (currValue != prevValue)) {
+          if (rank == 0 || it == sorted.nulls_begin || it == sorted.nulls_end ||
+              currValue != prevValue) {
             rank = (it - sorted.overall_begin()) + 1;
           }
           out_begin[*it] = rank;
@@ -1998,7 +2000,8 @@ class ArrayRanker : public TypeVisitor {
         auto rank = sorted.overall_end() - sorted.overall_begin();
         for (auto it = sorted.overall_end() - 1; it >= sorted.overall_begin(); it--) {
           currValue = GetView::LogicalValue(arr.GetView(*it));
-          if (it < sorted.overall_end() - 1 && (currValue != prevValue)) {
+          if ((it < sorted.overall_end() - 1 && (currValue != prevValue)) ||
+              it == sorted.nulls_begin - 1 || it == sorted.nulls_end - 1) {
             rank = it - sorted.overall_begin() + 1;
           }
           out_begin[*it] = rank;
