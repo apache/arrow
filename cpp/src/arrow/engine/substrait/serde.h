@@ -48,7 +48,11 @@ using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>
 /// returned here.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
-ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf , const ConsumerFactory& consumer_factory,
+    ExtensionSet* ext_set);
+
+Result<compute::ExecPlan> DeserializePlan(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     ExtensionSet* ext_set = NULLPTR);
 
