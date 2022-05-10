@@ -49,14 +49,12 @@ Status NotAFile(const std::string& path);
 ARROW_EXPORT
 Status InvalidDeleteDirContents(const std::string& path);
 
-/// \brief Return files matching the glob pattern
+/// \brief Return files matching the glob pattern on the filesystem
 ///
-/// Currently, glob patterns must be absolute paths.
-/// For example, a valid glob is: /*.parquet
-/// and an invalid glob is: *.parquet
+/// Globbing starts from the root of the filesystem.
 ARROW_EXPORT
-Result<FileInfoVector> GetGlobFiles(const std::shared_ptr<FileSystem>& filesystem,
-                                    const std::string& glob);
+Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
+                                 const std::string& glob);
 
 extern FileSystemGlobalOptions global_options;
 

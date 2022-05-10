@@ -168,7 +168,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
                     std::back_inserter(files));
         } else {
           ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                fs::internal::GetGlobFiles(filesystem, path));
+                                fs::internal::GlobFiles(filesystem, path));
           std::move(discovered_files.begin(), discovered_files.end(),
                     std::back_inserter(files));
         }
