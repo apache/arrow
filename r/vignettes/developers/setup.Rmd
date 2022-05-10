@@ -221,7 +221,7 @@ cmake \
 
 `..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
 
-**For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows. 
+**For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows.
 
 
 ```{bash, save=run & !sys_install, hide=TRUE}
@@ -366,7 +366,7 @@ withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(
 * `TEST_OFFLINE_BUILD`: When set to `true`, the build script will not download
   prebuilt the C++ library binary.
   It will turn off any features that require a download, unless they're available
-  in the `tools/cpp/thirdparty/download/` subfolder of the tar.gz file.
+  in `ARROW_THIRDPARTY_DEPENDENCY_DIR` or the `tools/thirdparty_download/` subfolder.
   `create_package_with_all_dependencies()` creates that subfolder.
   Regardless of this flag's value, `cmake` will be downloaded if it's unavailable.
 * `TEST_R_WITHOUT_LIBARROW`: When set to `true`, skip tests that would require

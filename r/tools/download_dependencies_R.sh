@@ -25,16 +25,20 @@
 #  * don't download the files, just emit R code to download
 #  * require a download directory
 #  * don't print env vars
+#  * stricter settings
+#  * add `run_mode` switch and `print_tar_name` function
 
-set -eu
+set -eufo pipefail
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ "$#" -ne 1 ]; then
-  >&2 echo "Download directory must be specified on the command line"
-  exit 1
+  run_mode="print_tar_name"
+  echo 'env_varname,filename'
 else
+  run_mode="download_dependency"
   DESTDIR=$1
+  mkdir -p "${DESTDIR}"
 fi
 
 download_dependency() {
@@ -44,9 +48,13 @@ download_dependency() {
   echo 'download.file("'${url}'", "'${out}'", quiet = TRUE)'
 }
 
-main() {
-  mkdir -p "${DESTDIR}"
+print_tar_name() {
+  local url_var=$1
+  local tar_name=$2
+  echo "'${url_var}','${tar_name}'"
+}
 
+main() {
   # Load `DEPENDENCIES` variable.
   source ${SOURCE_DIR}/cpp/thirdparty/versions.txt
 
@@ -56,8 +64,15 @@ main() {
     # Unpack each entry of the form "$home_var $tar_out $dep_url"
     IFS=" " read -r dep_url_var dep_tar_name dep_url <<< "${dep_packed}"
 
-    local out=${DESTDIR}/${dep_tar_name}
-    download_dependency "${dep_url}" "${out}"
+    if [[ "$run_mode" == "download_dependency" ]]; then
+      local out=${DESTDIR}/${dep_tar_name}
+      download_dependency "${dep_url}" "${out}"
+    elif [[ "$run_mode" == "print_tar_name" ]]; then
+      print_tar_name "${dep_url_var}" "${dep_tar_name}"
+    else
+      >&2 echo "Bad run_mode"
+      exit 1
+    fi
   done
 }
 

@@ -373,8 +373,8 @@ ensure_cmake <- function() {
       postfix <- "-linux-x86_64.tar.gz"
     } else {
       stop(paste0(
-         "*** cmake was not found locally.\n",
-         "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
+        "*** cmake was not found locally.\n",
+        "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
       ))
     }
     cmake_binary_url <- paste0(
@@ -435,6 +435,9 @@ turn_off_all_optional_features <- function(env_var_list) {
   # Because these are done as environment variables (as opposed to build flags),
   # setting these to "OFF" overrides any previous setting. We don't need to
   # check the existing value.
+  # Some features turn on other features (e.g. substrait -> protobuf),
+  # So the list of things to turn off is long. See:
+  # https://github.com/apache/arrow/blob/master/cpp/cmake_modules/ThirdpartyToolchain.cmake#L275
   turn_off <- c(
     "ARROW_MIMALLOC" = "OFF",
     "ARROW_JEMALLOC" = "OFF",
@@ -442,6 +445,11 @@ turn_off_all_optional_features <- function(env_var_list) {
     "ARROW_PARQUET" = "OFF", # depends on thrift
     "ARROW_DATASET" = "OFF", # depends on parquet
     "ARROW_S3" = "OFF",
+    "ARROW_GCS" = "OFF",
+    "ARROW_WITH_GOOGLE_CLOUD_CPP" = "OFF",
+    "ARROW_WITH_NLOHMANN_JSON" = "OFF",
+    "ARROW_SUBSTRAIT" = "OFF",
+    "ARROW_WITH_PROTOBUF" = "OFF",
     "ARROW_WITH_BROTLI" = "OFF",
     "ARROW_WITH_BZ2" = "OFF",
     "ARROW_WITH_LZ4" = "OFF",
@@ -462,27 +470,41 @@ turn_off_all_optional_features <- function(env_var_list) {
   replace(env_var_list, names(turn_off), turn_off)
 }
 
+get_component_names <- function() {
+  if (!isTRUE(Sys.which("bash") != "")) {
+    stop("nixlibs.R requires bash to be installed and available in your PATH")
+  }
+  deps_bash <- "tools/download_dependencies_R.sh"
+  csv_tempfile <- tempfile(fileext = ".csv")
+  deps_bash_success <- system2("bash", deps_bash, stdout = csv_tempfile) == 0
+  if (!deps_bash_success) {
+    stop("Failed to run download_dependencies_R.sh")
+  }
+  deps_df <- read.csv(csv_tempfile,
+    stringsAsFactors = FALSE, row.names = NULL, quote = "'"
+  )
+  stopifnot(
+    names(deps_df) == c("env_varname", "filename"),
+    nrow(deps_df) > 0
+  )
+  deps_df
+}
+
 set_thirdparty_urls <- function(env_var_list) {
   # This function does *not* check if existing *_SOURCE_URL variables are set.
   # The directory tools/thirdparty_dependencies is created by
   # create_package_with_all_dependencies() and saved in the tar file.
-  files <- list.files(thirdparty_dependency_dir, full.names = FALSE)
-  url_env_varname <- toupper(sub("(.*?)-.*", "ARROW_\\1_URL", files))
-  # Special handling for the aws dependencies, which have extra `-`
-  aws <- grepl("^aws", files)
-  url_env_varname[aws] <- sub(
-    "AWS_SDK_CPP", "AWSSDK",
-    gsub(
-      "-", "_",
-      sub(
-        "(AWS.*)-.*", "ARROW_\\1_URL",
-        toupper(files[aws])
-      )
-    )
-  )
-  full_filenames <- file.path(normalizePath(thirdparty_dependency_dir), files)
-
-  env_var_list <- replace(env_var_list, url_env_varname, full_filenames)
+  deps_df <- get_component_names()
+  dep_dir <- normalizePath(thirdparty_dependency_dir, mustWork = TRUE)
+  deps_df$full_filenames <- file.path(dep_dir, deps_df$filename)
+  files_exist <- file.exists(deps_df$full_filenames)
+  if (!any(files_exist)) {
+    stop("Dependency tar files did not exist in '", dep_dir, "'")
+  }
+  # Only set env var for files that are in thirdparty_dependency_dir
+  # (allows for a user to download a limited set of tar files, if they wanted)
+  deps_df <- deps_df[files_exist, ]
+  env_var_list <- replace(env_var_list, deps_df$env_varname, deps_df$full_filenames)
   if (!quietly) {
     env_var_list <- replace(env_var_list, "ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
   }
@@ -591,10 +613,10 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
       cat(paste0(
-      "*** Building libarrow from source\n",
-      "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
-      "    See install vignette for details:\n",
-      "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
+        "*** Building libarrow from source\n",
+        "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
+        "    See install vignette for details:\n",
+        "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
       ))
       build_libarrow(src_dir, dst_dir)
     } else {
