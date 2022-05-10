@@ -142,13 +142,12 @@ class ChunkedArrayIterator {
   using iterator_category = std::random_access_iterator_tag;
 
   // Some algorithms need to default-construct an iterator
-  ChunkedArrayIterator() : chunked_array_(NULLPTR), index_(0), current_chunk_index_(0) {}
+  ChunkedArrayIterator() : chunked_array_(NULLPTR), index_(0) {}
 
   explicit ChunkedArrayIterator(const ChunkedArray& chunked_array, int64_t index = 0)
       : chunked_array_(&chunked_array), index_(index) {
-    auto chunk_location = GetChunkLocation(this->index_);
-    if (chunked_array.length() &&
-        static_cast<int>(chunk_location.chunk_index) < chunked_array.num_chunks()) {
+    if (index_ != chunked_array.length()) {
+      auto chunk_location = GetChunkLocation(this->index_);
       current_array_iterator_ = ArrayIterator<ArrayType>(
           arrow::internal::checked_cast<const ArrayType&>(
               *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
@@ -156,31 +155,16 @@ class ChunkedArrayIterator {
     } else {
       current_array_iterator_ = {};
     }
-
-    this->current_chunk_index_ = chunk_location.chunk_index;
   }
 
   // Value access
-  value_type operator*() const {
-    if (!chunked_array_->length()) {
-      return value_type{};
-    }
-    return *current_array_iterator_;
-  }
+  value_type operator*() const { return *current_array_iterator_; }
 
   value_type operator[](difference_type n) const {
-    if (!chunked_array_->length()) {
-      return value_type{};
-    }
     auto chunk_location = GetChunkLocation(index_ + n);
-    ArrayIterator<ArrayType> target_iterator;
-    if (chunk_location.chunk_index < chunked_array_->num_chunks()) {
-      target_iterator =
-          ArrayIterator<ArrayType>{arrow::internal::checked_cast<const ArrayType&>(
-              *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index)))};
-    } else {
-      target_iterator = {};
-    }
+    ArrayIterator<ArrayType> target_iterator{
+        arrow::internal::checked_cast<const ArrayType&>(
+            *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index)))};
     return target_iterator[chunk_location.index_in_chunk];
   }
 
@@ -227,8 +211,8 @@ class ChunkedArrayIterator {
   }
   ChunkedArrayIterator& operator+=(difference_type n) {
     index_ += n;
-    auto chunk_location = GetChunkLocation(index_);
-    if (static_cast<int>(chunk_location.chunk_index) < chunked_array_->num_chunks()) {
+    if (index_ != chunked_array_->length()) {
+      auto chunk_location = GetChunkLocation(index_);
       current_array_iterator_ = ArrayIterator<ArrayType>(
           arrow::internal::checked_cast<const ArrayType&>(
               *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
@@ -236,7 +220,6 @@ class ChunkedArrayIterator {
     } else {
       current_array_iterator_ = {};
     }
-    current_chunk_index_ = chunk_location.chunk_index;
     return *this;
   }
   ChunkedArrayIterator& operator-=(difference_type n) {
@@ -271,7 +254,6 @@ class ChunkedArrayIterator {
 
   const ChunkedArray* chunked_array_;
   int64_t index_;
-  int64_t current_chunk_index_;
   ArrayIterator<ArrayType> current_array_iterator_;
 };
 
@@ -313,6 +295,16 @@ namespace std {
 template <typename ArrayType>
 struct iterator_traits<::arrow::stl::ArrayIterator<ArrayType>> {
   using IteratorType = ::arrow::stl::ArrayIterator<ArrayType>;
+  using difference_type = typename IteratorType::difference_type;
+  using value_type = typename IteratorType::value_type;
+  using pointer = typename IteratorType::pointer;
+  using reference = typename IteratorType::reference;
+  using iterator_category = typename IteratorType::iterator_category;
+};
+
+template <typename ArrayType>
+struct iterator_traits<::arrow::stl::ChunkedArrayIterator<ArrayType>> {
+  using IteratorType = ::arrow::stl::ChunkedArrayIterator<ArrayType>;
   using difference_type = typename IteratorType::difference_type;
   using value_type = typename IteratorType::value_type;
   using pointer = typename IteratorType::pointer;
