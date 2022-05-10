@@ -43,7 +43,7 @@ RUN apt-get update && \
 ARG r=4.2
 RUN wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
         tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
-    # NOTE: Only R >= 4.0 is available in this repo
+    # NOTE: Only R >= 4.0 is available in this repo.
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
     apt-get install -y \
         r-base=${r}* \
