@@ -129,7 +129,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write.csv(mtcars, file = tf)
@@ -294,7 +294,7 @@ read_tsv_arrow <- function(file,
 #'
 #' - `$Read()`: returns an Arrow Table.
 #'
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @export
 CsvTableReader <- R6Class("CsvTableReader",
   inherit = ArrowObject,
@@ -654,11 +654,11 @@ readr_to_csv_convert_options <- function(na,
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_csv_arrow(mtcars, tf)
-#' @include arrow-package.R
+#' @include arrow-object.R
 write_csv_arrow <- function(x,
                             sink,
                             file = NULL,

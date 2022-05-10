@@ -59,8 +59,8 @@
 #'
 #' @rdname RecordBatchWriter
 #' @name RecordBatchWriter
-#' @include arrow-package.R
-#' @examplesIf arrow_available()
+#' @include arrow-object.R
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #'

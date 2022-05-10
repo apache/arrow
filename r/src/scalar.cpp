@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/array/array_base.h>
 #include <arrow/array/util.h>
 #include <arrow/scalar.h>
@@ -93,5 +91,3 @@ bool Scalar__ApproxEquals(const std::shared_ptr<arrow::Scalar>& lhs,
                           const std::shared_ptr<arrow::Scalar>& rhs) {
   return lhs->ApproxEquals(*rhs);
 }
-
-#endif

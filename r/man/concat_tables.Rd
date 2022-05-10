@@ -20,10 +20,8 @@ does not copy array data, but instead creates new chunked arrays for each
 column that point at existing array data.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tbl <- arrow_table(name = rownames(mtcars), mtcars)
 prius <- arrow_table(name = "Prius", mpg = 58, cyl = 4, disp = 1.8)
 combined <- concat_tables(tbl, prius)
 tail(combined)$to_data_frame()
-\dontshow{\}) # examplesIf}
 }

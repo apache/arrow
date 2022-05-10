@@ -18,8 +18,10 @@
 check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   if (tolower(Sys.info()[["sysname"]]) == "windows" & locale != "C") {
     # MingW C++ std::locale only supports "C" and "POSIX"
-    stop(paste0("On Windows, time locales other than 'C' are not supported in Arrow. ",
-                "Consider setting `Sys.setlocale('LC_TIME', 'C')`"))
+    stop(paste0(
+      "On Windows, time locales other than 'C' are not supported in Arrow. ",
+      "Consider setting `Sys.setlocale('LC_TIME', 'C')`"
+    ))
   }
   locale
 }
@@ -102,7 +104,6 @@ binding_as_date <- function(x,
                             format = NULL,
                             tryFormats = "%Y-%m-%d",
                             origin = "1970-01-01") {
-
   if (is.null(format) && length(tryFormats) > 1) {
     abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
   }

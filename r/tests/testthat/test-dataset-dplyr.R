@@ -160,6 +160,7 @@ See $.data for the source Arrow object",
 })
 
 test_that("mutate() features not yet implemented", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(
     ds %>%
       group_by(int) %>%
@@ -170,6 +171,7 @@ test_that("mutate() features not yet implemented", {
 })
 
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(
     ds %>%
       filter(int == "fff", part == 1) %>%

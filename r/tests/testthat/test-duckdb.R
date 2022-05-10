@@ -48,9 +48,9 @@ test_that("to_duckdb", {
       # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
       select(!fct) %>%
       arrange(int),
-      example_data %>%
-        select(!fct) %>%
-        arrange(int)
+    example_data %>%
+      select(!fct) %>%
+      arrange(int)
   )
 
   expect_identical(
@@ -170,7 +170,7 @@ test_that("to_arrow roundtrip, with dataset", {
   )
 })
 
-test_that("to_arrow roundtrip, with dataset (without wrapping", {
+test_that("to_arrow roundtrip, with dataset (without wrapping)", {
   # these will continue to error until 0.3.2 is released
   # https://github.com/duckdb/duckdb/pull/2957
   skip_if_not_installed("duckdb", minimum_version = "0.3.2")
@@ -184,7 +184,7 @@ test_that("to_arrow roundtrip, with dataset (without wrapping", {
   )
   write_dataset(new_ds, tf, partitioning = "part")
 
-  out <- ds %>%
+  out <- open_dataset(tf) %>%
     to_duckdb() %>%
     select(-fct) %>%
     mutate(dbl_plus = dbl + 1) %>%

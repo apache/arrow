@@ -21,8 +21,6 @@ This function wraps those so that you can serialize data to a buffer and
 access that buffer as a \code{raw} vector in R.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # The default format is "stream"
 mtcars_raw <- write_to_raw(mtcars)
-\dontshow{\}) # examplesIf}
 }

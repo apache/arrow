@@ -5085,15 +5085,6 @@ BEGIN_CPP11
 	return cpp11::as_sexp(Array__infer_type(x));
 END_CPP11
 }
-extern "C" SEXP _arrow_available() {
-return Rf_ScalarLogical(
-#if defined(ARROW_R_WITH_ARROW)
-  TRUE
-#else
-  FALSE
-#endif
-);
-}
 extern "C" SEXP _dataset_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_DATASET)
@@ -5140,7 +5131,6 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
 		{ "_substrait_available", (DL_FUNC)& _substrait_available, 0 },
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
@@ -5655,7 +5645,7 @@ extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 
-  #if defined(ARROW_R_WITH_ARROW) && defined(HAS_ALTREP)
+  #if defined(HAS_ALTREP)
   arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 

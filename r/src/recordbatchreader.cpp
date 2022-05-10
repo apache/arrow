@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/reader.h>
 #include <arrow/table.h>
 
@@ -148,5 +147,3 @@ cpp11::list ipc___RecordBatchFileReader__batches(
 
   return arrow::r::to_r_list(res);
 }
-
-#endif

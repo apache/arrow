@@ -160,7 +160,7 @@ names.Table <- function(x) x$ColumnNames()
 #' with fields of the same name being merged, then each table will be promoted
 #' to the unified schema before being concatenated. Otherwise, all tables should
 #' have the same schema.
-#' @examplesIf arrow_available()
+#' @examples
 #' tbl <- arrow_table(name = rownames(mtcars), mtcars)
 #' prius <- arrow_table(name = "Prius", mpg = 58, cyl = 4, disp = 1.8)
 #' combined <- concat_tables(tbl, prius)

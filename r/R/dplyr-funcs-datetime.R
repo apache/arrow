@@ -334,7 +334,7 @@ register_bindings_datetime_conversion <- function() {
       "if_else",
       build_expr("is_leap_year", date),
       Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
-      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
+      Expression$scalar(31536000L) # number of seconds in a regular year (365 days)
     )
     y + sofar$cast(int64()) / total
   })
@@ -347,7 +347,7 @@ register_bindings_datetime_conversion <- function() {
       "if_else",
       build_expr("is_leap_year", start),
       Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
-      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
+      Expression$scalar(31536000L) # number of seconds in a regular year (365 days)
     )
 
     fraction <- decimal - y
@@ -385,12 +385,12 @@ register_bindings_duration <- function() {
     # TODO delete the casting to "us" once
     # https://issues.apache.org/jira/browse/ARROW-16060 is solved
     if (inherits(time1, "Expression") &&
-        time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
+      time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
       time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp("us")))
     }
 
     if (inherits(time2, "Expression") &&
-        time2$type_id() %in% Type[c("TIMESTAMP")] && time2$type()$unit() != 2L) {
+      time2$type_id() %in% Type[c("TIMESTAMP")] && time2$type()$unit() != 2L) {
       time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp("us")))
     }
 

@@ -56,7 +56,7 @@
 #'
 #' @rdname RecordBatchReader
 #' @name RecordBatchReader
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))

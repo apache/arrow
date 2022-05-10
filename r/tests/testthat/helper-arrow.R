@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Wrap testthat::test_that with a check for the C++ library
-options(..skip.tests = !arrow:::arrow_available())
-
 set.seed(1)
 
 MAX_INT <- 2147483647L
@@ -49,13 +46,6 @@ with_language <- function(lang, expr) {
   force(expr)
 }
 
-test_that <- function(what, code) {
-  testthat::test_that(what, {
-    skip_if(getOption("..skip.tests", TRUE), "arrow C++ library not available")
-    code
-  })
-}
-
 # backport of 4.0.0 implementation
 if (getRversion() < "4.0.0") {
   suppressWarnings <- function(expr, classes = "warning") {
@@ -68,12 +58,6 @@ if (getRversion() < "4.0.0") {
       }
     )
   }
-}
-
-# Wrapper to run tests that only touch R code even when the C++ library isn't
-# available (so that at least some tests are run on those platforms)
-r_only <- function(code) {
-  withr::with_options(list(..skip.tests = FALSE), code)
 }
 
 make_temp_dir <- function() {

@@ -16,9 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-
-#if defined(ARROW_R_WITH_ARROW)
-
 #include "./safe-call-into-r.h"
 
 #include <R_ext/Riconv.h>
@@ -566,5 +563,3 @@ std::shared_ptr<arrow::io::InputStream> MakeReencodeInputStream(
   return std::make_shared<arrow::io::TransformInputStream>(std::move(wrapped),
                                                            std::move(transform));
 }
-
-#endif

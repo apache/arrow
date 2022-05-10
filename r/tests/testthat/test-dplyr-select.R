@@ -61,17 +61,15 @@ test_that("select/rename/rename_with", {
   compare_dplyr_binding(
     .input %>%
       rename_with(
-        ~paste0(.x, "_suffix"),
+        ~ paste0(.x, "_suffix"),
         .cols = c("int", "chr")
       ) %>%
       collect(),
     tbl
   )
-
 })
 
 test_that("select/rename/rename_with using selection helpers", {
-
   compare_dplyr_binding(
     .input %>%
       select(everything()) %>%
@@ -115,7 +113,7 @@ test_that("select/rename/rename_with using selection helpers", {
   compare_dplyr_binding(
     .input %>%
       rename_with(
-        ~paste0(.x, "_suffix"),
+        ~ paste0(.x, "_suffix"),
         .cols = starts_with("d")
       ) %>%
       collect(),

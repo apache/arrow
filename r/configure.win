@@ -56,7 +56,7 @@ function configure_release() {
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC \
-              -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET \
+              -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET \
               -DARROW_R_WITH_JSON"
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
@@ -88,7 +88,7 @@ function configure_dev() {
   export PKG_CONFIG_PATH=$(cygpath $ARROW_HOME)/lib/pkgconfig:$(cygpath $MSYSTEM_PREFIX)/lib
   PKG_CONFIG_PACKAGES="arrow"
 
-  PKG_CFLAGS="-DARROW_R_WITH_ARROW"
+  PKG_CFLAGS=""
 
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"

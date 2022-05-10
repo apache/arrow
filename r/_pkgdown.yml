@@ -228,7 +228,6 @@ reference:
       - arrow_info
       - cpu_count
       - io_thread_count
-      - arrow_available
       - install_arrow
       - install_pyarrow
       - create_package_with_all_dependencies

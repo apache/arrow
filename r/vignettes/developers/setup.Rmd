@@ -369,8 +369,6 @@ withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(
   in `ARROW_THIRDPARTY_DEPENDENCY_DIR` or the `tools/thirdparty_download/` subfolder.
   `create_package_with_all_dependencies()` creates that subfolder.
   Regardless of this flag's value, `cmake` will be downloaded if it's unavailable.
-* `TEST_R_WITHOUT_LIBARROW`: When set to `true`, skip tests that would require
-  the C++ Arrow library (that is, almost everything).
 
 # Troubleshooting
 

@@ -48,11 +48,9 @@ This function writes both the original, limited specification of the format
 and the version 2 specification, which is the Apache Arrow IPC file format.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 write_feather(mtcars, tf)
-\dontshow{\}) # examplesIf}
 }
 \seealso{
 \link{RecordBatchWriter} for lower-level access to writing Arrow IPC data.
