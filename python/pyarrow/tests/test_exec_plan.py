@@ -242,3 +242,16 @@ def test_filter_table(use_datasets):
         "a": [4, 5],
         "b": [40, 50]
     })
+
+
+def test_filter_table_ordering():
+    table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a'] * 4})
+    table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b'] * 4})
+    table = pa.concat_tables([table1, table2])
+
+    for _ in range(20):
+        # 20 seems to consistently cause errors when order is not preserved.
+        # Worst case if the order problem is reintroduced this test will become flaky
+        # which is still a signal that the order is not preserved.
+        r = ep._filter_table(table, pc.field('a') == 1)
+        assert r["b"] == pa.chunked_array([["a"], ["b"]])

@@ -383,7 +383,7 @@ def _filter_table(table, expression, output_type=Table):
     )
 
     r = execplan([table], plan=c_decl_plan,
-                 output_type=Table)
+                 output_type=Table, use_threads=False)
 
     if output_type == Table:
         return r
