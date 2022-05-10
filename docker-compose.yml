@@ -96,7 +96,7 @@ x-hierarchy:
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
   - almalinux-verify-rc
-  - centos-7-cpp-static
+  - centos-cpp-static
   - conda:
     - conda-cpp:
       - conda-integration
