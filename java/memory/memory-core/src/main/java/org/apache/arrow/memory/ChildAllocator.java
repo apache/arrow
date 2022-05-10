@@ -26,7 +26,8 @@ package org.apache.arrow.memory;
  * <p>Child allocators can only be created by the root, or other children, so
  * this class is package private.</p>
  */
-class ChildAllocator extends BaseAllocator {
+// FIXME! Temporary change to test unit test: Problems by unique package names needed by JPMS module naming
+public class ChildAllocator extends BaseAllocator {
 
   /**
    * Constructor.

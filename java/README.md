@@ -142,6 +142,15 @@ We are starting to modularize the Arrow Java Components. This is the journey abo
 we migrate to module system:
 
 ```bash
+
+#################
+# Main Blockers #
+#################
+
+# 1.- There are some modules with the same package name (i.e. org.apache.arrow.memory / io.netty.buffer) 
+#     that is consumed by another module with the same package name to access protected methods.
+# 2.- Need to rename some modules package name to be complaint with unique package names needed by JPMS module naming.
+
 ############################
 # Review Arrow Java Format #
 ############################
@@ -171,11 +180,13 @@ exports org.apache.arrow.flatbuf
 requires flatbuffers.java
 requires java.base mandated
 
+# TODO: 0
+
 ############################
 # Review Arrow Java Memory #
 ############################
 
-# Review Arrow Java Memory -> Core
+# 1.- Review Arrow Java Memory -> Core
 $cd arrow/java/memory/memory-core
 
 # Review Arrow Java Memory
@@ -238,7 +249,7 @@ arrow-memory-core-8.0.0-SNAPSHOT.jar -> not found
 
 # Validate new module created
 $ jar --describe-module --file target/arrow-memory-core-8.0.0-SNAPSHOT.jar 
-arrow.memory_core@8.0.0-SNAPSHOT jar:file:///Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/memory/memory-core/target/arrow-memory-core-8.0.0-SNAPSHOT.jar/!module-info.class
+arrow.memory_core@8.0.0-SNAPSHOT jar:file:///Users/arrow/java/memory/memory-core/target/arrow-memory-core-8.0.0-SNAPSHOT.jar/!module-info.class
 requires java.base mandated
 requires jdk.unsupported
 requires jsr305
@@ -247,8 +258,377 @@ requires org.slf4j
 opens org.apache.arrow.memory
 opens org.apache.arrow.util
 
-# Review Arrow Java Memory -> Netty
+# 2.- Review Arrow Java Memory -> Netty
 $ cd arrow/java/memory/memory-netty
+# Consider: Was needed to patch io.netty.buffer with arrow functionalities extended
+
+# Review Arrow Java Memory Netty
+$ jar --describe-module --file target/arrow-memory-netty-8.0.0-SNAPSHOT.jar 
+No module descriptor found. Derived automatic module.
+
+arrow.memory.netty@8.0.0-SNAPSHOT automatic
+requires java.base mandated
+contains io.netty.buffer
+contains org.apache.arrow.memory
+
+$ jdeps target/arrow-memory-netty-8.0.0-SNAPSHOT.jar 
+arrow-memory-netty-8.0.0-SNAPSHOT.jar -> java.base
+arrow-memory-netty-8.0.0-SNAPSHOT.jar -> not found
+   io.netty.buffer                                    -> io.netty.util                                      not found
+   io.netty.buffer                                    -> io.netty.util.internal                             not found
+   io.netty.buffer                                    -> java.io                                            java.base
+   io.netty.buffer                                    -> java.lang                                          java.base
+   io.netty.buffer                                    -> java.lang.reflect                                  java.base
+   io.netty.buffer                                    -> java.nio                                           java.base
+   io.netty.buffer                                    -> java.nio.channels                                  java.base
+   io.netty.buffer                                    -> java.nio.charset                                   java.base
+   io.netty.buffer                                    -> java.util.concurrent.atomic                        java.base
+   io.netty.buffer                                    -> org.apache.arrow.memory                            arrow-memory-netty-8.0.0-SNAPSHOT.jar
+   io.netty.buffer                                    -> org.apache.arrow.memory                            not found
+   io.netty.buffer                                    -> org.apache.arrow.memory.util                       not found
+   io.netty.buffer                                    -> org.apache.arrow.util                              not found
+   io.netty.buffer                                    -> org.slf4j                                          not found
+   org.apache.arrow.memory                            -> io.netty.buffer                                    not found
+   org.apache.arrow.memory                            -> io.netty.buffer                                    arrow-memory-netty-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.memory                            -> io.netty.util.internal                             not found
+   org.apache.arrow.memory                            -> java.lang                                          java.base
+
+# Validate new module created
+$ jar --describe-module --file target/arrow-memory-netty-8.0.0-SNAPSHOT.jar 
+arrow.memory.netty@8.0.0-SNAPSHOT jar:file:///Users/arrow/java/memory/memory-netty/target/arrow-memory-netty-8.0.0-SNAPSHOT.jar/!module-info.class
+exports org.apache.arrow.memory.netty
+requires arrow.memory.core
+requires io.netty.buffer
+requires io.netty.common
+requires java.base mandated
+requires org.immutables.value
+requires org.slf4j
+
+# 2.- Review Arrow Java Memory -> Unsafe
+$ cd arrow/java/memory/memory-unsafe
+
+# Review Arrow Java Memory Netty
+$ jar --describe-module --file target/arrow-memory-unsafe-8.0.0-SNAPSHOT.jar 
+No module descriptor found. Derived automatic module.
+
+arrow.memory.unsafe@8.0.0-SNAPSHOT automatic
+requires java.base mandated
+contains org.apache.arrow.memory
+
+$ jdeps target/arrow-memory-unsafe-8.0.0-SNAPSHOT.jar 
+arrow-memory-unsafe-8.0.0-SNAPSHOT.jar -> java.base
+arrow-memory-unsafe-8.0.0-SNAPSHOT.jar -> jdk.unsupported
+arrow-memory-unsafe-8.0.0-SNAPSHOT.jar -> not found
+   org.apache.arrow.memory                            -> java.lang                                          java.base
+   org.apache.arrow.memory                            -> org.apache.arrow.memory.util                       not found
+   org.apache.arrow.memory                            -> sun.misc                                           JDK internal API (jdk.unsupported)
+
+# Validate new module created
+$ jar --describe-module --file target/arrow-memory-unsafe-8.0.0-SNAPSHOT.jar
+arrow.memory.unsafe@8.0.0-SNAPSHOT jar:file:///Users/arrow/java/memory/memory-unsafe/target/arrow-memory-unsafe-8.0.0-SNAPSHOT.jar/!module-info.class
+exports org.apache.arrow.memory.unsafe
+requires arrow.memory.core
+requires java.base mandated
+requires jdk.unsupported
+
+# TODO:
+# Main code: OK
+# Test code: Need refactor to access protected methods for unit test. Current workaround is expose protected methods 
+# as public methods, this is only for testing purpose.
+
+
+#######################
+# Review Arrow Vector #
+#######################
+
+# 1.- Review Arrow Vector
+$cd arrow/java/vector
+
+# Review Arrow Java Vector
+$ jar --describe-module --file target/arrow-vector-8.0.0-SNAPSHOT.jar 
+No module descriptor found. Derived automatic module.
+
+arrow.vector@8.0.0-SNAPSHOT automatic
+requires java.base mandated
+contains org.apache.arrow.vector
+contains org.apache.arrow.vector.compare
+contains org.apache.arrow.vector.compare.util
+contains org.apache.arrow.vector.complex
+contains org.apache.arrow.vector.complex.impl
+contains org.apache.arrow.vector.complex.reader
+contains org.apache.arrow.vector.complex.writer
+contains org.apache.arrow.vector.compression
+contains org.apache.arrow.vector.dictionary
+contains org.apache.arrow.vector.holders
+contains org.apache.arrow.vector.ipc
+contains org.apache.arrow.vector.ipc.message
+contains org.apache.arrow.vector.types
+contains org.apache.arrow.vector.types.pojo
+contains org.apache.arrow.vector.util
+contains org.apache.arrow.vector.validate
+
+$ jdeps target/arrow-vector-8.0.0-SNAPSHOT.jar 
+arrow-vector-8.0.0-SNAPSHOT.jar -> java.base
+arrow-vector-8.0.0-SNAPSHOT.jar -> not found
+   org.apache.arrow.vector                            -> io.netty.util.internal                             not found
+   org.apache.arrow.vector                            -> java.io                                            java.base
+   org.apache.arrow.vector                            -> java.lang                                          java.base
+   org.apache.arrow.vector                            -> java.lang.invoke                                   java.base
+   org.apache.arrow.vector                            -> java.math                                          java.base
+   org.apache.arrow.vector                            -> java.nio                                           java.base
+   org.apache.arrow.vector                            -> java.nio.charset                                   java.base
+   org.apache.arrow.vector                            -> java.time                                          java.base
+   org.apache.arrow.vector                            -> java.util                                          java.base
+   org.apache.arrow.vector                            -> java.util.concurrent                               java.base
+   org.apache.arrow.vector                            -> java.util.function                                 java.base
+   org.apache.arrow.vector                            -> java.util.stream                                   java.base
+   org.apache.arrow.vector                            -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector                            -> org.apache.arrow.memory.rounding                   not found
+   org.apache.arrow.vector                            -> org.apache.arrow.memory.util                       not found
+   org.apache.arrow.vector                            -> org.apache.arrow.memory.util.hash                  not found
+   org.apache.arrow.vector                            -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.compare                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.compare.util               arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.complex.impl               arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.complex.reader             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.compression                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.holders                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.ipc.message                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector                            -> org.slf4j                                          not found
+   org.apache.arrow.vector.compare                    -> java.lang                                          java.base
+   org.apache.arrow.vector.compare                    -> java.lang.invoke                                   java.base
+   org.apache.arrow.vector.compare                    -> java.util                                          java.base
+   org.apache.arrow.vector.compare                    -> java.util.function                                 java.base
+   org.apache.arrow.vector.compare                    -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.compare                    -> org.apache.arrow.memory.util                       not found
+   org.apache.arrow.vector.compare                    -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.compare                    -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.compare                    -> org.apache.arrow.vector.compare.util               arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.compare                    -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.compare                    -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.compare.util               -> java.lang                                          java.base
+   org.apache.arrow.vector.compare.util               -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.compare.util               -> org.apache.arrow.vector.compare                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> java.lang                                          java.base
+   org.apache.arrow.vector.complex                    -> java.lang.invoke                                   java.base
+   org.apache.arrow.vector.complex                    -> java.util                                          java.base
+   org.apache.arrow.vector.complex                    -> java.util.function                                 java.base
+   org.apache.arrow.vector.complex                    -> java.util.stream                                   java.base
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.memory.util                       not found
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.memory.util.hash                  not found
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.compare                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.complex.impl               arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.complex.reader             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.complex.writer             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.holders                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.ipc.message                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex                    -> org.slf4j                                          not found
+   org.apache.arrow.vector.complex.impl               -> java.lang                                          java.base
+   org.apache.arrow.vector.complex.impl               -> java.math                                          java.base
+   org.apache.arrow.vector.complex.impl               -> java.time                                          java.base
+   org.apache.arrow.vector.complex.impl               -> java.util                                          java.base
+   org.apache.arrow.vector.complex.impl               -> java.util.concurrent                               java.base
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.memory.util                       not found
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.vector.complex.reader             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.vector.complex.writer             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.vector.holders                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.impl               -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.impl               -> org.slf4j                                          not found
+   org.apache.arrow.vector.complex.reader             -> java.lang                                          java.base
+   org.apache.arrow.vector.complex.reader             -> java.math                                          java.base
+   org.apache.arrow.vector.complex.reader             -> java.time                                          java.base
+   org.apache.arrow.vector.complex.reader             -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.reader             -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.reader             -> org.apache.arrow.vector.complex.impl               arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.reader             -> org.apache.arrow.vector.complex.writer             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.reader             -> org.apache.arrow.vector.holders                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.reader             -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.reader             -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.reader             -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.writer             -> java.lang                                          java.base
+   org.apache.arrow.vector.complex.writer             -> java.math                                          java.base
+   org.apache.arrow.vector.complex.writer             -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.complex.writer             -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.writer             -> org.apache.arrow.vector.complex.reader             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.writer             -> org.apache.arrow.vector.holders                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.writer             -> org.ap**ache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.complex.writer             -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.compression                -> java.lang                                          java.base
+   org.apache.arrow.vector.compression                -> org.apache.arrow.flatbuf                           not found
+   org.apache.arrow.vector.compression                -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.compression                -> org.apache.arrow.memory.util                       not found
+   org.apache.arrow.vector.compression                -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.compression                -> org.apache.arrow.vector.ipc.message                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.dictionary                 -> java.lang                                          java.base
+   org.apache.arrow.vector.dictionary                 -> java.lang.invoke                                   java.base
+   org.apache.arrow.vector.dictionary                 -> java.util                                          java.base**
+   org.apache.arrow.vector.dictionary                 -> java.util.function                                 java.base
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.memory.util.hash                  not found
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.vector.compare                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.vector.ipc.message                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.dictionary                 -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.holders                    -> java.lang                                          java.base
+   org.apache.arrow.vector.holders                    -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.holders                    -> org.apache.arrow.vector.complex.reader             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.holders                    -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> com.fasterxml.jackson.core                         not found
+   org.apache.arrow.vector.ipc                        -> com.fasterxml.jackson.core.util                    not found
+   org.apache.arrow.vector.ipc                        -> com.fasterxml.jackson.databind                     not found
+   org.apache.arrow.vector.ipc                        -> com.google.flatbuffers                             not found
+   org.apache.arrow.vector.ipc                        -> java.io                                            java.base
+   org.apache.arrow.vector.ipc                        -> java.lang                                          java.base
+   org.apache.arrow.vector.ipc                        -> java.math                                          java.base
+   org.apache.arrow.vector.ipc                        -> java.nio                                           java.base
+   org.apache.arrow.vector.ipc                        -> java.nio.channels                                  java.base
+   org.apache.arrow.vector.ipc                        -> java.nio.charset                                   java.base
+   org.apache.arrow.vector.ipc                        -> java.util                                          java.base
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.flatbuf                           not found
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.vector.compression                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.vector.dictionary                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.vector.ipc.message                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> org.apache.arrow.vector.validate                   arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc                        -> org.apache.commons.codec                           not found
+   org.apache.arrow.vector.ipc                        -> org.apache.commons.codec.binary                    not found
+   org.apache.arrow.vector.ipc                        -> org.slf4j                                          not found
+   org.apache.arrow.vector.ipc.message                -> com.google.flatbuffers                             not found
+   org.apache.arrow.vector.ipc.message                -> java.io                                            java.base
+   org.apache.arrow.vector.ipc.message                -> java.lang                                          java.base
+   org.apache.arrow.vector.ipc.message                -> java.lang.invoke                                   java.base
+   org.apache.arrow.vector.ipc.message                -> java.nio                                           java.base
+   org.apache.arrow.vector.ipc.message                -> java.util                                          java.base
+   org.apache.arrow.vector.ipc.message                -> java.util.function                                 java.base
+   org.apache.arrow.vector.ipc.message                -> java.util.stream                                   java.base
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.flatbuf                           not found
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.memory.util                       not found
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.vector.compression                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.vector.ipc                        arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc.message                -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.ipc.message                -> org.slf4j                                          not found
+   org.apache.arrow.vector.types                      -> java.lang                                          java.base
+   org.apache.arrow.vector.types                      -> java.util                                          java.base
+   org.apache.arrow.vector.types                      -> org.apache.arrow.flatbuf                           not found
+   org.apache.arrow.vector.types                      -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.types                      -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types                      -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types                      -> org.apache.arrow.vector.complex.impl               arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types                      -> org.apache.arrow.vector.complex.writer             arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types                      -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types                      -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types.pojo                 -> com.fasterxml.jackson.annotation                   not found
+   org.apache.arrow.vector.types.pojo                 -> com.fasterxml.jackson.core                         not found
+   org.apache.arrow.vector.types.pojo                 -> com.fasterxml.jackson.databind                     not found
+   org.apache.arrow.vector.types.pojo                 -> com.google.flatbuffers                             not found
+   org.apache.arrow.vector.types.pojo                 -> java.io                                            java.base
+   org.apache.arrow.vector.types.pojo                 -> java.lang                                          java.base
+   org.apache.arrow.vector.types.pojo                 -> java.lang.invoke                                   java.base
+   org.apache.arrow.vector.types.pojo                 -> java.nio                                           java.base
+   org.apache.arrow.vector.types.pojo                 -> java.util                                          java.base
+   org.apache.arrow.vector.types.pojo                 -> java.util.concurrent                               java.base
+   org.apache.arrow.vector.types.pojo                 -> java.util.function                                 java.base
+   org.apache.arrow.vector.types.pojo                 -> java.util.stream                                   java.base
+   org.apache.arrow.vector.types.pojo                 -> org.apache.arrow.flatbuf                           not found
+   org.apache.arrow.vector.types.pojo                 -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.types.pojo                 -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.types.pojo                 -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types.pojo                 -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types.pojo                 -> org.apache.arrow.vector.ipc.message                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types.pojo                 -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types.pojo                 -> org.apache.arrow.vector.util                       arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.types.pojo                 -> org.slf4j                                          not found
+   org.apache.arrow.vector.util                       -> com.fasterxml.jackson.core                         not found
+   org.apache.arrow.vector.util                       -> com.fasterxml.jackson.databind                     not found
+   org.apache.arrow.vector.util                       -> com.fasterxml.jackson.databind.annotation          not found
+   org.apache.arrow.vector.util                       -> com.fasterxml.jackson.databind.cfg                 not found
+   org.apache.arrow.vector.util                       -> com.fasterxml.jackson.databind.json                not found
+   org.apache.arrow.vector.util                       -> com.fasterxml.jackson.databind.ser.std             not found
+   org.apache.arrow.vector.util                       -> com.fasterxml.jackson.datatype.jsr310              not found
+   org.apache.arrow.vector.util                       -> io.netty.util.collection                           not found
+   org.apache.arrow.vector.util                       -> io.netty.util.internal                             not found
+   org.apache.arrow.vector.util                       -> java.io                                            java.base
+   org.apache.arrow.vector.util                       -> java.lang                                          java.base
+   org.apache.arrow.vector.util                       -> java.lang.invoke                                   java.base
+   org.apache.arrow.vector.util                       -> java.math                                          java.base
+   org.apache.arrow.vector.util                       -> java.nio                                           java.base
+   org.apache.arrow.vector.util                       -> java.nio.channels                                  java.base
+   org.apache.arrow.vector.util                       -> java.nio.charset                                   java.base
+   org.apache.arrow.vector.util                       -> java.text                                          java.base
+   org.apache.arrow.vector.util                       -> java.time                                          java.base
+   org.apache.arrow.vector.util                       -> java.time.format                                   java.base
+   org.apache.arrow.vector.util                       -> java.time.temporal                                 java.base
+   org.apache.arrow.vector.util                       -> java.util                                          java.base
+   org.apache.arrow.vector.util                       -> java.util.concurrent                               java.base
+   org.apache.arrow.vector.util                       -> java.util.function                                 java.base
+   org.apache.arrow.vector.util                       -> java.util.stream                                   java.base
+   org.apache.arrow.vector.util                       -> org.apache.arrow.flatbuf                           not found
+   org.apache.arrow.vector.util                       -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.util                       -> org.apache.arrow.memory.util                       not found
+   org.apache.arrow.vector.util                       -> org.apache.arrow.memory.util.hash                  not found
+   org.apache.arrow.vector.util                       -> org.apache.arrow.util                              not found
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector.compare                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector.dictionary                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector.ipc                        arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector.ipc.message                arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.apache.arrow.vector.validate                   arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.util                       -> org.slf4j                                          not found
+   org.apache.arrow.vector.validate                   -> java.io                                            java.base
+   org.apache.arrow.vector.validate                   -> java.lang                                          java.base
+   org.apache.arrow.vector.validate                   -> java.util                                          java.base
+   org.apache.arrow.vector.validate                   -> org.apache.arrow.memory                            not found
+   org.apache.arrow.vector.validate                   -> org.apache.arrow.vector                            arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.validate                   -> org.apache.arrow.vector.compare                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.validate                   -> org.apache.arrow.vector.complex                    arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.validate                   -> org.apache.arrow.vector.types                      arrow-vector-8.0.0-SNAPSHOT.jar
+   org.apache.arrow.vector.validate                   -> org.apache.arrow.vector.types.pojo                 arrow-vector-8.0.0-SNAPSHOT.jar
+
+# Validate new module created
+$ jar --describe-module --file target/arrow-vector-8.0.0-SNAPSHOT.jar 
+arrow.vector@8.0.0-SNAPSHOT jar:file:///Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/vector/target/arrow-vector-8.0.0-SNAPSHOT.jar/!module-info.class
+requires arrow.memory.core
+requires com.fasterxml.jackson.databind
+requires com.fasterxml.jackson.datatype.jsr310
+requires commons.codec
+requires io.netty.common
+requires java.base mandated
+requires java.sql
+requires org.apache.arrow.flatbuf
+requires org.slf4j
+
+
 
 ```
 

@@ -24,7 +24,8 @@ import java.util.Deque;
  * Captures details of allocation for each accountant in the hierarchical chain.
  */
 public class AllocationOutcomeDetails {
-  Deque<Entry> allocEntries;
+  // FIXME! Temporary change to test unit test: Problems by unique package names needed by JPMS module naming
+  public Deque<Entry> allocEntries;
 
   AllocationOutcomeDetails() {
     allocEntries = new ArrayDeque<>();

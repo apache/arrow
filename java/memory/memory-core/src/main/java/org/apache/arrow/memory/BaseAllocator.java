@@ -38,7 +38,8 @@ import org.immutables.value.Value;
  * <p>The class is abstract to enforce usage of {@linkplain RootAllocator}/{@linkplain ChildAllocator}
  * facades.
  */
-abstract class BaseAllocator extends Accountant implements BufferAllocator {
+// FIXME! Temporary change to test unit test: Problems by unique package names needed by JPMS module naming
+public abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
   public static final int DEBUG_LOG_LENGTH = 6;

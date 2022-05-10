@@ -28,8 +28,9 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-buffer</artifactId>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>memory-netty-buffer-patch</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -69,4 +70,25 @@
       </build>
     </profile>
   </profiles>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <compilerArgs combine.children="append">
+            <arg>--patch-module=io.netty.buffer=/Users/dsusanibar/.m2/repository/org/apache/arrow/memory-netty-buffer-patch/8.0.0-SNAPSHOT/memory-netty-buffer-patch-8.0.0-SNAPSHOT.jar</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>--patch-module=io.netty.buffer=/Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/memory/memory-netty-buffer-patch/target/memory-netty-buffer-patch-8.0.0-SNAPSHOT.jar</argLine>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>

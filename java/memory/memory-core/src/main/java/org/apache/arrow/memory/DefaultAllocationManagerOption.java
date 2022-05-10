@@ -61,7 +61,11 @@ public class DefaultAllocationManagerOption {
     Unknown,
   }
 
-  static AllocationManagerType getDefaultAllocationManagerType() {
+  /**
+   * Get defaul allocation manager type in case the user not define someone.
+   */
+  public static AllocationManagerType getDefaultAllocationManagerType() {
+    // FIXME! Temporary change to test unit test: Problems by unique package names needed by JPMS module naming
     AllocationManagerType ret = AllocationManagerType.Unknown;
 
     try {
@@ -94,7 +98,7 @@ public class DefaultAllocationManagerOption {
         DEFAULT_ALLOCATION_MANAGER_FACTORY = getUnsafeFactory();
         break;
       case Unknown:
-        LOGGER.info("allocation manager type not specified, using netty as the default type");
+        LOGGER.info("allocation manager type not specified, using dependency added by default");
         DEFAULT_ALLOCATION_MANAGER_FACTORY = getFactory(CheckAllocator.check());
         break;
       default:
@@ -115,7 +119,7 @@ public class DefaultAllocationManagerOption {
 
   private static AllocationManager.Factory getUnsafeFactory() {
     try {
-      return getFactory("org.apache.arrow.memory.UnsafeAllocationManager");
+      return getFactory("org.apache.arrow.memory.unsafe.UnsafeAllocationManager");
     } catch (RuntimeException e) {
       throw new RuntimeException("Please add arrow-memory-unsafe to your classpath," +
           " No DefaultAllocationManager found to instantiate an UnsafeAllocationManager", e);
@@ -124,7 +128,7 @@ public class DefaultAllocationManagerOption {
 
   private static AllocationManager.Factory getNettyFactory() {
     try {
-      return getFactory("org.apache.arrow.memory.NettyAllocationManager");
+      return getFactory("org.apache.arrow.memory.netty.NettyAllocationManager");
     } catch (RuntimeException e) {
       throw new RuntimeException("Please add arrow-memory-netty to your classpath," +
           " No DefaultAllocationManager found to instantiate an NettyAllocationManager", e);
