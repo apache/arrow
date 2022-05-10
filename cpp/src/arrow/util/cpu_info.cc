@@ -157,11 +157,11 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
   highest_valid_id = cpu_info[0];
   // HEX of "GenuineIntel": 47656E75 696E6549 6E74656C
   // HEX of "AuthenticAMD": 41757468 656E7469 63414D44
-  if (cpu_info[1] == 0x756e6547 && cpu_info[2] == 0x49656e69 &&
-      cpu_info[3] == 0x6c65746e) {
+  if (cpu_info[1] == 0x756e6547 && cpu_info[3] == 0x49656e69 &&
+      cpu_info[2] == 0x6c65746e) {
     *vendor = CpuInfo::Vendor::Intel;
-  } else if (cpu_info[1] == 0x68747541 && cpu_info[2] == 0x69746e65 &&
-             cpu_info[3] == 0x444d4163) {
+  } else if (cpu_info[1] == 0x68747541 && cpu_info[3] == 0x69746e65 &&
+             cpu_info[2] == 0x444d4163) {
     *vendor = CpuInfo::Vendor::AMD;
   }
 
