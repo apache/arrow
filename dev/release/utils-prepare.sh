@@ -157,7 +157,6 @@ update_versions() {
     "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
     parquet/writer_properties.go
   find . -name "*.bak" -exec rm {} \;
-
   git add .
   popd
 
