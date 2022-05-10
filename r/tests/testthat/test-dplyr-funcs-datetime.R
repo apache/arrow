@@ -1562,25 +1562,33 @@ test_that("`as.Date()` and `as_date()`", {
     test_df
   )
 
-  # strptime does not support a partial format - testing an error surfaced from
-  # C++ (hence not testing the content of the error message)
+  # strptime does not support a partial format - Arrow returns NA, while
+  # lubridate parses correctly
   # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
   expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_char_ymd_hms = as_date(character_ymd_hms_var), .keep = "used") %>%
-      collect()
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+        mutate(date_char_ymd_hms = as_date(character_ymd_hms_var), .keep = "used") %>%
+        collect(),
+      test_df %>%
+        mutate(date_char_ymd_hms = as_date(character_ymd_hms_var), .keep = "used") %>%
+        collect()
+    )
   )
 
+  # same as above
   expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var), .keep = "used") %>%
-      collect(),
-    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
-    fixed = TRUE
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+        mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var), .keep = "used") %>%
+        collect(),
+      test_df %>%
+        mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var), .keep = "used") %>%
+        collect()
+    )
   )
-
 
   # we do not support as.Date() with double/ float (error surfaced from C++)
   # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798

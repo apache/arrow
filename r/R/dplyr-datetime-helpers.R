@@ -128,26 +128,14 @@ binding_as_date_character <- function(x,
                                       format = NULL,
                                       tryFormats = c("%Y-%m-%d", "%Y/%m/%d")) {
 
-  # format <- format %||% tryFormats[[1]]
-  # # unit = 0L is the identifier for seconds in valid_time32_units
-  # build_expr("strptime", x, options = list(format = format, unit = 0L))
-
-  # we need to split the logic between as_date() and as.Date() since `tryFormats`
-  # is an argument only for `as.Date()`
+  # `tryFormats` is an argument only for `as.Date()`, but `as_date()` behaves in
+  # a similar fashion, with its `.parse_iso_dt()`
   if (is.null(format)) {
-    parse_attempt_expressions <- list()
-    for (i in seq_along(tryFormats)) {
-      parse_attempt_expressions[[i]] <-
-        build_expr(
-          "strptime", x,
-          options = list(format = tryFormats[[i]], unit = 0L, error_is_null = TRUE)
-        )
-    }
-    coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
-    return(coalesce_output)
+    parsed_date <- call_binding("parse_date_time", x, orders = tryFormats)
   } else {
-    build_expr("strptime", x, options = list(format = format, unit = 0L))
+    parsed_date <- build_expr("strptime", x, options = list(format = format, unit = 0L))
   }
+  parsed_date
 }
 
 binding_as_date_numeric <- function(x, origin = "1970-01-01") {
