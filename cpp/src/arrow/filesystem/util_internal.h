@@ -49,6 +49,13 @@ Status NotAFile(const std::string& path);
 ARROW_EXPORT
 Status InvalidDeleteDirContents(const std::string& path);
 
+/// \brief Return files matching the glob pattern on the filesystem
+///
+/// Globbing starts from the root of the filesystem.
+ARROW_EXPORT
+Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
+                                 const std::string& glob);
+
 extern FileSystemGlobalOptions global_options;
 
 }  // namespace internal

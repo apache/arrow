@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <regex>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
@@ -285,6 +286,45 @@ bool IsLikelyUri(util::string_view v) {
     return false;
   }
   return ::arrow::internal::IsValidUriScheme(v.substr(0, pos));
+}
+
+struct Globber::Impl {
+  std::regex pattern_;
+
+  explicit Impl(const std::string& p) : pattern_(std::regex(PatternToRegex(p))) {}
+
+  static std::string PatternToRegex(const std::string& p) {
+    std::string special_chars = "()[]{}+-|^$\\.&~# \t\n\r\v\f";
+    std::string transformed;
+    auto it = p.begin();
+    while (it != p.end()) {
+      if (*it == '\\') {
+        transformed += '\\';
+        if (++it != p.end()) {
+          transformed += *it;
+        }
+      } else if (*it == '*') {
+        transformed += "[^/]*";
+      } else if (*it == '?') {
+        transformed += "[^/]";
+      } else if (special_chars.find(*it) != std::string::npos) {
+        transformed += "\\";
+        transformed += *it;
+      } else {
+        transformed += *it;
+      }
+      it++;
+    }
+    return transformed;
+  }
+};
+
+Globber::Globber(std::string pattern) : impl_(new Impl(pattern)) {}
+
+Globber::~Globber() {}
+
+bool Globber::Matches(const std::string& path) {
+  return regex_match(path, impl_->pattern_);
 }
 
 }  // namespace internal

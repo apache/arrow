@@ -128,6 +128,17 @@ bool IsEmptyPath(util::string_view s);
 ARROW_EXPORT
 bool IsLikelyUri(util::string_view s);
 
+class ARROW_EXPORT Globber {
+ public:
+  ~Globber();
+  explicit Globber(std::string pattern);
+  bool Matches(const std::string& path);
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow
