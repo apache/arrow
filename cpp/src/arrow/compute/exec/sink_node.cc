@@ -268,7 +268,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
       : ExecNode(plan, std::move(inputs), {"to_consume"}, {},
                  /*num_outputs=*/0),
         consumer_(std::move(consumer)),
-        names_(names) {}
+        names_(std::move(names)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
