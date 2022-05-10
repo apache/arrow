@@ -57,8 +57,6 @@ test_that("We handle non-UTF strings", {
   expect_identical(names(df_schema), names(df))
 
   df_struct_schema <- schema(a = do.call(struct, raw_schema))
-  # StructType doesn't expose names (in C++)
-  # expect_identical(names(df_struct_schema$a), names(df))
 
   # Create table/batch with schema
   expect_identical(as.data.frame(Table$create(df, schema = df_schema)), df)
