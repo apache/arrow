@@ -28,6 +28,7 @@ CPP_BUILD_DIR=$HOME/arrow-cpp-build
 ARROW_ROOT=/arrow
 PYTHON=3.10
 
+git config --global --add safe.directory $ARROW_ROOT
 #----------------------------------------------------------------------
 # Run these only once
 
