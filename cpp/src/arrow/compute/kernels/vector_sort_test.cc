@@ -1982,8 +1982,80 @@ class TestRank : public TestRankBase {
 };
 
 template <typename ArrowType>
+class TestRankForReal : public TestRank<ArrowType> {};
+TYPED_TEST_SUITE(TestRankForReal, RealArrowTypes);
+
+template <typename ArrowType>
+class TestRankForBool : public TestRank<ArrowType> {};
+TYPED_TEST_SUITE(TestRankForBool, ::testing::Types<BooleanType>);
+
+template <typename ArrowType>
 class TestRankForIntegral : public TestRank<ArrowType> {};
 TYPED_TEST_SUITE(TestRankForIntegral, IntegralArrowTypes);
+
+template <typename ArrowType>
+class TestRankForTemporal : public TestRank<ArrowType> {};
+TYPED_TEST_SUITE(TestRankForTemporal, TemporalArrowTypes);
+
+template <typename ArrowType>
+class TestRankForStrings : public TestRank<ArrowType> {};
+TYPED_TEST_SUITE(TestRankForStrings, StringSortTestTypes);
+
+class TestRankForFixedSizeBinary : public TestRankBase {
+ public:
+  std::shared_ptr<DataType> type() override { return fixed_size_binary(3); }
+};
+
+TYPED_TEST(TestRankForReal, RankReal) {
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      this->AssertRank("[2.1, 3.2, 1.0, 0.0, 5.5]", SortOrder::Ascending, null_placement,
+                       tiebreaker, "[3, 4, 2, 1, 5]");
+      this->AssertRank("[2.1, 3.2, 1.0, 0.0, 5.5]", SortOrder::Descending, null_placement,
+                       tiebreaker, "[3, 2, 4, 5, 1]");
+      for (auto order : AllOrders()) {
+        this->AssertRank("[]", order, null_placement, tiebreaker, "[]");
+        this->AssertRank("[null]", order, null_placement, tiebreaker, "[1]");
+      }
+    }
+  }
+
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 1, 4, 6, 4, 6, 1]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 2, 5, 7, 5, 7, 2]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 1, 4, 6, 5, 7, 2]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 1, 3, 4, 3, 4, 1]");
+
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 3, 6, 1, 6, 1, 3]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 4, 7, 2, 7, 2, 4]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 3, 6, 1, 7, 2, 4]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 2, 4, 1, 4, 1, 2]");
+
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 4, 1, 6, 1, 6, 4]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 5, 2, 7, 2, 7, 5]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 4, 1, 6, 2, 7, 5]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 3, 1, 4, 1, 4, 3]");
+
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 6, 3, 1, 3, 1, 6]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 7, 4, 2, 4, 2, 7]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 6, 3, 1, 4, 2, 7]");
+  this->AssertRank("[1.2, 0.0, 5.3, null, 5.3, null, 0.0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 4, 2, 1, 2, 1, 4]");
+}
 
 TYPED_TEST(TestRankForIntegral, RankIntegral) {
   for (auto null_placement : AllNullPlacements()) {
@@ -1992,6 +2064,11 @@ TYPED_TEST(TestRankForIntegral, RankIntegral) {
                        tiebreaker, "[3, 4, 2, 1, 5]");
       this->AssertRank("[2, 3, 1, 0, 5]", SortOrder::Descending, null_placement,
                        tiebreaker, "[3, 2, 4, 5, 1]");
+
+      for (auto order : AllOrders()) {
+        this->AssertRank("[]", order, null_placement, tiebreaker, "[]");
+        this->AssertRank("[null]", order, null_placement, tiebreaker, "[1]");
+      }
     }
   }
 
@@ -2030,6 +2107,232 @@ TYPED_TEST(TestRankForIntegral, RankIntegral) {
                    NullPlacement::AtStart, RankOptions::First, "[5, 6, 3, 1, 4, 2, 7]");
   this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
                    NullPlacement::AtStart, RankOptions::Dense, "[3, 4, 2, 1, 2, 1, 4]");
+}
+
+TYPED_TEST(TestRankForBool, RankBool) {
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      this->AssertRank("[false, true]", SortOrder::Ascending, null_placement, tiebreaker,
+                       "[1, 2]");
+      this->AssertRank("[false, true]", SortOrder::Descending, null_placement, tiebreaker,
+                       "[2, 1]");
+
+      for (auto order : AllOrders()) {
+        this->AssertRank("[]", order, null_placement, tiebreaker, "[]");
+        this->AssertRank("[null]", order, null_placement, tiebreaker, "[1]");
+      }
+    }
+  }
+
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 1, 3, 6, 3, 6, 1]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[5, 2, 5, 7, 5, 7, 2]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 1, 4, 6, 5, 7, 2]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 1, 2, 3, 2, 3, 1]");
+
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 3, 5, 1, 5, 1, 3]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Max, "[7, 4, 7, 2, 7, 2, 4]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 3, 6, 1, 7, 2, 4]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 2, 3, 1, 3, 1, 2]");
+
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[1, 4, 1, 6, 1, 6, 4]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 5, 3, 7, 3, 7, 5]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::First, "[1, 4, 2, 6, 3, 7, 5]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[1, 2, 1, 3, 1, 3, 2]");
+
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Min, "[3, 6, 3, 1, 3, 1, 6]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 7, 5, 2, 5, 2, 7]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::First, "[3, 6, 4, 1, 5, 2, 7]");
+  this->AssertRank("[true, false, true, null, true, null, false]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[2, 3, 2, 1, 2, 1, 3]");
+}
+
+TYPED_TEST(TestRankForTemporal, RankTemporal) {
+  /*
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      this->AssertRank("[2, 3, 1, 0, 5]", SortOrder::Ascending, null_placement,
+                       tiebreaker, "[3, 4, 2, 1, 5]");
+      this->AssertRank("[2, 3, 1, 0, 5]", SortOrder::Descending, null_placement,
+                       tiebreaker, "[3, 2, 4, 5, 1]");
+
+      for (auto order : AllOrders()) {
+        this->AssertRank("[]", order, null_placement, tiebreaker, "[]");
+        this->AssertRank("[null]", order, null_placement, tiebreaker, "[1]");
+      }
+    }
+  }
+
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 1, 4, 6, 4, 6, 1]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 2, 5, 7, 5, 7, 2]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 1, 4, 6, 5, 7, 2]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 1, 3, 4, 3, 4, 1]");
+
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 3, 6, 1, 6, 1, 3]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 4, 7, 2, 7, 2, 4]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 3, 6, 1, 7, 2, 4]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 2, 4, 1, 4, 1, 2]");
+
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 4, 1, 6, 1, 6, 4]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 5, 2, 7, 2, 7, 5]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 4, 1, 6, 2, 7, 5]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 3, 1, 4, 1, 4, 3]");
+
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 6, 3, 1, 3, 1, 6]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 7, 4, 2, 4, 2, 7]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 6, 3, 1, 4, 2, 7]");
+  this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 4, 2, 1, 2, 1, 4]");
+  */
+}
+
+TYPED_TEST(TestRankForStrings, RankStrings) {
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      this->AssertRank(R"(["b", "c", "a", "", "d"])", SortOrder::Ascending,
+                       null_placement, tiebreaker, "[3, 4, 2, 1, 5]");
+      this->AssertRank(R"(["b", "c", "a", "", "d"])", SortOrder::Descending,
+                       null_placement, tiebreaker, "[3, 2, 4, 5, 1]");
+
+      for (auto order : AllOrders()) {
+        this->AssertRank("[]", order, null_placement, tiebreaker, "[]");
+        this->AssertRank("[null]", order, null_placement, tiebreaker, "[1]");
+      }
+    }
+  }
+
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 1, 4, 6, 4, 6, 1]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 2, 5, 7, 5, 7, 2]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 1, 4, 6, 5, 7, 2]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Ascending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 1, 3, 4, 3, 4, 1]");
+
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 3, 6, 1, 6, 1, 3]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 4, 7, 2, 7, 2, 4]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 3, 6, 1, 7, 2, 4]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Ascending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 2, 4, 1, 4, 1, 2]");
+
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Min, "[3, 4, 1, 6, 1, 6, 4]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Max, "[3, 5, 2, 7, 2, 7, 5]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::First, "[3, 4, 1, 6, 2, 7, 5]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Descending,
+                   NullPlacement::AtEnd, RankOptions::Dense, "[2, 3, 1, 4, 1, 4, 3]");
+
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Min, "[5, 6, 3, 1, 3, 1, 6]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Max, "[5, 7, 4, 2, 4, 2, 7]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::First, "[5, 6, 3, 1, 4, 2, 7]");
+  this->AssertRank(R"(["a", "", "e", null, "e", null, ""])", SortOrder::Descending,
+                   NullPlacement::AtStart, RankOptions::Dense, "[3, 4, 2, 1, 2, 1, 4]");
+}
+
+TEST_F(TestRankForFixedSizeBinary, RankFixedSizeBinary) {
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      this->AssertRank(R"(["bbb", "ccc", "aaa", "   ", "ddd"])", SortOrder::Ascending,
+                       null_placement, tiebreaker, "[3, 4, 2, 1, 5]");
+      this->AssertRank(R"(["bbb", "ccc", "aaa", "   ", "ddd"])", SortOrder::Descending,
+                       null_placement, tiebreaker, "[3, 2, 4, 5, 1]");
+
+      for (auto order : AllOrders()) {
+        this->AssertRank("[]", order, null_placement, tiebreaker, "[]");
+        this->AssertRank("[null]", order, null_placement, tiebreaker, "[1]");
+      }
+    }
+  }
+
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+                   "[3, 1, 4, 6, 4, 6, 1]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max,
+                   "[3, 2, 5, 7, 5, 7, 2]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::First,
+                   "[3, 1, 4, 6, 5, 7, 2]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Dense,
+                   "[2, 1, 3, 4, 3, 4, 1]");
+
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+                   "[5, 3, 6, 1, 6, 1, 3]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max,
+                   "[5, 4, 7, 2, 7, 2, 4]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Ascending, NullPlacement::AtStart, RankOptions::First,
+                   "[5, 3, 6, 1, 7, 2, 4]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Dense,
+                   "[3, 2, 4, 1, 4, 1, 2]");
+
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
+                   "[3, 4, 1, 6, 1, 6, 4]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max,
+                   "[3, 5, 2, 7, 2, 7, 5]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Descending, NullPlacement::AtEnd, RankOptions::First,
+                   "[3, 4, 1, 6, 2, 7, 5]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Dense,
+                   "[2, 3, 1, 4, 1, 4, 3]");
+
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
+                   "[5, 6, 3, 1, 3, 1, 6]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max,
+                   "[5, 7, 4, 2, 4, 2, 7]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Descending, NullPlacement::AtStart, RankOptions::First,
+                   "[5, 6, 3, 1, 4, 2, 7]");
+  this->AssertRank(R"(["aaa", "   ", "eee", null, "eee", null, "   "])",
+                   SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
+                   "[3, 4, 2, 1, 2, 1, 4]");
 }
 
 // Some first keys will have duplicates, others not
