@@ -323,6 +323,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       join_dec.inputs.emplace_back(std::move(right.declaration));
       return DeclarationInfo{std::move(join_dec), num_columns};
     }
+    case substrait::Rel::RelTypeCase::kAggregate: {
+      std::cout << "Aggregate Case" << std::endl;
+      return compute::Declaration::Sequence({
+      });
+    }
 
     default:
       break;
