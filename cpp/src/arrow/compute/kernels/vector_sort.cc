@@ -1954,7 +1954,7 @@ class ArrayRanker : public TypeVisitor {
     ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
 
     NullPartitionResult sorted =
-        array_sorter(sort_begin, sort_end, array_, 0, array_options);
+        array_sorter(sort_begin, sort_end, arr, 0, array_options);
     uint64_t rank = 0;
 
     ARROW_ASSIGN_OR_RAISE(auto rankings,
@@ -2043,10 +2043,10 @@ class RankMetaFunction : public MetaFunction {
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options, ExecContext* ctx) const {
-    const RankOptions& sort_options = checked_cast<const RankOptions&>(*options);
+    const RankOptions& rank_options = checked_cast<const RankOptions&>(*options);
     switch (args[0].kind()) {
       case Datum::ARRAY: {
-        return Rank(*args[0].make_array(), sort_options, ctx);
+        return Rank(*args[0].make_array(), rank_options, ctx);
       } break;
       default:
         break;

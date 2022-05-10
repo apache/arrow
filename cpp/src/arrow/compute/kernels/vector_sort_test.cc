@@ -1940,8 +1940,8 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   }
 }
 
-// Ranking Tests
-//
+// ----------------------------------------------------------------------
+// Tests for Rank
 
 template <typename T>
 void AssertRank(const std::shared_ptr<T>& input, SortOrder order,
@@ -2162,7 +2162,6 @@ TYPED_TEST(TestRankForBool, RankBool) {
 }
 
 TYPED_TEST(TestRankForTemporal, RankTemporal) {
-  /*
   for (auto null_placement : AllNullPlacements()) {
     for (auto tiebreaker : AllTiebreakers()) {
       this->AssertRank("[2, 3, 1, 0, 5]", SortOrder::Ascending, null_placement,
@@ -2212,7 +2211,6 @@ TYPED_TEST(TestRankForTemporal, RankTemporal) {
                    NullPlacement::AtStart, RankOptions::First, "[5, 6, 3, 1, 4, 2, 7]");
   this->AssertRank("[1, 0, 5, null, 5, null, 0]", SortOrder::Descending,
                    NullPlacement::AtStart, RankOptions::Dense, "[3, 4, 2, 1, 2, 1, 4]");
-  */
 }
 
 TYPED_TEST(TestRankForStrings, RankStrings) {
