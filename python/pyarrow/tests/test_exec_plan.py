@@ -251,7 +251,7 @@ def test_filter_table_ordering():
 
     for _ in range(20):
         # 20 seems to consistently cause errors when order is not preserved.
-        # Worst case if the order problem is reintroduced this test will become flaky
+        # If the order problem is reintroduced this test will become flaky
         # which is still a signal that the order is not preserved.
         r = ep._filter_table(table, pc.field('a') == 1)
         assert r["b"] == pa.chunked_array([["a"], ["b"]])
