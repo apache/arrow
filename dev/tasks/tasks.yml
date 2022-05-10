@@ -214,7 +214,7 @@ tasks:
     template: python-minimal-build/github.linux.yml
     params:
       type: minimal_build
-      run: minimal-{{ kind }}
+      image: minimal-{{ kind }}
 {% endfor %}
 
   ############################## Conda Linux ############################
