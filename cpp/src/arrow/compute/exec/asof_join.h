@@ -35,8 +35,6 @@
 #include "arrow/type.h"
 #include "arrow/util/tracing_internal.h"
 
-#include "concurrent_bounded_queue.h"
-
 namespace arrow {
 namespace compute {
 

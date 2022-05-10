@@ -43,8 +43,6 @@
 
 #include <omp.h>
 
-#include "concurrent_bounded_queue.h"
-
 namespace arrow {
 namespace compute {
 

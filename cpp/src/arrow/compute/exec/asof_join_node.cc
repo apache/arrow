@@ -35,15 +35,11 @@
 #include <arrow/io/api.h>
 //#include <arrow/io/util_internal.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/options.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/util/async_generator.h>
-#include <arrow/util/checked_cast.h>
 #include <arrow/util/counting_semaphore.h>  // so we don't need to require C++20
 #include <arrow/util/optional.h>
-#include <arrow/util/thread_pool.h>
 #include <algorithm>
 #include <atomic>
 #include <future>
@@ -53,10 +49,57 @@
 
 #include <omp.h>
 
-#include "concurrent_bounded_queue.h"
-
 namespace arrow {
 namespace compute {
+
+/**
+ * Simple implementation for an unbound concurrent queue
+ */
+template <class T>
+class concurrent_queue {
+ public:
+  T pop() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    cond_.wait(lock, [&] { return !queue_.empty();});
+    auto item = queue_.front();
+    queue_.pop();
+    return item;
+  }
+
+  void push(const T& item) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    queue_.push(item);
+    cond_.notify_one();
+  }
+
+  util::optional<T> try_pop() {
+    // Try to pop the oldest value from the queue (or return nullopt if none)
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (queue_.empty()) {
+      return util::nullopt;
+    } else {
+      auto item = queue_.front();
+      queue_.pop();
+      return item;
+    }
+  }
+
+  bool empty() const {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return queue_.empty();
+  }
+
+  // Un-synchronized access to front
+  // For this to be "safe":
+  // 1) the caller logically guarantees that queue is not empty
+  // 2) pop/try_pop cannot be called concurrently with this
+  const T& unsync_front() const { return queue_.front(); }
+
+ private:
+  std::queue<T> queue_;
+  mutable std::mutex mutex_;
+  std::condition_variable cond_;
+};
 
 struct MemoStore {
   // Stores last known values for all the keys
@@ -110,82 +153,79 @@ class InputState {
   // InputState correponds to an input
   // Input record batches are queued up in InputState until processed and
   // turned into output record batches.
-  
+
  public:
   InputState(const std::shared_ptr<arrow::Schema>& schema,
              const std::string& time_col_name, const std::string& key_col_name,
              util::optional<KeyType> wildcard_key)
-      : _queue(QUEUE_CAPACITY),
-        _wildcard_key(wildcard_key),
-        _schema(schema),
-        _time_col_index(
+      : queue_(),
+        wildcard_key_(wildcard_key),
+        schema_(schema),
+        time_col_index_(
             schema->GetFieldIndex(time_col_name)),  // TODO: handle missing field name
-        _key_col_index(
-            schema->GetFieldIndex(key_col_name))  // TODO: handle missing field name
-  {                                               /*nothing else*/
-  }
+        key_col_index_(schema->GetFieldIndex(key_col_name)) {}
 
   size_t init_src_to_dst_mapping(size_t dst_offset, bool skip_time_and_key_fields) {
-    src_to_dst.resize(_schema->num_fields());
-    for (int i = 0; i < _schema->num_fields(); ++i)
+    src_to_dst_.resize(schema_->num_fields());
+    for (int i = 0; i < schema_->num_fields(); ++i)
       if (!(skip_time_and_key_fields && is_time_or_key_column(i)))
-        src_to_dst[i] = dst_offset++;
+        src_to_dst_[i] = dst_offset++;
     return dst_offset;
   }
 
   const util::optional<col_index_t>& map_src_to_dst(col_index_t src) const {
-    return src_to_dst[src];
+    return src_to_dst_[src];
   }
 
   bool is_time_or_key_column(col_index_t i) const {
-    assert(i < _schema->num_fields());
-    return (i == _time_col_index) || (i == _key_col_index);
+    assert(i < schema_->num_fields());
+    return (i == time_col_index_) || (i == key_col_index_);
   }
 
   // Gets the latest row index,  assuming the queue isn't empty
-  row_index_t get_latest_row() const { return _latest_ref_row; }
+  row_index_t get_latest_row() const { return latest_ref_row_; }
 
   bool empty() const {
-    if (_latest_ref_row > 0)
+    if (latest_ref_row_ > 0)
       return false;  // cannot be empty if ref row is >0 -- can avoid slow queue lock
                      // below
-    return _queue.empty();
+    return queue_.empty();
   }
 
-  int count_batches_processed() const { return _batches_processed; }
-  int count_total_batches() const { return _total_batches; }
+  int countbatches_processed_() const { return batches_processed_; }
+  int count_total_batches() const { return total_batches_; }
 
   // Gets latest batch (precondition: must not be empty)
   const std::shared_ptr<arrow::RecordBatch>& get_latest_batch() const {
-    return _queue.unsync_front();
+    return queue_.unsync_front();
   }
   KeyType get_latest_key() const {
-    return _queue.unsync_front()
-        ->column_data(_key_col_index)
-        ->GetValues<KeyType>(1)[_latest_ref_row];
+    return queue_.unsync_front()
+        ->column_data(key_col_index_)
+        ->GetValues<KeyType>(1)[latest_ref_row_];
   }
   int64_t get_latest_time() const {
-    return _queue.unsync_front()
-        ->column_data(_time_col_index)
-        ->GetValues<int64_t>(1)[_latest_ref_row];
+    return queue_.unsync_front()
+        ->column_data(time_col_index_)
+        ->GetValues<int64_t>(1)[latest_ref_row_];
   }
 
-  bool finished() const { return _batches_processed == _total_batches; }
+  bool finished() const { return batches_processed_ == total_batches_; }
 
   bool advance() {
     // Returns true if able to advance, false if not.
-    
+
     bool have_active_batch =
-        (_latest_ref_row > 0 /*short circuit the lock on the queue*/) || !_queue.empty();
+        (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.empty();
     if (have_active_batch) {
       // If we have an active batch
-      if (++_latest_ref_row >= _queue.unsync_front()->num_rows()) {
+      if (++latest_ref_row_ >= queue_.unsync_front()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
-        ++_batches_processed;
-        _latest_ref_row = 0;
-        have_active_batch &= !_queue.try_pop();
+        ++batches_processed_;
+        latest_ref_row_ = 0;
+        have_active_batch &= !queue_.try_pop();
         if (have_active_batch)
-          assert(_queue.unsync_front()->num_rows() > 0);  // empty batches disallowed
+          assert(queue_.unsync_front()->num_rows() > 0);  // empty batches disallowed
       }
     }
     return have_active_batch;
@@ -207,14 +247,15 @@ class InputState {
     bool updated = false;
     do {
       latest_time = get_latest_time();
-      if (latest_time <=
-          ts)  // if advance() returns true, then the latest_ts must also be valid
-	// Keep advancing right table until we hit the latest row that has
-	// timestamp <= ts. This is because we only need the latest row for the
-	// match given a left ts.  However, for a futre      
-        _memo.store(get_latest_batch(), _latest_ref_row, latest_time, get_latest_key());
-      else
+      // if advance() returns true, then the latest_ts must also be valid
+      // Keep advancing right table until we hit the latest row that has
+      // timestamp <= ts. This is because we only need the latest row for the
+      // match given a left ts.
+      if (latest_time <= ts) {
+        memo_.store(get_latest_batch(), latest_ref_row_, latest_time, get_latest_key());
+      } else {
         break;  // hit a future timestamp -- done updating for now
+      }
       updated = true;
     } while (advance());
     return updated;
@@ -222,16 +263,16 @@ class InputState {
 
   void push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
-      _queue.push(rb);
+      queue_.push(rb);
     } else {
-      ++_batches_processed;  // don't enqueue empty batches, just record as processed
+      ++batches_processed_;  // don't enqueue empty batches, just record as processed
     }
   }
 
   util::optional<const MemoStore::Entry*> get_memo_entry_for_key(KeyType key) {
-    auto r = _memo.get_entry_for_key(key);
+    auto r = memo_.get_entry_for_key(key);
     if (r.has_value()) return r;
-    if (_wildcard_key.has_value()) r = _memo.get_entry_for_key(*_wildcard_key);
+    if (wildcard_key_.has_value()) r = memo_.get_entry_for_key(*wildcard_key_);
     return r;
   }
 
@@ -241,49 +282,48 @@ class InputState {
   }
 
   void remove_memo_entries_with_lesser_time(int64_t ts) {
-    _memo.remove_entries_with_lesser_time(ts);
+    memo_.remove_entries_with_lesser_time(ts);
   }
 
-  const std::shared_ptr<Schema>& get_schema() const { return _schema; }
+  const std::shared_ptr<Schema>& get_schema() const { return schema_; }
 
   void set_total_batches(int n) {
-    assert(n >=
-           0);  // not sure why arrow uses a signed int for this, but it should be >=0
-    assert(_total_batches == -1);  // shouldn't be set more than once
-    _total_batches = n;
+    assert(n >= 0);
+    assert(total_batches_ == -1);  // shouldn't be set more than once
+    total_batches_ = n;
   }
 
  private:
   // Pending record batches.  The latest is the front.  Batches cannot be empty.
-  concurrent_bounded_queue<std::shared_ptr<RecordBatch>> _queue;
+  concurrent_queue<std::shared_ptr<RecordBatch>> queue_;
 
   // Wildcard key for this input, if applicable.
-  util::optional<KeyType> _wildcard_key;
-  
-  // Schema associated with the input
-  std::shared_ptr<Schema> _schema;
-  
-  // Total number of batches (only int because InputFinished uses int)
-  int _total_batches = -1;
-  
-  // Number of batches processed so far (only int because InputFinished uses int)
-  int _batches_processed = 0;
-  
-  // Index of the time col
-  col_index_t _time_col_index;
-  
-  // Index of the key col
-  col_index_t _key_col_index;
+  util::optional<KeyType> wildcard_key_;
 
-  // Index of the latest row reference within; if >0 then _queue cannot be empty
-  row_index_t _latest_ref_row =
-    0;  // must be < _queue.front()->num_rows() if _queue is non-empty
-  
+  // Schema associated with the input
+  std::shared_ptr<Schema> schema_;
+
+  // Total number of batches (only int because InputFinished uses int)
+  int total_batches_ = -1;
+
+  // Number of batches processed so far (only int because InputFinished uses int)
+  int batches_processed_ = 0;
+
+  // Index of the time col
+  col_index_t time_col_index_;
+
+  // Index of the key col
+  col_index_t key_col_index_;
+
+  // Index of the latest row reference within; if >0 then queue_ cannot be empty
+  row_index_t latest_ref_row_ =
+      0;  // must be < queue_.front()->num_rows() if queue_ is non-empty
+
   // Stores latest known values for the various keys
-  MemoStore _memo;
-  
+  MemoStore memo_;
+
   // Mapping of source columns to destination columns
-  std::vector<util::optional<col_index_t>> src_to_dst;
+  std::vector<util::optional<col_index_t>> src_to_dst_;
 };
 
 template <size_t MAX_TABLES>
@@ -318,11 +358,11 @@ class CompositeReferenceTable {
 
   // Adds a RecordBatch ref to the mapping, if needed
   void add_record_batch_ref(const std::shared_ptr<RecordBatch>& ref) {
-    if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
+    if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t) ref.get()] = ref;
   }
 
  public:
-  CompositeReferenceTable(size_t n_tables) : _n_tables(n_tables) {
+  explicit CompositeReferenceTable(size_t n_tables) : _n_tables(n_tables) {
     assert(_n_tables >= 1);
     assert(_n_tables <= MAX_TABLES);
   }
@@ -545,10 +585,12 @@ class AsofJoinNode : public ExecNode {
     }
 
     // Prune memo entries that have expired (to bound memory consumption)
-    if (!lhs.empty())
-      for (size_t i = 1; i < _state.size(); ++i)
+    if (!lhs.empty()) {
+      for (size_t i = 1; i < _state.size(); ++i) {
         _state[i]->remove_memo_entries_with_lesser_time(lhs.get_latest_time() -
                                                         _options._tolerance);
+      }
+    }
 
     // Emit the batch
     std::shared_ptr<RecordBatch> r =
@@ -582,39 +624,12 @@ class AsofJoinNode : public ExecNode {
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
     if (_state.at(0)->finished()) {
-      // cerr << "LHS is finished\n";
-      _total_batches_produced = util::make_optional<int>(_progress_batches_produced);
-      std::cerr << "process() finished " << *_total_batches_produced << "\n";
+      total_batches_produced_ = util::make_optional<int>(_progress_batches_produced);
       StopProducing();
-      assert(_total_batches_produced.has_value());
-      outputs_[0]->InputFinished(this, *_total_batches_produced);
+      assert(total_batches_produced_.has_value());
+      outputs_[0]->InputFinished(this, *total_batches_produced_);
     }
   }
-
-  // Status process_thread(size_t /*thread_index*/, int64_t /*task_id*/) {
-  //   std::cerr << "AsOfJoinNode::process_thread started.\n";
-  //   auto result = _process.try_pop();
-
-  //   if (result == util::nullopt) {
-  //     std::cerr << "AsOfJoinNode::process_thread no inputs.\n";
-  //     return Status::OK();
-  //   } else {
-  //     if (result.value()) {
-  //       std::cerr << "AsOfJoinNode::process_thread process.\n";
-  //       process();
-  //     } else {
-  //       std::cerr << "AsOfJoinNode::process_thread done.\n";
-  //       return Status::OK();
-  //     }
-  //   }
-
-  //   return Status::OK();
-  // }
-
-  // Status process_finished(size_t /*thread_index*/) {
-  //   std::cerr << "AsOfJoinNode::process_finished started.\n";
-  //   return Status::OK();
-  // }
 
   void process_thread() {
     std::cerr << "AsofJoinNode::process_thread started.\n";
@@ -630,9 +645,8 @@ class AsofJoinNode : public ExecNode {
   static void process_thread_wrapper(AsofJoinNode* node) { node->process_thread(); }
 
  public:
-  AsofJoinNode(ExecPlan* plan, NodeVector inputs,
-	       std::vector<std::string> input_labels,
-	       const AsofJoinNodeOptions& join_options,
+  AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
+               const AsofJoinNodeOptions& join_options,
                std::shared_ptr<Schema> output_schema,
                std::unique_ptr<AsofJoinSchema> schema_mgr,
                std::unique_ptr<AsofJoinImpl> impl);
@@ -652,17 +666,14 @@ class AsofJoinNode : public ExecNode {
         schema_mgr->MakeOutputSchema(inputs, join_options);
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<AsofJoinImpl> impl, AsofJoinImpl::MakeBasic());
 
-    std::cerr << "Input size: " << inputs.size() << "\n";
     std::vector<std::string> input_labels(inputs.size());
     input_labels[0] = "left";
-    for(size_t i = 1; i < inputs.size(); ++i) {
+    for (size_t i = 1; i < inputs.size(); ++i) {
       input_labels[i] = "right_" + std::to_string(i);
-    }   
-    
-    return plan->EmplaceNode<AsofJoinNode>(plan, inputs,
-					   std::move(input_labels),
-					   join_options,
-                                           std::move(output_schema),
+    }
+
+    return plan->EmplaceNode<AsofJoinNode>(plan, inputs, std::move(input_labels),
+                                           join_options, std::move(output_schema),
                                            std::move(schema_mgr), std::move(impl));
   }
 
@@ -696,7 +707,6 @@ class AsofJoinNode : public ExecNode {
       size_t k = std::find(inputs_.begin(), inputs_.end(), input) - inputs_.begin();
       // cerr << "set_total_batches for input " << k << ": " << total_batches << "\n";
       _state.at(k)->set_total_batches(total_batches);
-      // is_finished=_state.at(k)->finished();
     }
     // Trigger a process call
     // The reason for this is that there are cases at the end of a table where we don't
@@ -710,24 +720,6 @@ class AsofJoinNode : public ExecNode {
     std::cout << "StartProducing"
               << "\n";
     finished_ = arrow::Future<>::Make();
-    // bool use_sync_execution = !(plan_->exec_context()->executor());
-    // std::cerr << "StartScheduling\n";
-    // std::cerr << "use_sync_execution: " << use_sync_execution << std::endl;
-    // RETURN_NOT_OK(
-    //               scheduler_->StartScheduling(0 /*thread index*/,
-    //                                           std::move([this](std::function<Status(size_t)>
-    //                                           func) -> Status {
-    //                                                       return
-    //                                                       this->ScheduleTaskCallback(std::move(func));
-    //                                                     }),
-    //                                           1,
-    //                                           use_sync_execution
-    //                                           )
-    //               );
-    // RETURN_NOT_OK(
-    //               scheduler_->StartTaskGroup(0, task_group_process_, 1)
-    //               );
-    // std::cerr << "StartScheduling done\n";
     return Status::OK();
   }
   void PauseProducing(ExecNode* output) override {
@@ -752,48 +744,25 @@ class AsofJoinNode : public ExecNode {
   }
   Future<> finished() override { return finished_; }
 
-  // Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
-  //   auto executor = plan_->exec_context()->executor();
-  //   if (executor) {
-  //     RETURN_NOT_OK(executor->Spawn([this, func] {
-  //       size_t thread_index = thread_indexer_();
-  //       Status status = func(thread_index);
-  //       if (!status.ok()) {
-  //         StopProducing();
-  //         ErrorIfNotOk(status);
-  //         return;
-  //       }
-  //     }));
-  //   } else {
-  //     // We should not get here in serial execution mode
-  //     ARROW_DCHECK(false);
-  //   }
-  //   return Status::OK();
-  // }
-
  private:
   std::unique_ptr<AsofJoinSchema> schema_mgr_;
   std::unique_ptr<AsofJoinImpl> impl_;
   Future<> finished_;
   // InputStates
   // Each input state correponds to an input table
-  // 
+  //
   std::vector<std::unique_ptr<InputState>> _state;
   std::mutex _gate;
   AsofJoinNodeOptions _options;
 
-  // ThreadIndexer thread_indexer_;
-  // std::unique_ptr<TaskScheduler> scheduler_;
-  // int task_group_process_;
-
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
-  concurrent_bounded_queue<bool> _process;
+  concurrent_queue<bool> _process;
   // Worker thread
   std::thread _process_thread;
 
   // Total batches produced, once we've finished -- only known at completion time.
-  util::optional<int> _total_batches_produced;
+  util::optional<int> total_batches_produced_;
 
   // In-progress batches produced
   int _progress_batches_produced = 0;
@@ -803,12 +772,6 @@ std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(
     const std::vector<ExecNode*>& inputs, const AsofJoinNodeOptions& options) {
   std::vector<std::shared_ptr<arrow::Field>> fields;
   assert(inputs.size() > 1);
-
-  // TODO: Deal with multi keys
-  // std::vector<std::string> keys;
-  // for (auto f: options.keys) {
-  //   keys.emplace_back(*f.name());
-  // }
 
   // Directly map LHS fields
   for (int i = 0; i < inputs[0]->output_schema()->num_fields(); ++i)
@@ -825,12 +788,11 @@ std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(
     }
   }
 
-  // Combine into a schema
   return std::make_shared<arrow::Schema>(fields);
 }
 
 AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
-			   std::vector<std::string> input_labels,
+                           std::vector<std::string> input_labels,
                            const AsofJoinNodeOptions& join_options,
                            std::shared_ptr<Schema> output_schema,
                            std::unique_ptr<AsofJoinSchema> schema_mgr,
@@ -840,11 +802,8 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                /*num_outputs=*/1),
       impl_(std::move(impl)),
       _options(join_options),
-      _process(1),
+      _process(),
       _process_thread(&AsofJoinNode::process_thread_wrapper, this) {
-  std::cout << "AsofJoinNode created"
-            << "\n";
-
   for (size_t i = 0; i < inputs.size(); ++i)
     _state.push_back(::arrow::internal::make_unique<InputState>(
         inputs[i]->output_schema(), *_options.time.name(), *_options.keys.name(),
@@ -854,22 +813,6 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
     dst_offset = state->init_src_to_dst_mapping(dst_offset, !!dst_offset);
 
   finished_ = Future<>::MakeFinished();
-
-  // scheduler_ = TaskScheduler::Make();
-  // task_group_process_ = scheduler_->RegisterTaskGroup(
-  //                                                    [this](size_t thread_index,
-  //                                                    int64_t task_id) -> Status {
-  //                                                      return
-  //                                                      process_thread(thread_index,
-  //                                                      task_id);
-  //                                                    },
-  //                                                    [this](size_t thread_index) ->
-  //                                                    Status {
-  //                                                      return
-  //                                                      process_finished(thread_index);
-  //                                                    }
-  //                                                    );
-  // scheduler_->RegisterEnd();
 }
 
 namespace internal {

@@ -65,9 +65,9 @@ BatchesWithSchema GenerateBatchesFromString(
 
 void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r0_batches,
-		    const BatchesWithSchema& r1_batches,
+                    const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches, const FieldRef time,
-                    const FieldRef keys, const long tolerance) {
+                    const FieldRef keys, const int64_t tolerance) {
   auto exec_ctx =
       arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
@@ -97,7 +97,8 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   AssertTablesEqual(*exp_table, *res_table,
                     /*same_chunk_layout=*/false, /*flatten=*/true);
 
-  std::cerr << "Result Equals" << "\n";
+  std::cerr << "Result Equals"
+            << "\n";
 }
 
 void RunNonEmptyTest(bool exact_matches) {
@@ -120,103 +121,86 @@ void RunNonEmptyTest(bool exact_matches) {
   BatchesWithSchema l_batches, r0_batches, r1_batches, exp_batches;
 
   // Single key, single batch
-  l_batches = GenerateBatchesFromString(l_schema,
-					{R"([[0, 1, 1.0], [1000, 1, 2.0]])"}
-					);
+  l_batches = GenerateBatchesFromString(l_schema, {R"([[0, 1, 1.0], [1000, 1, 2.0]])"});
   r0_batches = GenerateBatchesFromString(r0_schema, {R"([[0, 1, 11.0]])"});
   r1_batches = GenerateBatchesFromString(r1_schema, {R"([[1000, 1, 101.0]])"});
-  exp_batches = GenerateBatchesFromString(exp_schema,
-					  {R"([[0, 1, 1.0, 11.0, 0.0], [1000, 1, 2.0, 11.0, 101.0]])"}
-					  );
+  exp_batches = GenerateBatchesFromString(
+      exp_schema, {R"([[0, 1, 1.0, 11.0, 0.0], [1000, 1, 2.0, 11.0, 101.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
 
   // Single key, multiple batches
-  l_batches = GenerateBatchesFromString(l_schema,
-					{R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"}
-					);
-  r0_batches = GenerateBatchesFromString(r0_schema,
-					 {R"([[0, 1, 11.0]])", R"([[1000, 1, 12.0]])"}
-					 );
+  l_batches =
+      GenerateBatchesFromString(l_schema, {R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"});
+  r0_batches =
+      GenerateBatchesFromString(r0_schema, {R"([[0, 1, 11.0]])", R"([[1000, 1, 12.0]])"});
   r1_batches = GenerateBatchesFromString(r1_schema,
-					 {R"([[0, 1, 101.0]])", R"([[1000, 1, 102.0]])"}
-					 );
-  exp_batches = GenerateBatchesFromString(exp_schema,
-					  {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"}
-					  );
+                                         {R"([[0, 1, 101.0]])", R"([[1000, 1, 102.0]])"});
+  exp_batches = GenerateBatchesFromString(
+      exp_schema, {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
 
   // Single key, multiple left batches, single right batches
 
-  l_batches = GenerateBatchesFromString(l_schema,
-					{R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"}
-					);
+  l_batches =
+      GenerateBatchesFromString(l_schema, {R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"});
 
-  r0_batches = GenerateBatchesFromString(r0_schema,
-					 {R"([[0, 1, 11.0], [1000, 1, 12.0]])"}
-					 );
-  r1_batches = GenerateBatchesFromString(r1_schema,
-					 {R"([[0, 1, 101.0], [1000, 1, 102.0]])"}
-					 );
-  exp_batches = GenerateBatchesFromString(exp_schema,
-					  {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"}
-					  );
+  r0_batches =
+      GenerateBatchesFromString(r0_schema, {R"([[0, 1, 11.0], [1000, 1, 12.0]])"});
+  r1_batches =
+      GenerateBatchesFromString(r1_schema, {R"([[0, 1, 101.0], [1000, 1, 102.0]])"});
+  exp_batches = GenerateBatchesFromString(
+      exp_schema, {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
 
   // Multi key, multiple batches, misaligned batches
-  l_batches = GenerateBatchesFromString(l_schema,
-					{R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
-					 R"([[2000, 1, 4.0], [2000, 2, 24.0]])"}
-					);
-  r0_batches = GenerateBatchesFromString(r0_schema,
-					 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
-					  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"
-					 });
-  r1_batches = GenerateBatchesFromString(r0_schema,
-					 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
-					  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"
-					 });
-  exp_batches = GenerateBatchesFromString(exp_schema,
-					  {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 1001.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
-					   R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"}
-					   );
+  l_batches = GenerateBatchesFromString(
+      l_schema,
+      {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+       R"([[2000, 1, 4.0], [2000, 2, 24.0]])"});
+  r0_batches = GenerateBatchesFromString(
+      r0_schema, {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"});
+  r1_batches = GenerateBatchesFromString(
+      r0_schema, {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
+  exp_batches = GenerateBatchesFromString(
+      exp_schema,
+      {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 1001.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
 
   // Multi key, multiple batches, misaligned batches, smaller tolerance
-  l_batches = GenerateBatchesFromString(l_schema,
-					{R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
-					 R"([[2000, 1, 4.0], [2000, 2, 24.0]])"}
-					);
-  r0_batches = GenerateBatchesFromString(r0_schema,
-					 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
-					  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"
-					 });
-  r1_batches = GenerateBatchesFromString(r0_schema,
-					 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
-					  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"
-					 });
-  exp_batches = GenerateBatchesFromString(exp_schema,
-					  {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 0.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
-					   R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"}
-					   );
+  l_batches = GenerateBatchesFromString(
+      l_schema,
+      {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+       R"([[2000, 1, 4.0], [2000, 2, 24.0]])"});
+  r0_batches = GenerateBatchesFromString(
+      r0_schema, {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"});
+  r1_batches = GenerateBatchesFromString(
+      r0_schema, {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
+  exp_batches = GenerateBatchesFromString(
+      exp_schema,
+      {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 0.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 500);
 
-  // Multi key, multiple batches, misaligned batches, 0 tolerance
-  l_batches = GenerateBatchesFromString(l_schema,
-					{R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
-					 R"([[2000, 1, 4.0], [2000, 2, 24.0]])"}
-					);
-  r0_batches = GenerateBatchesFromString(r0_schema,
-					 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
-					  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"
-					 });
-  r1_batches = GenerateBatchesFromString(r0_schema,
-					 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
-					  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"
-					 });
-  exp_batches = GenerateBatchesFromString(exp_schema,
-					  {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 0.0, 101.0], [1000, 2, 22.0, 0.0, 0.0], [1500, 1, 3.0, 0.0, 0.0], [1500, 2, 23.0, 32.0, 1002.0]])",
-					   R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 0.0, 0.0]])"}
-					   );
+  // Multi key, multiple batches, misaligned batches, zero tolerance
+  l_batches = GenerateBatchesFromString(
+      l_schema,
+      {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+       R"([[2000, 1, 4.0], [2000, 2, 24.0]])"});
+  r0_batches = GenerateBatchesFromString(
+      r0_schema, {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"});
+  r1_batches = GenerateBatchesFromString(
+      r0_schema, {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
+  exp_batches = GenerateBatchesFromString(
+      exp_schema,
+      {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 0.0, 101.0], [1000, 2, 22.0, 0.0, 0.0], [1500, 1, 3.0, 0.0, 0.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 0.0, 0.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 0);
 }
 
