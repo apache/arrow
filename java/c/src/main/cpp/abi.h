@@ -63,12 +63,20 @@ struct ArrowArray {
   void* private_data;
 };
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif  // ARROW_C_DATA_H
 
 #ifndef ARROW_C_STREAM_H
 #define ARROW_C_STREAM_H
 
 // EXPERIMENTAL: C stream interface
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct ArrowArrayStream {
   // Callback to get the stream type
