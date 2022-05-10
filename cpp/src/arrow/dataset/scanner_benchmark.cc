@@ -96,9 +96,7 @@ std::shared_ptr<Schema> GetSchema() {
 
 size_t GetBytesForSchema() { return sizeof(int32_t) + sizeof(bool); }
 
-void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool async_mode) {
-  // NB: This test is here for didactic purposes
-
+void MinimalEndToEndScan(size_t num_batches, size_t batch_size) {
   // Specify a MemoryPool and ThreadPool for the ExecPlan
   compute::ExecContext exec_context(default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool());
@@ -120,7 +118,7 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool async_mode)
 
   auto options = std::make_shared<ScanOptions>();
   // specify the filter
-  compute::Expression b_is_true = field_ref("b");
+  compute::Expression b_is_true = equal(field_ref("b"), literal(true));
   options->filter = b_is_true;
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
@@ -134,10 +132,9 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool async_mode)
       compute::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
 
   // pipe the scan node into a filter node
-  ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * filter,
-      compute::MakeExecNode("filter", plan.get(), {scan},
-                            compute::FilterNodeOptions{b_is_true, async_mode}));
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * filter,
+                       compute::MakeExecNode("filter", plan.get(), {scan},
+                                             compute::FilterNodeOptions{b_is_true}));
 
   // pipe the filter node into a project node
   // NB: we're using the project node factory which preserves fragment/batch index
@@ -146,7 +143,7 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool async_mode)
   ASSERT_OK_AND_ASSIGN(
       compute::ExecNode * project,
       compute::MakeExecNode("augmented_project", plan.get(), {filter},
-                            compute::ProjectNodeOptions{{a_times_2}, {}, async_mode}));
+                            compute::ProjectNodeOptions{{a_times_2}, {}}));
 
   // finally, pipe the project node into a sink node
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
@@ -172,37 +169,163 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool async_mode)
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 }
 
+void ScanOnly(
+    size_t num_batches, size_t batch_size, const std::string& factory_name,
+    std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+        options_factory) {
+  compute::ExecContext exec_context(default_memory_pool(),
+                                    ::arrow::internal::GetCpuThreadPool());
+
+  // ensure arrow::dataset node factories are in the registry
+  ::arrow::dataset::internal::Initialize();
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       compute::ExecPlan::Make(&exec_context));
+
+  RecordBatchVector batches = GetBatches(num_batches, batch_size);
+
+  std::shared_ptr<Dataset> dataset =
+      std::make_shared<InMemoryDataset>(GetSchema(), batches);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecNodeOptions> node_options,
+                       options_factory(num_batches, batch_size));
+
+  // construct the plan
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * scan,
+      compute::MakeExecNode(factory_name, plan.get(), {}, *node_options));
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
+                       compute::MakeExecNode("sink", plan.get(), {scan},
+                                             compute::SinkNodeOptions{&sink_gen}));
+
+  ASSERT_NE(sink, nullptr);
+
+  // translate sink_gen (async) to sink_reader (sync)
+  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      schema({field("a * 2", int32())}), std::move(sink_gen), exec_context.memory_pool());
+
+  // start the ExecPlan
+  ASSERT_OK(plan->StartProducing());
+
+  // collect sink_reader into a Table
+  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  ASSERT_GT(collected->num_rows(), 0);
+
+  // wait 1s for completion
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
+}
+
 static void MinimalEndToEndBench(benchmark::State& state) {
   size_t num_batches = state.range(0);
   size_t batch_size = state.range(1);
-  bool async_mode = state.range(2);
 
   for (auto _ : state) {
-    MinimalEndToEndScan(num_batches, batch_size, async_mode);
+    MinimalEndToEndScan(num_batches, batch_size);
   }
   state.SetItemsProcessed(state.iterations() * num_batches);
   state.SetBytesProcessed(state.iterations() * num_batches * batch_size *
                           GetBytesForSchema());
 }
 
-static const std::vector<int32_t> kWorkload = {100, 1000, 10000, 100000};
+const std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+    kScanFactory = [](size_t num_batches, size_t batch_size) {
+      RecordBatchVector batches = GetBatches(num_batches, batch_size);
+      std::shared_ptr<Dataset> dataset =
+          std::make_shared<InMemoryDataset>(GetSchema(), std::move(batches));
+
+      std::shared_ptr<ScanOptions> options = std::make_shared<ScanOptions>();
+      // specify the filter
+      compute::Expression b_is_true = equal(field_ref("b"), literal(true));
+      options->filter = b_is_true;
+      options->projection = call("make_struct", {field_ref("a"), field_ref("b")},
+                                 compute::MakeStructOptions{{"a", "b"}});
+
+      return std::make_shared<ScanNodeOptions>(std::move(dataset), std::move(options));
+    };
+
+const std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+    kScanV2Factory =
+        [](size_t num_batches,
+           size_t batch_size) -> Result<std::shared_ptr<compute::ExecNodeOptions>> {
+  RecordBatchVector batches = GetBatches(num_batches, batch_size);
+  std::shared_ptr<Schema> sch = GetSchema();
+  std::shared_ptr<Dataset> dataset =
+      std::make_shared<InMemoryDataset>(sch, std::move(batches));
+
+  std::shared_ptr<ScanV2Options> options = std::make_shared<ScanV2Options>();
+  // specify the filter
+  compute::Expression b_is_true = field_ref("b");
+  options->dataset = dataset;
+  options->filter = b_is_true;
+  // for now, specify the projection as the full project expression (eventually this
+  // can just be a list of materialized field names)
+  compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  ARROW_ASSIGN_OR_RAISE(FieldPath a_path, FieldRef("a").FindOne(*sch));
+  ARROW_ASSIGN_OR_RAISE(FieldPath b_path, FieldRef("b").FindOne(*sch));
+  options->columns = {a_path, b_path};
+
+  return options;
+};
+
+static constexpr int kScanIdx = 0;
+static constexpr int kScanV2Idx = 1;
+
+static void ScanOnlyBench(benchmark::State& state) {
+  size_t num_batches = state.range(0);
+  size_t batch_size = state.range(1);
+
+  std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+      options_factory;
+  std::string scan_factory = "scan";
+  if (state.range(2) == kScanIdx) {
+    options_factory = kScanFactory;
+  } else if (state.range(2) == kScanV2Idx) {
+    options_factory = kScanV2Factory;
+    scan_factory = "scan2";
+  }
+
+  for (auto _ : state) {
+    ScanOnly(num_batches, batch_size, scan_factory, options_factory);
+  }
+  state.SetItemsProcessed(state.iterations() * num_batches);
+  state.SetBytesProcessed(state.iterations() * num_batches * batch_size *
+                          GetBytesForSchema());
+}
 
 static void MinimalEndToEnd_Customize(benchmark::internal::Benchmark* b) {
-  for (const int32_t num_batches : kWorkload) {
+  for (const int32_t num_batches : {1000}) {
     for (const int batch_size : {10, 100, 1000}) {
-      for (const bool async_mode : {true, false}) {
-        b->Args({num_batches, batch_size, async_mode});
+      b->Args({num_batches, batch_size});
+      RecordBatchVector batches =
+          ::arrow::compute::GenerateBatches(GetSchema(), num_batches, batch_size);
+      StoreBatches(num_batches, batch_size, batches);
+    }
+  }
+  b->ArgNames({"num_batches", "batch_size"});
+  b->UseRealTime();
+}
+
+// FIXME - Combine these two customize blocks by moving the end-to-end to support
+// options factories
+static void ScanOnlyEndToEnd_Customize(benchmark::internal::Benchmark* b) {
+  for (const int32_t num_batches : {1000}) {
+    for (const int batch_size : {10, 100, 1000}) {
+      for (const int scan_idx : {kScanIdx, kScanV2Idx}) {
+        b->Args({num_batches, batch_size, scan_idx});
         RecordBatchVector batches =
             ::arrow::compute::GenerateBatches(GetSchema(), num_batches, batch_size);
         StoreBatches(num_batches, batch_size, batches);
       }
     }
   }
-  b->ArgNames({"num_batches", "batch_size", "async_mode"});
+  b->ArgNames({"num_batches", "batch_size", "scan_alg"});
   b->UseRealTime();
 }
 
 BENCHMARK(MinimalEndToEndBench)->Apply(MinimalEndToEnd_Customize);
+BENCHMARK(ScanOnlyBench)->Apply(ScanOnlyEndToEnd_Customize)->Iterations(100);
 
 }  // namespace dataset
 }  // namespace arrow

@@ -76,9 +76,15 @@ Expression call(std::string function, std::vector<Expression> arguments,
   return Expression(std::move(call));
 }
 
-const Datum* Expression::literal() const { return std::get_if<Datum>(impl_.get()); }
+const Datum* Expression::literal() const {
+  if (impl_ == nullptr) return nullptr;
+
+  return std::get_if<Datum>(impl_.get());
+}
 
 const Expression::Parameter* Expression::parameter() const {
+  if (impl_ == nullptr) return nullptr;
+
   return std::get_if<Parameter>(impl_.get());
 }
 
@@ -90,7 +96,13 @@ const FieldRef* Expression::field_ref() const {
 }
 
 const Expression::Call* Expression::call() const {
+<<<<<<< HEAD
   return std::get_if<Call>(impl_.get());
+=======
+  if (impl_ == nullptr) return nullptr;
+
+  return util::get_if<Call>(impl_.get());
+>>>>>>> c445285167 (ARROW-17287: Initial creation of a "scan node" which doesn't use async generators to do scanning.  Formally defined a new scan options and interfaces for schema evolution.)
 }
 
 const DataType* Expression::type() const {
