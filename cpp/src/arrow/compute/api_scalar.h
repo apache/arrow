@@ -125,9 +125,9 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   /// By default time is rounded to a multiple of units since 1970-01-01T00:00:00.
   /// By setting multiple_since_greater_unit to true, time will be rounded to number
   /// of units since the last greater calendar unit.
-  /// For example: rounding to multiple of days since the beginning of the month or
+  /// For example: rounding to a multiple of days since the beginning of the month or
   /// to hours since the beginning of the day.
-  /// Exceptions: week and quarter are not used as greater units, therefor days will
+  /// Exceptions: week and quarter are not used as greater units, therefore days will
   /// will be rounded to the beginning of the month not week. Greater unit of week
   /// is year.
   bool multiple_since_greater_unit;
