@@ -756,7 +756,7 @@ TEST(CpuInfo, Basic) {
 }
 
 // Dump detecetd cpu features in CI for manual check, not a real test
-TEST(CpuInfo, DebugMessage) { FAIL() << CpuInfo::GetInstance()->DebugMessage(); }
+TEST(CpuInfo, DISABLED_DebugMessage) { FAIL() << CpuInfo::GetInstance()->DebugMessage(); }
 
 }  // namespace internal
 }  // namespace arrow
