@@ -101,24 +101,18 @@ duration_from_chunks <- function(chunks) {
 
 
 binding_as_date <- function(x,
-                            format = NULL,
-                            tryFormats = "%Y-%m-%d",
-                            origin = "1970-01-01") {
-
-  # if (is.null(format) && length(tryFormats) > 1) {
-  #   abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
-  # }
+                            ...) {
 
   if (call_binding("is.Date", x)) {
     return(x)
 
     # cast from character
   } else if (call_binding("is.character", x)) {
-    x <- binding_as_date_character(x, format, tryFormats)
+    x <- binding_as_date_character(x, ...)
 
     # cast from numeric
   } else if (call_binding("is.numeric", x)) {
-    x <- binding_as_date_numeric(x, origin)
+    x <- binding_as_date_numeric(x, ...)
   }
 
   build_expr("cast", x, options = cast_options(to_type = date32()))
@@ -126,7 +120,8 @@ binding_as_date <- function(x,
 
 binding_as_date_character <- function(x,
                                       format = NULL,
-                                      tryFormats = c("%Y-%m-%d", "%Y/%m/%d")) {
+                                      tryFormats = c("%Y-%m-%d", "%Y/%m/%d"),
+                                      ...) {
 
   # `tryFormats` is an argument only for `as.Date()`, but `as_date()` behaves in
   # a similar fashion, with its `.parse_iso_dt()`
@@ -138,7 +133,9 @@ binding_as_date_character <- function(x,
   parsed_date
 }
 
-binding_as_date_numeric <- function(x, origin = "1970-01-01") {
+binding_as_date_numeric <- function(x,
+                                    origin = "1970-01-01",
+                                    ...) {
 
   # Arrow does not support direct casting from double to date32(), but for
   # integer-like values we can go via int32()
