@@ -19,6 +19,7 @@ package org.apache.arrow.memory;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.openjdk.jmh.annotations.Benchmark;

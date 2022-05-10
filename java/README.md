@@ -155,7 +155,7 @@ we migrate to module system:
 # Review Arrow Java Format #
 ############################
 
-$cd arrow/java/format
+$ cd arrow/java/format
 
 # Review Arrow Java Format dependencies
 $ jar --describe-module --file target/arrow-format-8.0.0-SNAPSHOT.jar
@@ -187,7 +187,7 @@ requires java.base mandated
 ############################
 
 # 1.- Review Arrow Java Memory -> Core
-$cd arrow/java/memory/memory-core
+$ cd arrow/java/memory/memory-core
 
 # Review Arrow Java Memory
 $ jar --describe-module --file target/arrow-memory-core-8.0.0-SNAPSHOT.jar 
@@ -342,7 +342,7 @@ requires jdk.unsupported
 #######################
 
 # 1.- Review Arrow Vector
-$cd arrow/java/vector
+$ cd arrow/java/vector
 
 # Review Arrow Java Vector
 $ jar --describe-module --file target/arrow-vector-8.0.0-SNAPSHOT.jar 
@@ -628,7 +628,30 @@ requires java.sql
 requires org.apache.arrow.flatbuf
 requires org.slf4j
 
+#######################
+# Review Arrow Flight #
+#######################
 
+# 1.- Review Arrow Flight
+$ cd arrow/java/flight/flight-core
+
+# Review Arrow Java Vector
+$ jar --describe-module --file target/flight-core-8.0.0-SNAPSHOT.jar
+No module descriptor found. Derived automatic module.
+
+flight.core@8.0.0-SNAPSHOT automatic
+requires java.base mandated
+contains org.apache.arrow.flight
+contains org.apache.arrow.flight.auth
+contains org.apache.arrow.flight.auth2
+contains org.apache.arrow.flight.client
+contains org.apache.arrow.flight.grpc
+contains org.apache.arrow.flight.impl
+contains org.apache.arrow.flight.perf.impl
+contains org.apache.arrow.flight.sql.impl
+
+# Validate new module created
+# error: module flight.core reads package io.grpc from both grpc.api and grpc.context
 
 ```
 
