@@ -129,12 +129,12 @@ update_versions() {
   git add DESCRIPTION
   # Replace dev version with release version
   sed -i.bak -E -e \
-    "0,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
+    "/^<!--/,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
     NEWS.md
   if [ ${type} = "snapshot" ]; then
     # Add a news entry for the new dev version
     sed -i.bak -E -e \
-      "0,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
+      "/^<!--/,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
       NEWS.md
   fi
   rm -f NEWS.md.bak
