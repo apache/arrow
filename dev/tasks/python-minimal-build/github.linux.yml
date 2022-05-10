@@ -31,10 +31,9 @@ jobs:
     {% endfor %}
   {% endif %}
     steps:
-      {{ macros.github_checkout_arrow(fetch_depth=fetch_depth if fetch_depth is defined else 1)|indent }}
-      {{ macros.github_install_archery()|indent }}
+      {{ macros.github_checkout_arrow()|indent }}
 
       - name: Run minimal build example
         run: |
-          cd arrow/python/examples/minimal_build
+          cd arrow/python/examples/{{ type }}
           docker-compose run --rm {{ image }}

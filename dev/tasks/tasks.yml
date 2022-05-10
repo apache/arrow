@@ -208,32 +208,17 @@ tasks:
       flags: >-
         -e ARROW_CONAN_WITH_LZ4=True
       image: conan
-      
-  ############################## Minimal ##################################
 
-  minimal-fedora-conda:
+  ########################### Python Minimal ############################
+
+{% for kind in ["fedora-conda", "fedora-venv", "ubuntu-conda", "ubuntu-venv"] %}
+  example-python-minimal-build-{{ kind }}:
     ci: github
     template: python-minimal-build/github.linux.yml
     params:
-      image: minimal-fedora-conda
-
-  minimal-fedora-venv:
-    ci: github
-    template: python-minimal-build/github.linux.yml
-    params:
-      image: minimal-fedora-venv
-
-  minimal-ubuntu-conda:
-    ci: github
-    template: python-minimal-build/github.linux.yml
-    params:
-      image: minimal-ubuntu-conda
-
-  minimal-ubuntu-venv:
-    ci: github
-    template: python-minimal-build/github.linux.yml
-    params:
-      image: minimal-ubuntu-venv
+      type: minimal_build
+      run: minimal-{{ kind }}
+{% endfor %}
 
   ############################## Conda Linux ############################
 
