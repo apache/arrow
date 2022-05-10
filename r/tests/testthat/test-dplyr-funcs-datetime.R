@@ -1721,6 +1721,18 @@ test_that("parse_date_time() works with year, month, and date components", {
     )
   )
 
+  # parse_date_time() works with R objects
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time("2021/09///2", orders = "ymd")
+      ) %>%
+      collect(),
+    tibble::tibble(
+      a = 1
+    )
+  )
+
   # locale (affecting "%b% and "%B" formats) does not work properly on Windows
   # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16443 is done
   skip_on_os("windows")
