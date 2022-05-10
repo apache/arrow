@@ -1009,7 +1009,6 @@ if(ARROW_USE_BOOST)
     set(BUILD_SHARED_LIBS ON)
   else()
     # Find static boost headers and libs
-    # TODO Differentiate here between release and debug builds
     set(Boost_USE_STATIC_LIBS ON)
   endif()
   resolve_dependency(Boost
