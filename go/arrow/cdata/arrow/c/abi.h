@@ -17,6 +17,8 @@
 
 #pragma once
 
+#ifndef ARROW_C_DATA_H
+
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -60,6 +62,10 @@ struct ArrowArray {
   void* private_data;
 };
 
+#endif  // ARROW_C_DATA_H
+
+#ifndef ARROW_C_STREAM_H
+
 // EXPERIMENTAL: C stream interface
 
 struct ArrowArrayStream {
@@ -101,3 +107,5 @@ struct ArrowArrayStream {
 #ifdef __cplusplus
 }
 #endif
+
+#endif  // ARROW_C_STREAM_H

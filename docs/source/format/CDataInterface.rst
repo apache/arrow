@@ -255,6 +255,8 @@ are available under the Apache License 2.0.
 
 .. code-block:: c
 
+   #ifndef ARROW_C_DATA_H
+
    #define ARROW_FLAG_DICTIONARY_ORDERED 1
    #define ARROW_FLAG_NULLABLE 2
    #define ARROW_FLAG_MAP_KEYS_SORTED 4
@@ -291,6 +293,8 @@ are available under the Apache License 2.0.
      // Opaque producer-specific data
      void* private_data;
    };
+
+   #endif  // ARROW_C_DATA_H
 
 The ArrowSchema structure
 -------------------------
