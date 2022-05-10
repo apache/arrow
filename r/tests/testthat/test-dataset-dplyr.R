@@ -80,16 +80,6 @@ test_that("filter() on timestamp columns", {
     df1[5:10, c("ts")],
   )
 
-  # Now with Date
-  expect_equal(
-    ds %>%
-      filter(ts >= as.Date("2015-05-04")) %>%
-      filter(part == 1) %>%
-      select(ts) %>%
-      collect(),
-    df1[5:10, c("ts")],
-  )
-
   # Now with bare string date
   skip("Implement more aggressive implicit casting for scalars (ARROW-11402)")
   expect_equal(
@@ -100,6 +90,19 @@ test_that("filter() on timestamp columns", {
       collect(),
     df1[5:10, c("ts")],
   )
+
+  # string processing requires RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+  # Now with Date
+  expect_equal(
+    ds %>%
+      filter(ts >= as.Date("2015-05-04")) %>%
+      filter(part == 1) %>%
+      select(ts) %>%
+      collect(),
+    df1[5:10, c("ts")],
+  )
+
 })
 
 test_that("filter() on date32 columns", {
@@ -108,18 +111,20 @@ test_that("filter() on date32 columns", {
   df <- data.frame(date = as.Date(c("2020-02-02", "2020-02-03")))
   write_parquet(df, file.path(tmp, "file.parquet"))
 
+  # Also with timestamp scalar
   expect_equal(
     open_dataset(tmp) %>%
-      filter(date > as.Date("2020-02-02")) %>%
+      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
       collect() %>%
       nrow(),
     1L
   )
 
-  # Also with timestamp scalar
+  # string processing requires RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
   expect_equal(
     open_dataset(tmp) %>%
-      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
+      filter(date > as.Date("2020-02-02")) %>%
       collect() %>%
       nrow(),
     1L
