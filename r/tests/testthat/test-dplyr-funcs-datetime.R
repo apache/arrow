@@ -1550,7 +1550,7 @@ test_that("`as.Date()` and `as_date()`", {
     test_df
   )
 
-  # we now support multiple tryFormats
+  # as.Date() supports multiple tryFormats
   compare_dplyr_binding(
     .input %>%
       mutate(date_char_ymd = as.Date(
@@ -1560,6 +1560,23 @@ test_that("`as.Date()` and `as_date()`", {
       ) %>%
       collect(),
     test_df
+  )
+
+  # as_date() and as.Date() work with R objects
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date1 = as.Date("2022-05-10"),
+        date2 = as.Date(12, origin = "2022-05-01"),
+        date3 = as.Date("2022-10-03", tryFormats = "%Y-%m-%d"),
+        date4 = as_date("2022-05-10"),
+        date5 = as_date(12, origin = "2022-05-01"),
+        date6 = as_date("2022-10-03")
+      ) %>%
+      collect(),
+    tibble(
+      a = 1
+    )
   )
 
   # strptime does not support a partial format - Arrow returns NA, while
