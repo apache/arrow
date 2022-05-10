@@ -74,7 +74,7 @@ class Report:
     @property
     def contains_failures(self):
         return any(self.tasks_by_state[state] for state in (
-            "error", "failure", "pending"))
+            "error", "failure"))
 
     @property
     def tasks(self):
