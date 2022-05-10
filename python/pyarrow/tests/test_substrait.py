@@ -17,7 +17,6 @@
 
 import os
 import sys
-import pathlib
 import pytest
 
 import pyarrow as pa
@@ -36,22 +35,13 @@ except ImportError:
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not substrait'
-pytestmark = [pytest.mark.dataset, pytest.mark.parquet, pytest.mark.substrait]
-
-
-def resource_root():
-    """Get the path to the test resources directory."""
-    if not os.environ.get("PARQUET_TEST_DATA"):
-        raise RuntimeError("Test resources not found; set "
-                           "PARQUET_TEST_DATA to "
-                           "<repo root>/cpp/submodules/parquet-testing/data")
-    return pathlib.Path(os.environ["PARQUET_TEST_DATA"])
+pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
 
 
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="ARROW-16392: file based URI is" +
                     " not fully supported for Windows")
-def test_run_serialized_query():
+def test_run_serialized_query(tmpdir):
     substrait_query = """
     {
         "relations": [
@@ -60,7 +50,7 @@ def test_run_serialized_query():
             "base_schema": {
                 "struct": {
                 "types": [
-                            {"binary": {}}
+                            {"i64": {}}
                         ]
                 },
                 "names": [
@@ -70,8 +60,7 @@ def test_run_serialized_query():
             "local_files": {
                 "items": [
                 {
-                    "uri_file": "file://FILENAME_PLACEHOLDER",
-                    "format": "FILE_FORMAT_PARQUET"
+                    "uri_file": "file://FILENAME_PLACEHOLDER"
                 }
                 ]
             }
@@ -81,18 +70,25 @@ def test_run_serialized_query():
     }
     """
 
-    filename = str(resource_root() / "binary.parquet")
+    schema = pa.schema([pa.field('foo', pa.int64())])
+    path = os.path.join(str(tmpdir), 'substrait_data.arrow')
+    with pa.OSFile(path, 'wb') as sink:
+        with pa.ipc.new_file(sink, schema) as writer:
+            batch = pa.record_batch(
+                [pa.array(range(5), type=pa.int64())], schema)
+            writer.write(batch)
 
-    query = tobytes(substrait_query.replace("FILENAME_PLACEHOLDER", filename))
+    with pa.OSFile(path, 'rb') as source:
+        expected_table = pa.ipc.open_file(source).read_all()
+
+    query = tobytes(substrait_query.replace("FILENAME_PLACEHOLDER", path))
 
     buf = pa._substrait._parse_json_plan(query)
 
     reader = substrait.run_query(buf)
     res_tb = reader.read_all()
 
-    expected_tb = pq.read_table(filename)
-
-    assert expected_tb.num_rows == res_tb.num_rows
+    assert expected_table.num_rows == res_tb.num_rows
 
 
 def test_invalid_plan():
