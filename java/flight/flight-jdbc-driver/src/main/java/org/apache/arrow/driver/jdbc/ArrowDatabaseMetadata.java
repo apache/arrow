@@ -1037,8 +1037,10 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       }
 
       dataTypeVector.setSafe(insertIndex, SqlTypes.getSqlTypeIdFromArrowType(fieldType));
-      typeNameVector.setSafe(insertIndex,
-          SqlTypes.getSqlTypeNameFromArrowType(fieldType).getBytes(CHARSET));
+      byte[] typeName = columnMetadata.getTypeName() != null ?
+          columnMetadata.getTypeName().getBytes(CHARSET) :
+          SqlTypes.getSqlTypeNameFromArrowType(fieldType).getBytes(CHARSET);
+      typeNameVector.setSafe(insertIndex, typeName);
 
       // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
       // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
