@@ -209,6 +209,9 @@ function(ADD_ARROW_LIB LIB_NAME)
     # because of dllexport declarations on Windows.
     # The Xcode generator doesn't reliably work with Xcode as target names are not
     # guessed correctly.
+    # We can't use target for object library with CMake 3.11 or earlier.
+    # See also: Object Libraries:
+    # https://cmake.org/cmake/help/latest/command/add_library.html#object-libraries
     set(USE_OBJLIB OFF)
   else()
     set(USE_OBJLIB ON)
