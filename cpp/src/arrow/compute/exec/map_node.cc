@@ -34,16 +34,10 @@ namespace arrow {
 namespace compute {
 
 MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                 std::shared_ptr<Schema> output_schema, bool async_mode)
+                 std::shared_ptr<Schema> output_schema)
     : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
                std::move(output_schema),
-               /*num_outputs=*/1) {
-  if (async_mode) {
-    executor_ = plan_->exec_context()->executor();
-  } else {
-    executor_ = nullptr;
-  }
-}
+               /*num_outputs=*/1) {}
 
 void MapNode::ErrorReceived(ExecNode* input, Status error) {
   DCHECK_EQ(input, inputs_[0]);

@@ -77,9 +77,15 @@ Expression call(std::string function, std::vector<Expression> arguments,
   return Expression(std::move(call));
 }
 
-const Datum* Expression::literal() const { return std::get_if<Datum>(impl_.get()); }
+const Datum* Expression::literal() const {
+  if (impl_ == nullptr) return nullptr;
+
+  return std::get_if<Datum>(impl_.get());
+}
 
 const Expression::Parameter* Expression::parameter() const {
+  if (impl_ == nullptr) return nullptr;
+
   return std::get_if<Parameter>(impl_.get());
 }
 
@@ -91,6 +97,8 @@ const FieldRef* Expression::field_ref() const {
 }
 
 const Expression::Call* Expression::call() const {
+  if (impl_ == nullptr) return nullptr;
+
   return std::get_if<Call>(impl_.get());
 }
 
