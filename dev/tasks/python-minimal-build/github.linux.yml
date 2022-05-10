@@ -22,7 +22,7 @@
 jobs:
   test:
     name: |
-      Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
+      Docker Python Minimal Build {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
   {% if env is defined %}
     env:
@@ -37,4 +37,4 @@ jobs:
       - name: Run minimal build example
         run: |
           cd arrow/python/examples/minimal_build
-          docker-compose run --rm ${{ image }}
+          docker-compose run --rm {{ image }}
