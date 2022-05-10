@@ -29,11 +29,14 @@ ARROW_ROOT=/arrow
 PYTHON=3.10
 
 git config --global --add safe.directory $ARROW_ROOT
+
 # git submodules are required for unit tests
+pushd $ARROW_ROOT
 git submodule update --init
 git config --global --add safe.directory $ARROW_ROOT/cpp/submodules/parquet-testing
 export PARQUET_TEST_DATA="$ARROW_ROOT/cpp/submodules/parquet-testing/data"
 export ARROW_TEST_DATA="$ARROW_ROOT/testing/data"
+popd
 
 #----------------------------------------------------------------------
 # Run these only once
