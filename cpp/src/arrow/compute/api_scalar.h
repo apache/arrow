@@ -119,7 +119,9 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   CalendarUnit unit;
   /// What day does the week start with (Monday=true, Sunday=false)
   bool week_starts_monday;
-  /// If True times exactly on unit multiple boundary will be rounded up one unit.
+  /// Enable this flag to return a rounded value that is strictly greater than the input.
+  /// For example: ceiling 1970-01-01T00:00:00 to 3 hours would yield 1970-01-01T03:00:00
+  /// if set to true and 1970-01-01T00:00:00 if set to false.
   /// This applies for ceiling only.
   bool ceil_on_boundary;
   /// By default time is rounded to a multiple of units since 1970-01-01T00:00:00.
