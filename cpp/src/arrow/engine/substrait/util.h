@@ -24,7 +24,7 @@
 
 namespace arrow {
 
-namespace engine {
+namespace substrait {
 
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
@@ -32,9 +32,9 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerialized
 
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> ParseJsonPlan(
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
     const std::string& substrait_json);
 
-}  // namespace engine
+}  // namespace substrait
 
 }  // namespace arrow

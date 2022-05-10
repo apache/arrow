@@ -796,8 +796,8 @@ TEST(Substrait, GetRecordBatchReader) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
-  ASSERT_OK_AND_ASSIGN(auto buf, engine::ParseJsonPlan(substrait_json));
-  ASSERT_OK_AND_ASSIGN(auto reader, engine::ExecuteSerializedPlan(*buf));
+  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto reader, substrait::ExecuteSerializedPlan(*buf));
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
   // Note: assuming the binary.parquet file contains fixed amount of records
   // in case of a test failure, re-evalaute the content in the file
@@ -810,8 +810,8 @@ TEST(Substrait, InvalidPlan) {
     "relations": [
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, engine::ParseJsonPlan(substrait_json));
-  ASSERT_RAISES(Invalid, engine::ExecuteSerializedPlan(*buf));
+  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_RAISES(Invalid, substrait::ExecuteSerializedPlan(*buf));
 }
 
 }  // namespace engine

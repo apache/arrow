@@ -21,6 +21,7 @@ from cython.operator cimport dereference as deref
 from pyarrow import Buffer
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.libarrow_substrait cimport *
 
 
 def run_query(plan):
@@ -57,7 +58,7 @@ def _parse_json_plan(plan):
     Parameters
     ----------
     plan: bytes
-        Parse a Substrait plan in JSON to a serialized plan.
+        Substrait plan in JSON.
 
     Returns
     -------
@@ -71,7 +72,7 @@ def _parse_json_plan(plan):
         shared_ptr[CBuffer] c_buf_plan
 
     c_str_plan = plan
-    c_res_buffer = ParseJsonPlan(c_str_plan)
-    c_buf_plan = GetResultValue(c_res_buffer)
-
+    c_res_buffer = SerializeJsonPlan(c_str_plan)
+    with nogil:
+        c_buf_plan = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buf_plan)
