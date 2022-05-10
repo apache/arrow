@@ -18,6 +18,7 @@
 #pragma once
 
 #ifndef ARROW_C_DATA_H
+#define ARROW_C_DATA_H
 
 #include <stdint.h>
 
@@ -65,6 +66,7 @@ struct ArrowArray {
 #endif  // ARROW_C_DATA_H
 
 #ifndef ARROW_C_STREAM_H
+#define ARROW_C_STREAM_H
 
 // EXPERIMENTAL: C stream interface
 

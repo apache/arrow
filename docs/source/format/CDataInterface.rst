@@ -256,6 +256,7 @@ are available under the Apache License 2.0.
 .. code-block:: c
 
    #ifndef ARROW_C_DATA_H
+   #define ARROW_C_DATA_H
 
    #define ARROW_FLAG_DICTIONARY_ORDERED 1
    #define ARROW_FLAG_NULLABLE 2

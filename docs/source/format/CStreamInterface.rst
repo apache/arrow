@@ -46,6 +46,7 @@ Structure definition
 The C stream interface is defined by a single ``struct`` definition::
 
    #ifndef ARROW_C_STREAM_H
+   #define ARROW_C_STREAM_H
 
    struct ArrowArrayStream {
      // Callbacks providing stream functionality
