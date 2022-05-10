@@ -114,7 +114,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
            "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
         ],
-      },      
+      },
       {
         path: "docs/source/_static/versions.json",
         hunks: [
@@ -188,6 +188,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       lines = File.readlines(path, chomp: true)
       target_lines = lines.grep(/#{Regexp.escape(import_path)}/)
       next if target_lines.empty?
+      hunks = []
       hunk = []
       target_lines.each do |line|
         hunk << "-#{line}"
@@ -198,11 +199,14 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         end
         hunk << "+#{new_line}"
       end
+      hunks << hunk
       if path == "go/parquet/writer_properties.go"
-        hunk.append("-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"")
-        hunk.append("+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"")
+        hunks << [
+          "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
+          "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"",
+        ]
       end
-      expected_changes << {hunks: [hunk], path: path}
+      expected_changes << {hunks: hunks, path: path}
     end
 
     Dir.glob("java/**/pom.xml") do |path|
