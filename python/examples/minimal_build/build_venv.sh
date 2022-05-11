@@ -34,16 +34,6 @@ source $WORKDIR/venv/bin/activate
 
 git config --global --add safe.directory $ARROW_ROOT
 
-# git submodules are required for unit tests
-git config --global --add safe.directory $ARROW_ROOT/testing
-git config --global --add safe.directory $ARROW_ROOT/cpp/submodules/parquet-testing
-
-pushd $ARROW_ROOT
-git submodule update --init
-export PARQUET_TEST_DATA="$ARROW_ROOT/cpp/submodules/parquet-testing/data"
-export ARROW_TEST_DATA="$ARROW_ROOT/testing/data"
-popd
-
 pip install -r $ARROW_ROOT/python/requirements-build.txt
 
 #----------------------------------------------------------------------
@@ -87,6 +77,11 @@ export PYARROW_WITH_PARQUET=1
 
 # python setup.py build_ext --inplace
 python setup.py develop
+
+# git submodules are required for unit tests
+git submodule update --init
+export PARQUET_TEST_DATA="$ARROW_ROOT/cpp/submodules/parquet-testing/data"
+export ARROW_TEST_DATA="$ARROW_ROOT/testing/data"
 
 pip install -r $ARROW_ROOT/python/requirements-test.txt
 
