@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <utility>
@@ -62,10 +63,12 @@ class ArrayIterator {
 
   // Value access
   value_type operator*() const {
+    assert(array_);
     return array_->IsNull(index_) ? value_type{} : array_->GetView(index_);
   }
 
   value_type operator[](difference_type n) const {
+    assert(array_);
     return array_->IsNull(index_ + n) ? value_type{} : array_->GetView(index_ + n);
   }
 
@@ -142,37 +145,22 @@ class ChunkedArrayIterator {
   using iterator_category = std::random_access_iterator_tag;
 
   // Some algorithms need to default-construct an iterator
-  ChunkedArrayIterator() : chunked_array_(NULLPTR), index_(0) {}
+  ChunkedArrayIterator() noexcept : chunked_array_(NULLPTR), index_(0) {}
 
-  explicit ChunkedArrayIterator(const ChunkedArray& chunked_array, int64_t index = 0)
-      : chunked_array_(&chunked_array), index_(index) {
-    assert(chunked_array_);
-    assert(index_ >= 0 && index_ <= chunked_array_->length());
-    if (index_ < chunked_array.length()) {
-      auto chunk_location = GetChunkLocation(this->index_);
-      current_array_iterator_ = ArrayIterator<ArrayType>(
-          arrow::internal::checked_cast<const ArrayType&>(
-              *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
-          chunk_location.index_in_chunk);
-    } else {
-      current_array_iterator_ = {};
-    }
-  }
+  explicit ChunkedArrayIterator(const ChunkedArray& chunked_array,
+                                int64_t index = 0) noexcept
+      : chunked_array_(&chunked_array), index_(index) {}
 
   // Value access
   value_type operator*() const {
-    assert(chunked_array_);
-    return *current_array_iterator_;
-  }
-
-  value_type operator[](difference_type n) const {
-    assert(chunked_array_);
-    auto chunk_location = GetChunkLocation(index_ + n);
+    auto chunk_location = GetChunkLocation(index_);
     ArrayIterator<ArrayType> target_iterator{
         arrow::internal::checked_cast<const ArrayType&>(
             *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index)))};
     return target_iterator[chunk_location.index_in_chunk];
   }
+
+  value_type operator[](difference_type n) const { return *(*this + n); }
 
   int64_t index() const { return index_; }
 
@@ -202,32 +190,25 @@ class ChunkedArrayIterator {
     return index_ - other.index_;
   }
   ChunkedArrayIterator operator+(difference_type n) const {
+    assert(chunked_array_);
     return ChunkedArrayIterator(*chunked_array_, index_ + n);
   }
   ChunkedArrayIterator operator-(difference_type n) const {
+    assert(chunked_array_);
     return ChunkedArrayIterator(*chunked_array_, index_ - n);
   }
   friend inline ChunkedArrayIterator operator+(difference_type diff,
                                                const ChunkedArrayIterator& other) {
+    assert(other.chunked_array_);
     return ChunkedArrayIterator(*other.chunked_array_, diff + other.index_);
   }
   friend inline ChunkedArrayIterator operator-(difference_type diff,
                                                const ChunkedArrayIterator& other) {
+    assert(other.chunked_array_);
     return ChunkedArrayIterator(*other.chunked_array_, diff - other.index_);
   }
   ChunkedArrayIterator& operator+=(difference_type n) {
-    assert(chunked_array_);
     index_ += n;
-    assert(index_ >= 0 && index_ <= chunked_array_->length());
-    if (index_ < chunked_array_->length()) {
-      auto chunk_location = GetChunkLocation(index_);
-      current_array_iterator_ = ArrayIterator<ArrayType>(
-          arrow::internal::checked_cast<const ArrayType&>(
-              *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index))),
-          chunk_location.index_in_chunk);
-    } else {
-      current_array_iterator_ = {};
-    }
     return *this;
   }
   ChunkedArrayIterator& operator-=(difference_type n) {
@@ -263,7 +244,6 @@ class ChunkedArrayIterator {
 
   const ChunkedArray* chunked_array_;
   int64_t index_;
-  ArrayIterator<ArrayType> current_array_iterator_;
 };
 
 /// Return an iterator to the beginning of the chunked array
