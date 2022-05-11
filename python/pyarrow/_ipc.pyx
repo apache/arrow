@@ -807,6 +807,24 @@ cdef class RecordBatchReader(_Weakrefable):
 
     @staticmethod
     def from_table(Table table, max_chunksize=None):
+        """
+        Create a RecordBatchReader from a Table.
+
+        Note that this method is zero-copy, it merely exposes the same data
+        under a different API.
+
+        Parameters
+        ----------
+        table : Table
+            The table from which the RecordBatchReader should be created.
+        max_chunksize : int, default None
+            Maximum size for RecordBatch chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
         cdef:
             RecordBatchReader reader
             shared_ptr[CRecordBatchReader] c_reader
