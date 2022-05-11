@@ -245,6 +245,8 @@ class build_ext(_build_ext):
                                      cachefile.read()).group(1)
                 cachefile.close()
                 if (cachedir != build_temp):
+                    print(f"-- Skipping build. Temp build {build_temp} does"
+                          f" not match cached dir {cachedir}")
                     return
 
             static_lib_option = ''
