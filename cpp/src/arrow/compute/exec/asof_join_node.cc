@@ -499,16 +499,17 @@ class CompositeReferenceTable {
   std::shared_ptr<Array> materialize_primitive_column(size_t i_table, size_t i_col) {
     Builder builder;
     // builder.Resize(_rows.size()); // <-- can't just do this -- need to set the bitmask
-    builder.AppendEmptyValues(rows_.size());
+    // builder.AppendEmptyValues(rows_.size());
+    builder.Reserve(rows_.size());
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
       if (ref.batch) {
-        builder[i_row] =
-            ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(
-                1)[ref.row];
+        builder.UnsafeAppend(
+			     ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(1)[ref.row]
+			     );
+      } else {
+	builder.AppendNull();
       }
-      // TODO: set null value if ref.batch is null -- currently we don't due to API
-      // limitations of the builders.
     }
     std::shared_ptr<Array> result;
     if (!builder.Finish(&result).ok()) {

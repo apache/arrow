@@ -125,7 +125,7 @@ void RunNonEmptyTest(bool exact_matches) {
   r0_batches = GenerateBatchesFromString(r0_schema, {R"([[0, 1, 11.0]])"});
   r1_batches = GenerateBatchesFromString(r1_schema, {R"([[1000, 1, 101.0]])"});
   exp_batches = GenerateBatchesFromString(
-      exp_schema, {R"([[0, 1, 1.0, 11.0, 0.0], [1000, 1, 2.0, 11.0, 101.0]])"});
+      exp_schema, {R"([[0, 1, 1.0, 11.0, null], [1000, 1, 2.0, 11.0, 101.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
 
   // Single key, multiple batches
@@ -165,7 +165,7 @@ void RunNonEmptyTest(bool exact_matches) {
                   R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
   exp_batches = GenerateBatchesFromString(
       exp_schema,
-      {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 1001.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+      {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 1001.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
        R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
 
@@ -182,11 +182,11 @@ void RunNonEmptyTest(bool exact_matches) {
                   R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
   exp_batches = GenerateBatchesFromString(
       exp_schema,
-      {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 0.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+      {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, null], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
        R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 500);
 
-  // Multi key, multiple batches, misaligned batches, zero tolerance
+  // // Multi key, multiple batches, misaligned batches, zero tolerance
   l_batches = GenerateBatchesFromString(
       l_schema,
       {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
@@ -199,8 +199,8 @@ void RunNonEmptyTest(bool exact_matches) {
                   R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
   exp_batches = GenerateBatchesFromString(
       exp_schema,
-      {R"([[0, 1, 1.0, 11.0, 0.0], [0, 2, 21.0, 0.0, 1001.0], [500, 1, 2.0, 0.0, 101.0], [1000, 2, 22.0, 0.0, 0.0], [1500, 1, 3.0, 0.0, 0.0], [1500, 2, 23.0, 32.0, 1002.0]])",
-       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 0.0, 0.0]])"});
+      {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, null, 101.0], [1000, 2, 22.0, null, null], [1500, 1, 3.0, null, null], [1500, 2, 23.0, 32.0, 1002.0]])",
+       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, null, null]])"});
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 0);
 }
 
