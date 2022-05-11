@@ -836,7 +836,7 @@ cdef class RecordBatchReader(_Weakrefable):
             t_reader.get().set_chunksize(max_chunksize)
 
         c_reader = dynamic_pointer_cast[CRecordBatchReader, TableBatchReader](
-           t_reader)
+            t_reader)
 
         reader = RecordBatchReader.__new__(RecordBatchReader)
         reader.reader = c_reader
