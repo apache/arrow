@@ -352,8 +352,8 @@ register_bindings_datetime_conversion <- function() {
 
     fraction <- decimal - y
     delta <- build_expr("floor", seconds * fraction)
-    delta <- delta$cast(int64())
-    start + delta$cast(duration("s"))
+    delta <- make_duration(delta, "s")
+    start + delta
   })
 }
 
@@ -413,9 +413,8 @@ register_bindings_duration <- function() {
 
     if (call_binding("is.character", x)) {
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-      # complex casting only due to cast type restrictions: time64 -> int64 -> duration(us)
-      # and then we cast to duration ("s") at the end
-      x <- x$cast(time64("us"))$cast(int64())$cast(duration("us"))
+      # we do a final cast to duration ("s") at the end
+      x <- make_duration(x$cast(time64("us")), unit = "us")
     }
 
     # numeric -> duration not supported in Arrow yet so we use int64() as an
@@ -460,8 +459,7 @@ register_bindings_duration_constructor <- function() {
       duration <- duration_from_chunks(chunks)
     }
 
-    duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
-    duration$cast(duration("s"))
+    make_duration(duration, "s")
   })
 }
 
