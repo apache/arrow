@@ -1423,7 +1423,7 @@ macro(build_thrift)
       "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
       "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
       # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
-      -DBoost_NO_BOOST_CMAKE=ON)
+      -DBoost_NO_BOOST_CMAKE=ON
       -DBUILD_COMPILER=OFF
       -DBUILD_EXAMPLES=OFF
       -DBUILD_SHARED_LIBS=OFF
@@ -1437,7 +1437,7 @@ macro(build_thrift)
       -DWITH_LIBEVENT=OFF
       -DWITH_NODEJS=OFF
       -DWITH_PYTHON=OFF
-      -DWITH_STATIC_LIB=ON
+      -DWITH_STATIC_LIB=ON)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if(DEFINED BOOST_ROOT)
