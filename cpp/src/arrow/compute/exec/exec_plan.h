@@ -427,6 +427,15 @@ struct ARROW_EXPORT Declaration {
   ///         {"n3", N3Opts{}},
   ///     });
   static Declaration Sequence(std::vector<Declaration> decls);
+  /// \brief Create a declaration by appending a sequence onto the end of `this`
+  Declaration Concat(std::vector<Declaration> decls);
+  /// \brief Create a declaration by appending a declaration onto the end of `this`
+  Declaration Concat(Declaration decl);
+  /// \brief Gets the root node of a declaration
+  ///
+  /// Will fail if any node has multiple inputs or has already been constructed (i.e. if
+  /// the input is an ExecNode and not a Declaration)
+  Declaration* Root();
 
   Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
                                                   default_exec_factory_registry()) const;

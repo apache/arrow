@@ -506,20 +506,42 @@ Result<ExecNode*> Declaration::AddToPlan(ExecPlan* plan,
   return node;
 }
 
+Declaration* Declaration::Root() {
+  Declaration* current = this;
+  while (!current->inputs.empty()) {
+    DCHECK_LE(current->inputs.size(), 1)
+        << "No clear root when a declaration has multiple inputs";
+    auto& input = current->inputs[0];
+    Declaration* maybe_next = input.get<Declaration>();
+    DCHECK(maybe_next) << "Attempt to get root when part of declaration is already built";
+    current = maybe_next;
+  }
+  return current;
+}
+
 Declaration Declaration::Sequence(std::vector<Declaration> decls) {
   DCHECK(!decls.empty());
 
   Declaration out = std::move(decls.back());
   decls.pop_back();
-  auto receiver = &out;
+  auto receiver = out.Root();
   while (!decls.empty()) {
     Declaration input = std::move(decls.back());
     decls.pop_back();
 
     receiver->inputs.emplace_back(std::move(input));
-    receiver = &util::get<Declaration>(receiver->inputs.front());
+    receiver = util::get<Declaration>(receiver->inputs.front()).Root();
   }
   return out;
+}
+
+Declaration Declaration::Concat(std::vector<Declaration> decls) {
+  decls.insert(decls.begin(), *this);
+  return Declaration::Sequence(std::move(decls));
+}
+
+Declaration Declaration::Concat(Declaration next) {
+  return Concat(std::vector<Declaration>{std::move(next)});
 }
 
 namespace internal {

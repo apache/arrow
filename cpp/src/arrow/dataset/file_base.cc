@@ -465,14 +465,7 @@ class TeeNode : public compute::MapNode {
       // Need to wait for the task group to complete regardless of dw_status
       task_group_.End().AddCallback(
           [this, dw_status, finish_st](const Status& tg_status) {
-            // Prefer dw_status then finish_st and then tg_status
-            if (!dw_status.ok()) {
-              finished_.MarkFinished(dw_status);
-            }
-            if (!finish_st.ok()) {
-              finished_.MarkFinished(finish_st);
-            }
-            finished_.MarkFinished(tg_status);
+            finished_.MarkFinished(dw_status & finish_st & tg_status);
           });
     });
   }

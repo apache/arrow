@@ -349,18 +349,17 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
 }
 
 class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>> {
+  using PlanFactory = std::function<cp::Declaration(
+      const FileSystemDatasetWriteOptions&,
+      std::function<Future<util::optional<cp::ExecBatch>>()>*)>;
+
  protected:
   bool IsParallel() { return std::get<0>(GetParam()); }
   bool IsSlow() { return std::get<1>(GetParam()); }
 
   FileSystemWriteTest() { dataset::internal::Initialize(); }
 
-  void TestDatasetWriteRoundTrip(
-      std::function<Result<std::shared_ptr<cp::ExecPlan>>(
-          const cp::BatchesWithSchema& source_data, const FileSystemDatasetWriteOptions&,
-          std::function<Future<util::optional<cp::ExecBatch>>()>*)>
-          plan_factory,
-      bool has_output) {
+  void TestDatasetWriteRoundTrip(PlanFactory plan_factory, bool has_output) {
     // Runs in-memory data through the plan and then scans out the written
     // data to ensure it matches the source data
     auto format = std::make_shared<IpcFileFormat>();
@@ -371,6 +370,7 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
     write_options.base_dir = "root";
     write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
     write_options.basename_template = "{i}.feather";
+    const std::string kExpectedFilename = "root/0.feather";
 
     cp::BatchesWithSchema source_data;
     source_data.batches = {
@@ -380,7 +380,13 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
     source_data.schema = schema({field("i32", int32()), field("bool", boolean())});
 
     AsyncGenerator<util::optional<cp::ExecBatch>> sink_gen;
-    ASSERT_OK_AND_ASSIGN(auto plan, plan_factory(source_data, write_options, &sink_gen));
+
+    ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
+    auto source_decl = cp::Declaration::Sequence(
+        {{"source", cp::SourceNodeOptions{source_data.schema,
+                                          source_data.gen(IsParallel(), IsSlow())}}});
+    auto plan_decl = plan_factory(write_options, &sink_gen);
+    ASSERT_OK(source_decl.Concat(plan_decl).AddToPlan(plan.get()));
 
     if (has_output) {
       ASSERT_FINISHES_OK_AND_ASSIGN(auto out_batches,
@@ -392,7 +398,7 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
 
     // Read written dataset and make sure it matches
     ASSERT_OK_AND_ASSIGN(auto dataset_factory, FileSystemDatasetFactory::Make(
-                                                   fs, {"root/0.feather"}, format, {}));
+                                                   fs, {kExpectedFilename}, format, {}));
     ASSERT_OK_AND_ASSIGN(auto written_dataset, dataset_factory->Finish(FinishOptions{}));
     AssertSchemaEqual(*source_data.schema, *written_dataset->schema());
 
@@ -414,40 +420,22 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
 
 TEST_P(FileSystemWriteTest, Write) {
   auto plan_factory =
-      [this](const cp::BatchesWithSchema& source_data,
-             const FileSystemDatasetWriteOptions& write_options,
-             std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen)
-      -> Result<std::shared_ptr<cp::ExecPlan>> {
-    ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
-    RETURN_NOT_OK(
-        cp::Declaration::Sequence(
-            {{"source", cp::SourceNodeOptions{source_data.schema,
-                                              source_data.gen(IsParallel(), IsSlow())}},
-             {"write", WriteNodeOptions{write_options}}})
-            .AddToPlan(plan.get()));
-    return plan;
-  };
+      [](const FileSystemDatasetWriteOptions& write_options,
+         std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen) {
+        return cp::Declaration::Sequence({{"write", WriteNodeOptions{write_options}}});
+      };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/false);
 }
 
 TEST_P(FileSystemWriteTest, TeeWrite) {
   auto plan_factory =
-      [this](const cp::BatchesWithSchema& source_data,
-             const FileSystemDatasetWriteOptions& write_options,
-             std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen)
-      -> Result<std::shared_ptr<cp::ExecPlan>> {
-    ARROW_ASSIGN_OR_RAISE(auto plan, cp::ExecPlan::Make());
-    RETURN_NOT_OK(cp::Declaration::Sequence(
-                      {
-                          {"source", cp::SourceNodeOptions{source_data.schema,
-                                                           source_data.gen(IsParallel(),
-                                                                           IsSlow())}},
-                          {"tee", WriteNodeOptions{write_options}},
-                          {"sink", cp::SinkNodeOptions{sink_gen}},
-                      })
-                      .AddToPlan(plan.get()));
-    return plan;
-  };
+      [](const FileSystemDatasetWriteOptions& write_options,
+         std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen) {
+        return cp::Declaration::Sequence({
+            {"tee", WriteNodeOptions{write_options}},
+            {"sink", cp::SinkNodeOptions{sink_gen}},
+        });
+      };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/true);
 }
 
