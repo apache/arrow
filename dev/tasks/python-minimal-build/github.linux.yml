@@ -31,7 +31,7 @@ jobs:
     {% endfor %}
   {% endif %}
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(submodules=false)|indent }}
 
       - name: Run minimal build example
         run: |
