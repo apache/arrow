@@ -622,10 +622,15 @@ if(ARROW_TESTING)
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
+                arrow::flatbuffers
+                rapidjson::rapidjson
                 arrow_shared
                 GTest::gtest
                 STATIC_LINK_LIBS
-                arrow_static)
+                arrow::flatbuffers
+                rapidjson::rapidjson
+                arrow_static
+                GTest::gtest)
 
   add_custom_target(arrow_testing)
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})

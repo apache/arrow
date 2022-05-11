@@ -29,6 +29,7 @@ if(DEFINED ENV{CUDA_HOME})
   set(CUDA_TOOLKIT_ROOT_DIR "$ENV{CUDA_HOME}")
 endif()
 
+set(ARROW_CUDA_LINK_LIBS arrow::flatbuffers)
 if(CMAKE_VERSION VERSION_LESS 3.17)
   find_package(CUDA REQUIRED)
   set(ARROW_CUDA_SHARED_LINK_LIBS ${CUDA_CUDA_LIBRARY})
@@ -39,7 +40,6 @@ else()
   # CUDAToolkit is only available in CMake >= 3.17
   find_package(CUDAToolkit REQUIRED)
   set(ARROW_CUDA_SHARED_LINK_LIBS CUDA::cuda_driver)
-  include_directories(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
 set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memory.cc)
@@ -57,9 +57,11 @@ add_arrow_lib(arrow_cuda
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_shared
+              ${ARROW_CUDA_LINK_LIBS}
               ${ARROW_CUDA_SHARED_LINK_LIBS}
               # Static arrow_cuda must also link against CUDA shared libs
               STATIC_LINK_LIBS
+              ${ARROW_CUDA_LINK_LIBS}
               ${ARROW_CUDA_SHARED_LINK_LIBS})
 
 add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})

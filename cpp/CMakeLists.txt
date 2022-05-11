@@ -691,10 +691,19 @@ endif()
 # Linker and Dependencies
 #
 
-# Libraries to link statically with libarrow.so
-set(ARROW_LINK_LIBS)
-set(ARROW_STATIC_LINK_LIBS)
+# Libraries to link statically with libarrow.so.
+#
+# Note that arrow::hadoop is a header only target that refers
+# cpp/thirdparty/hadoop/include/. See
+# cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
+set(ARROW_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
+
+if(ARROW_USE_BOOST)
+  list(APPEND ARROW_LINK_LIBS Boost::headers)
+  list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
+endif()
 
 if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
@@ -808,6 +817,16 @@ if(ARROW_WITH_RE2)
   endif()
 endif()
 
+if(ARROW_WITH_RAPIDJSON)
+  list(APPEND ARROW_LINK_LIBS rapidjson::rapidjson)
+  list(APPEND ARROW_STATIC_LINK_LIBS rapidjson::rapidjson)
+endif()
+
+if(ARROW_USE_XSIMD)
+  list(APPEND ARROW_LINK_LIBS xsimd)
+  list(APPEND ARROW_STATIC_LINK_LIBS xsimd)
+endif()
+
 add_custom_target(arrow_dependencies)
 add_custom_target(arrow_benchmark_dependencies)
 add_custom_target(arrow_test_dependencies)
@@ -830,26 +849,18 @@ endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
-# boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
-if(((ARROW_FLIGHT
-     OR ARROW_S3
-     OR ARROW_GCS)
-    AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
-   ))
-  list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
-endif()
-
 if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN
+    arrow::flatbuffers
     GTest::gtest_main
     GTest::gtest
     GTest::gmock
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY})
+    Boost::filesystem
+    Boost::system)
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})

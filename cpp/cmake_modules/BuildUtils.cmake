@@ -30,25 +30,9 @@ set(ARROW_LIBRARY_PATH_SUFFIXES
     "Library/bin")
 set(ARROW_INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
 
-set(ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS)
-if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # boost/process/detail/windows/handle_workaround.hpp doesn't work
-  # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-  # provide __kernel_entry without winternl.h.
-  #
-  # See also:
-  # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-  #
-  # You can use this like the following:
-  #
-  #   target_compile_definitions(target PRIVATE
-  #                              ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
-  list(APPEND ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS "BOOST_USE_WINDOWS_H=1")
-endif()
-
-function(ADD_THIRDPARTY_LIB LIB_NAME)
+function(add_thirdparty_lib LIB_NAME LIB_TYPE LIB)
   set(options)
-  set(one_value_args SHARED_LIB STATIC_LIB)
+  set(one_value_args)
   set(multi_value_args DEPS INCLUDE_DIRECTORIES)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -59,78 +43,25 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if(ARG_STATIC_LIB AND ARG_SHARED_LIB)
-    set(AUG_LIB_NAME "${LIB_NAME}_static")
-    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_LOCATION
-                                                     "${ARG_STATIC_LIB}")
-    if(ARG_DEPS)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                       "${ARG_DEPS}")
-    endif()
-    message(STATUS "Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
-    if(ARG_INCLUDE_DIRECTORIES)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                       "${ARG_INCLUDE_DIRECTORIES}")
-    endif()
-
-    set(AUG_LIB_NAME "${LIB_NAME}_shared")
-    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
-
-    if(WIN32)
-      # Mark the ".lib" location as part of a Windows DLL
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_IMPLIB
-                                                       "${ARG_SHARED_LIB}")
-    else()
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_LOCATION
-                                                       "${ARG_SHARED_LIB}")
-    endif()
-    if(ARG_DEPS)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                       "${ARG_DEPS}")
-    endif()
-    message(STATUS "Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
-    if(ARG_INCLUDE_DIRECTORIES)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                       "${ARG_INCLUDE_DIRECTORIES}")
-    endif()
-  elseif(ARG_STATIC_LIB)
-    set(AUG_LIB_NAME "${LIB_NAME}_static")
-    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_LOCATION
-                                                     "${ARG_STATIC_LIB}")
-    if(ARG_DEPS)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                       "${ARG_DEPS}")
-    endif()
-    message(STATUS "Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
-    if(ARG_INCLUDE_DIRECTORIES)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                       "${ARG_INCLUDE_DIRECTORIES}")
-    endif()
-  elseif(ARG_SHARED_LIB)
-    set(AUG_LIB_NAME "${LIB_NAME}_shared")
-    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
-
-    if(WIN32)
-      # Mark the ".lib" location as part of a Windows DLL
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_IMPLIB
-                                                       "${ARG_SHARED_LIB}")
-    else()
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_LOCATION
-                                                       "${ARG_SHARED_LIB}")
-    endif()
-    message(STATUS "Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
-    if(ARG_DEPS)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                       "${ARG_DEPS}")
-    endif()
-    if(ARG_INCLUDE_DIRECTORIES)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                       "${ARG_INCLUDE_DIRECTORIES}")
-    endif()
+  add_library(${LIB_NAME} ${LIB_TYPE} IMPORTED)
+  if(${LIB_TYPE} STREQUAL "STATIC")
+    set_target_properties(${LIB_NAME} PROPERTIES IMPORTED_LOCATION "${LIB}")
+    message(STATUS "Added static library dependency ${LIB_NAME}: ${LIB}")
   else()
-    message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
+    if(WIN32)
+      # Mark the ".lib" location as part of a Windows DLL
+      set_target_properties(${LIB_NAME} PROPERTIES IMPORTED_IMPLIB "${LIB}")
+    else()
+      set_target_properties(${LIB_NAME} PROPERTIES IMPORTED_LOCATION "${LIB}")
+    endif()
+    message(STATUS "Added shared library dependency ${LIB_NAME}: ${LIB}")
+  endif()
+  if(ARG_DEPS)
+    set_target_properties(${LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
+  endif()
+  if(ARG_INCLUDE_DIRECTORIES)
+    set_target_properties(${LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                 "${ARG_INCLUDE_DIRECTORIES}")
   endif()
 endfunction()
 
@@ -271,11 +202,16 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY})
   endif()
 
-  if(WIN32 OR (CMAKE_GENERATOR STREQUAL Xcode))
+  if(WIN32
+     OR (CMAKE_GENERATOR STREQUAL Xcode)
+     OR CMAKE_VERSION VERSION_LESS 3.12)
     # We need to compile C++ separately for each library kind (shared and static)
     # because of dllexport declarations on Windows.
     # The Xcode generator doesn't reliably work with Xcode as target names are not
     # guessed correctly.
+    # We can't use target for object library with CMake 3.11 or earlier.
+    # See also: Object Libraries:
+    # https://cmake.org/cmake/help/latest/command/add_library.html#object-libraries
     set(USE_OBJLIB OFF)
   else()
     set(USE_OBJLIB ON)
@@ -310,6 +246,9 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_PRIVATE_INCLUDES)
       target_include_directories(${LIB_NAME}_objlib PRIVATE ${ARG_PRIVATE_INCLUDES})
     endif()
+    target_link_libraries(${LIB_NAME}_objlib
+                          PRIVATE ${ARG_SHARED_LINK_LIBS} ${ARG_SHARED_PRIVATE_LINK_LIBS}
+                                  ${ARG_STATIC_LINK_LIBS})
   else()
     # Prepare arguments for separate compilation of static and shared libs below
     # TODO: add PCH directives

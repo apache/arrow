@@ -29,7 +29,6 @@ set(ARROW_FLIGHT_TRANSPORT_UCX_SRCS
     util_internal.cc)
 set(ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS)
 
-include_directories(SYSTEM ${UCX_INCLUDE_DIRS})
 list(APPEND ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS PkgConfig::UCX)
 
 add_arrow_lib(arrow_flight_transport_ucx
