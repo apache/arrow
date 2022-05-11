@@ -78,7 +78,7 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
 
 Building JNI Libraries on MacOS
 -------------------------------
-Note: If you are building on Apple Silicon, be sure to use a JDK version that was compiled for that architecture. See, for example: https://www.azul.com/downloads/?os=macos&architecture=arm-64-bit&package=jdk.
+Note: If you are building on Apple Silicon, be sure to use a JDK version that was compiled for that architecture. See, for example, the `Azul JDK <https://www.azul.com/downloads/?os=macos&architecture=arm-64-bit&package=jdk>`_.
 
 To build only the C Data Interface library:
 
