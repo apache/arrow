@@ -329,10 +329,10 @@ class InputState {
 template <size_t MAX_TABLES>
 struct CompositeReferenceRow {
   struct Entry {
-    arrow::RecordBatch* _batch;  // can be NULL if there's no value
-    row_index_t _row;
+    arrow::RecordBatch* batch;  // can be NULL if there's no value
+    row_index_t row;
   };
-  Entry _refs[MAX_TABLES];
+  Entry refs[MAX_TABLES];
 };
 
 // A table of composite reference rows.  Rows maintain pointers to the
@@ -347,24 +347,10 @@ struct CompositeReferenceRow {
 // We don't put the shared_ptr's into the rows for efficiency reasons.
 template <size_t MAX_TABLES>
 class CompositeReferenceTable {
-  // Contains shared_ptr refs for all RecordBatches referred to by the contents of rows_
-  std::unordered_map<uintptr_t, std::shared_ptr<RecordBatch>> _ptr2ref;
-
-  // Row table references
-  std::vector<CompositeReferenceRow<MAX_TABLES>> rows_;
-
-  // Total number of tables in the composite table
-  size_t _n_tables;
-
-  // Adds a RecordBatch ref to the mapping, if needed
-  void add_record_batch_ref(const std::shared_ptr<RecordBatch>& ref) {
-    if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
-  }
-
  public:
-  explicit CompositeReferenceTable(size_t n_tables) : _n_tables(n_tables) {
-    assert(_n_tables >= 1);
-    assert(_n_tables <= MAX_TABLES);
+  explicit CompositeReferenceTable(size_t n_tables) : n_tables_(n_tables) {
+    assert(n_tables_ >= 1);
+    assert(n_tables_ <= MAX_TABLES);
   }
 
   size_t n_rows() const { return rows_.size(); }
@@ -373,7 +359,7 @@ class CompositeReferenceTable {
   // - LHS must have a valid key,timestep,and latest rows
   // - RHS must have valid data memo'ed for the key
   void emplace(std::vector<std::unique_ptr<InputState>>& in, int64_t tolerance) {
-    assert(in.size() == _n_tables);
+    assert(in.size() == n_tables_);
 
     // Get the LHS key
     KeyType key = in[0]->get_latest_key();
@@ -393,13 +379,11 @@ class CompositeReferenceTable {
       row_index_t new_batch_size = lhs_latest_batch->num_rows();
       row_index_t new_capacity = rows_.size() + new_batch_size;
       if (rows_.capacity() < new_capacity) rows_.reserve(new_capacity);
-      // cerr << "new_batch_size=" << new_batch_size << " old_size=" << rows_.size() << "
-      // new_capacity=" << rows_.capacity() << endl;
     }
     rows_.resize(rows_.size() + 1);
     auto& row = rows_.back();
-    row._refs[0]._batch = lhs_latest_batch.get();
-    row._refs[0]._row = lhs_latest_row;
+    row.refs[0].batch = lhs_latest_batch.get();
+    row.refs[0].row = lhs_latest_row;
     add_record_batch_ref(lhs_latest_batch);
 
     // Get the state for that key from all on the RHS -- assumes it's up to date
@@ -412,52 +396,28 @@ class CompositeReferenceTable {
         if ((*opt_entry)->_time + tolerance >= lhs_latest_time) {
           // Have a valid entry
           const MemoStore::Entry* entry = *opt_entry;
-          row._refs[i]._batch = entry->_batch.get();
-          row._refs[i]._row = entry->_row;
+          row.refs[i].batch = entry->_batch.get();
+          row.refs[i].row = entry->_row;
           add_record_batch_ref(entry->_batch);
           continue;
         }
       }
-      row._refs[i]._batch = NULL;
-      row._refs[i]._row = 0;
+      row.refs[i].batch = NULL;
+      row.refs[i].row = 0;
     }
   }
 
- private:
-  template <class Builder, class PrimitiveType>
-  std::shared_ptr<Array> materialize_primitive_column(size_t i_table, size_t i_col) {
-    Builder builder;
-    // builder.Resize(_rows.size()); // <-- can't just do this -- need to set the bitmask
-    builder.AppendEmptyValues(rows_.size());
-    for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
-      const auto& ref = rows_[i_row]._refs[i_table];
-      if (ref._batch)
-        builder[i_row] =
-            ref._batch->column_data(i_col)->template GetValues<PrimitiveType>(
-                1)[ref._row];
-      // TODO: set null value if ref._batch is null -- currently we don't due to API
-      // limitations of the builders.
-    }
-    std::shared_ptr<Array> result;
-    if (!builder.Finish(&result).ok()) {
-      std::cerr << "Error when creating Arrow array from builder\n";
-      exit(-1);  // TODO: better error handling
-    }
-    return result;
-  }
-
- public:
   // Materializes the current reference table into a target record batch
   std::shared_ptr<RecordBatch> materialize(
       const std::shared_ptr<arrow::Schema>& output_schema,
       const std::vector<std::unique_ptr<InputState>>& state) {
     // cerr << "materialize BEGIN\n";
-    assert(state.size() == _n_tables);
+    assert(state.size() == n_tables_);
     assert(state.size() >= 1);
 
     // Don't build empty batches
     size_t n_rows = rows_.size();
-    if (!n_rows) return nullptr;
+    if (!n_rows) return NULLPTR;
 
     // Count output columns (dbg sanitycheck)
     {
@@ -473,9 +433,9 @@ class CompositeReferenceTable {
     std::shared_ptr<arrow::DataType> i64_type = arrow::int64();
     std::shared_ptr<arrow::DataType> f64_type = arrow::float64();
 
-    // Build the arrays column-by-column from our rows
+    // Build the arrays column-by-column from the rows
     std::vector<std::shared_ptr<arrow::Array>> arrays(output_schema->num_fields());
-    for (size_t i_table = 0; i_table < _n_tables; ++i_table) {
+    for (size_t i_table = 0; i_table < n_tables_; ++i_table) {
       int n_src_cols = state.at(i_table)->get_schema()->num_fields();
       {
         for (col_index_t i_src_col = 0; i_src_col < n_src_cols; ++i_src_col) {
@@ -502,7 +462,7 @@ class CompositeReferenceTable {
                                                                            i_src_col);
           } else {
             std::cerr << "Unsupported data type: " << field_type->name() << "\n";
-            exit(-1);  // TODO: validate elsewhere for better error handling
+	    exit(-1);  // TODO: validate elsewhere for better error handling
           }
         }
       }
@@ -519,6 +479,44 @@ class CompositeReferenceTable {
 
   // Returns true if there are no rows
   bool empty() const { return rows_.empty(); }
+
+ private:
+  // Contains shared_ptr refs for all RecordBatches referred to by the contents of rows_
+  std::unordered_map<uintptr_t, std::shared_ptr<RecordBatch>> _ptr2ref;
+
+  // Row table references
+  std::vector<CompositeReferenceRow<MAX_TABLES>> rows_;
+
+  // Total number of tables in the composite table
+  size_t n_tables_;
+
+  // Adds a RecordBatch ref to the mapping, if needed
+  void add_record_batch_ref(const std::shared_ptr<RecordBatch>& ref) {
+    if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
+  }
+
+  template <class Builder, class PrimitiveType>
+  std::shared_ptr<Array> materialize_primitive_column(size_t i_table, size_t i_col) {
+    Builder builder;
+    // builder.Resize(_rows.size()); // <-- can't just do this -- need to set the bitmask
+    builder.AppendEmptyValues(rows_.size());
+    for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
+      const auto& ref = rows_[i_row].refs[i_table];
+      if (ref.batch) {
+        builder[i_row] =
+            ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(
+                1)[ref.row];
+      }
+      // TODO: set null value if ref.batch is null -- currently we don't due to API
+      // limitations of the builders.
+    }
+    std::shared_ptr<Array> result;
+    if (!builder.Finish(&result).ok()) {
+      std::cerr << "Error when creating Arrow array from builder\n";
+      exit(-1);  // TODO: better error handling
+    }
+    return result;
+  }
 };
 
 class AsofJoinNode : public ExecNode {
@@ -594,7 +592,7 @@ class AsofJoinNode : public ExecNode {
 
     // Emit the batch
     std::shared_ptr<RecordBatch> r =
-        dst.empty() ? nullptr : dst.materialize(output_schema(), _state);
+        dst.empty() ? NULLPTR : dst.materialize(output_schema(), _state);
     return r;
   }
 
