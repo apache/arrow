@@ -264,8 +264,8 @@ def test_complex_filter_table():
     })
 
     result = ep._filter_table(
-        t, ((pc.field("a").apply("bit_wise_and", 1) == pc.scalar(0)) &
-            (pc.field("a").apply("multiply", 10) == pc.field("b")))
+        t, ((pc.bit_wise_and(pc.field("a"), pc.scalar(1)) == pc.scalar(0)) &
+            (pc.multiply(pc.field("a"), pc.scalar(10)) == pc.field("b")))
     )
 
     assert result == pa.table({

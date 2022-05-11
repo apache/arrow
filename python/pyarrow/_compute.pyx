@@ -2107,43 +2107,6 @@ cdef class Expression(_Weakrefable):
         return Expression.wrap(CMakeCallExpression(
             tobytes(function_name), move(c_arguments), c_options))
 
-    def apply(Expression self, str function_name, arguments=None, FunctionOptions options=None):
-        """
-        Apply a compute function to expression.
-
-        This creates a new expression equivalent to the called
-        compute function applied to this expression.
-
-        Parameters
-        ----------
-        function_name : str
-            The name, of the compute function that has to be applied
-        arguments : list of Expression or of any :func:`pc.scalar` argument.
-            The arguments to the compute function, can be none if the
-            compute function is only applied to the current expression.
-        options : FunctionOptions
-            Options for the compute function
-
-        Returns
-        -------
-        expr : Expression
-            A new expression that, when evaluated, applies the
-            specified function to the current expression.
-        """
-        args = [self]
-
-        if arguments is None:
-            arguments = []
-        elif not isinstance(arguments, (list, tuple)):
-            arguments = [arguments]
-
-        for argument in arguments:
-            if not isinstance(argument, Expression):
-                argument = Expression._scalar(argument)
-            args.append(argument)
-
-        return Expression._call(function_name, args, options)
-
     def __richcmp__(self, other, int op):
         other = Expression._expr_or_scalar(other)
         return Expression._call({
