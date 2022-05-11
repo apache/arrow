@@ -880,45 +880,33 @@ TEST(TestGdvFnStubs, TestCastVarbinaryBinary) {
 }
 
 TEST(TestGdvFnStubs, TestCastBinaryUtf8) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
   const char* input = "abc";
   const char* out;
 
-  out = castBINARY_utf8(ctx_ptr, input, 3, &out_len);
+  out = castBINARY_utf8(input, 3, &out_len);
   EXPECT_EQ(std::string(out, out_len), input);
 
-  out = castBINARY_utf8(ctx_ptr, input, 1, &out_len);
+  out = castBINARY_utf8(input, 1, &out_len);
   EXPECT_EQ(std::string(out, out_len), "a");
 
-  out = castBINARY_utf8(ctx_ptr, input, -3, &out_len);
+  out = castBINARY_utf8(input, 0, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Output buffer length can't be negative"));
-  ctx.Reset();
 }
 
 TEST(TestGdvFnStubs, TestCastBinaryBinary) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
   const char* input = "\\x41\\x42\\x43";
   const char* out;
 
-  out = castBINARY_binary(ctx_ptr, input, 12, &out_len);
+  out = castBINARY_binary(input, 12, &out_len);
   EXPECT_EQ(std::string(out, out_len), input);
 
-  out = castBINARY_binary(ctx_ptr, input, 8, &out_len);
+  out = castBINARY_binary(input, 8, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\\x41\\x42");
 
-  out = castBINARY_binary(ctx_ptr, input, -10, &out_len);
+  out = castBINARY_binary(input, 0, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Output buffer length can't be negative"));
-  ctx.Reset();
 }
 
 TEST(TestStringOps, TestConcat) {

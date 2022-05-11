@@ -440,12 +440,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext),
 
       NativeFunction("binary", {}, DataTypeVector{binary()}, binary(), kResultNullIfNull,
-                     "castBINARY_binary",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+                     "castBINARY_binary"),
 
       NativeFunction("binary", {}, DataTypeVector{utf8()}, binary(), kResultNullIfNull,
-                     "castBINARY_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+                     "castBINARY_utf8"),
 
       NativeFunction("castVARBINARY", {}, DataTypeVector{binary(), int64()}, binary(),
                      kResultNullIfNull, "castVARBINARY_binary_int64",

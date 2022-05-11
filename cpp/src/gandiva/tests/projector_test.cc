@@ -2737,13 +2737,13 @@ TEST_F(TestProjector, TestCastBinaryUTF) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 2;
+  int num_records = 3;
 
-  auto array0 = MakeArrowArrayUtf8({"a", "abc"}, {true, true});
+  auto array0 = MakeArrowArrayUtf8({"a", "abc", ""}, {true, true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
-  auto out_1 = MakeArrowArrayBinary({"a", "abc"}, {true, true});
+  auto out_1 = MakeArrowArrayBinary({"a", "abc", ""}, {true, true, true});
 
   arrow::ArrayVector outputs;
 
@@ -2771,13 +2771,15 @@ TEST_F(TestProjector, TestCastBinaryBinary) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 2;
+  int num_records = 3;
 
-  auto array0 = MakeArrowArrayUtf8({"\\x41\\x42\\x43", "\\x41\\x42"}, {true, true});
+  auto array0 =
+      MakeArrowArrayUtf8({"\\x41\\x42\\x43", "\\x41\\x42", ""}, {true, true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
-  auto out_1 = MakeArrowArrayBinary({"\\x41\\x42\\x43", "\\x41\\x42"}, {true, true});
+  auto out_1 =
+      MakeArrowArrayBinary({"\\x41\\x42\\x43", "\\x41\\x42", ""}, {true, true, true});
 
   arrow::ArrayVector outputs;
 
