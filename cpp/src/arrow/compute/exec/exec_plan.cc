@@ -530,7 +530,12 @@ Declaration Declaration::Sequence(std::vector<Declaration> decls) {
     decls.pop_back();
 
     receiver->inputs.emplace_back(std::move(input));
-    receiver = util::get<Declaration>(receiver->inputs.front()).Root();
+    if (decls.empty()) {
+      // First node in the chain is allowed to have multiple inputs
+      receiver = &util::get<Declaration>(receiver->inputs.front());
+    } else {
+      receiver = util::get<Declaration>(receiver->inputs.front()).Root();
+    }
   }
   return out;
 }
