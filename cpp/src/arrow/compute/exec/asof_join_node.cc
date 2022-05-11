@@ -347,11 +347,11 @@ struct CompositeReferenceRow {
 // We don't put the shared_ptr's into the rows for efficiency reasons.
 template <size_t MAX_TABLES>
 class CompositeReferenceTable {
-  // Contains shared_ptr refs for all RecordBatches referred to by the contents of _rows
+  // Contains shared_ptr refs for all RecordBatches referred to by the contents of rows_
   std::unordered_map<uintptr_t, std::shared_ptr<RecordBatch>> _ptr2ref;
 
   // Row table references
-  std::vector<CompositeReferenceRow<MAX_TABLES>> _rows;
+  std::vector<CompositeReferenceRow<MAX_TABLES>> rows_;
 
   // Total number of tables in the composite table
   size_t _n_tables;
@@ -367,7 +367,7 @@ class CompositeReferenceTable {
     assert(_n_tables <= MAX_TABLES);
   }
 
-  size_t n_rows() const { return _rows.size(); }
+  size_t n_rows() const { return rows_.size(); }
 
   // Adds the latest row from the input state as a new composite reference row
   // - LHS must have a valid key,timestep,and latest rows
@@ -391,13 +391,13 @@ class CompositeReferenceTable {
       assert(lhs_latest_batch->num_rows() <=
              MAX_ROWS_PER_BATCH);  // TODO: better error handling
       row_index_t new_batch_size = lhs_latest_batch->num_rows();
-      row_index_t new_capacity = _rows.size() + new_batch_size;
-      if (_rows.capacity() < new_capacity) _rows.reserve(new_capacity);
-      // cerr << "new_batch_size=" << new_batch_size << " old_size=" << _rows.size() << "
-      // new_capacity=" << _rows.capacity() << endl;
+      row_index_t new_capacity = rows_.size() + new_batch_size;
+      if (rows_.capacity() < new_capacity) rows_.reserve(new_capacity);
+      // cerr << "new_batch_size=" << new_batch_size << " old_size=" << rows_.size() << "
+      // new_capacity=" << rows_.capacity() << endl;
     }
-    _rows.resize(_rows.size() + 1);
-    auto& row = _rows.back();
+    rows_.resize(rows_.size() + 1);
+    auto& row = rows_.back();
     row._refs[0]._batch = lhs_latest_batch.get();
     row._refs[0]._row = lhs_latest_row;
     add_record_batch_ref(lhs_latest_batch);
@@ -428,9 +428,9 @@ class CompositeReferenceTable {
   std::shared_ptr<Array> materialize_primitive_column(size_t i_table, size_t i_col) {
     Builder builder;
     // builder.Resize(_rows.size()); // <-- can't just do this -- need to set the bitmask
-    builder.AppendEmptyValues(_rows.size());
-    for (row_index_t i_row = 0; i_row < _rows.size(); ++i_row) {
-      const auto& ref = _rows[i_row]._refs[i_table];
+    builder.AppendEmptyValues(rows_.size());
+    for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
+      const auto& ref = rows_[i_row]._refs[i_table];
       if (ref._batch)
         builder[i_row] =
             ref._batch->column_data(i_col)->template GetValues<PrimitiveType>(
@@ -456,7 +456,7 @@ class CompositeReferenceTable {
     assert(state.size() >= 1);
 
     // Don't build empty batches
-    size_t n_rows = _rows.size();
+    size_t n_rows = rows_.size();
     if (!n_rows) return nullptr;
 
     // Count output columns (dbg sanitycheck)
@@ -518,7 +518,7 @@ class CompositeReferenceTable {
   }
 
   // Returns true if there are no rows
-  bool empty() const { return _rows.empty(); }
+  bool empty() const { return rows_.empty(); }
 };
 
 class AsofJoinNode : public ExecNode {
