@@ -190,6 +190,15 @@ func (fr *FileReader) GetFieldReader(ctx context.Context, i int, includedLeaves 
 // of column indexes and rowgroups requested. It returns a slice of the readers and the corresponding
 // arrow.Schema for those columns.
 func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups []int) ([]*ColumnReader, *arrow.Schema, error) {
+	var (
+		// REP -- Load batches in parallel
+		// When reading structs with large numbers of columns, the serial load is very slow.
+		// This is especially true when reading Cloud Storage. Loading concurrently
+		// greatly improves performance.
+		wg      sync.WaitGroup
+		errchan chan error = make(chan error)
+		err     error
+	)
 	fieldIndices, err := fr.Manifest.GetFieldIndices(colIndices)
 	if err != nil {
 		return nil, nil, err
@@ -202,14 +211,35 @@ func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups
 
 	out := make([]*ColumnReader, len(fieldIndices))
 	outFields := make([]arrow.Field, len(fieldIndices))
-	for idx, fidx := range fieldIndices {
-		rdr, err := fr.GetFieldReader(ctx, fidx, includedLeaves, rowGroups)
-		if err != nil {
-			return nil, nil, err
-		}
 
-		outFields[idx] = *rdr.Field()
-		out[idx] = rdr
+	//* Read First error from errchan and break only capturing first error
+	go func() {
+		for err = range errchan {
+			break
+		}
+	}()
+
+	// GetFieldReader causes read operations, when issued serially on large numbers of columns,
+	// this is super time consuming. Get field readers concurrently.
+	wg.Add(len(fieldIndices))
+	for idx, fidx := range fieldIndices {
+		go func(idx, fidx int) {
+			defer wg.Done()
+			rdr, err := fr.GetFieldReader(ctx, fidx, includedLeaves, rowGroups)
+			if err != nil {
+				errchan <- err // send error
+				return
+			}
+
+			outFields[idx] = *rdr.Field()
+			out[idx] = rdr
+		}(idx, fidx)
+	}
+	wg.Wait()
+	close(errchan)
+	if err != nil {
+		// if error was returned on errchan, return it
+		return nil, nil, err
 	}
 
 	return out, arrow.NewSchema(outFields, fr.Manifest.SchemaMeta), nil
@@ -470,18 +500,55 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 	case arrow.EXTENSION:
 		return nil, xerrors.New("extension type not implemented")
 	case arrow.STRUCT:
-		childReaders := make([]*ColumnReader, 0)
-		childFields := make([]arrow.Field, 0)
-		for _, child := range field.Children {
-			reader, err := fr.getReader(ctx, &child, *child.Field)
-			if err != nil {
-				return nil, err
+		// REP -- Get child field readers concurrently
+		// 'getReader' causes a read operation.  Issue the 'reads' concurrently
+		// When reading structs with large numbers of columns, the serial load is very slow.
+		// This is especially true when reading Cloud Storage. Loading concurrently
+		// greatly improves performance.
+		var (
+			wg      sync.WaitGroup
+			errchan chan error = make(chan error)
+			err     error
+		)
+		//* Read First error from errchan and break only capturing first error
+		go func() {
+			for err = range errchan {
+				break
 			}
-			if reader == nil {
-				continue
+		}()
+
+		childReaders := make([]*ColumnReader, len(field.Children))
+		childFields := make([]arrow.Field, len(field.Children))
+
+		wg.Add(len(field.Children))
+		for n, child := range field.Children {
+			go func(n int, child SchemaField) {
+				defer wg.Done()
+				reader, err := fr.getReader(ctx, &child, *child.Field)
+				if err != nil {
+					errchan <- err // send the error 
+					return
+				}
+				if reader == nil {
+					return
+				}
+
+				childFields[n] = *child.Field
+				childReaders[n] = reader
+			}(n, child)
+		}
+		wg.Wait() // wait for reads to complete
+		close(errchan)
+		if err != nil {
+			return nil, err
+		}
+
+		// because we performed getReader concurrently, we need to prune out any empty readers
+		for n := len(childReaders) - 1; n >= 0; n-- {
+			if childReaders[n] == nil {
+				childReaders = append(childReaders[:n], childReaders[n+1:]...)
+				childFields = append(childFields[:n], childFields[n+1:]...)
 			}
-			childFields = append(childFields, *child.Field)
-			childReaders = append(childReaders, reader)
 		}
 		if len(childFields) == 0 {
 			return nil, nil

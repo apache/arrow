@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -216,12 +217,34 @@ func (sr *structReader) GetRepLevels() ([]int16, error) {
 }
 
 func (sr *structReader) LoadBatch(nrecords int64) error {
-	for _, rdr := range sr.children {
-		if err := rdr.LoadBatch(nrecords); err != nil {
-			return err
+	var (
+		// REP -- Load batches in parallel
+		// When reading structs with large numbers of columns, the serial load is very slow.
+		// This is especially true when reading Cloud Storage. Loading concurrently
+		// greatly improves performance.
+		wg      sync.WaitGroup
+		errchan chan error = make(chan error)
+		err     error
+	)
+
+	//* Read First error from errchan and break only capturing first error
+	go func() {
+		for err = range errchan {
+			break
 		}
+	}()
+	wg.Add(len(sr.children))
+	for _, rdr := range sr.children {
+		go func(r *ColumnReader) {
+			defer wg.Done()
+			if err := r.LoadBatch(nrecords); err != nil {
+				errchan <- err
+			}
+		}(rdr)
 	}
-	return nil
+	wg.Wait() // wait for reads to complete
+	close(errchan)
+	return err
 }
 
 func (sr *structReader) Field() *arrow.Field { return sr.filtered }
