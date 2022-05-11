@@ -245,8 +245,10 @@ class build_ext(_build_ext):
                                      cachefile.read()).group(1)
                 cachefile.close()
                 if (cachedir != build_temp):
+                    build_base = pjoin(saved_cwd, build_cmd.build_base)
                     print(f"-- Skipping build. Temp build {build_temp} does"
                           f" not match cached dir {cachedir}")
+                    print(f"---- For a clean build you might want to delete {build_base}.")
                     return
 
             static_lib_option = ''
