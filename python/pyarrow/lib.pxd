@@ -50,6 +50,9 @@ cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool)
 cdef object box_memory_pool(CMemoryPool* pool)
 
 
+cdef void* _as_c_pointer(v, allow_null=*) except *
+
+
 cdef class DataType(_Weakrefable):
     cdef:
         shared_ptr[CDataType] sp_type

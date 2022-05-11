@@ -32,7 +32,8 @@ import numpy as np
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import IpcReadOptions, tobytes
+from pyarrow.ipc import IpcReadOptions
+from pyarrow.lib import tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 

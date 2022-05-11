@@ -22,16 +22,19 @@
 # distutils: language = c++
 
 from cython.operator cimport dereference as deref
+from libcpp.memory cimport dynamic_pointer_cast
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable, NativeFile, Table,
                           RecordBatch, Schema, Tensor, DictionaryMemo,
-                          pyarrow_wrap_buffer, Codec,
+                          pyarrow_wrap_buffer, Codec, MemoryPool,
                           get_writer, get_reader, get_input_stream,
                           pyarrow_wrap_schema, pyarrow_unwrap_schema,
                           pyarrow_wrap_batch, pyarrow_wrap_table,
-                          pyarrow_wrap_tensor, _ensure_compression)
+                          pyarrow_wrap_tensor, _ensure_compression,
+                          _as_c_pointer, maybe_unbox_memory_pool)
 
 from collections import namedtuple
 import warnings
@@ -801,6 +804,25 @@ cdef class RecordBatchReader(_Weakrefable):
         self = RecordBatchReader.__new__(RecordBatchReader)
         self.reader = c_reader
         return self
+
+    @staticmethod
+    def from_table(Table table, max_chunksize=None):
+        cdef:
+            RecordBatchReader reader
+            shared_ptr[CRecordBatchReader] c_reader
+            shared_ptr[TableBatchReader] t_reader
+
+        t_reader = make_shared[TableBatchReader](table.sp_table)
+
+        if max_chunksize is not None:
+            t_reader.get().set_chunksize(max_chunksize)
+
+        c_reader = dynamic_pointer_cast[CRecordBatchReader, TableBatchReader](
+           t_reader)
+
+        reader = RecordBatchReader.__new__(RecordBatchReader)
+        reader.reader = c_reader
+        return reader
 
 
 cdef class _RecordBatchStreamReader(RecordBatchReader):

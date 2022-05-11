@@ -3868,20 +3868,8 @@ cdef class Table(_PandasConvertible):
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
-        cdef:
-            shared_ptr[CRecordBatchReader] c_reader
-            RecordBatchReader reader
-            shared_ptr[TableBatchReader] t_reader
-        t_reader = make_shared[TableBatchReader](self.sp_table)
-
-        if max_chunksize is not None:
-            t_reader.get().set_chunksize(max_chunksize)
-
-        c_reader = dynamic_pointer_cast[CRecordBatchReader, TableBatchReader](
-            t_reader)
-        reader = RecordBatchReader.__new__(RecordBatchReader)
-        reader.reader = c_reader
-        return reader
+        from pyarrow._ipc import RecordBatchReader
+        return RecordBatchReader.from_table(self, max_chunksize=max_chunksize)
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):

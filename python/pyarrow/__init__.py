@@ -250,8 +250,7 @@ from pyarrow.lib import (NativeFile, PythonFile,
 from pyarrow._hdfsio import HdfsFile, have_libhdfs
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
-                         concat_arrays, concat_tables, TableGroupBy,
-                         RecordBatchReader)
+                         concat_arrays, concat_tables, TableGroupBy)
 
 # Exceptions
 from pyarrow.lib import (ArrowCancelled,
@@ -275,7 +274,7 @@ from pyarrow.lib import (deserialize_from, deserialize,
 
 import pyarrow.hdfs as hdfs
 
-from pyarrow.ipc import serialize_pandas, deserialize_pandas
+from pyarrow.ipc import serialize_pandas, deserialize_pandas, RecordBatchReader
 import pyarrow.ipc as ipc
 
 from pyarrow.serialization import (default_serialization_context,

@@ -29,6 +29,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table)
 from pyarrow.lib import tobytes
+from pyarrow.ipc import RecordBatchReader
 from pyarrow._compute cimport Expression, _true
 from pyarrow._dataset cimport Dataset
 from pyarrow._dataset import InMemoryDataset
