@@ -849,7 +849,7 @@ Duration CeilTimePoint(const int64_t arg, const RoundTemporalOptions& options,
   const Duration cs =
       localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(cl), st);
 
-  if (options.ceil_on_boundary || cs < Duration{arg}) {
+  if (options.ceil_is_strictly_greater || cs < Duration{arg}) {
     return localizer_.template ConvertLocalToSys<Duration>(
         duration_cast<Duration>(cl + duration_cast<Duration>(Unit{options.multiple})),
         st);
@@ -867,7 +867,7 @@ Duration CeilWeekTimePoint(const int64_t arg, const RoundTemporalOptions& option
       localizer_.template ConvertTimePoint<Duration>(f.count()).time_since_epoch();
   const Duration cs =
       localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(cl), st);
-  if (options.ceil_on_boundary || cs < Duration{arg}) {
+  if (options.ceil_is_strictly_greater || cs < Duration{arg}) {
     return localizer_.template ConvertLocalToSys<Duration>(
         duration_cast<Duration>(cl + duration_cast<Duration>(weeks{options.multiple})),
         st);

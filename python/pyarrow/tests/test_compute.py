@@ -2087,7 +2087,7 @@ def _check_temporal_rounding(ts, values, unit):
 
     if ta.type.tz is None and unit != "day":
         options = pc.RoundTemporalOptions(
-            value, unit, ceil_on_boundary=True)
+            value, unit, ceil_is_strictly_greater=True)
         result = pc.ceil_temporal(ta, options=options)
         expected = ts.dt.ceil(frequency)
 

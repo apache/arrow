@@ -883,11 +883,11 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 cdef class _RoundTemporalOptions(FunctionOptions):
     def _set_options(self, multiple, unit, week_starts_monday,
-                     ceil_on_boundary, calendar_based_origin):
+                     ceil_is_strictly_greater, calendar_based_origin):
         self.wrapped.reset(
             new CRoundTemporalOptions(
                 multiple, unwrap_round_temporal_unit(unit),
-                week_starts_monday, ceil_on_boundary,
+                week_starts_monday, ceil_is_strictly_greater,
                 calendar_based_origin)
         )
 
@@ -907,7 +907,7 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         "nanosecond".
     week_starts_monday : bool, default True
         If True, weeks start on Monday; if False, on Sunday.
-    ceil_on_boundary : bool, default False
+    ceil_is_strictly_greater : bool, default False
         If True times exactly on unit multiple boundary will be rounded
         up one unit. This applies for ceiling only.
     multiple_since_greater_unit : bool, default False
@@ -928,9 +928,11 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     """
 
     def __init__(self, multiple=1, unit="day", *, week_starts_monday=True,
-                 ceil_on_boundary=False, multiple_since_greater_unit=False):
+                 ceil_is_strictly_greater=False,
+                 multiple_since_greater_unit=False):
         self._set_options(multiple, unit, week_starts_monday,
-                          ceil_on_boundary, multiple_since_greater_unit)
+                          ceil_is_strictly_greater,
+                          multiple_since_greater_unit)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
