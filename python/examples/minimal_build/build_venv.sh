@@ -57,6 +57,8 @@ cmake -GNinja \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DCMAKE_INSTALL_LIBDIR=lib \
       -DARROW_BUILD_STATIC=OFF \
+      -DARROW_DATASET=ON \
+      -DARROW_FLIGHT=ON \
       -DARROW_WITH_BZ2=ON \
       -DARROW_WITH_ZLIB=ON \
       -DARROW_WITH_ZSTD=ON \
@@ -79,6 +81,8 @@ rm -rf build/  # remove any pesky pre-existing build directory
 
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
+export PYARROW_WITH_DATASET=1
+export PYARROW_WITH_FLIGHT=1
 export PYARROW_WITH_PARQUET=1
 
 # You can run either "develop" or "build_ext --inplace". Your pick
