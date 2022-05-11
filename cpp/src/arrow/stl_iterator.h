@@ -146,7 +146,9 @@ class ChunkedArrayIterator {
 
   explicit ChunkedArrayIterator(const ChunkedArray& chunked_array, int64_t index = 0)
       : chunked_array_(&chunked_array), index_(index) {
-    if (index_ != chunked_array.length()) {
+    assert(chunked_array_);
+    assert(index_ >= 0 && index_ <= chunked_array_->length());
+    if (index_ < chunked_array.length()) {
       auto chunk_location = GetChunkLocation(this->index_);
       current_array_iterator_ = ArrayIterator<ArrayType>(
           arrow::internal::checked_cast<const ArrayType&>(
@@ -158,9 +160,13 @@ class ChunkedArrayIterator {
   }
 
   // Value access
-  value_type operator*() const { return *current_array_iterator_; }
+  value_type operator*() const {
+    assert(chunked_array_);
+    return *current_array_iterator_;
+  }
 
   value_type operator[](difference_type n) const {
+    assert(chunked_array_);
     auto chunk_location = GetChunkLocation(index_ + n);
     ArrayIterator<ArrayType> target_iterator{
         arrow::internal::checked_cast<const ArrayType&>(
@@ -210,8 +216,10 @@ class ChunkedArrayIterator {
     return ChunkedArrayIterator(*other.chunked_array_, diff - other.index_);
   }
   ChunkedArrayIterator& operator+=(difference_type n) {
+    assert(chunked_array_);
     index_ += n;
-    if (index_ != chunked_array_->length()) {
+    assert(index_ >= 0 && index_ <= chunked_array_->length());
+    if (index_ < chunked_array_->length()) {
       auto chunk_location = GetChunkLocation(index_);
       current_array_iterator_ = ArrayIterator<ArrayType>(
           arrow::internal::checked_cast<const ArrayType&>(
@@ -249,6 +257,7 @@ class ChunkedArrayIterator {
 
  private:
   arrow::internal::ChunkLocation GetChunkLocation(int64_t index) const {
+    assert(chunked_array_);
     return chunked_array_->chunk_resolver_.Resolve(index);
   }
 
@@ -260,13 +269,13 @@ class ChunkedArrayIterator {
 /// Return an iterator to the beginning of the chunked array
 template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
 ChunkedArrayIterator<ArrayType> Begin(const ChunkedArray& chunked_array) {
-  return stl::ChunkedArrayIterator<ArrayType>(chunked_array);
+  return ChunkedArrayIterator<ArrayType>(chunked_array);
 }
 
 /// Return an iterator to the end of the chunked array
 template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
 ChunkedArrayIterator<ArrayType> End(const ChunkedArray& chunked_array) {
-  return stl::ChunkedArrayIterator<ArrayType>(chunked_array, chunked_array.length());
+  return ChunkedArrayIterator<ArrayType>(chunked_array, chunked_array.length());
 }
 
 template <typename ArrayType>

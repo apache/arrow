@@ -39,7 +39,7 @@ class MemoryPool;
 namespace stl {
 template <typename T, typename V>
 class ChunkedArrayIterator;
-}
+}  // namespace stl
 
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
