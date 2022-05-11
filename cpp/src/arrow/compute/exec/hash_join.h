@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/compute/exec/accumulation_queue.h"
 #include "arrow/compute/exec/bloom_filter.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
@@ -32,6 +33,8 @@
 
 namespace arrow {
 namespace compute {
+
+using arrow::util::AccumulationQueue;
 
 class ARROW_EXPORT HashJoinSchema {
  public:
@@ -100,22 +103,20 @@ class ARROW_EXPORT HashJoinSchema {
 class HashJoinImpl {
  public:
   using OutputBatchCallback = std::function<void(ExecBatch)>;
+  using BuildFinishedCallback = std::function<Status(size_t)>;
+  using ProbeFinishedCallback = std::function<Status(size_t)>;
   using FinishedCallback = std::function<void(int64_t)>;
 
   virtual ~HashJoinImpl() = default;
-  virtual Status Init(ExecContext* ctx, JoinType join_type, bool use_sync_execution,
-                      size_t num_threads, HashJoinSchema* schema_mgr,
-                      std::vector<JoinKeyCmp> key_cmp, Expression filter,
-                      OutputBatchCallback output_batch_callback,
-                      FinishedCallback finished_callback,
-                      TaskScheduler::ScheduleImpl schedule_task_callback,
-                      HashJoinImpl* pushdown_target, std::vector<int> column_map) = 0;
-  virtual void ExpectBloomFilter() = 0;
-  virtual Status PushBloomFilter(size_t thread_index,
-                                 std::unique_ptr<BlockedBloomFilter> filter,
-                                 std::vector<int> column_map) = 0;
-  virtual Status InputReceived(size_t thread_index, int side, ExecBatch batch) = 0;
-  virtual Status InputFinished(size_t thread_index, int side) = 0;
+  virtual Status Init(ExecContext* ctx, JoinType join_type, size_t num_threads,
+                      HashJoinSchema* schema_mgr, std::vector<JoinKeyCmp> key_cmp,
+                      Expression filter, OutputBatchCallback output_batch_callback,
+                      FinishedCallback finished_callback, TaskScheduler* scheduler) = 0;
+
+  virtual Status BuildHashTable(size_t thread_index, AccumulationQueue batches,
+                                BuildFinishedCallback on_finished) = 0;
+  virtual Status ProbeSingleBatch(size_t thread_index, ExecBatch batch) = 0;
+  virtual Status ProbingFinished(size_t thread_index) = 0;
   virtual void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) = 0;
 
   static Result<std::unique_ptr<HashJoinImpl>> MakeBasic();
