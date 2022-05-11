@@ -1743,6 +1743,8 @@ test_that("year, month, day date/time parsers work", {
     dym_string = c("11-2022-05", "12/2022/05", "13.22-05")
   )
 
+  # string processing requires RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
       mutate(
