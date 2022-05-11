@@ -16,8 +16,10 @@
 // under the License.
 
 #include <iostream>
-#include <unordered_set>
+#include <unordered_map>
 
+#include <arrow/api.h>
+#include <arrow/compute/api.h>
 #include "arrow/compute/exec/asof_join.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
@@ -25,29 +27,13 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/thread_pool.h"
-
-#include <arrow/api.h>
-#include <arrow/dataset/api.h>
-#include <arrow/dataset/plan.h>
-#include <arrow/filesystem/api.h>
-#include <arrow/io/api.h>
-//#include <arrow/io/util_internal.h>
-#include <arrow/compute/api.h>
-#include <arrow/ipc/reader.h>
-#include <arrow/ipc/writer.h>
-#include <arrow/util/async_generator.h>
-#include <arrow/util/counting_semaphore.h>  // so we don't need to require C++20
 #include <arrow/util/optional.h>
-#include <algorithm>
-#include <atomic>
-#include <future>
+#include "arrow/util/make_unique.h"
+
 #include <mutex>
-#include <optional>
+#include <condition_variable>
 #include <thread>
 
-#include <omp.h>
 
 namespace arrow {
 namespace compute {
@@ -56,7 +42,7 @@ namespace compute {
  * Simple implementation for an unbound concurrent queue
  */
 template <class T>
-class concurrent_queue {
+class ConcurrentQueue {
  public:
   T pop() {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -295,7 +281,7 @@ class InputState {
 
  private:
   // Pending record batches.  The latest is the front.  Batches cannot be empty.
-  concurrent_queue<std::shared_ptr<RecordBatch>> queue_;
+  ConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
 
   // Wildcard key for this input, if applicable.
   util::optional<KeyType> wildcard_key_;
@@ -374,8 +360,6 @@ class CompositeReferenceTable {
     if (0 == lhs_latest_row) {
       // On the first row of the batch, we resize the destination.
       // The destination size is dictated by the size of the LHS batch.
-      assert(lhs_latest_batch->num_rows() <=
-             MAX_ROWS_PER_BATCH);  // TODO: better error handling
       row_index_t new_batch_size = lhs_latest_batch->num_rows();
       row_index_t new_capacity = rows_.size() + new_batch_size;
       if (rows_.capacity() < new_capacity) rows_.reserve(new_capacity);
@@ -739,11 +723,11 @@ class AsofJoinNode : public ExecNode {
     finished_.MarkFinished();
     for (auto&& input : inputs_) input->StopProducing(this);
   }
-  Future<> finished() override { return finished_; }
+  arrow::Future<> finished() override { return finished_; }
 
  private:
   std::unique_ptr<AsofJoinSchema> schema_mgr_;
-  Future<> finished_;
+  arrow::Future<> finished_;
   // InputStates
   // Each input state correponds to an input table
   //
@@ -753,7 +737,7 @@ class AsofJoinNode : public ExecNode {
 
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
-  concurrent_queue<bool> _process;
+  ConcurrentQueue<bool> _process;
   // Worker thread
   std::thread _process_thread;
 
@@ -806,7 +790,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
   for (auto& state : _state)
     dst_offset = state->init_src_to_dst_mapping(dst_offset, !!dst_offset);
 
-  finished_ = Future<>::MakeFinished();
+  finished_ = arrow::Future<>::MakeFinished();
 }
 
 namespace internal {
