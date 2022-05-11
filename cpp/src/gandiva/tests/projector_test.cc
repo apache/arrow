@@ -2682,7 +2682,6 @@ TEST_F(TestProjector, TestRegexpExtract) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_extract, outputs.at(0));
 }
 
-
 TEST_F(TestProjector, TestCastVarbinary) {
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::int64());
