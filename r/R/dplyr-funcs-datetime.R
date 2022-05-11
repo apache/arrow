@@ -532,7 +532,7 @@ register_bindings_datetime_parsers <- function() {
     force(order)
     function(x, tz = NULL) {
       parse_x <- call_binding("parse_date_time", x, order, tz)
-      if(is.null(tz)) {
+      if (is.null(tz)) {
         parse_x <- parse_x$cast(date32())
       }
       parse_x
