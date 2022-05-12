@@ -908,8 +908,11 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     week_starts_monday : bool, default True
         If True, weeks start on Monday; if False, on Sunday.
     ceil_is_strictly_greater : bool, default False
-        If True times exactly on unit multiple boundary will be rounded
-        up one unit. This applies for ceiling only.
+        If True return a rounded value that is strictly greater than the
+        input. For example: ceiling 1970-01-01T00:00:00 to 3 hours would
+        yield 1970-01-01T03:00:00 if set to True and 1970-01-01T00:00:00
+        if set to False.
+        This applies for ceiling only.
     multiple_since_greater_unit : bool, default False
         By default origin is 1970-01-01T00:00:00. By setting this to True,
         rounding origin will be beginning of one less precise calendar unit.
