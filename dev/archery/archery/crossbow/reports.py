@@ -72,6 +72,11 @@ class Report:
         return tasks_by_state
 
     @property
+    def contains_failures(self):
+        return any(self.tasks_by_state[state] for state in (
+            "error", "failure"))
+
+    @property
     def tasks(self):
         return self._tasks
 
@@ -171,7 +176,8 @@ class ChatReport(JinjaReport):
     }
     fields = [
         'report',
-        'extra_message',
+        'extra_message_success',
+        'extra_message_failure',
     ]
 
 

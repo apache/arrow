@@ -311,12 +311,15 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
               help='Just display the report, don\'t send it')
 @click.option('--webhook', '-w',
               help='Zulip/Slack Webhook address to send the report to')
-@click.option('--extra-message', '-s', default=None,
-              help='Extra message information, will be appended.')
+@click.option('--extra-message-success', '-s', default=None,
+              help='Extra message, will be appended if no failures.')
+@click.option('--extra-message-failure', '-f', default=None,
+              help='Extra message, will be appended if there are failures.')
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
 @click.pass_obj
-def report_chat(obj, job_name, send, webhook, extra_message, fetch):
+def report_chat(obj, job_name, send, webhook, extra_message_success,
+                extra_message_failure, fetch):
     """
     Send a chat report to a webhook showing success/failure
     of tasks in a Crossbow run.
@@ -327,7 +330,9 @@ def report_chat(obj, job_name, send, webhook, extra_message, fetch):
         queue.fetch()
 
     job = queue.get(job_name)
-    report_chat = ChatReport(report=Report(job), extra_message=extra_message)
+    report_chat = ChatReport(report=Report(job),
+                             extra_message_success=extra_message_success,
+                             extra_message_failure=extra_message_failure)
     if send:
         ReportUtils.send_message(webhook, report_chat.render("text"))
     else:
