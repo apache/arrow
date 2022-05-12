@@ -1436,6 +1436,7 @@ macro(build_thrift)
       -DWITH_JAVA=OFF
       -DWITH_JAVASCRIPT=OFF
       -DWITH_LIBEVENT=OFF
+      -DWITH_MT=ON
       -DWITH_NODEJS=OFF
       -DWITH_PYTHON=OFF
       -DWITH_QT5=OFF
