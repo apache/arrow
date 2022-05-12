@@ -21,6 +21,8 @@
 
 namespace arrow {
 
+namespace engine {
+
 namespace substrait {
 
 namespace {
@@ -124,5 +126,7 @@ Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_j
 }
 
 }  // namespace substrait
+
+}  // namespace engine
 
 }  // namespace arrow
