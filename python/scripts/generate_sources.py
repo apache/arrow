@@ -1,7 +1,6 @@
 import pyarrow as pa
 from pyarrow import docutils as arrowdoc
 from pyarrow.vendored import docscrape
-import pdb,warnings,traceback
 
 from pyarrow._compute import (  # noqa
     Function,
@@ -103,8 +102,17 @@ def _get_options_class(func):
 
 
 def generate_compute_function_doc(exposed_name, func, options_class, custom_overrides = None):
-    
-    # Create the documentation for the function.
+    """ Create the documentation for functions defined in Arrow C++.
+
+    Args:
+        exposed_name: The name of the function.
+        func: The cython function that connects to Arrow C++.
+        options_class: The class object for the options. 
+        custom_overrides: Custom doc overrides as processed by pyarrow.docutils from the `python/docs/additions/compute` directory.
+    Returns:
+        str: The docstring to set the documentation for the pyarrow.compute function.
+    """
+
     cpp_doc = func._doc
     
     if not custom_overrides:
@@ -217,7 +225,19 @@ def generate_compute_function_doc(exposed_name, func, options_class, custom_over
 
 
 def generate_function_def(name, cpp_name, func, arity, custom_overrides = None):  
-    
+    """ Create the function definition for the pyarrow.compute function.
+
+    Args:
+        name: The name of the function.
+        cpp_name: The name of the Arrow C++ function, which might differ slightly from the name parameter.
+        func: The cython function that connects to Arrow C++.
+        arity: The number of non-option arguments to the function.
+        custom_overrides: Custom doc overrides as processed by pyarrow.docutils from the `python/docs/additions/compute` directory, which are passed on to the `generate_compute_function_doc` function.
+    Returns:
+        str: The generated function definition, in string format.
+
+    """
+
     # prepare args
     all_params = []
     # required options
@@ -326,10 +346,12 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides = None):
 
 def write_compute_file(output_path):
     """
-    Make global functions wrapping each compute function.
+    Write the full set of generated functions to the output_path.
+    
+    Note that, in practice, while this generates core functions for all of the Arrow C++ compute functions, the compute functions may be overriden in the `pyarrow/compute.py` file. 
 
-    Note that some of the automatically-generated wrappers may be overridden
-    by custom versions below.
+    Args:
+        output_path: The full path to the file to write the compute functions to.
     """
     g = globals()
     reg = function_registry()
@@ -355,8 +377,7 @@ def write_compute_file(output_path):
             import pyarrow
             import pyarrow._compute
             from pyarrow._compute import Expression
-            import pdb
-
+            
             def _handle_options(name, options_class, options, args, **kwargs):
                 if options is not None:
                     if isinstance(options, dict):
@@ -387,10 +408,7 @@ def write_compute_file(output_path):
         fh.write("\n\n".join(function_defs))
     #print("\n\n".join(function_defs))
 
-try:
+if __name__ == "__main__":
+
     write_compute_file(os.path.dirname(__file__) + '/../pyarrow/generated/compute.py')
-except Exception as e:
-    errtype,errvalue,errtb = sys.exc_info()
-    traceback.print_exc()
-    pdb.post_mortem(errtb)
 
