@@ -114,7 +114,7 @@ func (d *DataPageBuilder) AppendValues(desc *schema.Column, values interface{}, 
 		enc.(encoding.ByteArrayEncoder).Put(v)
 		sz = len(v)
 	default:
-		panic(fmt.Sprintf("no testutil dictionary page builder for type %T", values))
+		panic(fmt.Sprintf("no testutil data page builder for type %T", values))
 	}
 	buf, _ := enc.FlushValues()
 	_, err := d.sink.Write(buf.Bytes())
