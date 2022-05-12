@@ -1429,6 +1429,7 @@ macro(build_thrift)
       -DBUILD_SHARED_LIBS=OFF
       -DBUILD_TESTING=OFF
       -DBUILD_TUTORIALS=OFF
+      -DCMAKE_DEBUG_POSTFIX=
       -DWITH_AS3=OFF
       -DWITH_CPP=ON
       -DWITH_C_GLIB=OFF
@@ -1437,7 +1438,9 @@ macro(build_thrift)
       -DWITH_LIBEVENT=OFF
       -DWITH_NODEJS=OFF
       -DWITH_PYTHON=OFF
-      -DWITH_STATIC_LIB=ON)
+      -DWITH_QT5=OFF
+      -DWITH_STATIC_LIB=ON
+      -DWITH_ZLIB=OFF)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if(DEFINED BOOST_ROOT)
@@ -1456,9 +1459,6 @@ macro(build_thrift)
       set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}md")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
     endif()
-  endif()
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}d")
   endif()
   set(THRIFT_STATIC_LIB
       "${THRIFT_PREFIX}/lib/${THRIFT_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
