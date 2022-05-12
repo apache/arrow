@@ -20,20 +20,21 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
+#include <arrow/util/optional.h>
 #include "arrow/compute/exec/asof_join.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include <arrow/util/optional.h>
 #include "arrow/util/make_unique.h"
 
-#include <mutex>
 #include <condition_variable>
+#include <mutex>
 #include <thread>
-
 
 namespace arrow {
 namespace compute {
@@ -392,7 +393,7 @@ class CompositeReferenceTable {
   }
 
   // Materializes the current reference table into a target record batch
-  std::shared_ptr<RecordBatch> materialize(
+  Result<std::shared_ptr<RecordBatch>> materialize(
       const std::shared_ptr<arrow::Schema>& output_schema,
       const std::vector<std::unique_ptr<InputState>>& state) {
     // cerr << "materialize BEGIN\n";
@@ -412,11 +413,6 @@ class CompositeReferenceTable {
       assert(n_out_cols == output_schema->num_fields());
     }
 
-    // Instance the types we support
-    std::shared_ptr<arrow::DataType> i32_type = arrow::int32();
-    std::shared_ptr<arrow::DataType> i64_type = arrow::int64();
-    std::shared_ptr<arrow::DataType> f64_type = arrow::float64();
-
     // Build the arrays column-by-column from the rows
     std::vector<std::shared_ptr<arrow::Array>> arrays(output_schema->num_fields());
     for (size_t i_table = 0; i_table < n_tables_; ++i_table) {
@@ -432,21 +428,25 @@ class CompositeReferenceTable {
           assert(src_field->type()->Equals(dst_field->type()));
           assert(src_field->name() == dst_field->name());
           const auto& field_type = src_field->type();
-          if (field_type->Equals(i32_type)) {
-            arrays.at(i_dst_col) =
-                materialize_primitive_column<arrow::Int32Builder, int32_t>(i_table,
-                                                                           i_src_col);
-          } else if (field_type->Equals(i64_type)) {
-            arrays.at(i_dst_col) =
-                materialize_primitive_column<arrow::Int64Builder, int64_t>(i_table,
-                                                                           i_src_col);
-          } else if (field_type->Equals(f64_type)) {
-            arrays.at(i_dst_col) =
-                materialize_primitive_column<arrow::DoubleBuilder, double>(i_table,
-                                                                           i_src_col);
+
+          if (field_type->Equals(arrow::int32())) {
+            ARROW_ASSIGN_OR_RAISE(
+                arrays.at(i_dst_col),
+                (materialize_primitive_column<arrow::Int32Builder, int32_t>(i_table,
+                                                                            i_src_col)));
+          } else if (field_type->Equals(arrow::int64())) {
+            ARROW_ASSIGN_OR_RAISE(
+                arrays.at(i_dst_col),
+                (materialize_primitive_column<arrow::Int64Builder, int64_t>(i_table,
+                                                                            i_src_col)));
+          } else if (field_type->Equals(arrow::float64())) {
+            ARROW_ASSIGN_OR_RAISE(
+                arrays.at(i_dst_col),
+                (materialize_primitive_column<arrow::DoubleBuilder, double>(i_table,
+                                                                            i_src_col)));
           } else {
-            std::cerr << "Unsupported data type: " << field_type->name() << "\n";
-	    exit(-1);  // TODO: validate elsewhere for better error handling
+            ARROW_RETURN_NOT_OK(
+                Status::Invalid("Unsupported data type: ", src_field->name()));
           }
         }
       }
@@ -454,10 +454,10 @@ class CompositeReferenceTable {
 
     // Build the result
     assert(sizeof(size_t) >= sizeof(int64_t));  // Make takes signed int64_t for num_rows
+
     // TODO: check n_rows for cast
     std::shared_ptr<arrow::RecordBatch> r =
         arrow::RecordBatch::Make(output_schema, (int64_t)n_rows, arrays);
-    // cerr << "materialize END (ndstrows="<< (r?r->num_rows():-1) <<")\n";
     return r;
   }
 
@@ -480,26 +480,21 @@ class CompositeReferenceTable {
   }
 
   template <class Builder, class PrimitiveType>
-  std::shared_ptr<Array> materialize_primitive_column(size_t i_table, size_t i_col) {
+  Result<std::shared_ptr<Array>> materialize_primitive_column(size_t i_table,
+                                                              size_t i_col) {
     Builder builder;
-    // builder.Resize(_rows.size()); // <-- can't just do this -- need to set the bitmask
-    // builder.AppendEmptyValues(rows_.size());
     builder.Reserve(rows_.size());
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
       if (ref.batch) {
         builder.UnsafeAppend(
-			     ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(1)[ref.row]
-			     );
+            ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(1)[ref.row]);
       } else {
-	builder.AppendNull();
+        builder.AppendNull();
       }
     }
     std::shared_ptr<Array> result;
-    if (!builder.Finish(&result).ok()) {
-      std::cerr << "Error when creating Arrow array from builder\n";
-      exit(-1);  // TODO: better error handling
-    }
+    ARROW_RETURN_NOT_OK(builder.Finish(&result));
     return result;
   }
 };
@@ -542,7 +537,7 @@ class AsofJoinNode : public ExecNode {
     return true;
   }
 
-  std::shared_ptr<RecordBatch> process_inner() {
+  Result<std::shared_ptr<RecordBatch>> process_inner() {
     assert(!_state.empty());
     auto& lhs = *_state.at(0);
 
@@ -576,9 +571,11 @@ class AsofJoinNode : public ExecNode {
     }
 
     // Emit the batch
-    std::shared_ptr<RecordBatch> r =
-        dst.empty() ? NULLPTR : dst.materialize(output_schema(), _state);
-    return r;
+    if (dst.empty()) {
+      return NULLPTR;
+    } else {
+      return dst.materialize(output_schema(), _state);
+    }
   }
 
   void process() {
@@ -592,11 +589,19 @@ class AsofJoinNode : public ExecNode {
 
     // Process batches while we have data
     for (;;) {
-      std::shared_ptr<RecordBatch> out_rb = process_inner();
-      if (!out_rb) break;
-      ++_progress_batches_produced;
-      ExecBatch out_b(*out_rb);
-      outputs_[0]->InputReceived(this, std::move(out_b));
+      Result<std::shared_ptr<RecordBatch>> result = process_inner();
+
+      if (result.ok()) {
+        auto out_rb = *result;
+        if (!out_rb) break;
+        ++_progress_batches_produced;
+        ExecBatch out_b(*out_rb);
+        outputs_[0]->InputReceived(this, std::move(out_b));
+      } else {
+        // TODO: Proper error handling
+        outputs_[0]->ErrorReceived(this, result.status());
+        // StopProducing();
+      }
     }
 
     std::cerr << "process() end\n";
