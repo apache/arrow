@@ -240,3 +240,14 @@ on:
       sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
       rm -f apache-arrow.rb.bak
 {% endmacro %}
+
+{%- macro test_r_src_pkg() -%}
+          source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
+          install.packages(
+            "arrow",
+            repos = c("https://nightly.wujciak.de/r", getOption("repos")),
+            verbose = TRUE
+          )
+          library(arrow)
+          read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+{% endmacro %}

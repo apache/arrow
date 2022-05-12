@@ -911,6 +911,13 @@ tasks:
       - Apache.Arrow.{no_rc_version}.nupkg
       - Apache.Arrow.{no_rc_version}.snupkg
 
+  ######################## R packages & binaries ##############################
+  r-nightly-packages:
+    ci: github
+    template: r/github.nightly.yml
+    
+
+
   ########################### Release verification ############################
 
   ######################## Linux verification #################################
