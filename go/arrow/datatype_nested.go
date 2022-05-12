@@ -90,6 +90,10 @@ func (t *ListType) ElemField() Field {
 
 func (t *ListType) Fields() []Field { return []Field{t.ElemField()} }
 
+func (ListType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes)}}
+}
+
 // FixedSizeListType describes a nested type in which each array slot contains
 // a fixed-size sequence of values, all having the same relative type.
 type FixedSizeListType struct {
@@ -163,6 +167,10 @@ func (t *FixedSizeListType) Fingerprint() string {
 }
 
 func (t *FixedSizeListType) Fields() []Field { return []Field{t.ElemField()} }
+
+func (FixedSizeListType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap()}}
+}
 
 // StructType describes a nested type parameterized by an ordered sequence
 // of relative types, called its fields.
@@ -253,6 +261,10 @@ func (t *StructType) Fingerprint() string {
 	return b.String()
 }
 
+func (StructType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap()}}
+}
+
 type MapType struct {
 	value      *ListType
 	KeysSorted bool
@@ -312,6 +324,10 @@ func (t *MapType) Fingerprint() string {
 }
 
 func (t *MapType) Fields() []Field { return t.ValueType().Fields() }
+
+func (t *MapType) Layout() DataTypeLayout {
+	return t.value.Layout()
+}
 
 type Field struct {
 	Name     string   // Field name

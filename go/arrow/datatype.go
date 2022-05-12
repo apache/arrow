@@ -165,6 +165,7 @@ type DataType interface {
 	// Name is name of the data type.
 	Name() string
 	Fingerprint() string
+	Layout() DataTypeLayout
 }
 
 // FixedWidthDataType is the representation of an Arrow type that
@@ -208,4 +209,78 @@ func timeUnitFingerprint(unit TimeUnit) rune {
 		debug.Assert(false, "unexpected time unit")
 		return rune(0)
 	}
+}
+
+// BufferKind describes the type of buffer expected when defining a layout specification
+type BufferKind int8
+
+// The expected types of buffers
+const (
+	KindFixedWidth BufferKind = iota
+	KindVarWidth
+	KindBitmap
+	KindAlwaysNull
+)
+
+// BufferSpec provides a specification for the buffers of a particular datatype
+type BufferSpec struct {
+	Kind      BufferKind
+	ByteWidth int // for KindFixedWidth
+}
+
+func (b BufferSpec) Equals(other BufferSpec) bool {
+	return b.Kind == other.Kind && (b.Kind != KindFixedWidth || b.ByteWidth == other.ByteWidth)
+}
+
+// DataTypeLayout represents the physical layout of a datatype's buffers including
+// the number of and types of those binary buffers. This will correspond
+// with the buffers in the ArrayData for an array of that type.
+type DataTypeLayout struct {
+	Buffers []BufferSpec
+	HasDict bool
+}
+
+func SpecFixedWidth(w int) BufferSpec { return BufferSpec{KindFixedWidth, w} }
+func SpecVariableWidth() BufferSpec   { return BufferSpec{KindVarWidth, -1} }
+func SpecBitmap() BufferSpec          { return BufferSpec{KindBitmap, -1} }
+func SpecAlwaysNull() BufferSpec      { return BufferSpec{KindAlwaysNull, -1} }
+
+// IsInteger is a helper to return true if the type ID provided is one of the
+// integral types of uint or int with the varying sizes.
+func IsInteger(t Type) bool {
+	switch t {
+	case UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64:
+		return true
+	}
+	return false
+}
+
+// IsPrimitive returns true if the provided type ID represents a fixed width
+// primitive type.
+func IsPrimitive(t Type) bool {
+	switch t {
+	case BOOL, UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64,
+		FLOAT16, FLOAT32, FLOAT64, DATE32, DATE64, TIME32, TIME64, TIMESTAMP,
+		DURATION, INTERVAL_MONTHS, INTERVAL_DAY_TIME, INTERVAL_MONTH_DAY_NANO:
+		return true
+	}
+	return false
+}
+
+// IsBaseBinary returns true for Binary/String and their LARGE variants
+func IsBaseBinary(t Type) bool {
+	switch t {
+	case BINARY, STRING, LARGE_BINARY, LARGE_STRING:
+		return true
+	}
+	return false
+}
+
+// IsFixedSizeBinary returns true for Decimal128/256 and FixedSizeBinary
+func IsFixedSizeBinary(t Type) bool {
+	switch t {
+	case DECIMAL128, DECIMAL256, FIXED_SIZE_BINARY:
+		return true
+	}
+	return false
 }

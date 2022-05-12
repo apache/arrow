@@ -35,6 +35,10 @@ func (t *BooleanType) Fingerprint() string { return typeFingerprint(t) }
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *BooleanType) BitWidth() int { return 1 }
 
+func (BooleanType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecBitmap()}}
+}
+
 type FixedSizeBinaryType struct {
 	ByteWidth int
 }
@@ -45,6 +49,9 @@ func (t *FixedSizeBinaryType) BitWidth() int       { return 8 * t.ByteWidth }
 func (t *FixedSizeBinaryType) Fingerprint() string { return typeFingerprint(t) }
 func (t *FixedSizeBinaryType) String() string {
 	return "fixed_size_binary[" + strconv.Itoa(t.ByteWidth) + "]"
+}
+func (t *FixedSizeBinaryType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(t.ByteWidth)}}
 }
 
 type (
@@ -258,6 +265,10 @@ func (t *TimestampType) Fingerprint() string {
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
+func (TimestampType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(TimestampSizeBytes)}}
+}
+
 // Time32Type is encoded as a 32-bit signed integer, representing either seconds or milliseconds since midnight.
 type Time32Type struct {
 	Unit TimeUnit
@@ -271,6 +282,10 @@ func (t *Time32Type) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
 }
 
+func (Time32Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Time32SizeBytes)}}
+}
+
 // Time64Type is encoded as a 64-bit signed integer, representing either microseconds or nanoseconds since midnight.
 type Time64Type struct {
 	Unit TimeUnit
@@ -282,6 +297,10 @@ func (*Time64Type) BitWidth() int    { return 64 }
 func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" }
 func (t *Time64Type) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
+}
+
+func (Time64Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Time64SizeBytes)}}
 }
 
 // DurationType is encoded as a 64-bit signed integer, representing an amount
@@ -298,6 +317,10 @@ func (t *DurationType) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
 }
 
+func (DurationType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(DurationSizeBytes)}}
+}
+
 // Float16Type represents a floating point value encoded with a 16-bit precision.
 type Float16Type struct{}
 
@@ -308,6 +331,10 @@ func (t *Float16Type) Fingerprint() string { return typeFingerprint(t) }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *Float16Type) BitWidth() int { return 16 }
+
+func (Float16Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Float16SizeBytes)}}
+}
 
 // Decimal128Type represents a fixed-size 128-bit decimal type.
 type Decimal128Type struct {
@@ -323,6 +350,10 @@ func (t *Decimal128Type) String() string {
 }
 func (t *Decimal128Type) Fingerprint() string {
 	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
+}
+
+func (Decimal128Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal128SizeBytes)}}
 }
 
 // MonthInterval represents a number of months.
@@ -358,6 +389,10 @@ func (*MonthIntervalType) Fingerprint() string { return typeIDFingerprint(INTERV
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *MonthIntervalType) BitWidth() int { return 32 }
 
+func (MonthIntervalType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(MonthIntervalSizeBytes)}}
+}
+
 // DayTimeInterval represents a number of days and milliseconds (fraction of day).
 type DayTimeInterval struct {
 	Days         int32 `json:"days"`
@@ -375,6 +410,10 @@ func (*DayTimeIntervalType) Fingerprint() string { return typeIDFingerprint(INTE
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *DayTimeIntervalType) BitWidth() int { return 64 }
+
+func (DayTimeIntervalType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(DayTimeIntervalSizeBytes)}}
+}
 
 // MonthDayNanoInterval represents a number of months, days and nanoseconds (fraction of day).
 type MonthDayNanoInterval struct {
@@ -397,6 +436,10 @@ func (*MonthDayNanoIntervalType) Fingerprint() string {
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*MonthDayNanoIntervalType) BitWidth() int { return 128 }
+
+func (MonthDayNanoIntervalType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(MonthDayNanoIntervalSizeBytes)}}
+}
 
 type op int8
 
@@ -475,6 +518,12 @@ func (d *DictionaryType) Fingerprint() string {
 		return typeFingerprint(d) + indexFingerprint + valueFingerprint + ordered
 	}
 	return ordered
+}
+
+func (d *DictionaryType) Layout() DataTypeLayout {
+	layout := d.IndexType.Layout()
+	layout.HasDict = true
+	return layout
 }
 
 var (
