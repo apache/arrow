@@ -1436,7 +1436,6 @@ macro(build_thrift)
       -DWITH_JAVA=OFF
       -DWITH_JAVASCRIPT=OFF
       -DWITH_LIBEVENT=OFF
-      -DWITH_MT=ON
       -DWITH_NODEJS=OFF
       -DWITH_PYTHON=OFF
       -DWITH_QT5=OFF
@@ -1462,7 +1461,7 @@ macro(build_thrift)
     endif()
   endif()
   set(THRIFT_STATIC_LIB
-      "${THRIFT_PREFIX}/lib/${THRIFT_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${THRIFT_PREFIX}/lib/${THRIFT_STATIC_LIB_NAME}")
 
   if(BOOST_VENDORED)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
