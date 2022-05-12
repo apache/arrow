@@ -18,6 +18,8 @@ package utils
 
 import (
   "github.com/apache/arrow/go/v9/parquet"
+  "github.com/apache/arrow/go/v9/internal/bitutils"
+  "github.com/apache/arrow/go/v9/internal/utils"
 )
 
 {{range .In}}
@@ -28,9 +30,9 @@ func (r *RleDecoder) GetBatchWithDictSpaced{{.Name}}(dc DictionaryConverter, val
   }
 
   var (
-    blockCounter = NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+    blockCounter = bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
     processed = 0
-    block BitBlockCount
+    block bitutils.BitBlockCount
   )
 
   for {
@@ -76,7 +78,7 @@ func (r *RleDecoder) getspaced{{.Name}}(dc DictionaryConverter, vals []{{.name}}
   var indexbuffer [bufferSize]IndexType
 
   // assume no bits to start
-  bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+  bitReader := bitutils.NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
   validRun := bitReader.NextRun()
   for read < batchSize {
     if validRun.Len == 0 {
@@ -126,8 +128,8 @@ func (r *RleDecoder) getspaced{{.Name}}(dc DictionaryConverter, vals []{{.name}}
   return read, nil
 }
 
-func (r *RleDecoder) consumeLiterals{{.Name}}(dc DictionaryConverter, vals []{{.name}}, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
-  batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+func (r *RleDecoder) consumeLiterals{{.Name}}(dc DictionaryConverter, vals []{{.name}}, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
+  batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -145,7 +147,7 @@ func (r *RleDecoder) consumeLiterals{{.Name}}(dc DictionaryConverter, vals []{{.
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := MinInt(batch-read, int(run.Len))
+			updateSize := utils.MinInt(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}
@@ -182,7 +184,7 @@ func (r *RleDecoder) GetBatchWithDict{{.Name}}(dc DictionaryConverter, vals []{{
       if !dc.IsValid(idx) {
         return read, nil
       }
-      batch := MinInt(remain, int(r.repCount))
+      batch := utils.MinInt(remain, int(r.repCount))
       if err := dc.Fill(vals[:batch], idx); err != nil {
         return read, err
       }
@@ -190,7 +192,7 @@ func (r *RleDecoder) GetBatchWithDict{{.Name}}(dc DictionaryConverter, vals []{{
       read += batch
       vals = vals[batch:]
     case r.litCount > 0:
-      litbatch := MinInt(MinInt(remain, int(r.litCount)), 1024)
+      litbatch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), 1024)
       buf := indexbuffer[:litbatch]
       n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
       if n != litbatch {
