@@ -71,7 +71,7 @@ if "%JOB%" NEQ "Build_Debug" (
   mamba create -n arrow -q -y -c conda-forge ^
     --file=ci\conda_env_python.txt ^
     %CONDA_PACKAGES%  ^
-    "cmake=3.17" ^
+    "cmake" ^
     "ninja" ^
     "nomkl" ^
     "pandas" ^
