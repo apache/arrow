@@ -38,12 +38,7 @@ RUN apt-get update -y && \
         software-properties-common && \
     wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
         tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
-    # NOTE: R 3.5 and 3.6 are available in the repos with -cran35 suffix
-    # for trusty, xenial, bionic, and eoan (as of May 2020)
-    # -cran40 has 4.0 versions for bionic and focal
-    # R 3.4 is available without the suffix but only for trusty and xenial
-    # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
-    # This is a hack to turn 3.6 into 35, and 4.0/4.1 into 40:
+    # NOTE: Only R >= 4.0 is available in this repo
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
     apt-get install -y \
         r-base=${r}* \
