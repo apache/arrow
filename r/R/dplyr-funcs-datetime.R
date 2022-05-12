@@ -516,6 +516,34 @@ register_bindings_datetime_parsers <- function() {
 
     coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
 
-    build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
+    # we need this binding to be able to handle a NULL `tz`, which will then be
+    # used by bindings such as `ymd` to return, based on whether tz is NULL or
+    # not, a date or timestamp
+    if (!is.null(tz)) {
+      build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
+    } else {
+      coalesce_output
+    }
+
   })
+
+  ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+
+  ymd_parser_map_factory <- function(order) {
+    force(order)
+    function(x, tz = NULL) {
+      parse_x <- call_binding("parse_date_time", x, order, tz)
+      if (is.null(tz)) {
+        # we cast so we can mimic the behaviour of the `tz` argument in lubridate
+        # "If NULL (default), a Date object is returned. Otherwise a POSIXct with
+        # time zone attribute set to tz."
+        parse_x <- parse_x$cast(date32())
+      }
+      parse_x
+    }
+  }
+
+  for (ymd_order in ymd_parser_vec) {
+    register_binding(ymd_order, ymd_parser_map_factory(ymd_order))
+  }
 }
