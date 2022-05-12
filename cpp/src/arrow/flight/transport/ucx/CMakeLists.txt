@@ -18,18 +18,12 @@
 add_custom_target(arrow_flight_transport_ucx)
 arrow_install_all_headers("arrow/flight/transport/ucx")
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(UCX REQUIRED IMPORTED_TARGET ucx)
-
 set(ARROW_FLIGHT_TRANSPORT_UCX_SRCS
     ucx_client.cc
     ucx_server.cc
     ucx.cc
     ucx_internal.cc
     util_internal.cc)
-set(ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS)
-
-list(APPEND ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS PkgConfig::UCX)
 
 add_arrow_lib(arrow_flight_transport_ucx
               # CMAKE_PACKAGE_NAME
@@ -46,11 +40,11 @@ add_arrow_lib(arrow_flight_transport_ucx
               SHARED_LINK_LIBS
               arrow_shared
               arrow_flight_shared
-              ${ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS}
+              ucx::ucx
               STATIC_LINK_LIBS
               arrow_static
               arrow_flight_static
-              ${ARROW_FLIGHT_TRANSPORT_UCX_LINK_LIBS})
+              ucx::ucx)
 
 if(ARROW_BUILD_TESTS)
   if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")

@@ -72,6 +72,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Substrait
     Thrift
+    ucx
     utf8proc
     xsimd
     ZLIB
@@ -173,6 +174,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ucx")
+    build_ucx()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
@@ -651,6 +654,13 @@ else()
            "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_UCX_URL})
+  set(ARROW_UCX_SOURCE_URL "$ENV{ARROW_UCX_URL}")
+else()
+  set_urls(ARROW_UCX_SOURCE_URL
+           "https://github.com/openucx/ucx/archive/v${ARROW_UCX_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
@@ -4543,6 +4553,82 @@ if(ARROW_S3)
                           PROPERTIES INTERFACE_LINK_LIBRARIES
                                      "-pthread;pthread;-framework CoreFoundation")
   endif()
+endif()
+
+# ----------------------------------------------------------------------
+# ucx - communication framework for modern, high-bandwidth and low-latency networks
+
+macro(build_ucx)
+  message(STATUS "Building UCX from source")
+
+  set(UCX_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/ucx_ep-install")
+
+  # link with static ucx libraries leads to test failures, use shared libs instead
+  set(UCX_SHARED_LIB_UCP "${UCX_PREFIX}/lib/libucp${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(UCX_SHARED_LIB_UCT "${UCX_PREFIX}/lib/libuct${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(UCX_SHARED_LIB_UCS "${UCX_PREFIX}/lib/libucs${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(UCX_SHARED_LIB_UCM "${UCX_PREFIX}/lib/libucm${CMAKE_SHARED_LIBRARY_SUFFIX}")
+
+  set(UCX_CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure)
+  list(APPEND
+       UCX_CONFIGURE_COMMAND
+       "CC=${CMAKE_C_COMPILER}"
+       "CXX=${CMAKE_CXX_COMPILER}"
+       "CFLAGS=${EP_C_FLAGS}"
+       "CXXFLAGS=${EP_CXX_FLAGS}"
+       "--prefix=${UCX_PREFIX}"
+       "--enable-mt"
+       "--enable-shared")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    list(APPEND
+         UCX_CONFIGURE_COMMAND
+         "--enable-profiling"
+         "--enable-frame-pointer"
+         "--enable-stats"
+         "--enable-fault-injection"
+         "--enable-debug-data")
+  else()
+    list(APPEND
+         UCX_CONFIGURE_COMMAND
+         "--disable-logging"
+         "--disable-debug"
+         "--disable-assertions"
+         "--disable-params-check")
+  endif()
+  set(UCX_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+  externalproject_add(ucx_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${ARROW_UCX_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_UCX_BUILD_SHA256_CHECKSUM}"
+                      CONFIGURE_COMMAND ${UCX_CONFIGURE_COMMAND}
+                      BUILD_IN_SOURCE 1
+                      BUILD_COMMAND ${UCX_BUILD_COMMAND}
+                      BUILD_BYPRODUCTS "${UCX_SHARED_LIB_UCP}" "${UCX_SHARED_LIB_UCT}"
+                                       "${UCX_SHARED_LIB_UCS}" "${UCX_SHARED_LIB_UCM}"
+                      INSTALL_COMMAND ${MAKE} install)
+
+  # ucx cmake module sets UCX_INCLUDE_DIRS
+  set(UCX_INCLUDE_DIRS "${UCX_PREFIX}/include")
+  file(MAKE_DIRECTORY "${UCX_INCLUDE_DIRS}")
+
+  add_library(ucx::ucp SHARED IMPORTED)
+  set_target_properties(ucx::ucp PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCP}")
+  add_library(ucx::uct SHARED IMPORTED)
+  set_target_properties(ucx::uct PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCT}")
+  add_library(ucx::ucs SHARED IMPORTED)
+  set_target_properties(ucx::ucs PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCS}")
+
+  add_dependencies(toolchain ucx_ep)
+  add_dependencies(ucx::ucp ucx_ep)
+  add_dependencies(ucx::uct ucx_ep)
+  add_dependencies(ucx::ucs ucx_ep)
+endmacro()
+
+if(ARROW_WITH_UCX)
+  resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
+  add_library(ucx::ucx INTERFACE IMPORTED)
+  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
+  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
