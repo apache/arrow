@@ -3189,3 +3189,5 @@ TEST(Substrait, IsthmusPlan) {
 
 }  // namespace engine
 }  // namespace arrow
+
+
