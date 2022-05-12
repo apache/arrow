@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.arrow.c.ArrowArray;
 import org.apache.arrow.c.ArrowSchema;
@@ -653,6 +654,45 @@ public class RoundtripTest {
     // Ensure that imported VectorSchemaRoot is valid even after C Data Interface
     // structures are closed
     try (VectorSchemaRoot original = createTestVSR()) {
+      assertTrue(imported.equals(original));
+    }
+    imported.close();
+  }
+
+  @Test
+  public void testVectorSchemaRootWithDuplicatedFieldNames() {
+    VectorSchemaRoot imported;
+
+    // Consumer allocates empty structures
+    try (ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator);
+        ArrowArray consumerArrowArray = ArrowArray.allocateNew(allocator)) {
+
+      try (VectorSchemaRoot testVSR1 = createTestVSR();
+          VectorSchemaRoot testVSR2 = createTestVSR()) {
+        // Merge two VSRs to produce duplicated field names
+        final VectorSchemaRoot vsr = new VectorSchemaRoot(
+            Stream.concat(
+                testVSR1.getFieldVectors().stream(),
+                testVSR2.getFieldVectors().stream()).collect(Collectors.toList()));
+        // Producer creates structures from existing memory pointers
+        try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
+            ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
+          // Producer exports vector into the C Data Interface structures
+          Data.exportVectorSchemaRoot(allocator, vsr, null, arrowArray, arrowSchema);
+        }
+      }
+      // Consumer imports vector
+      imported = Data.importVectorSchemaRoot(allocator, consumerArrowArray, consumerArrowSchema, null);
+    }
+
+    // Ensure that imported VectorSchemaRoot is valid even after C Data Interface
+    // structures are closed
+    try (VectorSchemaRoot testVSR1 = createTestVSR();
+        VectorSchemaRoot testVSR2 = createTestVSR()) {
+      final VectorSchemaRoot original = new VectorSchemaRoot(
+          Stream.concat(
+              testVSR1.getFieldVectors().stream(),
+              testVSR2.getFieldVectors().stream()).collect(Collectors.toList()));
       assertTrue(imported.equals(original));
     }
     imported.close();
