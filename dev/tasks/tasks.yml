@@ -812,6 +812,11 @@ tasks:
       - arrow-memory-core-{no_rc_version}-tests.jar
       - arrow-memory-core-{no_rc_version}.jar
       - arrow-memory-core-{no_rc_version}.pom
+      - arrow-memory-netty-buffer-patch-{no_rc_version}-javadoc.jar
+      - arrow-memory-netty-buffer-patch-{no_rc_version}-sources.jar
+      - arrow-memory-netty-buffer-patch-{no_rc_version}-tests.jar
+      - arrow-memory-netty-buffer-patch-{no_rc_version}.jar
+      - arrow-memory-netty-buffer-patch-{no_rc_version}.pom
       - arrow-memory-netty-{no_rc_version}-javadoc.jar
       - arrow-memory-netty-{no_rc_version}-sources.jar
       - arrow-memory-netty-{no_rc_version}-tests.jar
