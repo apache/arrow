@@ -17,14 +17,14 @@
 
 #pragma once
 
-#ifndef ARROW_C_DATA_H
-#define ARROW_C_DATA_H
-
 #include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#ifndef ARROW_C_DATA_INTERFACE
+#define ARROW_C_DATA_INTERFACE
 
 #define ARROW_FLAG_DICTIONARY_ORDERED 1
 #define ARROW_FLAG_NULLABLE 2
@@ -63,20 +63,20 @@ struct ArrowArray {
   void* private_data;
 };
 
+#endif  // ARROW_C_DATA_INTERFACE
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // ARROW_C_DATA_H
-
-#ifndef ARROW_C_STREAM_H
-#define ARROW_C_STREAM_H
-
-// EXPERIMENTAL: C stream interface
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// EXPERIMENTAL: C stream interface
+
+#ifndef ARROW_C_STREAM_INTERFACE
+#define ARROW_C_STREAM_INTERFACE
 
 struct ArrowArrayStream {
   // Callback to get the stream type
@@ -114,8 +114,8 @@ struct ArrowArrayStream {
   void* private_data;
 };
 
+#endif  // ARROW_C_STREAM_INTERFACE
+
 #ifdef __cplusplus
 }
 #endif
-
-#endif  // ARROW_C_STREAM_H

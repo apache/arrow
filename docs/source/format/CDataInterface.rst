@@ -255,8 +255,8 @@ are available under the Apache License 2.0.
 
 .. code-block:: c
 
-   #ifndef ARROW_C_DATA_H
-   #define ARROW_C_DATA_H
+   #ifndef ARROW_C_DATA_INTERFACE
+   #define ARROW_C_DATA_INTERFACE
 
    #define ARROW_FLAG_DICTIONARY_ORDERED 1
    #define ARROW_FLAG_NULLABLE 2
@@ -295,13 +295,15 @@ are available under the Apache License 2.0.
      void* private_data;
    };
 
-   #endif  // ARROW_C_DATA_H
+   #endif  // ARROW_C_DATA_INTERFACE
+
 .. note::
-   The canonical guard ``ARROW_C_DATA_INTERFACE`` is meant to avoid duplicate
-   definitions if two projects copy the C data interface definitions in their own headers,
-   and a third-party project includes from these two projects.
-   It is therefore important that this guard is kept exactly as-is when these definitions
-   are copied.
+   The canonical guard ``ARROW_C_DATA_INTERFACE`` is meant to avoid
+   duplicate definitions if two projects copy the C data interface
+   definitions in their own headers, and a third-party project
+   includes from these two projects.  It is therefore important that
+   this guard is kept exactly as-is when these definitions are copied.
+
 The ArrowSchema structure
 -------------------------
 
