@@ -29,7 +29,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
-      <artifactId>memory-netty-buffer-patch</artifactId>
+      <artifactId>arrow-memory-netty-buffer-patch</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

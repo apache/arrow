@@ -9,7 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>memory-netty-buffer-patch</artifactId>
+    <artifactId>arrow-memory-netty-buffer-patch</artifactId>
     <name>Arrow Memory - Netty Buffer</name>
     <description>Netty Buffer needed to patch that is consumed by Arrow Memory Netty</description>
 
