@@ -1565,3 +1565,5 @@ TEST(Substrait, AggregateInvalidFunction) {
 
 }  // namespace engine
 }  // namespace arrow
+
+
