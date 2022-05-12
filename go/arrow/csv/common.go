@@ -118,6 +118,18 @@ func WithHeader(useHeader bool) Option {
 	}
 }
 
+// WithTimestampUnit specifies the timestamp unit used while parsing CSV files.
+func WithTimestampUnit(unit arrow.TimeUnit) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			cfg.timestampUnit = unit
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
+		}
+	}
+}
+
 // DefaultNullValues is the set of values considered as NULL values by default
 // when Reader is configured to handle NULL values.
 var DefaultNullValues = []string{"", "NULL", "null"}
@@ -167,6 +179,7 @@ func validate(schema *arrow.Schema) {
 		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
 		case *arrow.Float32Type, *arrow.Float64Type:
 		case *arrow.StringType:
+		case *arrow.TimestampType:
 		default:
 			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}
