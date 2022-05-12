@@ -518,6 +518,9 @@ register_bindings_datetime_parsers <- function() {
 
     coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
 
+    # we need this binding to be able to handle a NULL `tz`, which will then be
+    # used by bindings such as `ymd` to return, based on whether tz is NULL or
+    # not, a date or timestamp
     if (!is.null(tz)) {
       build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
     } else {
