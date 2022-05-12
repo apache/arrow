@@ -533,6 +533,9 @@ register_bindings_datetime_parsers <- function() {
     function(x, tz = NULL) {
       parse_x <- call_binding("parse_date_time", x, order, tz)
       if (is.null(tz)) {
+        # we cast so we can mimic the behaviour of the `tz` argument in lubridate
+        # "If NULL (default), a Date object is returned. Otherwise a POSIXct with
+        # time zone attribute set to tz."
         parse_x <- parse_x$cast(date32())
       }
       parse_x
