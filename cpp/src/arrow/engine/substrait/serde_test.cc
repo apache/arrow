@@ -1388,17 +1388,31 @@ TEST(Substrait, AggregateBase) {
     "relations": [{
       "rel": {
         "aggregate": {
-          "groupings": [{
-            "groupingExpressions": [{
-              "selection": {
-                "directReference": {
-                  "structField": {
-                    "field": 0
-                  }
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
                 }
+              },
+              "local_files": { 
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "format": "FILE_FORMAT_PARQUET"
+                  }
+                ]
               }
-            }]
-          }, {
+            }
+          },
+          "groupings": [{
             "groupingExpressions": [{
               "selection": {
                 "directReference": {
