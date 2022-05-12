@@ -981,6 +981,7 @@ tasks:
       github_runner: "macos-10.15"
   {% endfor %}
 
+  # MACOS M1
   {% for target in ["cpp",
                     "csharp",
                     "go",
