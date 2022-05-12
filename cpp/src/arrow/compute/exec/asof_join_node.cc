@@ -598,9 +598,9 @@ class AsofJoinNode : public ExecNode {
         ExecBatch out_b(*out_rb);
         outputs_[0]->InputReceived(this, std::move(out_b));
       } else {
-        // TODO: Proper error handling
-        outputs_[0]->ErrorReceived(this, result.status());
-        // StopProducing();
+        StopProducing();
+	ErrorIfNotOk(result.status());
+	return;
       }
     }
 
