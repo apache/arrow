@@ -50,18 +50,17 @@ func (dec *PlainBooleanDecoder) SetData(nvals int, data []byte) error {
 func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	max := shared_utils.MinInt(len(out), dec.nvals)
 
-	// attempts to read all remaining bool values from the current data byte, starting at curBitOffset
-	unalignedExtract := func(start, curBitOffset int) int {
+	// attempts to read all remaining bool values from the current data byte
+	unalignedExtract := func(start int) int {
 		i := start
-		for ; curBitOffset < 8 && i < max; i, curBitOffset = i+1, curBitOffset+1 {
-			out[i] = (dec.data[0] & byte(1<<curBitOffset)) != 0
+		for ; dec.bitOffset < 8 && i < max; i, dec.bitOffset = i+1, dec.bitOffset+1 {
+			out[i] = (dec.data[0] & byte(1<<dec.bitOffset)) != 0
 		}
-		if curBitOffset == 8 {
-			// we read every bit from this byte, move data forward
-			curBitOffset = 0
-			dec.data = dec.data[1:]
+		if dec.bitOffset == 8 {
+			// we read every bit from this byte
+			dec.bitOffset = 0
+			dec.data = dec.data[1:] // move data forward
 		}
-		dec.bitOffset = curBitOffset
 		return i - start // return the number of bits we extracted
 	}
 
@@ -69,7 +68,7 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	// a byte boundary with the bit offset.
 	i := 0
 	if dec.bitOffset != 0 {
-		i += unalignedExtract(0, dec.bitOffset)
+		i += unalignedExtract(i)
 	}
 
 	// determine the number of full bytes worth of bits we can decode
@@ -87,7 +86,7 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	}
 
 	// grab any trailing bits now that we've got our aligned bytes.
-	i += unalignedExtract(i, dec.bitOffset)
+	i += unalignedExtract(i)
 
 	dec.nvals -= max
 	return max, nil
