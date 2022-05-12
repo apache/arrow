@@ -27,6 +27,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 
@@ -83,38 +84,48 @@ TEST(TestCumulativeSum, ScalarInput) {
 
 using testing::HasSubstr;
 
-#define CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW(FUNC, ARROWTYPE, CTYPE)              \
-  {                                                                                 \
-    CumulativeSumOptions pos_overflow(1);                                           \
-    EXPECT_RAISES_WITH_MESSAGE_THAT(                                                \
-        Invalid, HasSubstr("overflow"),                                             \
-        CallFunction(                                                               \
-            FUNC,                                                                   \
-            {TypeTraits<ARROWTYPE>::ScalarType(std::numeric_limits<CTYPE>::max())}, \
-            &pos_overflow));                                                        \
+#define CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW(FUNC, TYPENAME, CTYPE)            \
+  {                                                                              \
+    CumulativeSumOptions pos_overflow(1);                                        \
+    auto max = std::numeric_limits<CTYPE>::max();                                \
+    TYPENAME##Builder builder;                                                   \
+    std::shared_ptr<Array> array;                                                \
+    builder.Append(max);                                                         \
+    ASSERT_OK(builder.Finish(&array));                                           \
+    EXPECT_RAISES_WITH_MESSAGE_THAT(                                             \
+        Invalid, HasSubstr("overflow"),                                          \
+        CallFunction(FUNC, {TypeTraits<TYPENAME##Type>::ScalarType(max)},        \
+                     &pos_overflow));                                            \
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("overflow"),              \
+                                    CallFunction(FUNC, {array}, &pos_overflow)); \
   }
 
-#define CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW(FUNC, ARROWTYPE, CTYPE)                   \
-  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW(FUNC, ARROWTYPE, CTYPE);                      \
-  {                                                                                    \
-    CumulativeSumOptions neg_overflow(-1);                                             \
-    EXPECT_RAISES_WITH_MESSAGE_THAT(                                                   \
-        Invalid, HasSubstr("overflow"),                                                \
-        CallFunction(                                                                  \
-            FUNC,                                                                      \
-            {TypeTraits<ARROWTYPE>::ScalarType(std::numeric_limits<CTYPE>::lowest())}, \
-            &neg_overflow));                                                           \
+#define CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW(FUNC, TYPENAME, CTYPE)              \
+  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW(FUNC, TYPENAME, CTYPE);                 \
+  {                                                                              \
+    CumulativeSumOptions neg_overflow(-1);                                       \
+    auto min = std::numeric_limits<CTYPE>::lowest();                             \
+    TYPENAME##Builder builder;                                                   \
+    std::shared_ptr<Array> array;                                                \
+    builder.Append(min);                                                         \
+    ASSERT_OK(builder.Finish(&array));                                           \
+    EXPECT_RAISES_WITH_MESSAGE_THAT(                                             \
+        Invalid, HasSubstr("overflow"),                                          \
+        CallFunction(FUNC, {TypeTraits<TYPENAME##Type>::ScalarType(min)},        \
+                     &neg_overflow));                                            \
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("overflow"),              \
+                                    CallFunction(FUNC, {array}, &neg_overflow)); \
   }
 
 TEST(TestCumulativeSum, IntegerOverflow) {
-  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW("cumulative_sum_checked", UInt8Type, uint8_t);
-  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW("cumulative_sum_checked", UInt16Type, uint16_t);
-  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW("cumulative_sum_checked", UInt32Type, uint32_t);
-  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW("cumulative_sum_checked", UInt64Type, uint64_t);
-  CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW("cumulative_sum_checked", Int8Type, int8_t);
-  CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW("cumulative_sum_checked", Int16Type, int16_t);
-  CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW("cumulative_sum_checked", Int32Type, int32_t);
-  CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW("cumulative_sum_checked", Int64Type, int64_t);
+  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW("cumulative_sum_checked", UInt8, uint8_t);
+  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW("cumulative_sum_checked", UInt16, uint16_t);
+  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW("cumulative_sum_checked", UInt32, uint32_t);
+  CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW("cumulative_sum_checked", UInt64, uint64_t);
+  CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW("cumulative_sum_checked", Int8, int8_t);
+  CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW("cumulative_sum_checked", Int16, int16_t);
+  CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW("cumulative_sum_checked", Int32, int32_t);
+  CHECK_CUMULATIVE_SUM_SIGNED_OVERFLOW("cumulative_sum_checked", Int64, int64_t);
 }
 
 #undef CHECK_CUMULATIVE_SUM_UNSIGNED_OVERFLOW
