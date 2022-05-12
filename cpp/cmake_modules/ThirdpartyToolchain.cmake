@@ -4609,6 +4609,7 @@ macro(build_ucx)
 
   # ucx cmake module sets UCX_INCLUDE_DIRS
   set(UCX_INCLUDE_DIRS "${UCX_PREFIX}/include")
+  file(MAKE_DIRECTORY "${UCX_INCLUDE_DIRS}")
 
   add_library(ucx::ucp SHARED IMPORTED)
   set_target_properties(ucx::ucp PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCP}")
