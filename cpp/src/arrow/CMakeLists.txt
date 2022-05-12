@@ -442,7 +442,8 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
-       compute/kernels/vector_sort.cc)
+       compute/kernels/vector_sort.cc
+       compute/kernels/vector_run_length_encode.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)

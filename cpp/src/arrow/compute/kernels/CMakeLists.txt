@@ -53,6 +53,7 @@ add_arrow_compute_test(vector_test
                        vector_replace_test.cc
                        vector_selection_test.cc
                        vector_sort_test.cc
+                       vector_run_length_encode_test.cc
                        select_k_test.cc
                        test_util.cc)
 

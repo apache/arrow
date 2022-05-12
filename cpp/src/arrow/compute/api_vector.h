@@ -174,6 +174,13 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   std::vector<SortKey> sort_keys;
 };
 
+class ARROW_EXPORT RunLengthEncodeOptions : public FunctionOptions {
+ public:
+  explicit RunLengthEncodeOptions();
+  static constexpr char const kTypeName[] = "RunLengthEncodeOptions";
+  static RunLengthEncodeOptions Defaults() { return RunLengthEncodeOptions(); }
+};
+
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
@@ -521,6 +528,9 @@ Result<Datum> DictionaryEncode(
     const Datum& data,
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
+
+ARROW_EXPORT
+Result<Datum> RunLengthEncode(const Datum& value, ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions

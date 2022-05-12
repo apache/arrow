@@ -135,6 +135,8 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
+static auto kRunLengthEncodeOptionsType =
+    GetFunctionOptionsType<RunLengthEncodeOptions>();
 }  // namespace
 }  // namespace internal
 
@@ -176,6 +178,10 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
+RunLengthEncodeOptions::RunLengthEncodeOptions()
+    : FunctionOptions(internal::kRunLengthEncodeOptionsType) {}
+constexpr char RunLengthEncodeOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -185,6 +191,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRunLengthEncodeOptionsType));
 }
 }  // namespace internal
 
@@ -276,6 +283,11 @@ Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {
 Result<Datum> DictionaryEncode(const Datum& value, const DictionaryEncodeOptions& options,
                                ExecContext* ctx) {
   return CallFunction("dictionary_encode", {value}, &options, ctx);
+}
+
+Result<Datum> RunLengthEncode(const Datum& value, ExecContext* ctx) {
+  RunLengthEncodeOptions options{};
+  return CallFunction("run_length_encode", {value}, &options, ctx);
 }
 
 const char kValuesFieldName[] = "values";
