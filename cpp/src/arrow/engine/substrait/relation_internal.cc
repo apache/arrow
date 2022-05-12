@@ -324,8 +324,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       return DeclarationInfo{std::move(join_dec), num_columns};
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
-      std::cout << "Aggregate Case" << std::endl;
-
       const auto& aggregate = rel.aggregate();
       RETURN_NOT_OK(CheckRelCommon(aggregate));
 
@@ -335,8 +333,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       ARROW_ASSIGN_OR_RAISE(auto input, FromProto(aggregate.input(), ext_set));
 
       int group_size = aggregate.groupings_size();
-      std::vector<FieldRef> targets(group_size);
-
+      std::vector<FieldRef> targets;
+      targets.reserve(group_size);
       for (int group_id = 0; group_id < group_size; group_id++) {
         auto group = aggregate.groupings(group_id);
         for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
@@ -345,13 +343,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           targets.emplace_back(std::move(*field_ref));
         }
       }
-
       // denotes how many unique aggregation functions are used
       // measure_id refers to the corresponding function in the
       // extensionsion
       int measure_size = aggregate.measures_size();
-      std::vector<compute::internal::Aggregate> aggregates(measure_size);
-      std::vector<std::string> new_cols(measure_size);
+      std::vector<compute::internal::Aggregate> aggregates;
+      aggregates.reserve(measure_size);
+      std::vector<std::string> new_cols;
+      new_cols.reserve(measure_size);
       for (int measure_id = 0; measure_id < measure_size; measure_id++) {
         const auto& agg_measure = aggregate.measures(measure_id);
         if (agg_measure.has_measure()) {
@@ -364,13 +363,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           std::string agg_col_name =
               func_name + "(" + std::to_string(func_reference) + ")";
           new_cols.emplace_back(std::move(agg_col_name));
+        } else {
+          return Status::Invalid("substrait::AggregateFunction not provided");
         }
       }
-      // TODO: Add FunctionOptions to Substrait
-      auto aggregate_options =
-          compute::AggregateNodeOptions{aggregates, targets, new_cols};
-
-      return compute::Declaration::Sequence({});
+      return compute::Declaration::Sequence(
+          {std::move(input),
+           {"aggregate", compute::AggregateNodeOptions{aggregates, targets, new_cols}}});
     }
 
     default:

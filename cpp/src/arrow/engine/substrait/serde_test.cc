@@ -1456,6 +1456,111 @@ TEST(Substrait, AggregateBase) {
       DeserializePlan(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
+  auto agg_decl = sink_decls[0].inputs[0];
+
+  const auto& agg_rel = agg_decl.get<compute::Declaration>();
+
+  const auto& agg_options =
+      checked_cast<const compute::AggregateNodeOptions&>(*agg_rel->options);
+
+  EXPECT_EQ(agg_rel->factory_name, "aggregate");
+  EXPECT_EQ(agg_options.names[0], "count(0)");
+  EXPECT_EQ(agg_options.aggregates[0].function, "count");
+}
+
+TEST(Substrait, AggregateInvalidRel) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "count"
+      }
+    }],
+  })"));
+
+  ExtensionSet ext_set;
+  ASSERT_RAISES(
+      Invalid,
+      DeserializePlan(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
+}
+
+TEST(Substrait, AggregateInvalidFunction) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": { 
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "format": "FILE_FORMAT_PARQUET"
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "count"
+      }
+    }],
+  })"));
+
+  ExtensionSet ext_set;
+  ASSERT_RAISES(
+      Invalid,
+      DeserializePlan(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
 }
 
 }  // namespace engine
