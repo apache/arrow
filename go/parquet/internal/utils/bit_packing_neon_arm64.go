@@ -19,38 +19,35 @@
 package utils
 
 import (
+	"bytes"
 	"io"
-	"os"
-	"strings"
+	"sync"
+	"unsafe"
 )
-import "golang.org/x/sys/cpu"
 
-var unpack32 func(io.Reader, []uint32, int) int = unpack32Default
+var bufferPool = sync.Pool{New: func() interface{} { return &bytes.Buffer{} }}
 
-func init() {
-        cpu.ARM64.HasASIMD = false
-        cpu.ARM64.HasAES = false
-        cpu.ARM64.HasPMULL = false
-        // Added ability to enable extension via environment:
-	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
-		exts := strings.Split(ext, ",")
+//go:noescape
+func _unpack32_neon(in, out unsafe.Pointer, batchSize, nbits int) (num int)
 
-		for _, x := range exts {
-			switch x {
-			case "NEON":
-				cpu.ARM64.HasASIMD = true
-			case "AES":
-				cpu.ARM64.HasAES = true
-			case "PMULL":
-				cpu.ARM64.HasPMULL = true
-			default:
-			}
-		}
+func unpack32NEON(in io.Reader, out []uint32, nbits int) int {
+	batch := len(out) / 32 * 32
+	if batch <= 0 {
+		return 0
 	}
-	if cpu.ARM64.HasASIMD {
-		unpack32 = unpack32NEON
-	} else { // default to the pure go implementation if no avx2 available
-		unpack32 = unpack32Default
-	}
+
+	n := batch * nbits / 8
+
+	buffer := bufferPool.Get().(*bytes.Buffer)
+	defer bufferPool.Put(buffer)
+	buffer.Reset()
+	buffer.Grow(n)
+	io.CopyN(buffer, in, int64(n))
+
+	var (
+		input  = unsafe.Pointer(&buffer.Bytes()[0])
+		output = unsafe.Pointer(&out[0])
+	)
+
+	return _unpack32_neon(input, output, len(out), nbits)
 }
-
