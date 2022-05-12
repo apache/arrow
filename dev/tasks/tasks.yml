@@ -297,22 +297,22 @@ tasks:
 
   ############################## Conda OSX ####################################
 
-  conda-osx-clang-py37-r40:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config:  osx_64_numpy1.18python3.7.____cpython
-      r_config: osx_64_r_base4.0
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-
   conda-osx-clang-py37-r41:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.18python3.7.____cpython
+      config:  osx_64_numpy1.18python3.7.____cpython
       r_config: osx_64_r_base4.1
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+
+  conda-osx-clang-py37-r42:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_64_numpy1.18python3.7.____cpython
+      r_config: osx_64_r_base4.2
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -373,22 +373,22 @@ tasks:
 
   ############################## Conda Windows ################################
 
-  conda-win-vs2017-py37-r40:
-    ci: azure
-    template: conda-recipes/azure.win.yml
-    params:
-      config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
-      r_config: win_64_r_base4.0
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-
   conda-win-vs2017-py37-r41:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
       config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
       r_config: win_64_r_base4.1
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+
+  conda-win-vs2017-py37-r42:
+    ci: azure
+    template: conda-recipes/azure.win.yml
+    params:
+      config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
+      r_config: win_64_r_base4.2
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -1352,13 +1352,13 @@ tasks:
         GCC_VERSION: 12
       image: ubuntu-r-only-r
 
-  test-r-rstudio-r-base-4.1-centos7-devtoolset-8:
+  test-r-rstudio-r-base-4.2-centos7-devtoolset-8:
     ci: azure
     template: r/azure.linux.yml
     params:
       r_org: rstudio
       r_image: r-base
-      r_tag: 4.1-centos7
+      r_tag: 4.2-centos7
       devtoolset_version: 8
 
   test-r-minimal-build:
