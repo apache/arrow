@@ -636,7 +636,6 @@ TEST_F(TestExtractHolder, TestInvalidRange) {
   ret_as_str = std::string(ret, out_length);
   EXPECT_EQ(out_length, 0);
   EXPECT_TRUE(execution_context_.has_error());
-
   execution_context_.Reset();
 }
 
