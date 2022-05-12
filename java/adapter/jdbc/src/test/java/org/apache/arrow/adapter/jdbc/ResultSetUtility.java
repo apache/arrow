@@ -56,7 +56,7 @@ public class ResultSetUtility {
             .build();
   }
 
-  public static ResultSet generateBasicResultSet(int rows) throws SQLException {
+  public static MockResultSet generateBasicResultSet(int rows) throws SQLException {
     MockResultSet.Builder builder = MockResultSet.builder();
     for (int i = 0; i < rows; i++) {
       builder.addDataElement("row number: " + (i + 1)).addDataElement("data").finishRow();
@@ -97,6 +97,7 @@ public class ResultSetUtility {
 
     @Override
     public boolean next() throws SQLException {
+      throwIfClosed();
       index++;
       return index <= rows.size();
     }
@@ -115,7 +116,7 @@ public class ResultSetUtility {
 
     @Override
     public boolean isAfterLast() throws SQLException {
-      return index == rows.size();
+      return index > rows.size();
     }
 
     @Override
@@ -140,6 +141,9 @@ public class ResultSetUtility {
 
     private MockRow getCurrentRow() throws SQLException {
       throwIfClosed();
+      if (index == 0) {
+        throw new SQLException("Index is before first element!");
+      }
       if (index <= rows.size()) {
         return rows.get(index - 1);
       }
@@ -304,7 +308,9 @@ public class ResultSetUtility {
     }
 
     public static MockResultSetMetaData fromRows(ArrayList<MockRow> rows) throws SQLException {
-
+      // Note: This attempts to dynamically construct ResultSetMetaData from the first row in a given result set.
+      // If there are now rows, or the result set contains no columns, this cannot be dynamically generated and
+      // an exception will be thrown.
       if (rows.size() == 0) {
         throw new SQLException("Unable to dynamically generate ResultSetMetaData because row count is zero!");
       }
@@ -414,14 +420,14 @@ public class ResultSetUtility {
       if (this.sqlType == Types.VARCHAR) {
         return 0;
       }
-      throw getExceptionToThrow("Unable to determine precision for data type!");
+      throw getExceptionToThrow("Unable to determine scale for data type!");
     }
 
     private int isNullable() throws SQLException {
       if (this.sqlType == Types.VARCHAR) {
         return ResultSetMetaData.columnNullable;
       }
-      throw getExceptionToThrow("Unable to determine precision for data type!");
+      return ResultSetMetaData.columnNullableUnknown;
     }
 
     public BigDecimal getBigDecimal() throws SQLException {
@@ -438,7 +444,7 @@ public class ResultSetUtility {
 
     public boolean getBoolean() throws SQLException {
       try {
-        return Boolean.parseBoolean(getValueAsString());
+        return (boolean) value;
       } catch (Exception ex) {
         throw new SQLException(ex);
       }
