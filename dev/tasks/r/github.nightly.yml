@@ -174,7 +174,7 @@ jobs:
           - windows-latest
           # This is newer than what CRAN builds on, but Travis is no longer an option for us, so...
           - macos-10.15
-          - self-hosted
+          - devops-managed
         r_version:
           - { rtools: 40, r: "4.1" }
           - { rtools: 42, r: "4.2" }
