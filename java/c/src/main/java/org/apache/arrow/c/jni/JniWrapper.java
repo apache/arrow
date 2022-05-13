@@ -24,6 +24,7 @@ public class JniWrapper {
   private static final JniWrapper INSTANCE = new JniWrapper();
 
   public static JniWrapper get() {
+    JniLoader.get().ensureLoaded();
     return INSTANCE;
   }
 
@@ -34,7 +35,6 @@ public class JniWrapper {
       throw new UnsupportedOperationException(
           "The Java C Data Interface implementation is currently only supported on 64-bit systems");
     }
-    JniLoader.get().ensureLoaded();
   }
 
   public native void releaseSchema(long memoryAddress);
