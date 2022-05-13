@@ -65,7 +65,7 @@ jobs:
           {% endfor %}
         {% endfor %}
         
-          sudo cp arrow/r/arrow_*{{ today }}.tar.gz {{ r_root }}/src/contrib
+          sudo cp arrow/r/arrow_*.tar.gz {{ r_root }}/src/contrib
       - name: Update Repo
         shell: sudo Rscript {0}
         run: |
@@ -81,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: r-src-pkg
-          path: arrow/r/arrow_*{{ today }}.tar.gz
+          path: arrow/r/arrow_*.tar.gz
 
   linux-cpp:
     name: C++ Binary {{ '${{ matrix.config.os }}-${{ matrix.config.version }}' }}
@@ -124,7 +124,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: r-{{ '${{ matrix.config.os}}' }}-libarrow
-          path: arrow/r/libarrow/dist/arrow-*{{ today }}.zip
+          path: arrow/r/libarrow/dist/arrow-*.zip
 
   windows-cpp:
     name: C++ Binary Windows RTools (40 only)
@@ -160,7 +160,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: r-windows-libarrow
-          path: build/arrow-*{{ today }}.zip 
+          path: build/arrow-*.zip 
 
   r-packages:
     if: true
@@ -208,8 +208,7 @@ jobs:
           install.packages(
             "arrow",
             type = "source",
-            repos = NULL,
-            repos = {{ repo_domain }}",
+            repos = "{{ repo_domain }}",
             INSTALL_opts = INSTALL_opts
           )
 
@@ -223,13 +222,19 @@ jobs:
           PW: {{ '${{ secrets.ASF_KEY }}' }}
           
         run: |
+          VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
           REPO_PATH=$(Rscript -e "cat(contrib.url('', type = 'binary'))")
-          curl -s --fail --show-error -u $USER:$PW -T arrow_*{{ today }}.zip  '{{ webdav_domain }}:8080$REPO_PATH/'
+          echo $VERSION
+          echo $REPO_PATH
+
+          cd build
+          ls
+          curl -s --fail --show-error -u $USER:$PW -T arrow_$VERSION.zip  '{{ webdav_domain }}:8080$REPO_PATH/'
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
           name: r-{{ '${{ matrix.config.os}}' }}-pkg
-          path: arrow_*{{ today }}.zip 
+          path: arrow_*.zip 
 
   test-linux-binary:
     if: true
