@@ -87,7 +87,7 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	}
 
 	// grab any trailing bits now that we've got our aligned bytes.
-	i = unalignedExtract(i)
+	_ = unalignedExtract(i)
 
 	dec.nvals -= max
 	return max, nil
