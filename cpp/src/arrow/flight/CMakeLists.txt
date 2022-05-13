@@ -61,9 +61,16 @@ endif()
 set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
 message("ARROW_FLIGHT_TEST_LINKAGE: ${ARROW_FLIGHT_TEST_LINKAGE}")
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_TEST_LINK_LIBS
-      arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
-      ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_BUILD_STATIC)
+    set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_static)
+  else()
+    set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared)
+  endif()
+  list(APPEND
+       ARROW_FLIGHT_TEST_LINK_LIBS
+       arrow_flight_testing_static
+       ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+       ${ARROW_TEST_LINK_LIBS})
   if(ARROW_CUDA)
     list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_static)
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
