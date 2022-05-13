@@ -315,7 +315,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       return buffer;
     }
     // granted size < request size
-    // forcibly deallocate for under-allocated bytes, then release all
+    // forcibly deallocate for over-allocated bytes, then release all
     long diff = roundedRequestSize - grantedSize;
     releaseBytes(-diff);
     buffer.close();
