@@ -1436,11 +1436,9 @@ macro(build_thrift)
       -DWITH_JAVA=OFF
       -DWITH_JAVASCRIPT=OFF
       -DWITH_LIBEVENT=OFF
-      -DWITH_MT=ON
       -DWITH_NODEJS=OFF
       -DWITH_PYTHON=OFF
       -DWITH_QT5=OFF
-      -DWITH_STATIC_LIB=ON
       -DWITH_ZLIB=OFF)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
@@ -1451,18 +1449,21 @@ macro(build_thrift)
     list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
   endif()
 
-  set(THRIFT_STATIC_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}thrift")
   if(MSVC)
     if(ARROW_USE_STATIC_CRT)
-      set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}mt")
+      set(THRIFT_LIB_SUFFIX "mt")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=ON")
     else()
-      set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}md")
+      set(THRIFT_LIB_SUFFIX "md")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
     endif()
+    set(THRIFT_IMPORTED_TYPE IMPORTED_IMPLIB)
+    set(THRIFT_LIB
+      "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
   else()
-    set(THRIFT_STATIC_LIB
-      "${THRIFT_PREFIX}/lib/${THRIFT_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(THRIFT_IMPORTED_TYPE IMPORTED_LOCATION)
+    set(THRIFT_LIB
+      "${THRIFT_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}thrift${CMAKE_STATIC_LIBRARY_SUFFIX}")
   endif()
 
   if(BOOST_VENDORED)
@@ -1480,7 +1481,7 @@ macro(build_thrift)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
   set_target_properties(thrift::thrift
-                        PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+                        PROPERTIES ${THRIFT_IMPORTED_TYPE} "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(CMAKE_VERSION VERSION_LESS 3.11)
     set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
