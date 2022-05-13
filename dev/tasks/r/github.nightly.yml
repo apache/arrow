@@ -265,11 +265,13 @@ jobs:
             apt-get install -y libcurl4-openssl-dev libssl-dev
           fi
 
+          # Add R-devel to PATH
+          echo "/opt/R-devel/bin" >> $GITHUB_PATH
+
       - name: Install arrow from our repo
         env:
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: "TRUE"
-        #TODO ask neal about this: /opt/R-devel/Rscript {0}
         shell: Rscript {0}
         run: |
           {{  macros.test_r_src_pkg() }}
