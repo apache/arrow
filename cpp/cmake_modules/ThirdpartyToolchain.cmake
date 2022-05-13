@@ -1422,21 +1422,24 @@ macro(build_thrift)
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
       "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
+      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
+      -DBoost_NO_BOOST_CMAKE=ON
       -DBUILD_COMPILER=OFF
+      -DBUILD_EXAMPLES=OFF
       -DBUILD_SHARED_LIBS=OFF
       -DBUILD_TESTING=OFF
-      -DBUILD_EXAMPLES=OFF
       -DBUILD_TUTORIALS=OFF
-      -DWITH_QT4=OFF
+      -DCMAKE_DEBUG_POSTFIX=
+      -DWITH_AS3=OFF
+      -DWITH_CPP=ON
       -DWITH_C_GLIB=OFF
       -DWITH_JAVA=OFF
-      -DWITH_PYTHON=OFF
-      -DWITH_HASKELL=OFF
-      -DWITH_CPP=ON
-      -DWITH_STATIC_LIB=ON
+      -DWITH_JAVASCRIPT=OFF
       -DWITH_LIBEVENT=OFF
-      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
-      -DBoost_NO_BOOST_CMAKE=ON)
+      -DWITH_NODEJS=OFF
+      -DWITH_PYTHON=OFF
+      -DWITH_QT5=OFF
+      -DWITH_ZLIB=OFF)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if(DEFINED BOOST_ROOT)
@@ -1446,21 +1449,22 @@ macro(build_thrift)
     list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
   endif()
 
-  set(THRIFT_STATIC_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}thrift")
   if(MSVC)
     if(ARROW_USE_STATIC_CRT)
-      set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}mt")
+      set(THRIFT_LIB_SUFFIX "mt")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=ON")
     else()
-      set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}md")
+      set(THRIFT_LIB_SUFFIX "md")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
     endif()
+    set(THRIFT_LIB
+        "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    )
+  else()
+    set(THRIFT_LIB
+        "${THRIFT_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}thrift${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
   endif()
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}d")
-  endif()
-  set(THRIFT_STATIC_LIB
-      "${THRIFT_PREFIX}/lib/${THRIFT_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
   if(BOOST_VENDORED)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
@@ -1469,7 +1473,7 @@ macro(build_thrift)
   externalproject_add(thrift_ep
                       URL ${THRIFT_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}"
+                      BUILD_BYPRODUCTS "${THRIFT_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
@@ -1477,7 +1481,7 @@ macro(build_thrift)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
   set_target_properties(thrift::thrift
-                        PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(CMAKE_VERSION VERSION_LESS 3.11)
     set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
