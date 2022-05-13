@@ -133,7 +133,7 @@ TEST(TaskScheduler, Stress) {
     int start = stage_index * kGroupsPerStage;
     int end = std::min(kNumGroups, start + kGroupsPerStage);
     for (int i = start; i < end; i++) {
-      ASSERT_OK(thread_pool->Spawn([&scheduler, &group_ids, &thread_indexer, i] {
+      ASSERT_OK(thread_pool->Spawn([&, i] {
         std::size_t my_thread_id = thread_indexer();
         SleepABit();
         ASSERT_OK(scheduler->StartTaskGroup(my_thread_id, group_ids[i], kTasksPerGroup));
