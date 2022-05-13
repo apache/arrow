@@ -25,14 +25,6 @@ def datadir(base_datadir):
     return base_datadir / 'parquet'
 
 
-def pytest_collection_modifyitems(items):
-    for item in items:
-        # Marks all tests in the parquet package
-        # Ignore these with pytest ... -m 'not parquet'c
-        if item.parent.parent.name == "parquet":
-            item.add_marker(pytest.mark.parquet)
-
-
 @pytest.fixture
 def s3_bucket(s3_server):
     boto3 = pytest.importorskip('boto3')
