@@ -38,7 +38,9 @@ func (PlainBooleanDecoder) Type() parquet.Type {
 }
 
 func (dec *PlainBooleanDecoder) SetData(nvals int, data []byte) error {
-	dec.decoder.SetData(nvals, data)
+	if err := dec.decoder.SetData(nvals, data); err != nil {
+		return err
+	}
 	dec.bitOffset = 0
 	return nil
 }
@@ -51,8 +53,7 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	max := shared_utils.MinInt(len(out), dec.nvals)
 
 	// attempts to read all remaining bool values from the current data byte
-	unalignedExtract := func(start int) int {
-		i := start
+	unalignedExtract := func(i int) int {
 		for ; dec.bitOffset < 8 && i < max; i, dec.bitOffset = i+1, dec.bitOffset+1 {
 			out[i] = (dec.data[0] & byte(1<<dec.bitOffset)) != 0
 		}
@@ -61,14 +62,14 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 			dec.bitOffset = 0
 			dec.data = dec.data[1:] // move data forward
 		}
-		return i - start // return the number of bits we extracted
+		return i // return the next index for out[]
 	}
 
 	// if we aren't at a byte boundary, then get bools until we hit
 	// a byte boundary with the bit offset.
 	i := 0
 	if dec.bitOffset != 0 {
-		i += unalignedExtract(i)
+		i = unalignedExtract(i)
 	}
 
 	// determine the number of full bytes worth of bits we can decode
@@ -86,7 +87,7 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	}
 
 	// grab any trailing bits now that we've got our aligned bytes.
-	i += unalignedExtract(i)
+	i = unalignedExtract(i)
 
 	dec.nvals -= max
 	return max, nil
