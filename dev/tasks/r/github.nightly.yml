@@ -17,8 +17,8 @@
 
 {% import 'macros.jinja' as macros with context %}
 {% set r_root = "nightly/r" %}
-{% set webdav_domain = "https://nightly.wujciak.de" %}
-{% set repo_domain = webdav_domain + "/r" %}
+{% set webdav_domain = "https://nightly.wujciak.de:8080" %}
+{% set repo_domain = "https://nightly.wujciak.de/r" %}
 
 {{ macros.github_header() }}
 
@@ -46,8 +46,8 @@ jobs:
         run: | 
           sudo apt update && sudo apt install davfs2
           mkdir nightly
-          sudo bash -c 'echo "{{ webdav_domain }}:8080 {{ '${{ secrets.ASF_USER }} ${{ secrets.ASF_KEY }}' }}" >> /etc/davfs2/secrets'
-          sudo mount -t davfs {{ webdav_domain }}:8080 nightly -o rw
+          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.ASF_USER }} ${{ secrets.ASF_KEY }}' }}" >> /etc/davfs2/secrets'
+          sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Upload Source Package
         run: | 
@@ -119,7 +119,7 @@ jobs:
           sudo -E zip -r $PKG_FILE lib/ include/
           export REPO_PATH={{ 'r/libarrow/bin/${{ matrix.config.os }}-${{ matrix.config.version }}' }}
 
-          curl -s --fail --show-error -u $USER:$PW -T $PKG_FILE  '{{ webdav_domain }}:8080/$REPO_PATH/'
+          curl -s --fail --show-error -u $USER:$PW -T $PKG_FILE  '{{ webdav_domain }}/$REPO_PATH/'
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
@@ -154,7 +154,7 @@ jobs:
         run: |
           VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
           cd build
-          curl -s --fail --show-error -u $USER:$PW -T arrow-$VERSION.zip  '{{ webdav_domain }}:8080/r/libarrow/bin/windows/'
+          curl -s --fail --show-error -u $USER:$PW -T arrow-$VERSION.zip  '{{ webdav_domain }}/r/libarrow/bin/windows/'
 
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
@@ -223,13 +223,9 @@ jobs:
           
         run: |
           VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
-          REPO_PATH=$(Rscript -e "cat(contrib.url('', type = 'binary'))")
-          echo $VERSION
-          echo $REPO_PATH
+          REPO_PATH=r$(Rscript -e "cat(contrib.url('', type = 'binary'))")
 
-          cd build
-          ls
-          curl -s --fail --show-error -u $USER:$PW -T arrow_$VERSION.zip  '{{ webdav_domain }}:8080$REPO_PATH/'
+          curl -s --fail --show-error -u $USER:$PW -T arrow_$VERSION.zip {{ webdav_domain }}/$REPO_PATH/
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
@@ -316,8 +312,8 @@ jobs:
         run: | 
           sudo apt update && sudo apt install davfs2
           mkdir nightly
-          sudo bash -c 'echo "{{ webdav_domain }}:8080 {{ '${{ secrets.ASF_USER }} ${{ secrets.ASF_KEY }}' }}" >> /etc/davfs2/secrets'
-          sudo mount -t davfs {{ webdav_domain }}:8080 nightly -o rw
+          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.ASF_USER }} ${{ secrets.ASF_KEY }}' }}" >> /etc/davfs2/secrets'
+          sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Update Repo
         shell: sudo Rscript {0}
