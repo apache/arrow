@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/engine/substrait/extension_set.h"
@@ -50,6 +51,12 @@ using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
+    ExtensionSet* ext_set = NULLPTR);
+
+using WriteOptionsFactory = std::function<std::shared_ptr<dataset::WriteNodeOptions>()>;
+
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
+    const Buffer& buf, const WriteOptionsFactory& write_options_factory,
     ExtensionSet* ext_set = NULLPTR);
 
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type

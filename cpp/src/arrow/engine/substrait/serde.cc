@@ -58,8 +58,9 @@ Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
   return FromProto(rel, ext_set);
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlan(
-    const Buffer& buf, const ConsumerFactory& consumer_factory,
+static Result<std::vector<compute::Declaration>> DeserializePlan(
+    const Buffer& buf, const std::string& factory_name,
+    std::function<std::shared_ptr<compute::ExecNodeOptions>()> options_factory,
     ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
@@ -67,15 +68,19 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
 
   std::vector<compute::Declaration> sink_decls;
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
+    const substrait::Rel& rel =
+        plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel();
+    std::vector<std::string> names;
     if (plan_rel.has_root()) {
-      return Status::NotImplemented("substrait::PlanRel with custom output field names");
+      const auto& root_names = plan_rel.root().names();
+      names.assign(root_names.begin(), root_names.end());
     }
-    ARROW_ASSIGN_OR_RAISE(auto decl, FromProto(plan_rel.rel(), ext_set));
+    ARROW_ASSIGN_OR_RAISE(auto decl, FromProto(rel, ext_set, names));
 
     // pipe each relation into a consuming_sink node
     auto sink_decl = compute::Declaration::Sequence({
         std::move(decl),
-        {"consuming_sink", compute::ConsumingSinkNodeOptions{consumer_factory()}},
+        {factory_name, options_factory()},
     });
     sink_decls.push_back(std::move(sink_decl));
   }
@@ -84,6 +89,27 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
     *ext_set_out = std::move(ext_set);
   }
   return sink_decls;
+}
+
+Result<std::vector<compute::Declaration>> DeserializePlan(
+    const Buffer& buf, const ConsumerFactory& consumer_factory,
+    ExtensionSet* ext_set_out) {
+  return DeserializePlan(
+      buf,
+      "consuming_sink",
+      [&consumer_factory]() {
+          return std::make_shared<compute::ConsumingSinkNodeOptions>(
+              compute::ConsumingSinkNodeOptions{consumer_factory()}
+          );
+      },
+      ext_set_out
+  );
+}
+
+Result<std::vector<compute::Declaration>> DeserializePlan(
+    const Buffer& buf, const WriteOptionsFactory& write_options_factory,
+    ExtensionSet* ext_set_out) {
+  return DeserializePlan(buf, "write", write_options_factory, ext_set_out);
 }
 
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,

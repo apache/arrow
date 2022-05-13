@@ -31,7 +31,8 @@ namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&);
+Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&,
+                                       const std::vector<std::string>& = {});
 
 }  // namespace engine
 }  // namespace arrow
