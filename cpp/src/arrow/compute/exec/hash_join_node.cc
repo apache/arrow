@@ -483,10 +483,15 @@ class HashJoinNode;
 // on every batch that has been queued so far as well as any new probe-side batch that
 // comes in.
 struct BloomFilterPushdownContext {
+  using RegisterTaskGroupCallback = std::function<int(
+      std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
+  using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
   using BuildFinishedCallback = std::function<Status(size_t, AccumulationQueue)>;
   using FiltersReceivedCallback = std::function<Status()>;
   using FilterFinishedCallback = std::function<Status(size_t, AccumulationQueue)>;
-  void Init(HashJoinNode* owner, size_t num_threads, TaskScheduler* scheduler,
+  void Init(HashJoinNode* owner, size_t num_threads,
+            RegisterTaskGroupCallback register_task_group_callback,
+            StartTaskGroupCallback start_task_group_callback,
             FiltersReceivedCallback on_bloom_filters_received, bool disable_bloom_filter,
             bool use_sync_execution);
 
@@ -531,7 +536,7 @@ struct BloomFilterPushdownContext {
     if (eval_.num_expected_bloom_filters_ == 0)
       return eval_.on_finished_(thread_index, std::move(eval_.batches_));
 
-    return scheduler_->StartTaskGroup(thread_index, eval_.task_id_,
+    return start_task_group_callback_(eval_.task_id_,
                                       /*num_tasks=*/eval_.batches_.batch_count());
   }
 
@@ -621,10 +626,10 @@ struct BloomFilterPushdownContext {
     return &tld_[thread_index].stack;
   }
 
+  StartTaskGroupCallback start_task_group_callback_;
   bool disable_bloom_filter_;
   HashJoinSchema* schema_mgr_;
   ExecContext* ctx_;
-  TaskScheduler* scheduler_;
 
   struct ThreadLocalData {
     bool is_init = false;
@@ -834,7 +839,7 @@ class HashJoinNode : public ExecNode {
   Status OnFiltersReceived() {
     std::unique_lock<std::mutex> guard(probe_side_mutex_);
     bloom_filters_ready_ = true;
-    size_t thread_index = thread_indexer_();
+    size_t thread_index = plan_->GetThreadIndex();
     AccumulationQueue batches = std::move(probe_accumulator_);
     guard.unlock();
     return pushdown_context_.FilterBatches(
@@ -863,8 +868,8 @@ class HashJoinNode : public ExecNode {
       std::lock_guard<std::mutex> guard(probe_side_mutex_);
       queued_batches_to_probe_ = std::move(probe_accumulator_);
     }
-    return scheduler_->StartTaskGroup(thread_index, task_group_probe_,
-                                      queued_batches_to_probe_.batch_count());
+    return plan_->StartTaskGroup(task_group_probe_,
+                                 queued_batches_to_probe_.batch_count());
   }
 
   Status OnQueuedBatchesProbed(size_t thread_index) {
@@ -885,7 +890,7 @@ class HashJoinNode : public ExecNode {
       return;
     }
 
-    size_t thread_index = thread_indexer_();
+    size_t thread_index = plan_->GetThreadIndex();
     int side = (input == inputs_[0]) ? 0 : 1;
 
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}, {"side", side}});
@@ -923,8 +928,7 @@ class HashJoinNode : public ExecNode {
 
   void InputFinished(ExecNode* input, int total_batches) override {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
-
-    size_t thread_index = thread_indexer_();
+    size_t thread_index = plan_->GetThreadIndex();
     int side = (input == inputs_[0]) ? 0 : 1;
 
     EVENT(span_, "InputFinished", {{"side", side}, {"batches.length", total_batches}});
@@ -941,28 +945,42 @@ class HashJoinNode : public ExecNode {
     }
   }
 
-  Status PrepareToProduce() override {
+  Status Init() override {
+    RETURN_NOT_OK(ExecNode::Init());
     bool use_sync_execution = !(plan_->exec_context()->executor());
     // TODO(ARROW-15732)
     // Each side of join might have an IO thread being called from. Once this is fixed
     // we will change it back to just the CPU's thread pool capacity.
     size_t num_threads = (GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1);
 
-    scheduler_ = TaskScheduler::Make();
     pushdown_context_.Init(
-        this, num_threads, scheduler_.get(), [this]() { return OnFiltersReceived(); },
-        disable_bloom_filter_, use_sync_execution);
+        this, num_threads,
+        [this](std::function<Status(size_t, int64_t)> fn,
+               std::function<Status(size_t)> on_finished) {
+          return plan_->RegisterTaskGroup(std::move(fn), std::move(on_finished));
+        },
+        [this](int task_group_id, int64_t num_tasks) {
+          return plan_->StartTaskGroup(task_group_id, num_tasks);
+        },
+        [this]() { return OnFiltersReceived(); }, disable_bloom_filter_,
+        use_sync_execution);
 
     RETURN_NOT_OK(impl_->Init(
         plan_->exec_context(), join_type_, num_threads, &(schema_mgr_->proj_maps[0]),
         &(schema_mgr_->proj_maps[1]), key_cmp_, filter_,
-        [this](int64_t /*ignored*/, ExecBatch batch) {
-          this->OutputBatchCallback(batch);
+        [this](std::function<Status(size_t, int64_t)> fn,
+               std::function<Status(size_t)> on_finished) {
+          return plan_->RegisterTaskGroup(std::move(fn), std::move(on_finished));
         },
-        [this](int64_t total_num_batches) { this->FinishedCallback(total_num_batches); },
-        scheduler_.get()));
+        [this](int task_group_id, int64_t num_tasks) {
+          return plan_->StartTaskGroup(task_group_id, num_tasks);
+        },
+        [this](int64_t, ExecBatch batch) { this->OutputBatchCallback(batch); },
+        [this](int64_t total_num_batches) {
+          this->FinishedCallback(total_num_batches);
+        }));
 
-    task_group_probe_ = scheduler_->RegisterTaskGroup(
+    task_group_probe_ = plan_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return impl_->ProbeSingleBatch(thread_index,
                                          std::move(queued_batches_to_probe_[task_id]));
@@ -971,14 +989,6 @@ class HashJoinNode : public ExecNode {
           return OnQueuedBatchesProbed(thread_index);
         });
 
-    scheduler_->RegisterEnd();
-
-    RETURN_NOT_OK(scheduler_->StartScheduling(
-        0 /*thread index*/,
-        [this](std::function<Status(size_t)> func) -> Status {
-          return this->ScheduleTaskCallback(std::move(func));
-        },
-        static_cast<int>(2 * num_threads) /*concurrent tasks*/, use_sync_execution));
     return Status::OK();
   }
 
@@ -987,7 +997,7 @@ class HashJoinNode : public ExecNode {
                        {{"node.label", label()},
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished(), this);
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     RETURN_NOT_OK(pushdown_context_.StartProducing());
     return Status::OK();
   }
@@ -1012,11 +1022,9 @@ class HashJoinNode : public ExecNode {
       for (auto&& input : inputs_) {
         input->StopProducing(this);
       }
-      impl_->Abort([this]() { ARROW_UNUSED(task_group_.End()); });
+      impl_->Abort([this]() { finished_.MarkFinished(); });
     }
   }
-
-  Future<> finished() override { return task_group_.OnFinished(); }
 
  protected:
   std::string ToStringExtra(int indent = 0) const override {
@@ -1032,29 +1040,8 @@ class HashJoinNode : public ExecNode {
     bool expected = false;
     if (complete_.compare_exchange_strong(expected, true)) {
       outputs_[0]->InputFinished(this, static_cast<int>(total_num_batches));
-      ARROW_UNUSED(task_group_.End());
+      finished_.MarkFinished();
     }
-  }
-
-  Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
-    auto executor = plan_->exec_context()->executor();
-    if (executor) {
-      return task_group_.AddTask([this, executor, func] {
-        return DeferNotOk(executor->Submit([this, func] {
-          size_t thread_index = thread_indexer_();
-          Status status = func(thread_index);
-          if (!status.ok()) {
-            StopProducing();
-            ErrorIfNotOk(status);
-            return;
-          }
-        }));
-      });
-    } else {
-      // We should not get here in serial execution mode
-      ARROW_DCHECK(false);
-    }
-    return Status::OK();
   }
 
  private:
@@ -1063,11 +1050,8 @@ class HashJoinNode : public ExecNode {
   JoinType join_type_;
   std::vector<JoinKeyCmp> key_cmp_;
   Expression filter_;
-  ThreadIndexer thread_indexer_;
   std::unique_ptr<HashJoinSchema> schema_mgr_;
   std::unique_ptr<HashJoinImpl> impl_;
-  util::AsyncTaskGroup task_group_;
-  std::unique_ptr<TaskScheduler> scheduler_;
   util::AccumulationQueue build_accumulator_;
   util::AccumulationQueue probe_accumulator_;
   util::AccumulationQueue queued_batches_to_probe_;
@@ -1087,14 +1071,14 @@ class HashJoinNode : public ExecNode {
   BloomFilterPushdownContext pushdown_context_;
 };
 
-void BloomFilterPushdownContext::Init(HashJoinNode* owner, size_t num_threads,
-                                      TaskScheduler* scheduler,
-                                      FiltersReceivedCallback on_bloom_filters_received,
-                                      bool disable_bloom_filter,
-                                      bool use_sync_execution) {
+void BloomFilterPushdownContext::Init(
+    HashJoinNode* owner, size_t num_threads,
+    RegisterTaskGroupCallback register_task_group_callback,
+    StartTaskGroupCallback start_task_group_callback,
+    FiltersReceivedCallback on_bloom_filters_received, bool disable_bloom_filter,
+    bool use_sync_execution) {
   schema_mgr_ = owner->schema_mgr_.get();
   ctx_ = owner->plan_->exec_context();
-  scheduler_ = scheduler;
   tld_.resize(num_threads);
   disable_bloom_filter_ = disable_bloom_filter;
   std::tie(push_.pushdown_target_, push_.column_map_) = GetPushdownTarget(owner);
@@ -1108,7 +1092,7 @@ void BloomFilterPushdownContext::Init(HashJoinNode* owner, size_t num_threads,
         use_sync_execution ? BloomFilterBuildStrategy::SINGLE_THREADED
                            : BloomFilterBuildStrategy::PARALLEL);
 
-    build_.task_id_ = scheduler_->RegisterTaskGroup(
+    build_.task_id_ = register_task_group_callback(
         [this](size_t thread_index, int64_t task_id) {
           return BuildBloomFilter_exec_task(thread_index, task_id);
         },
@@ -1117,13 +1101,14 @@ void BloomFilterPushdownContext::Init(HashJoinNode* owner, size_t num_threads,
         });
   }
 
-  eval_.task_id_ = scheduler_->RegisterTaskGroup(
+  eval_.task_id_ = register_task_group_callback(
       [this](size_t thread_index, int64_t task_id) {
         return FilterSingleBatch(thread_index, &eval_.batches_[task_id]);
       },
       [this](size_t thread_index) {
         return eval_.on_finished_(thread_index, std::move(eval_.batches_));
       });
+  start_task_group_callback_ = std::move(start_task_group_callback);
 }
 
 Status BloomFilterPushdownContext::StartProducing() {
@@ -1145,7 +1130,7 @@ Status BloomFilterPushdownContext::BuildBloomFilter(size_t thread_index,
       ctx_->memory_pool(), build_.batches_.row_count(), build_.batches_.batch_count(),
       push_.bloom_filter_.get()));
 
-  return scheduler_->StartTaskGroup(thread_index, build_.task_id_,
+  return start_task_group_callback_(build_.task_id_,
                                     /*num_tasks=*/build_.batches_.batch_count());
 }
 

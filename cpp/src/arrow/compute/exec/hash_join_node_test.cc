@@ -1747,6 +1747,9 @@ TEST(HashJoin, DictNegative) {
     EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Unifying differing dictionaries"),
         StartAndCollect(plan.get(), sink_gen));
+    // Since we returned an error, the StartAndCollect future may return before
+    // the plan is done finishing.
+    plan->finished().Wait();
   }
 }
 
