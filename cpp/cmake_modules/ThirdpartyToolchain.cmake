@@ -2029,7 +2029,8 @@ macro(build_gtest)
   add_library(GTest::gtest SHARED IMPORTED)
   set_target_properties(GTest::gtest
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1"
+                                   INTERFACE_COMPILE_DEFINITIONS
+                                   "GTEST_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
   add_library(GTest::gtest_main SHARED IMPORTED)
@@ -2041,7 +2042,8 @@ macro(build_gtest)
   add_library(GTest::gmock SHARED IMPORTED)
   set_target_properties(GTest::gmock
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
+                                   INTERFACE_COMPILE_DEFINITIONS
+                                   "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}"
                                    INTERFACE_LINK_LIBRARIES Gtest::gtest)
   add_dependencies(toolchain-tests googletest_ep)
@@ -2067,10 +2069,10 @@ if(ARROW_TESTING)
     # .dll suffix. We need GTEST_LINKED_AS_SHARED_LIBRARY=1 to use
     # testing::Test as a parent of our arrow::flight::FlightTest in
     # arrow_flight_test.dll.
-    set_target_properties(GTest::gtest
-                          PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
-    set_target_properties(GTest::gmock
-                          PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GMOCK_LINKED_AS_SHARED_LIBRARY=1")
+    set_target_properties(GTest::gtest PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                  "GTEST_LINKED_AS_SHARED_LIBRARY=1")
+    set_target_properties(GTest::gmock PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                  "GMOCK_LINKED_AS_SHARED_LIBRARY=1")
   endif()
 endif()
 
