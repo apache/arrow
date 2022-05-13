@@ -349,7 +349,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
 }
 
 class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>> {
-  using PlanFactory = std::function<cp::Declaration(
+  using PlanFactory = std::function<std::vector<cp::Declaration>(
       const FileSystemDatasetWriteOptions&,
       std::function<Future<util::optional<cp::ExecBatch>>()>*)>;
 
@@ -385,8 +385,9 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
     auto source_decl = cp::Declaration::Sequence(
         {{"source", cp::SourceNodeOptions{source_data.schema,
                                           source_data.gen(IsParallel(), IsSlow())}}});
-    auto plan_decl = plan_factory(write_options, &sink_gen);
-    ASSERT_OK(source_decl.Concat(plan_decl).AddToPlan(plan.get()));
+    auto declarations = plan_factory(write_options, &sink_gen);
+    declarations.insert(declarations.begin(), std::move(source_decl));
+    ASSERT_OK(cp::Declaration::Sequence(std::move(declarations)).AddToPlan(plan.get()));
 
     if (has_output) {
       ASSERT_FINISHES_OK_AND_ASSIGN(auto out_batches,
@@ -422,7 +423,7 @@ TEST_P(FileSystemWriteTest, Write) {
   auto plan_factory =
       [](const FileSystemDatasetWriteOptions& write_options,
          std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen) {
-        return cp::Declaration::Sequence({{"write", WriteNodeOptions{write_options}}});
+        return std::vector<cp::Declaration>{{"write", WriteNodeOptions{write_options}}};
       };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/false);
 }
@@ -431,10 +432,10 @@ TEST_P(FileSystemWriteTest, TeeWrite) {
   auto plan_factory =
       [](const FileSystemDatasetWriteOptions& write_options,
          std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen) {
-        return cp::Declaration::Sequence({
+        return std::vector<cp::Declaration>{
             {"tee", WriteNodeOptions{write_options}},
             {"sink", cp::SinkNodeOptions{sink_gen}},
-        });
+        };
       };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/true);
 }
