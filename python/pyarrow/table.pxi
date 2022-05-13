@@ -2882,24 +2882,27 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(result)
 
-    def filter(self, mask, object null_selection_behavior="drop"):
+    def filter(self, mask_or_expr, object null_selection_behavior="drop"):
         """
         Select rows from the table.
 
-        See :func:`pyarrow.compute.filter` for full usage.
+        The Table can be filtered based on a mask, which will be passed to
+        :func:`pyarrow.compute.filter` to perform the filtering, or it can
+        be filtered through a boolean :class:`Expression`
 
         Parameters
         ----------
-        mask : Array or array-like
-            The boolean mask to filter the table with.
+        mask_or_expr : Array or array-like
+            The boolean mask or the :class:`Expression` to filter the table with.
         null_selection_behavior
-            How nulls in the mask should be handled.
+            How nulls in the mask should be handled, does nothing if
+            an :class:`Expression` is used.
 
         Returns
         -------
         filtered : Table
             A table of the same schema, with only the rows selected
-            by the boolean mask.
+            by applied filtering
 
         Examples
         --------
@@ -2932,7 +2935,11 @@ cdef class Table(_PandasConvertible):
         n_legs: [[2,4,null]]
         animals: [["Flamingo","Horse",null]]
         """
-        return _pc().filter(self, mask, null_selection_behavior)
+        if isinstance(mask_or_expr, _pc().Expression):
+            return _pc()._exec_plan._filter_table(self, mask_or_expr,
+                                                  output_type=Table)
+        else:
+            return _pc().filter(self, mask_or_expr, null_selection_behavior)
 
     def take(self, object indices):
         """
