@@ -1513,6 +1513,7 @@ test_that("`as.Date()` and `as_date()`", {
     dt_utc = ymd_hms("2010-08-03 00:50:50"),
     date_var = as.Date("2022-02-25"),
     difference_date = ymd_hms("2010-08-03 00:50:50", tz = "Pacific/Marquesas"),
+    try_formats_string = c(NA, "2022-01-01", "2022/01/01"),
     character_ymd_hms_var = "2022-02-25 00:00:01",
     character_ydm_hms_var = "2022/25/02 00:00:01",
     character_ymd_var = "2022-02-25",
@@ -1596,6 +1597,17 @@ test_that("`as.Date()` and `as_date()`", {
       collect()
   )
 
+  test_df %>%
+    arrow_table() %>%
+    mutate(
+      date_try_formats_base = as.Date(
+        try_formats_string,
+        tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+      ),
+      .keep = "used"
+    ) %>%
+    collect()
+
   # difference between as.Date() and as_date():
   # `as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
   # to `as.Date()`
@@ -1605,7 +1617,12 @@ test_that("`as.Date()` and `as_date()`", {
     .input %>%
       transmute(
         date_diff_lubridate = as_date(difference_date),
-        date_diff_base = as.Date(difference_date)
+        date_diff_base = as.Date(difference_date),
+        date_try_formats_base = as.Date(
+          try_formats_string,
+          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+        ),
+        date_try_formats_lubridate = as_date(try_formats_string)
       ) %>%
       collect(),
     test_df

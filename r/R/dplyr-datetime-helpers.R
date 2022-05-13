@@ -122,6 +122,14 @@ binding_as_date_character <- function(x,
                                       format = NULL,
                                       tryFormats = c("%Y-%m-%d", "%Y/%m/%d"),
                                       ...) {
+browser()
+  force(x)
+  for (i in 1:x$length()) {
+    if (x$IsValid(i -1)) {
+      xx <- x$Slice(i -1 , 1)
+      break()
+    }
+  }
 
   # `tryFormats` is an argument only for `as.Date()`, but `as_date()` behaves in
   # a similar fashion, with its `.parse_iso_dt()`
