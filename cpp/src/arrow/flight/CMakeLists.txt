@@ -40,6 +40,31 @@ if(NOT ARROW_GRPC_USE_SHARED)
       "static"
       PARENT_SCOPE)
 endif()
+if(ARROW_TESTING)
+  if(WIN32)
+    # We need to use the same library type for arrow_flight_testing
+    # and Google Test because arrow_flight_testing has
+    # arrow::flight:FlightTest that inherits testing::Test. If
+    # arrow_flight_testing's library and gtest's library type are
+    # different such as arrow_flight_testing is a shared library and
+    # gtest is a static library, link error is occurred.
+    get_target_property(GTEST_TYPE GTest::gtest TYPE)
+    if(GTEST_TYPE STREQUAL "SHARED_LIBRARY")
+      set(ARROW_FLIGHT_TESTING_BUILD_SHARED TRUE)
+      set(ARROW_FLIGHT_TESTING_BUILD_STATIC FALSE)
+    else()
+      set(ARROW_FLIGHT_TESTING_BUILD_SHARED FALSE)
+      set(ARROW_FLIGHT_TESTING_BUILD_STATIC TRUE)
+      message(STATUS "Linking Arrow Flight tests statically due to static GTest")
+      set(ARROW_FLIGHT_TEST_LINKAGE
+          "static"
+          PARENT_SCOPE)
+    endif()
+  else()
+    set(ARROW_FLIGHT_TESTING_BUILD_SHARED ${ARROW_BUILD_SHARED})
+    set(ARROW_FLIGHT_TESTING_BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+endif()
 
 set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
@@ -240,6 +265,10 @@ endforeach()
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
   add_arrow_lib(arrow_flight_testing
+                BUILD_SHARED
+                ${ARROW_FLIGHT_TESTING_BUILD_SHARED}
+                BUILD_STATIC
+                ${ARROW_FLIGHT_TESTING_BUILD_STATIC}
                 CMAKE_PACKAGE_NAME
                 ArrowFlightTesting
                 PKG_CONFIG_NAME

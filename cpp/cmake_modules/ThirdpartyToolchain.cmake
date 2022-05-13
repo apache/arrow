@@ -2061,17 +2061,6 @@ if(ARROW_TESTING)
                      1.10.0
                      USE_CONFIG
                      ${GTEST_USE_CONFIG})
-  if(NOT GTEST_VENDORED AND MSVC)
-    # CMake's FindGtest.cmake doesn't recognize lib/gtest-md.lib
-    # installed by Conda as a shared library because it just checks
-    # .dll suffix. We need GTEST_LINKED_AS_SHARED_LIBRARY=1 to use
-    # testing::Test as a parent of our arrow::flight::FlightTest in
-    # arrow_flight_test.dll.
-    set_target_properties(GTest::gtest PROPERTIES INTERFACE_COMPILE_DEFINITIONS
-                                                  "GTEST_LINKED_AS_SHARED_LIBRARY=1")
-    set_target_properties(GTest::gmock PROPERTIES INTERFACE_COMPILE_DEFINITIONS
-                                                  "GMOCK_LINKED_AS_SHARED_LIBRARY=1")
-  endif()
 endif()
 
 macro(build_benchmark)
