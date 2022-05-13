@@ -34,7 +34,6 @@ on:
       repository: {{ arrow.github_repo }}
       ref: {{ arrow.head }}
       submodules: recursive
-      set-safe-directory: arrow
 {% endmacro %}
 
 {%- macro github_login_dockerhub() -%}
