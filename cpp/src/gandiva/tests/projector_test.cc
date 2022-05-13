@@ -1951,6 +1951,55 @@ TEST_F(TestProjector, TestBinRepresentation) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestCastIntervalDayFunction) {
+  // input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto output_cast = field("result", arrow::day_time_interval());
+
+  // Build expression
+  auto pos_expr =
+      TreeExprBuilder::MakeExpression("castINTERVALDAY", {field0}, output_cast);
+
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema,
+                                {pos_expr},
+                                TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  // Last validity is false and the cast functions throw error when input is empty. Should
+  // not be evaluated due to addition of NativeFunction::kCanReturnErrors
+  auto array0 = MakeArrowArrayUtf8({"PT0.001S", "1742461111", "P1Y1M1DT1H1M1S", "PT48H1M1S"}, {true, true, true, true});
+
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  std::shared_ptr<arrow::Array> array_day_interval_output;
+
+  arrow::ArrayFromVector<arrow::DayTimeIntervalType,
+                         arrow::DayTimeIntervalType::DayMilliseconds>(
+      arrow::day_time_interval(), {true, true, true, true, true, true, true},
+      {{0, 1},
+       {20, 14461111},
+       {1, 3661000},
+       {2, 61000}},
+      &array_day_interval_output);
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(array_day_interval_output, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestBigIntCastFunction) {
   // input fields
   auto field0 = field("f0", arrow::float32());

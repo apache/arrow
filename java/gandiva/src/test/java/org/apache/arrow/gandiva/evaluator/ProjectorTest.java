@@ -87,6 +87,11 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     int startOffset = 0;
     for (int i = 0; i < strings.length; i++) {
+      //      if (strings[i].contains(".")) {
+      //        offsetsBuffer.writeFloat(startOffset);
+      //      } else {
+      //        offsetsBuffer.writeInt(startOffset);
+      //      }
       offsetsBuffer.writeInt(startOffset);
 
       final byte[] bytes = strings[i].getBytes(charset);
@@ -94,6 +99,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
       dataBuffer.setBytes(startOffset, bytes, 0, bytes.length);
       startOffset += bytes.length;
     }
+    //offsetsBuffer.writeFloat(startOffset); // offset for the last element
     offsetsBuffer.writeInt(startOffset); // offset for the last element
 
     return Arrays.asList(offsetsBuffer, dataBuffer);
@@ -734,15 +740,16 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Schema schema = new Schema(Lists.newArrayList(x));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
-    int numRows = 4;
-    byte[] validity = new byte[]{(byte) 7, 0};
-    String[] valuesX = new String[]{"1742461111", "P1Y1M1DT1H1M1S", "PT48H1M1S", "test"};
+    int numRows = 5;
+    byte[] validity = new byte[]{(byte) 15, 0};
+    String[] valuesX = new String[]{"PT0.001S", "1742461111", "P1Y1M1DT1H1M1S", "PT48H1M1S", "test"};
     int[][] expected =
-            new int[][]{ // day and millis
-                {20, 14461111},
-                {1, 3661000},
-                {2, 61000},
-                null};
+          new int[][]{ // day and millis
+              {0, 1},
+              {20, 14461111},
+              {1, 3661000},
+              {2, 61000},
+              null};
 
     ArrowBuf validityX = buf(validity);
     List<ArrowBuf> dataBufsX = stringBufs(valuesX);
