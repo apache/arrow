@@ -1671,7 +1671,6 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
         archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
 
   ######################### Integration Tests #################################
@@ -1824,7 +1823,6 @@ services:
     command: >
       /bin/bash -c "
         apt update -y && apt install -y curl git gnupg tzdata wget &&
-        git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   almalinux-verify-rc:
@@ -1881,5 +1879,4 @@ services:
       TEST_YUM: 0
     command: >
       /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
