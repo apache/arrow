@@ -2037,7 +2037,7 @@ macro(build_gtest)
   set_target_properties(GTest::gtest_main
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}"
-                                   INTERFACE_LINK_LIBRARIES Gtest::gtest)
+                                   INTERFACE_LINK_LIBRARIES GTest::gtest)
 
   add_library(GTest::gmock SHARED IMPORTED)
   set_target_properties(GTest::gmock
@@ -2045,7 +2045,7 @@ macro(build_gtest)
                                    INTERFACE_COMPILE_DEFINITIONS
                                    "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}"
-                                   INTERFACE_LINK_LIBRARIES Gtest::gtest)
+                                   INTERFACE_LINK_LIBRARIES GTest::gtest)
   add_dependencies(toolchain-tests googletest_ep)
   add_dependencies(GTest::gtest googletest_ep)
   add_dependencies(GTest::gtest_main googletest_ep)
