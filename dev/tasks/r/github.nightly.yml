@@ -46,7 +46,7 @@ jobs:
         run: | 
           sudo apt update && sudo apt install davfs2
           mkdir nightly
-          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.ASF_USER }} ${{ secrets.ASF_KEY }}' }}" >> /etc/davfs2/secrets'
+          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Upload Source Package
@@ -108,8 +108,8 @@ jobs:
       - name: Bundle and upload
         shell: bash
         env:
-          USER: {{ '${{ secrets.ASF_USER }}' }}
-          PW: {{ '${{ secrets.ASF_KEY }}' }}
+          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }}' }}
+          PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
         run: |
           cd arrow/r
           VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
@@ -149,8 +149,8 @@ jobs:
       - name: Upload Binary
         shell: bash
         env:
-          USER: {{ '${{ secrets.ASF_USER }}' }}
-          PW: {{ '${{ secrets.ASF_KEY }}' }}
+          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }}' }}
+          PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
         run: |
           VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
           cd build
@@ -218,8 +218,8 @@ jobs:
       - name: Upload package
         shell: bash
         env:
-          USER: {{ '${{ secrets.ASF_USER }}' }}
-          PW: {{ '${{ secrets.ASF_KEY }}' }}
+          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }}' }}
+          PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
           
         run: |
           VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
@@ -312,7 +312,7 @@ jobs:
         run: | 
           sudo apt update && sudo apt install davfs2
           mkdir nightly
-          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.ASF_USER }} ${{ secrets.ASF_KEY }}' }}" >> /etc/davfs2/secrets'
+          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Update Repo
