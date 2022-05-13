@@ -78,7 +78,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
-
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
 # We renamed "BOOST" dependency name to "Boost" in 3.0.0 because
@@ -2051,10 +2050,10 @@ endmacro()
 
 if(ARROW_TESTING)
   if(CMAKE_VERSION VERSION_LESS 3.23)
-     set(GTEST_USE_CONFIG TRUE)
-    else()
-      set(GTEST_USE_CONFIG FALSE)
-    endif()
+    set(GTEST_USE_CONFIG TRUE)
+  else()
+    set(GTEST_USE_CONFIG FALSE)
+  endif()
   resolve_dependency(GTest
                      REQUIRED_VERSION
                      1.10.0
