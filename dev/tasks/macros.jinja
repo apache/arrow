@@ -229,7 +229,8 @@ on:
     run: |
       cd arrow/r
       sed -i.bak -E -e \
-        's/(^Version: [0-9]+\.[0-9]+\.[0-9]+).*$/\1.'"{{ today }}"'/' \
+        # TODO use a more robust solution {{ today }}
+        's/(^Version: [0-9]+\.[0-9]+\.[0-9]+).*$/\1.'"$(date -d yesterday +%Y%m%d)"'/' \
         DESCRIPTION
       head DESCRIPTION
       rm -f DESCRIPTION.bak
