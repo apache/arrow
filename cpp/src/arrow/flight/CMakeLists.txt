@@ -67,6 +67,7 @@ if(ARROW_TESTING)
 endif()
 
 set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
+message("ARROW_FLIGHT_TEST_LINKAGE: ${ARROW_FLIGHT_TEST_LINKAGE}")
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS
       arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
@@ -83,6 +84,7 @@ else()
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_shared)
   endif()
 endif()
+message("ARROW_FLIGHT_TEST_LINK_LIBS: ${ARROW_FLIGHT_TEST_LINK_LIBS}")
 list(APPEND
      ARROW_FLIGHT_TEST_INTERFACE_LIBS
      Boost::headers
