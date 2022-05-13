@@ -121,7 +121,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DPARQUET_BUILD_EXECUTABLES=ON ^
       -DPARQUET_REQUIRE_ENCRYPTION=ON ^
       ..  || exit /B
-cmake --build . --target install --config %CONFIGURATION%  || exit /B
+cmake --build . --target install --config Release || exit /B
 
 @rem Needed so arrow-python-test.exe works
 set OLD_PYTHONHOME=%PYTHONHOME%
