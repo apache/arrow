@@ -40,21 +40,30 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getDoubleValue
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getFloatValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
+import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
@@ -311,4 +320,146 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     assertEquals("1", element.getString());
   }
 
+  @Test
+  public void testUnreliableMetaDataPrecisionAndScale() throws Exception {
+    BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+    int x = 0;
+    final int targetRows = 0;
+    ResultSet rs = buildIncorrectPrecisionAndScaleMetaDataResultSet();
+    ResultSetMetaData rsmd = rs.getMetaData();
+    assertEquals("Column type should be Types.DECIMAL", Types.DECIMAL, rsmd.getColumnType(1));
+    assertEquals("Column scale should be zero", 0, rsmd.getScale(1));
+    assertEquals("Column precision should be zero", 0, rsmd.getPrecision(1));
+    rs.next();
+    BigDecimal bd1 = rs.getBigDecimal(1);
+    assertEquals("Value should be 1000000000000000.01", new BigDecimal("1000000000000000.01"), bd1);
+    assertEquals("Value scale should be 2", 2, bd1.scale());
+    assertEquals("Value precision should be 18", 18, bd1.precision());
+    assertFalse("No more rows!", rs.next());
+
+    // reset the ResultSet:
+    rs.beforeFirst();
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
+          allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+          .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+          .build();
+    try {
+      ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
+      while (iter.hasNext()) {
+        iter.next();
+      }
+      fail("Expected to fail due to mismatched metadata!");
+      iter.close();
+    } catch (Exception ex) {
+      // expected to fail
+    }
+
+    // reset the ResultSet:
+    rs.beforeFirst();
+    JdbcFieldInfo explicitMappingField = new JdbcFieldInfo(Types.DECIMAL, 18, 2);
+    Map<Integer, JdbcFieldInfo> explicitMapping = new HashMap<>();
+    explicitMapping.put(1, explicitMappingField);
+    config = new JdbcToArrowConfigBuilder(
+            allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setExplicitTypesByColumnIndex(explicitMapping)
+            .build();
+
+    try {
+      ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
+      while (iter.hasNext()) {
+        iter.next();
+      }
+      iter.close();
+    } catch (Exception ex) {
+      fail("Should not fail with explicit metadata supplied!");
+    }
+
+  }
+
+  @Test
+  public void testInconsistentPrecisionAndScale() throws Exception {
+    BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+    int x = 0;
+    final int targetRows = 0;
+    ResultSet rs = buildVaryingPrecisionAndScaleResultSet();
+    ResultSetMetaData rsmd = rs.getMetaData();
+    assertEquals("Column type should be Types.DECIMAL", Types.DECIMAL, rsmd.getColumnType(1));
+    assertEquals("Column scale should be zero", 0, rsmd.getScale(1));
+    assertEquals("Column precision should be zero", 0, rsmd.getPrecision(1));
+    rs.next();
+    BigDecimal bd1 = rs.getBigDecimal(1);
+    assertEquals("Value should be 1000000000000000.01", new BigDecimal("1000000000000000.01"), bd1);
+    assertEquals("Value scale should be 2", 2, bd1.scale());
+    assertEquals("Value precision should be 18", 18, bd1.precision());
+    rs.next();
+    BigDecimal bd2 = rs.getBigDecimal(1);
+    assertEquals("Value should be 1000000000300.0000001", new BigDecimal("1000000000300.0000001"), bd2);
+    assertEquals("Value scale should be 7", 7, bd2.scale());
+    assertEquals("Value precision should be 20", 20, bd2.precision());
+    rs.beforeFirst();
+    JdbcFieldInfo explicitMappingField = new JdbcFieldInfo(Types.DECIMAL, 20, 7);
+    Map<Integer, JdbcFieldInfo> explicitMapping = new HashMap<>();
+    explicitMapping.put(1, explicitMappingField);
+
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
+            allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setExplicitTypesByColumnIndex(explicitMapping)
+            .build();
+    try {
+      ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
+      while (iter.hasNext()) {
+        iter.next();
+        fail("This is expected to fail due to ARROW-16600");
+      }
+      iter.close();
+    } catch (Exception ex) {
+      // Once ARROW-16600 is implemented, this should no longer fail.
+    }
+  }
+
+  private ResultSet buildIncorrectPrecisionAndScaleMetaDataResultSet() throws SQLException {
+    ResultSetUtility.MockResultSetMetaData.MockColumnMetaData columnMetaData =
+            ResultSetUtility.MockResultSetMetaData.MockColumnMetaData.builder()
+                    .index(1)
+                    .sqlType(Types.DECIMAL)
+                    .precision(0)
+                    .scale(0)
+                    .build();
+    ArrayList<ResultSetUtility.MockResultSetMetaData.MockColumnMetaData> cols = new ArrayList<>();
+    cols.add(columnMetaData);
+    ResultSetMetaData metadata = new ResultSetUtility.MockResultSetMetaData(cols);
+    return ResultSetUtility.MockResultSet.builder()
+            .setMetaData(metadata)
+            .addDataElement(
+                    new ResultSetUtility.MockDataElement(new BigDecimal("1000000000000000.01"), Types.DECIMAL)
+            )
+            .finishRow()
+            .build();
+  }
+
+  private ResultSet buildVaryingPrecisionAndScaleResultSet() throws SQLException {
+    ResultSetUtility.MockResultSetMetaData.MockColumnMetaData columnMetaData =
+            ResultSetUtility.MockResultSetMetaData.MockColumnMetaData.builder()
+            .index(1)
+            .sqlType(Types.DECIMAL)
+            .precision(0)
+            .scale(0)
+            .build();
+    ArrayList<ResultSetUtility.MockResultSetMetaData.MockColumnMetaData> cols = new ArrayList<>();
+    cols.add(columnMetaData);
+    ResultSetMetaData metadata = new ResultSetUtility.MockResultSetMetaData(cols);
+    return ResultSetUtility.MockResultSet.builder()
+            .setMetaData(metadata)
+            .addDataElement(
+                    new ResultSetUtility.MockDataElement(new BigDecimal("1000000000000000.01"), Types.DECIMAL)
+            )
+            .finishRow()
+            .addDataElement(
+                    new ResultSetUtility.MockDataElement(new BigDecimal("1000000000300.0000001"), Types.DECIMAL)
+            )
+            .finishRow()
+            .build();
+  }
 }
