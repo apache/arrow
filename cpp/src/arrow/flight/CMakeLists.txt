@@ -25,20 +25,14 @@ if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
 
-set(ARROW_FLIGHT_TEST_LINKAGE
-    "${ARROW_TEST_LINKAGE}"
-    PARENT_SCOPE)
+set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
 if(Protobuf_USE_STATIC_LIBS)
   message(STATUS "Linking Arrow Flight tests statically due to static Protobuf")
-  set(ARROW_FLIGHT_TEST_LINKAGE
-      "static"
-      PARENT_SCOPE)
+  set(ARROW_FLIGHT_TEST_LINKAGE "static")
 endif()
 if(NOT ARROW_GRPC_USE_SHARED)
   message(STATUS "Linking Arrow Flight tests statically due to static gRPC")
-  set(ARROW_FLIGHT_TEST_LINKAGE
-      "static"
-      PARENT_SCOPE)
+  set(ARROW_FLIGHT_TEST_LINKAGE "static")
 endif()
 if(ARROW_TESTING)
   if(WIN32)
@@ -56,9 +50,7 @@ if(ARROW_TESTING)
       set(ARROW_FLIGHT_TESTING_BUILD_SHARED FALSE)
       set(ARROW_FLIGHT_TESTING_BUILD_STATIC TRUE)
       message(STATUS "Linking Arrow Flight tests statically due to static GTest")
-      set(ARROW_FLIGHT_TEST_LINKAGE
-          "static"
-          PARENT_SCOPE)
+      set(ARROW_FLIGHT_TEST_LINKAGE "static")
     endif()
   else()
     set(ARROW_FLIGHT_TESTING_BUILD_SHARED ${ARROW_BUILD_SHARED})
@@ -92,11 +84,6 @@ list(APPEND
      Boost::system
      GTest::gtest
      GTest::gmock)
-
-# Needed for Flight SQL and integration
-set(ARROW_FLIGHT_TEST_LINK_LIBS
-    ${ARROW_FLIGHT_TEST_LINK_LIBS}
-    PARENT_SCOPE)
 
 # TODO(wesm): Protobuf shared vs static linking
 
