@@ -17,7 +17,7 @@
 
 #' Read a JSON file
 #'
-#' Use [JsonTableReader] to read a newline-delimited JSON (ndjson) file into a
+#' Wrapper around [JsonTableReader] to read a newline-delimited JSON (ndjson) file into a
 #' data frame or Arrow Table.
 #'
 #' If passed a path, will detect and handle compression from the file extension

@@ -36,7 +36,7 @@ an Arrow \link{Table}?}
 A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
 }
 \description{
-Use \link{JsonTableReader} to read a newline-delimited JSON (ndjson) file into a
+Wrapper around \link{JsonTableReader} to read a newline-delimited JSON (ndjson) file into a
 data frame or Arrow Table.
 }
 \details{
