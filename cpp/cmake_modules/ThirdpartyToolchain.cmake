@@ -1457,12 +1457,10 @@ macro(build_thrift)
       set(THRIFT_LIB_SUFFIX "md")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
     endif()
-    set(THRIFT_IMPORTED_TYPE IMPORTED_IMPLIB)
     set(THRIFT_LIB
         "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
     )
   else()
-    set(THRIFT_IMPORTED_TYPE IMPORTED_LOCATION)
     set(THRIFT_LIB
         "${THRIFT_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}thrift${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
@@ -1483,7 +1481,7 @@ macro(build_thrift)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
   set_target_properties(thrift::thrift
-                        PROPERTIES ${THRIFT_IMPORTED_TYPE} "${THRIFT_LIB}"
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(CMAKE_VERSION VERSION_LESS 3.11)
     set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
