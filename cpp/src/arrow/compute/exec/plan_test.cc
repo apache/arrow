@@ -391,8 +391,8 @@ TEST(ExecPlan, ToString) {
                           }}},
               {"aggregate",
                AggregateNodeOptions{
-                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", options}},
-                   /*targets=*/{"multiply(i32, 2)", "multiply(i32, 2)"},
+                   /*aggregates=*/{{"hash_sum", nullptr, "multiply(i32, 2)"},
+                                   {"hash_count", options, "multiply(i32, 2)"}},
                    /*names=*/{"sum(multiply(i32, 2))", "count(multiply(i32, 2))"},
                    /*keys=*/{"bool"}}},
               {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
@@ -433,8 +433,7 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
                 {
                     union_node,
                     {"aggregate",
-                     AggregateNodeOptions{/*aggregates=*/{{"count", std::move(options)}},
-                                          /*targets=*/{"i32"},
+                     AggregateNodeOptions{/*aggregates=*/{{"count", options, "i32"}},
                                           /*names=*/{"count(i32)"},
                                           /*keys=*/{}}},
                     {"sink", SinkNodeOptions{&sink_gen}},
@@ -770,8 +769,8 @@ TEST(ExecPlanExecution, StressSourceGroupedSumStop) {
                         {"source", SourceNodeOptions{random_data.schema,
                                                      random_data.gen(parallel, slow)}},
                         {"aggregate",
-                         AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
-                                              /*targets=*/{"a"}, /*names=*/{"sum(a)"},
+                         AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr, "a"}},
+                                              /*names=*/{"sum(a)"},
                                               /*keys=*/{"b"}}},
                         {"sink", SinkNodeOptions{&sink_gen}},
                     })
@@ -918,8 +917,8 @@ TEST(ExecPlanExecution, SourceGroupedSum) {
                       {"source", SourceNodeOptions{input.schema,
                                                    input.gen(parallel, /*slow=*/false)}},
                       {"aggregate",
-                       AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
-                                            /*targets=*/{"i32"}, /*names=*/{"sum(i32)"},
+                       AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr, "i32"}},
+                                            /*names=*/{"sum(i32)"},
                                             /*keys=*/{"str"}}},
                       {"sink", SinkNodeOptions{&sink_gen}},
                   })
@@ -987,10 +986,10 @@ TEST(ExecPlanExecution, NestedSourceProjectGroupedSum) {
                                                    field_ref(FieldRef("struct", "bool")),
                                                },
                                                {"i32", "bool"}}},
-                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
-                                                   /*targets=*/{"i32"},
-                                                   /*names=*/{"sum(i32)"},
-                                                   /*keys=*/{"bool"}}},
+                {"aggregate",
+                 AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr, "i32"}},
+                                      /*names=*/{"sum(i32)"},
+                                      /*keys=*/{"bool"}}},
                 {"sink", SinkNodeOptions{&sink_gen}},
             })
             .AddToPlan(plan.get()));
@@ -1021,8 +1020,8 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
                                 field_ref("str"),
                                 call("multiply", {field_ref("i32"), literal(2)}),
                             }}},
-                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
-                                                   /*targets=*/{"multiply(i32, 2)"},
+                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr,
+                                                                    "multiply(i32, 2)"}},
                                                    /*names=*/{"sum(multiply(i32, 2))"},
                                                    /*keys=*/{"str"}}},
                 {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
@@ -1060,8 +1059,8 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
                                 field_ref("str"),
                                 call("multiply", {field_ref("i32"), literal(2)}),
                             }}},
-                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
-                                                   /*targets=*/{"multiply(i32, 2)"},
+                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr,
+                                                                    "multiply(i32, 2)"}},
                                                    /*names=*/{"sum(multiply(i32, 2))"},
                                                    /*keys=*/{"str"}}},
                 {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
@@ -1097,8 +1096,8 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
                                 field_ref("str"),
                                 call("multiply", {field_ref("i32"), literal(2)}),
                             }}},
-                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
-                                                   /*targets=*/{"multiply(i32, 2)"},
+                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr,
+                                                                    "multiply(i32, 2)"}},
                                                    /*names=*/{"sum(multiply(i32, 2))"},
                                                    /*keys=*/{"str"}}},
                 {"select_k_sink", SelectKSinkNodeOptions{options, &sink_gen}},
@@ -1123,10 +1122,10 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
                     {"source", SourceNodeOptions{basic_data.schema,
                                                  basic_data.gen(/*parallel=*/false,
                                                                 /*slow=*/false)}},
-                    {"aggregate", AggregateNodeOptions{
-                                      /*aggregates=*/{{"sum", nullptr}, {"any", nullptr}},
-                                      /*targets=*/{"i32", "bool"},
-                                      /*names=*/{"sum(i32)", "any(bool)"}}},
+                    {"aggregate",
+                     AggregateNodeOptions{/*aggregates=*/{{"sum", nullptr, "i32"},
+                                                          {"any", nullptr, "bool"}},
+                                          /*names=*/{"sum(i32)", "any(bool)"}}},
                     {"sink", SinkNodeOptions{&sink_gen}},
                 })
                 .AddToPlan(plan.get()));
@@ -1150,18 +1149,18 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
 
     {
       auto options = std::make_shared<TDigestOptions>(TDigestOptions::Defaults());
-      ASSERT_OK(Declaration::Sequence(
-                    {
-                        {"source", SourceNodeOptions{basic_data.schema,
-                                                     basic_data.gen(/*parallel=*/false,
-                                                                    /*slow=*/false)}},
-                        {"aggregate",
-                         AggregateNodeOptions{/*aggregates=*/{{"tdigest", options}},
-                                              /*targets=*/{"i32"},
-                                              /*names=*/{"tdigest(i32)"}}},
-                        {"sink", SinkNodeOptions{&sink_gen}},
-                    })
-                    .AddToPlan(plan.get()));
+      ASSERT_OK(
+          Declaration::Sequence(
+              {
+                  {"source",
+                   SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
+                                                                       /*slow=*/false)}},
+                  {"aggregate", AggregateNodeOptions{
+                                    /*aggregates=*/{{"tdigest", options, "i32"}},
+                                    /*names=*/{"tdigest(i32)"}}},
+                  {"sink", SinkNodeOptions{&sink_gen}},
+              })
+              .AddToPlan(plan.get()));
     }
 
     ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
@@ -1182,11 +1181,10 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
               {
                   {"source", SourceNodeOptions{data.schema, data.gen(/*parallel=*/false,
                                                                      /*slow=*/false)}},
-                  {"aggregate",
-                   AggregateNodeOptions{/*aggregates=*/{{"hash_count", options}},
-                                        /*targets=*/{"i32"},
-                                        /*names=*/{"count(i32)"},
-                                        /*keys=*/{"str"}}},
+                  {"aggregate", AggregateNodeOptions{
+                                    /*aggregates=*/{{"hash_count", options, "i32"}},
+                                    /*names=*/{"count(i32)"},
+                                    /*keys=*/{"str"}}},
                   {"sink", SinkNodeOptions{&sink_gen}},
               })
               .AddToPlan(plan.get()));
@@ -1222,16 +1220,15 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
                SourceNodeOptions{scalar_data.schema, scalar_data.gen(/*parallel=*/false,
                                                                      /*slow=*/false)}},
               {"aggregate", AggregateNodeOptions{
-                                /*aggregates=*/{{"all", nullptr},
-                                                {"any", nullptr},
-                                                {"count", nullptr},
-                                                {"mean", nullptr},
-                                                {"product", nullptr},
-                                                {"stddev", nullptr},
-                                                {"sum", nullptr},
-                                                {"tdigest", nullptr},
-                                                {"variance", nullptr}},
-                                /*targets=*/{"b", "b", "a", "a", "a", "a", "a", "a", "a"},
+                                /*aggregates=*/{{"all", nullptr, "b"},
+                                                {"any", nullptr, "b"},
+                                                {"count", nullptr, "a"},
+                                                {"mean", nullptr, "a"},
+                                                {"product", nullptr, "a"},
+                                                {"stddev", nullptr, "a"},
+                                                {"sum", nullptr, "a"},
+                                                {"tdigest", nullptr, "a"},
+                                                {"variance", nullptr, "a"}},
                                 /*names=*/
                                 {"all(b)", "any(b)", "count(a)", "mean(a)", "product(a)",
                                  "stddev(a)", "sum(a)", "tdigest(a)", "variance(a)"}}},
@@ -1273,8 +1270,8 @@ TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
                                                  scalar_data.gen(/*parallel=*/false,
                                                                  /*slow=*/false)}},
                     {"aggregate",
-                     AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
-                                          /*targets=*/{"a"}, /*names=*/{"hash_sum(a)"},
+                     AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr, "a"}},
+                                          /*names=*/{"hash_sum(a)"},
                                           /*keys=*/{"b"}}},
                     {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
                 })

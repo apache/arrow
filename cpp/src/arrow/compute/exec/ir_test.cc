@@ -357,10 +357,9 @@ TEST(Relation, AggregateSimple) {
                    "0"},
                   {"aggregate",
                    AggregateNodeOptions{/*aggregates=*/{
-                                            {"sum", nullptr},
-                                            {"mean", nullptr},
+                                            {"sum", nullptr, 1},
+                                            {"mean", nullptr, 2},
                                         },
-                                        /*targets=*/{1, 2},
                                         /*names=*/
                                         {
                                             "sum FieldRef.FieldPath(1)",
@@ -564,10 +563,9 @@ TEST(Relation, AggregateWithHaving) {
           {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}, "1"},
           {"aggregate",
            AggregateNodeOptions{/*aggregates=*/{
-                                    {"sum", nullptr},
-                                    {"mean", nullptr},
+                                    {"sum", nullptr, 1},
+                                    {"mean", nullptr, 2},
                                 },
-                                /*targets=*/{1, 2},
                                 /*names=*/
                                 {
                                     "sum FieldRef.FieldPath(1)",

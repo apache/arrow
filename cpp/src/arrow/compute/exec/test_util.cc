@@ -313,10 +313,11 @@ bool operator==(const Declaration& l, const Declaration& r) {
       if (l_agg->options == nullptr || r_agg->options == nullptr) return false;
 
       if (!l_agg->options->Equals(*r_agg->options)) return false;
+
+      if (l_agg->target != r_agg->target) return false;
     }
 
-    return l_opts->targets == r_opts->targets && l_opts->names == r_opts->names &&
-           l_opts->keys == r_opts->keys;
+    return l_opts->names == r_opts->names && l_opts->keys == r_opts->keys;
   }
 
   if (l.factory_name == "order_by_sink") {
@@ -378,13 +379,8 @@ static inline void PrintToImpl(const std::string& factory_name,
     for (const auto& agg : o->aggregates) {
       *os << agg.function << "<";
       if (agg.options) PrintTo(*agg.options, os);
+      *os << agg.target.ToString() << "<";
       *os << ">,";
-    }
-    *os << "},";
-
-    *os << "targets={";
-    for (const auto& target : o->targets) {
-      *os << target.ToString() << ",";
     }
     *os << "},";
 

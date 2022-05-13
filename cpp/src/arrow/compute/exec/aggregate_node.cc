@@ -93,8 +93,9 @@ class ScalarAggregateNode : public ExecNode {
     std::vector<int> target_field_ids(kernels.size());
 
     for (size_t i = 0; i < kernels.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match,
-                            FieldRef(aggregate_options.targets[i]).FindOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(
+          auto match,
+          FieldRef(aggregate_options.aggregates[i].target).FindOne(input_schema));
       target_field_ids[i] = match[0];
 
       ARROW_ASSIGN_OR_RAISE(
@@ -310,13 +311,11 @@ class GroupByNode : public ExecNode {
     // Find input field indices for aggregates
     std::vector<int> agg_src_field_ids(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match,
-                            aggregate_options.targets[i].FindOne(*input_schema));
+      ARROW_ASSIGN_OR_RAISE(auto match, aggs[i].target.FindOne(*input_schema));
       agg_src_field_ids[i] = match[0];
     }
 
     // Build vector of aggregate source field data types
-    DCHECK_EQ(aggregate_options.targets.size(), aggs.size());
     std::vector<ValueDescr> agg_src_descrs(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
       auto agg_src_field_id = agg_src_field_ids[i];

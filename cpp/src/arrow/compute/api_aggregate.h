@@ -402,6 +402,9 @@ struct ARROW_EXPORT Aggregate {
 
   /// options for the aggregation function
   std::shared_ptr<FunctionOptions> options;
+
+  // fields to which aggregations will be applied
+  FieldRef target;
 };
 
 }  // namespace internal

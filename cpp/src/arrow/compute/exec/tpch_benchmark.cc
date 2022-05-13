@@ -78,20 +78,21 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
       std::make_shared<ScalarAggregateOptions>(ScalarAggregateOptions::Defaults());
   auto count_opts = std::make_shared<CountOptions>(CountOptions::CountMode::ALL);
   std::vector<arrow::compute::internal::Aggregate> aggs = {
-      {"hash_sum", sum_opts},  {"hash_sum", sum_opts},    {"hash_sum", sum_opts},
-      {"hash_sum", sum_opts},  {"hash_mean", sum_opts},   {"hash_mean", sum_opts},
-      {"hash_mean", sum_opts}, {"hash_count", count_opts}};
-
-  std::vector<FieldRef> to_aggregate = {"sum_qty",    "sum_base_price", "sum_disc_price",
-                                        "sum_charge", "avg_qty",        "avg_price",
-                                        "avg_disc",   "sum_qty"};
+      {"hash_sum", sum_opts, "sum_qty"},
+      {"hash_sum", sum_opts, "sum_base_price"},
+      {"hash_sum", sum_opts, "sum_disc_price"},
+      {"hash_sum", sum_opts, "sum_charge"},
+      {"hash_mean", sum_opts, "avg_qty"},
+      {"hash_mean", sum_opts, "avg_price"},
+      {"hash_mean", sum_opts, "avg_disc"},
+      {"hash_count", count_opts, "sum_qty"}};
 
   std::vector<std::string> names = {"sum_qty",    "sum_base_price", "sum_disc_price",
                                     "sum_charge", "avg_qty",        "avg_price",
                                     "avg_disc",   "count_order"};
 
   std::vector<FieldRef> keys = {"l_returnflag", "l_linestatus"};
-  AggregateNodeOptions agg_opts(aggs, to_aggregate, names, keys);
+  AggregateNodeOptions agg_opts(aggs, names, keys);
 
   SortKey l_returnflag_key("l_returnflag");
   SortKey l_linestatus_key("l_linestatus");

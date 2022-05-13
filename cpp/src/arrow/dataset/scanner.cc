@@ -676,8 +676,7 @@ Result<int64_t> AsyncScanner::CountRows() {
                                        options}},
               {"project", compute::ProjectNodeOptions{{options->filter}, {"mask"}}},
               {"aggregate", compute::AggregateNodeOptions{{compute::internal::Aggregate{
-                                                              "sum", nullptr}},
-                                                          /*targets=*/{"mask"},
+                                                              "sum", nullptr, "mask"}},
                                                           /*names=*/{"selected_count"}}},
               {"sink", compute::SinkNodeOptions{&sink_gen}},
           })
