@@ -91,6 +91,8 @@ if defined need_vcvarsall (
         exit /B
     )
     call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
+    set CC=cl.exe
+    set CXX=cl.exe
 )
 
 @rem
