@@ -46,7 +46,7 @@ jobs:
         run: | 
           sudo apt update && sudo apt install davfs2
           mkdir nightly
-          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
+          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Upload Source Package
@@ -108,7 +108,7 @@ jobs:
       - name: Bundle and upload
         shell: bash
         env:
-          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }}' }}
+          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
         run: |
           cd arrow/r
@@ -149,7 +149,7 @@ jobs:
       - name: Upload Binary
         shell: bash
         env:
-          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }}' }}
+          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
         run: |
           VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
@@ -218,7 +218,7 @@ jobs:
       - name: Upload package
         shell: bash
         env:
-          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }}' }}
+          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
           
         run: |
@@ -312,7 +312,7 @@ jobs:
         run: | 
           sudo apt update && sudo apt install davfs2
           mkdir nightly
-          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USERR }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
+          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Update Repo
