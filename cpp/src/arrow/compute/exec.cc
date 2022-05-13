@@ -312,7 +312,13 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
   if (iteration_size == length_) {
     ARROW_DCHECK_EQ(position_, 0);
     for (size_t i = 0; i < args_.size(); ++i) {
-      batch->values[i] = std::move(args_[i]);
+      if (args_[i].kind() == Datum::CHUNKED_ARRAY) {
+        const ChunkedArray& carr = *args_[i].chunked_array();
+        batch->values[i] = Datum(carr.chunk(chunk_indexes_[i])->data());
+        chunk_positions_[i] += iteration_size;
+      } else {
+        batch->values[i] = std::move(args_[i]);
+      }
     }
   } else {
     for (size_t i = 0; i < args_.size(); ++i) {
