@@ -224,8 +224,9 @@ jobs:
         run: |
           VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
           REPO_PATH=r$(Rscript -e "cat(contrib.url('', type = 'binary'))")
+          EXT=$(if [[ {{ '${{ matrix.platform }}' }} == macos* ]]; then echo tgz; else echo zip; fi)
 
-          curl -s --fail --show-error -u $USER:$PW -T arrow_$VERSION.* {{ webdav_domain }}/$REPO_PATH/
+          curl -s --fail --show-error -u $USER:$PW -T arrow_$VERSION.$EXT {{ webdav_domain }}/$REPO_PATH/
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
