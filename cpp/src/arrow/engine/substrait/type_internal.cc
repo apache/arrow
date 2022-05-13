@@ -229,7 +229,9 @@ struct DataTypeToProtoImpl {
     return SetWith(&::substrait::Type::set_allocated_bool_);
   }
 
-  Status Visit(const Int8Type& t) { return SetWith(&::substrait::Type::set_allocated_i8); }
+  Status Visit(const Int8Type& t) {
+    return SetWith(&::substrait::Type::set_allocated_i8);
+  }
   Status Visit(const Int16Type& t) {
     return SetWith(&::substrait::Type::set_allocated_i16);
   }
@@ -261,7 +263,8 @@ struct DataTypeToProtoImpl {
   }
 
   Status Visit(const FixedSizeBinaryType& t) {
-    SetWithThen(&::substrait::Type::set_allocated_fixed_binary)->set_length(t.byte_width());
+    SetWithThen(&::substrait::Type::set_allocated_fixed_binary)
+        ->set_length(t.byte_width());
     return Status::OK();
   }
 
@@ -304,7 +307,8 @@ struct DataTypeToProtoImpl {
     // FIXME assert default field name; custom ones won't roundtrip
     ARROW_ASSIGN_OR_RAISE(
         auto type, ToProto(*t.value_type(), t.value_field()->nullable(), ext_set_));
-    SetWithThen(&::substrait::Type::set_allocated_list)->set_allocated_type(type.release());
+    SetWithThen(&::substrait::Type::set_allocated_list)
+        ->set_allocated_type(type.release());
     return Status::OK();
   }
 
@@ -315,7 +319,8 @@ struct DataTypeToProtoImpl {
 
     for (const auto& field : t.fields()) {
       if (field->metadata() != nullptr) {
-        return Status::Invalid("::substrait::Type::Struct does not support field metadata");
+        return Status::Invalid(
+            "::substrait::Type::Struct does not support field metadata");
       }
       ARROW_ASSIGN_OR_RAISE(auto type,
                             ToProto(*field->type(), field->nullable(), ext_set_));
@@ -411,7 +416,7 @@ struct DataTypeToProtoImpl {
 }  // namespace
 
 Result<std::unique_ptr<::substrait::Type>> ToProto(const DataType& type, bool nullable,
-                                                 ExtensionSet* ext_set) {
+                                                   ExtensionSet* ext_set) {
   auto out = internal::make_unique<::substrait::Type>();
   RETURN_NOT_OK((DataTypeToProtoImpl{out.get(), nullable, ext_set})(type));
   return std::move(out);
@@ -462,7 +467,7 @@ void ToProtoGetDepthFirstNames(const FieldVector& fields,
 }  // namespace
 
 Result<std::unique_ptr<::substrait::NamedStruct>> ToProto(const Schema& schema,
-                                                        ExtensionSet* ext_set) {
+                                                          ExtensionSet* ext_set) {
   if (schema.metadata()) {
     return Status::Invalid("::substrait::NamedStruct does not support schema metadata");
   }
