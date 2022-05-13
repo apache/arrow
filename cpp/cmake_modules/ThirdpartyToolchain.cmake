@@ -1473,7 +1473,7 @@ macro(build_thrift)
   externalproject_add(thrift_ep
                       URL ${THRIFT_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}"
+                      BUILD_BYPRODUCTS "${THRIFT_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
