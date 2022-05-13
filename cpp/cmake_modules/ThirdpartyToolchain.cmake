@@ -1972,8 +1972,6 @@ macro(build_gtest)
       -DCMAKE_MACOSX_RPATH=OFF)
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
-  add_definitions(-DGTEST_LINKED_AS_SHARED_LIBRARY=1)
-
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
   endif()
@@ -2031,17 +2029,21 @@ macro(build_gtest)
   add_library(GTest::gtest SHARED IMPORTED)
   set_target_properties(GTest::gtest
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
+                                   INTERFACE_COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
   add_library(GTest::gtest_main SHARED IMPORTED)
   set_target_properties(GTest::gtest_main
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES Gtest::gtest)
 
   add_library(GTest::gmock SHARED IMPORTED)
   set_target_properties(GTest::gmock
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
+                                   INTERFACE_COMPILE_DEFINITIONS "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES Gtest::gtest)
   add_dependencies(toolchain-tests googletest_ep)
   add_dependencies(GTest::gtest googletest_ep)
   add_dependencies(GTest::gtest_main googletest_ep)
@@ -2059,34 +2061,16 @@ if(ARROW_TESTING)
                      1.10.0
                      USE_CONFIG
                      ${GTEST_USE_CONFIG})
-
-  if(NOT GTEST_VENDORED)
-    # TODO(wesm): This logic does not work correctly with the MSVC static libraries
-    # built for the shared crt
-
-    #     set(CMAKE_REQUIRED_LIBRARIES GTest::GTest GTest::Main GTest::GMock)
-    #     CHECK_CXX_SOURCE_COMPILES("
-    # #include <gmock/gmock.h>
-    # #include <gtest/gtest.h>
-
-    # class A {
-    #   public:
-    #     int run() const { return 1; }
-    # };
-
-    # class B : public A {
-    #   public:
-    #     MOCK_CONST_METHOD0(run, int());
-    # };
-
-    # TEST(Base, Test) {
-    #   B b;
-    # }" GTEST_COMPILES_WITHOUT_MACRO)
-    #     if (NOT GTEST_COMPILES_WITHOUT_MACRO)
-    #       message(STATUS "Setting GTEST_LINKED_AS_SHARED_LIBRARY=1 on GTest::GTest")
-    #       add_compile_definitions("GTEST_LINKED_AS_SHARED_LIBRARY=1")
-    #     endif()
-    #     set(CMAKE_REQUIRED_LIBRARIES)
+  if(NOT GTEST_VENDORED AND MSVC)
+    # CMake's FindGtest.cmake doesn't recognize lib/gtest-md.lib
+    # installed by Conda as a shared library because it just checks
+    # .dll suffix. We need GTEST_LINKED_AS_SHARED_LIBRARY=1 to use
+    # testing::Test as a parent of our arrow::flight::FlightTest in
+    # arrow_flight_test.dll.
+    set_target_properties(GTest::gtest
+                          PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
+    set_target_properties(GTest::gmock
+                          PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GMOCK_LINKED_AS_SHARED_LIBRARY=1")
   endif()
 endif()
 
