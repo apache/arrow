@@ -32,7 +32,7 @@ cache:
   - C:\Users\Appveyor\clcache1
 
 matrix:
-  fast_finish: true
+  fast_finish: false
 
 environment:
   global:
