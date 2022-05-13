@@ -742,10 +742,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 15, 0};
-    String[] valuesX = new String[]{"PT0.001S", "1742461111", "P1Y1M1DT1H1M1S", "PT48H1M1S", "test"};
+    String[] valuesX = new String[]{"PT1.111S", "1742461111", "P1Y1M1DT1H1M1S", "PT48H1M1S", "test"};
     int[][] expected =
           new int[][]{ // day and millis
-              {0, 1},
+              {0, 1111},
               {20, 14461111},
               {1, 3661000},
               {2, 61000},

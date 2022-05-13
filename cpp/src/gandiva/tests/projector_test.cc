@@ -1975,7 +1975,7 @@ TEST_F(TestProjector, TestCastIntervalDayFunction) {
 
   // Last validity is false and the cast functions throw error when input is empty. Should
   // not be evaluated due to addition of NativeFunction::kCanReturnErrors
-  auto array0 = MakeArrowArrayUtf8({"PT0.001S", "1742461111", "P1Y1M1DT1H1M1S", "PT48H1M1S"}, {true, true, true, true});
+  auto array0 = MakeArrowArrayUtf8({"PT1.111S", "1742461111", "P1Y1M1DT1H1M1S", "PT48H1M1S"}, {true, true, true, true});
 
   auto in_batch =
       arrow::RecordBatch::Make(schema, num_records, {array0});
@@ -1985,7 +1985,7 @@ TEST_F(TestProjector, TestCastIntervalDayFunction) {
   arrow::ArrayFromVector<arrow::DayTimeIntervalType,
                          arrow::DayTimeIntervalType::DayMilliseconds>(
       arrow::day_time_interval(), {true, true, true, true, true, true, true},
-      {{0, 1},
+      {{0, 1111},
        {20, 14461111},
        {1, 3661000},
        {2, 61000}},
