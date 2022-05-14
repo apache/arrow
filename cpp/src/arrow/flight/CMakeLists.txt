@@ -59,7 +59,6 @@ if(ARROW_TESTING)
 endif()
 
 set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
-message("ARROW_FLIGHT_TEST_LINKAGE: ${ARROW_FLIGHT_TEST_LINKAGE}")
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   if(ARROW_BUILD_STATIC)
     set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_static)
@@ -84,7 +83,6 @@ else()
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_shared)
   endif()
 endif()
-message("ARROW_FLIGHT_TEST_LINK_LIBS: ${ARROW_FLIGHT_TEST_LINK_LIBS}")
 list(APPEND
      ARROW_FLIGHT_TEST_INTERFACE_LIBS
      Boost::headers
@@ -367,3 +365,16 @@ if(ARROW_BUILD_BENCHMARKS)
     endif()
   endif()
 endif(ARROW_BUILD_BENCHMARKS)
+
+if(ARROW_WITH_UCX)
+  add_subdirectory(transport/ucx)
+endif()
+
+if(ARROW_FLIGHT_SQL)
+  add_subdirectory(sql)
+
+  if(ARROW_BUILD_INTEGRATION)
+    add_subdirectory(integration_tests)
+  endif()
+endif()
+
