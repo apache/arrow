@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v9/parquet"
 	"github.com/apache/arrow/go/v9/parquet/file"
 	"github.com/apache/arrow/go/v9/parquet/schema"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
 
@@ -191,14 +192,7 @@ func (fr *FileReader) GetFieldReader(ctx context.Context, i int, includedLeaves 
 // arrow.Schema for those columns.
 func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups []int) ([]*ColumnReader, *arrow.Schema, error) {
 	var (
-		// Load batches in parallel
-		// When reading structs with large numbers of columns, the serial load is very slow.
-		// This is especially true when reading Cloud Storage. Loading concurrently
-		// greatly improves performance.
-		wg   sync.WaitGroup
-		errs ErrBuffer
-		np   int = 1 // default to serial
-		sem  chan interface{}
+		np int
 	)
 	fieldIndices, err := fr.Manifest.GetFieldIndices(colIndices)
 	if err != nil {
@@ -213,33 +207,32 @@ func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups
 	out := make([]*ColumnReader, len(fieldIndices))
 	outFields := make([]arrow.Field, len(fieldIndices))
 
+	// Load batches in parallel
+	// When reading structs with large numbers of columns, the serial load is very slow.
+	// This is especially true when reading Cloud Storage. Loading concurrently
+	// greatly improves performance.
+	// GetFieldReader causes read operations, when issued serially on large numbers of columns,
+	// this is super time consuming. Get field readers concurrently.
 	if fr.Props.Parallel {
 		np = len(fieldIndices)
 	}
-	sem = make(chan interface{},np)
-	// GetFieldReader causes read operations, when issued serially on large numbers of columns,
-	// this is super time consuming. Get field readers concurrently.
-	wg.Add(len(fieldIndices))
+	g := new(errgroup.Group)
+	g.SetLimit(np)
 	for idx, fidx := range fieldIndices {
-		sem <- nil
-		go func(idx, fidx int) {
-			defer wg.Done()
-			defer func() {<-sem}()
-			rdr, err := fr.GetFieldReader(ctx, fidx, includedLeaves, rowGroups)
-			if err != nil {
-				errs.Append(err)
-				return
-			}
-
-			outFields[idx] = *rdr.Field()
-			out[idx] = rdr
+		func(idx, fidx int) {
+			g.Go(func() error {
+				rdr, err := fr.GetFieldReader(ctx, fidx, includedLeaves, rowGroups)
+				if err != nil {
+					return err
+				}
+				outFields[idx] = *rdr.Field()
+				out[idx] = rdr
+				return nil
+			})
 		}(idx, fidx)
 	}
-	wg.Wait()
-	e := errs.Errors()
-	if len(e) > 0 {
-		// return the first error
-		return nil, nil, e[0]
+	if err = g.Wait(); err != nil {
+		return nil, nil, err
 	}
 
 	return out, arrow.NewSchema(outFields, fr.Manifest.SchemaMeta), nil
@@ -304,7 +297,6 @@ type resultPair struct {
 	data *arrow.Chunked
 	err  error
 }
-
 
 //! This is Super complicated.  I would simpify the pattern, but it works and hesitant to change what works.
 
@@ -495,7 +487,7 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 			return nil, nil
 		}
 
-		out, err = newLeafReader(&rctx, field.Field, rctx.colFactory(field.ColIndex, rctx.rdr), field.LevelInfo,fr.Props)
+		out, err = newLeafReader(&rctx, field.Field, rctx.colFactory(field.ColIndex, rctx.rdr), field.LevelInfo, fr.Props)
 		return
 	}
 
@@ -509,40 +501,35 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 		// This is especially true when reading Cloud Storage. Loading concurrently
 		// greatly improves performance.
 		var (
-			wg   sync.WaitGroup
-			errs ErrBuffer
-			np   int = 1
-			sem  chan interface{}
+			np int = 1
 		)
-		if fr.Props.Parallel {
-			np = len(field.Children)
-		}
-		sem = make(chan interface{}, np)
+
 		childReaders := make([]*ColumnReader, len(field.Children))
 		childFields := make([]arrow.Field, len(field.Children))
 
-		wg.Add(len(field.Children))
+		if fr.Props.Parallel {
+			np = len(field.Children)
+		}
+		g := new(errgroup.Group)
+		g.SetLimit(np)
 		for n, child := range field.Children {
-			sem <- nil
-			go func(n int, child SchemaField) {
-				defer wg.Done()
-				defer func() { <-sem }()
-				reader, err := fr.getReader(ctx, &child, *child.Field)
-				if err != nil {
-					errs.Append(err) // save the error
-					return
-				}
-				if reader == nil {
-					return
-				}
-				childFields[n] = *child.Field
-				childReaders[n] = reader
+			func(n int, child SchemaField) {
+				g.Go(func() error {
+					reader, err := fr.getReader(ctx, &child, *child.Field)
+					if err != nil {
+						return err
+					}
+					if reader == nil {
+						return nil
+					}
+					childFields[n] = *child.Field
+					childReaders[n] = reader
+					return nil
+				})
 			}(n, child)
 		}
-		wg.Wait() // wait for reads to complete
-		e := errs.Errors()
-		if len(e) > 0 { // return first error
-			return nil, e[0]
+		if err = g.Wait(); err != nil {
+			return nil, err
 		}
 
 		// because we performed getReader concurrently, we need to prune out any empty readers
@@ -557,7 +544,7 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 		}
 		filtered := arrow.Field{Name: arrowField.Name, Nullable: arrowField.Nullable,
 			Metadata: arrowField.Metadata, Type: arrow.StructOf(childFields...)}
-		out = newStructReader(&rctx, &filtered, field.LevelInfo, childReaders,fr.Props)
+		out = newStructReader(&rctx, &filtered, field.LevelInfo, childReaders, fr.Props)
 	case arrow.LIST, arrow.FIXED_SIZE_LIST, arrow.MAP:
 		child := field.Children[0]
 		childReader, err := fr.getReader(ctx, &child, *child.Field)
@@ -574,9 +561,9 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 			if len(child.Children) != 2 {
 				arrowField.Type = arrow.ListOf(childReader.Field().Type)
 			}
-			out = newListReader(&rctx, &arrowField, field.LevelInfo, childReader,fr.Props)
+			out = newListReader(&rctx, &arrowField, field.LevelInfo, childReader, fr.Props)
 		case *arrow.ListType:
-			out = newListReader(&rctx, &arrowField, field.LevelInfo, childReader,fr.Props)
+			out = newListReader(&rctx, &arrowField, field.LevelInfo, childReader, fr.Props)
 		case *arrow.FixedSizeListType:
 			out = newFixedSizeListReader(&rctx, &arrowField, field.LevelInfo, childReader, fr.Props)
 		default:

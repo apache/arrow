@@ -20,7 +20,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -34,6 +33,7 @@ import (
 	"github.com/apache/arrow/go/v9/parquet"
 	"github.com/apache/arrow/go/v9/parquet/file"
 	"github.com/apache/arrow/go/v9/parquet/schema"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
 
@@ -222,39 +222,27 @@ func (sr *structReader) GetRepLevels() ([]int16, error) {
 
 func (sr *structReader) LoadBatch(nrecords int64) error {
 	var (
-		// Load batches in parallel
-		// When reading structs with large numbers of columns, the serial load is very slow.
-		// This is especially true when reading Cloud Storage. Loading concurrently
-		// greatly improves performance.
-		wg   sync.WaitGroup
-		np   int = 1 // default to serial
-		sem  chan interface{}
-		errs ErrBuffer
-		err  error
+		np int = 1 // default to serial
 	)
-
+	// Load batches in parallel
+	// When reading structs with large numbers of columns, the serial load is very slow.
+	// This is especially true when reading Cloud Storage. Loading concurrently
+	// greatly improves performance.
 	if sr.props.Parallel {
 		np = len(sr.children)
 	}
-	sem = make(chan interface{}, np)
-	wg.Add(len(sr.children))
+	g := new(errgroup.Group)
+	g.SetLimit(np)
 	for _, rdr := range sr.children {
-		sem <- nil // Acquire
-		go func(r *ColumnReader) {
-			defer wg.Done()
-			defer func() { <-sem }() // release
-			if err := r.LoadBatch(nrecords); err != nil {
-				errs.Append(err)
-			}
+		func(r *ColumnReader) {
+			g.Go(func() error {
+				err := r.LoadBatch(nrecords)
+				return err
+			})
 		}(rdr)
 	}
-	wg.Wait() // wait for reads to complete
-	e := errs.Errors()
-	if len(e) > 0 {
-		// return the first error
-		return e[0]
-	}
-	return err
+
+	return g.Wait()
 }
 
 func (sr *structReader) Field() *arrow.Field { return sr.filtered }
@@ -450,7 +438,7 @@ type fixedSizeListReader struct {
 	listReader
 }
 
-func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.LevelInfo, childRdr *ColumnReader,props ArrowReadProperties) *ColumnReader {
+func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.LevelInfo, childRdr *ColumnReader, props ArrowReadProperties) *ColumnReader {
 	childRdr.Retain()
 	return &ColumnReader{&fixedSizeListReader{listReader{rctx, field, info, childRdr, props, 1}}}
 }
