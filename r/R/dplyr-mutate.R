@@ -25,6 +25,13 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .after = NULL) {
   call <- match.call()
   exprs <- ensure_named_exprs(quos(...))
+  exprs2 <- exprs
+  for (i in seq_along(exprs)) {
+    exprs[[i]][[2]] <- exprs[[i]][[2]] %>%
+      expr_text() %>%
+      gsub("::", "_", .) %>%
+      parse_expr()
+  }
 
   .keep <- match.arg(.keep)
   .before <- enquo(.before)
@@ -57,7 +64,7 @@ mutate.arrow_dplyr_query <- function(.data,
     if (inherits(results[[new_var]], "try-error")) {
       msg <- handle_arrow_not_supported(
         results[[new_var]],
-        format_expr(exprs[[i]])
+        format_expr(exprs2[[i]])
       )
       return(abandon_ship(call, .data, msg))
     } else if (!inherits(results[[new_var]], "Expression") &&
