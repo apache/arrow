@@ -425,31 +425,34 @@ func TestStructArrayUnmarshalJSONMissingFields(t *testing.T) {
 		dtype = arrow.StructOf(fields...)
 	)
 
-	sb := array.NewStructBuilder(pool, dtype)
-	defer sb.Release()
-
-	tests := map[string]struct {
+	tests := []struct {
+		name      string
 		jsonInput string
 		want      string
 		panic     bool
 	}{
-		"missing optional fields": {
-			jsonInput: `[{"f2": 3, "f3": {"f3_3": "test"}}]`,
-			panic:     false,
-			want:      `{[(null)] [3] {[(null)] [(null)] ["test"]}}`,
-		},
-		"missing required field": {
+		{
+			name:      "missing required field",
 			jsonInput: `[{"f2": 3, "f3": {"f3_1": "test"}}]`,
 			panic:     true,
 			want:      "",
 		},
+		{
+			name:      "missing optional fields",
+			jsonInput: `[{"f2": 3, "f3": {"f3_3": "test"}}]`,
+			panic:     false,
+			want:      `{[(null)] [3] {[(null)] [(null)] ["test"]}}`,
+		},
 	}
 
-	for name, tc := range tests {
+	for _, tc := range tests {
 		t.Run(
-			name, func(t *testing.T) {
+			tc.name, func(t *testing.T) {
 
 				var val bool
+
+				sb := array.NewStructBuilder(pool, dtype)
+				defer sb.Release()
 
 				if tc.panic {
 					defer func() {
