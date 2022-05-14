@@ -191,13 +191,14 @@ func (fr *FileReader) GetFieldReader(ctx context.Context, i int, includedLeaves 
 // arrow.Schema for those columns.
 func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups []int) ([]*ColumnReader, *arrow.Schema, error) {
 	var (
-		// REP -- Load batches in parallel
+		// Load batches in parallel
 		// When reading structs with large numbers of columns, the serial load is very slow.
 		// This is especially true when reading Cloud Storage. Loading concurrently
 		// greatly improves performance.
-		wg      sync.WaitGroup
-		errchan chan error = make(chan error)
-		err     error
+		wg   sync.WaitGroup
+		errs ErrBuffer
+		np   int = 1 // default to serial
+		sem  chan interface{}
 	)
 	fieldIndices, err := fr.Manifest.GetFieldIndices(colIndices)
 	if err != nil {
@@ -212,22 +213,21 @@ func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups
 	out := make([]*ColumnReader, len(fieldIndices))
 	outFields := make([]arrow.Field, len(fieldIndices))
 
-	//* Read First error from errchan and break only capturing first error
-	go func() {
-		for err = range errchan {
-			break
-		}
-	}()
-
+	if fr.Props.Parallel {
+		np = len(fieldIndices)
+	}
+	sem = make(chan interface{},np)
 	// GetFieldReader causes read operations, when issued serially on large numbers of columns,
 	// this is super time consuming. Get field readers concurrently.
 	wg.Add(len(fieldIndices))
 	for idx, fidx := range fieldIndices {
+		sem <- nil
 		go func(idx, fidx int) {
 			defer wg.Done()
+			defer func() {<-sem}()
 			rdr, err := fr.GetFieldReader(ctx, fidx, includedLeaves, rowGroups)
 			if err != nil {
-				errchan <- err // send error
+				errs.Append(err)
 				return
 			}
 
@@ -236,10 +236,10 @@ func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups
 		}(idx, fidx)
 	}
 	wg.Wait()
-	close(errchan)
-	if err != nil {
-		// if error was returned on errchan, return it
-		return nil, nil, err
+	e := errs.Errors()
+	if len(e) > 0 {
+		// return the first error
+		return nil, nil, e[0]
 	}
 
 	return out, arrow.NewSchema(outFields, fr.Manifest.SchemaMeta), nil
@@ -304,6 +304,9 @@ type resultPair struct {
 	data *arrow.Chunked
 	err  error
 }
+
+
+//! This is Super complicated.  I would simpify the pattern, but it works and hesitant to change what works.
 
 // ReadRowGroups is for generating an array.Table from the file but filtering to only read the requested
 // columns and row groups rather than the entire file which ReadTable does.
@@ -492,7 +495,7 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 			return nil, nil
 		}
 
-		out, err = newLeafReader(&rctx, field.Field, rctx.colFactory(field.ColIndex, rctx.rdr), field.LevelInfo)
+		out, err = newLeafReader(&rctx, field.Field, rctx.colFactory(field.ColIndex, rctx.rdr), field.LevelInfo,fr.Props)
 		return
 	}
 
@@ -500,47 +503,46 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 	case arrow.EXTENSION:
 		return nil, xerrors.New("extension type not implemented")
 	case arrow.STRUCT:
-		// REP -- Get child field readers concurrently
+		// Get child field readers concurrently
 		// 'getReader' causes a read operation.  Issue the 'reads' concurrently
 		// When reading structs with large numbers of columns, the serial load is very slow.
 		// This is especially true when reading Cloud Storage. Loading concurrently
 		// greatly improves performance.
 		var (
-			wg      sync.WaitGroup
-			errchan chan error = make(chan error)
-			err     error
+			wg   sync.WaitGroup
+			errs ErrBuffer
+			np   int = 1
+			sem  chan interface{}
 		)
-		//* Read First error from errchan and break only capturing first error
-		go func() {
-			for err = range errchan {
-				break
-			}
-		}()
-
+		if fr.Props.Parallel {
+			np = len(field.Children)
+		}
+		sem = make(chan interface{}, np)
 		childReaders := make([]*ColumnReader, len(field.Children))
 		childFields := make([]arrow.Field, len(field.Children))
 
 		wg.Add(len(field.Children))
 		for n, child := range field.Children {
+			sem <- nil
 			go func(n int, child SchemaField) {
 				defer wg.Done()
+				defer func() { <-sem }()
 				reader, err := fr.getReader(ctx, &child, *child.Field)
 				if err != nil {
-					errchan <- err // send the error 
+					errs.Append(err) // save the error
 					return
 				}
 				if reader == nil {
 					return
 				}
-
 				childFields[n] = *child.Field
 				childReaders[n] = reader
 			}(n, child)
 		}
 		wg.Wait() // wait for reads to complete
-		close(errchan)
-		if err != nil {
-			return nil, err
+		e := errs.Errors()
+		if len(e) > 0 { // return first error
+			return nil, e[0]
 		}
 
 		// because we performed getReader concurrently, we need to prune out any empty readers
@@ -555,7 +557,7 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 		}
 		filtered := arrow.Field{Name: arrowField.Name, Nullable: arrowField.Nullable,
 			Metadata: arrowField.Metadata, Type: arrow.StructOf(childFields...)}
-		out = newStructReader(&rctx, &filtered, field.LevelInfo, childReaders)
+		out = newStructReader(&rctx, &filtered, field.LevelInfo, childReaders,fr.Props)
 	case arrow.LIST, arrow.FIXED_SIZE_LIST, arrow.MAP:
 		child := field.Children[0]
 		childReader, err := fr.getReader(ctx, &child, *child.Field)
@@ -572,11 +574,11 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 			if len(child.Children) != 2 {
 				arrowField.Type = arrow.ListOf(childReader.Field().Type)
 			}
-			out = newListReader(&rctx, &arrowField, field.LevelInfo, childReader)
+			out = newListReader(&rctx, &arrowField, field.LevelInfo, childReader,fr.Props)
 		case *arrow.ListType:
-			out = newListReader(&rctx, &arrowField, field.LevelInfo, childReader)
+			out = newListReader(&rctx, &arrowField, field.LevelInfo, childReader,fr.Props)
 		case *arrow.FixedSizeListType:
-			out = newFixedSizeListReader(&rctx, &arrowField, field.LevelInfo, childReader)
+			out = newFixedSizeListReader(&rctx, &arrowField, field.LevelInfo, childReader, fr.Props)
 		default:
 			return nil, fmt.Errorf("unknown list type: %s", field.Field.String())
 		}

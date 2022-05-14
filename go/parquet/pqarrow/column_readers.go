@@ -45,17 +45,19 @@ type leafReader struct {
 	input     *columnIterator
 	descr     *schema.Column
 	recordRdr file.RecordReader
+	props     ArrowReadProperties
 
 	refCount int64
 }
 
-func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, leafInfo file.LevelInfo) (*ColumnReader, error) {
+func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, leafInfo file.LevelInfo, props ArrowReadProperties) (*ColumnReader, error) {
 	ret := &leafReader{
 		rctx:      rctx,
 		field:     field,
 		input:     input,
 		descr:     input.Descr(),
 		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type.ID() == arrow.DICTIONARY, rctx.mem),
+		props:     props,
 		refCount:  1,
 	}
 	err := ret.nextRowGroup()
@@ -142,6 +144,7 @@ type structReader struct {
 	children         []*ColumnReader
 	defRepLevelChild *ColumnReader
 	hasRepeatedChild bool
+	props            ArrowReadProperties
 
 	refCount int64
 }
@@ -163,7 +166,7 @@ func (sr *structReader) Release() {
 	}
 }
 
-func newStructReader(rctx *readerCtx, filtered *arrow.Field, levelInfo file.LevelInfo, children []*ColumnReader) *ColumnReader {
+func newStructReader(rctx *readerCtx, filtered *arrow.Field, levelInfo file.LevelInfo, children []*ColumnReader, props ArrowReadProperties) *ColumnReader {
 	// there could be a mix of children some might be repeated and some might not be
 	// if possible use one that isn't since that will be guaranteed to have the least
 	// number of levels to reconstruct a nullable bitmap
@@ -179,6 +182,7 @@ func newStructReader(rctx *readerCtx, filtered *arrow.Field, levelInfo file.Leve
 		filtered:  filtered,
 		levelInfo: levelInfo,
 		children:  children,
+		props:     props,
 		refCount:  1,
 	}
 	if result != nil {
@@ -218,32 +222,38 @@ func (sr *structReader) GetRepLevels() ([]int16, error) {
 
 func (sr *structReader) LoadBatch(nrecords int64) error {
 	var (
-		// REP -- Load batches in parallel
+		// Load batches in parallel
 		// When reading structs with large numbers of columns, the serial load is very slow.
 		// This is especially true when reading Cloud Storage. Loading concurrently
 		// greatly improves performance.
-		wg      sync.WaitGroup
-		errchan chan error = make(chan error)
-		err     error
+		wg   sync.WaitGroup
+		np   int = 1 // default to serial
+		sem  chan interface{}
+		errs ErrBuffer
+		err  error
 	)
 
-	//* Read First error from errchan and break only capturing first error
-	go func() {
-		for err = range errchan {
-			break
-		}
-	}()
+	if sr.props.Parallel {
+		np = len(sr.children)
+	}
+	sem = make(chan interface{}, np)
 	wg.Add(len(sr.children))
 	for _, rdr := range sr.children {
+		sem <- nil // Acquire
 		go func(r *ColumnReader) {
 			defer wg.Done()
+			defer func() { <-sem }() // release
 			if err := r.LoadBatch(nrecords); err != nil {
-				errchan <- err
+				errs.Append(err)
 			}
 		}(rdr)
 	}
 	wg.Wait() // wait for reads to complete
-	close(errchan)
+	e := errs.Errors()
+	if len(e) > 0 {
+		// return the first error
+		return e[0]
+	}
 	return err
 }
 
@@ -322,17 +332,17 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 
 // column reader for repeated columns specifically for list arrays
 type listReader struct {
-	rctx    *readerCtx
-	field   *arrow.Field
-	info    file.LevelInfo
-	itemRdr *ColumnReader
-
+	rctx     *readerCtx
+	field    *arrow.Field
+	info     file.LevelInfo
+	itemRdr  *ColumnReader
+	props    ArrowReadProperties
 	refCount int64
 }
 
-func newListReader(rctx *readerCtx, field *arrow.Field, info file.LevelInfo, childRdr *ColumnReader) *ColumnReader {
+func newListReader(rctx *readerCtx, field *arrow.Field, info file.LevelInfo, childRdr *ColumnReader, props ArrowReadProperties) *ColumnReader {
 	childRdr.Retain()
-	return &ColumnReader{&listReader{rctx, field, info, childRdr, 1}}
+	return &ColumnReader{&listReader{rctx, field, info, childRdr, props, 1}}
 }
 
 func (lr *listReader) Retain() {
@@ -440,9 +450,9 @@ type fixedSizeListReader struct {
 	listReader
 }
 
-func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.LevelInfo, childRdr *ColumnReader) *ColumnReader {
+func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.LevelInfo, childRdr *ColumnReader,props ArrowReadProperties) *ColumnReader {
 	childRdr.Retain()
-	return &ColumnReader{&fixedSizeListReader{listReader{rctx, field, info, childRdr, 1}}}
+	return &ColumnReader{&fixedSizeListReader{listReader{rctx, field, info, childRdr, props, 1}}}
 }
 
 // helper function to combine chunks into a single array.
