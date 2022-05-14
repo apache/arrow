@@ -71,8 +71,7 @@ if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   else()
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_testing_shared)
   endif()
-  list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS ${ARROW_FLIGHT_STATIC_LINK_LIBS}
-       ${ARROW_TEST_LINK_LIBS})
+  list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS})
   if(ARROW_CUDA)
     list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_static)
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
@@ -262,6 +261,25 @@ endforeach()
 
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
+  if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_shared arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_static arrow_flight_static)
+  elseif(ARROW_BUILD_SHARED)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_shared arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_shared arrow_flight_shared)
+  else()
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_static arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_static arrow_flight_static)
+  endif()
+  if(ARROW_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_testing_shared)
+    list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_testing_shared)
+  else()
+    list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_testing_static)
+    list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_testing_static)
+  endif()
+  list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
+  list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
   add_arrow_lib(arrow_flight_testing
                 BUILD_SHARED
                 ${ARROW_FLIGHT_TESTING_BUILD_SHARED}
@@ -281,15 +299,9 @@ if(ARROW_TESTING)
                 flight_grpc_gen
                 arrow_dependencies
                 SHARED_LINK_LIBS
-                arrow_shared
-                arrow_flight_shared
-                arrow_testing_shared
-                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
+                ${ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS}
                 STATIC_LINK_LIBS
-                arrow_static
-                arrow_flight_static
-                arrow_testing_static
-                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
+                ${ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS}
                 PRIVATE_INCLUDES
                 "${Protobuf_INCLUDE_DIRS}")
 
