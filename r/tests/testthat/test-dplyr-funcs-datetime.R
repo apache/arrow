@@ -1668,17 +1668,20 @@ test_that("`as_datetime()`", {
     double_date = c(10.1, 25.2, NA)
   )
 
-  test_df %>%
-    arrow_table() %>%
-    mutate(
-      ddate = as_datetime(date),
-      dchar_date_no_tz = as_datetime(char_date),
-      dchar_date_non_iso = as_datetime(char_date_non_iso, format = "%Y-%d-%m %H:%M:%S"),
-      dint_date = as_datetime(int_date, origin = "1970-01-02"),
-      dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-      dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
-    ) %>%
-    collect()
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ddate = lubridate::as_datetime(date),
+        dchar_date_no_tz = lubridate::as_datetime(char_date),
+        dchar_date_with_tz = lubridate::as_datetime(char_date, tz = "Pacific/Marquesas"),
+        dint_date = lubridate::as_datetime(int_date, origin = "1970-01-02"),
+        dintegerish_date = lubridate::as_datetime(integerish_date, origin = "1970-01-02"),
+        dintegerish_date2 = lubridate::as_datetime(integerish_date, origin = "1970-01-01"),
+        .keep = "used"
+      ) %>%
+      collect(),
+    test_df
+  )
 
   compare_dplyr_binding(
     .input %>%
