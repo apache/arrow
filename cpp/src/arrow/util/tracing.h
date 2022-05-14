@@ -35,7 +35,7 @@ class SpanImpl;
 namespace util {
 namespace tracing {
 
-class ARROW_EXPORT Span {
+class Span {
  public:
   using Impl = arrow::internal::tracing::SpanImpl;
 

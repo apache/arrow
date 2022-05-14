@@ -15,183 +15,185 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/swiss_join.h"
-#include <sys/stat.h>
-#include <algorithm>  // std::upper_bound
-#include <cstdio>
-#include <cstdlib>
-#include <mutex>
-#include "arrow/array/util.h"  // MakeArrayFromScalar
-#include "arrow/compute/exec/hash_join.h"
-#include "arrow/compute/exec/key_compare.h"
-#include "arrow/compute/exec/key_encode.h"
-#include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/row/compare_internal.h"
+#include "arrow/compute/row/encode_internal.h"
+#include "arrow/compute/row/row_internal.h"
+
+#include <memory.h>
+
+#include <algorithm>
+
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace compute {
 
-int RowArrayAccessor::VarbinaryColumnId(const KeyEncoder::KeyRowMetadata& row_metadata,
-                                        int column_id) {
-  ARROW_DCHECK(row_metadata.num_cols() > static_cast<uint32_t>(column_id));
-  ARROW_DCHECK(!row_metadata.is_fixed_length);
-  ARROW_DCHECK(!row_metadata.column_metadatas[column_id].is_fixed_length);
-
-  int varbinary_column_id = 0;
-  for (int i = 0; i < column_id; ++i) {
-    if (!row_metadata.column_metadatas[i].is_fixed_length) {
-      ++varbinary_column_id;
-    }
-  }
-  return varbinary_column_id;
+void RowTableEncoder::Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
+                           int string_alignment) {
+  row_metadata_.FromColumnMetadataVector(cols, row_alignment, string_alignment);
+  uint32_t num_cols = row_metadata_.num_cols();
+  uint32_t num_varbinary_cols = row_metadata_.num_varbinary_cols();
+  batch_all_cols_.resize(num_cols);
+  batch_varbinary_cols_.resize(num_varbinary_cols);
+  batch_varbinary_cols_base_offsets_.resize(num_varbinary_cols);
 }
 
-int RowArrayAccessor::NumRowsToSkip(const KeyEncoder::KeyRowArray& rows, int column_id,
-                                    int num_rows, const uint32_t* row_ids,
-                                    int num_tail_bytes_to_skip) {
-  uint32_t num_bytes_skipped = 0;
-  int num_rows_left = num_rows;
+void RowTableEncoder::PrepareKeyColumnArrays(int64_t start_row, int64_t num_rows,
+                                             const std::vector<KeyColumnArray>& cols_in) {
+  const auto num_cols = static_cast<uint32_t>(cols_in.size());
+  DCHECK(batch_all_cols_.size() == num_cols);
 
-  bool is_fixed_length_column =
-      rows.metadata().column_metadatas[column_id].is_fixed_length;
+  uint32_t num_varbinary_visited = 0;
+  for (uint32_t i = 0; i < num_cols; ++i) {
+    const KeyColumnArray& col = cols_in[row_metadata_.column_order[i]];
+    KeyColumnArray col_window = col.Slice(start_row, num_rows);
 
-  if (!is_fixed_length_column) {
-    // Varying length column
-    //
-    int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-
-    while (num_rows_left > 0 &&
-           num_bytes_skipped < static_cast<uint32_t>(num_tail_bytes_to_skip)) {
-      // Find the pointer to the last requested row
-      //
-      uint32_t last_row_id = row_ids[num_rows_left - 1];
-      const uint8_t* row_ptr = rows.data(2) + rows.offsets()[last_row_id];
-
-      // Find the length of the requested varying length field in that row
-      //
-      uint32_t field_offset_within_row, field_length;
-      if (varbinary_column_id == 0) {
-        rows.metadata().first_varbinary_offset_and_length(
-            row_ptr, &field_offset_within_row, &field_length);
+    batch_all_cols_[i] = col_window;
+    if (!col.metadata().is_fixed_length) {
+      DCHECK(num_varbinary_visited < batch_varbinary_cols_.size());
+      // If start row is zero, then base offset of varbinary column is also zero.
+      if (start_row == 0) {
+        batch_varbinary_cols_base_offsets_[num_varbinary_visited] = 0;
       } else {
-        rows.metadata().nth_varbinary_offset_and_length(
-            row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
+        batch_varbinary_cols_base_offsets_[num_varbinary_visited] =
+            col.offsets()[start_row];
       }
-
-      num_bytes_skipped += field_length;
-      --num_rows_left;
-    }
-  } else {
-    // Fixed length column
-    //
-    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
-    uint32_t num_bytes_skipped = 0;
-    while (num_rows_left > 0 &&
-           num_bytes_skipped < static_cast<uint32_t>(num_tail_bytes_to_skip)) {
-      num_bytes_skipped += field_length;
-      --num_rows_left;
+      batch_varbinary_cols_[num_varbinary_visited++] = col_window;
     }
   }
-
-  return num_rows - num_rows_left;
 }
 
-template <class PROCESS_VALUE_FN>
-void RowArrayAccessor::Visit(const KeyEncoder::KeyRowArray& rows, int column_id,
-                             int num_rows, const uint32_t* row_ids,
-                             PROCESS_VALUE_FN process_value_fn) {
-  bool is_fixed_length_column =
-      rows.metadata().column_metadatas[column_id].is_fixed_length;
+void RowTableEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
+                                               int64_t start_row_output, int64_t num_rows,
+                                               const RowTableImpl& rows,
+                                               std::vector<KeyColumnArray>* cols,
+                                               int64_t hardware_flags,
+                                               util::TempVectorStack* temp_stack) {
+  // Prepare column array vectors
+  PrepareKeyColumnArrays(start_row_output, num_rows, *cols);
 
-  // There are 4 cases, each requiring different steps:
-  // 1. Varying length column that is the first varying length column in a row
-  // 2. Varying length column that is not the first varying length column in a
-  // row
-  // 3. Fixed length column in a fixed length row
-  // 4. Fixed length column in a varying length row
+  LightContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
 
-  if (!is_fixed_length_column) {
-    int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-    const uint8_t* row_ptr_base = rows.data(2);
-    const uint32_t* row_offsets = rows.offsets();
-    uint32_t field_offset_within_row, field_length;
+  // Create two temp vectors with 16-bit elements
+  auto temp_buffer_holder_A =
+      util::TempVectorHolder<uint16_t>(ctx.stack, static_cast<uint32_t>(num_rows));
+  auto temp_buffer_A = KeyColumnArray(
+      KeyColumnMetadata(true, sizeof(uint16_t)), num_rows, nullptr,
+      reinterpret_cast<uint8_t*>(temp_buffer_holder_A.mutable_data()), nullptr);
+  auto temp_buffer_holder_B =
+      util::TempVectorHolder<uint16_t>(ctx.stack, static_cast<uint32_t>(num_rows));
+  auto temp_buffer_B = KeyColumnArray(
+      KeyColumnMetadata(true, sizeof(uint16_t)), num_rows, nullptr,
+      reinterpret_cast<uint8_t*>(temp_buffer_holder_B.mutable_data()), nullptr);
 
-    if (varbinary_column_id == 0) {
-      // Case 1: This is the first varbinary column
-      //
-      for (int i = 0; i < num_rows; ++i) {
-        uint32_t row_id = row_ids[i];
-        const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
-        rows.metadata().first_varbinary_offset_and_length(
-            row_ptr, &field_offset_within_row, &field_length);
-        process_value_fn(i, row_ptr + field_offset_within_row, field_length);
-      }
+  bool is_row_fixed_length = row_metadata_.is_fixed_length;
+  if (!is_row_fixed_length) {
+    EncoderOffsets::Decode(static_cast<uint32_t>(start_row_input),
+                           static_cast<uint32_t>(num_rows), rows, &batch_varbinary_cols_,
+                           batch_varbinary_cols_base_offsets_, &ctx);
+  }
+
+  // Process fixed length columns
+  const auto num_cols = static_cast<uint32_t>(batch_all_cols_.size());
+  for (uint32_t i = 0; i < num_cols;) {
+    if (!batch_all_cols_[i].metadata().is_fixed_length ||
+        batch_all_cols_[i].metadata().is_null_type) {
+      i += 1;
+      continue;
+    }
+    bool can_process_pair =
+        (i + 1 < num_cols) && batch_all_cols_[i + 1].metadata().is_fixed_length &&
+        EncoderBinaryPair::CanProcessPair(batch_all_cols_[i].metadata(),
+                                          batch_all_cols_[i + 1].metadata());
+    if (!can_process_pair) {
+      EncoderBinary::Decode(static_cast<uint32_t>(start_row_input),
+                            static_cast<uint32_t>(num_rows),
+                            row_metadata_.column_offsets[i], rows, &batch_all_cols_[i],
+                            &ctx, &temp_buffer_A);
+      i += 1;
     } else {
-      // Case 2: This is second or later varbinary column
-      //
-      for (int i = 0; i < num_rows; ++i) {
-        uint32_t row_id = row_ids[i];
-        const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
-        rows.metadata().nth_varbinary_offset_and_length(
-            row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
-        process_value_fn(i, row_ptr + field_offset_within_row, field_length);
-      }
+      EncoderBinaryPair::Decode(
+          static_cast<uint32_t>(start_row_input), static_cast<uint32_t>(num_rows),
+          row_metadata_.column_offsets[i], rows, &batch_all_cols_[i],
+          &batch_all_cols_[i + 1], &ctx, &temp_buffer_A, &temp_buffer_B);
+      i += 2;
     }
   }
 
-  if (is_fixed_length_column) {
-    uint32_t field_offset_within_row = rows.metadata().encoded_field_offset(
-        rows.metadata().pos_after_encoding(column_id));
-    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
-    // Bit column is encoded as a single byte
-    //
-    if (field_length == 0) {
-      field_length = 1;
-    }
-    uint32_t row_length = rows.metadata().fixed_length;
+  // Process nulls
+  EncoderNulls::Decode(static_cast<uint32_t>(start_row_input),
+                       static_cast<uint32_t>(num_rows), rows, &batch_all_cols_);
+}
 
-    bool is_fixed_length_row = rows.metadata().is_fixed_length;
-    if (is_fixed_length_row) {
-      // Case 3: This is a fixed length column in a fixed length row
-      //
-      const uint8_t* row_ptr_base = rows.data(1) + field_offset_within_row;
-      for (int i = 0; i < num_rows; ++i) {
-        uint32_t row_id = row_ids[i];
-        const uint8_t* row_ptr = row_ptr_base + row_length * row_id;
-        process_value_fn(i, row_ptr, field_length);
-      }
-    } else {
-      // Case 4: This is a fixed length column in a varying length row
-      //
-      const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
-      const uint32_t* row_offsets = rows.offsets();
-      for (int i = 0; i < num_rows; ++i) {
-        uint32_t row_id = row_ids[i];
-        const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
-        process_value_fn(i, row_ptr, field_length);
-      }
+void RowTableEncoder::DecodeVaryingLengthBuffers(
+    int64_t start_row_input, int64_t start_row_output, int64_t num_rows,
+    const RowTableImpl& rows, std::vector<KeyColumnArray>* cols, int64_t hardware_flags,
+    util::TempVectorStack* temp_stack) {
+  // Prepare column array vectors
+  PrepareKeyColumnArrays(start_row_output, num_rows, *cols);
+
+  LightContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
+
+  bool is_row_fixed_length = row_metadata_.is_fixed_length;
+  if (!is_row_fixed_length) {
+    for (size_t i = 0; i < batch_varbinary_cols_.size(); ++i) {
+      // Memcpy varbinary fields into precomputed in the previous step
+      // positions in the output row buffer.
+      EncoderVarBinary::Decode(static_cast<uint32_t>(start_row_input),
+                               static_cast<uint32_t>(num_rows), static_cast<uint32_t>(i),
+                               rows, &batch_varbinary_cols_[i], &ctx);
     }
   }
 }
 
-template <class PROCESS_VALUE_FN>
-void RowArrayAccessor::VisitNulls(const KeyEncoder::KeyRowArray& rows, int column_id,
-                                  int num_rows, const uint32_t* row_ids,
-                                  PROCESS_VALUE_FN process_value_fn) {
-  const uint8_t* null_masks = rows.null_masks();
-  uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
-  uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
-  for (int i = 0; i < num_rows; ++i) {
-    uint32_t row_id = row_ids[i];
-    int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
-    process_value_fn(i, bit_util::GetBit(null_masks, bit_id) ? 0xff : 0);
-  }
+void RowTableEncoder::PrepareEncodeSelected(int64_t start_row, int64_t num_rows,
+                                            const std::vector<KeyColumnArray>& cols) {
+  // Prepare column array vectors
+  PrepareKeyColumnArrays(start_row, num_rows, cols);
 }
 
-Status RowArray::InitIfNeeded(MemoryPool* pool,
-                              const KeyEncoder::KeyRowMetadata& row_metadata) {
+Status RowTableEncoder::EncodeSelected(RowTableImpl* rows, uint32_t num_selected,
+                                       const uint16_t* selection) {
+  rows->Clean();
+  RETURN_NOT_OK(
+      rows->AppendEmpty(static_cast<uint32_t>(num_selected), static_cast<uint32_t>(0)));
+
+  EncoderOffsets::GetRowOffsetsSelected(rows, batch_varbinary_cols_, num_selected,
+                                        selection);
+
+  RETURN_NOT_OK(rows->AppendEmpty(static_cast<uint32_t>(0),
+                                  static_cast<uint32_t>(rows->offsets()[num_selected])));
+
+  for (size_t icol = 0; icol < batch_all_cols_.size(); ++icol) {
+    if (batch_all_cols_[icol].metadata().is_fixed_length) {
+      uint32_t offset_within_row = rows->metadata().column_offsets[icol];
+      EncoderBinary::EncodeSelected(offset_within_row, rows, batch_all_cols_[icol],
+                                    num_selected, selection);
+    }
+  }
+
+  EncoderOffsets::EncodeSelected(rows, batch_varbinary_cols_, num_selected, selection);
+
+  for (size_t icol = 0; icol < batch_varbinary_cols_.size(); ++icol) {
+    EncoderVarBinary::EncodeSelected(static_cast<uint32_t>(icol), rows,
+                                     batch_varbinary_cols_[icol], num_selected,
+                                     selection);
+  }
+
+  EncoderNulls::EncodeSelected(rows, batch_all_cols_, num_selected, selection);
+
+  return Status::OK();
+}
+
+Status RowTable::InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata) {
   if (is_initialized_) {
     return Status::OK();
   }
@@ -202,20 +204,20 @@ Status RowArray::InitIfNeeded(MemoryPool* pool,
   return Status::OK();
 }
 
-Status RowArray::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
+Status RowTable::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
   if (is_initialized_) {
     return Status::OK();
   }
   std::vector<KeyColumnMetadata> column_metadatas;
   RETURN_NOT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
-  KeyEncoder::KeyRowMetadata row_metadata;
+  RowTableMetadata row_metadata;
   row_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
                                         sizeof(uint64_t));
 
   return InitIfNeeded(pool, row_metadata);
 }
 
-Status RowArray::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
+Status RowTable::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
                                       int begin_row_id, int end_row_id, int num_row_ids,
                                       const uint16_t* row_ids,
                                       std::vector<KeyColumnArray>& temp_column_arrays) {
@@ -229,7 +231,7 @@ Status RowArray::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
   return Status::OK();
 }
 
-void RowArray::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
+void RowTable::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
                        int num_selected, const uint16_t* batch_selection_maybe_null,
                        const uint32_t* array_row_ids, uint32_t* out_num_not_equal,
                        uint16_t* out_not_equal_selection, int64_t hardware_flags,
@@ -240,7 +242,7 @@ void RowArray::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
       batch, begin_row_id, end_row_id - begin_row_id, &temp_column_arrays);
   ARROW_DCHECK(status.ok());
 
-  KeyEncoder::KeyEncoderContext ctx;
+  LightContext ctx;
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
   KeyCompare::CompareColumnsToRows(
@@ -249,13 +251,13 @@ void RowArray::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
       /*are_cols_in_encoding_order=*/false, out_match_bitvector_maybe_null);
 }
 
-Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
+Status RowTable::DecodeSelected(ResizableArrayData* output, int column_id,
                                 int num_rows_to_append, const uint32_t* row_ids,
                                 MemoryPool* pool) const {
   int num_rows_before = output->num_rows();
   RETURN_NOT_OK(output->ResizeFixedLengthBuffers(num_rows_before + num_rows_to_append));
 
-  // Both input (KeyRowArray) and output (ResizableArrayData) have buffers with
+  // Both input (RowTableImpl) and output (ResizableArrayData) have buffers with
   // extra bytes added at the end to avoid buffer overruns when using wide load
   // instructions.
   //
@@ -355,88 +357,14 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
   return Status::OK();
 }
 
-void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
-  FILE* fout;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-  fopen_s(&fout, filename, "wt");
-#else
-  fout = fopen(filename, "wt");
-#endif
-  if (!fout) {
-    return;
-  }
-
-  for (int64_t row_id = 0; row_id < rows_.length(); ++row_id) {
-    for (uint32_t column_id = 0; column_id < rows_.metadata().num_cols(); ++column_id) {
-      bool is_null;
-      uint32_t row_id_cast = static_cast<uint32_t>(row_id);
-      RowArrayAccessor::VisitNulls(rows_, column_id, 1, &row_id_cast,
-                                   [&](int i, uint8_t value) { is_null = (value != 0); });
-      if (is_null) {
-        fprintf(fout, "null");
-      } else {
-        RowArrayAccessor::Visit(rows_, column_id, 1, &row_id_cast,
-                                [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-                                  fprintf(fout, "\"");
-                                  for (uint32_t ibyte = 0; ibyte < num_bytes; ++ibyte) {
-                                    fprintf(fout, "%02x", ptr[ibyte]);
-                                  }
-                                  fprintf(fout, "\"");
-                                });
-      }
-      fprintf(fout, "\t");
-    }
-    fprintf(fout, "\n");
-  }
-  fclose(fout);
-
-  if (print_sorted) {
-    struct stat sb;
-    if (stat(filename, &sb) == -1) {
-      ARROW_DCHECK(false);
-      return;
-    }
-    std::vector<char> buffer;
-    buffer.resize(sb.st_size);
-    std::vector<std::string> lines;
-    FILE* fin;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    fopen_s(&fin, filename, "rt");
-#else
-    fin = fopen(filename, "rt");
-#endif
-    if (!fin) {
-      return;
-    }
-    while (fgets(buffer.data(), static_cast<int>(buffer.size()), fin)) {
-      lines.push_back(std::string(buffer.data()));
-    }
-    fclose(fin);
-    std::sort(lines.begin(), lines.end());
-    FILE* fout2;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    fopen_s(&fout2, filename, "wt");
-#else
-    fout2 = fopen(filename, "wt");
-#endif
-    if (!fout2) {
-      return;
-    }
-    for (size_t i = 0; i < lines.size(); ++i) {
-      fprintf(fout2, "%s\n", lines[i].c_str());
-    }
-    fclose(fout2);
-  }
-}
-
-Status RowArrayMerge::PrepareForMerge(RowArray* target,
-                                      const std::vector<RowArray*>& sources,
+Status RowArrayMerge::PrepareForMerge(RowTable* target,
+                                      const std::vector<RowTable*>& sources,
                                       std::vector<int64_t>* first_target_row_id,
                                       MemoryPool* pool) {
   ARROW_DCHECK(!sources.empty());
 
   ARROW_DCHECK(sources[0]->is_initialized_);
-  const KeyEncoder::KeyRowMetadata& metadata = sources[0]->rows_.metadata();
+  const RowTableMetadata& metadata = sources[0]->rows_.metadata();
   ARROW_DCHECK(!target->is_initialized_);
   RETURN_NOT_OK(target->InitIfNeeded(pool, metadata));
 
@@ -483,7 +411,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   return Status::OK();
 }
 
-void RowArrayMerge::MergeSingle(RowArray* target, const RowArray& source,
+void RowArrayMerge::MergeSingle(RowTable* target, const RowTable& source,
                                 int64_t first_target_row_id,
                                 const int64_t* source_rows_permutation) {
   // Source and target must:
@@ -506,8 +434,7 @@ void RowArrayMerge::MergeSingle(RowArray* target, const RowArray& source,
   CopyNulls(&target->rows_, source.rows_, first_target_row_id, source_rows_permutation);
 }
 
-void RowArrayMerge::CopyFixedLength(KeyEncoder::KeyRowArray* target,
-                                    const KeyEncoder::KeyRowArray& source,
+void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& source,
                                     int64_t first_target_row_id,
                                     const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
@@ -541,8 +468,7 @@ void RowArrayMerge::CopyFixedLength(KeyEncoder::KeyRowArray* target,
   }
 }
 
-void RowArrayMerge::CopyVaryingLength(KeyEncoder::KeyRowArray* target,
-                                      const KeyEncoder::KeyRowArray& source,
+void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& source,
                                       int64_t first_target_row_id,
                                       int64_t first_target_row_offset,
                                       const int64_t* source_rows_permutation) {
@@ -592,8 +518,7 @@ void RowArrayMerge::CopyVaryingLength(KeyEncoder::KeyRowArray* target,
   }
 }
 
-void RowArrayMerge::CopyNulls(KeyEncoder::KeyRowArray* target,
-                              const KeyEncoder::KeyRowArray& source,
+void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
                               int64_t first_target_row_id,
                               const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();

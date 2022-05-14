@@ -33,7 +33,7 @@
 namespace arrow {
 namespace compute {
 
-using internal::RowEncoder;
+using internal::KeyEncoder;
 
 class HashJoinBasicImpl : public HashJoinImpl {
  private:
