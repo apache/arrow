@@ -17,11 +17,10 @@
 
 add_custom_target(arrow_flight_integration_tests)
 
-set(ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS)
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
-  list(APPEND ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS arrow_flight_sql_static)
+  set(ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS arrow_flight_sql_static)
 else()
-  list(APPEND ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS arrow_flight_sql_shared)
+  set(ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS arrow_flight_sql_shared)
 endif()
 list(APPEND
      ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS

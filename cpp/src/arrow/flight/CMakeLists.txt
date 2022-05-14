@@ -377,4 +377,3 @@ if(ARROW_FLIGHT_SQL)
     add_subdirectory(integration_tests)
   endif()
 endif()
-
