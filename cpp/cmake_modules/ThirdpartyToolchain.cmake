@@ -2056,6 +2056,13 @@ if(ARROW_TESTING)
   else()
     set(GTEST_USE_CONFIG FALSE)
   endif()
+  # We can't find shred library version of GoogleTest on Windows with
+  # Conda's gtest package because it doesn't provide GTestConfig.cmake
+  # provided by GoogleTest and CMake's built-in FindGTtest.cmake
+  # doesn't support gtest_dll.dll. If we find static library version
+  # of GoogleTest and ARROW_BUILD_SHARED=ON/ARROW_BUILD_STATIC=OFF are
+  # specified, we need to build arrow_flight_testing as a static
+  # library. See cpp/src/arrow/flight/CMakeLists.txt for details.
   resolve_dependency(GTest
                      REQUIRED_VERSION
                      1.10.0

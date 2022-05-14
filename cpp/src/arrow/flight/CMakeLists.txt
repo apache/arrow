@@ -39,7 +39,7 @@ if(ARROW_TESTING)
     # We need to use the same library type for arrow_flight_testing
     # and Google Test because arrow_flight_testing has
     # arrow::flight:FlightTest that inherits testing::Test. If
-    # arrow_flight_testing's library and gtest's library type are
+    # arrow_flight_testing's library type and gtest's library type are
     # different such as arrow_flight_testing is a shared library and
     # gtest is a static library, link error is occurred.
     get_target_property(GTEST_TYPE GTest::gtest TYPE)
