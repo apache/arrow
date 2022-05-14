@@ -2318,7 +2318,7 @@ macro(build_lz4)
     set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
     # Must explicitly invoke sh on MinGW
     set(LZ4_BUILD_COMMAND
-        BUILD_COMMAND sh "${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh"
+        BUILD_COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/build-support/build-lz4-lib.sh"
         "AR=${CMAKE_AR}" "OS=${CMAKE_SYSTEM_NAME}")
   endif()
 
