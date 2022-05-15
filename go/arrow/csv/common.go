@@ -167,6 +167,7 @@ func validate(schema *arrow.Schema) {
 		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
 		case *arrow.Float32Type, *arrow.Float64Type:
 		case *arrow.StringType:
+		case *arrow.TimestampType:
 		default:
 			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}
