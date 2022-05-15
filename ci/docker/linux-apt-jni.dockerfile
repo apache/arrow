@@ -61,6 +61,7 @@ RUN apt-get update -y -q && \
         protobuf-compiler \
         rapidjson-dev \
         tzdata \
+        libcurl4-openssl-dev\
         zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -82,6 +83,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_PLASMA_JAVA_CLIENT=ON \
     ARROW_PLASMA=ON \
     ARROW_USE_CCACHE=ON \
+    ARROW_S3=ON \
     CC=gcc \
     CXX=g++ \
     ORC_SOURCE=BUNDLED \
