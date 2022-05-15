@@ -191,9 +191,6 @@ func (fr *FileReader) GetFieldReader(ctx context.Context, i int, includedLeaves 
 // of column indexes and rowgroups requested. It returns a slice of the readers and the corresponding
 // arrow.Schema for those columns.
 func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups []int) ([]*ColumnReader, *arrow.Schema, error) {
-	var (
-		np int
-	)
 	fieldIndices, err := fr.Manifest.GetFieldIndices(colIndices)
 	if err != nil {
 		return nil, nil, err
@@ -213,23 +210,21 @@ func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups
 	// greatly improves performance.
 	// GetFieldReader causes read operations, when issued serially on large numbers of columns,
 	// this is super time consuming. Get field readers concurrently.
-	if fr.Props.Parallel {
-		np = len(fieldIndices)
+	g,gctx := errgroup.WithContext(ctx)
+	if !fr.Props.Parallel {
+		g.SetLimit(1)
 	}
-	g := new(errgroup.Group)
-	g.SetLimit(np)
 	for idx, fidx := range fieldIndices {
-		func(idx, fidx int) {
-			g.Go(func() error {
-				rdr, err := fr.GetFieldReader(ctx, fidx, includedLeaves, rowGroups)
-				if err != nil {
-					return err
-				}
-				outFields[idx] = *rdr.Field()
-				out[idx] = rdr
-				return nil
-			})
-		}(idx, fidx)
+		idx, fidx := idx, fidx // create concurrent copy
+		g.Go(func() error {
+			rdr, err := fr.GetFieldReader(gctx, fidx, includedLeaves, rowGroups)
+			if err != nil {
+				return err
+			}
+			outFields[idx] = *rdr.Field()
+			out[idx] = rdr
+			return nil
+		})
 	}
 	if err = g.Wait(); err != nil {
 		return nil, nil, err
@@ -495,38 +490,34 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 	case arrow.EXTENSION:
 		return nil, xerrors.New("extension type not implemented")
 	case arrow.STRUCT:
+
+		childReaders := make([]*ColumnReader, len(field.Children))
+		childFields := make([]arrow.Field, len(field.Children))
+
 		// Get child field readers concurrently
 		// 'getReader' causes a read operation.  Issue the 'reads' concurrently
 		// When reading structs with large numbers of columns, the serial load is very slow.
 		// This is especially true when reading Cloud Storage. Loading concurrently
 		// greatly improves performance.
-		var (
-			np int = 1
-		)
-
-		childReaders := make([]*ColumnReader, len(field.Children))
-		childFields := make([]arrow.Field, len(field.Children))
-
-		if fr.Props.Parallel {
-			np = len(field.Children)
+		g,gctx := errgroup.WithContext(ctx)
+		if !fr.Props.Parallel {
+			g.SetLimit(1)
 		}
-		g := new(errgroup.Group)
-		g.SetLimit(np)
+
 		for n, child := range field.Children {
-			func(n int, child SchemaField) {
-				g.Go(func() error {
-					reader, err := fr.getReader(ctx, &child, *child.Field)
-					if err != nil {
-						return err
-					}
-					if reader == nil {
-						return nil
-					}
-					childFields[n] = *child.Field
-					childReaders[n] = reader
+			n, child := n, child
+			g.Go(func() error {
+				reader, err := fr.getReader(gctx, &child, *child.Field)
+				if err != nil {
+					return err
+				}
+				if reader == nil {
 					return nil
-				})
-			}(n, child)
+				}
+				childFields[n] = *child.Field
+				childReaders[n] = reader
+				return nil
+			})
 		}
 		if err = g.Wait(); err != nil {
 			return nil, err

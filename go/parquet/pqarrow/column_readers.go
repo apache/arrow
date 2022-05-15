@@ -221,25 +221,19 @@ func (sr *structReader) GetRepLevels() ([]int16, error) {
 }
 
 func (sr *structReader) LoadBatch(nrecords int64) error {
-	var (
-		np int = 1 // default to serial
-	)
 	// Load batches in parallel
 	// When reading structs with large numbers of columns, the serial load is very slow.
 	// This is especially true when reading Cloud Storage. Loading concurrently
 	// greatly improves performance.
-	if sr.props.Parallel {
-		np = len(sr.children)
-	}
 	g := new(errgroup.Group)
-	g.SetLimit(np)
+	if !sr.props.Parallel {
+		g.SetLimit(1)
+	}
 	for _, rdr := range sr.children {
-		func(r *ColumnReader) {
-			g.Go(func() error {
-				err := r.LoadBatch(nrecords)
-				return err
-			})
-		}(rdr)
+		rdr := rdr
+		g.Go(func() error {
+			return rdr.LoadBatch(nrecords)
+		})
 	}
 
 	return g.Wait()
