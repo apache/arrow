@@ -54,8 +54,6 @@ type Reader struct {
 
 	stringsCanBeNull bool
 	nulls            []string
-
-	timestampUnit arrow.TimeUnit
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
@@ -72,7 +70,6 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 		refs:             1,
 		chunk:            1,
 		stringsCanBeNull: false,
-		timestampUnit:    arrow.Millisecond,
 	}
 	rr.r.ReuseRecord = true
 	for _, opt := range opts {
@@ -264,7 +261,7 @@ func (r *Reader) read(recs []string) {
 }
 
 func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, string) {
-	switch field.Type.(type) {
+	switch dt := field.Type.(type) {
 	case *arrow.BooleanType:
 		return func(field array.Builder, str string) {
 			r.parseBool(field, str)
@@ -326,7 +323,7 @@ func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, stri
 		}
 	case *arrow.TimestampType:
 		return func(field array.Builder, str string) {
-			r.parseTimestamp(field, str)
+			r.parseTimestamp(field, str, dt.Unit)
 		}
 
 	default:
@@ -515,13 +512,13 @@ func (r *Reader) parseFloat64(field array.Builder, str string) {
 }
 
 // parses timestamps using millisecond precision
-func (r *Reader) parseTimestamp(field array.Builder, str string) {
+func (r *Reader) parseTimestamp(field array.Builder, str string, unit arrow.TimeUnit) {
 	if r.isNull(str) {
 		field.AppendNull()
 		return
 	}
 
-	v, err := arrow.TimestampFromString(str, r.timestampUnit)
+	v, err := arrow.TimestampFromString(str, unit)
 	if err != nil && r.err == nil {
 		r.err = err
 		field.AppendNull()

@@ -118,18 +118,6 @@ func WithHeader(useHeader bool) Option {
 	}
 }
 
-// WithTimestampUnit specifies the timestamp unit used while parsing CSV files.
-func WithTimestampUnit(unit arrow.TimeUnit) Option {
-	return func(cfg config) {
-		switch cfg := cfg.(type) {
-		case *Reader:
-			cfg.timestampUnit = unit
-		default:
-			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
-		}
-	}
-}
-
 // DefaultNullValues is the set of values considered as NULL values by default
 // when Reader is configured to handle NULL values.
 var DefaultNullValues = []string{"", "NULL", "null"}
