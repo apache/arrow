@@ -90,7 +90,7 @@ using testing::HasSubstr;
     auto max = std::numeric_limits<CTYPE>::max();                                \
     TYPENAME##Builder builder;                                                   \
     std::shared_ptr<Array> array;                                                \
-    builder.Append(max);                                                         \
+    ASSERT_OK(builder.Append(max));                                              \
     ASSERT_OK(builder.Finish(&array));                                           \
     EXPECT_RAISES_WITH_MESSAGE_THAT(                                             \
         Invalid, HasSubstr("overflow"),                                          \
@@ -107,7 +107,7 @@ using testing::HasSubstr;
     auto min = std::numeric_limits<CTYPE>::lowest();                             \
     TYPENAME##Builder builder;                                                   \
     std::shared_ptr<Array> array;                                                \
-    builder.Append(min);                                                         \
+    ASSERT_OK(builder.Append(min));                                              \
     ASSERT_OK(builder.Finish(&array));                                           \
     EXPECT_RAISES_WITH_MESSAGE_THAT(                                             \
         Invalid, HasSubstr("overflow"),                                          \
