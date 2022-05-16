@@ -99,9 +99,9 @@ struct CumulativeGeneric {
       }
       case Datum::CHUNKED_ARRAY: {
         const auto& chunked_input = values.chunked_array();
+        RETURN_NOT_OK(builder->Reserve(chunked_input->length()));
 
         for (const auto& chunk : chunked_input->chunks()) {
-          RETURN_NOT_OK(builder->Reserve(chunk->length()));
           RETURN_NOT_OK(Call(*chunk->data()));
         }
         break;
