@@ -58,14 +58,13 @@ NULL
 #' @keywords internal
 #'
 register_binding <- function(fun_name, fun, registry = nse_funcs) {
-  # test name <- gsub("^.*?::", "", fun_name)
   name <- gsub("^.*?_", "", fun_name)
   namespace <- gsub("::.*$", "", fun_name)
 
-  previous_fun <- if (name %in% names(registry)) registry[[name]] else NULL
+  previous_fun <- if (name %in% names(registry)) registry[[fun_name]] else NULL
 
   if (is.null(fun) && !is.null(previous_fun)) {
-    rm(list = name, envir = registry, inherits = FALSE)
+    rm(list = c(name, fun_name), envir = registry, inherits = FALSE)
   } else {
     registry[[name]] <- fun
     registry[[fun_name]] <- fun
