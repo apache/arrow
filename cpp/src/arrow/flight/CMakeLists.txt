@@ -90,6 +90,7 @@ list(APPEND
      Boost::system
      GTest::gtest
      GTest::gmock)
+list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking
 
