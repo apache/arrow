@@ -153,7 +153,7 @@ head.Scanner <- function(x, n = 6L, ...) {
 
 #' @export
 tail.Scanner <- function(x, n = 6L, ...) {
-  tail_from_batches(dataset___Scanner__ScanBatches(x), n)
+  tail_from_batches(dataset___Scanner__ScanBatches(x), n)$read_table()
 }
 
 tail_from_batches <- function(batches, n) {
@@ -169,7 +169,7 @@ tail_from_batches <- function(batches, n) {
     if (n <= 0) break
   }
   # rev() the result to put the batches back in the right order
-  Table$create(!!!rev(result))
+  RecordBatchReader$create(batches = rev(result))
 }
 
 #' Apply a function to a stream of RecordBatches
@@ -191,7 +191,6 @@ tail_from_batches <- function(batches, n) {
 #' `data.frame`? Default `TRUE`
 #' @export
 map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
-  # TODO: ARROW-15271 possibly refactor do_exec_plan to return a RecordBatchReader
   plan <- ExecPlan$create()
   final_node <- plan$Build(as_adq(X))
   reader <- plan$Run(final_node)
@@ -205,7 +204,7 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   i <- 0L
   while (!is.null(batch)) {
     i <- i + 1L
-    res[[i]] <- FUN(batch, ...)
+    res[[i]] <- as_record_batch(FUN(batch, ...))
     batch <- reader$read_next_batch()
   }
 
@@ -214,13 +213,8 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
     res <- res[seq_len(i)]
   }
 
-  if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
-    res <- dplyr::bind_rows(map(res, dplyr::collect))
-  } else if (.data.frame) {
-    res <- dplyr::bind_rows(map(res, as.data.frame))
-  }
-
-  res
+  out <- as_adq(RecordBatchReader$create(batches = res))
+  collect.arrow_dplyr_query(out, as_data_frame = .data.frame)
 }
 
 #' @usage NULL

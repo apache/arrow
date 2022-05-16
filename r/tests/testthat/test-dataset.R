@@ -634,8 +634,8 @@ test_that("map_batches", {
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(~ .$num_rows, .data.frame = FALSE) %>%
-      unlist() %>% # Returns list because .data.frame is FALSE
+      map_batches(~ record_batch(nrows = .$num_rows)) %>%
+      pull(nrows) %>%
       sort(),
     c(5, 10)
   )
