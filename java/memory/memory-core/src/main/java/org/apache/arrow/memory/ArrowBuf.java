@@ -692,12 +692,14 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   private void checkIndex(long index, long fieldLength) {
-    // check reference count
-    this.ensureAccessible();
-    // check bounds
-    if (isOutOfBounds(index, fieldLength, this.capacity())) {
-      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
-        index, fieldLength, this.capacity()));
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      // check reference count
+      this.ensureAccessible();
+      // check bounds
+      if (isOutOfBounds(index, fieldLength, this.capacity())) {
+        throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
+                index, fieldLength, this.capacity()));
+      }
     }
   }
 
