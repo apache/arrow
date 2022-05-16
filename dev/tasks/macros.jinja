@@ -236,10 +236,9 @@ on:
       cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
       
       # Pin the git commit in the formula to match
-      # TODO enable again
-      # cd tools
-      # sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
-      # rm -f apache-arrow.rb.bak
+      cd tools
+      sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
+      rm -f apache-arrow.rb.bak
 {% endmacro %}
 
 {%- macro test_r_src_pkg() -%}
