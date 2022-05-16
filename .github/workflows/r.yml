@@ -244,6 +244,7 @@ jobs:
         config:
         - { rtools: 35, rversion: "3.6" }
         - { rtools: 40, rversion: "4.1" }
+        - { rtools: 40, rversion: "4.2" }
         # TODO: Once R 4.2 comes out we can switch to devel + 4.2
         - { rtools: 42, rversion: "devel" }
     env:
@@ -384,7 +385,8 @@ jobs:
             timeout = 3600
           )
       - name: Run lintr
-        env: 
+        if: ${{ matrix.config.rversion == "4.2" }}
+        env:
           NOT_CRAN: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: Rscript {0}
