@@ -231,7 +231,7 @@ struct TableSourceNode : public SourceNode {
   static arrow::Status ValidateTableSourceNodeInput(const std::shared_ptr<Table> table,
                                                     const int64_t batch_size) {
     if (table == nullptr) {
-      return Status::Invalid("TableSourceNode node requires table which is not null");
+      return Status::Invalid("TableSourceNode requires table which is not null");
     }
 
     if (batch_size <= 0) {

@@ -460,6 +460,16 @@ class TeeNode : public compute::MapNode {
 
   const char* kind_name() const override { return "TeeNode"; }
 
+  void Finish(Status finish_st) override {
+    dataset_writer_->Finish().AddCallback([this, finish_st](const Status& dw_status) {
+      // Need to wait for the task group to complete regardless of dw_status
+      task_group_.End().AddCallback(
+          [this, dw_status, finish_st](const Status& tg_status) {
+            finished_.MarkFinished(dw_status & finish_st & tg_status);
+          });
+    });
+  }
+
   Result<compute::ExecBatch> DoTee(const compute::ExecBatch& batch) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(output_schema()));
