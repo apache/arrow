@@ -2037,6 +2037,14 @@ def _check_temporal_rounding(ts, values, unit):
         "hour": "H",
         "day": "D"
     }
+    greater_unit = {
+        "nanosecond": "us",
+        "microsecond": "ms",
+        "millisecond": "s",
+        "second": "min",
+        "minute": "H",
+        "hour": "d",
+    }
     ta = pa.array(ts)
 
     for value in values:
@@ -2055,6 +2063,27 @@ def _check_temporal_rounding(ts, values, unit):
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
 
+        # Check rounding with multiple_since_greater_unit=True.
+        # Note: rounding to month is not supported in Pandas so we can't
+        # approximate this functionallity and exclude unit == "day".
+        if unit != "day":
+            options = pc.RoundTemporalOptions(
+                value, unit, multiple_since_greater_unit=True)
+            origin = ts.dt.floor(greater_unit[unit])
+
+            if ta.type.tz is None:
+                result = pc.ceil_temporal(ta, options=options).to_pandas()
+                expected = (ts - origin).dt.ceil(frequency) + origin
+                np.testing.assert_array_equal(result, expected)
+
+            result = pc.floor_temporal(ta, options=options).to_pandas()
+            expected = (ts - origin).dt.floor(frequency) + origin
+            np.testing.assert_array_equal(result, expected)
+
+            result = pc.round_temporal(ta, options=options).to_pandas()
+            expected = (ts - origin).dt.round(frequency) + origin
+            np.testing.assert_array_equal(result, expected)
+
         # Check RoundTemporalOptions partial defaults
         if unit == "day":
             result = pc.ceil_temporal(ta, multiple=value).to_pandas()
@@ -2068,6 +2097,18 @@ def _check_temporal_rounding(ts, values, unit):
             result = pc.round_temporal(ta, multiple=value).to_pandas()
             expected = ts.dt.round(frequency)
             np.testing.assert_array_equal(result, expected)
+
+    if ta.type.tz is None:
+        options = pc.RoundTemporalOptions(
+            value, unit, ceil_is_strictly_greater=True)
+        result = pc.ceil_temporal(ta, options=options)
+        expected = ts.dt.ceil(frequency)
+
+        expected = np.where(
+            expected == ts,
+            expected + pd.Timedelta(value, unit_shorthand[unit]),
+            expected)
+        np.testing.assert_array_equal(result, expected)
 
     # Check RoundTemporalOptions defaults
     if unit == "day":
@@ -2083,18 +2124,6 @@ def _check_temporal_rounding(ts, values, unit):
 
         result = pc.round_temporal(ta).to_pandas()
         expected = ts.dt.round(frequency)
-        np.testing.assert_array_equal(result, expected)
-
-    if ta.type.tz is None and unit != "day":
-        options = pc.RoundTemporalOptions(
-            value, unit, ceil_is_strictly_greater=True)
-        result = pc.ceil_temporal(ta, options=options)
-        expected = ts.dt.ceil(frequency)
-
-        expected = np.where(
-            expected == ts,
-            expected + pd.Timedelta(value, unit_shorthand[unit]),
-            expected)
         np.testing.assert_array_equal(result, expected)
 
 

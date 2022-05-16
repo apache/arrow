@@ -3137,8 +3137,8 @@ TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnit) {
       RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, true);
   RoundTemporalOptions round_to_15_weeks_sunday =
       RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, true);
-  RoundTemporalOptions round_to_15_months =
-      RoundTemporalOptions(15, CalendarUnit::MONTH, true, true, true);
+  RoundTemporalOptions round_to_5_months =
+      RoundTemporalOptions(5, CalendarUnit::MONTH, true, true, true);
   RoundTemporalOptions round_to_15_quarters =
       RoundTemporalOptions(15, CalendarUnit::QUARTER, true, true, true);
   RoundTemporalOptions round_to_15_years =
@@ -3207,11 +3207,11 @@ TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnit) {
           "2019-12-29", "2019-12-29", "2019-12-29", "2010-01-03",
           "2010-01-03", "2010-01-03", "2010-01-03", "2006-01-01",
           "2006-01-01", "2009-01-04", "2009-01-04", "2012-01-01", null])";
-  const char* round_15_months =
-      R"(["1970-01-01", "2000-01-01", "1899-01-01", "2033-01-01",
-          "2020-01-01", "2020-04-01", "2020-04-01", "2010-04-01",
+  const char* round_5_months =
+      R"(["1970-01-01", "2000-01-01", "1899-01-01", "2033-06-01",
+          "2020-01-01", "2019-11-01", "2019-11-01", "2009-11-01",
           "2010-01-01", "2010-01-01", "2010-01-01", "2006-01-01",
-          "2006-04-01", "2009-04-01", "2009-04-01", "2012-01-01",  null])";
+          "2005-11-01", "2008-11-01", "2008-11-01", "2012-01-01",  null])";
   const char* round_15_quarters =
       R"(["1970-01-01", "2000-01-01", "1899-01-01", "2033-01-01",
           "2020-01-01", "2019-01-01", "2019-01-01", "2009-01-01",
@@ -3235,7 +3235,7 @@ TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnit) {
   CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks);
   CheckScalarUnary(op, unit, times, unit, round_15_weeks_sunday,
                    &round_to_15_weeks_sunday);
-  CheckScalarUnary(op, unit, times, unit, round_15_months, &round_to_15_months);
+  CheckScalarUnary(op, unit, times, unit, round_5_months, &round_to_5_months);
   CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
 }
