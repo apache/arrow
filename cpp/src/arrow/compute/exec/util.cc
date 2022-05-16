@@ -48,7 +48,7 @@ inline uint64_t bit_util::SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes
 
 inline void bit_util::SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value) {
 #if !ARROW_LITTLE_ENDIAN
-    value = BYTESWAP(value);
+  value = BYTESWAP(value);
 #endif
   ARROW_DCHECK(num_bytes >= 0 && num_bytes <= 8);
   if (num_bytes == 8) {
