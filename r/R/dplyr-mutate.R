@@ -26,11 +26,10 @@ mutate.arrow_dplyr_query <- function(.data,
   call <- match.call()
   exprs <- ensure_named_exprs(quos(...))
   exprs2 <- exprs
+  # replace `::` with `_` in passed expressions
   for (i in seq_along(exprs)) {
-    exprs[[i]][[2]] <- exprs[[i]][[2]] %>%
-      expr_text() %>%
-      gsub("::", "_", .) %>%
-      parse_expr()
+    exprs[[i]][[2]] <- gsub("::", "_", rlang::expr_text(exprs[[i]][[2]]))
+    exprs[[i]][[2]] <- parse_expr(exprs[[i]][[2]])
   }
 
   .keep <- match.arg(.keep)
