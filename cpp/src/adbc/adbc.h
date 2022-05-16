@@ -26,6 +26,9 @@
 extern "C" {
 #endif
 
+#ifndef ADBC
+#define ADBC
+
 /// \file ADBC: Arrow DataBase connectivity (client API)
 ///
 /// Implemented by libadbc.so (provided by Arrow/C++), which in turn
@@ -438,13 +441,19 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
 /// \brief A table of function pointers for ADBC functions.
 ///
 /// This provides a common interface for implementation-specific
-/// driver initialization routines.
+/// driver initialization routines. Drivers should populate this
+/// struct, and applications can call ADBC functions through this
+/// struct, without worrying about multiple definitions of the same
+/// symbol.
 struct AdbcDriver {
   // TODO: migrate drivers
   // Do not edit fields. New fields can only be appended to the end.
 };
 
 /// \brief Common entry point for drivers using dlopen(3).
+///
+/// This call is optional to implement. Drivers may prefer to
+/// implement their own entrypoints.
 ///
 /// \param[in] count The number of entries to initialize. Provides
 ///   backwards compatibility if the struct definition is changed.
@@ -471,6 +480,10 @@ AdbcStatusCode AdbcDriverInit(size_t count, struct AdbcDriver* driver,
 ///
 /// ArrowArrayStream - FlightStream (Java)/RecordBatchReader (C++) -
 /// ResultSet - Statement handle
+
+/// \page compatibility Backwards and Forwards Compatibility
+
+#endif
 
 #ifdef __cplusplus
 }
