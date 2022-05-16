@@ -1735,7 +1735,7 @@ test_that("parse_date_time() doesn't work with hour, minutes, and second compone
   )
 })
 
-test_that("year, month, day date/time parsers work", {
+test_that("year, month, day date/time parsers", {
   test_df <- tibble::tibble(
     ymd_string = c("2022-05-11", "2022/05/12", "22.05-13"),
     ydm_string = c("2022-11-05", "2022/12/05", "22.13-05"),
@@ -1771,6 +1771,25 @@ test_that("year, month, day date/time parsers work", {
         myd_date = myd(myd_string, tz = "Pacific/Marquesas"),
         dmy_date = dmy(dmy_string, tz = "Pacific/Marquesas"),
         dym_date = dym(dym_string, tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("ym, my & yq parsers", {
+  test_df <- tibble::tibble(
+    ym_string = c("2022-05", "2022/02", "22.03", NA),
+    my_string = c("05-2022", "02/2022", "03.22", NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ym_date = ym(ym_string),
+        ym_datetime = ym(ym_string, tz = "Pacific/Marquesas"),
+        my_date = my(my_string),
+        my_datetime = my(my_string, tz = "Pacific/Marquesas")
       ) %>%
       collect(),
     test_df

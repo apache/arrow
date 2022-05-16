@@ -498,6 +498,11 @@ register_bindings_datetime_parsers <- function() {
     # collapse multiple separators into a single one
     x <- call_binding("gsub", "-{2,}", "-", x)
 
+    # add a day (01) for "ym" and "my" orders
+    if (orders %in% c("ym", "my")) {
+      x <- call_binding("paste0", x, "-01")
+    }
+
     # TODO figure out how to parse strings that have no separators
     # https://issues.apache.org/jira/browse/ARROW-16446
     # we could insert separators at the "likely" positions, but it might be
@@ -527,7 +532,7 @@ register_bindings_datetime_parsers <- function() {
 
   })
 
-  ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+  ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my")
 
   ymd_parser_map_factory <- function(order) {
     force(order)

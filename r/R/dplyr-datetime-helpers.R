@@ -159,6 +159,10 @@ build_formats <- function(orders) {
   orders <- gsub("[^A-Za-z_]", "", orders)
   orders <- gsub("Y", "y", orders)
 
+  if (orders %in% c("ym", "my")) {
+    orders <- paste0(orders, "d")
+  }
+
   supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
   unsupported_passed_orders <- setdiff(orders, supported_orders)
   supported_passed_orders <- intersect(orders, supported_orders)
