@@ -372,7 +372,8 @@ def cast(arr, target_type, safe=None, options=None):
     if target_type is None:
         raise ValueError("Cast target type must not be None")
     if (safe is not None) and (options is not None):
-        raise ValueError("Must past only a value for 'safe' or only a value for 'options'")
+        raise ValueError(
+            "Must past only a value for 'safe' or only a value for 'options'")
     if options is None:
         if safe:
             options = CastOptions.safe(target_type)
