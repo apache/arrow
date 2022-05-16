@@ -47,6 +47,7 @@ RUN apt-get update -y -q && \
         g++ \
         gcc \
         libboost-all-dev \
+        libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \
         libgtest-dev \
@@ -61,7 +62,6 @@ RUN apt-get update -y -q && \
         protobuf-compiler \
         rapidjson-dev \
         tzdata \
-        libcurl4-openssl-dev\
         zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -82,8 +82,8 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_PARQUET=ON \
     ARROW_PLASMA_JAVA_CLIENT=ON \
     ARROW_PLASMA=ON \
-    ARROW_USE_CCACHE=ON \
     ARROW_S3=ON \
+    ARROW_USE_CCACHE=ON \
     CC=gcc \
     CXX=g++ \
     ORC_SOURCE=BUNDLED \
