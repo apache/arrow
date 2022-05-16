@@ -98,8 +98,10 @@ class ARROW_EXPORT CpuInfo {
   /// that the underlying hardware cannot support. This is useful for testing.
   void EnableFeature(int64_t flag, bool enable);
 
-  // Dump internal status (true values, without defaults) for testing only.
-  std::string DebugMessage() const;
+  bool HasEfficientBmi2() const {
+    // BMI2 (pext, pdep) is only efficient on Intel X86 processors.
+    return vendor() == Vendor::Intel && IsSupported(BMI2);
+  }
 
  private:
   CpuInfo();

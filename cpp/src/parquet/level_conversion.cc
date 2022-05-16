@@ -137,9 +137,7 @@ void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
   // is deleted in a follow-up release.
   if (level_info.rep_level > 0) {
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
-    const CpuInfo* ci = CpuInfo::GetInstance();
-    // BMI2 (pext, pdep) is only efficient on Intel X86 processors.
-    if (ci->IsSupported(CpuInfo::BMI2) && ci->vendor() == CpuInfo::Vendor::Intel) {
+    if (CpuInfo::GetInstance()->HasEfficientBmi2()) {
       return DefLevelsToBitmapBmi2WithRepeatedParent(def_levels, num_def_levels,
                                                      level_info, output);
     }

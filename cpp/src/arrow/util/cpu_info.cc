@@ -23,21 +23,15 @@
 #include <sys/sysctl.h>
 #endif
 
-#include <stdlib.h>
-#include <string.h>
-
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
 
 #ifdef _WIN32
-#if defined(_M_AMD64) || defined(_M_X64)
-#include <immintrin.h>
-#endif
 #include <intrin.h>
 
 #include "arrow/util/windows_compatibility.h"
-#endif  // _WIN32
+#endif
 
 #include <algorithm>
 #include <array>
@@ -47,8 +41,6 @@
 #include <cstdint>
 #include <fstream>
 #include <memory>
-#include <mutex>
-#include <sstream>
 #include <string>
 #include <thread>
 
@@ -93,11 +85,13 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
           GetModuleHandle("kernel32"), "GetLogicalProcessorInformation");
 
   if (!func_pointer) {
+    ARROW_LOG(WARNING) << "Failed to find procedure GetLogicalProcessorInformation";
     return;
   }
 
   // Get buffer size
   if (func_pointer(buffer, &buffer_size) && GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+    ARROW_LOG(WARNING) << "Failed to get size of processor information buffer";
     return;
   }
 
@@ -107,6 +101,7 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
   }
 
   if (!func_pointer(buffer, &buffer_size)) {
+    ARROW_LOG(WARNING) << "Failed to get processor information";
     free(buffer);
     return;
   }
@@ -332,26 +327,17 @@ int64_t LinuxGetCacheSize(int level) {
   if (!cacheinfo) {
     return 0;
   }
-  std::string line;
-  std::getline(cacheinfo, line);
-  if (line.empty()) {
-    return 0;
-  }
-  // line: 65536, 64K, 1M, etc.
-  char* last_char;
-  errno = 0;
-  auto size = std::strtoull(line.c_str(), &last_char, 0);
-  if (errno != 0) {
-    return 0;
-  }
-  const int unit = std::toupper(static_cast<unsigned char>(*last_char));
+  // cacheinfo is one line like: 65536, 64K, 1M, etc.
+  uint64_t size = 0;
+  char unit = '\0';
+  cacheinfo >> size >> unit;
   if (unit == 'K') {
     size <<= 10;
   } else if (unit == 'M') {
     size <<= 20;
   } else if (unit == 'G') {
     size <<= 30;
-  } else {
+  } else if (unit != '\0') {
     return 0;
   }
   return static_cast<int64_t>(size);
@@ -533,7 +519,7 @@ struct CpuInfo::Impl {
     if (!maybe_env_var.ok()) {
       return;
     }
-    std::string& s = maybe_env_var.ValueUnsafe();
+    std::string s = *std::move(maybe_env_var);
     std::transform(s.begin(), s.end(), s.begin(),
                    [](unsigned char c) { return std::toupper(c); });
     if (!ArchParseUserSimdLevel(s, &hardware_flags)) {
@@ -549,44 +535,6 @@ struct CpuInfo::Impl {
       DCHECK_EQ((~original_hardware_flags) & flag, 0);
       hardware_flags |= (flag & original_hardware_flags);
     }
-  }
-
-  std::string DebugMessage() const {
-    std::stringstream ss;
-
-    ss << "Vendor: ";
-    if (vendor == CpuInfo::Vendor::Intel) {
-      ss << "Intel";
-    } else if (vendor == CpuInfo::Vendor::AMD) {
-      ss << "AMD";
-    } else {
-      ss << "Unknown";
-    }
-    ss << std::endl;
-
-    ss << "Model: " << model_name << std::endl;
-
-    ss << "Features (set bits):";
-    if (original_hardware_flags == 0) {
-      ss << " None";
-    } else {
-      const std::bitset<64> mask(original_hardware_flags);
-      for (size_t i = 0; i < 64; ++i) {
-        if (mask[i]) ss << "  " << i;
-      }
-    }
-    ss << std::endl;
-
-    ss << "Cache sizes:";
-    for (auto size : cache_sizes) {
-      if (size <= 0) {
-        ss << " Unknown";
-      } else {
-        ss << ' ' << size;
-      }
-    }
-
-    return std::move(ss).str();
   }
 };
 
@@ -637,8 +585,6 @@ void CpuInfo::VerifyCpuRequirements() const { return ArchVerifyCpuRequirements(t
 void CpuInfo::EnableFeature(int64_t flag, bool enable) {
   impl_->EnableFeature(flag, enable);
 }
-
-std::string CpuInfo::DebugMessage() const { return impl_->DebugMessage(); }
 
 }  // namespace internal
 }  // namespace arrow
