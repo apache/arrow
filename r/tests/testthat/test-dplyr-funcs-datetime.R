@@ -1785,6 +1785,9 @@ test_that("ym, my & yq parsers", {
     yq_numeric = c(2007.3, 1970.2, 2020.1, 2009.4, 1975.1, NA),
   )
 
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
       mutate(
