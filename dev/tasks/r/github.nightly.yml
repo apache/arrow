@@ -36,7 +36,7 @@ jobs:
         id: save-version
         shell: bash
         run: | 
-          echo "::set-output name=version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)""
+          echo "::set-output name=version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)"
           echo "::set-output name=date:$(date +%Y%m%d)"
 
       - uses: r-lib/actions/setup-r@v2
