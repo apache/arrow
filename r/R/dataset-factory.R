@@ -61,6 +61,17 @@ DatasetFactory$create <- function(x,
     return(FileSystemDatasetFactory$create(path_and_fs$fs, NULL, path_and_fs$path, format))
   }
 
+  partitioning <- handle_partitioning(partitioning, path_and_fs, hive_style)
+  selector <- FileSelector$create(
+    path_and_fs$path,
+    allow_not_found = FALSE,
+    recursive = TRUE
+  )
+
+  FileSystemDatasetFactory$create(path_and_fs$fs, selector, NULL, format, partitioning)
+}
+
+handle_partitioning <- function(partitioning, path_and_fs, hive_style) {
   # Handle partitioning arg in cases where it is "character" or "Schema"
   if (!is.null(partitioning) && !inherits(partitioning, c("Partitioning", "PartitioningFactory"))) {
     if (!is_false(hive_style)) {
@@ -120,14 +131,7 @@ DatasetFactory$create <- function(x,
       }
     }
   }
-
-  selector <- FileSelector$create(
-    path_and_fs$path,
-    allow_not_found = FALSE,
-    recursive = TRUE
-  )
-
-  FileSystemDatasetFactory$create(path_and_fs$fs, selector, NULL, format, partitioning)
+  partitioning
 }
 
 #' Create a DatasetFactory
@@ -209,22 +213,19 @@ FileSystemDatasetFactory$create <- function(filesystem,
   assert_is(format, "FileFormat")
   if (!is.null(paths)) {
     assert_that(is.null(partitioning), msg = "Partitioning not supported with paths")
+    return(dataset___FileSystemDatasetFactory__MakePaths(filesystem, paths, format))
   }
 
-  if (!is.null(paths)) {
-    ptr <- dataset___FileSystemDatasetFactory__Make0(filesystem, paths, format)
-  } else if (is.null(partitioning)) {
-    ptr <- dataset___FileSystemDatasetFactory__Make1(filesystem, selector, format)
-  } else if (inherits(partitioning, "PartitioningFactory")) {
-    ptr <- dataset___FileSystemDatasetFactory__Make3(filesystem, selector, format, partitioning)
+  fsf_options <- list()
+  if (inherits(partitioning, "PartitioningFactory")) {
+    fsf_options[["partitioning_factory"]] <- partitioning
   } else if (inherits(partitioning, "Partitioning")) {
-    ptr <- dataset___FileSystemDatasetFactory__Make2(filesystem, selector, format, partitioning)
-  } else {
+    fsf_options[["partitioning"]] <- partitioning
+  } else if (!is.null(partitioning)) {
     stop(
       "Expected 'partitioning' to be NULL, PartitioningFactory or Partitioning",
       call. = FALSE
     )
   }
-
-  ptr
+  dataset___FileSystemDatasetFactory__Make(filesystem, selector, format, fsf_options)
 }
