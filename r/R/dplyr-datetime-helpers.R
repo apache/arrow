@@ -191,7 +191,8 @@ build_formats <- function(orders) {
   }
 
   formats_list <- map(orders, build_format_from_order)
-  purrr::flatten_chr(formats_list)
+  formats <- purrr::flatten_chr(formats_list)
+  unique(formats)
 }
 
 build_format_from_order <- function(order) {
