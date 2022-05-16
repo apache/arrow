@@ -159,8 +159,19 @@ build_formats <- function(orders) {
   orders <- gsub("[^A-Za-z_]", "", orders)
   orders <- gsub("Y", "y", orders)
 
-  if (orders %in% c("ym", "my")) {
-    orders <- paste0(orders, "d")
+  short_orders <- c("ym", "my")
+
+  if (any(orders %in% short_orders)) {
+    orders1 <- setdiff(orders, short_orders)
+    orders2 <- intersect(orders, short_orders)
+    orders2 <- paste0(orders2, "d")
+    orders <- unique(c(orders1, orders2))
+  }
+
+  if (any(orders == "yq")) {
+    orders1 <- setdiff(orders, "yq")
+    orders2 <- "ymd"
+    orders <- unique(c(orders1, orders2))
   }
 
   supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
