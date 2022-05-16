@@ -96,6 +96,11 @@ class TaskSchedulerImpl : public TaskScheduler {
                       // fields), aborted_ flag and register_finished_ flag
 
   AtomicWithPadding<int> num_tasks_to_schedule_;
+  // If a task group adds tasks it's possible for a thread inside
+  // ScheduleMore to miss this fact.  This serves as a flag to
+  // notify the scheduling thread that it might need to make
+  // another pass through the scheduler
+  AtomicWithPadding<bool> tasks_added_recently_;
 };
 
 TaskSchedulerImpl::TaskSchedulerImpl()
@@ -104,6 +109,7 @@ TaskSchedulerImpl::TaskSchedulerImpl()
       aborted_(false),
       register_finished_(false) {
   num_tasks_to_schedule_.value.store(0);
+  tasks_added_recently_.value.store(false);
 }
 
 int TaskSchedulerImpl::RegisterTaskGroup(TaskImpl task_impl,
@@ -150,6 +156,7 @@ Status TaskSchedulerImpl::StartTaskGroup(size_t thread_id, int group_id,
   }
 
   if (!aborted) {
+    tasks_added_recently_.value.store(true);
     return ScheduleMore(thread_id);
   } else {
     return Status::Cancelled("Scheduler cancelled");
@@ -341,6 +348,16 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
   const auto& tasks = PickTasks(num_new_tasks);
   if (static_cast<int>(tasks.size()) < num_new_tasks) {
     num_tasks_to_schedule_.value += num_new_tasks - static_cast<int>(tasks.size());
+  }
+
+  bool expected_might_have_missed_tasks = true;
+  if (tasks_added_recently_.value.compare_exchange_strong(
+          expected_might_have_missed_tasks, false)) {
+    if (tasks.empty()) {
+      // num_tasks_finished has already been added to num_tasks_to_schedule so
+      // pass 0 here.
+      return ScheduleMore(thread_id);
+    }
   }
 
   for (size_t i = 0; i < tasks.size(); ++i) {

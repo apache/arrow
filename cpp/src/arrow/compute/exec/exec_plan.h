@@ -316,7 +316,7 @@ class ARROW_EXPORT MapNode : public ExecNode {
  protected:
   void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
 
-  void Finish(Status finish_st = Status::OK());
+  virtual void Finish(Status finish_st = Status::OK());
 
  protected:
   // Counter for the number of batches received

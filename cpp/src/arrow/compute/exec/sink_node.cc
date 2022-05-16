@@ -363,7 +363,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
   }
 
  protected:
-  virtual void Finish(const Status& finish_st) {
+  void Finish(const Status& finish_st) {
     consumer_->Finish().AddCallback([this, finish_st](const Status& st) {
       // Prefer the plan error over the consumer error
       Status final_status = finish_st & st;

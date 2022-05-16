@@ -86,7 +86,7 @@ jobs:
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -141,7 +141,7 @@ jobs:
       PYARROW_TEST_LARGE_MEMORY: ON
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
