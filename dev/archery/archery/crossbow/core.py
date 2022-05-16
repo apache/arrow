@@ -947,8 +947,6 @@ class Job(Serializable):
             raise ValueError('each `tasks` mus be an instance of Task')
         if not isinstance(target, Target):
             raise ValueError('`target` must be an instance of Target')
-        if not isinstance(target, Target):
-            raise ValueError('`target` must be an instance of Target')
         if not isinstance(params, dict):
             raise ValueError('`params` must be an instance of dict')
 
