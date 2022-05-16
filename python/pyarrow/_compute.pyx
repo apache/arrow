@@ -925,7 +925,7 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         For example: rounding to multiple of days since the beginning of the
         month or to hours since the beginning of the day.
         Exceptions: week and quarter are not used as greater units,
-        therefor days will will be rounded to the beginning of the month not
+        therefore days will be rounded to the beginning of the month not
         week. Greater unit of week is a year.
 
     """
