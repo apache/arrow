@@ -26,9 +26,18 @@ jobs:
   source:
     name: Source Package
     runs-on: ubuntu-latest
+    outputs:
+      version: {{ '${{ steps.save-version.outputs.version }}' }}
+      date: {{ '${{ steps.save-version.outputs.date }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.change_r_pkg_version()|indent }}
+      - name: Save Version
+        id: save-version
+        shell: bash
+        run: | 
+          echo "::set-output name=version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)""
+          echo "::set-output name=date:$(date +%Y%m%d)"
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -86,6 +95,7 @@ jobs:
   linux-cpp:
     name: C++ Binary {{ '${{ matrix.config.os }}-${{ matrix.config.version }}' }}
     runs-on: ubuntu-latest
+    needs: source
     strategy:
       fail-fast: false
       matrix:
@@ -97,7 +107,7 @@ jobs:
       R: 3.6
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.change_r_pkg_version()|indent }}
+      {{ macros.change_r_pkg_version('${{needs.source.outputs.date}}')|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build libarrow
         shell: bash
@@ -110,10 +120,12 @@ jobs:
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
+          VERSION: {{ '${{needs.source.outputs.version}}' }}
         run: |
           cd arrow/r
           VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
           export PKG_FILE="arrow-${VERSION}.zip"
+
           cd libarrow/dist
           # These files were created by the docker user so we have to sudo to get them
           sudo -E zip -r $PKG_FILE lib/ include/
@@ -128,11 +140,12 @@ jobs:
 
   windows-cpp:
     name: C++ Binary Windows RTools (40 only)
+    needs: source
     runs-on: windows-latest
     steps:
       - run: git config --global core.autocrlf false
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.change_r_pkg_version()|indent }}
+      {{ macros.change_r_pkg_version('needs.source.outputs.date')|indent }}
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -219,9 +232,8 @@ jobs:
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
-          
+          VERSION: {{ '${{needs.source.outputs.version}}' }}
         run: |
-          VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
           REPO_PATH=r$(Rscript -e "cat(contrib.url('', type = 'binary'))")
           EXT=$(if [[ {{ '${{ matrix.platform }}' }} == windows* ]]; then echo zip; else echo tgz; fi)
 
@@ -300,6 +312,7 @@ jobs:
           ARROW_R_DEV: "TRUE"
         run: |
           {{ macros.test_r_src_pkg() }}
+
   update-repo:
     needs: r-packages
     name: Update PACKAGES
@@ -320,16 +333,17 @@ jobs:
       - name: Update Repo
         shell: sudo Rscript {0}
         run: |
-          on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-
           bin_dirs <- paste0("{{ r_root }}/", dir("{{ r_root }}/bin", recursive = TRUE, include.dirs = TRUE, pattern = "\\d\\.\\d"))
 
           for(dir in bin_dirs) {
+            win_bin <- grepl("windows", dir)
+
             if(file.exists(paste0(dir,"/PACKAGES"))) {
-              tools::update_PACKAGES(dir , type = ifelse(on_windows, "win.binary", "mac.binary"), latestOnly = FALSE)
+              tools::update_PACKAGES(dir , type = ifelse(win_bin, "win.binary", "mac.binary"), latestOnly = FALSE)
             } else {
-              tools::write_PACKAGES(dir , type = ifelse(on_windows, "win.binary", "mac.binary"), latestOnly = FALSE)
+              tools::write_PACKAGES(dir , type = ifelse(win_bin, "win.binary", "mac.binary"), latestOnly = FALSE)
             }
+
           }
 
       - run: sudo umount nightly
