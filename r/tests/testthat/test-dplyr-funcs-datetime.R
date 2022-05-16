@@ -1779,8 +1779,10 @@ test_that("year, month, day date/time parsers", {
 
 test_that("ym, my & yq parsers", {
   test_df <- tibble::tibble(
-    ym_string = c("2022-05", "2022/02", "22.03", NA),
-    my_string = c("05-2022", "02/2022", "03.22", NA)
+    ym_string = c("2022-05", "2022/02", "22.03", "1979//12", "88.09", NA),
+    my_string = c("05-2022", "02/2022", "03.22", "12//1979", "09.88", NA),
+    yq_string = c("2007.3", "1970.2", "2020.1", "2009.4", "1975.1", NA),
+    yq_numeric = c(2007.3, 1970.2, 2020.1, 2009.4, 1975.1, NA),
   )
 
   compare_dplyr_binding(
@@ -1789,7 +1791,15 @@ test_that("ym, my & yq parsers", {
         ym_date = ym(ym_string),
         ym_datetime = ym(ym_string, tz = "Pacific/Marquesas"),
         my_date = my(my_string),
-        my_datetime = my(my_string, tz = "Pacific/Marquesas")
+        my_datetime = my(my_string, tz = "Pacific/Marquesas"),
+        yq_date_from_string = yq(yq_string),
+        yq_datetime_from_string = yq(yq_string, tz = "Pacific/Marquesas"),
+        yq_date_from_numeric = yq(yq_numeric),
+        yq_datetime_from_numeric = yq(yq_numeric, tz = "Pacific/Marquesas"),
+        ym_date2 = parse_date_time(ym_string, orders = c("ym", "ymd")),
+        my_date2 = parse_date_time(my_string, orders = c("my", "myd")),
+        yq_date_from_string2 = parse_date_time(yq_string, orders = "yq"),
+        yq_date_from_numeric2 = parse_date_time(yq_numeric, orders = "yq")
       ) %>%
       collect(),
     test_df
