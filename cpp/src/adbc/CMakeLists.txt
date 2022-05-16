@@ -23,18 +23,13 @@ set(ADBC_LINK_STATIC arrow_static)
 set(ADBC_CLIENT_SOURCES client/driver.cc)
 set(ADBC_DRIVER_SOURCES driver/util.cc)
 
-# C++ client bindings
-add_arrow_lib(adbc_client
-              PKG_CONFIG_NAME
-              adbc-client
+# Driver Manager
+# TODO: this should be buildable/distributable separately
+add_arrow_lib(adbc_driver_manager
               SOURCES
-              ${ADBC_CLIENT_SOURCES}
+              adbc_driver_manager.cc
               SHARED_LINK_FLAGS
-              ${ARROW_VERSION_SCRIPT_FLAGS}
-              SHARED_LINK_LIBS
-              ${ADBC_LINK_SHARED}
-              STATIC_LINK_LIBS
-              ${ADBC_LINK_STATIC})
+              ${ARROW_VERSION_SCRIPT_FLAGS})
 
 # C++ library to implement drivers
 add_arrow_lib(adbc_driver
@@ -50,9 +45,9 @@ add_arrow_lib(adbc_driver
               ${ADBC_LINK_STATIC})
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ADBC_TEST_LINK_LIBS adbc_client_static)
+  set(ADBC_TEST_LINK_LIBS adbc_driver_manager_static)
 else()
-  set(ADBC_TEST_LINK_LIBS adbc_client_shared)
+  set(ADBC_TEST_LINK_LIBS adbc_driver_manager_shared)
 endif()
 
 add_arrow_test(adbc_test

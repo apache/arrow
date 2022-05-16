@@ -495,6 +495,8 @@ AdbcStatusCode AdbcDriverInit(size_t count, struct AdbcDriver* driver,
   driver->ConnectionInit = AdbcConnectionInit;
   driver->ConnectionRelease = AdbcConnectionRelease;
   driver->ConnectionSqlExecute = AdbcConnectionSqlExecute;
+  driver->ConnectionDeserializePartitionDesc = AdbcConnectionDeserializePartitionDesc;
+  driver->ConnectionGetTableTypes = AdbcConnectionGetTableTypes;
   driver->StatementGetPartitionDesc = AdbcStatementGetPartitionDesc;
   driver->StatementGetPartitionDescSize = AdbcStatementGetPartitionDescSize;
   driver->StatementGetStream = AdbcStatementGetStream;

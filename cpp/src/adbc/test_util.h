@@ -18,7 +18,6 @@
 #include <memory>
 
 #include "adbc/adbc.h"
-#include "adbc/client/driver.h"
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -33,25 +32,25 @@ namespace adbc {
     ASSERT_EQ(code_, ADBC_STATUS_OK); \
   } while (false)
 
-#define ADBC_ASSERT_OK_WITH_ERROR(driver, error, expr)                         \
+#define ADBC_ASSERT_OK_WITH_ERROR(DRIVER, ERROR, EXPR)                         \
   do {                                                                         \
-    auto code_ = (expr);                                                       \
+    auto code_ = (EXPR);                                                       \
     if (code_ != ADBC_STATUS_OK) {                                             \
-      std::string errmsg_ = error.message ? error.message : "(unknown error)"; \
-      driver->ErrorRelease(&error);                                            \
+      std::string errmsg_ = ERROR.message ? ERROR.message : "(unknown error)"; \
+      (DRIVER)->ErrorRelease(&ERROR);                                          \
       ASSERT_EQ(code_, ADBC_STATUS_OK) << errmsg_;                             \
     }                                                                          \
   } while (false)
 
-#define ADBC_ASSERT_ERROR_THAT(driver, error, pattern)                       \
+#define ADBC_ASSERT_ERROR_THAT(DRIVER, ERROR, PATTERN)                       \
   do {                                                                       \
-    ASSERT_NE(error.message, nullptr);                                       \
-    std::string errmsg_ = error.message ? error.message : "(unknown error)"; \
-    driver->ErrorRelease(&error);                                            \
-    ASSERT_THAT(errmsg_, pattern) << errmsg_;                                \
+    ASSERT_NE(ERROR.message, nullptr);                                       \
+    std::string errmsg_ = ERROR.message ? ERROR.message : "(unknown error)"; \
+    (DRIVER)->ErrorRelease(&ERROR);                                          \
+    ASSERT_THAT(errmsg_, PATTERN) << errmsg_;                                \
   } while (false)
 
-static inline void ReadStatement(adbc::AdbcDriver* driver, AdbcStatement* statement,
+static inline void ReadStatement(AdbcDriver* driver, AdbcStatement* statement,
                                  std::shared_ptr<arrow::Schema>* schema,
                                  arrow::RecordBatchVector* batches) {
   AdbcError error = {};
