@@ -2888,15 +2888,15 @@ cdef class Table(_PandasConvertible):
 
         The Table can be filtered based on a mask, which will be passed to
         :func:`pyarrow.compute.filter` to perform the filtering, or it can
-        be filtered through a boolean :class:`Expression`
+        be filtered through a boolean :class:`.Expression`
 
         Parameters
         ----------
-        mask_or_expr : Array or array-like
-            The boolean mask or the :class:`Expression` to filter the table with.
+        mask_or_expr : Array or array-like or .Expression
+            The boolean mask or the :class:`.Expression` to filter the table with.
         null_selection_behavior
             How nulls in the mask should be handled, does nothing if
-            an :class:`Expression` is used.
+            an :class:`.Expression` is used.
 
         Returns
         -------
