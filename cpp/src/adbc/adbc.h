@@ -447,23 +447,59 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
 /// symbol.
 struct AdbcDriver {
   // TODO: migrate drivers
+
+  void (*ErrorRelease)(struct AdbcError*);
+  const char* (*StatusCodeMessage)(AdbcStatusCode);
+
+  AdbcStatusCode (*DatabaseInit)(const struct AdbcDatabaseOptions*, struct AdbcDatabase*,
+                                 struct AdbcError*);
+  AdbcStatusCode (*DatabaseRelease)(struct AdbcDatabase*, struct AdbcError*);
+
+  AdbcStatusCode (*ConnectionInit)(const struct AdbcConnectionOptions*,
+                                   struct AdbcConnection*, struct AdbcError*);
+  AdbcStatusCode (*ConnectionRelease)(struct AdbcConnection*, struct AdbcError*);
+  AdbcStatusCode (*ConnectionSqlExecute)(struct AdbcConnection*, const char*, size_t,
+                                         struct AdbcStatement*, struct AdbcError*);
+  AdbcStatusCode (*ConnectionSqlPrepare)(struct AdbcConnection*, const char*, size_t,
+                                         struct AdbcStatement*, struct AdbcError*);
+  AdbcStatusCode (*ConnectionDeserializePartitionDesc)(struct AdbcConnection*,
+                                                       const uint8_t*, size_t,
+                                                       struct AdbcStatement*,
+                                                       struct AdbcError*);
+
+  AdbcStatusCode (*StatementInit)(struct AdbcConnection*, struct AdbcStatement*,
+                                  struct AdbcError*);
+  AdbcStatusCode (*StatementSetOptionInt64)(struct AdbcStatement*, struct AdbcError*);
+  AdbcStatusCode (*StatementRelease)(struct AdbcStatement*, struct AdbcError*);
+  AdbcStatusCode (*StatementGetStream)(struct AdbcStatement*, struct ArrowArrayStream*,
+                                       struct AdbcError*);
+  AdbcStatusCode (*StatementGetPartitionDescSize)(struct AdbcStatement*, size_t*,
+                                                  struct AdbcError*);
+  AdbcStatusCode (*StatementGetPartitionDesc)(struct AdbcStatement*, uint8_t*,
+                                              struct AdbcError*);
   // Do not edit fields. New fields can only be appended to the end.
 };
 
-/// \brief Common entry point for drivers using dlopen(3).
-///
-/// This call is optional to implement. Drivers may prefer to
-/// implement their own entrypoints.
+/// \brief Common entry point for drivers via the driver manager
+///   (which uses dlopen(3)/LoadLibrary).
 ///
 /// \param[in] count The number of entries to initialize. Provides
 ///   backwards compatibility if the struct definition is changed.
 /// \param[out] driver The table of function pointers to initialize.
 /// \param[out] initialized How much of the table was actually
 ///   initialized (can be less than count).
-/// \param[out] error An optional location to return an error message if
-///   necessary.
 AdbcStatusCode AdbcDriverInit(size_t count, struct AdbcDriver* driver,
-                              size_t* initialized, struct AdbcError* error);
+                              size_t* initialized);
+// TODO: how best to report errors here?
+// TODO: use sizeof() instead of count?
+// TODO: version the struct/entrypoint instead?
+// TODO: don't require the entrypoint to have a particular name (to
+// make it easier for users who aren't using the driver manager,
+// e.g. someone who wants to just statically link a driver)? Make the
+// entrypoint one of the parameters in the driver manager instead
+
+// For use with count
+#define ADBC_VERSION_0_0_1 15
 
 /// }@
 
@@ -483,7 +519,7 @@ AdbcStatusCode AdbcDriverInit(size_t count, struct AdbcDriver* driver,
 
 /// \page compatibility Backwards and Forwards Compatibility
 
-#endif
+#endif  // ADBC
 
 #ifdef __cplusplus
 }
