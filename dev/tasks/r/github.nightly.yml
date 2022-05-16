@@ -182,6 +182,7 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.change_r_pkg_version()|indent }}
       - name: Declare M1
+        shell: bash
         run: |
           if [[ {{ '${{ matrix.platform }}' }} == 'devops-managed' ]]; then
             echo "ON_M1=true" >> $GITHUB_ENV
