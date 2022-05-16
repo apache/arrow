@@ -24,8 +24,6 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
 #include <functional>
 #include <memory>
 #include <string>
@@ -39,9 +37,11 @@
 namespace arrow {
 namespace flight {
 
-class ARROW_FLIGHT_EXPORT FlightTest : public testing::Test {
+class ARROW_FLIGHT_EXPORT FlightTest {
  protected:
   virtual std::string transport() const = 0;
+  virtual void SetUpTest() {}
+  virtual void TearDownTest() {}
 };
 
 /// Common tests of startup/shutdown
@@ -67,8 +67,8 @@ class ARROW_FLIGHT_EXPORT ConnectivityTest : public FlightTest {
 /// Common tests of data plane methods
 class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
  public:
-  void SetUp();
-  void TearDown();
+  void SetUpTest() override;
+  void TearDownTest() override;
   Status ConnectClient();
 
   // Test methods
@@ -124,8 +124,8 @@ class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
 /// \brief Specific tests of DoPut.
 class ARROW_FLIGHT_EXPORT DoPutTest : public FlightTest {
  public:
-  void SetUp();
-  void TearDown();
+  void SetUpTest() override;
+  void TearDownTest() override;
   void CheckBatches(const FlightDescriptor& expected_descriptor,
                     const RecordBatchVector& expected_batches);
   void CheckDoPut(const FlightDescriptor& descr, const std::shared_ptr<Schema>& schema,
@@ -171,8 +171,8 @@ class ARROW_FLIGHT_EXPORT AppMetadataTestServer : public FlightServerBase {
 /// \brief Tests of app_metadata in data plane methods.
 class ARROW_FLIGHT_EXPORT AppMetadataTest : public FlightTest {
  public:
-  void SetUp();
-  void TearDown();
+  void SetUpTest() override;
+  void TearDownTest() override;
 
   // Test methods
   void TestDoGet();
@@ -198,8 +198,8 @@ class ARROW_FLIGHT_EXPORT AppMetadataTest : public FlightTest {
 /// \brief Tests of IPC options in data plane methods.
 class ARROW_FLIGHT_EXPORT IpcOptionsTest : public FlightTest {
  public:
-  void SetUp();
-  void TearDown();
+  void SetUpTest() override;
+  void TearDownTest() override;
 
   // Test methods
   void TestDoGetReadOptions();
@@ -233,8 +233,8 @@ class ARROW_FLIGHT_EXPORT IpcOptionsTest : public FlightTest {
 /// If not built with ARROW_CUDA, tests are no-ops.
 class ARROW_FLIGHT_EXPORT CudaDataTest : public FlightTest {
  public:
-  void SetUp() override;
-  void TearDown() override;
+  void SetUpTest() override;
+  void TearDownTest() override;
 
   // Test methods
   void TestDoGet();
@@ -258,8 +258,8 @@ class ARROW_FLIGHT_EXPORT CudaDataTest : public FlightTest {
 /// \brief Tests of error handling.
 class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
  public:
-  void SetUp() override;
-  void TearDown() override;
+  void SetUpTest() override;
+  void TearDownTest() override;
 
   // Test methods
   void TestGetFlightInfo();
