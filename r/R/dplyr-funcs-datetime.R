@@ -493,14 +493,27 @@ register_bindings_datetime_parsers <- function() {
     # each order is translated into possible formats
     formats <- build_formats(orders)
 
+    x <- x$cast(string())
+
     # make all separators (non-letters and non-numbers) into "-"
     x <- call_binding("gsub", "[^A-Za-z0-9]", "-", x)
     # collapse multiple separators into a single one
     x <- call_binding("gsub", "-{2,}", "-", x)
 
     # add a day (01) for "ym" and "my" orders
-    if (orders %in% c("ym", "my")) {
-      x <- call_binding("paste0", x, "-01")
+    augmented_x <- NULL
+    if (any(orders %in% c("ym", "my"))) {
+      augmented_x <- call_binding("paste0", x, "-01")
+    }
+
+    augmented_x2 <- NULL
+    if (any(orders == "yq")) {
+      quarter_x <- call_binding("gsub", "^.*?-", "", x)
+      # we should probably error if quarter is not in 1:4
+      year_x <- call_binding("gsub", "-.*$", "", x)
+      quarter_x <- quarter_x$cast(int32())
+      month_x <- (quarter_x - 1) * 3 + 1
+      augmented_x2 <- call_binding("paste0", year_x, "-", month_x, "-01")
     }
 
     # TODO figure out how to parse strings that have no separators
@@ -519,6 +532,36 @@ register_bindings_datetime_parsers <- function() {
       )
     }
 
+    parse_attempt_exp_augmented_x <- list()
+
+    if (!is.null(augmented_x)) {
+      for (i in seq_along(formats)) {
+        parse_attempt_expressions[[i]] <- build_expr(
+          "strptime",
+          augmented_x,
+          options = list(format = formats[[i]], unit = 0L, error_is_null = TRUE)
+        )
+      }
+    }
+
+    parse_attempt_exp_augmented_x2 <- list()
+
+    if (!is.null(augmented_x2)) {
+      for (i in seq_along(formats)) {
+        parse_attempt_expressions[[i]] <- build_expr(
+          "strptime",
+          augmented_x2,
+          options = list(format = formats[[i]], unit = 0L, error_is_null = TRUE)
+        )
+      }
+    }
+
+    parse_attempt_expressions <- c(
+      parse_attempt_expressions,
+      parse_attempt_exp_augmented_x,
+      parse_attempt_exp_augmented_x2
+    )
+
     coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
 
     # we need this binding to be able to handle a NULL `tz`, which will then be
@@ -532,7 +575,7 @@ register_bindings_datetime_parsers <- function() {
 
   })
 
-  ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my")
+  ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my", "yq")
 
   ymd_parser_map_factory <- function(order) {
     force(order)
