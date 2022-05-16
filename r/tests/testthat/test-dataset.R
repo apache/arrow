@@ -611,7 +611,9 @@ test_that("UnionDataset handles InMemoryDatasets", {
   ds1 <- InMemoryDataset$create(sub_df1)
   ds2 <- InMemoryDataset$create(sub_df2)
   ds <- c(ds1, ds2)
-  actual <- ds %>% collect(as_data_frame = FALSE)
+  actual <- ds %>%
+    arrange(x) %>%
+    compute()
   expected <- concat_tables(sub_df1, sub_df2)
   expect_equal(actual, expected)
 })
@@ -1170,5 +1172,47 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
       arrange(cyl) %>%
       pull(cyl),
     sort(mtcars$cyl)
+  )
+})
+
+test_that("FileSystemFactoryOptions input validation", {
+  expect_error(
+    open_dataset(dataset_dir, factory_options = list(other = TRUE)),
+    'Invalid factory_options: "other"'
+  )
+  expect_error(
+    open_dataset(
+      dataset_dir,
+      partitioning = "part",
+      factory_options = list(partition_base_dir = 42)
+    ),
+    "factory_options$partition_base_dir is not a string",
+    fixed = TRUE
+  )
+  expect_error(
+    open_dataset(dataset_dir, factory_options = list(selector_ignore_prefixes = 42)),
+    "factory_options$selector_ignore_prefixes must be a character vector",
+    fixed = TRUE
+  )
+  expect_error(
+    open_dataset(dataset_dir, factory_options = list(exclude_invalid_files = 42)),
+    "factory_options$exclude_invalid_files must be TRUE/FALSE",
+    fixed = TRUE
+  )
+
+  expect_warning(
+    open_dataset(hive_dir, factory_options = list(partition_base_dir = hive_dir)),
+    "factory_options$partition_base_dir is not meaningful for Hive partitioning",
+    fixed = TRUE
+  )
+
+  files <- dir(dataset_dir, full.names = TRUE, recursive = TRUE)
+  expect_error(
+    open_dataset(files, factory_options = list(selector_ignore_prefixes = "__")),
+    paste(
+      "Invalid factory_options for creating a Dataset from a vector",
+      'of file paths: "selector_ignore_prefixes"'
+    ),
+    fixed = TRUE
   )
 })

@@ -11,6 +11,7 @@ open_dataset(
   hive_style = NA,
   unify_schemas = NULL,
   format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
+  factory_options = list(),
   ...
 )
 }
@@ -77,6 +78,27 @@ delimiter for text files
 
 Default is "parquet", unless a \code{delimiter} is also specified, in which case
 it is assumed to be "text".}
+
+\item{factory_options}{list of optional FileSystemFactoryOptions:
+\itemize{
+\item \code{partition_base_dir}: string path segment prefix to ignore when
+discovering partition information with DirectoryPartitioning. Not
+meaningful (ignored with a warning) for HivePartitioning, nor is it
+valid when providing a vector of file paths.
+\item \code{exclude_invalid_files}: logical: should files that are not valid data
+files be excluded? Default is \code{FALSE} because checking all files up
+front incurs I/O and thus will be slower, especially on remote
+filesystems. If false and there are invalid files, there will be an
+error at scan time. This is the only FileSystemFactoryOption that is
+valid for both when providing a directory path in which to discover
+files and when providing a vector of file paths.
+\item \code{selector_ignore_prefixes}: character vector of file prefixes to ignore
+when discovering files in a directory. If invalid files can be excluded
+by a common filename prefix this way, you can avoid the I/O cost of
+\code{exclude_invalid_files}. Not valid when providing a vector of file paths
+(but if you're providing the file list, you can filter invalid files
+yourself).
+}}
 
 \item{...}{additional arguments passed to \code{dataset_factory()} when \code{sources}
 is a directory path/URI or vector of file paths/URIs, otherwise ignored.
