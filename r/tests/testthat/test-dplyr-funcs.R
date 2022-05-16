@@ -19,10 +19,10 @@ test_that("register_binding() works", {
   fake_registry <- new.env(parent = emptyenv())
   fun1 <- function() NULL
 
-  expect_null(register_binding("some_fun", fun1, fake_registry))
+  expect_null(register_binding("some.pkg_some_fun", fun1, fake_registry))
   expect_identical(fake_registry$some_fun, fun1)
 
-  expect_identical(register_binding("some_fun", NULL, fake_registry), fun1)
+  expect_identical(register_binding("some.pkg_some_fun", NULL, fake_registry), fun1)
   expect_false("some_fun" %in% names(fake_registry))
   expect_silent(expect_null(register_binding("some_fun", NULL, fake_registry)))
 
