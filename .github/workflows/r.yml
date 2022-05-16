@@ -384,7 +384,7 @@ jobs:
             timeout = 3600
           )
       - name: Run lintr
-        if: ${{ matrix.config.rversion == "4.1" }}
+        if: ${{ matrix.config.rversion == '4.1' }}
         env:
           NOT_CRAN: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
