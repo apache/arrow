@@ -604,8 +604,8 @@ dataset___FileSystemDatasetFactory__Make <- function(fs, selector, format, fsf_o
   .Call(`_arrow_dataset___FileSystemDatasetFactory__Make`, fs, selector, format, fsf_options)
 }
 
-dataset___FileSystemDatasetFactory__MakePaths <- function(fs, paths, format) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__MakePaths`, fs, paths, format)
+dataset___FileSystemDatasetFactory__MakePaths <- function(fs, paths, format, exclude_invalid_files) {
+  .Call(`_arrow_dataset___FileSystemDatasetFactory__MakePaths`, fs, paths, format, exclude_invalid_files)
 }
 
 dataset___FileFormat__type_name <- function(format) {

@@ -1472,17 +1472,18 @@ extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make(SEXP fs_sexp, SE
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__MakePaths(const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths, const std::shared_ptr<ds::FileFormat>& format);
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__MakePaths(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp){
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__MakePaths(const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths, const std::shared_ptr<ds::FileFormat>& format, bool exclude_invalid_files);
+extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__MakePaths(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp, SEXP exclude_invalid_files_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
 	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__MakePaths(fs, paths, format));
+	arrow::r::Input<bool>::type exclude_invalid_files(exclude_invalid_files_sexp);
+	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__MakePaths(fs, paths, format, exclude_invalid_files));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__MakePaths(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp){
+extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__MakePaths(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp, SEXP exclude_invalid_files_sexp){
 	Rf_error("Cannot call dataset___FileSystemDatasetFactory__MakePaths(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -5252,7 +5253,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___DatasetFactory__Inspect", (DL_FUNC) &_arrow_dataset___DatasetFactory__Inspect, 2}, 
 		{ "_arrow_dataset___UnionDatasetFactory__Make", (DL_FUNC) &_arrow_dataset___UnionDatasetFactory__Make, 1}, 
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make, 4}, 
-		{ "_arrow_dataset___FileSystemDatasetFactory__MakePaths", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__MakePaths, 3}, 
+		{ "_arrow_dataset___FileSystemDatasetFactory__MakePaths", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__MakePaths, 4}, 
 		{ "_arrow_dataset___FileFormat__type_name", (DL_FUNC) &_arrow_dataset___FileFormat__type_name, 1}, 
 		{ "_arrow_dataset___FileFormat__DefaultWriteOptions", (DL_FUNC) &_arrow_dataset___FileFormat__DefaultWriteOptions, 1}, 
 		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 2}, 

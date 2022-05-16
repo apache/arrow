@@ -42,6 +42,7 @@ DatasetFactory$create <- function(x,
                                   format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
                                   partitioning = NULL,
                                   hive_style = NA,
+                                  factory_options = list(),
                                   ...) {
   if (is_list_of(x, "DatasetFactory")) {
     return(dataset___UnionDatasetFactory__Make(x))
@@ -58,7 +59,13 @@ DatasetFactory$create <- function(x,
 
   if (length(info) > 1 || info[[1]]$type == FileType$File) {
     # x looks like a vector of one or more file paths (not a directory path)
-    return(FileSystemDatasetFactory$create(path_and_fs$fs, NULL, path_and_fs$path, format))
+    return(FileSystemDatasetFactory$create(
+      path_and_fs$fs,
+      NULL,
+      path_and_fs$path,
+      format,
+      fsf_options = factory_options
+    ))
   }
 
   partitioning <- handle_partitioning(partitioning, path_and_fs, hive_style)
@@ -68,7 +75,7 @@ DatasetFactory$create <- function(x,
     recursive = TRUE
   )
 
-  FileSystemDatasetFactory$create(path_and_fs$fs, selector, NULL, format, partitioning)
+  FileSystemDatasetFactory$create(path_and_fs$fs, selector, NULL, format, partitioning, factory_options)
 }
 
 handle_partitioning <- function(partitioning, path_and_fs, hive_style) {
@@ -202,7 +209,8 @@ FileSystemDatasetFactory$create <- function(filesystem,
                                             selector = NULL,
                                             paths = NULL,
                                             format,
-                                            partitioning = NULL) {
+                                            partitioning = NULL,
+                                            fsf_options = list()) {
   assert_is(filesystem, "FileSystem")
   is.null(selector) || assert_is(selector, "FileSelector")
   is.null(paths) || assert_is(paths, "character")
@@ -213,10 +221,9 @@ FileSystemDatasetFactory$create <- function(filesystem,
   assert_is(format, "FileFormat")
   if (!is.null(paths)) {
     assert_that(is.null(partitioning), msg = "Partitioning not supported with paths")
-    return(dataset___FileSystemDatasetFactory__MakePaths(filesystem, paths, format))
+    return(dataset___FileSystemDatasetFactory__MakePaths(filesystem, paths, format, isTRUE(fsf_options[["exclude_invalid_files"]])))
   }
 
-  fsf_options <- list()
   if (inherits(partitioning, "PartitioningFactory")) {
     fsf_options[["partitioning_factory"]] <- partitioning
   } else if (inherits(partitioning, "Partitioning")) {

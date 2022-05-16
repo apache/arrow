@@ -1021,3 +1021,154 @@ test_that("Filter parquet dataset with is.na ARROW-15312", {
     df %>% filter(is.na(z)) %>% collect()
   )
 })
+
+test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
+  parent_path <- make_temp_dir()
+  ds_path <- file.path(parent_path, "a_subdir")
+  write_dataset(mtcars, ds_path, partitioning = "cyl", hive = FALSE)
+  expect_equal(dir(parent_path), "a_subdir")
+  expect_equal(dir(ds_path), c("4", "6", "8"))
+  ds <- open_dataset(
+    parent_path,
+    partitioning = "cyl",
+    factory_options = list(partition_base_dir = ds_path)
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Add an invalid file
+  file.create(file.path(ds_path, "ASDFnotdata.pq"))
+  ds <- open_dataset(
+    parent_path,
+    partitioning = "cyl",
+    factory_options = list(
+      partition_base_dir = ds_path,
+      # open_dataset() fails if we don't exclude invalid
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  ds <- open_dataset(
+    parent_path,
+    partitioning = "cyl",
+    factory_options = list(
+      partition_base_dir = ds_path,
+      # We can also ignore by prefix
+      selector_ignore_prefixes = "ASDF"
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Add a _$folder$ file (which Hadoop may write)
+  file.create(file.path(ds_path, "cyl_$folder$"))
+  ds <- open_dataset(
+    parent_path,
+    partitioning = "cyl",
+    factory_options = list(
+      partition_base_dir = ds_path,
+      # we can't ignore suffixes but we can exclude invalid
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Now with a list of files
+  ds <- open_dataset(
+    dir(ds_path, recursive = TRUE, full.names = TRUE),
+    factory_options = list(
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      summarize(sum(gear)) %>%
+      collect() %>%
+      as.data.frame(),
+    mtcars %>%
+      summarize(sum(gear))
+  )
+})
+
+test_that("FileSystemFactoryOptions with HivePartitioning", {
+  parent_path <- make_temp_dir()
+  ds_path <- file.path(parent_path, "a_subdir")
+  write_dataset(mtcars, ds_path, partitioning = "cyl")
+  expect_equal(dir(parent_path), "a_subdir")
+  expect_equal(dir(ds_path), c("cyl=4", "cyl=6", "cyl=8"))
+  ds <- open_dataset(parent_path)
+
+  # With Hive partitioning, partition_base_dir isn't needed
+  expect_setequal(names(ds), names(mtcars))
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Add an invalid file
+  file.create(file.path(ds_path, "ASDFnotdata.pq"))
+  ds <- open_dataset(
+    parent_path,
+    factory_options = list(
+      # open_dataset() fails if we don't exclude invalid
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  ds <- open_dataset(
+    parent_path,
+    factory_options = list(
+      # We can also ignore by prefix
+      selector_ignore_prefixes = "ASDF"
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Add a _$folder$ file (which Hadoop may write)
+  file.create(file.path(ds_path, "cyl_$folder$"))
+  ds <- open_dataset(
+    parent_path,
+    factory_options = list(
+      # we can't ignore suffixes but we can exclude invalid
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+})

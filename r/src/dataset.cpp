@@ -169,18 +169,6 @@ std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
     const std::shared_ptr<ds::FileFormat>& format, cpp11::list fsf_options) {
-  // TODO(fsaintjacques): Make options configurable
-  //   auto out = std::make_shared<Options>(Options::Defaults());
-  // if (!Rf_isNull(options["n"])) {
-  //   out->n = cpp11::as_cpp<int64_t>(options["n"]);
-  // }
-  // if (!Rf_isNull(options["min_count"])) {
-  //   out->min_count = cpp11::as_cpp<uint32_t>(options["min_count"]);
-  // }
-  // if (!Rf_isNull(options["skip_nulls"])) {
-  //   out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
-  // }
-  // return out;
   auto options = ds::FileSystemFactoryOptions{};
   if (!Rf_isNull(fsf_options["partitioning"])) {
     options.partitioning =
@@ -189,13 +177,18 @@ std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory
     options.partitioning = cpp11::as_cpp<std::shared_ptr<ds::PartitioningFactory>>(
         fsf_options["partitioning_factory"]);
   }
-  // std::string partition_base_dir;
-  // bool exclude_invalid_files = false;
-  // std::vector<std::string> selector_ignore_prefixes = {
-  //     ".",
-  //     "_",
-  // };
-  // exclude_invalid_files is the only one that does anything with a list of files
+  if (!Rf_isNull(fsf_options["partition_base_dir"])) {
+    options.partition_base_dir =
+        cpp11::as_cpp<std::string>(fsf_options["partition_base_dir"]);
+  }
+  if (!Rf_isNull(fsf_options["exclude_invalid_files"])) {
+    options.exclude_invalid_files =
+        cpp11::as_cpp<bool>(fsf_options["exclude_invalid_files"]);
+  }
+  if (!Rf_isNull(fsf_options["selector_ignore_prefixes"])) {
+    options.selector_ignore_prefixes =
+        cpp11::as_cpp<std::vector<std::string>>(fsf_options["selector_ignore_prefixes"]);
+  }
 
   return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
       ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
@@ -205,9 +198,10 @@ std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory
 std::shared_ptr<ds::FileSystemDatasetFactory>
 dataset___FileSystemDatasetFactory__MakePaths(
     const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths,
-    const std::shared_ptr<ds::FileFormat>& format) {
-  // TODO(fsaintjacques): Make options configurable
+    const std::shared_ptr<ds::FileFormat>& format, bool exclude_invalid_files) {
+  // exclude_invalid_files is the only meaningful option with a vector of paths
   auto options = ds::FileSystemFactoryOptions{};
+  options.exclude_invalid_files = exclude_invalid_files;
 
   return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
       ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, paths, format, options)));
