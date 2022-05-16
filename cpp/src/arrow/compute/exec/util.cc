@@ -30,10 +30,6 @@ using bit_util::CountTrailingZeros;
 namespace util {
 
 inline uint64_t bit_util::SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes) {
-  // This will not be correct on big-endian architectures.
-#if !ARROW_LITTLE_ENDIAN
-  ARROW_DCHECK(false);
-#endif
   ARROW_DCHECK(num_bytes >= 0 && num_bytes <= 8);
   if (num_bytes == 8) {
     return util::SafeLoad(reinterpret_cast<const uint64_t*>(bytes));
@@ -42,14 +38,17 @@ inline uint64_t bit_util::SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes
     for (int i = 0; i < num_bytes; ++i) {
       word |= static_cast<uint64_t>(bytes[i]) << (8 * i);
     }
+#if ARROW_LITTLE_ENDIAN
     return word;
+#else
+    return BYTESWAP(word);
+#endif
   }
 }
 
 inline void bit_util::SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value) {
-  // This will not be correct on big-endian architectures.
 #if !ARROW_LITTLE_ENDIAN
-  ARROW_DCHECK(false);
+    value = BYTESWAP(value);
 #endif
   ARROW_DCHECK(num_bytes >= 0 && num_bytes <= 8);
   if (num_bytes == 8) {

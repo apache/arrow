@@ -1001,7 +1001,7 @@ TEST(HashJoin, Random) {
 #if defined(THREAD_SANITIZER) || defined(ARROW_VALGRIND)
   const int num_tests = 15;
 #elif defined(ADDRESS_SANITIZER)
-  const int num_tests = 50;
+  const int num_tests = 25;
 #else
   const int num_tests = 100;
 #endif
