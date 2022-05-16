@@ -490,7 +490,7 @@ cdef class ChunkedArray(_PandasConvertible):
             return values
         return values.astype(dtype)
 
-    def cast(self, object target_type, safe=True, options=None):
+    def cast(self, object target_type, safe=None, options=None):
         """
         Cast array values to another data type
 
@@ -500,7 +500,7 @@ cdef class ChunkedArray(_PandasConvertible):
         ----------
         target_type : DataType
             Type to cast array to.
-        safe : boolean, default True
+        safe : boolean, default None
             Whether to check for conversion errors such as overflow.
         options : CastOptions, default None
             Additional checks pass by CastOptions

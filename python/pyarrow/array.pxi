@@ -895,7 +895,7 @@ cdef class Array(_PandasConvertible):
             result = self.ap.Diff(deref(other.ap))
         return frombytes(result, safe=True)
 
-    def cast(self, object target_type, safe=True, options=None):
+    def cast(self, object target_type, safe=None, options=None):
         """
         Cast array values to another data type
 
@@ -905,7 +905,7 @@ cdef class Array(_PandasConvertible):
         ----------
         target_type : DataType
             Type to cast array to.
-        safe : boolean, default True
+        safe : boolean, default None
             Whether to check for conversion errors such as overflow.
         options : CastOptions, default None
             Additional checks pass by CastOptions
