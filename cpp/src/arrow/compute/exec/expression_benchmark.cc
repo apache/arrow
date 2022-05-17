@@ -94,21 +94,15 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
-/// \brief Baseline benchmarks are implemented in pure C++. Each implements the same
-/// exppression as one regular benchmark to compare performance
-struct BaselineBenchmark {
-  virtual void Prepare(size_t input_size) = 0;
-  virtual void Exec(const std::vector<int64_t>& input) = 0;
-};
-
+/// \brief Baseline benchmarks are implemented in pure C++ without arrow for performance
+/// comparision.
 template <typename BenchmarkType>
 void ExecuteScalarExpressionBaseline(benchmark::State& state) {
   const auto rows_per_batch = static_cast<int32_t>(state.range(0));
   const auto num_batches = 1000000 / rows_per_batch;
 
   const std::vector<int64_t> input(rows_per_batch, 5);
-  BenchmarkType benchmark;
-  benchmark.Prepare(input.size());
+  BenchmarkType benchmark(input.size());
 
   for (auto _ : state) {
     for (int it = 0; it < num_batches; ++it) benchmark.Exec(input);
@@ -182,9 +176,10 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
 
-struct ComplexExpressionBaseline : BaselineBenchmark {
+/// \brief Baseline benchmark for complex_expression implemented without arrow
+struct ComplexExpressionBaseline {
  public:
-  void Prepare(size_t input_size) override {
+  ComplexExpressionBaseline(size_t input_size) {
     /* hack - cuts off a few elemets if the input size is not a multiple of 64 for
      * simplicity. We can't use std::vector<bool> here since it slows down things
      * massively */
@@ -192,7 +187,7 @@ struct ComplexExpressionBaseline : BaselineBenchmark {
     greater_0.resize(input_size / 64);
     output.resize(input_size / 64);
   }
-  void Exec(const std::vector<int64_t>& input) override {
+  void Exec(const std::vector<int64_t>& input) {
     size_t input_size = input.size();
 
     for (size_t index = 0; index < input_size / 64; index++) {
@@ -221,9 +216,10 @@ struct ComplexExpressionBaseline : BaselineBenchmark {
   std::vector<int64_t> output;
 };
 
-struct SimpleExpressionBaseline : BaselineBenchmark {
-  void Prepare(size_t input_size) override { output.resize(input_size); }
-  void Exec(const std::vector<int64_t>& input) override {
+/// \brief Baseline benchmark for simple_expression implemented without arrow
+struct SimpleExpressionBaseline {
+  SimpleExpressionBaseline(size_t input_size) { output.resize(input_size); }
+  void Exec(const std::vector<int64_t>& input) {
     size_t input_size = input.size();
 
     for (size_t index = 0; index < input_size; index++) {
