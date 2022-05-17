@@ -344,7 +344,7 @@ register_bindings_datetime_conversion <- function() {
     )
   })
 
-  register_binding("lubridate_as_datetime", function(x,
+  register_binding("lubridate::as_datetime", function(x,
                                            origin = "1970-01-01",
                                            tz = "UTC",
                                            format = NULL) {
@@ -475,7 +475,7 @@ register_bindings_duration <- function() {
 }
 
 register_bindings_duration_constructor <- function() {
-  register_binding("lubridate_make_difftime", function(num = NULL,
+  register_binding("lubridate::make_difftime", function(num = NULL,
                                              units = "secs",
                                              ...) {
     if (units != "secs") {
