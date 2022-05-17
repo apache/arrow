@@ -345,7 +345,10 @@ enum SqlInfo {
   // Retrieves a UTF-8 string with the preferred term for "procedure".
   SQL_PROCEDURE_TERM = 530;
 
-  // Retrieves a UTF-8 string with the preferred term for "catalog".
+  /*
+   * Retrieves a UTF-8 string with the preferred term for "catalog".
+   * If a empty string is returned its assumed that the server does NOT supports catalogs.
+   */
   SQL_CATALOG_TERM = 531;
 
   /*
