@@ -107,7 +107,7 @@ jobs:
       R: 3.6
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.change_r_pkg_version('${{needs.source.outputs.date}}')|indent }}
+      {{ macros.change_r_pkg_version('${{ needs.source.outputs.date }}')|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build libarrow
         shell: bash
@@ -120,7 +120,7 @@ jobs:
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
-          VERSION: {{ '${{needs.source.outputs.version}}' }}
+          VERSION: {{ '${{ needs.source.outputs.version }}' }}
         run: |
           cd arrow/r
           VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
@@ -145,7 +145,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.change_r_pkg_version('needs.source.outputs.date')|indent }}
+      {{ macros.change_r_pkg_version('${{ needs.source.outputs.date }}')|indent }}
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -232,7 +232,7 @@ jobs:
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
-          VERSION: {{ '${{needs.source.outputs.version}}' }}
+          VERSION: {{ '${{ needs.source.outputs.version }}' }}
         run: |
           REPO_PATH=r$(Rscript -e "cat(contrib.url('', type = 'binary'))")
           EXT=$(if [[ {{ '${{ matrix.platform }}' }} == windows* ]]; then echo zip; else echo tgz; fi)
@@ -315,6 +315,7 @@ jobs:
 
   update-repo:
     needs: r-packages
+    if: always()
     name: Update PACKAGES
     runs-on: ubuntu-latest
     steps:
@@ -333,7 +334,7 @@ jobs:
       - name: Update Repo
         shell: sudo Rscript {0}
         run: |
-          bin_dirs <- paste0("{{ r_root }}/", dir("{{ r_root }}/bin", recursive = TRUE, include.dirs = TRUE, pattern = "\\d\\.\\d"))
+          bin_dirs <- paste0("{{ r_root }}/bin/", dir("{{ r_root }}/bin", recursive = TRUE, include.dirs = TRUE, pattern = "\\d\\.\\d"))
 
           for(dir in bin_dirs) {
             win_bin <- grepl("windows", dir)
