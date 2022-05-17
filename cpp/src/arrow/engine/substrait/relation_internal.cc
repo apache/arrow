@@ -285,13 +285,10 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
 
       // TODO: Add Suffix support for Substrait
       compute::HashJoinNodeOptions join_options{
-          join_type,
           {std::move(*callptr->arguments[0].field_ref())},
-          {std::move(*callptr->arguments[1].field_ref())},
-          {join_key_cmp},
-          arrow::compute::literal(true),
-          "_l",
-          "_r"};
+          {std::move(*callptr->arguments[1].field_ref())}};
+      join_options.join_type = join_type;
+      join_options.key_cmp = {join_key_cmp};
       compute::Declaration join_dec{"hashjoin", std::move(join_options)};
       join_dec.inputs.emplace_back(std::move(left));
       join_dec.inputs.emplace_back(std::move(right));
