@@ -2098,6 +2098,10 @@ def _check_temporal_rounding(ts, values, unit):
             expected = ts.dt.round(frequency)
             np.testing.assert_array_equal(result, expected)
 
+    # We naively test ceil_is_strictly_greater by adding time unit multiple
+    # to regular ceiled timestamp if it is equal to the original timestamp.
+    # This does not work if timestamp is zoned since our logic will not
+    # account for DST jumps.
     if ta.type.tz is None:
         options = pc.RoundTemporalOptions(
             value, unit, ceil_is_strictly_greater=True)
