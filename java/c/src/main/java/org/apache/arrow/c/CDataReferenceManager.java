@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.OwnershipTransferNOOP;
 import org.apache.arrow.memory.OwnershipTransferResult;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
@@ -104,7 +105,21 @@ final class CDataReferenceManager implements ReferenceManager {
 
   @Override
   public OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
-    throw new UnsupportedOperationException();
+    ArrowBuf targetArrowBuf = this.deriveBuffer(sourceBuffer, 0, sourceBuffer.capacity());
+    targetArrowBuf.readerIndex(sourceBuffer.readerIndex());
+    targetArrowBuf.writerIndex(sourceBuffer.writerIndex());
+
+    return new OwnershipTransferResult() {
+      @Override
+      public boolean getAllocationFit() {
+        return true;
+      }
+
+      @Override
+      public ArrowBuf getTransferredBuffer() {
+        return targetArrowBuf;
+      }
+    };
   }
 
   @Override
