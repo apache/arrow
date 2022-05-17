@@ -94,6 +94,37 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
+/// \brief Baseline benchmarks are implemented in pure C++. Each implements the same
+/// exppression as one regular benchmark to compare performance
+struct BaselineBenchmark {
+  virtual void Prepare(size_t input_size) = 0;
+  virtual void Exec(const std::vector<int64_t> &input) = 0;
+};
+
+template<typename BenchmarkType>
+void ExecuteScalarExpressionBaseline(
+    benchmark::State& state) {
+
+  const auto rows_per_batch = static_cast<int32_t>(state.range(0));
+  const auto num_batches = 1000000 / rows_per_batch;
+
+  const std::vector<int64_t> input(rows_per_batch, 5);
+  BenchmarkType benchmark;
+  benchmark.Prepare(input.size());
+
+  for (auto _ : state) {
+    for (int it = 0; it < num_batches; ++it)
+      benchmark.Exec(input);
+  }
+  state.counters["rows_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches * rows_per_batch),
+      benchmark::Counter::kIsRate);
+
+  state.counters["batches_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
+}
+
+
 auto to_int64 = compute::CastOptions::Safe(int64());
 // A fully simplified filter.
 auto filter_simple_negative = and_(equal(field_ref("a"), literal(int64_t(99))),
@@ -119,6 +150,8 @@ auto guarantee_dictionary = and_(equal(field_ref("a"), literal(ninety_nine_dict)
 
 auto complex_expression =
     and_(less(field_ref("x"), literal(20)), greater(field_ref("x"), literal(0)));
+auto complex_integer_expression =
+    call("multiply", {call("add", {field_ref("x"), literal(20)}), call("add", {field_ref("x"), literal(-3)})});
 auto simple_expression = call("negate", {field_ref("x")});
 auto zero_copy_expression =
     call("cast", {field_ref("x")}, compute::CastOptions::Safe(timestamp(TimeUnit::NANO)));
@@ -152,6 +185,68 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
 
+struct ComplexExpressionBaseline : BaselineBenchmark {
+public:
+  void Prepare(size_t input_size) override {
+    /* hack - cuts off a few elemets if the input size is not a multiple of 64 for
+     * simplicity. We can't use std::vector<bool> here since it slows down things
+     * massively */
+    less_20.resize(input_size/64);
+    greater_0.resize(input_size/64);
+    output.resize(input_size/64);
+  }
+  void Exec(const std::vector<int64_t> &input) override {
+    size_t input_size = input.size();
+
+    for (size_t index = 0; index < input_size / 64; index++) {
+      size_t value = 0;
+      for (size_t bit = 0; bit < 64; bit++) {
+        value |= input[index * 64 + bit] > 0;
+      }
+      greater_0[index] = value;
+    }
+    for (size_t index = 0; index < input_size / 64; index++) {
+      size_t value = 0;
+      for (size_t bit = 0; bit < 64; bit++) {
+        value |= input[index * 64 + bit] < 20;
+      }
+      less_20[index] = value;
+    }
+
+    for (size_t index = 0; index < input_size / 64; index++) {
+      output[index] = greater_0[index] & less_20[index];
+    }
+  }
+
+private:
+  std::vector<int64_t> greater_0;
+  std::vector<int64_t> less_20;
+  std::vector<int64_t> output;
+};
+
+struct SimpleExpressionBaseline : BaselineBenchmark {
+  void Prepare(size_t input_size) override {
+    output.resize(input_size);
+  }
+  void Exec(const std::vector<int64_t> &input) override {
+    size_t input_size = input.size();
+
+    for (size_t index = 0; index < input_size; index++) {
+      output[index] = -input[index];
+    }
+  }
+  std::vector<int64_t> output;
+};
+
+
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, complex_integer_expression, complex_expression)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
+
 BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, complex_expression, complex_expression)
     ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
@@ -159,7 +254,21 @@ BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, complex_expression, complex_e
     ->DenseThreadRange(1, std::thread::hardware_concurrency(),
                        std::thread::hardware_concurrency())
     ->UseRealTime();
+BENCHMARK_TEMPLATE(ExecuteScalarExpressionBaseline, ComplexExpressionBaseline)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, simple_expression, simple_expression)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
+BENCHMARK_TEMPLATE(ExecuteScalarExpressionBaseline, SimpleExpressionBaseline)
     ->ArgNames({"rows_per_batch"})
     ->RangeMultiplier(10)
     ->Range(1000, 1000000)
