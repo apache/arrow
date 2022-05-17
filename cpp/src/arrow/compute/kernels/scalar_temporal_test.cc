@@ -3144,6 +3144,9 @@ TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnit) {
   RoundTemporalOptions round_to_15_years =
       RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
 
+  // Data for tests below was generaed via lubridate with the exception
+  // of week data because lubridate currently does not support rounding to
+  // multiple of week.
   const char* round_15_nanosecond =
       R"(["1970-01-01 00:00:59.123456795", "2000-02-29 23:23:24.000000005",
           "1899-01-01 00:59:20.001001000", "2033-05-18 03:33:20.000000000",
