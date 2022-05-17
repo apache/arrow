@@ -150,10 +150,8 @@ Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
     auto it_success =
         types_map_.emplace(rec->id, static_cast<uint32_t>(types_map_.size()));
     if (it_success.second) {
-      if (types_.find(static_cast<unsigned int>(types_.size())) != types_.end()) {
-        DCHECK_EQ(types_.find(static_cast<unsigned int>(types_.size())), types_.end())
-            << "Type existed in types_ but not types_map_.  ExtensionSet is inconsistent";
-      }
+      DCHECK_EQ(types_.find(static_cast<unsigned int>(types_.size())), types_.end())
+          << "Type existed in types_ but not types_map_.  ExtensionSet is inconsistent";
       types_[static_cast<unsigned int>(types_.size())] = {rec->id, rec->type};
     }
     return it_success.first->second;
@@ -175,13 +173,10 @@ Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
     auto it_success =
         functions_map_.emplace(rec->id, static_cast<uint32_t>(functions_map_.size()));
     if (it_success.second) {
-      if (functions_.find(static_cast<unsigned int>(functions_.size())) !=
-          functions_.end()) {
-        DCHECK_EQ(functions_.find(static_cast<unsigned int>(functions_.size())),
-                  functions_.end())
-            << "Function existed in functions_ but not functions_map_.  ExtensionSet is "
-               "inconsistent";
-      }
+      DCHECK_EQ(functions_.find(static_cast<unsigned int>(functions_.size())),
+                functions_.end())
+          << "Function existed in functions_ but not functions_map_.  ExtensionSet is "
+             "inconsistent";
       functions_[static_cast<unsigned int>(functions_.size())] = {rec->id,
                                                                   rec->function_name};
     }
