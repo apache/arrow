@@ -869,7 +869,6 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<compute::ExecPlan> ExecPlan_create_with_metadata(bool use_threads, cpp11::strings metadata);
 extern "C" SEXP _arrow_ExecPlan_create_with_metadata(SEXP use_threads_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
@@ -878,14 +877,8 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlan_create_with_metadata(use_threads, metadata));
 END_CPP11
 }
-#else
-extern "C" SEXP _arrow_ExecPlan_create_with_metadata(SEXP use_threads_sexp, SEXP metadata_sexp){
-	Rf_error("Cannot call ExecPlan_create_with_metadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
 
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
 bool ExecPlan_HasMetadata(const std::shared_ptr<compute::ExecPlan>& plan);
 extern "C" SEXP _arrow_ExecPlan_HasMetadata(SEXP plan_sexp){
 BEGIN_CPP11
@@ -893,14 +886,8 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlan_HasMetadata(plan));
 END_CPP11
 }
-#else
-extern "C" SEXP _arrow_ExecPlan_HasMetadata(SEXP plan_sexp){
-	Rf_error("Cannot call ExecPlan_HasMetadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
 
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
 cpp11::writable::list ExecPlan_metadata(const std::shared_ptr<compute::ExecPlan>& plan);
 extern "C" SEXP _arrow_ExecPlan_metadata(SEXP plan_sexp){
 BEGIN_CPP11
@@ -908,11 +895,6 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlan_metadata(plan));
 END_CPP11
 }
-#else
-extern "C" SEXP _arrow_ExecPlan_metadata(SEXP plan_sexp){
-	Rf_error("Cannot call ExecPlan_metadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
 
 // compute-exec.cpp
 std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options, int64_t head);
