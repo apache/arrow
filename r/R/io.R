@@ -301,10 +301,6 @@ make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
     return(MakeRConnectionOutputStream(x))
   }
 
-  if (is.null(compression)) {
-    # Infer compression from sink
-    compression <- detect_compression(x)
-  }
 
   if (inherits(x, "SubTreeFileSystem")) {
     filesystem <- x$base_fs
@@ -314,15 +310,21 @@ make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
     filesystem <- fs_and_path$fs
     x <- fs_and_path$path
   }
+
+  if (is.null(compression)) {
+    # Infer compression from sink
+    compression <- detect_compression(x)
+  }
+
   assert_that(is.string(x))
-  if (is.null(filesystem)) {
-    if (!identical(compression, "uncompressed")) {
-      CompressedOutputStream$create(x)
-    } else {
-      FileOutputStream$create(x)
-    }
+  if (is.null(filesystem) && is_compressed(compression)) {
+    CompressedOutputStream$create(x) ##compressed local
+  } else if (is.null(filesystem) && !is_compressed(compression)) {
+    FileOutputStream$create(x) ## uncompressed local
+  } else if (!is.null(filesystem) && is_compressed(compression)) {
+    CompressedOutputStream$create(filesystem$OpenOutputStream(x)) ## compressed s3
   } else {
-    filesystem$OpenOutputStream(x)
+    filesystem$OpenOutputStream(x) ## uncompressed s3
   }
 }
 
@@ -330,6 +332,10 @@ detect_compression <- function(path) {
   if (!is.string(path)) {
     return("uncompressed")
   }
+
+  ## Remove any trailing slashes
+  path <- gsub("/$", "", path)
+
 
   switch(tools::file_ext(path),
     bz2 = "bz2",
