@@ -583,6 +583,12 @@ class HashJoinNode : public ExecNode {
   // If we should disable Bloom filter, returns nullptr and an empty vector, and sets
   // the disable_bloom_filter_ flag.
   std::pair<HashJoinImpl*, std::vector<int>> GetPushdownTarget() {
+#if !ARROW_LITTLE_ENDIAN
+    // TODO (ARROW-16591): Debug bloom_filter.cc to enable on Big endian. It probably just
+    // needs a few byte swaps in the proper spots.
+    disable_bloom_filter_ = true;
+    return {nullptr, {}};
+#else
     // A build-side Bloom filter tells us if a row is definitely not in the build side.
     // This allows us to early-eliminate rows or early-accept rows depending on the type
     // of join. Left Outer Join and Full Outer Join output all rows, so a build-side Bloom
@@ -670,6 +676,7 @@ class HashJoinNode : public ExecNode {
       pushdown_target = candidate_as_join;
     }
     return std::make_pair(pushdown_target->impl_.get(), std::move(bloom_to_target));
+#endif  // ARROW_LITTLE_ENDIAN
   }
 
   Status PrepareToProduce() override {
