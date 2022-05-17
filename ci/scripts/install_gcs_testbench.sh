@@ -38,7 +38,8 @@ case "$(uname -s)-$(uname -m)" in
   Darwin-arm64)
     # Workaround for https://github.com/grpc/grpc/issues/28387 .
     # Build grpcio instead of using wheel.
-    ${PYTHON:-python3} -m pip install --no-binary :all: grpcio
+    # storage-testbench 0.16.0 pins grpcio to 1.44.0.
+    ${PYTHON:-python3} -m pip install --no-binary :all: "grpcio==1.44.0"
     ;;
 esac
 
