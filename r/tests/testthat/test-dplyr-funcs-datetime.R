@@ -1783,6 +1783,7 @@ test_that("ym, my & yq parsers", {
     my_string = c("05-2022", "02/2022", "03.22", "12//1979", "09.88", NA),
     yq_string = c("2007.3", "1970.2", "2020.1", "2009.4", "1975.1", NA),
     yq_numeric = c(2007.3, 1970.2, 2020.1, 2009.4, 1975.1, NA),
+    yq_space = c("2007 3", "1970 2", "2020 1", "2009 4", "1975 1", NA)
   )
 
   # these functions' internals use some string processing which requires the
@@ -1799,10 +1800,13 @@ test_that("ym, my & yq parsers", {
         yq_datetime_from_string = yq(yq_string, tz = "Pacific/Marquesas"),
         yq_date_from_numeric = yq(yq_numeric),
         yq_datetime_from_numeric = yq(yq_numeric, tz = "Pacific/Marquesas"),
+        yq_date_from_string_with_space = yq(yq_space),
+        yq_datetime_from_string_with_space = yq(yq_space, tz = "Pacific/Marquesas"),
         ym_date2 = parse_date_time(ym_string, orders = c("ym", "ymd")),
         my_date2 = parse_date_time(my_string, orders = c("my", "myd")),
         yq_date_from_string2 = parse_date_time(yq_string, orders = "yq"),
-        yq_date_from_numeric2 = parse_date_time(yq_numeric, orders = "yq")
+        yq_date_from_numeric2 = parse_date_time(yq_numeric, orders = "yq"),
+        yq_date_from_string_with_space2 = parse_date_time(yq_space, orders = "yq")
       ) %>%
       collect(),
     test_df
