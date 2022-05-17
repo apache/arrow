@@ -211,3 +211,7 @@ handle_csv_read_error <- function(e, schema, call) {
   }
   abort(msg, call = call)
 }
+
+is_compressed <- function(compression) {
+  !identical(compression, "uncompressed")
+}
