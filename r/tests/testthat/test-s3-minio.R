@@ -54,6 +54,22 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     )
   })
 
+  test_that("read/write compressed csv by filesystem", {
+    write_csv_arrow(example_data, fs$path(minio_path("test.csv.gz")))
+    expect_identical(
+      read_csv_arrow(fs$path(minio_path("test.csv.gz"))),
+      example_data
+    )
+  })
+
+  test_that("read/write csv by filesystem", {
+    write_csv_arrow(example_data, fs$path(minio_path("test.csv")))
+    expect_identical(
+      read_csv_arrow(fs$path(minio_path("test.csv"))),
+      example_data
+    )
+  })
+
   test_that("read/write stream", {
     write_ipc_stream(example_data, fs$path(minio_path("test3.ipc")))
     expect_identical(
