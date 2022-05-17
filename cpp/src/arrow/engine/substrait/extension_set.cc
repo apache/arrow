@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/engine/substrait/extension_set.h"
+
 #include <unordered_map>
 #include <unordered_set>
 
@@ -72,12 +73,14 @@ void ExtensionSet::AddUri(std::pair<uint32_t, util::string_view> uri) {
 Status ExtensionSet::AddUri(Id id) {
   auto uris_size = static_cast<unsigned int>(uris_.size());
   if (uris_.find(uris_size) != uris_.end()) {
-    return Status::Invalid("Key already exist in the uris map");
+    // Substrait plans shouldn't have repeated URIs in the extension set
+    return Status::Invalid("Key already exists in the uris map");
   }
   uris_[uris_size] = id.uri;
   return Status::OK();
 }
 
+// Creates an extension set from the Substrait plan's top-level extensions block
 Result<ExtensionSet> ExtensionSet::Make(
     std::unordered_map<uint32_t, util::string_view> uris,
     std::unordered_map<uint32_t, Id> type_ids,
@@ -88,7 +91,7 @@ Result<ExtensionSet> ExtensionSet::Make(
   // TODO(bkietz) move this into the registry as registry->OwnUris(&uris) or so
   std::unordered_set<util::string_view, ::arrow::internal::StringViewHash>
       uris_owned_by_registry;
-  for (auto uri : registry->Uris()) {
+  for (util::string_view uri : registry->Uris()) {
     uris_owned_by_registry.insert(uri);
   }
 
@@ -148,7 +151,8 @@ Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
         types_map_.emplace(rec->id, static_cast<uint32_t>(types_map_.size()));
     if (it_success.second) {
       if (types_.find(static_cast<unsigned int>(types_.size())) != types_.end()) {
-        return Status::Invalid("Key already exist in the uris map");
+        DCHECK_EQ(types_.find(static_cast<unsigned int>(types_.size())), types_.end())
+            << "Type existed in types_ but not types_map_.  ExtensionSet is inconsistent";
       }
       types_[static_cast<unsigned int>(types_.size())] = {rec->id, rec->type};
     }
@@ -173,7 +177,10 @@ Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
     if (it_success.second) {
       if (functions_.find(static_cast<unsigned int>(functions_.size())) !=
           functions_.end()) {
-        return Status::Invalid("Key already exist in the uris map");
+        DCHECK_EQ(functions_.find(static_cast<unsigned int>(functions_.size())),
+                  functions_.end())
+            << "Function existed in functions_ but not functions_map_.  ExtensionSet is "
+               "inconsistent";
       }
       functions_[static_cast<unsigned int>(functions_.size())] = {rec->id,
                                                                   rec->function_name};

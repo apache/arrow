@@ -237,11 +237,21 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
 
  private:
   ExtensionIdRegistry* registry_;
-  /// The subset of extension registry URIs referenced by this extension set
+
+  // Map from anchor values to URI values referenced by this extension set
   std::unordered_map<uint32_t, util::string_view> uris_;
+  // Map from anchor values to type definitions, used during Substrait->Arrow
+  // and populated from the Substrait extension set
   std::unordered_map<uint32_t, TypeRecord> types_;
+  // Map from anchor values to function definitions, used during Substrait->Arrow
+  // and populated from the Substrait extension set
   std::unordered_map<uint32_t, FunctionRecord> functions_;
-  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_map_, functions_map_;
+  // Map from type names to anchor values.  Used during Arrow->Substrait
+  // and built as the plan is created.
+  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_map_;
+  // Map from function names to anchor values.  Used during Arrow->Substrait
+  // and built as the plan is created.
+  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> functions_map_;
 
   Status CheckHasUri(util::string_view uri);
   void AddUri(std::pair<uint32_t, util::string_view> uri);
