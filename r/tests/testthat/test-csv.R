@@ -564,6 +564,18 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   expect_equal(nrow(tbl_in), 3)
 })
 
+test_that("write_csv_arrow() compresses by file extension", {
+  skip_if_not_available("gzip")
+  tfgz <- tempfile(fileext = ".csv.gz")
+  tf <- tempfile(fileext = ".csv")
+  on.exit(unlink(tf))
+  on.exit(unlink(tfgz))
+
+  write_csv_arrow(tbl, tf)
+  write_csv_arrow(tbl, tfgz)
+  expect_lt(file.size(tfgz), file.size(tf))
+})
+
 test_that("read_csv_arrow() can read sub-second timestamps with col_types T setting (ARROW-15599)", {
   tbl <- tibble::tibble(time = c("2018-10-07 19:04:05.000", "2018-10-07 19:04:05.001"))
   tf <- tempfile()

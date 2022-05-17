@@ -292,13 +292,18 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   file
 }
 
-make_output_stream <- function(x, filesystem = NULL) {
+make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
   if (inherits(x, "connection")) {
     if (!isOpen(x)) {
       open(x, "wb")
     }
 
     return(MakeRConnectionOutputStream(x))
+  }
+
+  if (is.null(compression)) {
+    # Infer compression from sink
+    compression <- detect_compression(x)
   }
 
   if (inherits(x, "SubTreeFileSystem")) {
@@ -311,7 +316,11 @@ make_output_stream <- function(x, filesystem = NULL) {
   }
   assert_that(is.string(x))
   if (is.null(filesystem)) {
-    FileOutputStream$create(x)
+    if (!identical(compression, "uncompressed")) {
+      CompressedOutputStream$create(x)
+    } else {
+      FileOutputStream$create(x)
+    }
   } else {
     filesystem$OpenOutputStream(x)
   }
