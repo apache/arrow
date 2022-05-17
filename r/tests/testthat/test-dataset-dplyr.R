@@ -73,7 +73,7 @@ test_that("filter() on timestamp columns", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equal(
     ds %>%
-      filter(ts >= lubridate::ymd_hms("2015-05-04 03:12:39")) %>%
+      filter(ts >= as.POSIXct("2015-05-04 03:12:39", tz = "UTC")) %>%
       filter(part == 1) %>%
       select(ts) %>%
       collect(),
@@ -119,7 +119,7 @@ test_that("filter() on date32 columns", {
   # Also with timestamp scalar
   expect_equal(
     open_dataset(tmp) %>%
-      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
+      filter(date > as.POSIXct("2020-02-02 00:00:00", tz = "UTC")) %>%
       collect() %>%
       nrow(),
     1L
