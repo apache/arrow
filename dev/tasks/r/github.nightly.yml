@@ -217,6 +217,8 @@ jobs:
             # Windows doesn't support the --strip arg
             INSTALL_opts <- c(INSTALL_opts, "--strip")
           }
+
+          options(arrow.dev_repo = "https://nightly.wujciak.de/r")
           install.packages(
             "arrow",
             type = "source",

@@ -243,6 +243,8 @@ on:
 
 {%- macro test_r_src_pkg() -%}
           source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
+          options(arrow.dev_repo = "https://nightly.wujciak.de/r")
+          
           install.packages(
             "arrow",
             repos = c("https://nightly.wujciak.de/r", getOption("repos")),
