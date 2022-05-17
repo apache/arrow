@@ -109,7 +109,7 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
                                 bool week_starts_monday = true,
                                 bool ceil_is_strictly_greater = false,
-                                bool multiple_since_greater_unit = false);
+                                bool calendar_based_origin = false);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -125,14 +125,14 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   /// This applies for ceiling only.
   bool ceil_is_strictly_greater;
   /// By default time is rounded to a multiple of units since 1970-01-01T00:00:00.
-  /// By setting multiple_since_greater_unit to true, time will be rounded to a number
+  /// By setting calendar_based_origin to true, time will be rounded to a number
   /// of units since the last greater calendar unit.
   /// For example: rounding to a multiple of days since the beginning of the month or
   /// to hours since the beginning of the day.
   /// Exceptions: week and quarter are not used as greater units, therefore days will
   /// will be rounded to the beginning of the month not week. Greater unit of week
   /// is year.
-  bool multiple_since_greater_unit;
+  bool calendar_based_origin;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {

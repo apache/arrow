@@ -335,8 +335,7 @@ static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOpti
     DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday),
     DataMember("ceil_is_strictly_greater",
                &RoundTemporalOptions::ceil_is_strictly_greater),
-    DataMember("multiple_since_greater_unit",
-               &RoundTemporalOptions::multiple_since_greater_unit));
+    DataMember("calendar_based_origin", &RoundTemporalOptions::calendar_based_origin));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -497,13 +496,13 @@ constexpr char RoundOptions::kTypeName[];
 RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
                                            bool week_starts_monday,
                                            bool ceil_is_strictly_greater,
-                                           bool multiple_since_greater_unit)
+                                           bool calendar_based_origin)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
       unit(unit),
       week_starts_monday(week_starts_monday),
       ceil_is_strictly_greater(ceil_is_strictly_greater),
-      multiple_since_greater_unit(multiple_since_greater_unit) {}
+      calendar_based_origin(calendar_based_origin) {}
 constexpr char RoundTemporalOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)

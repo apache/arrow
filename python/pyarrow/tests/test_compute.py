@@ -2063,12 +2063,12 @@ def _check_temporal_rounding(ts, values, unit):
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
 
-        # Check rounding with multiple_since_greater_unit=True.
+        # Check rounding with calendar_based_origin=True.
         # Note: rounding to month is not supported in Pandas so we can't
         # approximate this functionallity and exclude unit == "day".
         if unit != "day":
             options = pc.RoundTemporalOptions(
-                value, unit, multiple_since_greater_unit=True)
+                value, unit, calendar_based_origin=True)
             origin = ts.dt.floor(greater_unit[unit])
 
             if ta.type.tz is None:
