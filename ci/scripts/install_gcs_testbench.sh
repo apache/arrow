@@ -34,6 +34,14 @@ case "$(uname -m)" in
     ;;
 esac
 
+case "$(uname -s)-$(uname -m)" in
+  Darwin-arm64)
+    # Workaround for https://github.com/grpc/grpc/issues/28387 .
+    # Build grpcio instead of using wheel.
+    ${PYTHON:-python3} -m pip install --no-binary :all: grpcio
+    ;;
+esac
+
 version=$1
 if [[ "${version}" -eq "default" ]]; then
   version="v0.16.0"
