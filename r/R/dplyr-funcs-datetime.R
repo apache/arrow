@@ -547,11 +547,11 @@ register_bindings_datetime_parsers <- function() {
     register_binding(ymd_order, ymd_parser_map_factory(ymd_order))
   }
 
-  register_binding("fast_strptime", function( x,
-                                              format,
-                                              tz = "UTC",
-                                              lt = FALSE,
-                                              cutoff_2000 = 68L) {
+  register_binding("fast_strptime", function(x,
+                                             format,
+                                             tz = "UTC",
+                                             lt = FALSE,
+                                             cutoff_2000 = 68L) {
     # `lt` controls the output `lt = TRUE` returns a POSIXlt (which doesn't play
     # well with mutate, for example)
     if (lt) {
