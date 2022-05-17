@@ -66,18 +66,9 @@ def test_run_serialized_query(tmpdir):
     """
 
     path = os.path.join(str(tmpdir), 'substrait_data.arrow')
-    # with pa.OSFile(path, 'wb') as sink:
-    #     with pa.ipc.new_file(sink, schema) as writer:
-    #         batch = pa.record_batch(
-    #             [pa.array(range(5), type=pa.int64())], schema)
-    #         writer.write(batch)
-
-    # with pa.OSFile(path, 'rb') as source:
-    #     expected_table = pa.ipc.open_file(source).read_all()
-    expected_table = pa.table([[1, 2, 3, 4, 5]], names=['foo'])
-    with pa.ipc.RecordBatchFileWriter(path, 
-                                      schema=expected_table.schema) as writer:
-        writer.write_table(expected_table)
+    table = pa.table([[1, 2, 3, 4, 5]], names=['foo'])
+    with pa.ipc.RecordBatchFileWriter(path, schema=table.schema) as writer:
+        writer.write_table(table)
 
     query = tobytes(substrait_query.replace("FILENAME_PLACEHOLDER", path))
 
@@ -86,7 +77,7 @@ def test_run_serialized_query(tmpdir):
     reader = substrait.run_query(buf)
     res_tb = reader.read_all()
 
-    assert expected_table.select(["foo"]) == res_tb.select(["foo"])
+    assert table.select(["foo"]) == res_tb.select(["foo"])
 
 
 def test_invalid_plan():
