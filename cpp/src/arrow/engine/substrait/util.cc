@@ -75,8 +75,6 @@ class SubstraitExecutor {
     }
     RETURN_NOT_OK(plan_->Validate());
     RETURN_NOT_OK(plan_->StartProducing());
-    // schema of the output can be obtained by the output_schema
-    // of the input to the sink node.
     auto schema = sink_consumer_->schema();
     std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
         std::move(schema), std::move(generator_), exec_context_.memory_pool());
@@ -95,7 +93,6 @@ class SubstraitExecutor {
     };
     ARROW_ASSIGN_OR_RAISE(declarations_,
                           engine::DeserializePlan(substrait_buffer, consumer_factory));
-
     return Status::OK();
   }
 

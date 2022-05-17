@@ -42,7 +42,8 @@ def run_query(plan):
         shared_ptr[CBuffer] c_buf_plan
 
     c_buf_plan = pyarrow_unwrap_buffer(plan)
-    c_res_reader = ExecuteSerializedPlan(deref(c_buf_plan))
+    with nogil:
+        c_res_reader = ExecuteSerializedPlan(deref(c_buf_plan))
 
     c_reader = GetResultValue(c_res_reader)
 
