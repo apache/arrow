@@ -744,7 +744,7 @@ TEST(CpuInfo, Basic) {
   const auto l3 = ci->CacheSize(CpuInfo::CacheLevel::L3);
   ASSERT_TRUE(l1 >= 4 * 1024 && l1 <= 512 * 1024) << "unexpected L1 size: " << l1;
   ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 8 * 1024 * 1024) << "unexpected L2 size: " << l2;
-  ASSERT_TRUE(l3 >= 256 * 1024 && l3 <= 128 * 1024 * 1024)
+  ASSERT_TRUE(l3 >= 256 * 1024 && l3 <= 1024 * 1024 * 1024)
       << "unexpected L3 size: " << l3;
   ASSERT_LE(l1, l2) << "L1 cache size " << l1 << " larger than L2 " << l2;
   ASSERT_LE(l2, l3) << "L2 cache size " << l2 << " larger than L3 " << l3;
