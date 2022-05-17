@@ -708,11 +708,11 @@ class AsofJoinNode : public ExecNode {
     finished_ = arrow::Future<>::Make();
     return Status::OK();
   }
-  void PauseProducing(ExecNode* output) override {
+  void PauseProducing(ExecNode* output, int32_t counter) override {
     std::cout << "PauseProducing"
               << "\n";
   }
-  void ResumeProducing(ExecNode* output) override {
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
     std::cout << "ResumeProducing"
               << "\n";
   }
