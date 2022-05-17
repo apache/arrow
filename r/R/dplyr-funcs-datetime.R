@@ -546,4 +546,36 @@ register_bindings_datetime_parsers <- function() {
   for (ymd_order in ymd_parser_vec) {
     register_binding(ymd_order, ymd_parser_map_factory(ymd_order))
   }
+
+  register_binding("fast_strptime", function( x,
+                                              format,
+                                              tz = "UTC",
+                                              lt = FALSE,
+                                              cutoff_2000 = 68L) {
+    browser()
+    # `lt` controls the output `lt = TRUE` returns a POSIXlt (which doesn't play
+    # well with mutate, for example)
+    if (lt) {
+      arrow_not_supported("`lt = TRUE` argument")
+    }
+
+    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16596 is done
+    if (cutoff_2000 != 68L) {
+      arrow_not_supported("`cutoff_2000` != 68L argument")
+    }
+
+    parse_attempt_expressions <- list()
+
+    for (i in seq_along(format)) {
+      parse_attempt_expressions[[i]] <- build_expr(
+        "strptime",
+        x,
+        options = list(format = format[[i]], unit = 0L, error_is_null = TRUE)
+      )
+    }
+
+    coalesce_output <- call_binding("strptime", args = parse_attempt_expressions)
+
+    build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
+  })
 }
