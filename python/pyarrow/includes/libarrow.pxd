@@ -1276,6 +1276,12 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                                                         Readable):
         CResult[shared_ptr[const CKeyValueMetadata]] ReadMetadata()
 
+    cdef cppclass CInputStreamConcurrencyWrapper \
+            " arrow::io::InputStreamConcurrencyWrapper"(CInputStream):
+        CResult[int64_t] Tell()
+        CResult[int64_t] Read(int64_t nbytes, uint8_t* out)
+        CResult[shared_ptr[CBuffer]] Read(int64_t nbytes)
+
     cdef cppclass CRandomAccessFile" arrow::io::RandomAccessFile"(CInputStream,
                                                                   Seekable):
         CResult[int64_t] GetSize()
