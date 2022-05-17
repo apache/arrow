@@ -270,7 +270,7 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
       file <- ReadableFile$create(file)
     }
 
-    if (!identical(compression, "uncompressed")) {
+    if (is_compressed(compression)) {
       file <- CompressedInputStream$create(file, compression)
     }
   } else if (inherits(file, c("raw", "Buffer"))) {
