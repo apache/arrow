@@ -25,27 +25,52 @@ if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
 
-set(ARROW_FLIGHT_TEST_LINKAGE
-    "${ARROW_TEST_LINKAGE}"
-    PARENT_SCOPE)
+set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
 if(Protobuf_USE_STATIC_LIBS)
   message(STATUS "Linking Arrow Flight tests statically due to static Protobuf")
-  set(ARROW_FLIGHT_TEST_LINKAGE
-      "static"
-      PARENT_SCOPE)
+  set(ARROW_FLIGHT_TEST_LINKAGE "static")
 endif()
 if(NOT ARROW_GRPC_USE_SHARED)
   message(STATUS "Linking Arrow Flight tests statically due to static gRPC")
-  set(ARROW_FLIGHT_TEST_LINKAGE
-      "static"
-      PARENT_SCOPE)
+  set(ARROW_FLIGHT_TEST_LINKAGE "static")
+endif()
+if(ARROW_TESTING)
+  if(WIN32)
+    # We need to use the same library type for arrow_flight_testing
+    # and Google Test because arrow_flight_testing has
+    # arrow::flight:FlightTest that inherits testing::Test. If
+    # arrow_flight_testing's library type and gtest's library type are
+    # different such as arrow_flight_testing is a shared library and
+    # gtest is a static library, link error is occurred.
+    get_target_property(GTEST_TYPE GTest::gtest TYPE)
+    if(GTEST_TYPE STREQUAL "SHARED_LIBRARY")
+      set(ARROW_FLIGHT_TESTING_BUILD_SHARED TRUE)
+      set(ARROW_FLIGHT_TESTING_BUILD_STATIC FALSE)
+    else()
+      set(ARROW_FLIGHT_TESTING_BUILD_SHARED FALSE)
+      set(ARROW_FLIGHT_TESTING_BUILD_STATIC TRUE)
+      message(STATUS "Linking Arrow Flight tests statically due to static GTest")
+      set(ARROW_FLIGHT_TEST_LINKAGE "static")
+    endif()
+  else()
+    set(ARROW_FLIGHT_TESTING_BUILD_SHARED ${ARROW_BUILD_SHARED})
+    set(ARROW_FLIGHT_TESTING_BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
 endif()
 
 set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_TEST_LINK_LIBS
-      arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
-      ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_BUILD_STATIC)
+    set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_static)
+  else()
+    set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared)
+  endif()
+  if(ARROW_FLIGHT_TESTING_BUILD_STATIC)
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_testing_static)
+  else()
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_testing_shared)
+  endif()
+  list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS})
   if(ARROW_CUDA)
     list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_static)
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
@@ -65,11 +90,7 @@ list(APPEND
      Boost::system
      GTest::gtest
      GTest::gmock)
-
-# Needed for Flight SQL and integration
-set(ARROW_FLIGHT_TEST_LINK_LIBS
-    ${ARROW_FLIGHT_TEST_LINK_LIBS}
-    PARENT_SCOPE)
+list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking
 
@@ -239,7 +260,30 @@ endforeach()
 
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
+  if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_shared arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_static arrow_flight_static)
+  elseif(ARROW_BUILD_SHARED)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_shared arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_shared arrow_flight_shared)
+  else()
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_static arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_static arrow_flight_static)
+  endif()
+  if(ARROW_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_testing_shared)
+    list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_testing_shared)
+  else()
+    list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_testing_static)
+    list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_testing_static)
+  endif()
+  list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
+  list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
   add_arrow_lib(arrow_flight_testing
+                BUILD_SHARED
+                ${ARROW_FLIGHT_TESTING_BUILD_SHARED}
+                BUILD_STATIC
+                ${ARROW_FLIGHT_TESTING_BUILD_STATIC}
                 CMAKE_PACKAGE_NAME
                 ArrowFlightTesting
                 PKG_CONFIG_NAME
@@ -254,15 +298,9 @@ if(ARROW_TESTING)
                 flight_grpc_gen
                 arrow_dependencies
                 SHARED_LINK_LIBS
-                arrow_shared
-                arrow_flight_shared
-                arrow_testing_shared
-                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
+                ${ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS}
                 STATIC_LINK_LIBS
-                arrow_static
-                arrow_flight_static
-                arrow_testing_static
-                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
+                ${ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS}
                 PRIVATE_INCLUDES
                 "${Protobuf_INCLUDE_DIRS}")
 
@@ -328,3 +366,15 @@ if(ARROW_BUILD_BENCHMARKS)
     endif()
   endif()
 endif(ARROW_BUILD_BENCHMARKS)
+
+if(ARROW_WITH_UCX)
+  add_subdirectory(transport/ucx)
+endif()
+
+if(ARROW_FLIGHT_SQL)
+  add_subdirectory(sql)
+
+  if(ARROW_BUILD_INTEGRATION)
+    add_subdirectory(integration_tests)
+  endif()
+endif()
