@@ -1779,59 +1779,96 @@ test_that("year, month, day date/time parsers work", {
 
 
 test_that("lubridate's fast_strptime", {
-  t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
-  t_string_y <- tibble(x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA))
-  t_string_2formats <- tibble(x = c("2018-10-07 19:04:05", "68-10-07 19:04:05"))
-  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = fast_strptime(x, format = "%Y-%m-%d %H:%M:%S", lt = FALSE)) %>%
-      collect(),
-    t_string,
-    # arrow does not preserve the `tzone` attribute
-    ignore_attr = TRUE
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(y =
-               fast_strptime("68-10-07 19:04:05", format = "%y-%m-%d %H:%M:%S", lt = FALSE)
+      mutate(
+        y =
+          fast_strptime(
+            x,
+            format = "%Y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
       ) %>%
       collect(),
-    t_string,
+    tibble(
+      x = c("2018-10-07 19:04:05", "2022-05-17 21:23:45", NA)
+    ),
+    # arrow does not preserve the `tzone` attribute
     ignore_attr = TRUE
   )
 
-  # fast_strptime()'s `cutoff_2000` argument is not supported, but its value is
-  # implicitly set to 68L both in base R and in Arrow
+  # R object
   compare_dplyr_binding(
     .input %>%
-      mutate(date_short_year = fast_strptime(x, format = "%y-%m-%d %H:%M:%S", lt = FALSE)) %>%
+      mutate(
+        y =
+          fast_strptime(
+            "68-10-07 19:04:05",
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
       collect(),
-    t_string_y,
-    # arrow does not preserve the `tzone` attribute
+    tibble(
+      x = c("2018-10-07 19:04:05", NA)
+    ),
     ignore_attr = TRUE
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(
-        date_short_year =
-          fast_strptime(x, format = "%y-%m-%d %H:%M:%S", lt = FALSE, cutoff_2000 = 69L)
+        date_multi_formats =
+          fast_strptime(
+            x,
+            format = c("%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S"),
+            lt = FALSE
+          )
       ) %>%
       collect(),
-    t_string_y,
-    warning = TRUE
+    tibble(
+      x = c("2018-10-07 19:04:05", "10-07-1968 19:04:05")
+    )
   )
 
-  formats <- c("%Y-%m-%d %H:%M:%S", "%y-%m-%d %H:%M:%S")
+  # fast_strptime()'s `cutoff_2000` argument is not supported, but its value is
+  # implicitly set to 68L both in lubridate and in Arrow
   compare_dplyr_binding(
     .input %>%
-      mutate(date_multi_formats =
-               fast_strptime(x, format = formats, lt = FALSE)) %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
       collect(),
-    t_string_2formats,
+    tibble(
+      x =
+        c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ),
+    # arrow does not preserve the `tzone` attribute
+    ignore_attr = TRUE
+  )
+
+  # the arrow binding errors for a value different from 68L for `cutoff_2000`
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE,
+            cutoff_2000 = 69L
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ),
     warning = TRUE
   )
 })

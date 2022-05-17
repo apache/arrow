@@ -552,7 +552,6 @@ register_bindings_datetime_parsers <- function() {
                                               tz = "UTC",
                                               lt = FALSE,
                                               cutoff_2000 = 68L) {
-    browser()
     # `lt` controls the output `lt = TRUE` returns a POSIXlt (which doesn't play
     # well with mutate, for example)
     if (lt) {
@@ -566,15 +565,20 @@ register_bindings_datetime_parsers <- function() {
 
     parse_attempt_expressions <- list()
 
-    for (i in seq_along(format)) {
-      parse_attempt_expressions[[i]] <- build_expr(
+    parse_attempt_expressions <- map(
+      format,
+      ~ build_expr(
         "strptime",
         x,
-        options = list(format = format[[i]], unit = 0L, error_is_null = TRUE)
+        options = list(
+          format = .x,
+          unit = 0L,
+          error_is_null = TRUE
+        )
       )
-    }
+    )
 
-    coalesce_output <- call_binding("strptime", args = parse_attempt_expressions)
+    coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
 
     build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
