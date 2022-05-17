@@ -103,6 +103,7 @@ Collate:
     'dplyr-funcs-math.R'
     'dplyr-funcs-string.R'
     'dplyr-funcs-type.R'
+    'dplyr-funcs-utils.R'
     'expression.R'
     'dplyr-funcs.R'
     'dplyr-glimpse.R'
