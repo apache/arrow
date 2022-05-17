@@ -781,7 +781,7 @@ class Task(Serializable):
         self._assets = None  # assets cache
 
     def render_files(self, searchpath, params=None):
-        params = {**self.params, **(params or {}), "task": self, "today": date.today().strftime("%Y%m%d")}
+        params = {**self.params, **(params or {}), "task": self}
         try:
             rendered = _render_jinja_template(searchpath, self.template,
                                               params=params)
