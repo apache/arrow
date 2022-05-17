@@ -58,16 +58,22 @@ NULL
 #' @keywords internal
 #'
 register_binding <- function(fun_name, fun, registry = nse_funcs) {
-  name <- gsub("^.*?_", "", fun_name)
-  namespace <- gsub("::.*$", "", fun_name)
+  if (fun_name == "::") {
+    name <- "::"
+  } else {
+    name <- gsub("^.*?::", "", fun_name)
+  }
 
-  previous_fun <- if (name %in% names(registry)) registry[[fun_name]] else NULL
+  previous_fun <- if (name %in% names(registry)) registry[[name]] else NULL
 
   if (is.null(fun) && !is.null(previous_fun)) {
     rm(list = c(name, fun_name), envir = registry, inherits = FALSE)
-  } else {
+    # register both as pkg::fun and as fun if fun name is pkg::fun
+  } else if (grepl("::", fun_name) && fun_name != "::") {
     registry[[name]] <- fun
     registry[[fun_name]] <- fun
+  } else {
+    registry[[name]] <- fun
   }
 
   invisible(previous_fun)
@@ -108,6 +114,7 @@ create_binding_cache <- function() {
   register_bindings_math()
   register_bindings_string()
   register_bindings_type()
+  register_bindings_utils()
 
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
