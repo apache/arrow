@@ -68,7 +68,7 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
 
   if (is.null(fun) && !is.null(previous_fun)) {
     rm(list = c(name, fun_name), envir = registry, inherits = FALSE)
-    # register both as pkg::fun and as fun if fun name is pkg::fun
+    # register both as `pkg::fun` and as `fun` if `fun_name` is prefixed
   } else if (grepl("::", fun_name) && fun_name != "::") {
     registry[[name]] <- fun
     registry[[fun_name]] <- fun
