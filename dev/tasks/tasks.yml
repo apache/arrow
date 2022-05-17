@@ -208,7 +208,7 @@ tasks:
 
   ########################### Python Minimal ############################
 
-{% for kind in ["fedora-conda", "fedora-venv", "ubuntu-conda", "ubuntu-venv"] %}
+{% for kind in ["fedora-conda", "ubuntu-venv"] %}
   example-python-minimal-build-{{ kind }}:
     ci: github
     template: python-minimal-build/github.linux.yml
