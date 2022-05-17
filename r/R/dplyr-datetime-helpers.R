@@ -159,6 +159,12 @@ build_formats <- function(orders) {
   orders <- gsub("[^A-Za-z_]", "", orders)
   orders <- gsub("Y", "y", orders)
 
+  # we need a different logic in order to deal with "ym', "my", and "yq" orders
+  # we separate them from the rest of the `orders` vector and transform them.
+  # `ym` and `yq` become `ymd` & `my` becomes `myd`
+  # this is needed because strptime does not parse "2022-05", so we add "-01",
+  # thus changing the format, and for equivalence with lubridate, which parses
+  # `ym` to the first day of the month
   short_orders <- c("ym", "my")
 
   if (any(orders %in% short_orders)) {
