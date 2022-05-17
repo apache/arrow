@@ -83,8 +83,19 @@ struct CumulativeGeneric {
   Status Cumulate(std::shared_ptr<ArrayData>* out_arr) {
     switch (values.kind()) {
       case Datum::SCALAR: {
-        auto in_value = UnboxScalar<OutType>::Unbox(*(values.scalar()));
+        auto in_scalar = values.scalar();
+        if (!skip_nulls && !in_scalar->is_valid) {
+          RETURN_NOT_OK(builder->AppendNull());
+          break;
+        }
+
+        if (skip_nulls && !in_scalar->is_valid) {
+          RETURN_NOT_OK(builder->Append(accumulator));
+          break;
+        }
+
         Status st;
+        auto in_value = UnboxScalar<OutType>::Unbox(*(in_scalar));
         auto result = Op::template Call<OutValue, ArgValue, ArgValue>(ctx, accumulator,
                                                                       in_value, &st);
         RETURN_NOT_OK(st);
@@ -129,7 +140,7 @@ struct CumulativeGeneric {
           },
           [&]() { builder->UnsafeAppendNull(); });
     } else {
-      auto nulls_start_idx = 0;
+      int64_t nulls_start_idx = 0;
       VisitArrayValuesInline<ArgType>(
           input,
           [&](ArgValue v) {

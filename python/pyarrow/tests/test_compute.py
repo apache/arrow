@@ -2511,7 +2511,7 @@ def test_min_max_element_wise():
     assert result == pa.array([1, 2, None])
 
 
-@pytest.mark.parametrize('start', (1.1, 10.5, -10.5))
+@pytest.mark.parametrize('start', (1.25, 10.5, -10.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
 def test_cumulative_sum(start, skip_nulls):
     # Exact tests (e.g., integral types)
@@ -2537,21 +2537,16 @@ def test_cumulative_sum(start, skip_nulls):
             expected = pc.add(expected_arrays[i], strt)
             assert result.equals(expected)
 
-    # Approximate and NaN tests (e.g., floating-point types)
-    # NOTE: Conversion from Arrow to NumPy replaces null slots with NaNs
-    # which prevent fully validating both states of `skip_nulls` for
-    # floating-point values. Ideally, equality comparisons make use of Arrow's
-    # `equals()` functions but an approximate version is not exposed in Python.
     starts = [start, pa.scalar(start, type=pa.float32()),
               pa.scalar(start, type=pa.float64())]
     for strt in starts:
         arrays = [
-            pa.array([1.1, 2.2, 3.3]),
+            pa.array([1.125, 2.25, 3.03125]),
             pa.array([1, np.nan, 2, -3, 4, 5]),
             pa.array([1, np.nan, None, 3, None, 5])
         ]
         expected_arrays = [
-            np.array([1.1, 3.3, 6.6]),
+            np.array([1.125, 3.375, 6.40625]),
             np.array([1, np.nan, np.nan, np.nan, np.nan, np.nan]),
             np.array([1, np.nan, None, np.nan, None, np.nan])
             if skip_nulls else np.array([1, np.nan, None, None, None, None])

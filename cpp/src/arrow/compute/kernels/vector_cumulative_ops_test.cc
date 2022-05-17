@@ -67,18 +67,39 @@ TEST(TestCumulativeSum, AllNulls) {
 }
 
 TEST(TestCumulativeSum, ScalarInput) {
-  CumulativeSumOptions no_start;
-  CumulativeSumOptions with_start(10);
+  CumulativeSumOptions no_start_no_skip;
+  CumulativeSumOptions no_start_do_skip(0, true);
+  CumulativeSumOptions has_start_no_skip(10);
+  CumulativeSumOptions has_start_do_skip(10, true);
+
   for (auto ty : NumericTypes()) {
     CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[10]"), &no_start);
+                     ArrayFromJSON(ty, "[10]"), &no_start_no_skip);
     CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[10]"), &no_start);
+                     ArrayFromJSON(ty, "[10]"), &no_start_no_skip);
 
     CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[20]"), &with_start);
+                     ArrayFromJSON(ty, "[20]"), &has_start_no_skip);
     CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[20]"), &with_start);
+                     ArrayFromJSON(ty, "[20]"), &has_start_no_skip);
+
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start_no_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start_no_skip);
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &has_start_no_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &has_start_no_skip);
+
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[0]"), &no_start_do_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[0]"), &no_start_do_skip);
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[10]"), &has_start_do_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[10]"), &has_start_do_skip);
   }
 }
 
