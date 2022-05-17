@@ -500,16 +500,23 @@ register_bindings_datetime_parsers <- function() {
     # collapse multiple separators into a single one
     x <- call_binding("gsub", "-{2,}", "-", x)
 
-    # add a day (01) for "ym" and "my" orders
+    # we need to transform `x` when orders are `ym`, `my`, and `yq`
+    # for `ym` and `my` orders we add a day ("01")
     augmented_x <- NULL
     if (any(orders %in% c("ym", "my"))) {
       augmented_x <- call_binding("paste0", x, "-01")
     }
 
+    # for `yq` we need to transform the quarter into the start month (lubridate
+    # behaviour) and then add 01 to parse to the first day of the quarter
     augmented_x2 <- NULL
     if (any(orders == "yq")) {
+      # extract everything that comes after the `-` separator, i.e. the quarter
+      # (e.g. 4 from 2022-4)
       quarter_x <- call_binding("gsub", "^.*?-", "", x)
       # we should probably error if quarter is not in 1:4
+      # extract everything that comes before the `-`, i.e. the year (e.g. 2002
+      # in 2002-4)
       year_x <- call_binding("gsub", "-.*$", "", x)
       quarter_x <- quarter_x$cast(int32())
       month_x <- (quarter_x - 1) * 3 + 1
@@ -532,6 +539,9 @@ register_bindings_datetime_parsers <- function() {
       )
     }
 
+    # build separate expression lists of parsing attempts for the orders that
+    # need an augmented `x`
+    # list for attempts when orders %in% c("ym", "my")
     parse_attempt_exp_augmented_x <- list()
 
     if (!is.null(augmented_x)) {
@@ -544,6 +554,7 @@ register_bindings_datetime_parsers <- function() {
       }
     }
 
+    # list for attempts when orders %in% c("yq")
     parse_attempt_exp_augmented_x2 <- list()
 
     if (!is.null(augmented_x2)) {
@@ -556,6 +567,7 @@ register_bindings_datetime_parsers <- function() {
       }
     }
 
+    # combine all attempts expressions in prep for coalesce
     parse_attempt_expressions <- c(
       parse_attempt_expressions,
       parse_attempt_exp_augmented_x,
