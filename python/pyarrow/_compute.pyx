@@ -914,7 +914,7 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         if set to False.
         This applies for ceiling only.
     calendar_based_origin : bool, default False
-        By default origin is 1970-01-01T00:00:00. By setting this to True,
+        By default, the origin is 1970-01-01T00:00:00. By setting this to True,
         rounding origin will be beginning of one less precise calendar unit.
         E.g.: rounding to hours will use beginning of day as origin.
 
