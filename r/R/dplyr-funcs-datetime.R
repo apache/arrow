@@ -529,15 +529,18 @@ register_bindings_datetime_parsers <- function() {
     # tricky given the possible combinations between dmy formats + locale
 
     # build a list of expressions for each format
-    parse_attempt_expressions <- list()
-
-    for (i in seq_along(formats)) {
-      parse_attempt_expressions[[i]] <- build_expr(
+    parse_attempt_expressions <- map(
+      formats,
+      ~ build_expr(
         "strptime",
         x,
-        options = list(format = formats[[i]], unit = 0L, error_is_null = TRUE)
+        options = list(
+          format = .x,
+          unit = 0L,
+          error_is_null = TRUE
+        )
       )
-    }
+    )
 
     # build separate expression lists of parsing attempts for the orders that
     # need an augmented `x`
@@ -545,26 +548,35 @@ register_bindings_datetime_parsers <- function() {
     parse_attempt_exp_augmented_x <- list()
 
     if (!is.null(augmented_x)) {
-      for (i in seq_along(formats)) {
-        parse_attempt_expressions[[i]] <- build_expr(
+      parse_attempt_exp_augmented_x <- map(
+        formats,
+        ~ build_expr(
           "strptime",
           augmented_x,
-          options = list(format = formats[[i]], unit = 0L, error_is_null = TRUE)
+          options = list(
+            format = .x,
+            unit = 0L,
+            error_is_null = TRUE
+          )
         )
-      }
+      )
     }
 
     # list for attempts when orders %in% c("yq")
     parse_attempt_exp_augmented_x2 <- list()
-
     if (!is.null(augmented_x2)) {
-      for (i in seq_along(formats)) {
-        parse_attempt_expressions[[i]] <- build_expr(
+      parse_attempt_exp_augmented_x2 <- map(
+        formats,
+        ~ build_expr(
           "strptime",
           augmented_x2,
-          options = list(format = formats[[i]], unit = 0L, error_is_null = TRUE)
+          options = list(
+            format = .x,
+            unit = 0L,
+            error_is_null = TRUE
+          )
         )
-      }
+      )
     }
 
     # combine all attempts expressions in prep for coalesce
