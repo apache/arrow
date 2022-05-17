@@ -250,5 +250,5 @@ on:
           )
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
-          stopifnot(packageVersion("arrow") == {{ '${{needs.source.outputs.version}}' }})
+          stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
 {% endmacro %}
