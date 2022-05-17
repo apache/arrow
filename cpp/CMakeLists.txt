@@ -827,11 +827,6 @@ if(ARROW_USE_XSIMD)
   list(APPEND ARROW_STATIC_LINK_LIBS xsimd)
 endif()
 
-if(ARROW_WITH_UCX)
-  list(APPEND ARROW_LINK_LIBS ucx::ucx)
-  list(APPEND ARROW_STATIC_LINK_LIBS ucx::ucx)
-endif()
-
 add_custom_target(arrow_dependencies)
 add_custom_target(arrow_benchmark_dependencies)
 add_custom_target(arrow_test_dependencies)
