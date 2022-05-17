@@ -1134,7 +1134,7 @@ TEST(HashJoin, Random) {
 
     // Turn the last key comparison into a residual filter expression
     Expression filter = literal(true);
-    if (key_cmp.size() > 1 && rng.from_range(0, 1) == 0) {
+    if (key_cmp.size() > 1 && rng.from_range(0, 4) == 0) {
       for (size_t i = 0; i < key_cmp.size(); i++) {
         FieldRef left = key_fields[0][i];
         FieldRef right = key_fields[1][i];
@@ -1173,6 +1173,7 @@ TEST(HashJoin, Random) {
     }
     std::shared_ptr<Schema> output_schema =
         std::make_shared<Schema>(std::move(output_schema_fields));
+
     ASSERT_OK_AND_ASSIGN(
         auto batches, HashJoinWithExecPlan(
                           rng, parallel, join_options, output_schema,
