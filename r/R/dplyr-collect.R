@@ -38,8 +38,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     }
   )
 
-  # TODO: SinkNodeOptions need to take KVM like WriteNodeOptions
-  # or need to be able to set metadata on RBR
+  # TODO(ARROW-16607): move KVM handling into ExecPlan
   if (ncol(tab)) {
     # Apply any column metadata from the original schema, where appropriate
     new_r_metadata <- get_r_metadata_from_old_schema(
