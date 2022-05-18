@@ -340,10 +340,31 @@ jobs:
       - name: Update Repo
         shell: sudo Rscript {0}
         run: |
-          bin_dirs <- paste0("{{ r_root }}/bin/", dir("{{ r_root }}/bin", recursive = TRUE, include.dirs = TRUE, pattern = "\\d\\.\\d"))
+          # Number of builds to keep
+          keep_n <- 14
+          prune <- function(dir, keep_n) {
+            files <- list.files(dir, pattern = "^arrow", full.names = TRUE)
+            n_repo <- length(files)
 
+            if (n_repo > keep_n) {
+              info <- file.info(files)
+              info <- info[
+                order(
+                  as.Date(info$mtime, format = "%d/%m/%Y"),
+                  decreasing = TRUE
+                ),
+              ]
+              excess <- tail(rownames(info), n_repo - keep_n)
+              file.remove(excess)
+            }
+          }
+
+          bin_dirs <- paste0("{{ r_root }}/bin/", dir("{{ r_root }}/bin", recursive = TRUE, include.dirs = TRUE, pattern = "\\d\\.\\d$"))
+          
           for(dir in bin_dirs) {
             win_bin <- grepl("windows", dir)
+            
+            prune(dir, keep_n)
 
             if(file.exists(paste0(dir,"/PACKAGES"))) {
               tools::update_PACKAGES(dir , type = ifelse(win_bin, "win.binary", "mac.binary"), latestOnly = FALSE)
@@ -353,4 +374,10 @@ jobs:
 
           }
 
+          lib_dirs <- list.dirs("{{ r_root }}/libarrow/bin")
+          lib_dirs <- lib_dirs[ grep("bin/.+", lib_dirs)]
+
+          for(dir in lib_dirs) {
+            prune(dir, keep_n)
+          }
       - run: sudo umount nightly
