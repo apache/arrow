@@ -55,7 +55,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   })
 
   test_that("read/write compressed csv by filesystem", {
-    dat <- tibble(x = seq(1,10, by = 0.2))
+    dat <- tibble(x = seq(1, 10, by = 0.2))
     write_csv_arrow(dat, fs$path(minio_path("test.csv.gz")))
     expect_identical(
       read_csv_arrow(fs$path(minio_path("test.csv.gz"))),
@@ -64,7 +64,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   })
 
   test_that("read/write csv by filesystem", {
-    dat <- tibble(x = seq(1,10, by = 0.2))
+    dat <- tibble(x = seq(1, 10, by = 0.2))
     write_csv_arrow(dat, fs$path(minio_path("test.csv")))
     expect_identical(
       read_csv_arrow(fs$path(minio_path("test.csv"))),
