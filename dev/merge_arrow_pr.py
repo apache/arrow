@@ -268,7 +268,7 @@ class GitHubAPI(object):
                                 headers=self.headers,
                                 json=payload)
         result = response.json()
-        if response.status_code != 200 and not 'merged' in result:
+        if response.status_code != 200 and 'merged' not in result:
             result['merged'] = False
         return result
 
@@ -361,20 +361,23 @@ class PullRequest(object):
         """
         merge the requested PR and return the merge hash
         """
-        pr_commits = self._github_api.get_pr_commits(self.number)
+        commits = self._github_api.get_pr_commits(self.number)
+
         def format_commit_author(commit):
             author = commit['commit']['author']
             name = author['name']
             email = author['email']
             return f'{name} <{email}>'
-        commit_authors = [format_commit_author(commit) for commit in pr_commits]
+        commit_authors = [format_commit_author(commit) for commit in commits]
         co_authored_by_re = re.compile(r'^Co-authored-by:\s*(.*)')
+
         def extract_co_authors(commit):
             message = commit['commit']['message']
             return co_authored_by_re.findall(message)
         commit_co_authors = []
-        for commit in pr_commits:
+        for commit in commits:
             commit_co_authors.extend(extract_co_authors(commit))
+
         all_commit_authors = commit_authors + commit_co_authors
         distinct_authors = sorted(set(all_commit_authors),
                                   key=lambda x: commit_authors.count(x),
@@ -384,11 +387,12 @@ class PullRequest(object):
             print("Author {}: {}".format(i + 1, author))
 
         if len(distinct_authors) > 1:
-            primary_author, distinct_authors = get_primary_author(
+            primary_author, distinct_other_authors = get_primary_author(
                 self.cmd, distinct_authors)
         else:
             # If there is only one author, do not prompt for a lead author
-            primary_author = distinct_authors[0]
+            primary_author = distinct_authors.pop()
+            distinct_other_authors = []
 
         commit_title = f'{self.title} (#{self.number})'
         commit_message_chunks = []
@@ -398,12 +402,12 @@ class PullRequest(object):
         committer_name = run_cmd("git config --get user.name").strip()
         committer_email = run_cmd("git config --get user.email").strip()
 
-        authors = ("Authored-by:" if len(distinct_authors) == 1
+        authors = ("Authored-by:" if len(distinct_other_authors) == 0
                    else "Lead-authored-by:")
-        authors += " %s" % (distinct_authors.pop(0))
+        authors += " %s" % primary_author
         if len(distinct_authors) > 0:
             authors += "\n" + "\n".join(["Co-authored-by: %s" % a
-                                         for a in distinct_authors])
+                                         for a in distinct_other_authors])
         authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name,
                                                       committer_email)
         commit_message_chunks.append(authors)
@@ -447,10 +451,9 @@ def get_primary_author(cmd, distinct_authors):
 
     # When primary author is specified manually, de-dup it from
     # author list and put it at the head of author list.
-    distinct_authors = [x for x in distinct_authors
-                        if x != primary_author]
-    distinct_authors = [primary_author] + distinct_authors
-    return primary_author, distinct_authors
+    distinct_other_authors = [x for x in distinct_authors
+                              if x != primary_author]
+    return primary_author, distinct_other_authors
 
 
 def prompt_for_fix_version(cmd, jira_issue):
