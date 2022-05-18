@@ -193,12 +193,14 @@ headers of the Parquet files to inspect their schemas so that you can make sure
 they all are as expected.
 
 In the current release, arrow supports the dplyr verbs:
-* `mutate()` and `transmute()`,
-* `select()`, `rename()`, `relocate()`
-* `filter()`, `arrange()`
-* `union()` and `union_all()`
-* `left_join()`, `right_join()`, `full_join()`, `inner_join()`, `anti_join()`
-* `group_by()` and `summarise()`
+
+ * `mutate()` and `transmute()`,
+ * `select()`, `rename()`, and `relocate()`,
+ * `filter()`,
+ * `arrange()`,
+ * `union()` and `union_all()`,
+ * `left_join()`, `right_join()`, `full_join()`, `inner_join()`, and `anti_join()`,
+ * `group_by()` and `summarise()`.
 
 At any point in a chain, you can use `collect()` to pull the selected subset of
 the data into an in-memory R data frame. 
