@@ -51,7 +51,9 @@ test_that("ceiling(), floor(), trunc(), round()", {
         c = ceiling(x),
         f = floor(x),
         t = trunc(x),
-        r = round(x)
+        t2 = base::trunc(x),
+        r = round(x),
+        r2 = base::round(x)
       ) %>%
       collect(),
     df
@@ -141,7 +143,7 @@ test_that("log functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = log(x)) %>%
+      mutate(y = base::log(x)) %>%
       collect(),
     df
   )
@@ -223,28 +225,40 @@ test_that("log functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = logb(x)) %>%
+      mutate(
+        y = logb(x),
+        z = base::logb(x)
+      ) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = log1p(x)) %>%
+      mutate(
+        y = log1p(x),
+        z = base::log1p(x)
+      ) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = log2(x)) %>%
+      mutate(
+        y = log2(x),
+        z = base::log2(x)
+      ) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = log10(x)) %>%
+      mutate(
+        y = log10(x),
+        z = base::log10(x)
+      ) %>%
       collect(),
     df
   )
