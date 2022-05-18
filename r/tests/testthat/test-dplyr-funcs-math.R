@@ -226,8 +226,7 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = logb(x),
-        z = base::logb(x)
+        y = logb(x)
       ) %>%
       collect(),
     df
@@ -236,8 +235,7 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = log1p(x),
-        z = base::log1p(x)
+        y = log1p(x)
       ) %>%
       collect(),
     df
@@ -246,8 +244,7 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = log2(x),
-        z = base::log2(x)
+        y = log2(x)
       ) %>%
       collect(),
     df
@@ -256,8 +253,7 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = log10(x),
-        z = base::log10(x)
+        y = log10(x)
       ) %>%
       collect(),
     df

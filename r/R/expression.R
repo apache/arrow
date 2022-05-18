@@ -54,11 +54,11 @@
   # str_to_title is defined in dplyr-functions.R
   # str_to_upper is defined in dplyr-functions.R
   # str_trim is defined in dplyr-functions.R
-  "stringi::stri_reverse" = "utf8_reverse",
+  "stri_reverse" = "utf8_reverse",
   # substr is defined in dplyr-functions.R
   # substring is defined in dplyr-functions.R
-  "base::tolower" = "utf8_lower",
-  "base::toupper" = "utf8_upper",
+  "tolower" = "utf8_lower",
+  "toupper" = "utf8_upper",
 
   # date and time functions
   "lubridate::day" = "day",
@@ -78,7 +78,7 @@
   "lubridate::leap_year" = "is_leap_year",
 
   # type conversion functions
-  "base::as.factor" = "dictionary_encode"
+  "as.factor" = "dictionary_encode"
 )
 
 .binary_function_map <- list(
