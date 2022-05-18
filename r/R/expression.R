@@ -26,21 +26,21 @@
   # functions are arranged alphabetically by name within categories
 
   # arithmetic functions
-  "base::abs" = "abs_checked",
-  "base::ceiling" = "ceil",
-  "base::floor" = "floor",
-  "base::log10" = "log10_checked",
-  "base::log1p" = "log1p_checked",
-  "base::log2" = "log2_checked",
-  "base::sign" = "sign",
+  "abs" = "abs_checked",
+  "ceiling" = "ceil",
+  "floor" = "floor",
+  "log10" = "log10_checked",
+  "log1p" = "log1p_checked",
+  "log2" = "log2_checked",
+  "sign" = "sign",
   # trunc is defined in dplyr-functions.R
 
   # trigonometric functions
-  "base::acos" = "acos_checked",
-  "base::asin" = "asin_checked",
-  "base::cos" = "cos_checked",
-  "base::sin" = "sin_checked",
-  "base::tan" = "tan_checked",
+  "acos" = "acos_checked",
+  "asin" = "asin_checked",
+  "cos" = "cos_checked",
+  "sin" = "sin_checked",
+  "tan" = "tan_checked",
 
   # logical functions
   "!" = "invert",
