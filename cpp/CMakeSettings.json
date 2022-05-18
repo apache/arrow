@@ -1,35 +1,19 @@
-﻿{
+{
   "configurations": [
-    {
-      "name": "x64-Debug (default)",
-      "generator": "Ninja",
-      "configurationType": "Debug",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
-      "buildRoot": "${projectDir}\\out\\build\\${name}",
-      "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
-      "variables": [
+  {
+    "name": "x64-Debug (default)",
+    "generator": "Ninja",
+    "configurationType": "Debug",
+    "inheritEnvironments": [ "msvc_x64_x64" ],
+    "buildRoot": "${projectDir}\\out\\build\\${name}",
+    "installRoot": "${projectDir}\\out\\install\\${name}",
+    "cmakeCommandArgs": "",
+    "buildCommandArgs": "",
+    "ctestCommandArgs": "",
+    "variables": [
         {
-          "name": "VCPKG_MANIFEST_MODE",
-          "value": "OFF",
-          "type": "STRING"
-        },
-        {
-          "name": "ARROW_COMPUTE",
-          "value": "True",
-          "type": "BOOL"
-        },
-        {
-          "name": "ARROW_CSV",
-          "value": "",
-          "type": "STRING"
-        },
-        {
-          "name": "ARROW_BUILD_TESTS",
-          "value": "True",
-          "type": "BOOL"
+          "name":"VCPKG_MANIFEST_MODE",
+          "value":"OFF"
         }
       ]
     }
