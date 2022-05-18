@@ -400,22 +400,22 @@ register_bindings_string_other <- function() {
     }
   })
 
-  register_binding("str_to_lower", function(string, locale = "en") {
+  register_binding("stringr::str_to_lower", function(string, locale = "en") {
     stop_if_locale_provided(locale)
     Expression$create("utf8_lower", string)
   })
 
-  register_binding("str_to_upper", function(string, locale = "en") {
+  register_binding("stringr::str_to_upper", function(string, locale = "en") {
     stop_if_locale_provided(locale)
     Expression$create("utf8_upper", string)
   })
 
-  register_binding("str_to_title", function(string, locale = "en") {
+  register_binding("stringr::str_to_title", function(string, locale = "en") {
     stop_if_locale_provided(locale)
     Expression$create("utf8_title", string)
   })
 
-  register_binding("str_trim", function(string, side = c("both", "left", "right")) {
+  register_binding("stringr::str_trim", function(string, side = c("both", "left", "right")) {
     side <- match.arg(side)
     trim_fun <- switch(side,
       left = "utf8_ltrim_whitespace",

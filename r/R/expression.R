@@ -26,59 +26,59 @@
   # functions are arranged alphabetically by name within categories
 
   # arithmetic functions
-  "abs" = "abs_checked",
-  "ceiling" = "ceil",
-  "floor" = "floor",
-  "log10" = "log10_checked",
-  "log1p" = "log1p_checked",
-  "log2" = "log2_checked",
-  "sign" = "sign",
+  "base::abs" = "abs_checked",
+  "base::ceiling" = "ceil",
+  "base::floor" = "floor",
+  "base::log10" = "log10_checked",
+  "base::log1p" = "log1p_checked",
+  "base::log2" = "log2_checked",
+  "base::sign" = "sign",
   # trunc is defined in dplyr-functions.R
 
   # trigonometric functions
-  "acos" = "acos_checked",
-  "asin" = "asin_checked",
-  "cos" = "cos_checked",
-  "sin" = "sin_checked",
-  "tan" = "tan_checked",
+  "base::acos" = "acos_checked",
+  "base::asin" = "asin_checked",
+  "base::cos" = "cos_checked",
+  "base::sin" = "sin_checked",
+  "base::tan" = "tan_checked",
 
   # logical functions
   "!" = "invert",
 
   # string functions
   # nchar is defined in dplyr-functions.R
-  "str_length" = "utf8_length",
+  "stringr::str_length" = "utf8_length",
   # str_pad is defined in dplyr-functions.R
   # str_sub is defined in dplyr-functions.R
   # str_to_lower is defined in dplyr-functions.R
   # str_to_title is defined in dplyr-functions.R
   # str_to_upper is defined in dplyr-functions.R
   # str_trim is defined in dplyr-functions.R
-  "stri_reverse" = "utf8_reverse",
+  "stringi::stri_reverse" = "utf8_reverse",
   # substr is defined in dplyr-functions.R
   # substring is defined in dplyr-functions.R
-  "tolower" = "utf8_lower",
-  "toupper" = "utf8_upper",
+  "base::tolower" = "utf8_lower",
+  "base::toupper" = "utf8_upper",
 
   # date and time functions
-  "day" = "day",
-  "dst" = "is_dst",
-  "hour" = "hour",
-  "isoweek" = "iso_week",
-  "epiweek" = "us_week",
-  "isoyear" = "iso_year",
-  "epiyear" = "us_year",
-  "minute" = "minute",
-  "quarter" = "quarter",
+  "lubridate::day" = "day",
+  "lubridate::dst" = "is_dst",
+  "lubridate::hour" = "hour",
+  "lubridate::isoweek" = "iso_week",
+  "lubridate::epiweek" = "us_week",
+  "lubridate::isoyear" = "iso_year",
+  "lubridate::epiyear" = "us_year",
+  "lubridate::minute" = "minute",
+  "lubridate::quarter" = "quarter",
   # second is defined in dplyr-functions.R
   # wday is defined in dplyr-functions.R
-  "mday" = "day",
-  "yday" = "day_of_year",
-  "year" = "year",
-  "leap_year" = "is_leap_year",
+  "lubridate::mday" = "day",
+  "lubridate::yday" = "day_of_year",
+  "lubridate::year" = "year",
+  "lubridate::leap_year" = "is_leap_year",
 
   # type conversion functions
-  "as.factor" = "dictionary_encode"
+  "base::as.factor" = "dictionary_encode"
 )
 
 .binary_function_map <- list(
@@ -104,8 +104,8 @@
   "%%" = "divide_checked",
   "^" = "power_checked",
   "%in%" = "is_in_meta_binary",
-  "strrep" = "binary_repeat",
-  "str_dup" = "binary_repeat"
+  "base::strrep" = "binary_repeat",
+  "stringr::str_dup" = "binary_repeat"
 )
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)

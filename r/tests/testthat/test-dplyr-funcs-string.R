@@ -490,7 +490,7 @@ test_that("strrep and str_dup", {
   for (times in 0:8) {
     compare_dplyr_binding(
       .input %>%
-        mutate(x = strrep(x, times)) %>%
+        mutate(x = base::strrep(x, times)) %>%
         collect(),
       df
     )
@@ -509,7 +509,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        x_lower = str_to_lower(x),
+        x_lower = stringr::str_to_lower(x),
         x_upper = str_to_upper(x),
         x_title = str_to_title(x)
       ) %>%
@@ -759,7 +759,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = stri_reverse(x)) %>%
+      mutate(x = stringi::stri_reverse(x)) %>%
       collect(),
     df_utf8
   )

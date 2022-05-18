@@ -153,9 +153,9 @@ register_bindings_datetime_components <- function() {
     Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
   })
 
-  register_binding("wday", function(x, label = FALSE, abbr = TRUE,
-                                    week_start = getOption("lubridate.week.start", 7),
-                                    locale = Sys.getlocale("LC_TIME")) {
+  register_binding("lubridate::wday", function(x, label = FALSE, abbr = TRUE,
+                                               week_start = getOption("lubridate.week.start", 7),
+                                               locale = Sys.getlocale("LC_TIME")) {
     if (label) {
       if (abbr) {
         format <- "%a"

@@ -29,7 +29,7 @@ test_that("if_else and ifelse", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = if_else(int > 5, 1, 0)
+        y = dplyr::if_else(int > 5, 1, 0)
       ) %>%
       collect(),
     tbl
@@ -65,7 +65,7 @@ test_that("if_else and ifelse", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = ifelse(int > 5, 1, 0)
+        y = base::ifelse(int > 5, 1, 0)
       ) %>%
       collect(),
     tbl
@@ -165,7 +165,7 @@ test_that("if_else and ifelse", {
 test_that("case_when()", {
   compare_dplyr_binding(
     .input %>%
-      transmute(cw = case_when(lgl ~ dbl, !false ~ dbl + dbl2)) %>%
+      transmute(cw = dplyr::case_when(lgl ~ dbl, !false ~ dbl + dbl2)) %>%
       collect(),
     tbl
   )
@@ -293,7 +293,7 @@ test_that("coalesce()", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        cw = coalesce(w),
+        cw = dplyr::coalesce(w),
         cz = coalesce(z),
         cwx = coalesce(w, x),
         cwxy = coalesce(w, x, y),

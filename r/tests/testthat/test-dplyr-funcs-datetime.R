@@ -196,7 +196,7 @@ test_that("strftime", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = strftime(datetime, format = formats)) %>%
+      mutate(x = base::strftime(datetime, format = formats)) %>%
       collect(),
     times
   )
@@ -469,7 +469,7 @@ test_that("extract week from timestamp", {
 test_that("extract day from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = day(datetime)) %>%
+      mutate(x = lubridate::day(datetime)) %>%
       collect(),
     test_df
   )
@@ -478,7 +478,7 @@ test_that("extract day from timestamp", {
 test_that("extract wday from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = wday(datetime)) %>%
+      mutate(x = lubridate::wday(datetime)) %>%
       collect(),
     test_df
   )
