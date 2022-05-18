@@ -261,49 +261,51 @@ class ARROW_EXPORT BloomFilterBuilder {
                        int64_t num_rows, int64_t num_batches,
                        BlockedBloomFilter* build_target) = 0;
   virtual int64_t num_tasks() const { return 0; }
-  virtual Status PushNextBatch(size_t thread_index, int num_rows,
+  virtual Status PushNextBatch(size_t thread_index, int64_t num_rows,
                                const uint32_t* hashes) = 0;
-  virtual Status PushNextBatch(size_t thread_index, int num_rows,
+  virtual Status PushNextBatch(size_t thread_index, int64_t num_rows,
                                const uint64_t* hashes) = 0;
   virtual void CleanUp() {}
   static std::unique_ptr<BloomFilterBuilder> Make(BloomFilterBuildStrategy strategy);
 };
 
-class BloomFilterBuilder_SingleThreaded : public BloomFilterBuilder {
+class ARROW_EXPORT BloomFilterBuilder_SingleThreaded : public BloomFilterBuilder {
  public:
   Status Begin(size_t num_threads, int64_t hardware_flags, MemoryPool* pool,
                int64_t num_rows, int64_t num_batches,
                BlockedBloomFilter* build_target) override;
 
-  Status PushNextBatch(size_t /*thread_index*/, int num_rows,
+  Status PushNextBatch(size_t /*thread_index*/, int64_t num_rows,
                        const uint32_t* hashes) override;
 
-  Status PushNextBatch(size_t /*thread_index*/, int num_rows,
+  Status PushNextBatch(size_t /*thread_index*/, int64_t num_rows,
                        const uint64_t* hashes) override;
 
  private:
   template <typename T>
-  void PushNextBatchImp(int num_rows, const T* hashes);
+  void PushNextBatchImp(int64_t num_rows, const T* hashes);
 
   int64_t hardware_flags_;
   BlockedBloomFilter* build_target_;
 };
 
-class BloomFilterBuilder_Parallel : public BloomFilterBuilder {
+class ARROW_EXPORT BloomFilterBuilder_Parallel : public BloomFilterBuilder {
  public:
   Status Begin(size_t num_threads, int64_t hardware_flags, MemoryPool* pool,
                int64_t num_rows, int64_t num_batches,
                BlockedBloomFilter* build_target) override;
 
-  Status PushNextBatch(size_t thread_id, int num_rows, const uint32_t* hashes) override;
+  Status PushNextBatch(size_t thread_id, int64_t num_rows,
+                       const uint32_t* hashes) override;
 
-  Status PushNextBatch(size_t thread_id, int num_rows, const uint64_t* hashes) override;
+  Status PushNextBatch(size_t thread_id, int64_t num_rows,
+                       const uint64_t* hashes) override;
 
   void CleanUp() override;
 
  private:
   template <typename T>
-  void PushNextBatchImp(size_t thread_id, int num_rows, const T* hashes);
+  void PushNextBatchImp(size_t thread_id, int64_t num_rows, const T* hashes);
 
   int64_t hardware_flags_;
   BlockedBloomFilter* build_target_;

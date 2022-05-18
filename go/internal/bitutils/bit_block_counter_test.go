@@ -14,24 +14,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils_test
+package bitutils_test
 
 import (
 	"testing"
 
 	"github.com/apache/arrow/go/v9/arrow/bitutil"
 	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/parquet/internal/utils"
+	"github.com/apache/arrow/go/v9/internal/bitutils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/rand"
 )
 
 const kWordSize = 64
 
-func create(nbytes, offset, length int64) (*memory.Buffer, *utils.BitBlockCounter) {
+func create(nbytes, offset, length int64) (*memory.Buffer, *bitutils.BitBlockCounter) {
 	buf := memory.NewResizableBuffer(memory.DefaultAllocator)
 	buf.Resize(int(nbytes))
-	return buf, utils.NewBitBlockCounter(buf.Bytes(), offset, length)
+	return buf, bitutils.NewBitBlockCounter(buf.Bytes(), offset, length)
 }
 
 func TestOneWordBasics(t *testing.T) {
@@ -188,7 +188,7 @@ func TestFourWordsRandomData(t *testing.T) {
 	r.Read(buf)
 
 	checkWithOffset := func(offset int64) {
-		counter := utils.NewBitBlockCounter(buf, offset, nbytes*8-offset)
+		counter := bitutils.NewBitBlockCounter(buf, offset, nbytes*8-offset)
 		for i := 0; i < nbytes/32; i++ {
 			block := counter.NextFourWords()
 			assert.EqualValues(t, bitutil.CountSetBits(buf, i*256+int(offset), int(block.Len)), block.Popcnt)

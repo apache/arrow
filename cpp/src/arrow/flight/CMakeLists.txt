@@ -34,29 +34,6 @@ if(NOT ARROW_GRPC_USE_SHARED)
   message(STATUS "Linking Arrow Flight tests statically due to static gRPC")
   set(ARROW_FLIGHT_TEST_LINKAGE "static")
 endif()
-if(ARROW_TESTING)
-  if(WIN32)
-    # We need to use the same library type for arrow_flight_testing
-    # and Google Test because arrow_flight_testing has
-    # arrow::flight:FlightTest that inherits testing::Test. If
-    # arrow_flight_testing's library type and gtest's library type are
-    # different such as arrow_flight_testing is a shared library and
-    # gtest is a static library, link error is occurred.
-    get_target_property(GTEST_TYPE GTest::gtest TYPE)
-    if(GTEST_TYPE STREQUAL "SHARED_LIBRARY")
-      set(ARROW_FLIGHT_TESTING_BUILD_SHARED TRUE)
-      set(ARROW_FLIGHT_TESTING_BUILD_STATIC FALSE)
-    else()
-      set(ARROW_FLIGHT_TESTING_BUILD_SHARED FALSE)
-      set(ARROW_FLIGHT_TESTING_BUILD_STATIC TRUE)
-      message(STATUS "Linking Arrow Flight tests statically due to static GTest")
-      set(ARROW_FLIGHT_TEST_LINKAGE "static")
-    endif()
-  else()
-    set(ARROW_FLIGHT_TESTING_BUILD_SHARED ${ARROW_BUILD_SHARED})
-    set(ARROW_FLIGHT_TESTING_BUILD_STATIC ${ARROW_BUILD_STATIC})
-  endif()
-endif()
 
 set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
@@ -280,10 +257,6 @@ if(ARROW_TESTING)
   list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
   list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
   add_arrow_lib(arrow_flight_testing
-                BUILD_SHARED
-                ${ARROW_FLIGHT_TESTING_BUILD_SHARED}
-                BUILD_STATIC
-                ${ARROW_FLIGHT_TESTING_BUILD_STATIC}
                 CMAKE_PACKAGE_NAME
                 ArrowFlightTesting
                 PKG_CONFIG_NAME
@@ -325,7 +298,7 @@ add_arrow_test(flight_test
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test_server.cc)
   target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
+                        ${GFLAGS_LIBRARIES})
 
   if(ARROW_BUILD_TESTS)
     add_dependencies(arrow-flight-test flight-test-server)
@@ -346,11 +319,11 @@ if(ARROW_BUILD_BENCHMARKS)
 
   add_executable(arrow-flight-perf-server perf_server.cc perf.pb.cc)
   target_link_libraries(arrow-flight-perf-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
+                        ${GFLAGS_LIBRARIES})
 
   add_executable(arrow-flight-benchmark flight_benchmark.cc perf.pb.cc)
   target_link_libraries(arrow-flight-benchmark ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
+                        ${GFLAGS_LIBRARIES})
 
   add_dependencies(arrow-flight-benchmark arrow-flight-perf-server)
 

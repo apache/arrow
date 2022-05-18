@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package bitutils
 
 import (
 	"math"
@@ -250,4 +250,43 @@ func VisitBitBlocks(bitmap []byte, offset, length int64, visitValid func(pos int
 			}
 		}
 	}
+}
+
+// VisitBitBlocks is a utility for easily iterating through the blocks of bits in a bitmap,
+// calling the appropriate visitValid/visitInvalid function as we iterate through the bits.
+// visitValid is called with the bitoffset of the valid bit. Don't use this inside a tight
+// loop when performance is needed and instead prefer manually constructing these loops
+// in that scenario.
+func VisitBitBlocksShort(bitmap []byte, offset, length int64, visitValid func(pos int64) error, visitInvalid func() error) error {
+	counter := NewOptionalBitBlockCounter(bitmap, offset, length)
+	pos := int64(0)
+	for pos < length {
+		block := counter.NextBlock()
+		if block.AllSet() {
+			for i := 0; i < int(block.Len); i, pos = i+1, pos+1 {
+				if err := visitValid(pos); err != nil {
+					return err
+				}
+			}
+		} else if block.NoneSet() {
+			for i := 0; i < int(block.Len); i, pos = i+1, pos+1 {
+				if err := visitInvalid(); err != nil {
+					return err
+				}
+			}
+		} else {
+			for i := 0; i < int(block.Len); i, pos = i+1, pos+1 {
+				if bitutil.BitIsSet(bitmap, int(offset+pos)) {
+					if err := visitValid(pos); err != nil {
+						return err
+					}
+				} else {
+					if err := visitInvalid(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
 }

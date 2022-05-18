@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "arrow/compute/exec/key_encode.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 
@@ -456,6 +457,19 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
   }
 }
 
+Status Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
+                            int64_t hardware_flags, util::TempVectorStack* temp_stack,
+                            int64_t offset, int64_t length) {
+  std::vector<KeyColumnArray> column_arrays;
+  RETURN_NOT_OK(ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays));
+
+  KeyEncoder::KeyEncoderContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
+  HashMultiColumn(column_arrays, &ctx, hashes);
+  return Status::OK();
+}
+
 inline uint64_t Hashing64::Avalanche(uint64_t acc) {
   acc ^= (acc >> 33);
   acc *= PRIME64_2;
@@ -873,6 +887,19 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 
     first_row += batch_size_next;
   }
+}
+
+Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
+                            int64_t hardware_flags, util::TempVectorStack* temp_stack,
+                            int64_t offset, int64_t length) {
+  std::vector<KeyColumnArray> column_arrays;
+  RETURN_NOT_OK(ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays));
+
+  KeyEncoder::KeyEncoderContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
+  HashMultiColumn(column_arrays, &ctx, hashes);
+  return Status::OK();
 }
 
 }  // namespace compute

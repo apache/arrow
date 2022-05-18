@@ -24,6 +24,7 @@
 #include <unordered_set>
 #include "arrow/compute/exec/bloom_filter.h"
 #include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -32,39 +33,106 @@
 namespace arrow {
 namespace compute {
 
+constexpr int kBatchSizeMax = 32 * 1024;
+Status BuildBloomFilter_Serial(
+    std::unique_ptr<BloomFilterBuilder>& builder, int64_t num_rows, int64_t num_batches,
+    std::function<void(int64_t, int, uint32_t*)> get_hash32_impl,
+    std::function<void(int64_t, int, uint64_t*)> get_hash64_impl,
+    BlockedBloomFilter* target) {
+  std::vector<uint32_t> hashes32(kBatchSizeMax);
+  std::vector<uint64_t> hashes64(kBatchSizeMax);
+  for (int64_t i = 0; i < num_batches; i++) {
+    size_t thread_index = 0;
+    int batch_size = static_cast<int>(
+        std::min(num_rows - i * kBatchSizeMax, static_cast<int64_t>(kBatchSizeMax)));
+    if (target->NumHashBitsUsed() > 32) {
+      uint64_t* hashes = hashes64.data();
+      get_hash64_impl(i * kBatchSizeMax, batch_size, hashes);
+      RETURN_NOT_OK(builder->PushNextBatch(thread_index, batch_size, hashes));
+    } else {
+      uint32_t* hashes = hashes32.data();
+      get_hash32_impl(i * kBatchSizeMax, batch_size, hashes);
+      RETURN_NOT_OK(builder->PushNextBatch(thread_index, batch_size, hashes));
+    }
+  }
+  return Status::OK();
+}
+
+Status BuildBloomFilter_Parallel(
+    std::unique_ptr<BloomFilterBuilder>& builder, size_t num_threads, int64_t num_rows,
+    int64_t num_batches, std::function<void(int64_t, int, uint32_t*)> get_hash32_impl,
+    std::function<void(int64_t, int, uint64_t*)> get_hash64_impl,
+    BlockedBloomFilter* target) {
+  ThreadIndexer thread_indexer;
+  std::unique_ptr<TaskScheduler> scheduler = TaskScheduler::Make();
+  std::vector<std::vector<uint32_t>> thread_local_hashes32(num_threads);
+  std::vector<std::vector<uint64_t>> thread_local_hashes64(num_threads);
+  for (std::vector<uint32_t>& h : thread_local_hashes32) h.resize(kBatchSizeMax);
+  for (std::vector<uint64_t>& h : thread_local_hashes64) h.resize(kBatchSizeMax);
+
+  std::condition_variable cv;
+  std::mutex mutex;
+  auto group = scheduler->RegisterTaskGroup(
+      [&](size_t thread_index, int64_t task_id) -> Status {
+        int batch_size = static_cast<int>(std::min(num_rows - task_id * kBatchSizeMax,
+                                                   static_cast<int64_t>(kBatchSizeMax)));
+        if (target->NumHashBitsUsed() > 32) {
+          uint64_t* hashes = thread_local_hashes64[thread_index].data();
+          get_hash64_impl(task_id * kBatchSizeMax, batch_size, hashes);
+          RETURN_NOT_OK(builder->PushNextBatch(thread_index, batch_size, hashes));
+        } else {
+          uint32_t* hashes = thread_local_hashes32[thread_index].data();
+          get_hash32_impl(task_id * kBatchSizeMax, batch_size, hashes);
+          RETURN_NOT_OK(builder->PushNextBatch(thread_index, batch_size, hashes));
+        }
+        return Status::OK();
+      },
+      [&](size_t thread_index) -> Status {
+        std::unique_lock<std::mutex> lk(mutex);
+        cv.notify_all();
+        return Status::OK();
+      });
+  scheduler->RegisterEnd();
+  auto tp = arrow::internal::GetCpuThreadPool();
+  RETURN_NOT_OK(scheduler->StartScheduling(
+      0,
+      [&](std::function<Status(size_t)> func) -> Status {
+        return tp->Spawn([&, func]() {
+          size_t tid = thread_indexer();
+          ARROW_DCHECK_OK(func(tid));
+        });
+      },
+      static_cast<int>(num_threads), false));
+  {
+    std::unique_lock<std::mutex> lk(mutex);
+    RETURN_NOT_OK(scheduler->StartTaskGroup(0, group, num_batches));
+    cv.wait(lk);
+  }
+  return Status::OK();
+}
+
 Status BuildBloomFilter(BloomFilterBuildStrategy strategy, int64_t hardware_flags,
                         MemoryPool* pool, int64_t num_rows,
                         std::function<void(int64_t, int, uint32_t*)> get_hash32_impl,
                         std::function<void(int64_t, int, uint64_t*)> get_hash64_impl,
                         BlockedBloomFilter* target) {
-  constexpr int batch_size_max = 32 * 1024;
-  int64_t num_batches = bit_util::CeilDiv(num_rows, batch_size_max);
+  int64_t num_batches = bit_util::CeilDiv(num_rows, kBatchSizeMax);
 
+  bool is_serial = strategy == BloomFilterBuildStrategy::SINGLE_THREADED;
   auto builder = BloomFilterBuilder::Make(strategy);
 
-  std::vector<uint32_t> thread_local_hashes32;
-  std::vector<uint64_t> thread_local_hashes64;
-  thread_local_hashes32.resize(batch_size_max);
-  thread_local_hashes64.resize(batch_size_max);
+  size_t num_threads = is_serial ? 1 : arrow::GetCpuThreadPoolCapacity();
+  RETURN_NOT_OK(builder->Begin(num_threads, hardware_flags, pool, num_rows,
+                               bit_util::CeilDiv(num_rows, kBatchSizeMax), target));
 
-  RETURN_NOT_OK(builder->Begin(/*num_threads=*/1, hardware_flags, pool, num_rows,
-                               bit_util::CeilDiv(num_rows, batch_size_max), target));
-
-  for (int64_t i = 0; i < num_batches; ++i) {
-    size_t thread_index = 0;
-    int batch_size = static_cast<int>(
-        std::min(num_rows - i * batch_size_max, static_cast<int64_t>(batch_size_max)));
-    if (target->NumHashBitsUsed() > 32) {
-      uint64_t* hashes = thread_local_hashes64.data();
-      get_hash64_impl(i * batch_size_max, batch_size, hashes);
-      RETURN_NOT_OK(builder->PushNextBatch(thread_index, batch_size, hashes));
-    } else {
-      uint32_t* hashes = thread_local_hashes32.data();
-      get_hash32_impl(i * batch_size_max, batch_size, hashes);
-      RETURN_NOT_OK(builder->PushNextBatch(thread_index, batch_size, hashes));
-    }
-  }
-
+  if (is_serial)
+    RETURN_NOT_OK(BuildBloomFilter_Serial(builder, num_rows, num_batches,
+                                          std::move(get_hash32_impl),
+                                          std::move(get_hash64_impl), target));
+  else
+    RETURN_NOT_OK(BuildBloomFilter_Parallel(builder, num_threads, num_rows, num_batches,
+                                            std::move(get_hash32_impl),
+                                            std::move(get_hash64_impl), target));
   builder->CleanUp();
 
   return Status::OK();

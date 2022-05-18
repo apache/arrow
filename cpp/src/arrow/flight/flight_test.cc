@@ -73,45 +73,59 @@ const char kAuthHeader[] = "authorization";
 //------------------------------------------------------------
 // Common transport tests
 
-class GrpcConnectivityTest : public ConnectivityTest {
+class GrpcConnectivityTest : public ConnectivityTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_CONNECTIVITY(GrpcConnectivityTest);
 
-class GrpcDataTest : public DataTest {
+class GrpcDataTest : public DataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_DATA(GrpcDataTest);
 
-class GrpcDoPutTest : public DoPutTest {
+class GrpcDoPutTest : public DoPutTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_DO_PUT(GrpcDoPutTest);
 
-class GrpcAppMetadataTest : public AppMetadataTest {
+class GrpcAppMetadataTest : public AppMetadataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_APP_METADATA(GrpcAppMetadataTest);
 
-class GrpcIpcOptionsTest : public IpcOptionsTest {
+class GrpcIpcOptionsTest : public IpcOptionsTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_IPC_OPTIONS(GrpcIpcOptionsTest);
 
-class GrpcCudaDataTest : public CudaDataTest {
+class GrpcCudaDataTest : public CudaDataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
 
-class GrpcErrorHandlingTest : public ErrorHandlingTest {
+class GrpcErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_ERROR_HANDLING(GrpcErrorHandlingTest);
 

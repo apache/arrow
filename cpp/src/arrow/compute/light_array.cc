@@ -138,7 +138,7 @@ Result<KeyColumnMetadata> ColumnMetadataFromDataType(
 }
 
 Result<KeyColumnArray> ColumnArrayFromArrayData(
-    const std::shared_ptr<ArrayData>& array_data, int start_row, int num_rows) {
+    const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows) {
   ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
                         ColumnMetadataFromDataType(array_data->type));
   KeyColumnArray column_array = KeyColumnArray(
@@ -165,7 +165,8 @@ Status ColumnMetadatasFromExecBatch(const ExecBatch& batch,
   return Status::OK();
 }
 
-Status ColumnArraysFromExecBatch(const ExecBatch& batch, int start_row, int num_rows,
+Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
+                                 int64_t num_rows,
                                  std::vector<KeyColumnArray>* column_arrays) {
   int num_columns = static_cast<int>(batch.values.size());
   column_arrays->resize(num_columns);
