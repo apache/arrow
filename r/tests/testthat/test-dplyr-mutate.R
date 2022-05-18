@@ -159,7 +159,7 @@ test_that("nchar() arguments", {
     .input %>%
       select(int, verses) %>%
       mutate(
-        line_lengths = nchar(verses, type = "bytes"),
+        line_lengths = base::nchar(verses, type = "bytes"),
         longer = line_lengths * 10
       ) %>%
       filter(line_lengths > 15) %>%

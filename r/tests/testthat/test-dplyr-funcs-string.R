@@ -55,7 +55,7 @@ test_that("paste, paste0, and str_c", {
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(str_c(v, w)) %>%
+      transmute(stringr::str_c(v, w)) %>%
       collect(),
     df
   )
@@ -89,7 +89,7 @@ test_that("paste, paste0, and str_c", {
   # non-character column in dots
   compare_dplyr_binding(
     .input %>%
-      transmute(paste0(x, y, z)) %>%
+      transmute(base::paste0(x, y, z)) %>%
       collect(),
     df
   )
@@ -105,7 +105,7 @@ test_that("paste, paste0, and str_c", {
   # literal NA in dots
   compare_dplyr_binding(
     .input %>%
-      transmute(paste(x, NA, y)) %>%
+      transmute(base::paste(x, NA, y)) %>%
       collect(),
     df
   )
@@ -183,13 +183,13 @@ test_that("grepl with ignore.case = FALSE and fixed = TRUE", {
   df <- tibble(x = c("Foo", "bar", NA_character_))
   compare_dplyr_binding(
     .input %>%
-      filter(grepl("o", x, fixed = TRUE)) %>%
+      filter(base::grepl("o", x, fixed = TRUE)) %>%
       collect(),
     df
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(x = grepl("o", x, fixed = TRUE)) %>%
+      mutate(x = base::grepl("o", x, fixed = TRUE)) %>%
       collect(),
     df
   )
@@ -277,13 +277,13 @@ test_that("str_detect", {
 
   compare_dplyr_binding(
     .input %>%
-      filter(str_detect(x, regex("^F"))) %>%
+      filter(stringr::str_detect(x, regex("^F"))) %>%
       collect(),
     df
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
+      transmute(x = stringr::str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
       collect(),
     df
   )
@@ -325,7 +325,7 @@ test_that("sub and gsub", {
   for (fixed in c(TRUE, FALSE)) {
     compare_dplyr_binding(
       .input %>%
-        transmute(x = sub("Foo", "baz", x, fixed = fixed)) %>%
+        transmute(x = base::sub("Foo", "baz", x, fixed = fixed)) %>%
         collect(),
       df
     )
@@ -359,7 +359,7 @@ test_that("sub and gsub with ignore.case = TRUE and fixed = TRUE", {
   expect_equal(
     df %>%
       Table$create() %>%
-      transmute(x = gsub("o", "u", x, ignore.case = TRUE, fixed = TRUE)) %>%
+      transmute(x = base::gsub("o", "u", x, ignore.case = TRUE, fixed = TRUE)) %>%
       collect(),
     tibble(x = c("Fuu", "bar"))
   )
@@ -377,14 +377,14 @@ test_that("str_replace and str_replace_all", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_replace_all(x, "^F", "baz")) %>%
+      transmute(x = stringr::str_replace_all(x, "^F", "baz")) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_replace_all(x, regex("^F"), "baz")) %>%
+      transmute(x = stringr::str_replace_all(x, regex("^F"), "baz")) %>%
       collect(),
     df
   )
@@ -427,7 +427,7 @@ test_that("strsplit and str_split", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = strsplit(x, "and")) %>%
+      mutate(x = base::strsplit(x, "and")) %>%
       collect(),
     df,
     # `ignore_attr = TRUE` because the vctr coming back from arrow (ListArray)
@@ -450,7 +450,7 @@ test_that("strsplit and str_split", {
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(x = str_split(x, "and")) %>%
+      mutate(x = stringr::str_split(x, "and")) %>%
       collect(),
     df,
     ignore_attr = TRUE
@@ -759,7 +759,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = stringi::stri_reverse(x)) %>%
+      mutate(x = stri_reverse(x)) %>%
       collect(),
     df_utf8
   )
@@ -798,7 +798,7 @@ test_that("str_like", {
   expect_equal(
     df %>%
       Table$create() %>%
-      mutate(x = str_like(x, "baz")) %>%
+      mutate(x = stringr::str_like(x, "baz")) %>%
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
@@ -854,7 +854,7 @@ test_that("str_pad", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = str_pad(x, width = 31)) %>%
+      mutate(x = stringr::str_pad(x, width = 31)) %>%
       collect(),
     df
   )
@@ -893,7 +893,7 @@ test_that("substr", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = substr(x, 1, 6)) %>%
+      mutate(y = base::substr(x, 1, 6)) %>%
       collect(),
     df
   )
@@ -972,7 +972,10 @@ test_that("substring", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = substring(x, 1, 6)) %>%
+      mutate(
+        y = substring(x, 1, 6),
+        z = base::substring(x, 1, 6)
+      ) %>%
       collect(),
     df
   )
@@ -983,7 +986,7 @@ test_that("str_sub", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = str_sub(x, 1, 6)) %>%
+      mutate(y = stringr::str_sub(x, 1, 6)) %>%
       collect(),
     df
   )
@@ -1067,7 +1070,7 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 
   compare_dplyr_binding(
     .input %>%
-      filter(str_starts(x, "b.*")) %>%
+      filter(stringr::str_starts(x, "b.*")) %>%
       collect(),
     df
   )
@@ -1096,7 +1099,7 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        a = str_starts(x, "b.*"),
+        a = stringr::str_starts(x, "b.*"),
         b = str_starts(x, "b.*", negate = TRUE),
         c = str_starts(x, fixed("b")),
         d = str_starts(x, fixed("b"), negate = TRUE)
@@ -1107,7 +1110,7 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 
   compare_dplyr_binding(
     .input %>%
-      filter(str_ends(x, "r")) %>%
+      filter(stringr::str_ends(x, "r")) %>%
       collect(),
     df
   )
@@ -1136,7 +1139,7 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        a = str_ends(x, "r"),
+        a = stringr::str_ends(x, "r"),
         b = str_ends(x, "r", negate = TRUE),
         c = str_ends(x, fixed("r")),
         d = str_ends(x, fixed("r"), negate = TRUE)
@@ -1146,14 +1149,14 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
   )
   compare_dplyr_binding(
     .input %>%
-      filter(startsWith(x, "b")) %>%
+      filter(base::startsWith(x, "b")) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      filter(endsWith(x, "r")) %>%
+      filter(base::endsWith(x, "r")) %>%
       collect(),
     df
   )
@@ -1191,7 +1194,7 @@ test_that("str_count", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(a_count = str_count(cities, pattern = "a")) %>%
+      mutate(a_count = stringr::str_count(cities, pattern = "a")) %>%
       collect(),
     df
   )
