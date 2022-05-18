@@ -19,7 +19,6 @@
 
 #include "arrow/io/buffered.h"
 #include "arrow/io/compressed.h"
-#include "arrow/io/concurrency.h"
 #include "arrow/io/file.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/interfaces.h"
