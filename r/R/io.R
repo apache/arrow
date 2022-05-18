@@ -335,7 +335,6 @@ detect_compression <- function(path) {
   # Remove any trailing slashes, which FileSystem$from_uri may add
   path <- gsub("/$", "", path)
 
-
   switch(tools::file_ext(path),
     bz2 = "bz2",
     gz = "gzip",
