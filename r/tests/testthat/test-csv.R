@@ -576,6 +576,17 @@ test_that("write_csv_arrow() compresses by file extension", {
   expect_lt(file.size(tfgz), file.size(tf))
 })
 
+test_that("read/write compressed file", {
+  skip_if_not_available("gzip")
+  tfgz <- tempfile(fileext = ".csv.gz")
+  on.exit(unlink(tfgz))
+  write_csv_arrow(tbl, tfgz)
+  expect_identical(
+    read_csv_arrow(tfgz),
+    tbl
+  )
+})
+
 test_that("read_csv_arrow() can read sub-second timestamps with col_types T setting (ARROW-15599)", {
   tbl <- tibble::tibble(time = c("2018-10-07 19:04:05.000", "2018-10-07 19:04:05.001"))
   tf <- tempfile()
