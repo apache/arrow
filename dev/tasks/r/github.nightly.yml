@@ -340,9 +340,7 @@ jobs:
       - name: Update Repo
         shell: sudo Rscript {0}
         run: |
-          # Number of builds to keep
-          keep_n <- 14
-          prune <- function(dir, keep_n) {
+          prune <- function(dir, keep_n = 14) {
             files <- list.files(dir, pattern = "^arrow", full.names = TRUE)
             n_repo <- length(files)
 
@@ -364,7 +362,7 @@ jobs:
           for(dir in bin_dirs) {
             win_bin <- grepl("windows", dir)
             
-            prune(dir, keep_n)
+            prune(dir)
 
             if(file.exists(paste0(dir,"/PACKAGES"))) {
               tools::update_PACKAGES(dir , type = ifelse(win_bin, "win.binary", "mac.binary"), latestOnly = FALSE)
@@ -378,6 +376,6 @@ jobs:
           lib_dirs <- lib_dirs[ grep("bin/.+", lib_dirs)]
 
           for(dir in lib_dirs) {
-            prune(dir, keep_n)
+            prune(dir)
           }
       - run: sudo umount nightly
