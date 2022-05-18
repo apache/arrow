@@ -198,7 +198,7 @@ test_that("Negative scalar values", {
 test_that("filter() with between()", {
   compare_dplyr_binding(
     .input %>%
-      filter(between(dbl, 1, 2)) %>%
+      filter(dplyr::between(dbl, 1, 2)) %>%
       collect(),
     tbl
   )
