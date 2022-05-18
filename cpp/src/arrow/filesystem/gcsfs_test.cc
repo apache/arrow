@@ -175,7 +175,7 @@ class GcsIntegrationTest : public ::testing::Test {
   GcsOptions TestGcsOptions() {
     auto options = GcsOptions::Anonymous();
     options.endpoint_override = "127.0.0.1:" + Testbench()->port();
-    options.retry_limit_seconds = 5;
+    options.retry_limit_seconds = 20;
     return options;
   }
 
@@ -337,14 +337,14 @@ TEST(GcsFileSystem, OptionsFromUri) {
       options,
       GcsOptions::FromUri("gs://mybucket/foo/bar/"
                           "?endpoint_override=localhost&scheme=http&location=us-west2"
-                          "&retry_limit_seconds=5",
+                          "&retry_limit_seconds=20",
                           &path));
   EXPECT_EQ(options.default_bucket_location, "us-west2");
   EXPECT_EQ(options.scheme, "http");
   EXPECT_EQ(options.endpoint_override, "localhost");
   EXPECT_EQ(path, "mybucket/foo/bar");
   ASSERT_TRUE(options.retry_limit_seconds.has_value());
-  EXPECT_EQ(*options.retry_limit_seconds, 5);
+  EXPECT_EQ(*options.retry_limit_seconds, 20);
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs:///foo/bar/", &path));
