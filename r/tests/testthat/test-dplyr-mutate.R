@@ -140,17 +140,6 @@ test_that("transmute() with unsupported arguments", {
   )
 })
 
-test_that("transmute() defuses dots arguments (ARROW-13262)", {
-  expect_warning(
-    tbl %>%
-      Table$create() %>%
-      transmute(stringr::str_c(chr, chr)) %>%
-      collect(),
-    "Expression stringr::str_c(chr, chr) not supported in Arrow; pulling data into R",
-    fixed = TRUE
-  )
-})
-
 test_that("mutate and refer to previous mutants", {
   compare_dplyr_binding(
     .input %>%
@@ -525,9 +514,9 @@ test_that("mutate and pmin/pmax", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        max_val_1 = pmax(val1, val2, val3),
+        max_val_1 = base::pmax(val1, val2, val3),
         max_val_2 = pmax(val1, val2, val3, na.rm = TRUE),
-        min_val_1 = pmin(val1, val2, val3),
+        min_val_1 = base::pmin(val1, val2, val3),
         min_val_2 = pmin(val1, val2, val3, na.rm = TRUE)
       ) %>%
       collect(),
