@@ -426,9 +426,8 @@ cdef class NativeFile(_Weakrefable):
 
         handle = self.get_random_access_file()
 
-        with nogil:
-            data = <shared_ptr[CInputStream]> GetResultValue(
-                handle.get().GetStream(self.read(), c_file_offset, c_nbytes))
+        data = <shared_ptr[CInputStream]> GetResultValue(
+            handle.get().GetStream(self.read(), c_file_offset, c_nbytes))
 
         return data
 
