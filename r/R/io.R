@@ -301,7 +301,6 @@ make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
     return(MakeRConnectionOutputStream(x))
   }
 
-
   if (inherits(x, "SubTreeFileSystem")) {
     filesystem <- x$base_fs
     x <- x$base_path
