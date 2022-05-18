@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.1"]
+        r: ["4.2"]
         ubuntu: [20.04]
         force-tests: ["true", "false"]
     env:
@@ -244,7 +244,7 @@ jobs:
         config:
         - { rtools: 35, rversion: "3.6" }
         - { rtools: 40, rversion: "4.1" }
-        # TODO: Once R 4.2 comes out we can switch to devel + 4.2
+        - { rtools: 42, rversion: "4.2" }
         - { rtools: 42, rversion: "devel" }
     env:
       ARROW_R_CXXFLAGS: "-Werror"
@@ -384,7 +384,7 @@ jobs:
             timeout = 3600
           )
       - name: Run lintr
-        if: ${{ matrix.config.rversion == '4.1' }}
+        if: ${{ matrix.config.rversion == '4.2' }}
         env:
           NOT_CRAN: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
