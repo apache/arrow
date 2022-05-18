@@ -30,6 +30,17 @@ from archery.utils.report import JinjaReport
 # TODO(kszucs): use archery.report.JinjaReport instead
 class Report:
 
+    ROW_HEADERS = [
+        "Task name",
+        "Task status",
+        "Build links",
+        "Crossbow branch URL",
+        "CI system",
+        "Task extra params",
+        "Template used",
+        "Arrow commit",
+    ]
+
     def __init__(self, job, task_filters=None):
         self.job = job
 
@@ -89,6 +100,7 @@ class Report:
         """
         Produces a generator that allow us to iterate over
         the job tasks as a list of rows.
+        Row headers are defined at Report.ROW_HEADERS.
         """
         for task_name, task in sorted(self.job.tasks.items()):
             task_status = task.status()
@@ -235,9 +247,11 @@ class ReportUtils:
         server.close()
 
     @classmethod
-    def write_csv(cls, report):
+    def write_csv(cls, report, add_headers=True):
         with open(f'{report.job.branch}.csv', 'w') as csvfile:
             task_writer = csv.writer(csvfile)
+            if add_headers:
+                task_writer.writerow(report.ROW_HEADERS)
             task_writer.writerows(report.rows)
 
 
