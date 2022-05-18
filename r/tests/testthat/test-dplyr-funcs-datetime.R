@@ -1906,4 +1906,22 @@ test_that("lubridate's fast_strptime", {
     ),
     warning = TRUE
   )
+
+  # compare_dplyr_binding would not work here since lt = TRUE returns a list
+  # and it also errors in regular dplyr pipelines
+  expect_warning(
+    tibble(
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ) %>%
+      arrow_table() %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = TRUE
+          )
+      ) %>%
+      collect()
+  )
 })
