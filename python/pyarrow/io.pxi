@@ -426,10 +426,10 @@ cdef class NativeFile(_Weakrefable):
 
         handle = self.get_random_access_file()
 
-        data = <shared_ptr[CInputStream]> GetResultValue(
-            handle.get().GetStream(self.read(), c_file_offset, c_nbytes))
+        data = GetResultValue(
+            CRandomAccessFile.GetStream(handle, c_file_offset, c_nbytes))
 
-        return data
+        return self.set_input_stream(data)
 
     def read_at(self, nbytes, offset):
         """
