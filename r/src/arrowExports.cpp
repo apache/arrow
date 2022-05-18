@@ -4484,7 +4484,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatchreader.cpp
-std::shared_ptr<arrow::Table> RecordBatchReader__Head(const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows);
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__Head(const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows);
 extern "C" SEXP _arrow_RecordBatchReader__Head(SEXP reader_sexp, SEXP num_rows_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);

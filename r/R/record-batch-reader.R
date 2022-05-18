@@ -56,6 +56,7 @@
 #'
 #' @rdname RecordBatchReader
 #' @name RecordBatchReader
+#' @export
 #' @include arrow-object.R
 #' @examples
 #' tf <- tempfile()
@@ -104,6 +105,16 @@ RecordBatchReader <- R6Class("RecordBatchReader",
     schema = function() RecordBatchReader__schema(self)
   )
 )
+RecordBatchReader$create <- function(..., batches = list(...), schema = NULL) {
+  are_batches <- map_lgl(batches, ~ inherits(., "RecordBatch"))
+  if (!all(are_batches)) {
+    stop(
+      "All inputs to RecordBatchReader$create must be RecordBatches",
+      call. = FALSE
+    )
+  }
+  RecordBatchReader__from_batches(batches, schema)
+}
 
 #' @export
 names.RecordBatchReader <- function(x) names(x$schema)
@@ -208,13 +219,13 @@ as_record_batch_reader.Table <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.RecordBatch <- function(x, ...) {
-  RecordBatchReader__from_batches(list(x), NULL)
+  RecordBatchReader$create(x, schema = x$schema)
 }
 
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.data.frame <- function(x, ...) {
-  as_record_batch_reader(as_record_batch(x))
+  RecordBatchReader$create(as_record_batch(x))
 }
 
 #' @rdname as_record_batch_reader
@@ -226,8 +237,8 @@ as_record_batch_reader.Dataset <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.arrow_dplyr_query <- function(x, ...) {
-  # TODO(ARROW-15271): make ExecPlan return RBR
-  as_record_batch_reader(collect.arrow_dplyr_query(x, as_data_frame = FALSE))
+  # TODO(ARROW-16607): use ExecPlan directly when it handles metadata
+  as_record_batch_reader(compute.arrow_dplyr_query(x))
 }
 
 #' @rdname as_record_batch_reader

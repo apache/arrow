@@ -299,6 +299,12 @@ as_record_batch.Table <- function(x, ..., schema = NULL) {
 
 #' @rdname as_record_batch
 #' @export
+as_record_batch.arrow_dplyr_query <- function(x, ...) {
+  as_record_batch(compute.arrow_dplyr_query(x), ...)
+}
+
+#' @rdname as_record_batch
+#' @export
 as_record_batch.data.frame <- function(x, ..., schema = NULL) {
   RecordBatch$create(x, schema = schema)
 }

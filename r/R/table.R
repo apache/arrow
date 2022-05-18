@@ -139,6 +139,13 @@ Table$create <- function(..., schema = NULL) {
   if (all_record_batches(dots)) {
     return(Table__from_record_batches(dots, schema))
   }
+  if (length(dots) == 1 && inherits(dots[[1]], c("RecordBatchReader", "RecordBatchFileReader"))) {
+    tab <- dots[[1]]$read_table()
+    if (!is.null(schema)) {
+      tab <- tab$cast(schema)
+    }
+    return(tab)
+  }
 
   # If any arrays are length 1, recycle them
   dots <- recycle_scalars(dots)

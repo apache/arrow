@@ -700,9 +700,8 @@ test_that("Dataset min_rows_per_group", {
   ds <- open_dataset(dst_dir)
 
   row_group_sizes <- ds %>%
-    select() %>%
-    map_batches(~ .$num_rows, .data.frame = FALSE) %>%
-    unlist()
+    map_batches(~ record_batch(nrows = .$num_rows)) %>%
+    pull(nrows)
   index <- 1
 
   # We expect there to be 3 row groups since 11/5 = 2.2 and 11/4 = 2.75
@@ -739,9 +738,8 @@ test_that("Dataset write max rows per group", {
   file_path <- paste(dst_dir, written_files[[1]], sep = "/")
   ds <- open_dataset(file_path)
   row_group_sizes <- ds %>%
-    select() %>%
-    map_batches(~ .$num_rows, .data.frame = FALSE) %>%
-    unlist() %>% # Returns list because .data.frame is FALSE
+    map_batches(~ record_batch(nrows = .$num_rows)) %>%
+    pull(nrows) %>%
     sort()
 
   expect_equal(row_group_sizes, c(12, 18))
