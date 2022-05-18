@@ -1517,7 +1517,8 @@ def test_cancel_do_get():
             FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b'ints'))
         reader.cancel()
-        with pytest.raises(flight.FlightCancelledError, match=".*Cancel.*"):
+        with pytest.raises(flight.FlightCancelledError,
+                           match="(?i).*cancel.*"):
             reader.read_chunk()
 
 
@@ -2085,3 +2086,74 @@ def test_none_action_side_effect():
         client.do_action(flight.Action("append", b""))
         r = client.do_action(flight.Action("get_value", b""))
         assert json.loads(next(r).body.to_pybytes()) == [True]
+
+
+@pytest.mark.slow  # Takes a while for gRPC to "realize" writes fail
+def test_write_error_propagation():
+    """
+    Ensure that exceptions during writing preserve error context.
+
+    See https://issues.apache.org/jira/browse/ARROW-16592.
+    """
+    expected_message = "foo"
+    expected_info = b"bar"
+    exc = flight.FlightCancelledError(
+        expected_message, extra_info=expected_info)
+    descriptor = flight.FlightDescriptor.for_command(b"")
+    schema = pa.schema([("int64", pa.int64())])
+
+    class FailServer(flight.FlightServerBase):
+        def do_put(self, context, descriptor, reader, writer):
+            raise exc
+
+        def do_exchange(self, context, descriptor, reader, writer):
+            raise exc
+
+    with FailServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        # DoPut
+        writer, reader = client.do_put(descriptor, schema)
+
+        # Set a concurrent reader - ensure this doesn't block the
+        # writer side from calling Close()
+        def _reader():
+            try:
+                while True:
+                    reader.read()
+            except flight.FlightError:
+                return
+
+        thread = threading.Thread(target=_reader, daemon=True)
+        thread.start()
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            while True:
+                writer.write_batch(pa.record_batch([[1]], schema=schema))
+        assert exc_info.value.extra_info == expected_info
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            writer.close()
+        assert exc_info.value.extra_info == expected_info
+        thread.join()
+
+        # DoExchange
+        writer, reader = client.do_exchange(descriptor)
+
+        def _reader():
+            try:
+                while True:
+                    reader.read_chunk()
+            except flight.FlightError:
+                return
+
+        thread = threading.Thread(target=_reader, daemon=True)
+        thread.start()
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            while True:
+                writer.write_metadata(b" ")
+        assert exc_info.value.extra_info == expected_info
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            writer.close()
+        assert exc_info.value.extra_info == expected_info
+        thread.join()

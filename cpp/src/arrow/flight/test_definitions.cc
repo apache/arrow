@@ -1437,6 +1437,18 @@ class ErrorHandlingTestServer : public FlightServerBase {
     }
     return Status::NotImplemented("NYI");
   }
+
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    return MakeFlightError(FlightStatusCode::Unauthorized, "Unauthorized", "extra info");
+  }
+
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    return MakeFlightError(FlightStatusCode::Unauthorized, "Unauthorized", "extra info");
+  }
 };
 }  // namespace
 
@@ -1485,6 +1497,69 @@ void ErrorHandlingTest::TestGetFlightInfo() {
       EXPECT_THAT(detail->extra_info(), ::testing::HasSubstr("Expected detail message"));
     }
   }
+}
+
+void CheckErrorDetail(const Status& status) {
+  auto detail = FlightStatusDetail::UnwrapStatus(status);
+  ASSERT_NE(detail, nullptr) << status.ToString();
+  ASSERT_EQ(detail->code(), FlightStatusCode::Unauthorized);
+  ASSERT_EQ(detail->extra_info(), "extra info");
+}
+
+void ErrorHandlingTest::TestDoPut() {
+  // ARROW-16592
+  auto schema = arrow::schema({field("int64", int64())});
+  auto descr = FlightDescriptor::Path({""});
+  FlightClient::DoPutResult stream;
+  auto status = client_->DoPut(descr, schema).Value(&stream);
+  if (!status.ok()) {
+    ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+    return;
+  }
+
+  std::thread reader_thread([&]() {
+    std::shared_ptr<Buffer> out;
+    while (true) {
+      if (!stream.reader->ReadMetadata(&out).ok()) {
+        return;
+      }
+    }
+  });
+
+  auto batch = RecordBatchFromJSON(schema, "[[0]]");
+  while (true) {
+    status = stream.writer->WriteRecordBatch(*batch);
+    if (!status.ok()) break;
+  }
+
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(stream.writer->Close()));
+  reader_thread.join();
+}
+
+void ErrorHandlingTest::TestDoExchange() {
+  // ARROW-16592
+  FlightClient::DoExchangeResult stream;
+  auto status = client_->DoExchange(FlightDescriptor::Path({""})).Value(&stream);
+  if (!status.ok()) {
+    ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+    return;
+  }
+
+  std::thread reader_thread([&]() {
+    while (true) {
+      if (!stream.reader->Next().ok()) return;
+    }
+  });
+
+  while (true) {
+    status = stream.writer->WriteMetadata(Buffer::FromString("foo"));
+    if (!status.ok()) break;
+  }
+
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(stream.writer->Close()));
+  reader_thread.join();
 }
 
 }  // namespace flight

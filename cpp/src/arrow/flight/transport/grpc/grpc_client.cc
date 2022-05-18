@@ -326,10 +326,7 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
  public:
   using Base = FinishableDataStream<Stream, ReadPayload>;
   WritableDataStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream)
-      : Base(std::move(rpc), std::move(stream)),
-        read_mutex_(),
-        finish_mutex_(),
-        done_writing_(false) {}
+      : Base(std::move(rpc), std::move(stream)), read_mutex_(), done_writing_(false) {}
 
   Status WritesDone() override {
     // This is only used by the writer side of a stream, so it need
@@ -350,16 +347,7 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
   Status DoFinish() override {
     // This may be used concurrently by reader/writer side of a
     // stream, so it needs to be protected.
-    std::lock_guard<std::mutex> guard(finish_mutex_);
-
-    // Now that we're shared between a reader and writer, we need to
-    // protect ourselves from being called while there's an
-    // outstanding read.
-    std::unique_lock<std::mutex> read_guard(read_mutex_, std::try_to_lock);
-    if (!read_guard.owns_lock()) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Cannot close stream with pending read operation.");
-    }
+    std::lock_guard<std::mutex> guard(read_mutex_);
 
     // Try to flush pending writes. Don't use our WritesDone() to
     // avoid recursion.
@@ -377,7 +365,6 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
 
   using Base::stream_;
   std::mutex read_mutex_;
-  std::mutex finish_mutex_;
   bool done_writing_;
 };
 
@@ -402,6 +389,7 @@ class GrpcClientPutStream
 
   bool ReadPutMetadata(std::shared_ptr<Buffer>* out) override {
     std::lock_guard<std::mutex> guard(read_mutex_);
+    if (finished_) return false;
     pb::PutResult message;
     if (stream_->Read(&message)) {
       *out = Buffer::FromString(std::move(*message.mutable_app_metadata()));
@@ -427,6 +415,7 @@ class GrpcClientExchangeStream
 
   bool ReadData(internal::FlightData* data) override {
     std::lock_guard<std::mutex> guard(read_mutex_);
+    if (finished_) return false;
     return ReadPayload(stream_.get(), data);
   }
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
