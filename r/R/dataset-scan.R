@@ -228,7 +228,7 @@ map_batches <- function(X, FUN, ..., .data.frame = NULL) {
     res <- res[seq_len(i)]
   }
 
-  as_adq(RecordBatchReader$create(batches = res))
+  RecordBatchReader$create(batches = res)
 }
 
 #' @usage NULL
