@@ -1307,13 +1307,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
         int file_descriptor()
 
-    cdef cppclass CFileSegmentReader \
-            " arrow::io::FileSegmentReader"(CInputStreamConcurrencyWrapper):
-        CResult[shared_ptr[CBuffer]] FileSegmentReader(
-            shared_ptr[CRandomAccessFile] file,
-            int64_t file_offset,
-            int64_t nbytes)
-
     cdef cppclass ReadableFile(CRandomAccessFile):
         @staticmethod
         CResult[shared_ptr[ReadableFile]] Open(const c_string& path)
