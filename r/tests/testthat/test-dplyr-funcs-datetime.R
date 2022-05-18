@@ -50,6 +50,19 @@ test_df <- tibble::tibble(
 test_that("strptime", {
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
   t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  t_stamp_with_tz <- tibble(
+    x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA)
+  )
+
+  expect_equal(
+    t_string %>%
+      arrow_table() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    t_stamp_with_tz
+  )
 
   expect_equal(
     t_string %>%
@@ -108,15 +121,6 @@ test_that("strptime", {
     # R's strptime returns POSIXlt (list type)
     as.POSIXct(tstamp),
     ignore_attr = "tzone"
-  )
-})
-
-test_that("errors in strptime", {
-  # Error when tz is passed
-  x <- Expression$field_ref("x")
-  expect_error(
-    call_binding("strptime", x, tz = "PDT"),
-    "Time zone argument not supported in Arrow"
   )
 })
 
