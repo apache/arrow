@@ -21,6 +21,8 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/array/data.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/memory_pool.h"

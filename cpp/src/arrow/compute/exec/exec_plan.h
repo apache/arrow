@@ -212,6 +212,16 @@ class ARROW_EXPORT ExecNode {
   // A node with multiple outputs will also need to ensure it is applying backpressure if
   // any of its outputs is asking to pause
 
+  /// \brief Perform any needed initialization
+  ///
+  /// This hook performs any actions in between creation of ExecPlan and the call to
+  /// StartProducing. An example could be Bloom filter pushdown. The order of ExecNodes
+  /// that executes this method is undefined, but the calls are made synchronously.
+  ///
+  /// At this point a node can rely on all inputs & outputs (and the input schemas)
+  /// being well defined.
+  virtual Status PrepareToProduce() { return Status::OK(); }
+
   /// \brief Start producing
   ///
   /// This must only be called once.  If this fails, then other lifecycle

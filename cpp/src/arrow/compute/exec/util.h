@@ -92,7 +92,7 @@ class TempVectorStack {
   Status Init(MemoryPool* pool, int64_t size) {
     num_vectors_ = 0;
     top_ = 0;
-    buffer_size_ = size;
+    buffer_size_ = PaddedAllocationSize(size) + kPadding + 2 * sizeof(uint64_t);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
     // Ensure later operations don't accidentally read uninitialized memory.
     std::memset(buffer->mutable_data(), 0xFF, size);
@@ -193,6 +193,8 @@ class bit_util {
                                  uint32_t num_bytes);
 
  private:
+  inline static uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes);
+  inline static void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value);
   inline static void bits_to_indexes_helper(uint64_t word, uint16_t base_index,
                                             int* num_indexes, uint16_t* indexes);
   inline static void bits_filter_indexes_helper(uint64_t word,
