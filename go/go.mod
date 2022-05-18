@@ -36,6 +36,7 @@ require (
 	github.com/zeebo/xxh3 v1.0.1
 	golang.org/x/exp v0.0.0-20211216164055-b2b84827b756
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
 	golang.org/x/tools v0.1.10
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f
