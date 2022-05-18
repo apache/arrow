@@ -63,10 +63,11 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   })
 
   test_that("read/write csv by filesystem", {
-    write_csv_arrow(example_data, fs$path(minio_path("test.csv")))
+    dat <- data.frame(x = seq(1,10, by = 0.2))
+    write_csv_arrow(dat, fs$path(minio_path("test.csv")))
     expect_identical(
       read_csv_arrow(fs$path(minio_path("test.csv"))),
-      example_data
+      dat
     )
   })
 
