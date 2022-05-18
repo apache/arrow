@@ -333,7 +333,7 @@ detect_compression <- function(path) {
     return("uncompressed")
   }
 
-  ## Remove any trailing slashes
+  # Remove any trailing slashes, which FileSystem$from_uri may add
   path <- gsub("/$", "", path)
 
 
