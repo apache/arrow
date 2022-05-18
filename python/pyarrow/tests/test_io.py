@@ -126,6 +126,22 @@ def test_python_file_read():
         pa.PythonFile(StringIO(), mode='r')
 
 
+def test_python_file_get_stream():
+    data = b'data1data2data3data4data5'
+
+    buf = BytesIO(data)
+    f = pa.PythonFile(buf, mode='r')
+
+    stream1 = f.get_stream(file_offset=0, nbytes=10)
+    stream2 = f.get_stream(file_offset=9, nbytes=16)
+
+    buf_nbytes6 = stream1.read(nbytes=6)
+    assert buf_nbytes6 == b'data1d'
+
+    buf_nbytes4 = stream2.read(nbytes=4)
+    assert buf_nbytes4 == b'2dat'
+
+
 def test_python_file_read_at():
     data = b'some sample data'
 
