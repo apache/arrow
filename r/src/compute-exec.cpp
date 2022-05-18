@@ -57,7 +57,7 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    int64_t head = -1) {
+    int64_t head = -1, cpp11::strings metadata) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
@@ -101,8 +101,15 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
                                          }
                                        }};
 
+  // Attach metadata to the schema
+  // TODO: factor this out to a strings_to_KVM() helper
+  auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
+  auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
+
+  auto kv =
+      std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
   return compute::MakeGeneratorReader(
-      final_node->output_schema(),
+      final_node->output_schema()->WithMetadata(std::move(kv)),
       [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
 }
 
