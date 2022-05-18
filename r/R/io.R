@@ -321,9 +321,9 @@ make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
   } else if (is.null(filesystem) && !is_compressed(compression)) {
     FileOutputStream$create(x) ## uncompressed local
   } else if (!is.null(filesystem) && is_compressed(compression)) {
-    CompressedOutputStream$create(filesystem$OpenOutputStream(x)) ## compressed s3
+    CompressedOutputStream$create(filesystem$OpenOutputStream(x)) ## compressed remote
   } else {
-    filesystem$OpenOutputStream(x) ## uncompressed s3
+    filesystem$OpenOutputStream(x) ## uncompressed remote
   }
 }
 
