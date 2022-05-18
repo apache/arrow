@@ -69,6 +69,7 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
     "%%", "^", "%in%"
   )
 
+  # TODO remove before merge
   # aggregating functions need some special attention
   agg_functions <- c(
     "sum", "any", "all", "mean", "sd", "var", "quantile", "median",
