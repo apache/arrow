@@ -208,25 +208,25 @@ def test_multiple_authors_bad_input():
     a0 = 'Jimbob Crawfish <jimbob.crawfish@gmail.com>'
     a1 = 'Jarvis McCratchett <jarvis.mccratchett@hotmail.com>'
     a2 = 'Hank Miller <hank.miller@protonmail.com>'
-    distinct_other_authors = [a1]
+    distinct_authors = [a0, a1]
 
     cmd = FakeCLI(responses=[''])
-    primary_author, new_distinct_other_authors = \
+    primary_author, distinct_other_authors = \
         merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a0
-    assert new_distinct_other_authors == [a1]
+    assert distinct_other_authors == [a1]
 
     cmd = FakeCLI(responses=['oops', a1])
-    primary_author, new_distinct_other_authors = \
+    primary_author, distinct_other_authors = \
         merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a1
-    assert new_distinct_other_authors == [a0]
+    assert distinct_other_authors == [a0]
 
     cmd = FakeCLI(responses=[a2])
-    primary_author, new_other_distinct_authors = \
+    primary_author, other_distinct_authors = \
         merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a2
-    assert new_distinct_other_authors == [a0, a1]
+    assert distinct_other_authors == [a0, a1]
 
 
 def test_jira_already_resolved():
