@@ -100,7 +100,7 @@ The libarrow binaries will only be retrieved if you have set the environment var
 
 If found, they will be downloaded and bundled when your R package compiles.
 For a list of supported distributions and versions,
-see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
+see the [nightly build server](https://nightlies.apache.org/arrow/r/README).
 
 #### Building from source
 
