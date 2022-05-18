@@ -29,7 +29,12 @@ add_arrow_test(filesystem-test
                filesystem)
 
 if(ARROW_GCS)
-  add_arrow_test(gcsfs_test EXTRA_LABELS filesystem)
+  add_arrow_test(gcsfs_test
+                 EXTRA_LABELS
+                 filesystem
+                 EXTRA_LINK_LIBS
+                 Boost::filesystem
+                 Boost::system)
 endif()
 
 if(ARROW_S3)
@@ -38,7 +43,10 @@ if(ARROW_S3)
                  s3fs_test.cc
                  s3_test_util.cc
                  EXTRA_LABELS
-                 filesystem)
+                 filesystem
+                 EXTRA_LINK_LIBS
+                 Boost::filesystem
+                 Boost::system)
   if(TARGET arrow-s3fs-test)
     set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS)
     get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
@@ -73,7 +81,11 @@ if(ARROW_S3)
                         "arrow-filesystem"
                         SOURCES
                         s3fs_benchmark.cc
-                        s3_test_util.cc)
+                        s3_test_util.cc
+                        STATIC_LINK_LIBS
+                        ${ARROW_BENCHMARK_LINK_LIBS}
+                        Boost::filesystem
+                        Boost::system)
     if(ARROW_TEST_LINKAGE STREQUAL "static")
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_static)
     else()
