@@ -564,7 +564,7 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   expect_equal(nrow(tbl_in), 3)
 })
 
-test_that("write_csv_arrow() compresses by file extension", {
+test_that("read/write compressed file successfully", {
   skip_if_not_available("gzip")
   tfgz <- tempfile(fileext = ".csv.gz")
   tf <- tempfile(fileext = ".csv")
@@ -574,13 +574,7 @@ test_that("write_csv_arrow() compresses by file extension", {
   write_csv_arrow(tbl, tf)
   write_csv_arrow(tbl, tfgz)
   expect_lt(file.size(tfgz), file.size(tf))
-})
 
-test_that("read/write compressed file", {
-  skip_if_not_available("gzip")
-  tfgz <- tempfile(fileext = ".csv.gz")
-  on.exit(unlink(tfgz))
-  write_csv_arrow(tbl, tfgz)
   expect_identical(
     read_csv_arrow(tfgz),
     tbl
