@@ -1280,6 +1280,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                                                                   Seekable):
         CResult[int64_t] GetSize()
 
+        @staticmethod
         CResult[shared_ptr[CInputStream]] GetStream(
             shared_ptr[CRandomAccessFile] file,
             int64_t file_offset,
