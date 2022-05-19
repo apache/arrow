@@ -112,14 +112,17 @@ cpp11::writable::list Schema__metadata(const std::shared_ptr<arrow::Schema>& sch
   return out;
 }
 
-// [[arrow::export]]
-std::shared_ptr<arrow::Schema> Schema__WithMetadata(
-    const std::shared_ptr<arrow::Schema>& schema, cpp11::strings metadata) {
+std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata) {
   auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
 
-  auto kv =
-      std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+  return std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> Schema__WithMetadata(
+    const std::shared_ptr<arrow::Schema>& schema, cpp11::strings metadata) {
+  auto kv = strings_to_kvm(metadata);
   return schema->WithMetadata(std::move(kv));
 }
 

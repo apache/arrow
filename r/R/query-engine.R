@@ -185,7 +185,8 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      out <- ExecPlan_run(self, node, sorting, select_k)
+      # TODO(this PR): send output metadata in here
+      out <- ExecPlan_run(self, node, sorting, "", select_k)
 
       if (!has_sorting) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
