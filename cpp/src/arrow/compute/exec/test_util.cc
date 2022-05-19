@@ -315,9 +315,10 @@ bool operator==(const Declaration& l, const Declaration& r) {
       if (!l_agg->options->Equals(*r_agg->options)) return false;
 
       if (l_agg->target != r_agg->target) return false;
+      if (l_agg->name != r_agg->name) return false;
     }
 
-    return l_opts->names == r_opts->names && l_opts->keys == r_opts->keys;
+    return l_opts->keys == r_opts->keys;
   }
 
   if (l.factory_name == "order_by_sink") {
@@ -380,15 +381,10 @@ static inline void PrintToImpl(const std::string& factory_name,
       *os << agg.function << "<";
       if (agg.options) PrintTo(*agg.options, os);
       *os << agg.target.ToString() << "<";
+      *os << agg.name << "<";
       *os << ">,";
     }
     *os << "},";
-
-    *os << "names={";
-    for (const auto& name : o->names) {
-      *os << name << ",";
-    }
-    *os << "}";
 
     if (!o->keys.empty()) {
       *os << ",keys={";

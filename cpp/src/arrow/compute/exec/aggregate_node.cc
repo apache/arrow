@@ -89,7 +89,6 @@ class ScalarAggregateNode : public ExecNode {
     std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
     std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
     FieldVector fields(kernels.size());
-    const auto& field_names = aggregate_options.names;
     std::vector<int> target_field_ids(kernels.size());
 
     for (size_t i = 0; i < kernels.size(); ++i) {
@@ -130,7 +129,7 @@ class ScalarAggregateNode : public ExecNode {
       ARROW_ASSIGN_OR_RAISE(
           auto descr, kernels[i]->signature->out_type().Resolve(&kernel_ctx, {in_type}));
 
-      fields[i] = field(field_names[i], std::move(descr.type));
+      fields[i] = field(aggregate_options.aggregates[i].name, std::move(descr.type));
     }
 
     return plan->EmplaceNode<ScalarAggregateNode>(
@@ -296,7 +295,6 @@ class GroupByNode : public ExecNode {
     const auto& keys = aggregate_options.keys;
     // Copy (need to modify options pointer below)
     auto aggs = aggregate_options.aggregates;
-    const auto& field_names = aggregate_options.names;
 
     // Get input schema
     auto input_schema = input->output_schema();
@@ -341,7 +339,8 @@ class GroupByNode : public ExecNode {
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < aggs.size(); ++i) {
-      output_fields[i] = agg_result_fields[i]->WithName(field_names[i]);
+      output_fields[i] =
+          agg_result_fields[i]->WithName(aggregate_options.aggregates[i].name);
     }
     size_t base = aggs.size();
     for (size_t i = 0; i < keys.size(); ++i) {

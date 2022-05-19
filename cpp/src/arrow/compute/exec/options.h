@@ -112,15 +112,11 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
   AggregateNodeOptions(std::vector<internal::Aggregate> aggregates,
-                       std::vector<std::string> names, std::vector<FieldRef> keys = {})
-      : aggregates(std::move(aggregates)),
-        names(std::move(names)),
-        keys(std::move(keys)) {}
+                       std::vector<FieldRef> keys = {})
+      : aggregates(std::move(aggregates)), keys(std::move(keys)) {}
 
   // aggregations which will be applied to the targetted fields
   std::vector<internal::Aggregate> aggregates;
-  // output field names for aggregations
-  std::vector<std::string> names;
   // keys by which aggregations will be grouped
   std::vector<FieldRef> keys;
 };

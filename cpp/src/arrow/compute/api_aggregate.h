@@ -405,6 +405,9 @@ struct ARROW_EXPORT Aggregate {
 
   // fields to which aggregations will be applied
   FieldRef target;
+
+  // output field name for aggregations
+  std::string name;
 };
 
 }  // namespace internal

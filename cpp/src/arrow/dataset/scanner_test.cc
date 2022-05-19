@@ -1838,9 +1838,8 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   ASSERT_OK_AND_ASSIGN(
       compute::ExecNode * aggregate,
       compute::MakeExecNode("aggregate", plan.get(), {project},
-                            compute::AggregateNodeOptions{
-                                {compute::internal::Aggregate{"sum", nullptr, "a * 2"}},
-                                /*names=*/{"sum(a * 2)"}}));
+                            compute::AggregateNodeOptions{{compute::internal::Aggregate{
+                                "sum", nullptr, "a * 2", "sum(a * 2)"}}}));
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
@@ -1929,8 +1928,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
       compute::MakeExecNode(
           "aggregate", plan.get(), {project},
           compute::AggregateNodeOptions{
-              {compute::internal::Aggregate{"hash_sum", nullptr, "a * 2"}},
-              /*names=*/{"sum(a * 2)"},
+              {compute::internal::Aggregate{"hash_sum", nullptr, "a * 2", "sum(a * 2)"}},
               /*keys=*/{"b"}}));
 
   // finally, pipe the aggregate node into a sink node

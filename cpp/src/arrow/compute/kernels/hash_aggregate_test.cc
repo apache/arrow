@@ -126,10 +126,6 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
                                    const std::vector<internal::Aggregate>& aggregates,
                                    bool use_threads, ExecContext* ctx) {
   std::vector<FieldRef> keys(key_names.size());
-  std::vector<std::string> names(aggregates.size());
-  for (size_t i = 0; i < aggregates.size(); ++i) {
-    names[i] = aggregates[i].function;
-  }
   for (size_t i = 0; i < key_names.size(); ++i) {
     keys[i] = FieldRef(key_names[i]);
   }
@@ -141,8 +137,7 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
           {
               {"source",
                SourceNodeOptions{input.schema, input.gen(use_threads, /*slow=*/false)}},
-              {"aggregate", AggregateNodeOptions{std::move(aggregates), std::move(names),
-                                                 std::move(keys)}},
+              {"aggregate", AggregateNodeOptions{std::move(aggregates), std::move(keys)}},
               {"sink", SinkNodeOptions{&sink_gen}},
           })
           .AddToPlan(plan.get()));
@@ -750,7 +745,7 @@ TEST(GroupBy, NoBatches) {
       Datum aggregated_and_grouped,
       GroupByTest({table->GetColumnByName("argument")}, {table->GetColumnByName("key")},
                   {
-                      {"hash_count", nullptr, {"agg_0"}},
+                      {"hash_count", nullptr, "agg_0", "hash_count"},
                   },
                   /*use_threads=*/true, /*use_exec_plan=*/true));
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -815,7 +810,7 @@ TEST(GroupBy, CountOnly) {
                            GroupByTest({table->GetColumnByName("argument")},
                                        {table->GetColumnByName("key")},
                                        {
-                                           {"hash_count", nullptr, "agg_0"},
+                                           {"hash_count", nullptr, "agg_0", "hash_count"},
                                        },
                                        use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -852,14 +847,15 @@ TEST(GroupBy, CountScalar) {
   auto count_all = std::make_shared<CountOptions>(CountOptions::ALL);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    ASSERT_OK_AND_ASSIGN(Datum actual,
-                         GroupByUsingExecPlan(input, {"key"},
-                                              {
-                                                  {"hash_count", skip_nulls, "argument"},
-                                                  {"hash_count", keep_nulls, "argument"},
-                                                  {"hash_count", count_all, "argument"},
-                                              },
-                                              use_threads, default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual,
+        GroupByUsingExecPlan(input, {"key"},
+                             {
+                                 {"hash_count", skip_nulls, "argument", "hash_count"},
+                                 {"hash_count", keep_nulls, "argument", "hash_count"},
+                                 {"hash_count", count_all, "argument", "hash_count"},
+                             },
+                             use_threads, default_exec_context()));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_count", int64()),
                                        field("hash_count", int64()),
@@ -902,7 +898,7 @@ TEST(GroupBy, SumOnly) {
                            GroupByTest({table->GetColumnByName("argument")},
                                        {table->GetColumnByName("key")},
                                        {
-                                           {"hash_sum", nullptr, "agg_0"},
+                                           {"hash_sum", nullptr, "agg_0", "hash_sum"},
                                        },
                                        use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -967,12 +963,12 @@ TEST(GroupBy, SumMeanProductDecimal) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_sum", nullptr, "agg_0"},
-                                   {"hash_sum", nullptr, "agg_1"},
-                                   {"hash_mean", nullptr, "agg_2"},
-                                   {"hash_mean", nullptr, "agg_3"},
-                                   {"hash_product", nullptr, "agg_4"},
-                                   {"hash_product", nullptr, "agg_5"},
+                                   {"hash_sum", nullptr, "agg_0", "hash_sum"},
+                                   {"hash_sum", nullptr, "agg_1", "hash_sum"},
+                                   {"hash_mean", nullptr, "agg_2", "hash_mean"},
+                                   {"hash_mean", nullptr, "agg_3", "hash_mean"},
+                                   {"hash_product", nullptr, "agg_4", "hash_product"},
+                                   {"hash_product", nullptr, "agg_5", "hash_product"},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -1021,17 +1017,17 @@ TEST(GroupBy, MeanOnly) {
     [null,  3]
                         ])"});
 
-    auto min_count =
-        std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
-    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         internal::GroupBy({table->GetColumnByName("argument"),
-                                            table->GetColumnByName("argument")},
-                                           {table->GetColumnByName("key")},
-                                           {
-                                               {"hash_mean", nullptr, "agg_0"},
-                                               {"hash_mean", min_count, "agg_1"},
-                                           },
-                                           use_threads));
+    ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+    ASSERT_OK_AND_ASSIGN(
+        Datum aggregated_and_grouped,
+        internal::GroupBy(
+            {table->GetColumnByName("argument"), table->GetColumnByName("argument")},
+            {table->GetColumnByName("key")},
+            {
+                {"hash_mean", nullptr, "agg_0", "hash_mean"},
+                {"hash_mean", min_count, "agg_1", "hash_mean"},
+            },
+            use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
 
     AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -1063,14 +1059,15 @@ TEST(GroupBy, SumMeanProductScalar) {
 
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    ASSERT_OK_AND_ASSIGN(Datum actual,
-                         GroupByUsingExecPlan(input, {"key"},
-                                              {
-                                                  {"hash_sum", nullptr, "argument"},
-                                                  {"hash_mean", nullptr, "argument"},
-                                                  {"hash_product", nullptr, "argument"},
-                                              },
-                                              use_threads, default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual,
+        GroupByUsingExecPlan(input, {"key"},
+                             {
+                                 {"hash_sum", nullptr, "argument", "hash_sum"},
+                                 {"hash_mean", nullptr, "argument", "hash_mean"},
+                                 {"hash_product", nullptr, "argument", "hash_product"},
+                             },
+                             use_threads, default_exec_context()));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_sum", int64()),
                                        field("hash_mean", float64()),
@@ -1111,8 +1108,8 @@ TEST(GroupBy, VarianceAndStddev) {
                                batch->GetColumnByName("key"),
                            },
                            {
-                               {"hash_variance", nullptr, "agg_0"},
-                               {"hash_stddev", nullptr, "agg_1"},
+                               {"hash_variance", nullptr, "agg_0", "hash_variance_0"},
+                               {"hash_stddev", nullptr, "agg_1", "hash_stddev_1"},
                            }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -1153,8 +1150,8 @@ TEST(GroupBy, VarianceAndStddev) {
                                batch->GetColumnByName("key"),
                            },
                            {
-                               {"hash_variance", nullptr, "agg_0"},
-                               {"hash_stddev", nullptr, "agg_1"},
+                               {"hash_variance", nullptr, "agg_0", "hash_variance_0"},
+                               {"hash_stddev", nullptr, "agg_1", "hash_stddev_1"},
                            }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -1172,20 +1169,21 @@ TEST(GroupBy, VarianceAndStddev) {
                           /*verbose=*/true);
 
   // Test ddof
-  auto variance_options = std::make_shared<VarianceOptions>(/*ddof=*/2);
-  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
-                       internal::GroupBy(
-                           {
-                               batch->GetColumnByName("argument"),
-                               batch->GetColumnByName("argument"),
-                           },
-                           {
-                               batch->GetColumnByName("key"),
-                           },
-                           {
-                               {"hash_variance", variance_options, "agg_0"},
-                               {"hash_stddev", variance_options, "agg_1"},
-                           }));
+  VarianceOptions variance_options(/*ddof=*/2);
+  ASSERT_OK_AND_ASSIGN(
+      aggregated_and_grouped,
+      internal::GroupBy(
+          {
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("argument"),
+          },
+          {
+              batch->GetColumnByName("key"),
+          },
+          {
+              {"hash_variance", variance_options, "agg_0", "hash_variance_0"},
+              {"hash_stddev", variance_options, "agg_1", "hash_stddev_0"},
+          }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
                                             field("hash_variance", float64()),
@@ -1229,10 +1227,10 @@ TEST(GroupBy, VarianceAndStddevDecimal) {
                                batch->GetColumnByName("key"),
                            },
                            {
-                               {"hash_variance", nullptr, "agg_0"},
-                               {"hash_stddev", nullptr, "agg_1"},
-                               {"hash_variance", nullptr, "agg_2"},
-                               {"hash_stddev", nullptr, "agg_3"},
+                               {"hash_variance", nullptr, "agg_0", "hash_variance_0"},
+                               {"hash_stddev", nullptr, "agg_1", "hash_stddev_1"},
+                               {"hash_variance", nullptr, "agg_2", "hash_variance_2"},
+                               {"hash_stddev", nullptr, "agg_3", "hash_stddev_3"},
                            }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -1270,40 +1268,37 @@ TEST(GroupBy, TDigest) {
     [null, 4]
   ])");
 
-  auto options1 = std::make_shared<TDigestOptions>(std::vector<double>{0.5, 0.9, 0.99});
-  auto options2 =
-      std::make_shared<TDigestOptions>(std::vector<double>{0.5, 0.9, 0.99}, /*delta=*/50,
-                                       /*buffer_size=*/1024);
-  auto keep_nulls =
-      std::make_shared<TDigestOptions>(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
-                                       /*skip_nulls=*/false, /*min_count=*/0);
-  auto min_count =
-      std::make_shared<TDigestOptions>(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
-                                       /*skip_nulls=*/true, /*min_count=*/3);
-  auto keep_nulls_min_count =
-      std::make_shared<TDigestOptions>(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
-                                       /*skip_nulls=*/false, /*min_count=*/3);
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
-                           {
-                               batch->GetColumnByName("argument"),
-                               batch->GetColumnByName("argument"),
-                               batch->GetColumnByName("argument"),
-                               batch->GetColumnByName("argument"),
-                               batch->GetColumnByName("argument"),
-                               batch->GetColumnByName("argument"),
-                           },
-                           {
-                               batch->GetColumnByName("key"),
-                           },
-                           {
-                               {"hash_tdigest", nullptr, "agg_0"},
-                               {"hash_tdigest", options1, "agg_1"},
-                               {"hash_tdigest", options2, "agg_2"},
-                               {"hash_tdigest", keep_nulls, "agg_3"},
-                               {"hash_tdigest", min_count, "agg_4"},
-                               {"hash_tdigest", keep_nulls_min_count, "agg_5"},
-                           }));
+  TDigestOptions options1(std::vector<double>{0.5, 0.9, 0.99});
+  TDigestOptions options2(std::vector<double>{0.5, 0.9, 0.99}, /*delta=*/50,
+                          /*buffer_size=*/1024);
+  TDigestOptions keep_nulls(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                            /*skip_nulls=*/false, /*min_count=*/0);
+  TDigestOptions min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                           /*skip_nulls=*/true, /*min_count=*/3);
+  TDigestOptions keep_nulls_min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                                      /*skip_nulls=*/false, /*min_count=*/3);
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      internal::GroupBy(
+          {
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("argument"),
+          },
+          {
+              batch->GetColumnByName("key"),
+          },
+          {
+              {"hash_tdigest", nullptr, "agg_0", "hash_tdigest_0"},
+              {"hash_tdigest", options1, "agg_1", "hash_tdigest_1"},
+              {"hash_tdigest", options2, "agg_2", "hash_tdigest_2"},
+              {"hash_tdigest", keep_nulls, "agg_3", "hash_tdigest_3"},
+              {"hash_tdigest", min_count, "agg_4", "hash_tdigest_4"},
+              {"hash_tdigest", keep_nulls_min_count, "agg_5", "hash_tdigest_5"},
+          }));
 
   AssertDatumsApproxEqual(
       ArrayFromJSON(struct_({
@@ -1349,8 +1344,8 @@ TEST(GroupBy, TDigestDecimal) {
                            },
                            {batch->GetColumnByName("key")},
                            {
-                               {"hash_tdigest", nullptr, "agg_0"},
-                               {"hash_tdigest", nullptr, "agg_1"},
+                               {"hash_tdigest", nullptr, "agg_0", "hash_tdigest_0"},
+                               {"hash_tdigest", nullptr, "agg_1", "hash_tdigest_1"},
                            }));
 
   AssertDatumsApproxEqual(
@@ -1395,24 +1390,27 @@ TEST(GroupBy, ApproximateMedian) {
         /*skip_nulls=*/true, /*min_count=*/3);
     auto keep_nulls_min_count = std::make_shared<ScalarAggregateOptions>(
         /*skip_nulls=*/false, /*min_count=*/3);
-    ASSERT_OK_AND_ASSIGN(
-        Datum aggregated_and_grouped,
-        internal::GroupBy(
-            {
-                batch->GetColumnByName("argument"),
-                batch->GetColumnByName("argument"),
-                batch->GetColumnByName("argument"),
-                batch->GetColumnByName("argument"),
-            },
-            {
-                batch->GetColumnByName("key"),
-            },
-            {
-                {"hash_approximate_median", options, "agg_0"},
-                {"hash_approximate_median", keep_nulls, "agg_1"},
-                {"hash_approximate_median", min_count, "agg_2"},
-                {"hash_approximate_median", keep_nulls_min_count, "agg_3"},
-            }));
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                             },
+                             {
+                                 batch->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_approximate_median", options, "agg_0",
+                                  "hash_approximate_median_0"},
+                                 {"hash_approximate_median", keep_nulls, "agg_1",
+                                  "hash_approximate_median_1"},
+                                 {"hash_approximate_median", min_count, "agg_2",
+                                  "hash_approximate_median_2"},
+                                 {"hash_approximate_median", keep_nulls_min_count,
+                                  "agg_3", "hash_approximate_median_3"},
+                             }));
 
     AssertDatumsApproxEqual(ArrayFromJSON(struct_({
                                               field("hash_approximate_median", float64()),
@@ -1450,17 +1448,18 @@ TEST(GroupBy, StddevVarianceTDigestScalar) {
 
   for (bool use_threads : {false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    ASSERT_OK_AND_ASSIGN(Datum actual,
-                         GroupByUsingExecPlan(input, {"key"},
-                                              {
-                                                  {"hash_stddev", nullptr, "argument"},
-                                                  {"hash_variance", nullptr, "argument"},
-                                                  {"hash_tdigest", nullptr, "argument"},
-                                                  {"hash_stddev", nullptr, "argument1"},
-                                                  {"hash_variance", nullptr, "argument1"},
-                                                  {"hash_tdigest", nullptr, "argument1"},
-                                              },
-                                              use_threads, default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual,
+        GroupByUsingExecPlan(input, {"key"},
+                             {
+                                 {"hash_stddev", nullptr, "argument", "hash_stddev"},
+                                 {"hash_variance", nullptr, "argument", "hash_variance"},
+                                 {"hash_tdigest", nullptr, "argument", "hash_tdigest"},
+                                 {"hash_stddev", nullptr, "argument1", "hash_stddev"},
+                                 {"hash_variance", nullptr, "argument1", "hash_variance"},
+                                 {"hash_tdigest", nullptr, "argument1", "hash_tdigest"},
+                             },
+                             use_threads, default_exec_context()));
     Datum expected =
         ArrayFromJSON(struct_({
                           field("hash_stddev", float64()),
@@ -1510,16 +1509,17 @@ TEST(GroupBy, VarianceOptions) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
     ASSERT_OK_AND_ASSIGN(
         Datum actual,
-        GroupByUsingExecPlan(input, {"key"},
-                             {
-                                 {"hash_stddev", keep_nulls, "argument"},
-                                 {"hash_stddev", min_count, "argument"},
-                                 {"hash_stddev", keep_nulls_min_count, "argument"},
-                                 {"hash_variance", keep_nulls, "argument"},
-                                 {"hash_variance", min_count, "argument"},
-                                 {"hash_variance", keep_nulls_min_count, "argument"},
-                             },
-                             use_threads, default_exec_context()));
+        GroupByUsingExecPlan(
+            input, {"key"},
+            {
+                {"hash_stddev", keep_nulls, "argument", "hash_stddev"},
+                {"hash_stddev", min_count, "argument", "hash_stddev"},
+                {"hash_stddev", keep_nulls_min_count, "argument", "hash_stddev"},
+                {"hash_variance", keep_nulls, "argument", "hash_variance"},
+                {"hash_variance", min_count, "argument", "hash_variance"},
+                {"hash_variance", keep_nulls_min_count, "argument", "hash_variance"},
+            },
+            use_threads, default_exec_context()));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_stddev", float64()),
                                        field("hash_stddev", float64()),
@@ -1540,16 +1540,17 @@ TEST(GroupBy, VarianceOptions) {
 
     ASSERT_OK_AND_ASSIGN(
         actual,
-        GroupByUsingExecPlan(input, {"key"},
-                             {
-                                 {"hash_stddev", keep_nulls, "argument1"},
-                                 {"hash_stddev", min_count, "argument1"},
-                                 {"hash_stddev", keep_nulls_min_count, "argument1"},
-                                 {"hash_variance", keep_nulls, "argument1"},
-                                 {"hash_variance", min_count, "argument1"},
-                                 {"hash_variance", keep_nulls_min_count, "argument1"},
-                             },
-                             use_threads, default_exec_context()));
+        GroupByUsingExecPlan(
+            input, {"key"},
+            {
+                {"hash_stddev", keep_nulls, "argument1", "hash_stddev"},
+                {"hash_stddev", min_count, "argument1", "hash_stddev"},
+                {"hash_stddev", keep_nulls_min_count, "argument1", "hash_stddev"},
+                {"hash_variance", keep_nulls, "argument1", "hash_variance"},
+                {"hash_variance", min_count, "argument1", "hash_variance"},
+                {"hash_variance", keep_nulls_min_count, "argument1", "hash_variance"},
+            },
+            use_threads, default_exec_context()));
     expected = ArrayFromJSON(struct_({
                                  field("hash_stddev", float64()),
                                  field("hash_stddev", float64()),
@@ -1607,9 +1608,9 @@ TEST(GroupBy, MinMaxOnly) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_min_max", nullptr, "agg_0"},
-                                   {"hash_min_max", nullptr, "agg_1"},
-                                   {"hash_min_max", nullptr, "agg_2"},
+                                   {"hash_min_max", nullptr, "agg_0", "hash_min_max"},
+                                   {"hash_min_max", nullptr, "agg_1", "hash_min_max"},
+                                   {"hash_min_max", nullptr, "agg_2", "hash_min_max"},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
@@ -1711,11 +1712,11 @@ TEST(GroupBy, MinMaxTypes) {
     auto table =
         TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table : default_table);
 
-    ASSERT_OK_AND_ASSIGN(
-        Datum aggregated_and_grouped,
-        GroupByTest({table->GetColumnByName("argument0")},
-                    {table->GetColumnByName("key")}, {{"hash_min_max", nullptr, "agg_0"}},
-                    /*use_threads=*/true, /*use_exec_plan=*/true));
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest({table->GetColumnByName("argument0")},
+                                     {table->GetColumnByName("key")},
+                                     {{"hash_min_max", nullptr, "agg_0", "hash_min_max"}},
+                                     /*use_threads=*/true, /*use_exec_plan=*/true));
     ValidateOutput(aggregated_and_grouped);
     SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -1768,8 +1769,8 @@ TEST(GroupBy, MinMaxDecimal) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_min_max", nullptr, "agg_0"},
-                                   {"hash_min_max", nullptr, "agg_1"},
+                                   {"hash_min_max", nullptr, "agg_0", "hash_min_max"},
+                                   {"hash_min_max", nullptr, "agg_1", "hash_min_max"},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
@@ -1827,11 +1828,12 @@ TEST(GroupBy, MinMaxBinary) {
     [null,    3]
 ])"});
 
-        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                             GroupByTest({table->GetColumnByName("argument0")},
-                                         {table->GetColumnByName("key")},
-                                         {{"hash_min_max", nullptr, "agg_0"}},
-                                         use_threads, use_exec_plan));
+        ASSERT_OK_AND_ASSIGN(
+            Datum aggregated_and_grouped,
+            GroupByTest({table->GetColumnByName("argument0")},
+                        {table->GetColumnByName("key")},
+                        {{"hash_min_max", nullptr, "agg_0", "hash_min_max"}}, use_threads,
+                        use_exec_plan));
         ValidateOutput(aggregated_and_grouped);
         SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -1885,7 +1887,8 @@ TEST(GroupBy, MinMaxFixedSizeBinary) {
           Datum aggregated_and_grouped,
           GroupByTest({table->GetColumnByName("argument0")},
                       {table->GetColumnByName("key")},
-                      {{"hash_min_max", nullptr, "agg_0"}}, use_threads, use_exec_plan));
+                      {{"hash_min_max", nullptr, "agg_0", "hash_min_max"}}, use_threads,
+                      use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
       SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -1938,8 +1941,8 @@ TEST(GroupBy, MinOrMax) {
                                     table->GetColumnByName("argument")},
                                    {table->GetColumnByName("key")},
                                    {
-                                       {"hash_min", nullptr, "agg_0"},
-                                       {"hash_max", nullptr, "agg_1"},
+                                       {"hash_min", nullptr, "agg_0", "hash_min"},
+                                       {"hash_max", nullptr, "agg_1", "hash_max"},
                                    },
                                    /*use_threads=*/true, /*use_exec_plan=*/true));
   SortBy({"key_0"}, &aggregated_and_grouped);
@@ -1975,7 +1978,8 @@ TEST(GroupBy, MinMaxScalar) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
     ASSERT_OK_AND_ASSIGN(
         Datum actual,
-        GroupByUsingExecPlan(input, {"key"}, {{"hash_min_max", nullptr, "argument"}},
+        GroupByUsingExecPlan(input, {"key"},
+                             {{"hash_min_max", nullptr, "argument", "hash_min_max"}},
                              use_threads, default_exec_context()));
     Datum expected =
         ArrayFromJSON(struct_({
@@ -2039,14 +2043,14 @@ TEST(GroupBy, AnyAndAll) {
                              },
                              {table->GetColumnByName("key")},
                              {
-                                 {"hash_any", no_min, "agg_0"},
-                                 {"hash_any", min_count, "agg_1"},
-                                 {"hash_any", keep_nulls, "agg_2"},
-                                 {"hash_any", keep_nulls_min_count, "agg_3"},
-                                 {"hash_all", no_min, "agg_4"},
-                                 {"hash_all", min_count, "agg_5"},
-                                 {"hash_all", keep_nulls, "agg_6"},
-                                 {"hash_all", keep_nulls_min_count, "agg_7"},
+                                 {"hash_any", no_min, "agg_0", "hash_any"},
+                                 {"hash_any", min_count, "agg_1", "hash_any"},
+                                 {"hash_any", keep_nulls, "agg_2", "hash_any"},
+                                 {"hash_any", keep_nulls_min_count, "agg_3", "hash_any"},
+                                 {"hash_all", no_min, "agg_4", "hash_all"},
+                                 {"hash_all", min_count, "agg_5", "hash_all"},
+                                 {"hash_all", keep_nulls, "agg_6", "hash_all"},
+                                 {"hash_all", keep_nulls_min_count, "agg_7", "hash_all"},
                              },
                              use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
@@ -2096,15 +2100,16 @@ TEST(GroupBy, AnyAllScalar) {
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/0);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    ASSERT_OK_AND_ASSIGN(Datum actual,
-                         GroupByUsingExecPlan(input, {"key"},
-                                              {
-                                                  {"hash_any", nullptr, "argument"},
-                                                  {"hash_all", nullptr, "argument"},
-                                                  {"hash_any", keep_nulls, "argument"},
-                                                  {"hash_all", keep_nulls, "argument"},
-                                              },
-                                              use_threads, default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual,
+        GroupByUsingExecPlan(input, {"key"},
+                             {
+                                 {"hash_any", nullptr, "argument", "hash_any"},
+                                 {"hash_all", nullptr, "argument", "hash_all"},
+                                 {"hash_any", keep_nulls, "argument", "hash_any"},
+                                 {"hash_all", keep_nulls, "argument", "hash_all"},
+                             },
+                             use_threads, default_exec_context()));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_any", boolean()),
                                        field("hash_all", boolean()),
@@ -2159,22 +2164,23 @@ TEST(GroupBy, CountDistinct) {
     [3,    null]
   ])"});
 
-    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         internal::GroupBy(
-                             {
-                                 table->GetColumnByName("argument"),
-                                 table->GetColumnByName("argument"),
-                                 table->GetColumnByName("argument"),
-                             },
-                             {
-                                 table->GetColumnByName("key"),
-                             },
-                             {
-                                 {"hash_count_distinct", all, "agg_0"},
-                                 {"hash_count_distinct", only_valid, "agg_1"},
-                                 {"hash_count_distinct", only_null, "agg_2"},
-                             },
-                             use_threads));
+    ASSERT_OK_AND_ASSIGN(
+        Datum aggregated_and_grouped,
+        internal::GroupBy(
+            {
+                table->GetColumnByName("argument"),
+                table->GetColumnByName("argument"),
+                table->GetColumnByName("argument"),
+            },
+            {
+                table->GetColumnByName("key"),
+            },
+            {
+                {"hash_count_distinct", all, "agg_0", "hash_count_distinct"},
+                {"hash_count_distinct", only_valid, "agg_1", "hash_count_distinct"},
+                {"hash_count_distinct", only_null, "agg_2", "hash_count_distinct"},
+            },
+            use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
     ValidateOutput(aggregated_and_grouped);
 
@@ -2225,22 +2231,23 @@ TEST(GroupBy, CountDistinct) {
     ["b",    null]
   ])"});
 
-    ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
-                         internal::GroupBy(
-                             {
-                                 table->GetColumnByName("argument"),
-                                 table->GetColumnByName("argument"),
-                                 table->GetColumnByName("argument"),
-                             },
-                             {
-                                 table->GetColumnByName("key"),
-                             },
-                             {
-                                 {"hash_count_distinct", all, "agg_0"},
-                                 {"hash_count_distinct", only_valid, "agg_1"},
-                                 {"hash_count_distinct", only_null, "agg_2"},
-                             },
-                             use_threads));
+    ASSERT_OK_AND_ASSIGN(
+        aggregated_and_grouped,
+        internal::GroupBy(
+            {
+                table->GetColumnByName("argument"),
+                table->GetColumnByName("argument"),
+                table->GetColumnByName("argument"),
+            },
+            {
+                table->GetColumnByName("key"),
+            },
+            {
+                {"hash_count_distinct", all, "agg_0", "hash_count_distinct"},
+                {"hash_count_distinct", only_valid, "agg_1", "hash_count_distinct"},
+                {"hash_count_distinct", only_null, "agg_2", "hash_count_distinct"},
+            },
+            use_threads));
     ValidateOutput(aggregated_and_grouped);
     SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -2271,22 +2278,23 @@ TEST(GroupBy, CountDistinct) {
 ])",
                                                                                   });
 
-    ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
-                         internal::GroupBy(
-                             {
-                                 table->GetColumnByName("argument"),
-                                 table->GetColumnByName("argument"),
-                                 table->GetColumnByName("argument"),
-                             },
-                             {
-                                 table->GetColumnByName("key"),
-                             },
-                             {
-                                 {"hash_count_distinct", all, "agg_0"},
-                                 {"hash_count_distinct", only_valid, "agg_1"},
-                                 {"hash_count_distinct", only_null, "agg_2"},
-                             },
-                             use_threads));
+    ASSERT_OK_AND_ASSIGN(
+        aggregated_and_grouped,
+        internal::GroupBy(
+            {
+                table->GetColumnByName("argument"),
+                table->GetColumnByName("argument"),
+                table->GetColumnByName("argument"),
+            },
+            {
+                table->GetColumnByName("key"),
+            },
+            {
+                {"hash_count_distinct", all, "agg_0", "hash_count_distinct"},
+                {"hash_count_distinct", only_valid, "agg_1", "hash_count_distinct"},
+                {"hash_count_distinct", only_null, "agg_2", "hash_count_distinct"},
+            },
+            use_threads));
     ValidateOutput(aggregated_and_grouped);
     SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -2354,9 +2362,9 @@ TEST(GroupBy, Distinct) {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_distinct", all, "agg_0"},
-                                 {"hash_distinct", only_valid, "agg_1"},
-                                 {"hash_distinct", only_null, "agg_2"},
+                                 {"hash_distinct", all, "agg_0", "hash_distinct"},
+                                 {"hash_distinct", only_valid, "agg_1", "hash_distinct"},
+                                 {"hash_distinct", only_null, "agg_2", "hash_distinct"},
                              },
                              use_threads));
     ValidateOutput(aggregated_and_grouped);
@@ -2427,9 +2435,9 @@ TEST(GroupBy, Distinct) {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_distinct", all, "agg_0"},
-                                 {"hash_distinct", only_valid, "agg_1"},
-                                 {"hash_distinct", only_null, "agg_2"},
+                                 {"hash_distinct", all, "agg_0", "hash_distinct"},
+                                 {"hash_distinct", only_valid, "agg_1", "hash_distinct"},
+                                 {"hash_distinct", only_null, "agg_2", "hash_distinct"},
                              },
                              use_threads));
     ValidateOutput(aggregated_and_grouped);
@@ -2491,12 +2499,12 @@ TEST(GroupBy, OneMiscTypes) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_one", nullptr, "agg_0"},
-                                   {"hash_one", nullptr, "agg_1"},
-                                   {"hash_one", nullptr, "agg_2"},
-                                   {"hash_one", nullptr, "agg_3"},
-                                   {"hash_one", nullptr, "agg_4"},
-                                   {"hash_one", nullptr, "agg_5"},
+                                   {"hash_one", nullptr, "agg_0", "hash_one"},
+                                   {"hash_one", nullptr, "agg_1", "hash_one"},
+                                   {"hash_one", nullptr, "agg_2", "hash_one"},
+                                   {"hash_one", nullptr, "agg_3", "hash_one"},
+                                   {"hash_one", nullptr, "agg_4", "hash_one"},
+                                   {"hash_one", nullptr, "agg_5", "hash_one"},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
@@ -2619,11 +2627,11 @@ TEST(GroupBy, OneNumericTypes) {
         auto table =
             TableFromJSON(in_schema, (type->name() == "date64") ? temporal_table_json
                                                                 : numeric_table_json);
-        ASSERT_OK_AND_ASSIGN(
-            Datum aggregated_and_grouped,
-            GroupByTest({table->GetColumnByName("argument0")},
-                        {table->GetColumnByName("key")}, {{"hash_one", nullptr, "agg_0"}},
-                        use_threads, use_exec_plan));
+        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                             GroupByTest({table->GetColumnByName("argument0")},
+                                         {table->GetColumnByName("key")},
+                                         {{"hash_one", nullptr, "agg_0", "hash_one"}},
+                                         use_threads, use_exec_plan));
         ValidateOutput(aggregated_and_grouped);
         SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -2682,11 +2690,11 @@ TEST(GroupBy, OneBinaryTypes) {
     [null,  3]
 ])"});
 
-        ASSERT_OK_AND_ASSIGN(
-            Datum aggregated_and_grouped,
-            GroupByTest({table->GetColumnByName("argument0")},
-                        {table->GetColumnByName("key")}, {{"hash_one", nullptr, "agg_0"}},
-                        use_threads, use_exec_plan));
+        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                             GroupByTest({table->GetColumnByName("argument0")},
+                                         {table->GetColumnByName("key")},
+                                         {{"hash_one", nullptr, "agg_0", "hash_one"}},
+                                         use_threads, use_exec_plan));
         ValidateOutput(aggregated_and_grouped);
         SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -2718,9 +2726,9 @@ TEST(GroupBy, OneScalar) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
     ASSERT_OK_AND_ASSIGN(
-        Datum actual,
-        GroupByUsingExecPlan(input, {"key"}, {{"hash_one", nullptr, "argument"}},
-                             use_threads, default_exec_context()));
+        Datum actual, GroupByUsingExecPlan(
+                          input, {"key"}, {{"hash_one", nullptr, "argument", "hash_one"}},
+                          use_threads, default_exec_context()));
 
     const auto& struct_arr = actual.array_as<StructArray>();
     //  Check the key column
@@ -2780,7 +2788,7 @@ TEST(GroupBy, ListNumeric) {
                                      table->GetColumnByName("key"),
                                  },
                                  {
-                                     {"hash_list", nullptr, "agg_0"},
+                                     {"hash_list", nullptr, "agg_0", "hash_list"},
                                  },
                                  use_threads));
         ValidateOutput(aggregated_and_grouped);
@@ -2851,7 +2859,7 @@ TEST(GroupBy, ListNumeric) {
                                      table->GetColumnByName("key"),
                                  },
                                  {
-                                     {"hash_list", nullptr, "agg_0"},
+                                     {"hash_list", nullptr, "agg_0", "hash_list"},
                                  },
                                  use_threads));
         ValidateOutput(aggregated_and_grouped);
@@ -2920,7 +2928,7 @@ TEST(GroupBy, ListBinaryTypes) {
                                      table->GetColumnByName("key"),
                                  },
                                  {
-                                     {"hash_list", nullptr, "agg_0"},
+                                     {"hash_list", nullptr, "agg_0", "hash_list"},
                                  },
                                  use_threads));
         ValidateOutput(aggregated_and_grouped);
@@ -2982,7 +2990,7 @@ TEST(GroupBy, ListBinaryTypes) {
                                      table->GetColumnByName("key"),
                                  },
                                  {
-                                     {"hash_list", nullptr, "agg_0"},
+                                     {"hash_list", nullptr, "agg_0", "hash_list"},
                                  },
                                  use_threads));
         ValidateOutput(aggregated_and_grouped);
@@ -3060,12 +3068,12 @@ TEST(GroupBy, ListMiscTypes) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_list", nullptr, "agg_0"},
-                                   {"hash_list", nullptr, "agg_1"},
-                                   {"hash_list", nullptr, "agg_2"},
-                                   {"hash_list", nullptr, "agg_3"},
-                                   {"hash_list", nullptr, "agg_4"},
-                                   {"hash_list", nullptr, "agg_5"},
+                                   {"hash_list", nullptr, "agg_0", "hash_list"},
+                                   {"hash_list", nullptr, "agg_1", "hash_list"},
+                                   {"hash_list", nullptr, "agg_2", "hash_list"},
+                                   {"hash_list", nullptr, "agg_3", "hash_list"},
+                                   {"hash_list", nullptr, "agg_4", "hash_list"},
+                                   {"hash_list", nullptr, "agg_5", "hash_list"},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
@@ -3213,12 +3221,12 @@ TEST(GroupBy, CountAndSum) {
               batch->GetColumnByName("key"),
           },
           {
-              {"hash_count", count_options, "agg_0"},
-              {"hash_count", count_nulls, "agg_1"},
-              {"hash_count", count_all, "agg_2"},
-              {"hash_sum", nullptr, "agg_3"},
-              {"hash_sum", min_count, "agg_4"},
-              {"hash_sum", nullptr, "agg_5"},
+              {"hash_count", count_options, "agg_0", "hash_count"},
+              {"hash_count", count_nulls, "agg_1", "hash_count"},
+              {"hash_count", count_all, "agg_2", "hash_count"},
+              {"hash_sum", nullptr, "agg_3", "hash_sum"},
+              {"hash_sum", min_count, "agg_4", "hash_sum"},
+              {"hash_sum", nullptr, "agg_5", "hash_sum"},
           }));
 
   AssertDatumsEqual(
@@ -3270,9 +3278,9 @@ TEST(GroupBy, Product) {
                                batch->GetColumnByName("key"),
                            },
                            {
-                               {"hash_product", nullptr, "agg_0"},
-                               {"hash_product", nullptr, "agg_1"},
-                               {"hash_product", min_count, "agg_2"},
+                               {"hash_product", nullptr, "agg_0", "hash_product"},
+                               {"hash_product", nullptr, "agg_1", "hash_product"},
+                               {"hash_product", min_count, "agg_2", "hash_product"},
                            }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -3297,16 +3305,17 @@ TEST(GroupBy, Product) {
     [8589934593, 1]
   ])");
 
-  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped, internal::GroupBy(
-                                                   {
-                                                       batch->GetColumnByName("argument"),
-                                                   },
-                                                   {
-                                                       batch->GetColumnByName("key"),
-                                                   },
-                                                   {
-                                                       {"hash_product", nullptr, "agg_0"},
-                                                   }));
+  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               batch->GetColumnByName("argument"),
+                           },
+                           {
+                               batch->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_product", nullptr, "agg_0", "hash_product"},
+                           }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
                                             field("hash_product", int64()),
@@ -3349,12 +3358,12 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
                                batch->GetColumnByName("key"),
                            },
                            {
-                               {"hash_sum", keep_nulls, "agg_0"},
-                               {"hash_sum", min_count, "agg_1"},
-                               {"hash_mean", keep_nulls, "agg_2"},
-                               {"hash_mean", min_count, "agg_3"},
-                               {"hash_product", keep_nulls, "agg_4"},
-                               {"hash_product", min_count, "agg_5"},
+                               {"hash_sum", keep_nulls, "agg_0", "hash_sum"},
+                               {"hash_sum", min_count, "agg_1", "hash_sum"},
+                               {"hash_mean", keep_nulls, "agg_2", "hash_mean"},
+                               {"hash_mean", min_count, "agg_3", "hash_mean"},
+                               {"hash_product", keep_nulls, "agg_4", "hash_product"},
+                               {"hash_product", min_count, "agg_5", "hash_product"},
                            }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -3398,7 +3407,7 @@ TEST(GroupBy, SumOnlyStringAndDictKeys) {
                          internal::GroupBy({batch->GetColumnByName("argument")},
                                            {batch->GetColumnByName("key")},
                                            {
-                                               {"hash_sum", nullptr, "agg_0"},
+                                               {"hash_sum", nullptr, "agg_0", "hash_sum"},
                                            }));
     SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -3441,11 +3450,11 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
 
   using internal::Aggregate;
   for (auto agg : {
-           Aggregate{"hash_sum", nullptr, "agg_0"},
-           Aggregate{"hash_count", non_null, "agg_1"},
-           Aggregate{"hash_count", nulls, "agg_2"},
-           Aggregate{"hash_min_max", nullptr, "agg_3"},
-           Aggregate{"hash_min_max", keepna, "agg_4"},
+           Aggregate{"hash_sum", nullptr, "agg_0", "hash_sum"},
+           Aggregate{"hash_count", non_null, "agg_1", "hash_count"},
+           Aggregate{"hash_count", nulls, "agg_2", "hash_count"},
+           Aggregate{"hash_min_max", nullptr, "agg_3", "hash_min_max"},
+           Aggregate{"hash_min_max", keepna, "agg_4", "hash_min_max"},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -3469,8 +3478,8 @@ TEST(GroupBy, CountNull) {
 
   using internal::Aggregate;
   for (auto agg : {
-           Aggregate{"hash_count", keepna, "agg_0"},
-           Aggregate{"hash_count", skipna, "agg_1"},
+           Aggregate{"hash_count", keepna, "agg_0", "hash_count"},
+           Aggregate{"hash_count", skipna, "agg_1", "hash_count"},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -3494,7 +3503,7 @@ TEST(GroupBy, RandomArraySum) {
 
       ValidateGroupBy(
           {
-              {"hash_sum", options, "agg_0"},
+              {"hash_sum", options, "agg_0", "hash_sum"},
           },
           {batch->GetColumnByName("argument")}, {batch->GetColumnByName("key")});
     }
@@ -3527,9 +3536,9 @@ TEST(GroupBy, WithChunkedArray) {
                                table->GetColumnByName("key"),
                            },
                            {
-                               {"hash_count", nullptr, "agg_0"},
-                               {"hash_sum", nullptr, "agg_1"},
-                               {"hash_min_max", nullptr, "agg_2"},
+                               {"hash_count", nullptr, "agg_0", "hash_count"},
+                               {"hash_sum", nullptr, "agg_1", "hash_sum"},
+                               {"hash_min_max", nullptr, "agg_2", "hash_min_max"},
                            }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -3565,7 +3574,7 @@ TEST(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
                                table->GetColumnByName("key"),
                            },
                            {
-                               {"hash_min_max", nullptr, "agg_1"},
+                               {"hash_min_max", nullptr, "agg_1", "hash_min_max"},
                            }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -3601,7 +3610,7 @@ TEST(GroupBy, SmallChunkSizeSumOnly) {
                        internal::GroupBy({batch->GetColumnByName("argument")},
                                          {batch->GetColumnByName("key")},
                                          {
-                                             {"hash_sum", nullptr, "agg_0"},
+                                             {"hash_sum", nullptr, "agg_0", "hash_sum"},
                                          },
                                          small_chunksize_context()));
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -3653,9 +3662,9 @@ TEST(GroupBy, CountWithNullType) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_count", all, "agg_0"},
-                                   {"hash_count", only_valid, "agg_1"},
-                                   {"hash_count", only_null, "agg_2"},
+                                   {"hash_count", all, "agg_0", "hash_count"},
+                                   {"hash_count", only_valid, "agg_1", "hash_count"},
+                                   {"hash_count", only_null, "agg_2", "hash_count"},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -3698,9 +3707,9 @@ TEST(GroupBy, CountWithNullTypeEmptyTable) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_count", all, "agg_0"},
-                                   {"hash_count", only_valid, "agg_1"},
-                                   {"hash_count", only_null, "agg_2"},
+                                   {"hash_count", all, "agg_0", "hash_count"},
+                                   {"hash_count", only_valid, "agg_1", "hash_count"},
+                                   {"hash_count", only_null, "agg_2", "hash_count"},
                                },
                                use_threads, use_exec_plan));
       auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
@@ -3743,10 +3752,10 @@ TEST(GroupBy, SingleNullTypeKey) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_count", nullptr, "agg_0"},
-                                   {"hash_sum", nullptr, "agg_1"},
-                                   {"hash_mean", nullptr, "agg_2"},
-                                   {"hash_min_max", nullptr, "agg_3"},
+                                   {"hash_count", nullptr, "agg_0", "hash_count"},
+                                   {"hash_sum", nullptr, "agg_1", "hash_sum"},
+                                   {"hash_mean", nullptr, "agg_2", "hash_mean"},
+                                   {"hash_min_max", nullptr, "agg_3", "hash_min_max"},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -3803,9 +3812,9 @@ TEST(GroupBy, MultipleKeysIncludesNullType) {
               },
               {table->GetColumnByName("key_0"), table->GetColumnByName("key_1")},
               {
-                  {"hash_count", nullptr, "agg_0"},
-                  {"hash_sum", nullptr, "agg_1"},
-                  {"hash_min_max", nullptr, "agg_2"},
+                  {"hash_count", nullptr, "agg_0", "hash_count"},
+                  {"hash_sum", nullptr, "agg_1", "hash_sum"},
+                  {"hash_min_max", nullptr, "agg_2", "hash_min_max"},
               },
               use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -3864,22 +3873,23 @@ TEST(GroupBy, SumNullType) {
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                           GroupByTest(
-                               {
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                               },
-                               {table->GetColumnByName("key")},
-                               {
-                                   {"hash_sum", no_min, "agg_0"},
-                                   {"hash_sum", keep_nulls, "agg_1"},
-                                   {"hash_sum", min_count, "agg_2"},
-                                   {"hash_sum", keep_nulls_min_count, "agg_3"},
-                               },
-                               use_threads, use_exec_plan));
+      ASSERT_OK_AND_ASSIGN(
+          Datum aggregated_and_grouped,
+          GroupByTest(
+              {
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+              },
+              {table->GetColumnByName("key")},
+              {
+                  {"hash_sum", no_min, "agg_0", "hash_sum"},
+                  {"hash_sum", keep_nulls, "agg_1", "hash_sum"},
+                  {"hash_sum", min_count, "agg_2", "hash_sum"},
+                  {"hash_sum", keep_nulls_min_count, "agg_3", "hash_sum"},
+              },
+              use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
 
       AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -3932,22 +3942,23 @@ TEST(GroupBy, ProductNullType) {
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                           GroupByTest(
-                               {
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                               },
-                               {table->GetColumnByName("key")},
-                               {
-                                   {"hash_product", no_min, "agg_0"},
-                                   {"hash_product", keep_nulls, "agg_1"},
-                                   {"hash_product", min_count, "agg_2"},
-                                   {"hash_product", keep_nulls_min_count, "agg_3"},
-                               },
-                               use_threads, use_exec_plan));
+      ASSERT_OK_AND_ASSIGN(
+          Datum aggregated_and_grouped,
+          GroupByTest(
+              {
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+              },
+              {table->GetColumnByName("key")},
+              {
+                  {"hash_product", no_min, "agg_0", "hash_product"},
+                  {"hash_product", keep_nulls, "agg_1", "hash_product"},
+                  {"hash_product", min_count, "agg_2", "hash_product"},
+                  {"hash_product", keep_nulls_min_count, "agg_3", "hash_product"},
+              },
+              use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
 
       AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -4000,22 +4011,23 @@ TEST(GroupBy, MeanNullType) {
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                           GroupByTest(
-                               {
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                                   table->GetColumnByName("argument"),
-                               },
-                               {table->GetColumnByName("key")},
-                               {
-                                   {"hash_mean", no_min, "agg_0"},
-                                   {"hash_mean", keep_nulls, "agg_1"},
-                                   {"hash_mean", min_count, "agg_2"},
-                                   {"hash_mean", keep_nulls_min_count, "agg_3"},
-                               },
-                               use_threads, use_exec_plan));
+      ASSERT_OK_AND_ASSIGN(
+          Datum aggregated_and_grouped,
+          GroupByTest(
+              {
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+              },
+              {table->GetColumnByName("key")},
+              {
+                  {"hash_mean", no_min, "agg_0", "hash_mean"},
+                  {"hash_mean", keep_nulls, "agg_1", "hash_mean"},
+                  {"hash_mean", min_count, "agg_2", "hash_mean"},
+                  {"hash_mean", keep_nulls_min_count, "agg_3", "hash_mean"},
+              },
+              use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
 
       AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -4062,9 +4074,9 @@ TEST(GroupBy, NullTypeEmptyTable) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_sum", no_min, "agg_0"},
-                                   {"hash_product", min_count, "agg_1"},
-                                   {"hash_mean", keep_nulls, "agg_2"},
+                                   {"hash_sum", no_min, "agg_0", "hash_sum"},
+                                   {"hash_product", min_count, "agg_1", "hash_product"},
+                                   {"hash_mean", keep_nulls, "agg_2", "hash_mean"},
                                },
                                use_threads, use_exec_plan));
       auto struct_arr = aggregated_and_grouped.array_as<StructArray>();

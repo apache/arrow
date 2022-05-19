@@ -550,8 +550,8 @@ Result<Declaration> Convert(const ir::Relation& rel) {
               "Support for non-FieldRef arguments to Aggregate.measures");
         }
 
-        opts.aggregates.push_back({call->function_name, nullptr, *target});
-        opts.names.push_back(call->function_name + " " + target->ToString());
+        opts.aggregates.push_back({call->function_name, nullptr, *target,
+                                   call->function_name + " " + target->ToString()});
       }
 
       if (!aggregate->groupings()) return UnexpectedNullField("Aggregate.groupings");
