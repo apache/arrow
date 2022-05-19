@@ -18,6 +18,8 @@
 module Arrow
   class Array
     include Enumerable
+
+    include ArrayComputable
     include GenericFilterable
     include GenericTakeable
 
