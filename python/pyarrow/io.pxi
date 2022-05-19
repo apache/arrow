@@ -430,6 +430,7 @@ cdef class NativeFile(_Weakrefable):
             CRandomAccessFile.GetStream(handle, c_file_offset, c_nbytes))
 
         stream = NativeFile()
+        stream.is_readable = True
         stream.set_input_stream(data)
 
         return stream
