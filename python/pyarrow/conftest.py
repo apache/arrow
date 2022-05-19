@@ -24,10 +24,8 @@ groups = [
     'dataset',
     'orc',
     'parquet',
-    'parquet_encryption',
+    'parquet/encryption',
     'plasma',
-    's3',
-    'tensorflow',
     'flight',
 ]
 
@@ -37,10 +35,8 @@ defaults = {
     'flight': False,
     'orc': False,
     'parquet': False,
-    'parquet_encryption': False,
+    'parquet/encryption': False,
     'plasma': False,
-    's3': False,
-    'tensorflow': False
 }
 
 try:
@@ -69,20 +65,13 @@ except ImportError:
 
 try:
     import pyarrow.parquet.encryption  # noqa
-    defaults['parquet_encryption'] = True
+    defaults['parquet/encryption'] = True
 except ImportError:
     pass
-
 
 try:
     import pyarrow.plasma  # noqa
     defaults['plasma'] = True
-except ImportError:
-    pass
-
-try:
-    import tensorflow  # noqa
-    defaults['tensorflow'] = True
 except ImportError:
     pass
 
@@ -92,21 +81,16 @@ try:
 except ImportError:
     pass
 
-try:
-    from pyarrow.fs import S3FileSystem  # noqa
-    defaults['s3'] = True
-except ImportError:
-    pass
-
 
 def pytest_ignore_collect(path, config):
     if config.option.doctestmodules:
         # don't try to run doctests on the /tests directory
         if "/pyarrow/tests/" in str(path):
             return True
-        
+
         # handle cuda, flight, etc
-        if "pyarrow/parquet" in str(path) and not defaults['parquet_encryption']:
-            return True
+        for group in groups:
+            if 'pyarrow/{}'.format(group) in str(path) and not defaults[group]:
+                return True
 
     return False
