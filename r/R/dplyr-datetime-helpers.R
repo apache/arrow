@@ -179,7 +179,11 @@ build_formats <- function(orders) {
     orders <- unique(c(orders1, orders2))
   }
 
-  supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+  supported_orders <- c(
+    "ymd", "ydm", "mdy", "myd", "dmy", "dym",
+    "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H", "mdy_HMS",
+    "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H")
+
   unsupported_passed_orders <- setdiff(orders, supported_orders)
   supported_passed_orders <- intersect(orders, supported_orders)
 
@@ -204,9 +208,13 @@ build_format_from_order <- function(order) {
   char_list <- list(
     "y" = c("%y", "%Y"),
     "m" = c("%m", "%B", "%b"),
-    "d" = "%d"
+    "d" = "%d",
+    "H" = "%H",
+    "M" = "%M",
+    "S" = "%S"
   )
 
+  order <- gsub("_", "", order)
   split_order <- strsplit(order, split = "")[[1]]
 
   outcome <- expand.grid(char_list[split_order])

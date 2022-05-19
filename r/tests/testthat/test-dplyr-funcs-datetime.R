@@ -1744,20 +1744,6 @@ test_that("parse_date_time() works with a mix of formats and orders", {
   )
 })
 
-test_that("parse_date_time() doesn't work with hour, minutes, and second components", {
-  test_dates_times <- tibble(
-    date_times = c("09-01-17 12:34:56", NA)
-  )
-
-  expect_warning(
-    test_dates_times %>%
-      arrow_table() %>%
-      mutate(parsed_date_ymd = parse_date_time(date_times, orders = "ymd_HMS")) %>%
-      collect(),
-    '"ymd_HMS" `orders` not supported in Arrow'
-  )
-})
-
 test_that("year, month, day date/time parsers", {
   test_df <- tibble::tibble(
     ymd_string = c("2022-05-11", "2022/05/12", "22.05-13"),
