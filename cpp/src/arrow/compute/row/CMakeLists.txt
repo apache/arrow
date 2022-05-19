@@ -20,6 +20,4 @@
 
 arrow_install_all_headers("arrow/compute/row")
 
-add_arrow_compute_test(row_test
-                       SOURCES
-                       encode_test.cc)
+add_arrow_compute_test(row_test SOURCES encode_test.cc)
