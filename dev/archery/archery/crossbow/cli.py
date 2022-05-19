@@ -341,6 +341,31 @@ def report_chat(obj, job_name, send, webhook, extra_message_success,
 
 @crossbow.command()
 @click.argument('job-name', required=True)
+@click.option('--save/--dry-run', default=False,
+              help='Just display the report, don\'t save it')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.pass_obj
+def report_csv(obj, job_name, save, fetch):
+    """
+    Generates a CSV report with the different tasks information
+    from a Crossbow run.
+    """
+    output = obj['output']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+
+    job = queue.get(job_name)
+    report = Report(job)
+    if save:
+        ReportUtils.write_csv(report)
+    else:
+        output.write("\n".join([str(row) for row in report.rows]))
+
+
+@crossbow.command()
+@click.argument('job-name', required=True)
 @click.option('-t', '--target-dir',
               default=_default_arrow_path / 'packages',
               type=click.Path(file_okay=False, dir_okay=True),
