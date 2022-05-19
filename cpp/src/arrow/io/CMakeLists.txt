@@ -23,7 +23,13 @@ add_arrow_test(compressed_test PREFIX "arrow-io")
 add_arrow_test(file_test PREFIX "arrow-io")
 
 if(ARROW_HDFS)
-  add_arrow_test(hdfs_test NO_VALGRIND PREFIX "arrow-io")
+  add_arrow_test(hdfs_test
+                 NO_VALGRIND
+                 PREFIX
+                 "arrow-io"
+                 EXTRA_LINK_LIBS
+                 Boost::filesystem
+                 Boost::system)
 endif()
 
 add_arrow_test(memory_test PREFIX "arrow-io")

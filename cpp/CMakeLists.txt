@@ -869,13 +869,8 @@ if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN
-    arrow::flatbuffers
-    GTest::gtest_main
-    GTest::gtest
-    GTest::gmock
-    Boost::filesystem
-    Boost::system)
+set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers GTest::gtest_main GTest::gtest
+                              GTest::gmock)
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
