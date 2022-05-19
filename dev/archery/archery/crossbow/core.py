@@ -24,6 +24,7 @@ import logging
 import mimetypes
 import subprocess
 import textwrap
+import uuid
 from io import StringIO
 from pathlib import Path
 from datetime import date
@@ -564,6 +565,11 @@ class Queue(Repo):
         latest_id = self._latest_prefix_id(prefix)
         return '{}-{}'.format(prefix, latest_id + 1)
 
+    def _new_hex_id(self, prefix):
+        """Append a new id to branch's identifier based on the prefix"""
+        hex_id = uuid.uuid4().hex[:10]
+        return '{}-{}'.format(prefix, hex_id)
+
     def latest_for_prefix(self, prefix):
         prefix_date = self._prefix_contains_date(prefix)
         if prefix.startswith("nightly") and not prefix_date:
@@ -617,16 +623,20 @@ class Queue(Repo):
         job.queue = self
         return job
 
-    def put(self, job, prefix='build'):
+    def put(self, job, prefix='build', increment_job_id=True):
         if not isinstance(job, Job):
             raise CrossbowError('`job` must be an instance of Job')
         if job.branch is not None:
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
 
-        # auto increment and set next job id, e.g. build-85
         job._queue = self
-        job.branch = self._next_job_id(prefix)
+        if increment_job_id:
+            # auto increment and set next job id, e.g. build-85
+            job.branch = self._next_job_id(prefix)
+        else:
+            # set new branch to something unique, e.g. build-41d017af40
+            job.branch = self._new_hex_id(prefix)
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
