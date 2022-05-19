@@ -156,7 +156,7 @@ build_formats <- function(orders) {
   # only keep the letters and the underscore as separator -> allow the users to
   # pass strptime-like formats (with "%"). Processing is needed (instead of passing
   # formats as-is) due to the processing of the character vector in parse_date_time()
-  orders <- gsub("[^A-Za-z_]", "", orders)
+  orders <- gsub("[^A-Za-z]", "", orders)
   orders <- gsub("Y", "y", orders)
 
   # we separate "ym', "my", and "yq" from the rest of the `orders` vector and
@@ -184,7 +184,13 @@ build_formats <- function(orders) {
     "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H", "mdy_HMS",
     "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
   )
-  supported_orders <- c(ymd_orders, ymd_hms_orders)
+
+  supported_orders <- c(
+    ymd_orders,
+    ymd_hms_orders,
+    gsub("_", " ", ymd_hms_orders), # allow "_", " " and "" as separators
+    gsub("_", "", ymd_hms_orders)
+  )
 
   unsupported_passed_orders <- setdiff(orders, supported_orders)
   supported_passed_orders <- intersect(orders, supported_orders)
@@ -216,7 +222,6 @@ build_format_from_order <- function(order) {
     "S" = "%S"
   )
 
-  order <- gsub("_", "", order)
   split_order <- strsplit(order, split = "")[[1]]
 
   outcome <- expand.grid(char_list[split_order])
