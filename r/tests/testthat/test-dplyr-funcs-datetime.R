@@ -1989,8 +1989,8 @@ test_that("parse_date_time with hours, minutes and seconds components", {
         mdy_hm_dttm  = parse_date_time(mdy_hm_string, orders = "mdy_HM"),
         mdy_h_dttm   = parse_date_time(mdy_h_string, orders = "mdy_H"),
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS"),
-        ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydm_HM"),
-        ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydm_H")
+        ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydmHM"),
+        ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydmH")
       ) %>%
       collect(),
     test_dates_times
