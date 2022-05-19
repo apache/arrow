@@ -1837,9 +1837,7 @@ test_that("lubridate's fast_strptime", {
       collect(),
     tibble(
       x = c("2018-10-07 19:04:05", "2022-05-17 21:23:45", NA)
-    )#,
-    # arrow does not preserve the `tzone` attribute
-    # test ignore_attr = TRUE
+    )
   )
 
   # R object
@@ -1856,8 +1854,7 @@ test_that("lubridate's fast_strptime", {
       collect(),
     tibble(
       x = c("2018-10-07 19:04:05", NA)
-    )#,
-    # test ignore_attr = TRUE
+    )
   )
 
   compare_dplyr_binding(
@@ -1913,9 +1910,7 @@ test_that("lubridate's fast_strptime", {
     tibble(
       x =
         c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
-    )#,
-    # arrow does not preserve the `tzone` attribute
-    # test ignore_attr = TRUE
+    )
   )
 
   # the arrow binding errors for a value different from 68L for `cutoff_2000`
