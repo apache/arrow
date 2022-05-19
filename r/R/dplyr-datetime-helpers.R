@@ -201,19 +201,15 @@ build_formats <- function(orders) {
 }
 
 build_format_from_order <- function(order) {
-  year_chars <- c("%y", "%Y")
-  month_chars <- c("%m", "%B", "%b")
-  day_chars <- "%d"
-
-  outcome <- switch(
-    order,
-    "ymd" = expand.grid(year_chars, month_chars, day_chars),
-    "ydm" = expand.grid(year_chars, day_chars, month_chars),
-    "mdy" = expand.grid(month_chars, day_chars, year_chars),
-    "myd" = expand.grid(month_chars, year_chars, day_chars),
-    "dmy" = expand.grid(day_chars, month_chars, year_chars),
-    "dym" = expand.grid(day_chars, year_chars, month_chars)
+  char_list <- list(
+    "y" = c("%y", "%Y"),
+    "m" = c("%m", "%B", "%b"),
+    "d" = "%d"
   )
-  outcome$format <- paste(outcome$Var1, outcome$Var2, outcome$Var3, sep = "-")
-  outcome$format
+
+  split_order <- strsplit(order, split = "")[[1]]
+
+  outcome <- expand.grid(char_list[split_order])
+  format <- do.call(paste, c(outcome, sep = "-"))
+  format
 }
