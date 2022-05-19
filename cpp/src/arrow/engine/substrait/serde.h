@@ -44,16 +44,16 @@ using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>
 /// message
 /// \param[in] consumer_factory factory function for generating the node that consumes
 /// the batches produced by each toplevel Substrait relation
-/// \param[out] ext_set if non-null, the extension mapping used by the Substrait Plan is
+/// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait Plan is
 /// returned here.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
-    const Buffer& buf, const ConsumerFactory& consumer_factory, ExtensionSet* ext_set = NULLPTR);
+    const Buffer& buf, const ConsumerFactory& consumer_factory, ExtensionSet* ext_set_out = NULLPTR);
 
 Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
                                           const ConsumerFactory& consumer_factory,
-                                          ExtensionSet* ext_set = NULLPTR);
+                                          ExtensionSet* ext_set_out = NULLPTR);
 
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
