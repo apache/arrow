@@ -53,6 +53,7 @@ class ARROW_EXPORT Grouper {
   /// \param[in] ids An unsigned, all-valid integral array which will be
   ///                used as grouping criteria.
   /// \param[in] num_groups An upper bound for the elements of ids
+  /// \param[in] ctx Execution context to use during the operation
   /// \return A num_groups-long ListArray where the slot at i contains a
   ///         list of indices where i appears in ids.
   ///
