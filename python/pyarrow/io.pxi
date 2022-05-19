@@ -414,7 +414,7 @@ cdef class NativeFile(_Weakrefable):
 
         Returns
         -------
-        data : bytes
+        stream : bytes
         """
         cdef:
             shared_ptr[CInputStream] data
@@ -429,7 +429,10 @@ cdef class NativeFile(_Weakrefable):
         data = GetResultValue(
             CRandomAccessFile.GetStream(handle, c_file_offset, c_nbytes))
 
-        return self.set_input_stream(data)
+        stream = NativeFile()
+        stream.set_input_stream(data)
+
+        return stream
 
     def read_at(self, nbytes, offset):
         """
