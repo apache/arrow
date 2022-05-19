@@ -15,12 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
-libdir=@ARROW_PKG_CONFIG_LIBDIR@
+module Arrow
+  module ArrayComputable
+    def min(options: nil)
+      compute("min", options: options).value
+    end
 
-Name: Apache Arrow Flight testing
-Description: Library for testing Apache Arrow Flight related programs.
-Version: @ARROW_VERSION@
-Requires: arrow-flight arrow-testing
-Libs: -L${libdir} -larrow_flight_testing
+    def max(options: nil)
+      compute("max", options: options).value
+    end
+
+    def uniq
+      unique.values
+    end
+
+    private
+    def compute(name, options: nil)
+      Function.find(name).execute([self], options).value
+    end
+  end
+end
