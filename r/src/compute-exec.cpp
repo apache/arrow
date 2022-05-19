@@ -228,17 +228,17 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
-    std::vector<std::string> out_field_names, std::vector<std::string> key_names) {
+    std::vector<std::string> key_names) {
   std::vector<arrow::compute::internal::Aggregate> aggregates;
 
   for (cpp11::list name_opts : options) {
-    auto name = cpp11::as_cpp<std::string>(name_opts[0]);
-    auto opts = make_compute_options(name, name_opts[1]);
+    auto function = cpp11::as_cpp<std::string>(name_opts[0]);
+    auto opts = make_compute_options(function, name_opts[1]);
     auto target = cpp11::as_cpp<std::string>(name_opts[2]);
-    
-    aggregates.push_back(
-        arrow::compute::internal::Aggregate{std::move(name), opts, std::move(target)});
-    keep_alives.push_back(std::move(opts));
+    auto name = cpp11::as_cpp<std::string>(name_opts[3]);
+
+    aggregates.push_back(arrow::compute::internal::Aggregate{
+        std::move(function), opts.get(), std::move(target), std::move(name)});
   }
 
   std::vector<arrow::FieldRef> keys;
@@ -247,8 +247,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
   }
   return MakeExecNodeOrStop(
       "aggregate", input->plan(), {input.get()},
-      compute::AggregateNodeOptions{std::move(aggregates), std::move(out_field_names),
-                                    std::move(keys)});
+      compute::AggregateNodeOptions{std::move(aggregates), std::move(keys)});
 }
 
 // [[arrow::export]]

@@ -74,8 +74,6 @@ ExecPlan <- R6Class("ExecPlan",
       grouped <- length(group_vars) > 0
 
       # Collect the target names first because we have to add back the group vars
-      # TODO : remove upon discussion
-      # target_names <- names(.data)
       .data <- ensure_group_vars(.data)
       .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
@@ -115,14 +113,13 @@ ExecPlan <- R6Class("ExecPlan",
             x
           })
         }
-        target_names <- names(.data$aggregations);
+        target_names <- names(.data$aggregations)
         for (i in seq_len(length(target_names))) {
-            .data$aggregations[[i]][["target"]] <- target_names[i]
+          .data$aggregations[[i]][["name"]] <- .data$aggregations[[i]][["target"]] <- target_names[i]
         }
 
         node <- node$Aggregate(
-          options = map(.data$aggregations, ~ .[c("fun", "options", "target")]),
-          out_field_names = names(.data$aggregations),
+          options = map(.data$aggregations, ~ .[c("fun", "options", "target", "name")]),
           key_names = group_vars
         )
 
