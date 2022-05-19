@@ -405,27 +405,6 @@ cdef class Dataset(_Weakrefable):
                                               use_threads=use_threads, coalesce_keys=coalesce_keys,
                                               output_type=InMemoryDataset)
 
-    def filter(self, expr):
-        """
-        Select rows from the Dataset.
-
-        The Dataset can be filtered based on a boolean :class:`Expression` filter.
-
-        Parameters
-        ----------
-        expr : Expression
-            The boolean :class:`Expression` to filter the table with.
-
-        Returns
-        -------
-        filtered : InMemoryDataset
-            An InMemoryDataset of the same schema, with only the rows selected
-            by applied filtering
-
-        """
-        return _pc()._exec_plan._filter_table(self, expr,
-                                              output_type=InMemoryDataset)
-
 
 cdef class InMemoryDataset(Dataset):
     """

@@ -4631,7 +4631,7 @@ def test_dataset_filter(tempdir):
     ds.write_dataset(t1, tempdir / "t1", format="parquet")
     ds1 = ds.dataset(tempdir / "t1")
 
-    result = ds1.filter(pc.field("colA") < 3)
+    result = ds1.scanner(filter=pc.field("colA") < 3)
     assert result.to_table() == pa.table({
         "colA": [1, 2],
         "col2": ["a", "b"]
