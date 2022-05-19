@@ -238,7 +238,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_GCS
                 "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
-  mark_as_advanced(ARROW_GCS) # TODO(ARROW-1231) - remove once completed
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
