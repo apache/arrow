@@ -1867,6 +1867,24 @@ test_that("lubridate's fast_strptime", {
     )
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm_with_tz = fast_strptime(
+          dttm_as_string,
+          format = "%Y-%m-%d %H:%M:%S",
+          tz = "Pacific/Marquesas",
+          lt = FALSE
+        )
+      ) %>%
+      collect(),
+    tibble(
+      dttm_as_string =
+        c("2018-10-07 19:04:05", "1969-10-07 19:04:05", NA)
+    )
+  )
+
+
   # fast_strptime()'s `cutoff_2000` argument is not supported, but its value is
   # implicitly set to 68L both in lubridate and in Arrow
   compare_dplyr_binding(
