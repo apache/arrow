@@ -1876,6 +1876,10 @@ test_that("lubridate's fast_strptime", {
     )
   )
 
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1949,5 +1953,79 @@ test_that("lubridate's fast_strptime", {
           )
       ) %>%
       collect()
+  )
+
+  test_dates_times2 <- tibble(
+    ymd_hms_string = c("67-Jan-09 12:34:56", "1970-June-22 20:13:59", NA),
+    ymd_hm_string = c("67-Jan-09 12:34", "1970-June-22 20:13", NA),
+    ymd_h_string = c("67-Jan-09 12", "1970-June-22 20", NA),
+    dmy_hms_string = c("09-Jan-67 12:34:56", "22-June-1970 20:13:59", NA),
+    dmy_hm_string = c("09-Jan-67 12:34", "22-June-1970 20:13", NA),
+    dmy_h_string = c("09-Jan-67 12", "22-June-1970 20", NA),
+    mdy_hms_string = c("Jan-09-67 12:34:56", "June-22-1970 20:13:59", NA),
+    mdy_hm_string = c("Jan-09-67 12:34", "June-22-1970 20:13", NA),
+    mdy_h_string = c("Jan-09-67 12", "June-22-1970 20", NA),
+    ydm_hms_string = c("67-09-Jan 12:34:56", "1970-22-June 20:13:59", NA),
+    ydm_hm_string = c("67-09-Jan 12:34", "1970-22-June 20:13", NA),
+    ydm_h_string = c("67-09-Jan 12", "1970-22-June 20", NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = parse_date_time(ymd_hms_string, orders = "ymd_HMS"),
+        ymd_hm_dttm  = parse_date_time(ymd_hm_string, orders = "ymd_HM"),
+        ymd_h_dttm   = parse_date_time(ymd_h_string, orders = "ymd_H"),
+        dmy_hms_dttm = parse_date_time(dmy_hms_string, orders = "dmy_HMS"),
+        dmy_hm_dttm  = parse_date_time(dmy_hm_string, orders = "dmy_HM"),
+        dmy_h_dttm   = parse_date_time(dmy_h_string, orders = "dmy_H"),
+        mdy_hms_dttm = parse_date_time(mdy_hms_string, orders = "mdy_HMS"),
+        mdy_hm_dttm  = parse_date_time(mdy_hm_string, orders = "mdy_HM"),
+        mdy_h_dttm   = parse_date_time(mdy_h_string, orders = "mdy_H"),
+        ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS"),
+        ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydm_HM"),
+        ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydm_H"),
+        .keep = "used"
+      ) %>%
+      collect(),
+    test_dates_times2
+  )
+
+  # test truncated formats
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm =
+          parse_date_time(
+            truncated_ymd_string,
+            orders = "ymd_HMS",
+            truncated = 3
+          )
+      ) %>%
+      collect(),
+    tibble(
+      truncated_ymd_string =
+        c(
+          "2022-05-19 13:46:51",
+          "2022-05-18 13:46",
+          "2022-05-17 13",
+          "2022-05-16"
+      )
+    )
+  )
+
+  # we need expect_warning twice as both the arrow pipeline (because quiet =
+  # FALSE is not supported) and the fallback dplyr/lubridate one throw
+  # warnings (the lubridate one because quiet is FALSE)
+  expect_warning(
+    expect_warning(
+      tibble(x = c("2022-05-19 13:46:51")) %>%
+        arrow_table() %>%
+        mutate(
+          x_dttm = parse_date_time(x, orders = "dmy_HMS", quiet = FALSE)
+        ) %>%
+        collect(),
+      "`quiet = FALSE` not supported in Arrow"
+    )
   )
 })
