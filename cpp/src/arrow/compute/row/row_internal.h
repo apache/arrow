@@ -29,7 +29,7 @@ namespace arrow {
 namespace compute {
 
 /// Description of the data stored in a RowTable
-struct RowTableMetadata {
+struct ARROW_EXPORT RowTableMetadata {
   /// \brief True if there are no variable length columns in the table
   bool is_fixed_length;
 
@@ -157,7 +157,7 @@ struct RowTableMetadata {
 /// Can only store non-nested data types
 ///
 /// Can store both fixed-size data types and variable-length data types
-class RowTableImpl {
+class ARROW_EXPORT RowTableImpl {
  public:
   RowTableImpl();
   /// \brief Initialize a row array for use

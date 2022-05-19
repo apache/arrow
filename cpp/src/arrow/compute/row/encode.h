@@ -134,7 +134,7 @@ class RowTableEncoder {
 ///
 /// Read operations (row comparison, column decoding)
 /// can be called by multiple threads concurrently.
-struct RowTable {
+struct ARROW_EXPORT RowTable {
   RowTable() : is_initialized_(false) {}
 
   /// \brief Initialize the RowTable to store data whose shape matches `batch`
@@ -203,7 +203,7 @@ struct RowTable {
 // Implements concatenating multiple row arrays into a single one, using
 // potentially multiple threads, each processing a single input row array.
 //
-class RowArrayMerge {
+class ARROW_EXPORT RowArrayMerge {
  public:
   // Calculate total number of rows and size in bytes for merged sequence of
   // rows and allocate memory for it.
