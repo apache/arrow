@@ -173,6 +173,7 @@ test_that("URI-decoding with hive partitioning", {
     fs, selector, NULL, fmt,
     partitioning = partitioning
   )
+  schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_scan_result(ds, schm)
 
@@ -308,6 +309,19 @@ test_that("Simple interface for datasets", {
     ds %>% arrange(part) %>% pull(part),
     c(rep(1, 10), rep(2, 10))
   )
+})
+
+test_that("Can set schema on dataset", {
+  ds <- open_dataset(dataset_dir)
+  expected_schema <- schema(x = int32(), y = utf8())
+  expect_false(ds$schema == expected_schema)
+
+  ds_new <- ds$WithSchema(expected_schema)
+  expect_equal(ds_new$schema, expected_schema)
+  expect_false(ds$schema == expected_schema)
+
+  ds$schema <- expected_schema
+  expect_equal(ds$schema, expected_schema)
 })
 
 test_that("dim method returns the correct number of rows and columns", {
@@ -544,6 +558,64 @@ test_that("Creating UnionDataset", {
   expect_error(c(ds1, 42), "character")
 })
 
+test_that("UnionDataset can merge schemas", {
+  sub_df1 <- Table$create(
+    x = Array$create(c(1, 2, 3)),
+    y = Array$create(c("a", "b", "c"))
+  )
+  sub_df2 <- Table$create(
+    x = Array$create(c(4, 5)),
+    z = Array$create(c("d", "e"))
+  )
+
+  path1 <- make_temp_dir()
+  path2 <- make_temp_dir()
+  write_dataset(sub_df1, path1, format = "parquet")
+  write_dataset(sub_df2, path2, format = "parquet")
+
+  ds1 <- open_dataset(path1, format = "parquet")
+  ds2 <- open_dataset(path2, format = "parquet")
+
+  ds <- c(ds1, ds2)
+  actual <- ds %>%
+    collect() %>%
+    arrange(x)
+  expect_equal(colnames(actual), c("x", "y", "z"))
+  expect_equal(
+    actual,
+    union_all(as_tibble(sub_df1), as_tibble(sub_df2))
+  )
+
+  # without unifying schemas, takes the first schema and discards any columns
+  # in the second which aren't in the first
+  ds <- open_dataset(list(ds1, ds2), unify_schemas = FALSE)
+  expected <- as_tibble(sub_df1) %>%
+    union_all(sub_df2 %>% as_tibble() %>% select(x))
+  actual <- ds %>%
+    collect() %>%
+    arrange(x)
+  expect_equal(colnames(actual), c("x", "y"))
+  expect_equal(actual, expected)
+})
+
+test_that("UnionDataset handles InMemoryDatasets", {
+  sub_df1 <- Table$create(
+    x = Array$create(c(1, 2, 3)),
+    y = Array$create(c("a", "b", "c"))
+  )
+  sub_df2 <- Table$create(
+    x = Array$create(c(4, 5)),
+    z = Array$create(c("d", "e"))
+  )
+
+  ds1 <- InMemoryDataset$create(sub_df1)
+  ds2 <- InMemoryDataset$create(sub_df2)
+  ds <- c(ds1, ds2)
+  actual <- ds %>% collect(as_data_frame = FALSE)
+  expected <- concat_tables(sub_df1, sub_df2)
+  expect_equal(actual, expected)
+})
+
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
@@ -553,46 +625,79 @@ test_that("map_batches", {
       filter(int > 5) %>%
       select(int, lgl) %>%
       map_batches(~ summarize(., min_int = min(int))) %>%
-      arrange(min_int),
+      arrange(min_int) %>%
+      collect(),
     tibble(min_int = c(6L, 101L))
   )
 
-  # $num_rows returns integer vector
+  # $num_rows returns integer vector, so we need to wrap it in a RecordBatch
   expect_equal(
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(~ .$num_rows, .data.frame = FALSE) %>%
-      unlist() %>% # Returns list because .data.frame is FALSE
+      map_batches(~ record_batch(nrows = .$num_rows)) %>%
+      pull(nrows) %>%
       sort(),
     c(5, 10)
   )
 
-  # $Take returns RecordBatch, which gets binded into a tibble
+  # Can take a raw dataset as X argument
+  expect_equal(
+    ds %>%
+      map_batches(~ count(., part)) %>%
+      arrange(part) %>%
+      collect(),
+    tibble(part = c(1, 2), n = c(10, 10))
+  )
+
+  # $Take returns RecordBatch
   expect_equal(
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
       map_batches(~ .$Take(0)) %>%
-      arrange(int),
+      arrange(int) %>%
+      collect(),
     tibble(int = c(6, 101), lgl = c(TRUE, TRUE))
+  )
+
+  # Do things in R and put back into Arrow
+  expect_equal(
+    ds %>%
+      filter(int < 5) %>%
+      select(int) %>%
+      map_batches(
+        # as_mapper() can't handle %>%?
+        ~ mutate(as.data.frame(.), lets = letters[int])
+      ) %>%
+      arrange(int) %>%
+      collect(),
+    tibble(int = 1:4, lets = letters[1:4])
   )
 })
 
 test_that("head/tail", {
   # head/tail with no query are still deterministic order
   ds <- open_dataset(dataset_dir)
-  expect_equal(as.data.frame(head(ds)), head(df1))
-  expect_equal(
-    as.data.frame(head(ds, 12)),
-    rbind(df1, df2[1:2, ])
-  )
+  big_df <- rbind(df1, df2)
 
+  # No n provided (default is 6, all from one batch)
+  expect_equal(as.data.frame(head(ds)), head(df1))
   expect_equal(as.data.frame(tail(ds)), tail(df2))
-  expect_equal(
-    as.data.frame(tail(ds, 12)),
-    rbind(df1[9:10, ], df2)
-  )
+
+  # n = 0: have to drop `fct` because factor levels don't come through from
+  # arrow when there are 0 rows
+  zero_df <- big_df[FALSE, names(big_df) != "fct"]
+  expect_equal(as.data.frame(head(ds, 0))[, names(ds) != "fct"], zero_df)
+  expect_equal(as.data.frame(tail(ds, 0))[, names(ds) != "fct"], zero_df)
+
+  # Two more cases: more than 1 batch, and more than nrow
+  for (n in c(12, 1000)) {
+    expect_equal(as.data.frame(head(ds, n)), head(big_df, n))
+    expect_equal(as.data.frame(tail(ds, n)), tail(big_df, n))
+  }
+  expect_error(head(ds, -1)) # Not yet implemented
+  expect_error(tail(ds, -1)) # Not yet implemented
 })
 
 test_that("Dataset [ (take by index)", {
@@ -881,7 +986,8 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   scan <- Scanner$create(
     ds,
     projection = names(ds),
-    filter = Expression$create("less", Expression$field_ref("int"), Expression$scalar(8L)))
+    filter = Expression$create("less", Expression$field_ref("int"), Expression$scalar(8L))
+  )
   reader <- scan$ToRecordBatchReader()
   reader$export_to_c(stream_ptr)
 
@@ -905,4 +1011,30 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
 
   # must clean up the pointer or we leak
   delete_arrow_array_stream(stream_ptr)
+})
+
+
+test_that("Filter parquet dataset with is.na ARROW-15312", {
+  ds_path <- make_temp_dir()
+
+  df <- tibble(x = 1:3, y = c(0L, 0L, NA_integer_), z = c(0L, 1L, NA_integer_))
+  write_dataset(df, ds_path)
+
+  # OK: Collect then filter: returns row 3, as expected
+  expect_identical(
+    open_dataset(ds_path) %>% collect() %>% filter(is.na(y)),
+    df %>% collect() %>% filter(is.na(y))
+  )
+
+  # Before the fix: Filter then collect on y returned a 0-row tibble
+  expect_identical(
+    open_dataset(ds_path) %>% filter(is.na(y)) %>% collect(),
+    df %>% filter(is.na(y)) %>% collect()
+  )
+
+  # OK: Filter then collect (on z) returns row 3, as expected
+  expect_identical(
+    open_dataset(ds_path) %>% filter(is.na(z)) %>% collect(),
+    df %>% filter(is.na(z)) %>% collect()
+  )
 })

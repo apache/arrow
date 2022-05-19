@@ -19,6 +19,7 @@
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/server.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
@@ -50,10 +51,10 @@ class AuthBasicProtoServer : public FlightServerBase {
 Status CheckActionResults(FlightClient* client, const Action& action,
                           std::vector<std::string> results) {
   std::unique_ptr<ResultStream> stream;
-  RETURN_NOT_OK(client->DoAction(action, &stream));
+  ARROW_ASSIGN_OR_RAISE(stream, client->DoAction(action));
   std::unique_ptr<Result> result;
   for (const std::string& expected : results) {
-    RETURN_NOT_OK(stream->Next(&result));
+    ARROW_ASSIGN_OR_RAISE(result, stream->Next());
     if (!result) {
       return Status::Invalid("Action result stream ended early");
     }
@@ -62,7 +63,7 @@ Status CheckActionResults(FlightClient* client, const Action& action,
       return Status::Invalid("Got wrong result; expected", expected, "but got", actual);
     }
   }
-  RETURN_NOT_OK(stream->Next(&result));
+  ARROW_ASSIGN_OR_RAISE(result, stream->Next());
   if (result) {
     return Status::Invalid("Action result stream had too many entries");
   }
@@ -90,7 +91,7 @@ class AuthBasicProtoScenario : public Scenario {
     Action action;
     std::unique_ptr<ResultStream> stream;
     std::shared_ptr<FlightStatusDetail> detail;
-    const auto& status = client->DoAction(action, &stream);
+    const auto& status = client->DoAction(action).Value(&stream);
     detail = FlightStatusDetail::UnwrapStatus(status);
     // This client is unauthenticated and should fail.
     if (detail == nullptr) {
@@ -196,9 +197,8 @@ class MiddlewareServer : public FlightServerBase {
         descriptor.cmd == "success") {
       // Don't fail
       std::shared_ptr<Schema> schema = arrow::schema({});
-      Location location;
       // Return a fake location - the test doesn't read it
-      RETURN_NOT_OK(Location::ForGrpcTcp("localhost", 10010, &location));
+      ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 10010));
       std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {location}}};
       ARROW_ASSIGN_OR_RAISE(auto info,
                             FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
@@ -231,12 +231,11 @@ class MiddlewareScenario : public Scenario {
   }
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
-    std::unique_ptr<FlightInfo> info;
     // This call is expected to fail. In gRPC/Java, this causes the
     // server to combine headers and HTTP/2 trailers, so to read the
     // expected header, Flight must check for both headers and
     // trailers.
-    if (client->GetFlightInfo(FlightDescriptor::Command(""), &info).ok()) {
+    if (client->GetFlightInfo(FlightDescriptor::Command("")).status().ok()) {
       return Status::Invalid("Expected call to fail");
     }
     if (client_middleware_->received_header_ != "expected value") {
@@ -248,7 +247,8 @@ class MiddlewareScenario : public Scenario {
 
     // This call should succeed
     client_middleware_->received_header_ = "";
-    RETURN_NOT_OK(client->GetFlightInfo(FlightDescriptor::Command("success"), &info));
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("success")));
     if (client_middleware_->received_header_ != "expected value") {
       return Status::Invalid(
           "Expected to receive header 'x-middleware: expected value', but instead got '",
@@ -264,7 +264,22 @@ class MiddlewareScenario : public Scenario {
 /// \brief Schema to be returned for mocking the statement/prepared statement results.
 /// Must be the same across all languages.
 std::shared_ptr<Schema> GetQuerySchema() {
-  return arrow::schema({arrow::field("id", int64())});
+  std::string table_name = "test";
+  std::string schema_name = "schema_test";
+  std::string catalog_name = "catalog_test";
+  std::string type_name = "type_test";
+  return arrow::schema({arrow::field("id", int64(), true,
+                                     arrow::flight::sql::ColumnMetadata::Builder()
+                                         .TableName(table_name)
+                                         .IsAutoIncrement(true)
+                                         .IsCaseSensitive(false)
+                                         .TypeName(type_name)
+                                         .SchemaName(schema_name)
+                                         .IsSearchable(true)
+                                         .CatalogName(catalog_name)
+                                         .Precision(100)
+                                         .Build()
+                                         .metadata_map())});
 }
 
 constexpr int64_t kUpdateStatementExpectedRows = 10000L;
@@ -329,13 +344,24 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     return DoGetForTestCase(sql::SqlSchema::GetCatalogsSchema());
   }
 
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoXdbcTypeInfo(
+      const ServerCallContext& context, const sql::GetXdbcTypeInfo& command,
+      const FlightDescriptor& descriptor) override {
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetXdbcTypeInfoSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetXdbcTypeInfo(
+      const ServerCallContext& context, const sql::GetXdbcTypeInfo& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetXdbcTypeInfoSchema());
+  }
+
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSqlInfo(
       const ServerCallContext& context, const sql::GetSqlInfo& command,
       const FlightDescriptor& descriptor) override {
-    ARROW_RETURN_NOT_OK(AssertEq<int>(2, command.info.size()));
-    ARROW_RETURN_NOT_OK(AssertEq<int>(
+    ARROW_RETURN_NOT_OK(AssertEq<int64_t>(2, command.info.size()));
+    ARROW_RETURN_NOT_OK(AssertEq<int32_t>(
         sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_NAME, command.info[0]));
-    ARROW_RETURN_NOT_OK(AssertEq<int>(
+    ARROW_RETURN_NOT_OK(AssertEq<int32_t>(
         sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_READ_ONLY, command.info[1]));
 
     return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetSqlInfoSchema());
@@ -369,7 +395,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
                                               command.db_schema_filter_pattern.value()));
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("table_filter_pattern",
                                               command.table_name_filter_pattern.value()));
-    ARROW_RETURN_NOT_OK(AssertEq<int>(2, command.table_types.size()));
+    ARROW_RETURN_NOT_OK(AssertEq<int64_t>(2, command.table_types.size()));
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("table", command.table_types[0]));
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("view", command.table_types[1]));
     ARROW_RETURN_NOT_OK(AssertEq<bool>(true, command.include_schema));
@@ -610,6 +636,8 @@ class FlightSqlScenario : public Scenario {
     ARROW_RETURN_NOT_OK(Validate(
         sql::SqlSchema::GetCrossReferenceSchema(),
         sql_client->GetCrossReference(options, pk_table_ref, fk_table_ref), sql_client));
+    ARROW_RETURN_NOT_OK(Validate(sql::SqlSchema::GetXdbcTypeInfoSchema(),
+                                 sql_client->GetXdbcTypeInfo(options), sql_client));
     ARROW_RETURN_NOT_OK(Validate(
         sql::SqlSchema::GetSqlInfoSchema(),
         sql_client->GetSqlInfo(

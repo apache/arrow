@@ -94,7 +94,7 @@ void ConvertToVector(const FlatbufferVectorPointer fbvector, std::vector<T>* out
                      const Converter& converter) {
   out->clear();
   out->reserve(fbvector->size());
-  for (size_t i = 0; i < fbvector->size(); ++i) {
+  for (flatbuffers::uoffset_t i = 0; i < fbvector->size(); ++i) {
     out->push_back(converter(*fbvector->Get(i)));
   }
 }

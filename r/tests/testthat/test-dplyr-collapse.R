@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 withr::local_options(list(arrow.summarise.sort = TRUE))
 
@@ -31,6 +31,7 @@ tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, si
 tbl$some_grouping <- rep(c(1, 2), 5)
 
 tab <- Table$create(tbl)
+
 
 test_that("implicit_schema with select", {
   expect_equal(
@@ -161,7 +162,7 @@ test_that("Properties of collapsed query", {
 
   expect_output(
     print(q),
-    "InMemoryDataset (query)
+    "Table (query)
 lgl: bool
 total: int32
 extra: double (multiply_checked(total, 5))
@@ -171,7 +172,7 @@ See $.data for the source Arrow object",
   )
   expect_output(
     print(q$.data),
-    "InMemoryDataset (query)
+    "Table (query)
 int: int32
 lgl: bool
 
@@ -215,6 +216,8 @@ test_that("query_on_dataset handles collapse()", {
       collapse() %>%
       select(int)
   ))
+
+  skip_if_not_available("dataset")
 
   ds_dir <- tempfile()
   dir.create(ds_dir)

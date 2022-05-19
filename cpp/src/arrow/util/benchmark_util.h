@@ -27,11 +27,11 @@ namespace arrow {
 
 using internal::CpuInfo;
 
-static CpuInfo* cpu_info = CpuInfo::GetInstance();
+static const CpuInfo* cpu_info = CpuInfo::GetInstance();
 
-static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);
-static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::L2_CACHE);
-static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
+static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L1);
+static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L2);
+static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L3);
 static const int64_t kCantFitInL3Size = kL3Size * 4;
 static const std::vector<int64_t> kMemorySizes = {kL1Size, kL2Size, kL3Size,
                                                   kCantFitInL3Size};

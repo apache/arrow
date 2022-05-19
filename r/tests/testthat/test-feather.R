@@ -105,10 +105,7 @@ test_that("write_feather option error handling", {
 
 test_that("write_feather with invalid input type", {
   bad_input <- Array$create(1:5)
-  expect_error(
-    write_feather(bad_input, feather_file),
-    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
-  )
+  expect_snapshot_error(write_feather(bad_input, feather_file))
 })
 
 test_that("read_feather supports col_select = <names>", {
@@ -179,6 +176,29 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
     read_feather(CompressedInputStream$create(feather_file)),
     'file must be a "RandomAccessFile"'
   )
+})
+
+test_that("read_feather() and write_feather() accept connection objects", {
+  # connection object don't work on Windows i386 before R 4.0
+  skip_if(on_old_windows())
+  # connections with feather need RunWithCapturedR, which is not available
+  # in R <= 3.4.4
+  skip_if_r_version("3.4.4")
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # make this big enough that we might expose concurrency problems,
+  # but not so big that it slows down the tests
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_feather(test_tbl, file(tf))
+  expect_identical(read_feather(tf), test_tbl)
+  expect_identical(read_feather(file(tf)), read_feather(tf))
 })
 
 test_that("read_feather closes connection to file", {

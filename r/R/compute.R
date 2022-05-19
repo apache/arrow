@@ -32,7 +32,7 @@
 #' @return An `Array`, `ChunkedArray`, `Scalar`, `RecordBatch`, or `Table`, whatever the compute function results in.
 #' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for
 #'   the functions and their respective options.
-#' @examplesIf arrow_available()
+#' @examples
 #' a <- Array$create(c(1L, 2L, 3L, NA, 5L))
 #' s <- Scalar$create(4L)
 #' call_function("coalesce", a, s)
@@ -88,7 +88,7 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 #' @param pattern Optional regular expression to filter the function list
 #' @param ... Additional parameters passed to `grep()`
 #' @return A character vector of available Arrow C++ function names
-#' @examplesIf arrow_available()
+#' @examples
 #' available_funcs <- list_compute_functions()
 #' utf8_funcs <- list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
 #' @export
@@ -229,7 +229,7 @@ all.ArrowDatum <- function(..., na.rm = FALSE) {
 #' and type as `x` with the (0-based) indexes into `table`. `is_in()` returns a
 #' `boolean`-type Arrow object of the same length and type as `x` with values indicating
 #' per element of `x` it it is present in `table`.
-#' @examplesIf arrow_available()
+#' @examples
 #' # note that the returned value is 0-indexed
 #' cars_tbl <- arrow_table(name = rownames(mtcars), mtcars)
 #' match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
@@ -282,7 +282,7 @@ is_in <- function(x, table, ...) {
 #' @param x `Array` or `ChunkedArray`
 #' @return A `StructArray` containing "values" (same type as `x`) and "counts"
 #' `Int64`.
-#' @examplesIf arrow_available()
+#' @examples
 #' cyl_vals <- Array$create(mtcars$cyl)
 #' counts <- value_counts(cyl_vals)
 #' @export

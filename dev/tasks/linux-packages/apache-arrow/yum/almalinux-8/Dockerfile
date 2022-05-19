@@ -40,6 +40,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    json-devel \
     libarchive \
     libzstd-devel \
     llvm-devel \
@@ -50,15 +51,16 @@ RUN \
     ninja-build \
     openssl-devel \
     pkg-config \
-    python3 \
-    python3-devel \
-    python3-numpy \
-    python3-pip \
+    python39 \
+    python39-devel \
+    python39-numpy \
+    python39-pip \
     re2-devel \
     # rapidjson-devel \
     rpmdevtools \
     snappy-devel \
     tar \
     # utf8proc-devel \
+    vala-devel \
     zlib-devel && \
   dnf clean ${quiet} all

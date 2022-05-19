@@ -15,48 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-do_exec_plan <- function(.data) {
-  plan <- ExecPlan$create()
-  final_node <- plan$Build(.data)
-  tab <- plan$Run(final_node)
-
-  # TODO (ARROW-14289): make the head/tail methods return RBR not Table
-  if (inherits(tab, "RecordBatchReader")) {
-    tab <- tab$read_table()
-  }
-
-  # If arrange() created $temp_columns, make sure to omit them from the result
-  # We can't currently handle this in the ExecPlan itself because sorting
-  # happens in the end (SinkNode) so nothing comes after it.
-  if (length(final_node$sort$temp_columns) > 0) {
-    tab <- tab[, setdiff(names(tab), final_node$sort$temp_columns), drop = FALSE]
-  }
-
-  if (ncol(tab)) {
-    # Apply any column metadata from the original schema, where appropriate
-    original_schema <- source_data(.data)$schema
-    # TODO: do we care about other (non-R) metadata preservation?
-    # How would we know if it were meaningful?
-    r_meta <- original_schema$r_metadata
-    if (!is.null(r_meta)) {
-      # Filter r_metadata$columns on columns with name _and_ type match
-      new_schema <- tab$schema
-      common_names <- intersect(names(r_meta$columns), names(tab))
-      keep <- common_names[
-        map_lgl(common_names, ~ original_schema[[.]] == new_schema[[.]])
-      ]
-      r_meta$columns <- r_meta$columns[keep]
-      if (has_aggregation(.data)) {
-        # dplyr drops top-level attributes if you do summarize
-        r_meta$attributes <- NULL
-      }
-      tab$r_metadata <- r_meta
-    }
-  }
-
-  tab
-}
-
 ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
@@ -64,7 +22,12 @@ ExecPlan <- R6Class("ExecPlan",
       # Handle arrow_dplyr_query
       if (inherits(dataset, "arrow_dplyr_query")) {
         if (inherits(dataset$.data, "RecordBatchReader")) {
-          return(ExecNode_ReadFromRecordBatchReader(self, dataset$.data))
+          return(ExecNode_SourceNode(self, dataset$.data))
+        } else if (inherits(dataset$.data, "ArrowTabular")) {
+          if (inherits(dataset$.data, "RecordBatch")) {
+            dataset$.data <- Table$create(dataset$.data)
+          }
+          return(ExecNode_TableSourceNode(self, dataset$.data))
         }
 
         filter <- dataset$filtered_rows
@@ -161,14 +124,18 @@ ExecPlan <- R6Class("ExecPlan",
         # (as when we've done collapse() and not projected after) is cheap/no-op
         projection <- c(.data$selected_columns, .data$temp_columns)
         node <- node$Project(projection)
-
         if (!is.null(.data$join)) {
+          right_node <- self$Build(.data$join$right_data)
+          left_output <- names(.data)
+          right_output <- setdiff(names(.data$join$right_data), .data$join$by)
           node <- node$Join(
             type = .data$join$type,
-            right_node = self$Build(.data$join$right_data),
+            right_node = right_node,
             by = .data$join$by,
-            left_output = names(.data),
-            right_output = setdiff(names(.data$join$right_data), .data$join$by)
+            left_output = left_output,
+            right_output = right_output,
+            left_suffix = .data$join$suffix[[1]],
+            right_suffix = .data$join$suffix[[2]]
           )
         }
       }
@@ -194,7 +161,6 @@ ExecPlan <- R6Class("ExecPlan",
       if (!is.null(.data$tail)) {
         node$tail <- .data$tail
       }
-
       node
     },
     Run = function(node) {
@@ -224,19 +190,32 @@ ExecPlan <- R6Class("ExecPlan",
         # just use it to take the random slice
         slice_size <- node$head %||% node$tail
         if (!is.null(slice_size)) {
-          # TODO (ARROW-14289): make the head methods return RBR not Table
           out <- head(out, slice_size)
         }
         # Can we now tell `self$Stop()` to StopProducing? We already have
         # everything we need for the head (but it seems to segfault: ARROW-14329)
       } else if (!is.null(node$tail)) {
         # Reverse the row order to get back what we expect
-        # TODO: don't return Table, return RecordBatchReader
         out <- out$read_table()
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
+        # Put back into RBR
+        out <- as_record_batch_reader(out)
+      }
+
+      # If arrange() created $temp_columns, make sure to omit them from the result
+      # We can't currently handle this in ExecPlan_run itself because sorting
+      # happens in the end (SinkNode) so nothing comes after it.
+      if (length(node$sort$temp_columns) > 0) {
+        tab <- out$read_table()
+        tab <- tab[, setdiff(names(tab), node$sort$temp_columns), drop = FALSE]
+        out <- as_record_batch_reader(tab)
       }
 
       out
+    },
+    Write = function(node, ...) {
+      # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
+      ExecPlan_Write(self, node, ...)
     },
     Stop = function() ExecPlan_StopProducing(self)
   )
@@ -278,7 +257,7 @@ ExecNode <- R6Class("ExecNode",
         ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
       )
     },
-    Join = function(type, right_node, by, left_output, right_output) {
+    Join = function(type, right_node, by, left_output, right_output, left_suffix, right_suffix) {
       self$preserve_sort(
         ExecNode_Join(
           self,
@@ -287,7 +266,9 @@ ExecNode <- R6Class("ExecNode",
           left_keys = names(by),
           right_keys = by,
           left_output = left_output,
-          right_output = right_output
+          right_output = right_output,
+          output_suffix_for_left = left_suffix,
+          output_suffix_for_right = right_suffix
         )
       )
     }
@@ -296,3 +277,16 @@ ExecNode <- R6Class("ExecNode",
     schema = function() ExecNode_output_schema(self)
   )
 )
+
+do_exec_plan_substrait <- function(substrait_plan) {
+  if (is.string(substrait_plan)) {
+    substrait_plan <- substrait__internal__SubstraitFromJSON(substrait_plan)
+  } else if (is.raw(substrait_plan)) {
+    substrait_plan <- buffer(substrait_plan)
+  } else {
+    abort("`substrait_plan` must be a JSON string or raw() vector")
+  }
+
+  plan <- ExecPlan$create()
+  ExecPlan_run_substrait(plan, substrait_plan)
+}

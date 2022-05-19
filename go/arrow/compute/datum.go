@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/scalar"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/scalar"
 )
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=ValueShape -linecomment
@@ -182,7 +182,7 @@ func (d *ArrayDatum) Equals(other Datum) bool {
 	right := rhs.MakeArray()
 	defer right.Release()
 
-	return array.ArrayEqual(left, right)
+	return array.Equal(left, right)
 }
 
 // ChunkedDatum contains a chunked array for use with expressions and compute.

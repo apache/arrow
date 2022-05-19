@@ -158,6 +158,7 @@ set(ARROW_SRCS
     builder.cc
     buffer.cc
     chunked_array.cc
+    chunk_resolver.cc
     compare.cc
     config.cc
     datum.cc
@@ -380,6 +381,7 @@ if(ARROW_COMPUTE)
        compute/cast.cc
        compute/exec.cc
        compute/exec/aggregate_node.cc
+       compute/exec/bloom_filter.cc
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
        compute/exec/filter_node.cc
@@ -391,17 +393,20 @@ if(ARROW_COMPUTE)
        compute/exec/key_encode.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
-       compute/exec/options.cc
        compute/exec/order_by_impl.cc
+       compute/exec/partition_util.cc
+       compute/exec/options.cc
        compute/exec/project_node.cc
        compute/exec/sink_node.cc
        compute/exec/source_node.cc
        compute/exec/task_util.cc
+       compute/exec/tpch_node.cc
        compute/exec/union_node.cc
        compute/exec/util.cc
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc
+       compute/light_array.cc
        compute/registry.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
@@ -441,6 +446,7 @@ if(ARROW_COMPUTE)
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
 
+  append_avx2_src(compute/exec/bloom_filter_avx2.cc)
   append_avx2_src(compute/exec/key_compare_avx2.cc)
   append_avx2_src(compute/exec/key_encode_avx2.cc)
   append_avx2_src(compute/exec/key_hash_avx2.cc)
@@ -563,10 +569,9 @@ add_arrow_lib(arrow
               ${ARROW_SHARED_PRIVATE_LINK_LIBS}
               STATIC_LINK_LIBS
               ${ARROW_STATIC_LINK_LIBS}
+              ${ARROW_STATIC_INSTALL_INTERFACE_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
-              ${ARROW_SHARED_INSTALL_INTERFACE_LIBS}
-              STATIC_INSTALL_INTERFACE_LIBS
-              ${ARROW_STATIC_INSTALL_INTERFACE_LIBS})
+              ${ARROW_SHARED_INSTALL_INTERFACE_LIBS})
 
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
@@ -616,10 +621,15 @@ if(ARROW_TESTING)
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
+                arrow::flatbuffers
+                rapidjson::rapidjson
                 arrow_shared
                 GTest::gtest
                 STATIC_LINK_LIBS
-                arrow_static)
+                arrow::flatbuffers
+                rapidjson::rapidjson
+                arrow_static
+                GTest::gtest)
 
   add_custom_target(arrow_testing)
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
@@ -725,7 +735,7 @@ if(ARROW_COMPUTE)
   add_subdirectory(compute)
 endif()
 
-if(ARROW_ENGINE)
+if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
 endif()
 
@@ -743,16 +753,6 @@ endif()
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)
-endif()
-
-if(ARROW_FLIGHT_SQL)
-  add_subdirectory(flight/sql)
-endif()
-
-if(ARROW_FLIGHT
-   AND ARROW_FLIGHT_SQL
-   AND ARROW_BUILD_INTEGRATION)
-  add_subdirectory(flight/integration_tests)
 endif()
 
 if(ARROW_HIVESERVER2)

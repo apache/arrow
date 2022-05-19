@@ -21,6 +21,9 @@ set -e
 set -u
 set -o pipefail
 
+export LANG=C
+export LC_CTYPE=C
+
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$#" -ne 2 ]; then

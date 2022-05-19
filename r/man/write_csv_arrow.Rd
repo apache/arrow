@@ -42,9 +42,7 @@ the stream will be left open.
 Write CSV file to disk
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 write_csv_arrow(mtcars, tf)
-\dontshow{\}) # examplesIf}
 }

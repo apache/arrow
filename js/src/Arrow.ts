@@ -59,9 +59,10 @@ export { Schema, Field } from './schema.js';
 
 export { MapRow } from './row/map.js';
 export { StructRow } from './row/struct.js';
+export type { StructRowProxy } from './row/struct.js';
 
 export { Builder } from './builder.js';
-export { makeBuilder, vectorFromArray, builderThroughIterable, builderThroughAsyncIterable } from './factories.js';
+export { makeBuilder, vectorFromArray, tableFromJSON, builderThroughIterable, builderThroughAsyncIterable } from './factories.js';
 export type { BuilderOptions } from './builder.js';
 export { BoolBuilder } from './builder/bool.js';
 export { NullBuilder } from './builder/null.js';

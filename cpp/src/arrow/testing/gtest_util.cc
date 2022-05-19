@@ -407,8 +407,7 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                      util::string_view json) {
-  std::shared_ptr<Array> out;
-  ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
+  EXPECT_OK_AND_ASSIGN(auto out, ipc::internal::json::ArrayFromJSON(type, json));
   return out;
 }
 
@@ -959,8 +958,10 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Future<> AsyncTask() {
+    std::lock_guard<std::mutex> lk(mx_);
     num_launched_++;
     num_running_++;
+    running_cv_.notify_all();
     /// TODO(ARROW-13004) Could maybe implement this check with future chains
     /// if we check to see if the future has been "consumed" or not
     num_finished_++;

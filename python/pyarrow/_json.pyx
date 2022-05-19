@@ -79,6 +79,12 @@ cdef class ReadOptions(_Weakrefable):
     def block_size(self, value):
         self.options.block_size = value
 
+    def __reduce__(self):
+        return ReadOptions, (
+            self.use_threads,
+            self.block_size
+        )
+
 
 cdef class ParseOptions(_Weakrefable):
     """
@@ -116,6 +122,13 @@ cdef class ParseOptions(_Weakrefable):
             self.newlines_in_values = newlines_in_values
         if unexpected_field_behavior is not None:
             self.unexpected_field_behavior = unexpected_field_behavior
+
+    def __reduce__(self):
+        return ParseOptions, (
+            self.explicit_schema,
+            self.newlines_in_values,
+            self.unexpected_field_behavior
+        )
 
     @property
     def explicit_schema(self):

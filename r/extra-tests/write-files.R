@@ -33,6 +33,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
 }
 
 example_with_metadata_v1 <- example_with_metadata
+example_with_metadata_v1$a <- NULL
 example_with_metadata_v1$c <- NULL
 write_feather(example_with_metadata_v1, "extra-tests/files/ex_data_v1.feather", version = 1)
 

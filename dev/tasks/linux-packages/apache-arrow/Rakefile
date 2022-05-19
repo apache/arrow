@@ -116,6 +116,16 @@ class ApacheArrowPackageTask < PackageTask
     control.gsub(/@USE_SYSTEM_GRPC@/, use_system_grpc)
   end
 
+  def apt_prepare_debian_control_python(control, target)
+    case target
+    when /\Aubuntu-bionic/
+      enable_python = "#"
+    else
+      enable_python = ""
+    end
+    control.gsub(/@ENABLE_PYTHON@/, enable_python)
+  end
+
   def apt_prepare_debian_control_thrift(control, target)
     case target
     when /\Aubuntu-bionic/
@@ -151,6 +161,7 @@ class ApacheArrowPackageTask < PackageTask
     control = apt_prepare_debian_control_cuda_architecture(control, target)
     control = apt_prepare_debian_control_c_ares(control, target)
     control = apt_prepare_debian_control_grpc(control, target)
+    control = apt_prepare_debian_control_python(control, target)
     control = apt_prepare_debian_control_thrift(control, target)
     control = apt_prepare_debian_control_utf8proc(control, target)
     control = apt_prepare_debian_control_zstd(control, target)

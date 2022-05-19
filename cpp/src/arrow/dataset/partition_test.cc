@@ -57,16 +57,18 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_EQ(partitioning_->Format(expr).status().code(), code);
   }
 
-  void AssertFormat(compute::Expression expr, const std::string& expected) {
+  void AssertFormat(compute::Expression expr, const std::string& expected_directory,
+                    const std::string& expected_prefix = "") {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
-    ASSERT_EQ(formatted, expected);
+    ASSERT_EQ(formatted.directory, expected_directory);
+    ASSERT_EQ(formatted.prefix, expected_prefix);
 
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
     ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
-                         partitioning_->Parse(formatted));
+                         partitioning_->Parse(formatted.directory));
 
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
@@ -272,7 +274,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
   }
 }
 
-TEST_F(TestPartitioning, DiscoverSchema) {
+TEST_F(TestPartitioning, DiscoverSchemaDirectory) {
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
 
   // type is int32 if possible
@@ -291,7 +293,27 @@ TEST_F(TestPartitioning, DiscoverSchema) {
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
-TEST_F(TestPartitioning, DictionaryInference) {
+TEST_F(TestPartitioning, DiscoverSchemaFilename) {
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"});
+
+  // type is int32 if possible
+  AssertInspect({"0_1_"}, {Int("alpha"), Int("beta")});
+
+  // extra segments are ignored
+  AssertInspect({"0_1_what_"}, {Int("alpha"), Int("beta")});
+
+  // fall back to string if any segment for field alpha is not parseable as int
+  AssertInspect({"0_1_", "hello_1_"}, {Str("alpha"), Int("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"3760212050_1_"}, {Str("alpha"), Int("beta")});
+
+  // Invalid syntax
+  AssertInspectError({"234-12"});
+  AssertInspectError({"hello"});
+}
+
+TEST_F(TestPartitioning, DirectoryDictionaryInference) {
   PartitioningFactoryOptions options;
   options.infer_dictionary = true;
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
@@ -309,6 +331,23 @@ TEST_F(TestPartitioning, DictionaryInference) {
   AssertInspect({"/0/a", "/1"}, {DictInt("alpha"), DictStr("beta")});
   AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {DictStr("alpha"), DictStr("beta")});
+}
+
+TEST_F(TestPartitioning, FilenameDictionaryInference) {
+  PartitioningFactoryOptions options;
+  options.infer_dictionary = true;
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  // type is still int32 if possible
+  AssertInspect({"0_1_"}, {DictInt("alpha"), DictInt("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"3760212050_1_"}, {DictStr("alpha"), DictInt("beta")});
+
+  // successful dictionary inference
+  AssertInspect({"a_0_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"a_0_", "a_1_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"a_0_", "b_0_", "a_1_", "b_1_"}, {DictStr("alpha"), DictInt("beta")});
 }
 
 TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
@@ -404,6 +443,18 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
   AssertFormatError<StatusCode::TypeError>(
       and_(equal(field_ref("alpha"), literal("0.0")),
            equal(field_ref("beta"), literal("hello"))));
+}
+
+TEST_F(TestPartitioning, FilenamePartitioningFormat) {
+  partitioning_ = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+
+  written_schema_ = partitioning_->schema();
+
+  AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
+                    equal(field_ref("beta"), literal("hello"))),
+               "", "0_hello_");
+  AssertFormat(equal(field_ref("alpha"), literal(0)), "", "0_");
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
@@ -557,6 +608,31 @@ TEST_F(TestPartitioning, ExistingSchemaHive) {
   factory_ = HivePartitioning::MakeFactory(options);
 
   AssertInspect({"/a=0/b=1", "/b=2"}, options.schema->fields());
+}
+
+TEST_F(TestPartitioning, ExistingSchemaFilename) {
+  // Infer dictionary values but with a given schema
+  auto dict_type = dictionary(int8(), utf8());
+  PartitioningFactoryOptions options;
+  options.schema = schema({field("alpha", int64()), field("beta", dict_type)});
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  AssertInspect({"0_1_"}, options.schema->fields());
+  AssertInspect({"0_1_what_"}, options.schema->fields());
+
+  // fail if any segment is not parseable as schema type
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
+                                  factory_->Inspect({"0_1_", "hello_1_"}));
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  // Now we don't fail since our type is large enough
+  AssertInspect({"3760212050_1_"}, options.schema->fields());
+  // If there are still too many digits, fail
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
+                                  factory_->Inspect({"1038581385102940193760212050_1_"}));
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  AssertInspect({"0_1_", "2_"}, options.schema->fields());
 }
 
 TEST_F(TestPartitioning, UrlEncodedDirectory) {
@@ -843,7 +919,10 @@ class RangePartitioning : public Partitioning {
     return Status::OK();
   }
 
-  Result<std::string> Format(const compute::Expression&) const override { return ""; }
+  Result<Partitioning::PartitionPathFormat> Format(
+      const compute::Expression&) const override {
+    return Partitioning::PartitionPathFormat{"", ""};
+  }
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
     return Status::OK();

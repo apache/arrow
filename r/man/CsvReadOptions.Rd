@@ -37,6 +37,7 @@ names, unless \code{autogenerate_column_names} is \code{TRUE}.
 \item \code{autogenerate_column_names} Logical: generate column names instead of
 using the first non-skipped row (the default)? If \code{TRUE}, column names will
 be "f0", "f1", ..., "fN".
+\item \code{encoding} The file encoding. (default \code{"UTF-8"})
 }
 
 \code{CsvParseOptions$create()} takes the following arguments:
@@ -60,9 +61,9 @@ generate a row of missing values (if \code{FALSE})?
 \item \code{check_utf8} Logical: check UTF8 validity of string columns? (default \code{TRUE})
 \item \code{null_values} character vector of recognized spellings for null values.
 Analogous to the \code{na.strings} argument to
-\code{\link[utils:read.table]{read.csv()}} or \code{na} in \code{readr::read_csv()}.
+\code{\link[utils:read.table]{read.csv()}} or \code{na} in \code{\link[readr:read_delim]{readr::read_csv()}}.
 \item \code{strings_can_be_null} Logical: can string / binary columns have
-null values? Similar to the \code{quoted_na} argument to \code{readr::read_csv()}.
+null values? Similar to the \code{quoted_na} argument to \code{\link[readr:read_delim]{readr::read_csv()}}.
 (default \code{FALSE})
 \item \code{true_values} character vector of recognized spellings for \code{TRUE} values
 \item \code{false_values} character vector of recognized spellings for \code{FALSE} values
@@ -85,7 +86,6 @@ starting from the beginning of this vector. Possible values are
 (a) \code{NULL}, the default, which uses the ISO-8601 parser;
 (b) a character vector of \link[base:strptime]{strptime} parse strings; or
 (c) a list of \link{TimestampParser} objects.
-\item \code{encoding} The file encoding.
 }
 
 \code{TimestampParser$create()} takes an optional \code{format} string argument.

@@ -46,6 +46,8 @@ Common Types
     FlightEndpoint
     FlightInfo
     Location
+    MetadataRecordBatchReader
+    MetadataRecordBatchWriter
     Ticket
     Result
 
@@ -55,8 +57,11 @@ Flight Client
 .. autosummary::
    :toctree: ../generated/
 
+    connect
     FlightCallOptions
     FlightClient
+    FlightStreamReader
+    FlightStreamWriter
     ClientMiddlewareFactory
     ClientMiddleware
 
@@ -66,9 +71,12 @@ Flight Server
 .. autosummary::
    :toctree: ../generated/
 
+    FlightDataStream
+    FlightMetadataWriter
     FlightServerBase
     GeneratorStream
     RecordBatchStream
+    ServerCallContext
     ServerMiddlewareFactory
     ServerMiddleware
 
@@ -80,6 +88,22 @@ Authentication
 
     ClientAuthHandler
     ServerAuthHandler
+
+Errors
+------
+
+.. autosummary::
+   :toctree: ../generated/
+
+    FlightError
+    FlightCancelledError
+    FlightInternalError
+    FlightServerError
+    FlightTimedOutError
+    FlightUnauthenticatedError
+    FlightUnauthorizedError
+    FlightUnavailableError
+    FlightWriteSizeExceededError
 
 Middleware
 ----------

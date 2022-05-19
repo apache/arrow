@@ -46,9 +46,15 @@ constexpr int8_t kOffsetIndex = 7;
 class AesEncryptor {
  public:
   /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
-  explicit AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata);
+  /// If write_length is true, prepend ciphertext length to the ciphertext
+  explicit AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+                        bool write_length = true);
 
   static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                            std::vector<AesEncryptor*>* all_encryptors);
+
+  static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                            bool write_length,
                             std::vector<AesEncryptor*>* all_encryptors);
 
   ~AesEncryptor();
@@ -78,10 +84,21 @@ class AesEncryptor {
 class AesDecryptor {
  public:
   /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
-  explicit AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata);
+  /// If contains_length is true, expect ciphertext length prepended to the ciphertext
+  explicit AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+                        bool contains_length = true);
 
-  static AesDecryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                            std::vector<AesDecryptor*>* all_decryptors);
+  /// \brief Factory function to create an AesDecryptor
+  ///
+  /// \param alg_id the encryption algorithm to use
+  /// \param key_len key length. Possible values: 16, 24, 32 bytes.
+  /// \param metadata if true then this is a metadata decryptor
+  /// \param all_decryptors A weak reference to all decryptors that need to be wiped
+  /// out when decryption is finished
+  /// \return shared pointer to a new AesDecryptor
+  static std::shared_ptr<AesDecryptor> Make(
+      ParquetCipher::type alg_id, int key_len, bool metadata,
+      std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors);
 
   ~AesDecryptor();
   void WipeOut();

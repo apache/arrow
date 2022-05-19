@@ -55,7 +55,7 @@ require external dependencies, you do not need to run \code{install_arrow()}
 after a successful \code{arrow} installation.
 }
 \seealso{
-\code{\link[=arrow_available]{arrow_available()}} to see if the package was configured with
+\code{\link[=arrow_info]{arrow_info()}} to see if the package was configured with
 necessary C++ dependencies. \code{vignette("install", package = "arrow")} for
 more ways to tune installation on Linux.
 }

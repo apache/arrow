@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/array.h>
 #include <arrow/array/concatenate.h>
 #include <arrow/util/bitmap_reader.h>
@@ -41,6 +39,8 @@ const char* r6_class_name<arrow::Array>::get(const std::shared_ptr<arrow::Array>
       return "FixedSizeListArray";
     case arrow::Type::MAP:
       return "MapArray";
+    case arrow::Type::EXTENSION:
+      return "ExtensionArray";
 
     default:
       return "Array";
@@ -334,5 +334,3 @@ std::shared_ptr<arrow::Array> arrow__Concatenate(cpp11::list dots) {
 
   return ValueOrStop(arrow::Concatenate(vector));
 }
-
-#endif

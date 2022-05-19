@@ -362,6 +362,29 @@ suppress dllimport/dllexport marking of symbols. Projects that statically link
 against Arrow on Windows additionally need this definition. The Unix builds do
 not use the macro.
 
+In addition if using ``-DARROW_FLIGHT=ON``, ``ARROW_FLIGHT_STATIC`` needs to
+be defined.
+
+.. code-block:: cmake
+
+   project(MyExample)
+
+   find_package(Arrow REQUIRED)
+
+   add_executable(my_example my_example.cc)
+   target_link_libraries(my_example PRIVATE arrow_static arrow_flight_static)
+
+   target_compile_definitions(my_example PUBLIC ARROW_STATIC ARROW_FLIGHT_STATIC)
+
+Downloading the Timezone Database
+=================================
+
+To run some of the compute unit tests on Windows, the IANA timezone database
+and the Windows timezone mapping need to be downloaded first. See 
+:ref:`download-timezone-database` for download instructions. To set a non-default
+path for the timezone database while running the unit tests, set the 
+``ARROW_TIMEZONE_DATABASE`` environment variable.
+
 Replicating Appveyor Builds
 ===========================
 

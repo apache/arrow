@@ -55,14 +55,15 @@ RUN \
     llvm-10-dev \
     lsb-release \
     ninja-build \
+    nlohmann-json-dev \
     pkg-config \
     python3-dev \
-    python3-numpy \
     python3-pip \
     python3-setuptools \
     python3-wheel \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   (echo "includedir=/usr/include" && \
    echo "libdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)" && \

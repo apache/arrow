@@ -2003,9 +2003,17 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleTowardsInfinity) {
         &options);
     set_multiple(ty, 1);
     CheckScalar(func, {values}, values, &options);
+    set_multiple(decimal128(2, 0), 2);
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(ty,
+                      R"(["2.00", "2.00", "2.00", "-42.00", "-44.00", "-44.00", null])"),
+        &options);
     set_multiple(ty, 0);
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
-                "Rounding multiple must be positive", &options);
+    CheckRaises(func, {values}, "Rounding multiple must be positive", &options);
+    options.multiple =
+        std::make_shared<Decimal128Scalar>(Decimal128(0), decimal128(4, 2));
+    CheckRaises(func, {values}, "Rounding multiple must be positive", &options);
     set_multiple(ty, -10);
     CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
                 "Rounding multiple must be positive", &options);
@@ -2013,12 +2021,8 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleTowardsInfinity) {
     CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
                 "Rounded value 100.00 does not fit in precision", &options);
     options.multiple = std::make_shared<DoubleScalar>(1.0);
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")}, "scalar, not double",
-                &options);
-    options.multiple =
-        std::make_shared<Decimal128Scalar>(Decimal128(0), decimal128(3, 0));
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")}, "scalar, not decimal128(3, 0)",
-                &options);
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounded value 100.00 does not fit in precision", &options);
     options.multiple = std::make_shared<Decimal128Scalar>(decimal128(3, 0));
     CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
                 "Rounding multiple must be non-null and valid", &options);
@@ -2068,6 +2072,14 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleHalfToOdd) {
                 ArrayFromJSON(ty, R"(["-0.48", "-0.48", "-0.24", "-0.24", "-0.24", "0.00",
                               "0.24", "0.24", "0.24", "0.48", "0.48", null])"),
                 &options);
+    set_multiple(decimal128(3, 1), 1);
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-0.40", "-0.40", "-0.30", "-0.10", "-0.10", "0.00", "0.10", "0.10",
+                      "0.30", "0.40", "0.40", null])"),
+        &options);
   }
   for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
     auto values = DecimalArrayFromJSON(
@@ -2345,9 +2357,9 @@ TYPED_TEST(TestUnaryRoundToMultipleUnsigned, RoundToMultiple) {
 
   // Test different round multiples for nearest rounding mode
   std::vector<std::pair<double, std::string>> multiple_and_expected{{
-      {2, "[0, 2, 14, 50, 116]"},
       {0.05, "[0, 1, 13, 50, 115]"},
       {0.1, values},
+      {2, "[0, 2, 14, 50, 116]"},
       {10, "[0, 0, 10, 50, 120]"},
       {100, "[0, 0, 0, 100, 100]"},
   }};
@@ -2387,9 +2399,9 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   // Test different round multiples for nearest rounding mode
   values = "[320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045]";
   std::vector<std::pair<double, std::string>> multiple_and_expected{{
-      {2, "[320, 4, 4, 4, -4, -36, -4]"},
       {0.05, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3.05]"},
       {0.1, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]"},
+      {2, "[320, 4, 4, 4, -4, -36, -4]"},
       {10, "[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]"},
       {100, "[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]"},
   }};
@@ -2400,7 +2412,8 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   }
 
   this->SetRoundMultiple(-2);
-  this->AssertUnaryOpRaises(RoundToMultiple, values, "multiple must be positive");
+  this->AssertUnaryOpRaises(RoundToMultiple, values,
+                            "Rounding multiple must be positive");
 }
 
 class TestBinaryArithmeticDecimal : public TestArithmeticDecimal {};

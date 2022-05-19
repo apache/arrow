@@ -21,8 +21,7 @@
 # verification Red Hat Enterprise Linux 8 clones in particular
 # on AlmaLinux 8 and Rocky Linux 8
 
-dnf -y install \
-  'dnf-command(config-manager)'
+dnf -y install 'dnf-command(config-manager)'
 dnf config-manager --set-enabled powertools
 dnf -y update
 dnf -y module disable nodejs
@@ -36,22 +35,18 @@ dnf -y install \
   gobject-introspection-devel \
   java-1.8.0-openjdk-devel \
   libcurl-devel \
-  libcurl-devel \
   llvm-devel \
   llvm-toolset \
   maven \
   ncurses-devel \
-  ncurses-devel \
-  ninja-build \
   ninja-build \
   nodejs \
   openssl-devel \
-  python3-devel \
-  python3-devel \
-  python3-pip \
-  python3-pip \
+  python38-devel \
+  python38-pip \
   ruby-devel \
   sqlite-devel \
+  vala-devel \
   wget \
   which
 npm install -g yarn

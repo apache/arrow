@@ -918,7 +918,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_count_options = CountOptions::Defaults();
 
   auto func = std::make_shared<ScalarAggregateFunction>(
-      "count", Arity::Unary(), &count_doc, &default_count_options);
+      "count", Arity::Unary(), count_doc, &default_count_options);
 
   // Takes any input, outputs int64 scalar
   InputType any_input;
@@ -927,12 +927,12 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>(
-      "count_distinct", Arity::Unary(), &count_distinct_doc, &default_count_options);
+      "count_distinct", Arity::Unary(), count_distinct_doc, &default_count_options);
   // Takes any input, outputs int64 scalar
   AddCountDistinctKernels(func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc,
+  func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), sum_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
   AddAggKernel(
@@ -961,7 +961,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary(), &mean_doc,
+  func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary(), mean_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(MeanInit, {boolean()}, float64(), func.get());
   AddArrayScalarAggKernels(MeanInit, NumericTypes(), float64(), func.get());
@@ -985,8 +985,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>(
-      "min_max", Arity::Unary(), &min_max_doc, &default_scalar_aggregate_options);
+  func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(), min_max_doc,
+                                                   &default_scalar_aggregate_options);
   AddMinMaxKernels(MinMaxInit, {null(), boolean()}, func.get());
   AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
   AddMinMaxKernels(MinMaxInit, TemporalTypes(), func.get());
@@ -1011,18 +1011,18 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // Add min/max as convenience functions
-  func = std::make_shared<ScalarAggregateFunction>("min", Arity::Unary(), &min_or_max_doc,
+  func = std::make_shared<ScalarAggregateFunction>("min", Arity::Unary(), min_or_max_doc,
                                                    &default_scalar_aggregate_options);
   AddMinOrMaxAggKernel<MinOrMax::Min>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>("max", Arity::Unary(), &min_or_max_doc,
+  func = std::make_shared<ScalarAggregateFunction>("max", Arity::Unary(), min_or_max_doc,
                                                    &default_scalar_aggregate_options);
   AddMinOrMaxAggKernel<MinOrMax::Max>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>(
-      "product", Arity::Unary(), &product_doc, &default_scalar_aggregate_options);
+  func = std::make_shared<ScalarAggregateFunction>("product", Arity::Unary(), product_doc,
+                                                   &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(ProductInit::Init, {boolean()}, uint64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, UnsignedIntTypes(), uint64(), func.get());
@@ -1038,19 +1038,19 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // any
-  func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(), &any_doc,
+  func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(), any_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(AnyInit, {boolean()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // all
-  func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), &all_doc,
+  func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), all_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(AllInit, {boolean()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // index
-  func = std::make_shared<ScalarAggregateFunction>("index", Arity::Unary(), &index_doc);
+  func = std::make_shared<ScalarAggregateFunction>("index", Arity::Unary(), index_doc);
   AddBasicAggKernels(IndexInit::Init, BaseBinaryTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, PrimitiveTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, TemporalTypes(), int64(), func.get());

@@ -36,6 +36,8 @@ namespace arrow {
 
 namespace dataset {
 
+constexpr char kFilenamePartitionSep = '_';
+
 // ----------------------------------------------------------------------
 // Partitioning
 
@@ -76,7 +78,11 @@ class ARROW_DS_EXPORT Partitioning {
   /// \brief Parse a path into a partition expression
   virtual Result<compute::Expression> Parse(const std::string& path) const = 0;
 
-  virtual Result<std::string> Format(const compute::Expression& expr) const = 0;
+  struct PartitionPathFormat {
+    std::string directory, prefix;
+  };
+
+  virtual Result<PartitionPathFormat> Format(const compute::Expression& expr) const = 0;
 
   /// \brief A default Partitioning which always yields scalar(true)
   static std::shared_ptr<Partitioning> Default();
@@ -170,7 +176,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   Result<compute::Expression> Parse(const std::string& path) const override;
 
-  Result<std::string> Format(const compute::Expression& expr) const override;
+  Result<PartitionPathFormat> Format(const compute::Expression& expr) const override;
 
   const ArrayVector& dictionaries() const { return dictionaries_; }
 
@@ -187,10 +193,15 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   virtual Result<std::vector<Key>> ParseKeys(const std::string& path) const = 0;
 
-  virtual Result<std::string> FormatValues(const ScalarVector& values) const = 0;
+  virtual Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const = 0;
 
   /// Convert a Key to a full expression.
   Result<compute::Expression> ConvertKey(const Key& key) const;
+
+  Result<std::vector<std::string>> FormatPartitionSegments(
+      const ScalarVector& values) const;
+  Result<std::vector<Key>> ParsePartitionSegments(
+      const std::vector<std::string>& segments) const;
 
   ArrayVector dictionaries_;
   KeyValuePartitioningOptions options_;
@@ -222,7 +233,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
  private:
   Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
-  Result<std::string> FormatValues(const ScalarVector& values) const override;
+  Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
 
 /// \brief The default fallback used for null values in a Hive-style partitioning.
@@ -279,7 +290,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   const HivePartitioningOptions hive_options_;
   Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
-  Result<std::string> FormatValues(const ScalarVector& values) const override;
+  Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
 
 /// \brief Implementation provided by lambda or other callable
@@ -287,7 +298,8 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
  public:
   using ParseImpl = std::function<Result<compute::Expression>(const std::string&)>;
 
-  using FormatImpl = std::function<Result<std::string>(const compute::Expression&)>;
+  using FormatImpl =
+      std::function<Result<PartitionPathFormat>(const compute::Expression&)>;
 
   FunctionPartitioning(std::shared_ptr<Schema> schema, ParseImpl parse_impl,
                        FormatImpl format_impl = NULLPTR, std::string name = "function")
@@ -302,7 +314,7 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
     return parse_impl_(path);
   }
 
-  Result<std::string> Format(const compute::Expression& expr) const override {
+  Result<PartitionPathFormat> Format(const compute::Expression& expr) const override {
     if (format_impl_) {
       return format_impl_(expr);
     }
@@ -319,6 +331,31 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
   ParseImpl parse_impl_;
   FormatImpl format_impl_;
   std::string name_;
+};
+
+class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
+ public:
+  /// \brief Construct a FilenamePartitioning from its components.
+  ///
+  /// If a field in schema is of dictionary type, the corresponding element of
+  /// dictionaries must be contain the dictionary of values for that field.
+  explicit FilenamePartitioning(std::shared_ptr<Schema> schema,
+                                ArrayVector dictionaries = {},
+                                KeyValuePartitioningOptions options = {});
+
+  std::string type_name() const override { return "filename"; }
+
+  /// \brief Create a factory for a filename partitioning.
+  ///
+  /// \param[in] field_names The names for the partition fields. Types will be
+  ///     inferred.
+  static std::shared_ptr<PartitioningFactory> MakeFactory(
+      std::vector<std::string> field_names, PartitioningFactoryOptions = {});
+
+ private:
+  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
+
+  Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
 
 /// \brief Remove a prefix and the filename of a path.

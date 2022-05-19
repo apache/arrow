@@ -202,11 +202,7 @@ Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(compute::Expression) 
 
   auto create_fragment =
       [schema](std::shared_ptr<RecordBatch> batch) -> Result<std::shared_ptr<Fragment>> {
-    if (!batch->schema()->Equals(schema)) {
-      return Status::TypeError("yielded batch had schema ", *batch->schema(),
-                               " which did not match InMemorySource's: ", *schema);
-    }
-
+    RETURN_NOT_OK(CheckProjectable(*schema, *batch->schema()));
     return std::make_shared<InMemoryFragment>(RecordBatchVector{std::move(batch)});
   };
 

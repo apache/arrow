@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 // [[arrow::export]]
 bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer) {
   return buffer->is_mutable();
@@ -67,5 +65,3 @@ bool Buffer__Equals(const std::shared_ptr<arrow::Buffer>& x,
                     const std::shared_ptr<arrow::Buffer>& y) {
   return x->Equals(*y.get());
 }
-
-#endif

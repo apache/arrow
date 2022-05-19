@@ -23,6 +23,7 @@
 #include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/thread_pool.h"
@@ -43,6 +44,7 @@ namespace {
 
 namespace gcs = google::cloud::storage;
 using GcsCode = google::cloud::StatusCode;
+using GcsStatus = google::cloud::Status;
 
 // Change the default upload buffer size. In general, sending larger buffers is more
 // efficient with GCS, as each buffer requires a roundtrip to the service. With formatted
@@ -92,12 +94,11 @@ struct GcsPath {
 
 class GcsInputStream : public arrow::io::InputStream {
  public:
-  explicit GcsInputStream(gcs::ObjectReadStream stream, std::string bucket_name,
-                          std::string object_name, gcs::Generation generation,
-                          gcs::ReadFromOffset offset, gcs::Client client)
+  explicit GcsInputStream(gcs::ObjectReadStream stream, GcsPath path,
+                          gcs::Generation generation, gcs::ReadFromOffset offset,
+                          gcs::Client client)
       : stream_(std::move(stream)),
-        bucket_name_(std::move(bucket_name)),
-        object_name_(std::move(object_name)),
+        path_(std::move(path)),
         generation_(generation),
         offset_(offset.value_or(0)),
         client_(std::move(client)) {}
@@ -145,7 +146,7 @@ class GcsInputStream : public arrow::io::InputStream {
   //@{
   // @name InputStream
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
-    auto metadata = client_.GetObjectMetadata(bucket_name_, object_name_, generation_);
+    auto metadata = client_.GetObjectMetadata(path_.bucket, path_.object, generation_);
     ARROW_GCS_RETURN_NOT_OK(metadata.status());
     return internal::FromObjectMetadata(*metadata);
   }
@@ -153,8 +154,7 @@ class GcsInputStream : public arrow::io::InputStream {
 
  private:
   mutable gcs::ObjectReadStream stream_;
-  std::string bucket_name_;
-  std::string object_name_;
+  GcsPath path_;
   gcs::Generation generation_;
   std::int64_t offset_;
   gcs::Client client_;
@@ -210,7 +210,7 @@ class GcsOutputStream : public arrow::io::OutputStream {
 };
 
 using InputStreamFactory = std::function<Result<std::shared_ptr<io::InputStream>>(
-    const std::string&, const std::string&, gcs::Generation, gcs::ReadFromOffset)>;
+    gcs::Generation, gcs::ReadFromOffset)>;
 
 class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
  public:
@@ -255,16 +255,14 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
     if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
-    ARROW_ASSIGN_OR_RAISE(stream, factory_(metadata_.bucket(), metadata_.name(),
-                                           gcs::Generation(metadata_.generation()),
+    ARROW_ASSIGN_OR_RAISE(stream, factory_(gcs::Generation(metadata_.generation()),
                                            gcs::ReadFromOffset(position)));
     return stream->Read(nbytes, out);
   }
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
     if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
-    ARROW_ASSIGN_OR_RAISE(stream, factory_(metadata_.bucket(), metadata_.name(),
-                                           gcs::Generation(metadata_.generation()),
+    ARROW_ASSIGN_OR_RAISE(stream, factory_(gcs::Generation(metadata_.generation()),
                                            gcs::ReadFromOffset(position)));
     return stream->Read(nbytes);
   }
@@ -273,8 +271,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   // from Seekable
   Status Seek(int64_t position) override {
     if (closed()) return Status::Invalid("Cannot seek in a closed file");
-    ARROW_ASSIGN_OR_RAISE(stream_, factory_(metadata_.bucket(), metadata_.name(),
-                                            gcs::Generation(metadata_.generation()),
+    ARROW_ASSIGN_OR_RAISE(stream_, factory_(gcs::Generation(metadata_.generation()),
                                             gcs::ReadFromOffset(position)));
     return Status::OK();
   }
@@ -452,14 +449,15 @@ class GcsFileSystem::Impl {
   }
 
   Status DeleteDir(const GcsPath& p, const io::IOContext& io_context) {
-    RETURN_NOT_OK(DeleteDirContents(p, io_context));
+    RETURN_NOT_OK(DeleteDirContents(p, /*missing_dir_ok=*/false, io_context));
     if (!p.object.empty()) {
       return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
     }
     return internal::ToArrowStatus(client_.DeleteBucket(p.bucket));
   }
 
-  Status DeleteDirContents(const GcsPath& p, const io::IOContext& io_context) {
+  Status DeleteDirContents(const GcsPath& p, bool missing_dir_ok,
+                           const io::IOContext& io_context) {
     // If the directory marker exists, it better be a directory.
     auto dir = client_.GetObjectMetadata(p.bucket, p.object);
     if (dir && !IsDirectory(*dir)) return NotDirectoryError(*dir);
@@ -480,8 +478,15 @@ class GcsFileSystem::Impl {
     std::vector<Future<>> submitted;
     // This iterates over all the objects, and schedules parallel deletes.
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
+    bool at_least_one_obj = false;
     for (const auto& o : client_.ListObjects(p.bucket, prefix)) {
+      at_least_one_obj = true;
       submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
+    }
+
+    if (!missing_dir_ok && !at_least_one_obj && !dir) {
+      // No files were found and no directory marker exists
+      return Status::IOError("No such directory: ", p.full_path);
     }
 
     return AllFinished(submitted).status();
@@ -534,14 +539,13 @@ class GcsFileSystem::Impl {
     return internal::ToArrowStatus(metadata.status());
   }
 
-  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const std::string& bucket_name,
-                                                           const std::string& object_name,
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const GcsPath& path,
                                                            gcs::Generation generation,
                                                            gcs::ReadFromOffset offset) {
-    auto stream = client_.ReadObject(bucket_name, object_name, generation, offset);
+    auto stream = client_.ReadObject(path.bucket, path.object, generation, offset);
     ARROW_GCS_RETURN_NOT_OK(stream.status());
-    return std::make_shared<GcsInputStream>(std::move(stream), bucket_name, object_name,
-                                            gcs::Generation(), offset, client_);
+    return std::make_shared<GcsInputStream>(std::move(stream), path, gcs::Generation(),
+                                            offset, client_);
   }
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
@@ -754,9 +758,9 @@ Status GcsFileSystem::DeleteDir(const std::string& path) {
   return impl_->DeleteDir(p, io_context());
 }
 
-Status GcsFileSystem::DeleteDirContents(const std::string& path) {
+Status GcsFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
-  return impl_->DeleteDirContents(p, io_context());
+  return impl_->DeleteDirContents(p, missing_dir_ok, io_context());
 }
 
 Status GcsFileSystem::DeleteRootDirContents() {
@@ -785,8 +789,7 @@ Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
-  return impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(),
-                                gcs::ReadFromOffset());
+  return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
 }
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
@@ -796,8 +799,7 @@ Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
                            "' as an input stream");
   }
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
-  return impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(),
-                                gcs::ReadFromOffset());
+  return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
@@ -806,14 +808,12 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
   auto impl = impl_;
-  auto open_stream = [impl](const std::string& b, const std::string& o, gcs::Generation g,
-                            gcs::ReadFromOffset offset) {
-    return impl->OpenInputStream(b, o, g, offset);
+  auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
+    return impl->OpenInputStream(p, g, offset);
   };
-  ARROW_ASSIGN_OR_RAISE(
-      auto stream,
-      impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(metadata->generation()),
-                             gcs::ReadFromOffset()));
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        impl_->OpenInputStream(p, gcs::Generation(metadata->generation()),
+                                               gcs::ReadFromOffset()));
 
   return std::make_shared<GcsRandomAccessFile>(std::move(open_stream),
                                                *std::move(metadata), std::move(stream));
@@ -829,14 +829,12 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
   auto impl = impl_;
-  auto open_stream = [impl](const std::string& b, const std::string& o, gcs::Generation g,
-                            gcs::ReadFromOffset offset) {
-    return impl->OpenInputStream(b, o, g, offset);
+  auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
+    return impl->OpenInputStream(p, g, offset);
   };
-  ARROW_ASSIGN_OR_RAISE(
-      auto stream,
-      impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(metadata->generation()),
-                             gcs::ReadFromOffset()));
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        impl_->OpenInputStream(p, gcs::Generation(metadata->generation()),
+                                               gcs::ReadFromOffset()));
 
   return std::make_shared<GcsRandomAccessFile>(std::move(open_stream),
                                                *std::move(metadata), std::move(stream));
@@ -856,8 +854,7 @@ Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenAppendStream(
 std::shared_ptr<GcsFileSystem> GcsFileSystem::Make(const GcsOptions& options,
                                                    const io::IOContext& context) {
   // Cannot use `std::make_shared<>` as the constructor is private.
-  return std::shared_ptr<GcsFileSystem>(
-      new GcsFileSystem(options, io::default_io_context()));
+  return std::shared_ptr<GcsFileSystem>(new GcsFileSystem(options, context));
 }
 
 GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& context)

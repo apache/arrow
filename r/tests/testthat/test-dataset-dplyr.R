@@ -160,6 +160,7 @@ See $.data for the source Arrow object",
 })
 
 test_that("mutate() features not yet implemented", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(
     ds %>%
       group_by(int) %>%
@@ -170,6 +171,7 @@ test_that("mutate() features not yet implemented", {
 })
 
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(
     ds %>%
       filter(int == "fff", part == 1) %>%
@@ -281,8 +283,8 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
   # the group_by() prevents compute() from returning a Table...
   expect_s3_class(tab5, "arrow_dplyr_query")
 
-  # ... but $.data is a Table (InMemoryDataset)...
-  expect_r6_class(tab5$.data, "InMemoryDataset")
+  # ... but $.data is a Table...
+  expect_r6_class(tab5$.data, "Table")
   # ... and the mutate() was evaluated
   expect_true("negint" %in% names(tab5$.data))
 })

@@ -83,5 +83,12 @@ and modification time, is made available.
 
 Concrete implementations are available for
 :class:`local filesystem access <LocalFileSystem>`,
-:class:`HDFS <HadoopFileSystem>` and
-:class:`Amazon S3-compatible storage <S3FileSystem>`.
+:class:`HDFS <HadoopFileSystem>`,
+:class:`Amazon S3-compatible storage <S3FileSystem>` and
+:class:`Google Cloud Storage <GcsFileSystem>`.
+
+.. note::
+
+  Tasks that use filesystems will typically run on the
+  :ref:`I/O thread pool<io_thread_pool>`.  For filesystems that support high levels
+  of concurrency you may get a benefit from increasing the size of the I/O thread pool.

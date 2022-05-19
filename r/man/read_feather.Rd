@@ -35,7 +35,6 @@ This function reads both the original, limited specification of the format
 and the version 2 specification, which is the Apache Arrow IPC file format.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 write_feather(mtcars, tf)
@@ -43,7 +42,6 @@ df <- read_feather(tf)
 dim(df)
 # Can select columns
 df <- read_feather(tf, col_select = starts_with("d"))
-\dontshow{\}) # examplesIf}
 }
 \seealso{
 \link{FeatherReader} and \link{RecordBatchReader} for lower-level access to reading Arrow IPC data.

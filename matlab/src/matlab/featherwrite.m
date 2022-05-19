@@ -39,5 +39,5 @@ end
 [variables, metadata] = table2mlarrow(t);
 
 % Write the table to a Feather file.
-mexfcn('featherwrite', filename, variables, metadata);
+arrow.cpp.call('featherwrite', filename, variables, metadata);
 end

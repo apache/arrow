@@ -419,7 +419,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   exp_output.push_back(MakeArrowArrayInt32({816601, -816601, 0, -23 * 60}, validity));
   exp_output.push_back(MakeArrowArrayInt32({13610, -13610, 0, -23}, validity));
   exp_output.push_back(MakeArrowArrayInt32({567, -567, 0, 0}, validity));
-  exp_output.push_back(MakeArrowArrayInt32({567, -567, 0, 0}, validity));
+  exp_output.push_back(MakeArrowArrayInt32({-567, 567, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({81, -81, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({18, -18, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({6, -6, 0, 0}, validity));

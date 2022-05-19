@@ -285,4 +285,6 @@ struct ARROW_EXPORT Datum {
   ARROW_EXPORT friend void PrintTo(const Datum&, std::ostream*);
 };
 
+ARROW_EXPORT std::string ToString(Datum::Kind kind);
+
 }  // namespace arrow

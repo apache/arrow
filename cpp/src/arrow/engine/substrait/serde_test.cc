@@ -33,6 +33,7 @@
 using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;
+using testing::UnorderedElementsAre;
 
 namespace arrow {
 
@@ -654,7 +655,8 @@ TEST(Substrait, ReadRel) {
   ASSERT_EQ(scan_node_options.dataset->type_name(), "filesystem");
   const auto& dataset =
       checked_cast<const dataset::FileSystemDataset&>(*scan_node_options.dataset);
-  EXPECT_THAT(dataset.files(), ElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
+  EXPECT_THAT(dataset.files(),
+              UnorderedElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
   EXPECT_EQ(dataset.format()->type_name(), "parquet");
   EXPECT_EQ(*dataset.schema(), Schema({field("i", int64()), field("b", boolean())}));
 }
@@ -722,6 +724,32 @@ TEST(Substrait, ExtensionSetFromPlan) {
   EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
   EXPECT_EQ(decoded_add_func.id.name, "add");
   EXPECT_EQ(decoded_add_func.name, "add");
+}
+
+TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [],
+    "extension_uris": [
+      {
+        "extension_uri_anchor": 7,
+        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 7,
+        "function_anchor": 42,
+        "name": "does_not_exist"
+      }}
+    ]
+  })"));
+
+  ExtensionSet ext_set;
+  ASSERT_RAISES(
+      Invalid,
+      DeserializePlan(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
 }
 
 }  // namespace engine

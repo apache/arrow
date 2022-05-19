@@ -27,7 +27,9 @@
 
 #include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
+#include "arrow/chunk_resolver.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
@@ -146,10 +148,7 @@ ArrayVector GetPhysicalChunks(const ChunkedArray& chunked_array,
 }
 
 Result<RecordBatchVector> BatchesFromTable(const Table& table) {
-  RecordBatchVector batches;
-  TableBatchReader reader(table);
-  RETURN_NOT_OK(reader.ReadAll(&batches));
-  return batches;
+  return TableBatchReader(table).ToRecordBatches();
 }
 
 // ----------------------------------------------------------------------
@@ -852,10 +851,10 @@ class TableSorter {
           order(order),
           null_count(null_count) {}
 
-    using LocationType = ChunkLocation;
+    using LocationType = ::arrow::internal::ChunkLocation;
 
     template <typename ArrayType>
-    ResolvedChunk<ArrayType> GetChunk(ChunkLocation loc) const {
+    ResolvedChunk<ArrayType> GetChunk(::arrow::internal::ChunkLocation loc) const {
       return {checked_cast<const ArrayType*>(chunks[loc.chunk_index]),
               loc.index_in_chunk};
     }
@@ -898,8 +897,8 @@ class TableSorter {
         batches_(MakeBatches(table, &status_)),
         options_(options),
         null_placement_(options.null_placement),
-        left_resolver_(ChunkResolver::FromBatches(batches_)),
-        right_resolver_(ChunkResolver::FromBatches(batches_)),
+        left_resolver_(batches_),
+        right_resolver_(batches_),
         sort_keys_(ResolveSortKeys(table, batches_, options.sort_keys, &status_)),
         indices_begin_(indices_begin),
         indices_end_(indices_end),
@@ -937,11 +936,7 @@ class TableSorter {
 
   Status SortInternal() {
     // Sort each batch independently and merge to sorted indices.
-    RecordBatchVector batches;
-    {
-      TableBatchReader reader(table_);
-      RETURN_NOT_OK(reader.ReadAll(&batches));
-    }
+    ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches, BatchesFromTable(table_));
     const int64_t num_batches = static_cast<int64_t>(batches.size());
     if (num_batches == 0) {
       return Status::OK();
@@ -1138,17 +1133,17 @@ class TableSorter {
     MergeNullsOnly(range_begin, range_middle, range_end, temp_indices, null_count);
   }
 
+  Status status_;
   ExecContext* ctx_;
   const Table& table_;
   const RecordBatchVector batches_;
   const SortOptions& options_;
   const NullPlacement null_placement_;
-  const ChunkResolver left_resolver_, right_resolver_;
+  const ::arrow::internal::ChunkResolver left_resolver_, right_resolver_;
   const std::vector<ResolvedSortKey> sort_keys_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
   Comparator comparator_;
-  Status status_;
 };
 
 // ----------------------------------------------------------------------
@@ -1173,7 +1168,7 @@ const FunctionDoc sort_indices_doc(
 class SortIndicesMetaFunction : public MetaFunction {
  public:
   SortIndicesMetaFunction()
-      : MetaFunction("sort_indices", Arity::Unary(), &sort_indices_doc,
+      : MetaFunction("sort_indices", Arity::Unary(), sort_indices_doc,
                      GetDefaultSortOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
@@ -1678,9 +1673,8 @@ class TableSelecter : public TypeVisitor {
         : order(order),
           type(GetPhysicalType(chunked_array->type())),
           chunks(GetPhysicalChunks(*chunked_array, type)),
-          chunk_pointers(GetArrayPointers(chunks)),
           null_count(chunked_array->null_count()),
-          resolver(chunk_pointers) {}
+          resolver(GetArrayPointers(chunks)) {}
 
     using LocationType = int64_t;
 
@@ -1694,7 +1688,6 @@ class TableSelecter : public TypeVisitor {
     const SortOrder order;
     const std::shared_ptr<DataType> type;
     const ArrayVector chunks;
-    const std::vector<const Array*> chunk_pointers;
     const int64_t null_count;
     const ChunkedArrayResolver resolver;
   };
@@ -1847,7 +1840,7 @@ static Status CheckConsistency(const Schema& schema,
 class SelectKUnstableMetaFunction : public MetaFunction {
  public:
   SelectKUnstableMetaFunction()
-      : MetaFunction("select_k_unstable", Arity::Unary(), &select_k_unstable_doc,
+      : MetaFunction("select_k_unstable", Arity::Unary(), select_k_unstable_doc,
                      GetDefaultSelectKOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,

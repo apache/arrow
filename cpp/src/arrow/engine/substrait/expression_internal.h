@@ -23,7 +23,7 @@
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/extension_set.h"
-#include "arrow/engine/visibility.h"
+#include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
 #include "substrait/expression.pb.h"  // IWYU pragma: export

@@ -30,9 +30,14 @@ jobs:
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-
+      # TODO (ARROW-16376): Switch to v2 once we use UCRT
       - uses: r-lib/actions/setup-r@v1
-      - uses: r-lib/actions/setup-pandoc@v1
+        with:
+          # temp workaround the fact that R 4.2 requires UCRT which isn't
+          # currently part of this build.
+          # remove after https://issues.apache.org/jira/browse/ARROW-16376
+          r-version: '4.1'
+      - uses: r-lib/actions/setup-pandoc@v2
       - name: Install knitr, rmarkdown
         run: |
           install.packages(c("rmarkdown", "knitr", "sessioninfo"))

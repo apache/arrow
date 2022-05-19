@@ -34,11 +34,9 @@ contiguous memory with a particular size.
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 my_buffer <- buffer(c(1, 2, 3, 4))
 my_buffer$is_mutable
 my_buffer$ZeroPadding()
 my_buffer$size
 my_buffer$capacity
-\dontshow{\}) # examplesIf}
 }

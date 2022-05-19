@@ -16,6 +16,10 @@
 // under the License.
 
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/io/util_internal.h"
+#include "arrow/table.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -42,6 +46,19 @@ std::string ToString(JoinType t) {
   }
   ARROW_LOG(FATAL) << "Invalid variant of arrow::compute::JoinType";
   std::abort();
+}
+
+Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromTable(
+    const Table& table, arrow::internal::Executor* exc) {
+  std::shared_ptr<RecordBatchReader> reader = std::make_shared<TableBatchReader>(table);
+
+  if (exc == nullptr) return Status::TypeError("No executor provided.");
+
+  // Map the RecordBatchReader to a SourceNode
+  ARROW_ASSIGN_OR_RAISE(auto batch_gen, MakeReaderGenerator(std::move(reader), exc));
+
+  return std::shared_ptr<SourceNodeOptions>(
+      new SourceNodeOptions(table.schema(), batch_gen));
 }
 
 }  // namespace compute

@@ -31,7 +31,8 @@ fi
 
 version=$1
 if [[ "${version}" -eq "default" ]]; then
-  version="v0.7.0"
+  version="v0.16.0"
 fi
 
-pip install "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
+${PYTHON:-python3} -m pip install \
+  "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"

@@ -19,14 +19,15 @@ package pqarrow
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/flight"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/file"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/flight"
+	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v9/parquet"
+	"github.com/apache/arrow/go/v9/parquet/file"
+	"github.com/apache/arrow/go/v9/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -78,7 +79,7 @@ func NewFileWriter(arrschema *arrow.Schema, w io.Writer, props *parquet.WriterPr
 		}
 
 		serializedSchema := flight.SerializeSchema(arrschema, props.Allocator())
-		meta.Append("ARROW:schema", base64.RawStdEncoding.EncodeToString(serializedSchema))
+		meta.Append("ARROW:schema", base64.StdEncoding.EncodeToString(serializedSchema))
 	}
 
 	schemaNode := pqschema.Root()
@@ -135,7 +136,7 @@ func (fw *FileWriter) RowGroupTotalBytesWritten() int64 {
 
 func (fw *FileWriter) WriteBuffered(rec arrow.Record) error {
 	if !rec.Schema().Equal(fw.schema) {
-		return xerrors.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
+		return fmt.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
 	}
 
 	var (
@@ -183,7 +184,7 @@ func (fw *FileWriter) WriteBuffered(rec arrow.Record) error {
 // properties to determine whether or not a new row group is created while writing.
 func (fw *FileWriter) Write(rec arrow.Record) error {
 	if !rec.Schema().Equal(fw.schema) {
-		return xerrors.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
+		return fmt.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
 	}
 
 	var recList []arrow.Record
@@ -220,7 +221,7 @@ func (fw *FileWriter) WriteTable(tbl arrow.Table, chunkSize int64) error {
 	if chunkSize <= 0 && tbl.NumRows() > 0 {
 		return xerrors.New("chunk size per row group must be greater than 0")
 	} else if !tbl.Schema().Equal(fw.schema) {
-		return xerrors.Errorf("table schema does not match writer's. \nTable: %s\n writer: %s", tbl.Schema(), fw.schema)
+		return fmt.Errorf("table schema does not match writer's. \nTable: %s\n writer: %s", tbl.Schema(), fw.schema)
 	} else if chunkSize > fw.wr.Properties().MaxRowGroupLength() {
 		chunkSize = fw.wr.Properties().MaxRowGroupLength()
 	}

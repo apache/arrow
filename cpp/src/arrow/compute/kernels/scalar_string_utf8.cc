@@ -39,8 +39,8 @@ namespace {
 
 template <template <typename> class Transformer>
 void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry,
-                                        const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+                                        FunctionDoc doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<Transformer>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec)));
@@ -319,19 +319,19 @@ const auto utf8_is_title_doc = StringPredicateDoc(
 
 void AddUtf8StringPredicates(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsAlphaNumericUnicode>("utf8_is_alnum", registry,
-                                                 &utf8_is_alnum_doc);
-  AddUnaryStringPredicate<IsAlphaUnicode>("utf8_is_alpha", registry, &utf8_is_alpha_doc);
+                                                 utf8_is_alnum_doc);
+  AddUnaryStringPredicate<IsAlphaUnicode>("utf8_is_alpha", registry, utf8_is_alpha_doc);
   AddUnaryStringPredicate<IsDecimalUnicode>("utf8_is_decimal", registry,
-                                            &utf8_is_decimal_doc);
-  AddUnaryStringPredicate<IsDigitUnicode>("utf8_is_digit", registry, &utf8_is_digit_doc);
+                                            utf8_is_decimal_doc);
+  AddUnaryStringPredicate<IsDigitUnicode>("utf8_is_digit", registry, utf8_is_digit_doc);
   AddUnaryStringPredicate<IsNumericUnicode>("utf8_is_numeric", registry,
-                                            &utf8_is_numeric_doc);
-  AddUnaryStringPredicate<IsLowerUnicode>("utf8_is_lower", registry, &utf8_is_lower_doc);
+                                            utf8_is_numeric_doc);
+  AddUnaryStringPredicate<IsLowerUnicode>("utf8_is_lower", registry, utf8_is_lower_doc);
   AddUnaryStringPredicate<IsPrintableUnicode>("utf8_is_printable", registry,
-                                              &utf8_is_printable_doc);
-  AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry, &utf8_is_space_doc);
-  AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry, &utf8_is_title_doc);
-  AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
+                                              utf8_is_printable_doc);
+  AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry, utf8_is_space_doc);
+  AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry, utf8_is_title_doc);
+  AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, utf8_is_upper_doc);
 }
 
 #endif  // ARROW_WITH_UTF8PROC
@@ -501,13 +501,13 @@ const FunctionDoc utf8_title_doc(
     {"strings"});
 
 void AddUtf8StringCaseConversion(FunctionRegistry* registry) {
-  MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry, &utf8_upper_doc);
-  MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry, &utf8_lower_doc);
+  MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry, utf8_upper_doc);
+  MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry, utf8_lower_doc);
   MakeUnaryStringUTF8TransformKernel<UTF8SwapCase>("utf8_swapcase", registry,
-                                                   &utf8_swapcase_doc);
+                                                   utf8_swapcase_doc);
   MakeUnaryStringBatchKernel<Utf8Capitalize>("utf8_capitalize", registry,
-                                             &utf8_capitalize_doc);
-  MakeUnaryStringBatchKernel<Utf8Title>("utf8_title", registry, &utf8_title_doc);
+                                             utf8_capitalize_doc);
+  MakeUnaryStringBatchKernel<Utf8Title>("utf8_title", registry, utf8_title_doc);
 }
 
 #endif  // ARROW_WITH_UTF8PROC
@@ -667,7 +667,7 @@ const FunctionDoc utf8_normalize_doc(
 
 void AddUtf8StringNormalize(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<Utf8NormalizeExec>("utf8_normalize", registry,
-                                                         &utf8_normalize_doc);
+                                                         utf8_normalize_doc);
 }
 
 #endif  // ARROW_WITH_UTF8PROC
@@ -692,7 +692,7 @@ const FunctionDoc utf8_length_doc(
 
 void AddUtf8StringLength(FunctionRegistry* registry) {
   auto func =
-      std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
+      std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), utf8_length_doc);
   {
     auto exec = applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
     DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec)));
@@ -734,7 +734,7 @@ const FunctionDoc utf8_reverse_doc(
     {"strings"});
 
 void AddUtf8StringReverse(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
+  MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, utf8_reverse_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -896,16 +896,16 @@ const FunctionDoc utf8_rtrim_whitespace_doc(
 #endif  // ARROW_WITH_UTF8PROC
 
 void AddUtf8StringTrim(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<UTF8Trim>("utf8_trim", registry, &utf8_trim_doc);
-  MakeUnaryStringBatchKernelWithState<UTF8LTrim>("utf8_ltrim", registry, &utf8_ltrim_doc);
-  MakeUnaryStringBatchKernelWithState<UTF8RTrim>("utf8_rtrim", registry, &utf8_rtrim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8Trim>("utf8_trim", registry, utf8_trim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8LTrim>("utf8_ltrim", registry, utf8_ltrim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8RTrim>("utf8_rtrim", registry, utf8_rtrim_doc);
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
-                                                 &utf8_trim_whitespace_doc);
+                                                 utf8_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,
-                                                  &utf8_ltrim_whitespace_doc);
+                                                  utf8_ltrim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8RTrimWhitespace>("utf8_rtrim_whitespace", registry,
-                                                  &utf8_rtrim_whitespace_doc);
+                                                  utf8_rtrim_whitespace_doc);
 #endif  // ARROW_WITH_UTF8PROC
 }
 
@@ -1002,10 +1002,10 @@ const FunctionDoc utf8_rpad_doc(
     {"strings"}, "PadOptions", /*options_required=*/true);
 
 void AddUtf8StringPad(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, &utf8_lpad_doc);
-  MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, &utf8_rpad_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, utf8_lpad_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, utf8_rpad_doc);
   MakeUnaryStringBatchKernelWithState<Utf8Center>("utf8_center", registry,
-                                                  &utf8_center_doc);
+                                                  utf8_center_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1089,7 +1089,7 @@ const FunctionDoc utf8_replace_slice_doc(
 
 void AddUtf8StringReplaceSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_replace_slice", Arity::Unary(),
-                                               &utf8_replace_slice_doc);
+                                               utf8_replace_slice_doc);
 
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<Utf8ReplaceSlice>(ty);
@@ -1278,7 +1278,7 @@ const FunctionDoc utf8_slice_codeunits_doc(
 
 void AddUtf8StringSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
-                                               &utf8_slice_codeunits_doc);
+                                               utf8_slice_codeunits_doc);
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SliceCodeunits>(ty);
     DCHECK_OK(
@@ -1364,7 +1364,7 @@ void AddUtf8StringSplitWhitespace(FunctionRegistry* registry) {
   static const SplitOptions default_options;
   auto func =
       std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
-                                       &utf8_split_whitespace_doc, &default_options);
+                                       utf8_split_whitespace_doc, &default_options);
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
     DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), StringSplitState::Init));

@@ -89,6 +89,8 @@ struct KeyValuePartitioningOptions;
 class DirectoryPartitioning;
 class HivePartitioning;
 struct HivePartitioningOptions;
+class FilenamePartitioning;
+struct FilenamePartitioningOptions;
 
 struct ScanOptions;
 

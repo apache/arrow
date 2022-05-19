@@ -94,7 +94,10 @@ mutate.arrow_dplyr_query <- function(.data,
 
   # Respect .keep
   if (.keep == "none") {
-    .data$selected_columns <- .data$selected_columns[new_vars]
+    ## for consistency with dplyr, this appends new columns after existing columns
+    ## by specifying the order
+    new_cols_last <- c(intersect(old_vars, new_vars), setdiff(new_vars, old_vars))
+    .data$selected_columns <- .data$selected_columns[new_cols_last]
   } else if (.keep != "all") {
     # "used" or "unused"
     used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
@@ -112,7 +115,17 @@ mutate.Dataset <- mutate.ArrowTabular <- mutate.RecordBatchReader <- mutate.arro
 
 transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
-  dplyr::mutate(.data, !!!dots, .keep = "none")
+  has_null <- map_lgl(dots, quo_is_null)
+  .data <- dplyr::mutate(.data, !!!dots, .keep = "none")
+  if (is_empty(dots) | any(has_null)) {
+    return(.data)
+  }
+
+  ## keeping with: https://github.com/tidyverse/dplyr/issues/6086
+  cur_exprs <- map_chr(dots, as_label)
+  transmute_order <- names(cur_exprs)
+  transmute_order[!nzchar(transmute_order)] <- cur_exprs[!nzchar(transmute_order)]
+  dplyr::select(.data, all_of(transmute_order))
 }
 transmute.Dataset <- transmute.ArrowTabular <- transmute.RecordBatchReader <- transmute.arrow_dplyr_query
 

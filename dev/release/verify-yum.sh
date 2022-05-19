@@ -42,7 +42,7 @@ artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
-distribution_prefix="centos"
+repository_version="${distribution_version}"
 
 cmake_package=cmake
 cmake_command=cmake
@@ -53,26 +53,34 @@ have_parquet=yes
 have_python=yes
 install_command="dnf install -y --enablerepo=powertools"
 
+echo "::group::Prepare repository"
+
 case "${distribution}-${distribution_version}" in
   almalinux-*)
     distribution_prefix="almalinux"
     ;;
   amzn-2)
+    distribution_prefix="amazon-linux"
     cmake_package=cmake3
     cmake_command=cmake3
     have_flight=no
     have_gandiva=no
     have_python=no
     install_command="yum install -y"
-    distribution_prefix="amazon-linux"
     amazon-linux-extras install epel -y
     ;;
   centos-7)
+    distribution_prefix="centos"
     cmake_package=cmake3
     cmake_command=cmake3
     have_flight=no
     have_gandiva=no
+    have_python=no
     install_command="yum install -y"
+    ;;
+  centos-*)
+    distribution_prefix="centos"
+    repository_version+="-stream"
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
@@ -103,12 +111,12 @@ if [ "${TYPE}" = "local" ]; then
       release_path+="/amazon-linux"
       amazon-linux-extras install -y epel
       ;;
-    *)
+    centos)
       package_version+=".el${distribution_version}"
       release_path+="/centos"
       ;;
   esac
-  release_path+="/${distribution_version}/$(arch)/Packages"
+  release_path+="/${repository_version}/$(arch)/Packages"
   release_path+="/apache-arrow-release-${package_version}.noarch.rpm"
   ${install_command} "${release_path}"
 else
@@ -120,7 +128,7 @@ else
       ;;
   esac
   ${install_command} \
-    ${artifactory_base_url}/${distribution_prefix}/${distribution_version}/apache-arrow-release-latest.rpm
+    ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -146,6 +154,10 @@ else
   esac
 fi
 
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow C++"
 ${install_command} --enablerepo=epel arrow-devel-${package_version}
 ${install_command} \
   ${cmake_package} \
@@ -155,50 +167,70 @@ ${install_command} \
   make \
   pkg-config
 mkdir -p build
-cp -a /arrow/cpp/examples/minimal_build build
+cp -a /arrow/cpp/examples/minimal_build build/
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
-./arrow_example
-c++ -std=c++11 -o arrow_example example.cc $(pkg-config --cflags --libs arrow)
-./arrow_example
+./arrow-example
+c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+./arrow-example
 popd
+echo "::endgroup::"
 
 if [ "${have_glib}" = "yes" ]; then
+  echo "::group::Test Apache Arrow GLib"
   ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
+
+  ${install_command} vala
+  cp -a /arrow/c_glib/example/vala build/
+  pushd build/vala
+  valac --pkg arrow-glib --pkg posix build.vala
+  ./build
+  popd
+  echo "::endgroup::"
+fi
+
+if [ "${have_flight}" = "yes" ]; then
+  echo "::group::Test Apache Arrow Flight"
+  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
+  echo "::endgroup::"
 fi
 
 if [ "${have_python}" = "yes" ]; then
+  echo "::group::Test libarrow-python"
   ${install_command} --enablerepo=epel arrow-python-devel-${package_version}
+  echo "::endgroup::"
 fi
 
+echo "::group::Test Plasma"
 if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
   ${install_command} --enablerepo=epel plasma-glib-doc-${package_version}
 else
   ${install_command} --enablerepo=epel plasma-devel-${package_version}
 fi
-
-if [ "${have_flight}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
-fi
+echo "::endgroup::"
 
 if [ "${have_gandiva}" = "yes" ]; then
+  echo "::group::Test Gandiva"
   if [ "${have_glib}" = "yes" ]; then
     ${install_command} --enablerepo=epel gandiva-glib-devel-${package_version}
     ${install_command} --enablerepo=epel gandiva-glib-doc-${package_version}
   else
     ${install_command} --enablerepo=epel gandiva-devel-${package_version}
   fi
+  echo "::endgroup::"
 fi
 
 if [ "${have_parquet}" = "yes" ]; then
+  echo "::group::Test Apache Parquet"
   if [ "${have_glib}" = "yes" ]; then
     ${install_command} --enablerepo=epel parquet-glib-devel-${package_version}
     ${install_command} --enablerepo=epel parquet-glib-doc-${package_version}
   else
     ${install_command} --enablerepo=epel parquet-devel-${package_version}
   fi
+  echo "::endgroup::"
 fi

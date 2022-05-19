@@ -18,6 +18,7 @@
 # distutils: language = c++
 
 from libcpp.unordered_map cimport unordered_map
+from libcpp cimport bool as c_bool
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -29,6 +30,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CRecordBatchIterator "arrow::RecordBatchIterator"(
             CIterator[shared_ptr[CRecordBatch]]):
         pass
+
+
+cdef extern from "arrow/dataset/plan.h" namespace "arrow::dataset::internal" nogil:
+
+    cdef void Initialize()
 
 
 ctypedef CStatus cb_writer_finish_internal(CFileWriter*)
@@ -45,11 +51,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             arrow::dataset::ExistingDataBehavior::kError"
 
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
-        @staticmethod
-        shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
-
         shared_ptr[CSchema] dataset_schema
         shared_ptr[CSchema] projected_schema
+        c_bool use_threads
+
+    cdef cppclass CScanNodeOptions "arrow::dataset::ScanNodeOptions"(CExecNodeOptions):
+        CScanNodeOptions(shared_ptr[CDataset] dataset, shared_ptr[CScanOptions] scan_options)
+
+        shared_ptr[CScanOptions] scan_options
 
     cdef cppclass CFragmentScanOptions "arrow::dataset::FragmentScanOptions":
         c_string type_name() const
@@ -215,6 +224,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         function[cb_writer_finish_internal] writer_pre_finish
         function[cb_writer_finish_internal] writer_post_finish
         ExistingDataBehavior existing_data_behavior
+        c_bool create_dir
         uint32_t max_open_files
         uint64_t max_rows_per_file
         uint64_t min_rows_per_group
@@ -305,6 +315,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         c_string type_name() const
 
+    cdef cppclass CKeyValuePartitioning \
+            "arrow::dataset::KeyValuePartitioning"(CPartitioning):
+        CKeyValuePartitioning(shared_ptr[CSchema] schema,
+                              vector[shared_ptr[CArray]] dictionaries,
+                              CKeyValuePartitioningOptions options)
+
+        vector[shared_ptr[CArray]] dictionaries() const
+
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
         CDirectoryPartitioning(shared_ptr[CSchema] schema,
@@ -325,6 +343,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
             CHivePartitioningFactoryOptions)
+
+        vector[shared_ptr[CArray]] dictionaries() const
+
+    cdef cppclass CFilenamePartitioning \
+            "arrow::dataset::FilenamePartitioning"(CPartitioning):
+        CFilenamePartitioning(shared_ptr[CSchema] schema,
+                              vector[shared_ptr[CArray]] dictionaries)
+
+        @staticmethod
+        shared_ptr[CPartitioningFactory] MakeFactory(
+            vector[c_string] field_names, CPartitioningFactoryOptions)
 
         vector[shared_ptr[CArray]] dictionaries() const
 

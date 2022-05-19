@@ -255,7 +255,8 @@ public class JdbcToArrowUtils {
         metadata = null;
       }
 
-      final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(new JdbcFieldInfo(rsmd, i));
+      final JdbcFieldInfo columnFieldInfo = getJdbcFieldInfoForColumn(rsmd, i, config);
+      final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(columnFieldInfo);
       if (arrowType != null) {
         final FieldType fieldType = new FieldType(
                 isColumnNullable(rsmd, i), arrowType, /* dictionary encoding */ null, metadata);
@@ -276,6 +277,30 @@ public class JdbcToArrowUtils {
     }
 
     return new Schema(fields, null);
+  }
+
+  private static JdbcFieldInfo getJdbcFieldInfoForColumn(
+      ResultSetMetaData rsmd,
+      int arrayColumn,
+      JdbcToArrowConfig config)
+          throws SQLException {
+    Preconditions.checkNotNull(rsmd, "ResultSet MetaData object cannot be null");
+    Preconditions.checkNotNull(config, "Configuration must not be null");
+    Preconditions.checkArgument(
+            arrayColumn > 0,
+            "ResultSetMetaData columns start with 1; column cannot be less than 1");
+    Preconditions.checkArgument(
+            arrayColumn <= rsmd.getColumnCount(),
+            "Column number cannot be more than the number of columns");
+
+    JdbcFieldInfo fieldInfo = config.getExplicitTypeByColumnIndex(arrayColumn);
+    if (fieldInfo == null) {
+      fieldInfo = config.getExplicitTypeByColumnName(rsmd.getColumnLabel(arrayColumn));
+    }
+    if (fieldInfo != null) {
+      return fieldInfo;
+    }
+    return new JdbcFieldInfo(rsmd, arrayColumn);
   }
 
   /* Uses the configuration to determine what the array sub-type JdbcFieldInfo is.

@@ -17,7 +17,11 @@
 
 #' Read a JSON file
 #'
-#' Using [JsonTableReader]
+#' Wrapper around [JsonTableReader] to read a newline-delimited JSON (ndjson) file into a
+#' data frame or Arrow Table.
+#'
+#' If passed a path, will detect and handle compression from the file extension
+#' (e.g. `.json.gz`). Accepts explicit or implicit nulls.
 #'
 #' @inheritParams read_delim_arrow
 #' @param schema [Schema] that describes the table.
@@ -56,7 +60,7 @@ read_json_arrow <- function(file,
   tab
 }
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @rdname CsvTableReader
 #' @usage NULL
 #' @format NULL

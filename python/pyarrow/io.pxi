@@ -36,10 +36,13 @@ from pyarrow.util import _is_path_like, _stringify_path
 DEFAULT_BUFFER_SIZE = 2 ** 16
 
 
-# To let us get a PyObject* and avoid Cython auto-ref-counting
 cdef extern from "Python.h":
+    # To let us get a PyObject* and avoid Cython auto-ref-counting
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
+
+    # Workaround https://github.com/cython/cython/issues/4707
+    bytearray PyByteArray_FromStringAndSize(char *string, Py_ssize_t len)
 
 
 def io_thread_count():
@@ -433,7 +436,13 @@ cdef class NativeFile(_Weakrefable):
     def read1(self, nbytes=None):
         """Read and return up to n bytes.
 
-        Alias for read, needed to match the IOBase interface."""
+        Alias for read, needed to match the BufferedIOBase interface.
+
+        Parameters
+        ----------
+        nbytes : int
+            The maximum number of bytes to read.
+        """
         return self.read(nbytes=None)
 
     def readall(self):
@@ -444,12 +453,13 @@ cdef class NativeFile(_Weakrefable):
         Read into the supplied buffer
 
         Parameters
-        -----------
-        b: any python object supporting buffer interface
+        ----------
+        b : buffer-like object
+            A writable buffer object (such as a bytearray).
 
         Returns
-        --------
-        int
+        -------
+        written : int
             number of bytes written
         """
 
@@ -476,19 +486,22 @@ cdef class NativeFile(_Weakrefable):
         If size is specified, read at most size bytes.
 
         Line terminator is always b"\\n".
-        """
 
+        Parameters
+        ----------
+        size : int
+            maximum number of bytes read
+        """
         raise UnsupportedOperation()
 
     def readlines(self, hint=None):
         """NOT IMPLEMENTED. Read lines of the file
 
         Parameters
-        -----------
-
-        hint: int maximum number of bytes read until we stop
+        ----------
+        hint : int
+            maximum number of bytes read until we stop
         """
-
         raise UnsupportedOperation()
 
     def __iter__(self):
@@ -536,8 +549,17 @@ cdef class NativeFile(_Weakrefable):
 
     def download(self, stream_or_path, buffer_size=None):
         """
-        Read file completely to local path (rather than reading completely into
-        memory). First seeks to the beginning of the file.
+        Read this file completely to a local path or destination stream.
+
+        This method first seeks to the beginning of the file.
+
+        Parameters
+        ----------
+        stream_or_path : str or file-like object
+            If a string, a local file path to write to; otherwise,
+            should be a writable stream.
+        buffer_size : int, optional
+            The buffer size to use for data transfers.
         """
         cdef:
             int64_t bytes_read = 0
@@ -624,7 +646,14 @@ cdef class NativeFile(_Weakrefable):
 
     def upload(self, stream, buffer_size=None):
         """
-        Pipe file-like object to file
+        Write from a source stream to this file.
+
+        Parameters
+        ----------
+        stream : file-like object
+            Source stream to pipe to this file.
+        buffer_size : int, optional
+            The buffer size to use for data transfers.
         """
         write_queue = Queue(50)
         self._assert_writable()
@@ -1024,7 +1053,7 @@ cdef class Buffer(_Weakrefable):
             return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             if (key.step or 1) != 1:
                 raise IndexError('only slices with step 1 supported')
             return _normalize_slice(self, key)
@@ -1091,9 +1120,16 @@ cdef class Buffer(_Weakrefable):
 
     def __reduce_ex__(self, protocol):
         if protocol >= 5:
-            return py_buffer, (builtin_pickle.PickleBuffer(self),)
+            bufobj = builtin_pickle.PickleBuffer(self)
+        elif self.buffer.get().is_mutable():
+            # Need to pass a bytearray to recreate a mutable buffer when
+            # unpickling.
+            bufobj = PyByteArray_FromStringAndSize(
+                <const char*>self.buffer.get().data(),
+                self.buffer.get().size())
         else:
-            return py_buffer, (self.to_pybytes(),)
+            bufobj = self.to_pybytes()
+        return py_buffer, (bufobj,)
 
     def to_pybytes(self):
         """
@@ -1112,10 +1148,14 @@ cdef class Buffer(_Weakrefable):
                                   "buffer was not mutable")
             buffer.readonly = 1
         buffer.buf = <char *>self.buffer.get().data()
+        buffer.len = self.size
+        if buffer.buf == NULL:
+            # ARROW-16048: Ensure we don't export a NULL address.
+            assert buffer.len == 0
+            buffer.buf = cp.PyBytes_AS_STRING(b"")
         buffer.format = 'b'
         buffer.internal = NULL
         buffer.itemsize = 1
-        buffer.len = self.size
         buffer.ndim = 1
         buffer.obj = self
         buffer.shape = self.shape
@@ -1256,6 +1296,10 @@ cdef class BufferReader(NativeFile):
     """
     cdef:
         Buffer buffer
+
+    # XXX Needed to make numpydoc happy
+    def __init__(self, obj):
+        pass
 
     def __cinit__(self, object obj):
         self.buffer = as_buffer(obj)

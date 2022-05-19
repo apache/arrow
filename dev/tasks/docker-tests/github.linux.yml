@@ -39,8 +39,6 @@ jobs:
         run: |
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
-            -e VERIFY_VERSION="{{ release|default("") }}" \
-            -e VERIFY_RC="{{ rc|default("") }}" \
             {{ flags|default("") }} \
             {{ image }} \
             {{ command|default("") }}

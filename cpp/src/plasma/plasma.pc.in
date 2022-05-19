@@ -16,13 +16,14 @@
 # under the License.
 
 prefix=@CMAKE_INSTALL_PREFIX@
-libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
-includedir=${prefix}/include
+bindir=@ARROW_PKG_CONFIG_BINDIR@
+includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
+libdir=@ARROW_PKG_CONFIG_LIBDIR@
 
 so_version=@PLASMA_SO_VERSION@
 abi_version=@PLASMA_SO_VERSION@
 full_so_version=@PLASMA_FULL_SO_VERSION@
-plasma_store_server=${prefix}/@CMAKE_INSTALL_BINDIR@/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@
+plasma_store_server=${bindir}/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@
 executable=${plasma_store_server}
 
 Name: Plasma

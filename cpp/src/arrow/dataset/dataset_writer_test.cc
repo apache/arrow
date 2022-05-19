@@ -206,6 +206,22 @@ TEST_F(DatasetWriterTestFixture, Basic) {
   AssertCreatedData({{"testdir/chunk-0.arrow", 0, 100}});
 }
 
+TEST_F(DatasetWriterTestFixture, BasicFilePrefix) {
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "", "1_");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertFilesCreated({"testdir/1_chunk-0.arrow"});
+}
+
+TEST_F(DatasetWriterTestFixture, BasicFileDirectoryPrefix) {
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "a", "1_");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertFilesCreated({"testdir/a/1_chunk-0.arrow"});
+}
+
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_.max_rows_per_file = 10;
   write_options_.max_rows_per_group = 10;
@@ -355,6 +371,21 @@ TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
                       "testdir/part1/chunk-0.arrow", "testdir/part2/chunk-0.arrow"});
 }
 
+TEST_F(DatasetWriterTestFixture, NoExistingDirectory) {
+  fs::TimePoint mock_now = std::chrono::system_clock::now();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> fs,
+                       MockFileSystem::Make(mock_now, {::arrow::fs::Dir("testdir")}));
+  filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
+  write_options_.filesystem = filesystem_;
+  write_options_.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
+  write_options_.base_dir = "testdir/subdir";
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertCreatedData({{"testdir/subdir/chunk-0.arrow", 0, 100}});
+}
+
 TEST_F(DatasetWriterTestFixture, DeleteExistingData) {
   fs::TimePoint mock_now = std::chrono::system_clock::now();
   ASSERT_OK_AND_ASSIGN(
@@ -422,6 +453,18 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
   ASSERT_RAISES(Invalid, DatasetWriter::Make(write_options_));
   AssertEmptyFiles(
       {"testdir/chunk-0.arrow", "testdir/chunk-5.arrow", "testdir/blah.txt"});
+
+  // only a single file in the target directory
+  fs::TimePoint mock_now2 = std::chrono::system_clock::now();
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<fs::FileSystem> fs2,
+      MockFileSystem::Make(
+          mock_now2, {::arrow::fs::Dir("testdir"), fs::File("testdir/part-0.arrow")}));
+  filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs2);
+  write_options_.filesystem = filesystem_;
+  write_options_.base_dir = "testdir";
+  ASSERT_RAISES(Invalid, DatasetWriter::Make(write_options_));
+  AssertEmptyFiles({"testdir/part-0.arrow"});
 }
 
 }  // namespace internal

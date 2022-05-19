@@ -85,12 +85,12 @@ struct DummyNode : ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {
+  void PauseProducing(ExecNode* output, int32_t counter) override {
     ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
     AssertIsOutput(output);
   }
 
-  void ResumeProducing(ExecNode* output) override {
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
     ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
     AssertIsOutput(output);
   }
@@ -163,6 +163,12 @@ ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
   }
 
   return batch;
+}
+
+Future<> StartAndFinish(ExecPlan* plan) {
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+  return plan->finished();
 }
 
 Future<std::vector<ExecBatch>> StartAndCollect(

@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import del from "del";
-import { targetDir } from "./util.js";
-import memoizeTask from "./memoize-task.js";
-import { catchError } from "rxjs/operators";
-import { from as ObservableFrom, EMPTY as ObservableEmpty } from "rxjs";
+import del from 'del';
+import { targetDir } from './util.js';
+import memoizeTask from './memoize-task.js';
+import { catchError } from 'rxjs/operators';
+import { from as ObservableFrom, EMPTY as ObservableEmpty } from 'rxjs';
 
 export const cleanTask = ((cache) => memoizeTask(cache, function clean(target, format) {
     const dir = targetDir(target, format);

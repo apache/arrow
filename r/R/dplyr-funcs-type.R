@@ -20,6 +20,7 @@ register_bindings_type <- function() {
   register_bindings_type_cast()
   register_bindings_type_inspect()
   register_bindings_type_elementwise()
+  register_bindings_type_format()
 }
 
 register_bindings_type_cast <- function() {
@@ -30,7 +31,7 @@ register_bindings_type_cast <- function() {
   })
 
   register_binding("dictionary_encode", function(x,
-                                                     null_encoding_behavior = c("mask", "encode")) {
+                                                 null_encoding_behavior = c("mask", "encode")) {
     behavior <- toupper(match.arg(null_encoding_behavior))
     null_encoding_behavior <- NullEncodingBehavior[[behavior]]
     Expression$create(
@@ -43,13 +44,13 @@ register_bindings_type_cast <- function() {
   # as.* type casting functions
   # as.factor() is mapped in expression.R
   register_binding("as.character", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = string()))
+    build_expr("cast", x, options = cast_options(to_type = string()))
   })
   register_binding("as.double", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = float64()))
+    build_expr("cast", x, options = cast_options(to_type = float64()))
   })
   register_binding("as.integer", function(x) {
-    Expression$create(
+    build_expr(
       "cast",
       x,
       options = cast_options(
@@ -60,7 +61,7 @@ register_bindings_type_cast <- function() {
     )
   })
   register_binding("as.integer64", function(x) {
-    Expression$create(
+    build_expr(
       "cast",
       x,
       options = cast_options(
@@ -71,10 +72,10 @@ register_bindings_type_cast <- function() {
     )
   })
   register_binding("as.logical", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = boolean()))
+    build_expr("cast", x, options = cast_options(to_type = boolean()))
   })
   register_binding("as.numeric", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = float64()))
+    build_expr("cast", x, options = cast_options(to_type = float64()))
   })
 
   register_binding("is", function(object, class2) {
@@ -122,8 +123,8 @@ register_bindings_type_cast <- function() {
   })
 
   register_binding("data.frame", function(..., row.names = NULL,
-                                              check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
-                                              stringsAsFactors = FALSE) {
+                                          check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
+                                          stringsAsFactors = FALSE) {
     # we need a specific value of stringsAsFactors because the default was
     # TRUE in R <= 3.6
     if (!identical(stringsAsFactors, FALSE)) {
@@ -160,7 +161,7 @@ register_bindings_type_inspect <- function() {
   # is.* type functions
   register_binding("is.character", function(x) {
     is.character(x) || (inherits(x, "Expression") &&
-                          x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
+      x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
   })
   register_binding("is.numeric", function(x) {
     is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
@@ -223,7 +224,7 @@ register_bindings_type_elementwise <- function() {
 
   register_binding("is.nan", function(x) {
     if (is.double(x) || (inherits(x, "Expression") &&
-                         x$type_id() %in% TYPES_WITH_NAN)) {
+      x$type_id() %in% TYPES_WITH_NAN)) {
       # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
       # use that to simplify the code here (ARROW-13366)
       build_expr("is_nan", x) & build_expr("is_valid", x)
@@ -246,5 +247,22 @@ register_bindings_type_elementwise <- function() {
     is_inf <- Expression$create("is_inf", x)
     # for compatibility with base::is.infinite(), return FALSE for NA_real_
     is_inf & !call_binding("is.na", is_inf)
+  })
+}
+
+register_bindings_type_format <- function() {
+  register_binding("format", function(x, ...) {
+    # We use R's format if we get a single R object here since we don't (yet)
+    # support all of the possible options for casting to string
+    if (!inherits(x, "Expression")) {
+      return(format(x, ...))
+    }
+
+    if (inherits(x, "Expression") &&
+      x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
+      binding_format_datetime(x, ...)
+    } else {
+      build_expr("cast", x, options = cast_options(to_type = string()))
+    }
   })
 }
