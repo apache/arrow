@@ -1884,7 +1884,6 @@ test_that("lubridate's fast_strptime", {
     )
   )
 
-
   # fast_strptime()'s `cutoff_2000` argument is not supported, but its value is
   # implicitly set to 68L both in lubridate and in Arrow
   compare_dplyr_binding(
