@@ -1812,3 +1812,133 @@ test_that("ym, my & yq parsers", {
     test_df
   )
 })
+
+test_that("lubridate's fast_strptime", {
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y =
+          fast_strptime(
+            x,
+            format = "%Y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", "2022-05-17 21:23:45", NA)
+    )#,
+    # arrow does not preserve the `tzone` attribute
+    # test ignore_attr = TRUE
+  )
+
+  # R object
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y =
+          fast_strptime(
+            "68-10-07 19:04:05",
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", NA)
+    )#,
+    # test ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_multi_formats =
+          fast_strptime(
+            x,
+            format = c("%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S"),
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", "10-07-1968 19:04:05")
+    )
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm_with_tz = fast_strptime(
+          dttm_as_string,
+          format = "%Y-%m-%d %H:%M:%S",
+          tz = "Pacific/Marquesas",
+          lt = FALSE
+        )
+      ) %>%
+      collect(),
+    tibble(
+      dttm_as_string =
+        c("2018-10-07 19:04:05", "1969-10-07 19:04:05", NA)
+    )
+  )
+
+  # fast_strptime()'s `cutoff_2000` argument is not supported, but its value is
+  # implicitly set to 68L both in lubridate and in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x =
+        c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    )#,
+    # arrow does not preserve the `tzone` attribute
+    # test ignore_attr = TRUE
+  )
+
+  # the arrow binding errors for a value different from 68L for `cutoff_2000`
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE,
+            cutoff_2000 = 69L
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ),
+    warning = TRUE
+  )
+
+  # compare_dplyr_binding would not work here since lt = TRUE returns a list
+  # and it also errors in regular dplyr pipelines
+  expect_warning(
+    tibble(
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ) %>%
+      arrow_table() %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = TRUE
+          )
+      ) %>%
+      collect()
+  )
+})
