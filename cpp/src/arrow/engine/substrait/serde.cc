@@ -92,7 +92,7 @@ Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
   ARROW_ASSIGN_OR_RAISE(auto declarations,
                         DeserializePlans(buf, consumer_factory, ext_set_out));
   if (declarations.size() > 1) {
-    return Status::Invalid("DeserializePlan does not support root relations");
+    return Status::Invalid("DeserializePlan does not support multiple root relations");
   } else {
     ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
     std::ignore = declarations[0].AddToPlan(plan.get());
