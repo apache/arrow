@@ -492,25 +492,23 @@ struct AdbcDriver {
 };
 
 /// \brief Common entry point for drivers via the driver manager
-///   (which uses dlopen(3)/LoadLibrary).
+///   (which uses dlopen(3)/LoadLibrary). The driver manager is told
+///   to load a library and call a function of this type to load the
+///   driver.
 ///
 /// \param[in] count The number of entries to initialize. Provides
 ///   backwards compatibility if the struct definition is changed.
 /// \param[out] driver The table of function pointers to initialize.
 /// \param[out] initialized How much of the table was actually
 ///   initialized (can be less than count).
-AdbcStatusCode AdbcDriverInit(size_t count, struct AdbcDriver* driver,
-                              size_t* initialized);
+typedef AdbcStatusCode (*AdbcDriverInitFunc)(size_t count, struct AdbcDriver* driver,
+                                             size_t* initialized);
 // TODO: how best to report errors here?
-// TODO: use sizeof() instead of count?
-// TODO: version the struct/entrypoint instead?
-// TODO: don't require the entrypoint to have a particular name (to
-// make it easier for users who aren't using the driver manager,
-// e.g. someone who wants to just statically link a driver)? Make the
-// entrypoint one of the parameters in the driver manager instead
+// TODO: use sizeof() instead of count, or version the
+// struct/entrypoint instead?
 
 // For use with count
-#define ADBC_VERSION_0_0_1 15
+#define ADBC_VERSION_0_0_1 19
 
 /// }@
 

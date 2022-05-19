@@ -33,14 +33,14 @@ std::unordered_map<std::string, std::string> ParseConnectionString(
     auto divider = target.find('=', cur);
     if (divider == std::string::npos) break;
 
-    std::string key = target.substr(cur, divider);
+    std::string key = target.substr(cur, divider - cur);
     cur = divider + 1;
     auto end = target.find(';', cur);
     if (end == std::string::npos) {
       option_pairs.insert({std::move(key), target.substr(cur)});
       break;
     } else {
-      option_pairs.insert({std::string(key), target.substr(cur, end)});
+      option_pairs.insert({std::string(key), target.substr(cur, end - cur)});
       cur = end + 1;
     }
   }
@@ -57,13 +57,21 @@ AdbcStatusCode AdbcLoadDriver(const char* connection, size_t count,
     return ADBC_STATUS_INVALID_ARGUMENT;
   }
 
+  auto entrypoint_str = params.find("Entrypoint");
+  if (entrypoint_str == params.end()) {
+    return ADBC_STATUS_INVALID_ARGUMENT;
+  }
+
   void* handle = dlopen(driver_str->second.c_str(), RTLD_NOW | RTLD_LOCAL);
   if (!handle) {
     return ADBC_STATUS_UNKNOWN;
   }
 
   auto* load =
-      reinterpret_cast<decltype(&AdbcDriverInit)>(dlsym(handle, "AdbcDriverInit"));
+      reinterpret_cast<AdbcDriverInitFunc>(dlsym(handle, entrypoint_str->second.c_str()));
+  if (!load) {
+    return ADBC_STATUS_INTERNAL;
+  }
   // TODO: we could do things here like filling in default stubs for
   // unimplemented functions
   return load(count, driver, initialized);

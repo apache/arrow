@@ -46,8 +46,10 @@ class AdbcFlightSqlTest : public ::testing::Test {
 
     {
       size_t initialized = 0;
-      ADBC_ASSERT_OK(AdbcLoadDriver("Driver=libadbc_driver_flight_sql.so",
-                                    ADBC_VERSION_0_0_1, &driver, &initialized));
+      ADBC_ASSERT_OK(
+          AdbcLoadDriver("Driver=libadbc_driver_flight_sql.so;"
+                         "Entrypoint=AdbcFlightSqlDriverInit",
+                         ADBC_VERSION_0_0_1, &driver, &initialized));
     }
 
     {

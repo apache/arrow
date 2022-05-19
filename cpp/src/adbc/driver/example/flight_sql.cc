@@ -484,8 +484,10 @@ AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
   return status;
 }
 
-AdbcStatusCode AdbcDriverInit(size_t count, struct AdbcDriver* driver,
-                              size_t* initialized) {
+extern "C" {
+ARROW_EXPORT
+AdbcStatusCode AdbcFlightSqlDriverInit(size_t count, struct AdbcDriver* driver,
+                                       size_t* initialized) {
   if (count < ADBC_VERSION_0_0_1) return ADBC_STATUS_NOT_IMPLEMENTED;
 
   std::memset(driver, 0, sizeof(*driver));
@@ -504,4 +506,5 @@ AdbcStatusCode AdbcDriverInit(size_t count, struct AdbcDriver* driver,
   driver->StatementRelease = AdbcStatementRelease;
   *initialized = ADBC_VERSION_0_0_1;
   return ADBC_STATUS_OK;
+}
 }
