@@ -135,11 +135,15 @@ def test_python_file_get_stream():
     stream1 = f.get_stream(file_offset=0, nbytes=10)
     stream2 = f.get_stream(file_offset=9, nbytes=16)
 
+    buf_nbytes4 = stream2.read(nbytes=4)
+    assert buf_nbytes4 == b'2dat'
+
     buf_nbytes6 = stream1.read(nbytes=6)
     assert buf_nbytes6 == b'data1d'
 
-    buf_nbytes4 = stream2.read(nbytes=4)
-    assert buf_nbytes4 == b'2dat'
+    # read to the end of each stream
+    buf_nbytes2 = stream1.read(nbytes=2)
+    assert buf_nbytes2 == b'a2'
 
 
 def test_python_file_read_at():
