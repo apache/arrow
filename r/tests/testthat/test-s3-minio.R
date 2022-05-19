@@ -54,6 +54,26 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     )
   })
 
+  test_that("read/write compressed csv by filesystem", {
+    skip_if_not_available("gzip")
+    dat <- tibble(x = seq(1, 10, by = 0.2))
+    write_csv_arrow(dat, fs$path(minio_path("test.csv.gz")))
+    expect_identical(
+      read_csv_arrow(fs$path(minio_path("test.csv.gz"))),
+      dat
+    )
+  })
+
+  test_that("read/write csv by filesystem", {
+    skip_if_not_available("gzip")
+    dat <- tibble(x = seq(1, 10, by = 0.2))
+    write_csv_arrow(dat, fs$path(minio_path("test.csv")))
+    expect_identical(
+      read_csv_arrow(fs$path(minio_path("test.csv"))),
+      dat
+    )
+  })
+
   test_that("read/write stream", {
     write_ipc_stream(example_data, fs$path(minio_path("test3.ipc")))
     expect_identical(
