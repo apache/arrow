@@ -1954,6 +1954,79 @@ test_that("lubridate's fast_strptime", {
       ) %>%
       collect()
   )
+})
+
+test_that("parse_date_time with hours, minutes and seconds components", {
+  test_dates_times <- tibble(
+    ymd_hms_string = c("67-01-09 12:34:56", "1970-05-22 20:13:59", NA),
+    ymd_hm_string = c("67-01-09 12:34", "1970-05-22 20:13", NA),
+    ymd_h_string = c("67-01-09 12", "1970-05-22 20", NA),
+    dmy_hms_string = c("09-01-67 12:34:56", "22-05-1970 20:13:59", NA),
+    dmy_hm_string = c("09-01-67 12:34", "22-05-1970 20:13", NA),
+    dmy_h_string = c("09-01-67 12", "22-05-1970 20", NA),
+    mdy_hms_string = c("01-09-67 12:34:56", "05-22-1970 20:13:59", NA),
+    mdy_hm_string = c("01-09-67 12:34", "05-22-1970 20:13", NA),
+    mdy_h_string = c("01-09-67 12", "05-22-1970 20", NA),
+    ydm_hms_string = c("67-09-01 12:34:56", "1970-22-05 20:13:59", NA),
+    ydm_hm_string = c("67-09-01 12:34", "1970-22-05 20:13", NA),
+    ydm_h_string = c("67-09-01 12", "1970-22-05 20", NA)
+  )
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = parse_date_time(ymd_hms_string, orders = "ymd_HMS"),
+        ymd_hm_dttm  = parse_date_time(ymd_hm_string, orders = "ymd_HM"),
+        ymd_h_dttm   = parse_date_time(ymd_h_string, orders = "ymd_H"),
+        dmy_hms_dttm = parse_date_time(dmy_hms_string, orders = "dmy_HMS"),
+        dmy_hm_dttm  = parse_date_time(dmy_hm_string, orders = "dmy_HM"),
+        dmy_h_dttm   = parse_date_time(dmy_h_string, orders = "dmy_H"),
+        mdy_hms_dttm = parse_date_time(mdy_hms_string, orders = "mdy_HMS"),
+        mdy_hm_dttm  = parse_date_time(mdy_hm_string, orders = "mdy_HM"),
+        mdy_h_dttm   = parse_date_time(mdy_h_string, orders = "mdy_H"),
+        ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS"),
+        ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydm_HM"),
+        ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydm_H")
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm =
+          parse_date_time(ymd_hms_string, orders = "ymd_HMS", tz = "Pacific/Marquesas"),
+        ymd_hm_dttm =
+          parse_date_time(ymd_hm_string, orders = "ymd_HM", tz = "Pacific/Marquesas"),
+        ymd_h_dttm =
+          parse_date_time(ymd_h_string, orders = "ymd_H", tz = "Pacific/Marquesas"),
+        dmy_hms_dttm =
+          parse_date_time(dmy_hms_string, orders = "dmy_HMS", tz = "Pacific/Marquesas"),
+        dmy_hm_dttm =
+          parse_date_time(dmy_hm_string, orders = "dmy_HM", tz = "Pacific/Marquesas"),
+        dmy_h_dttm =
+          parse_date_time(dmy_h_string, orders = "dmy_H", tz = "Pacific/Marquesas"),
+        mdy_hms_dttm =
+          parse_date_time(mdy_hms_string, orders = "mdy_HMS", tz = "Pacific/Marquesas"),
+        mdy_hm_dttm =
+          parse_date_time(mdy_hm_string, orders = "mdy_HM", tz = "Pacific/Marquesas"),
+        mdy_h_dttm =
+          parse_date_time(mdy_h_string, orders = "mdy_H", tz = "Pacific/Marquesas"),
+        ydm_hms_dttm =
+          parse_date_time(ydm_hms_string, orders = "ydm_HMS", tz = "Pacific/Marquesas"),
+        ydm_hm_dttm =
+          parse_date_time(ydm_hm_string, orders = "ydm_HM", tz = "Pacific/Marquesas"),
+        ydm_h_dttm =
+          parse_date_time(ydm_h_string, orders = "ydm_H", tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_dates_times
+  )
 
   test_dates_times2 <- tibble(
     ymd_hms_string = c("67-Jan-09 12:34:56", "1970-June-22 20:13:59", NA),
@@ -2010,7 +2083,7 @@ test_that("lubridate's fast_strptime", {
           "2022-05-18 13:46",
           "2022-05-17 13",
           "2022-05-16"
-      )
+        )
     )
   )
 
