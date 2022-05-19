@@ -2786,6 +2786,45 @@ TEST_F(TestProjector, TestMaskFirstMaskLastN) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_mask_last_n, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestCastVarchar) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int32());
+  auto field1 = field("f1", arrow::int64());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto output_castvarchar = field("output", arrow::utf8());
+
+  // Build expression
+  auto castvarchar_expr = TreeExprBuilder::MakeExpression("castvarchar", {field0, field1},
+                                                          output_castvarchar);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {castvarchar_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+
+  auto array0 = MakeArrowArrayInt32({55830030, 55830050, 12830050}, {true, true, true});
+  auto array1 = MakeArrowArrayInt64({12L, 5L, 24L}, {true, true, true});
+  // expected output
+  auto exp_sum =
+      MakeArrowArrayUtf8({"55830030", "55830", "12830050"}, {true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestInstr) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
