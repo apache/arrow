@@ -74,7 +74,8 @@ ExecPlan <- R6Class("ExecPlan",
       grouped <- length(group_vars) > 0
 
       # Collect the target names first because we have to add back the group vars
-      target_names <- names(.data)
+      # TODO : remove upon discussion
+      # target_names <- names(.data)
       .data <- ensure_group_vars(.data)
       .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
@@ -114,10 +115,13 @@ ExecPlan <- R6Class("ExecPlan",
             x
           })
         }
+        target_names <- names(.data$aggregations);
+        for (i in seq_len(length(target_names))) {
+            .data$aggregations[[i]][["target"]] <- target_names[i]
+        }
 
         node <- node$Aggregate(
-          options = map(.data$aggregations, ~ .[c("fun", "options")]),
-          target_names = names(.data$aggregations),
+          options = map(.data$aggregations, ~ .[c("fun", "options", "target")]),
           out_field_names = names(.data$aggregations),
           key_names = group_vars
         )
@@ -179,7 +183,6 @@ ExecPlan <- R6Class("ExecPlan",
           temp_columns = names(.data$temp_columns)
         )
       }
-
       # This is only safe because we are going to evaluate queries that end
       # with head/tail first, then evaluate any subsequent query as a new query
       if (!is.null(.data$head)) {
@@ -304,9 +307,9 @@ ExecNode <- R6Class("ExecNode",
       assert_is(expr, "Expression")
       self$preserve_extras(ExecNode_Filter(self, expr))
     },
-    Aggregate = function(options, target_names, out_field_names, key_names) {
-      out <- self$preserve_extras(
-        ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
+    Aggregate = function(options, key_names) {
+      self$preserve_sort(
+        ExecNode_Aggregate(self, options, key_names)
       )
       # dplyr drops top-level attributes when you call summarize()
       out$extras$source_schema$metadata[["r"]]$attributes <- NULL

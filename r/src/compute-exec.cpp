@@ -228,28 +228,39 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
-    std::vector<std::string> target_names, std::vector<std::string> out_field_names,
+    std::vector<std::string> out_field_names,
     std::vector<std::string> key_names) {
   std::vector<arrow::compute::internal::Aggregate> aggregates;
 
+  //   aggregates.push_back(
+  //       arrow::compute::internal::Aggregate{std::move(name), opts.get()});
+  //   keep_alives.push_back(std::move(opts));
+  // }
   for (cpp11::list name_opts : options) {
     auto name = cpp11::as_cpp<std::string>(name_opts[0]);
     auto opts = make_compute_options(name, name_opts[1]);
-
+    auto target = cpp11::as_cpp<std::string>(name_opts[2]);
+    
     aggregates.push_back(
-        arrow::compute::internal::Aggregate{std::move(name), std::move(opts)});
+        arrow::compute::internal::Aggregate{std::move(name), opts, std::move(target)});
+    keep_alives.push_back(std::move(opts));
   }
 
-  std::vector<arrow::FieldRef> targets, keys;
-  for (auto&& name : target_names) {
-    targets.emplace_back(std::move(name));
-  }
+  // std::vector<arrow::FieldRef> targets, keys;
+  // for (auto&& name : target_names) {
+  //   targets.emplace_back(std::move(name));
+  // }
+  std::vector<arrow::FieldRef> keys;
   for (auto&& name : key_names) {
     keys.emplace_back(std::move(name));
   }
+  // return MakeExecNodeOrStop(
+  //     "aggregate", input->plan(), {input.get()},
+  //     compute::AggregateNodeOptions{std::move(aggregates), std::move(targets),
+  //                                   std::move(out_field_names), std::move(keys)});
   return MakeExecNodeOrStop(
       "aggregate", input->plan(), {input.get()},
-      compute::AggregateNodeOptions{std::move(aggregates), std::move(targets),
+      compute::AggregateNodeOptions{std::move(aggregates),
                                     std::move(out_field_names), std::move(keys)});
 }
 
