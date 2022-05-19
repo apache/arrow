@@ -179,10 +179,12 @@ build_formats <- function(orders) {
     orders <- unique(c(orders1, orders2))
   }
 
-  supported_orders <- c(
-    "ymd", "ydm", "mdy", "myd", "dmy", "dym",
+  ymd_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+  ymd_hms_orders <- c(
     "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H", "mdy_HMS",
-    "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H")
+    "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
+  )
+  supported_orders <- c(ymd_orders, ymd_hms_orders)
 
   unsupported_passed_orders <- setdiff(orders, supported_orders)
   supported_passed_orders <- intersect(orders, supported_orders)

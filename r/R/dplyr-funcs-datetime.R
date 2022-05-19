@@ -520,7 +520,17 @@ register_bindings_duration_helpers <- function() {
 register_bindings_datetime_parsers <- function() {
   register_binding("parse_date_time", function(x,
                                                orders,
-                                               tz = "UTC") {
+                                               tz = "UTC",
+                                               truncated = 0,
+                                               quiet = TRUE) {
+    if (!quiet) {
+      arrow_not_supported("`quiet = FALSE`")
+    }
+
+    if (truncated != 0) {
+      # build several orders for truncated formats
+      orders <- map_chr(0:truncated, ~ substr(orders, start = 1, stop = nchar(orders) - .x))
+    }
 
     # each order is translated into possible formats
     formats <- build_formats(orders)
