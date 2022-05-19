@@ -35,9 +35,9 @@ public class DirectReservationListener implements ReservationListener {
   private DirectReservationListener() {
     try {
       final Class<?> classBits = Class.forName("java.nio.Bits");
-      methodReserve = classBits.getDeclaredMethod("reserveMemory", long.class, int.class);
+      methodReserve = this.getDeclaredMethodBaseOnJDKVersion(classBits, "reserveMemory");
       methodReserve.setAccessible(true);
-      methodUnreserve = classBits.getDeclaredMethod("unreserveMemory", long.class, int.class);
+      methodUnreserve = this.getDeclaredMethodBaseOnJDKVersion(classBits, "unreserveMemory");
       methodUnreserve.setAccessible(true);
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -87,11 +87,47 @@ public class DirectReservationListener implements ReservationListener {
   public long getCurrentDirectMemReservation() {
     try {
       final Class<?> classBits = Class.forName("java.nio.Bits");
-      final Field f = classBits.getDeclaredField("reservedMemory");
+      final Field f = this.getDeclaredFieldBaseOnJDKVersion(classBits, "reservedMemory");
       f.setAccessible(true);
       return ((AtomicLong) f.get(null)).get();
     } catch (Exception e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * To evaluate method on a class base on JDK version.
+   * @param classBits Object associated with the class with the given string name
+   * @param name Method needed to evaluate
+   * @return
+   */
+  private Method getDeclaredMethodBaseOnJDKVersion(Class<?> classBits, String name) {
+    try {
+      return classBits.getDeclaredMethod(name, long.class, int.class);
+    } catch (NoSuchMethodException e) {
+      try {
+        return classBits.getDeclaredMethod(name, long.class, long.class);
+      } catch (NoSuchMethodException ex) {
+        throw new AssertionError(ex);
+      }
+    }
+  }
+
+  /**
+   * To evaluate field on a class base on JDK version.
+   * @param classBits Object associated with the class with the given string name
+   * @param name Field needed to evaluate
+   * @return
+   */
+  private Field getDeclaredFieldBaseOnJDKVersion(Class<?> classBits, String name) {
+    try {
+      return classBits.getDeclaredField(name);
+    } catch (NoSuchFieldException e) {
+      try {
+        return classBits.getDeclaredField("RESERVED_MEMORY");
+      } catch (NoSuchFieldException ex) {
+        throw new AssertionError(ex);
+      }
     }
   }
 }
