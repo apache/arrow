@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "arrow/compute/light_array.h"  // for KeyColumnMetadata
-#include "arrow/type.h"  // for DataType, FieldRef, Field and Schema
+#include "arrow/type.h"                 // for DataType, FieldRef, Field and Schema
 #include "arrow/util/mutex.h"
 
 namespace arrow {

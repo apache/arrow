@@ -23,8 +23,8 @@
 
 #include <cstdint>
 
-#include "arrow/compute/row/encode.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/row/encode.h"
 
 namespace arrow {
 namespace compute {
