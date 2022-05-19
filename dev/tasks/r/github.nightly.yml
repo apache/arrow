@@ -290,7 +290,7 @@ jobs:
           LIBARROW_BINARY: "TRUE"
         shell: Rscript {0}
         run: |
-          {{  macros.test_r_src_pkg() }}
+          {{  macros.test_r_src_pkg()|indent(8) }}
 
   test-source:
     #TODO Make sure we don't install arrow from CRAN if the repo fails
@@ -308,8 +308,8 @@ jobs:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
         shell: Rscript {0}
-        run: |
-          {{ macros.test_r_src_pkg() }}
+        run: 8
+          {{ macros.test_r_src_pkg()|indent(8) }}
 
       - name: Retry with verbosity if that failed
         if: failure()
@@ -317,7 +317,7 @@ jobs:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
         run: |
-          {{ macros.test_r_src_pkg() }}
+          {{ macros.test_r_src_pkg()|indent(8) }}
 
   update-repo:
     needs: r-packages

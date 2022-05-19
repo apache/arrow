@@ -242,15 +242,15 @@ on:
 {% endmacro %}
 
 {%- macro test_r_src_pkg() -%}
-          source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
-          options(arrow.dev_repo = "https://nightly.wujciak.de/r")
-          
-          install.packages(
-            "arrow",
-            repos = c("https://nightly.wujciak.de/r", getOption("repos")),
-            verbose = TRUE
-          )
-          library(arrow)
-          read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
-          stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
+  source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
+  options(arrow.dev_repo = "https://nightly.wujciak.de/r")
+  
+  install.packages(
+    "arrow",
+    repos = c("https://nightly.wujciak.de/r", getOption("repos")),
+    verbose = TRUE
+  )
+  library(arrow)
+  read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+  stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
 {% endmacro %}
