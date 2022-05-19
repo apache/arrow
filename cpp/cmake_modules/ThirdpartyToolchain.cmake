@@ -2336,7 +2336,11 @@ macro(build_lz4)
 endmacro()
 
 if(ARROW_WITH_LZ4)
-  resolve_dependency(lz4 HAVE_ALT TRUE PC_PACKAGE_NAMES liblz4)
+  resolve_dependency(lz4
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     liblz4)
 endif()
 
 macro(build_zstd)
