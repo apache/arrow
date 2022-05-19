@@ -31,14 +31,14 @@ from archery.utils.report import JinjaReport
 class Report:
 
     ROW_HEADERS = [
-        "Task name",
-        "Task status",
-        "Build links",
-        "Crossbow branch URL",
-        "CI system",
-        "Task extra params",
-        "Template used",
-        "Arrow commit",
+        "task_name",
+        "task_status",
+        "build_links",
+        "crossbow_branch_url",
+        "ci_system",
+        "extra_params",
+        "template",
+        "arrow_commit",
     ]
 
     def __init__(self, job, task_filters=None):
