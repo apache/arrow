@@ -27,6 +27,7 @@ groups = [
     'parquet/encryption',
     'plasma',
     'flight',
+    'fs',
 ]
 
 defaults = {
@@ -37,6 +38,7 @@ defaults = {
     'parquet': False,
     'parquet/encryption': False,
     'plasma': False,
+    'fs': False,
 }
 
 try:
@@ -78,6 +80,12 @@ except ImportError:
 try:
     import pyarrow.flight  # noqa
     defaults['flight'] = True
+except ImportError:
+    pass
+
+try:
+    from pyarrow.fs import S3FileSystem  # noqa
+    defaults['fs'] = True
 except ImportError:
     pass
 

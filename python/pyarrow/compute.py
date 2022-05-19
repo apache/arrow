@@ -345,7 +345,7 @@ def cast(arr, target_type, safe=True):
     You can use ``pyarrow.DataType`` objects to specify the target type:
 
     >>> cast(arr, pa.timestamp('ms'))
-    <pyarrow.lib.TimestampArray object at 0x7fe93c0f6910>
+    <pyarrow.lib.TimestampArray object at ...>
     [
       2010-01-01 00:00:00.000,
       2015-01-01 00:00:00.000
@@ -358,10 +358,10 @@ def cast(arr, target_type, safe=True):
     types:
 
     >>> arr.cast('timestamp[ms]')
-    <pyarrow.lib.TimestampArray object at 0x10420eb88>
+    <pyarrow.lib.TimestampArray object at ...>
     [
-      1262304000000,
-      1420070400000
+      2010-01-01 00:00:00.000,
+      2015-01-01 00:00:00.000
     ]
     >>> arr.cast('timestamp[ms]').type
     TimestampType(timestamp[ms])
@@ -448,7 +448,7 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
     >>> indices = pa.array([0, None, 4, 3])
     >>> arr.take(indices)
-    <pyarrow.lib.StringArray object at 0x7ffa4fc7d368>
+    <pyarrow.lib.StringArray object at ...>
     [
       "a",
       null,
@@ -486,7 +486,7 @@ def fill_null(values, fill_value):
     >>> arr = pa.array([1, 2, None, 3], type=pa.int8())
     >>> fill_value = pa.scalar(5, type=pa.int8())
     >>> arr.fill_null(fill_value)
-    pyarrow.lib.Int8Array object at 0x7f95437f01a0>
+    <pyarrow.lib.Int8Array object at ...>
     [
       1,
       2,
@@ -531,7 +531,7 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     >>> import pyarrow.compute as pc
     >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
     >>> pc.top_k_unstable(arr, k=3)
-    <pyarrow.lib.UInt64Array object at 0x7fdcb19d7f30>
+    <pyarrow.lib.UInt64Array object at ...>
     [
       5,
       4,
@@ -577,7 +577,7 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     >>> import pyarrow.compute as pc
     >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
     >>> pc.bottom_k_unstable(arr, k=3)
-    <pyarrow.lib.UInt64Array object at 0x7fdcb19d7fa0>
+    <pyarrow.lib.UInt64Array object at ...>
     [
       0,
       1,
