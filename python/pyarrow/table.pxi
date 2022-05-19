@@ -2882,7 +2882,7 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(result)
 
-    def filter(self, mask_or_expr, object null_selection_behavior="drop"):
+    def filter(self, mask, object null_selection_behavior="drop"):
         """
         Select rows from the table.
 
@@ -2892,7 +2892,7 @@ cdef class Table(_PandasConvertible):
 
         Parameters
         ----------
-        mask_or_expr : Array or array-like or .Expression
+        mask : Array or array-like or .Expression
             The boolean mask or the :class:`.Expression` to filter the table with.
         null_selection_behavior
             How nulls in the mask should be handled, does nothing if
@@ -2935,11 +2935,11 @@ cdef class Table(_PandasConvertible):
         n_legs: [[2,4,null]]
         animals: [["Flamingo","Horse",null]]
         """
-        if isinstance(mask_or_expr, _pc().Expression):
-            return _pc()._exec_plan._filter_table(self, mask_or_expr,
+        if isinstance(mask, _pc().Expression):
+            return _pc()._exec_plan._filter_table(self, mask,
                                                   output_type=Table)
         else:
-            return _pc().filter(self, mask_or_expr, null_selection_behavior)
+            return _pc().filter(self, mask, null_selection_behavior)
 
     def take(self, object indices):
         """
