@@ -237,6 +237,8 @@ void CheckComparison(const ExecBatch& left, const ExecBatch& right,
   uint32_t num_not_equal = 0;
   std::vector<uint16_t> not_equal_selection(right.length);
   LightContext light_context;
+  light_context.hardware_flags =
+      arrow::internal::CpuInfo::GetInstance()->hardware_flags();
   util::TempVectorStack temp_stack;
   ASSERT_OK(temp_stack.Init(default_memory_pool(),
                             4 * util::MiniBatch::kMiniBatchLength * sizeof(uint32_t)));
