@@ -4531,9 +4531,21 @@ def test_write_dataset_s3_put_only(s3_server):
     ).to_table()
     assert result.equals(table)
 
-    with pytest.raises(OSError, match="Access Denied"):
+    # Passing create_dir is fine if the bucket already exists
+    ds.write_dataset(
+        table, "existing-bucket", filesystem=fs,
+        format="feather", create_dir=True, partitioning=part,
+        existing_data_behavior='overwrite_or_ignore'
+    )
+    # check roundtrip
+    result = ds.dataset(
+        "existing-bucket", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
+
+    with pytest.raises(OSError, match="Bucket does not exist"):
         ds.write_dataset(
-            table, "existing-bucket", filesystem=fs,
+            table, "non-existing-bucket", filesystem=fs,
             format="feather", create_dir=True,
             existing_data_behavior='overwrite_or_ignore'
         )
