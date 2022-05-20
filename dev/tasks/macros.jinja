@@ -241,13 +241,20 @@ on:
       rm -f apache-arrow.rb.bak
 {% endmacro %}
 
-{%- macro test_r_src_pkg() -%}
+{%- macro test_r_src_pkg(repo) -%}
   source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
-  options(arrow.dev_repo = "https://nightly.wujciak.de/r")
+  options(arrow.dev_repo = "{{ repo }}")
+  
+  # Install dependencies by installing (yesterday's) binary, then removing it
+  install.packages(c("arrow", "cpp11"),
+    type = "binary",
+    repos = c("{{ repo }}", "https://cloud.r-project.org")
+  )
+  remove.packages("arrow")
   
   install.packages(
     "arrow",
-    repos = c(getOption("arrow.dev_repo"), getOption("repos")),
+    repos = getOption("arrow.dev_repo"),
     verbose = TRUE
   )
   library(arrow)

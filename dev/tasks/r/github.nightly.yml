@@ -205,8 +205,7 @@ jobs:
           # Install dependencies by installing (yesterday's) binary, then removing it
           install.packages(c("arrow", "cpp11"),
             type = "binary",
-            # TODO replace with {{ repo_domain }}
-            repos = c("https://arrow-r-nightly.s3.amazonaws.com", "https://cloud.r-project.org")
+            repos = c("{{ repo_domain }}", "https://cloud.r-project.org")
           )
           remove.packages("arrow")
 
@@ -218,6 +217,7 @@ jobs:
             INSTALL_opts <- c(INSTALL_opts, "--strip")
           }
 
+          #TODO remove/replace
           options(arrow.dev_repo = "https://nightly.wujciak.de/r")
           install.packages(
             "arrow",
@@ -290,10 +290,9 @@ jobs:
           LIBARROW_BINARY: "TRUE"
         shell: Rscript {0}
         run: |
-          {{  macros.test_r_src_pkg()|indent(8) }}
+          {{  macros.test_r_src_pkg(repo_domain)|indent(8) }}
 
   test-source:
-    #TODO Make sure we don't install arrow from CRAN if the repo fails
     if: true
     needs: source
     name: Test linux source build
@@ -309,7 +308,7 @@ jobs:
           LIBARROW_BINARY: "FALSE"
         shell: Rscript {0}
         run: |
-          {{ macros.test_r_src_pkg()|indent(8) }}
+          {{ macros.test_r_src_pkg(repo_domain)|indent(8) }}
 
       - name: Retry with verbosity if that failed
         if: failure()
@@ -317,7 +316,7 @@ jobs:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
         run: |
-          {{ macros.test_r_src_pkg()|indent(8) }}
+          {{ macros.test_r_src_pkg(repo_domain)|indent(8) }}
 
   update-repo:
     needs: r-packages
