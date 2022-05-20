@@ -176,13 +176,13 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  x$head <- n
+  x$extras$head <- n
   collapse.arrow_dplyr_query(x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  x$tail <- n
+  x$extras$tail <- n
   collapse.arrow_dplyr_query(x)
 }
 
@@ -269,5 +269,5 @@ has_aggregation <- function(x) {
 }
 
 has_head_tail <- function(x) {
-  !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))
+  !is.null(x$extras$head) || !is.null(x$extras$tail) || (is_collapsed(x) && has_head_tail(x$.data))
 }
