@@ -45,11 +45,12 @@ Glossary
        Defined by the :doc:`./Columnar`.
 
    buffer
-       A *contiguous* region of memory with a given length.
+       A *contiguous* region of memory with a given length.  Buffers
+       are used to store data for arrays.
 
-       Depending on the Arrow implementation, buffers may be in CPU
-       memory, memory-mapped from a file, in device (e.g. GPU) memory,
-       etc.
+       Buffers may be in CPU memory, memory-mapped from a file, in
+       device (e.g. GPU) memory, etc., though not all Arrow
+       implementations support all of these possibilities.
 
    child array
    parent array
@@ -68,9 +69,8 @@ Glossary
 
    chunked array
        A *discontiguous*, *one-dimensional* sequence of values with
-       known length where all values have the same type.
-
-       Consists of zero or more :term:`arrays <array>`, the "chunks".
+       known length where all values have the same type.  Consists of
+       zero or more :term:`arrays <array>`, the "chunks".
 
        Chunked arrays are discontiguous in the sense that iterating
        the values of a chunked array may require iterating through
@@ -89,7 +89,7 @@ Glossary
        ``List`` is a nested type that has one child.
 
        Two nested types are equal if and only if their child types are
-       equal.
+       also equal.
 
    data type
    type
@@ -118,15 +118,14 @@ Glossary
        underlying data type.
 
        For example, a UUID can be represented as a 16-byte fixed-size
-       decimal type.
+       binary type.
 
        .. seealso:: :ref:`format_metadata_extension_types`
 
    field
-       Denotes a column in a :term:`record batch` or :term:`table`.
-       Consists of a field name, a :term:`data type`, a flag
-       indicating whether the field is nullable or not, and optional
-       key-value metadata.
+       A column in a :term:`record batch` or :term:`table`.  Consists
+       of a field name, a :term:`data type`, a flag indicating whether
+       the field is nullable or not, and optional key-value metadata.
 
    IPC format
        A specification for how to serialize Arrow data, so it can be
@@ -169,28 +168,32 @@ Glossary
        .. seealso:: :term:`data type`
 
    record batch
-       The primitive unit of data in the :ref:`IPC format
-       <format-ipc>`, representing a *contiguous*, *two-dimensional*
-       chunk of data.  A record batch consists of an ordered
-       collection of :term:`arrays <array>` of the same length.
+       **In the :ref:`IPC format <format-ipc>`**: the primitive unit
+       of data.  A record batch consists of an ordered list of
+       :term:`buffers <buffer>` corresponding to a :term:`schema`.
+
+       **In some implementations** (primarily C++ and its bindings): a
+       *contiguous*, *two-dimensional* chunk of data.  A record batch
+       consists of an ordered collection of :term:`arrays <array>` of
+       the same length.
 
        Like arrays, record batches are contiguous in the sense that
        iterating the rows of a record batch will iterate through a
        single set of buffers.
 
    schema
-       A collection of fields with optional metadata that determines
-       all the :term:`data types <data type>` of an object like a
-       :term:`record batch` or :term:`table`.
+       A collection of :term:`fields <field>` with optional metadata
+       that determines all the :term:`data types <data type>` of an
+       object like a :term:`record batch` or :term:`table`.
 
    slot
-       A single logical value within an array.
+       A single logical value within an array, i.e. a "row".
 
    table
        A *discontiguous*, *two-dimensional* chunk of data consisting
        of an ordered collection of :term:`chunked arrays <chunked
-       array>`.  Each chunked array has the same length, but may have
-       a different type.  Different columns may be chunked
+       array>`.  All chunked arrays have the same length, but may have
+       different types.  Different columns may be chunked
        differently.
 
        Like chunked arrays, tables are discontiguous in the sense that
