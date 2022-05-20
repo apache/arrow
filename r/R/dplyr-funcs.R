@@ -64,30 +64,6 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
     name <- gsub("^.*?::", "", fun_name)
   }
 
-  operators <- c(
-    "!", "==", "!=", ">", ">=", "<", "<=", "&", "|", "+", "-", "*", "/", "%/%",
-    "%%", "^", "%in%"
-  )
-
-  # TODO remove before merge
-  # aggregating functions need some special attention
-  agg_functions <- c(
-    "sum", "any", "all", "mean", "sd", "var", "quantile", "median",
-    "n_distinct", "n", "min", "max"
-  )
-
-  unary_exprs <- c(
-    "abs", "ceiling", "floor", "sign", "acos", "asin", "cos", "sin", "tan",
-    "stri_reverse"
-  )
-
-  if (!grepl("::", fun_name) &&
-      !(fun_name %in% operators) &&
-      !(fun_name %in% agg_functions) &&
-      !(fun_name %in% unary_exprs)) {
-    print(fun_name)
-  }
-
   previous_fun <- if (name %in% names(registry)) registry[[name]] else NULL
 
   if (is.null(fun) && !is.null(previous_fun)) {
