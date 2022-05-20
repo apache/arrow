@@ -50,6 +50,9 @@ that emulate S3.
 \item \code{scheme}: S3 connection transport (default "https")
 \item \code{background_writes}: logical, whether \code{OutputStream} writes will be issued
 in the background, without blocking (default \code{TRUE})
+\item \code{allow_create_buckets}: logical, if TRUE, the filesystem will create or
+delete buckets if \verb{$CreateDir()} or \verb{$DeleteDir()} is called on the bucket
+level (default \code{FALSE}).
 }
 }
 

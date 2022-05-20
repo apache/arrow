@@ -34,7 +34,8 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     access_key = minio_key,
     secret_key = minio_secret,
     scheme = "http",
-    endpoint_override = paste0("localhost:", minio_port)
+    endpoint_override = paste0("localhost:", minio_port),
+    allow_create_buckets = TRUE
   )
   now <- as.character(as.numeric(Sys.time()))
   fs$CreateDir(now)

@@ -150,6 +150,9 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `scheme`: S3 connection transport (default "https")
 #' - `background_writes`: logical, whether `OutputStream` writes will be issued
 #'    in the background, without blocking (default `TRUE`)
+#' - `allow_create_buckets`: logical, if TRUE, the filesystem will create or
+#'    delete buckets if `$CreateDir()` or `$DeleteDir()` is called on the bucket
+#'    level (default `FALSE`).
 #'
 #' @section Methods:
 #'
@@ -338,7 +341,7 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
     invalid_args <- intersect(
       c(
         "access_key", "secret_key", "session_token", "role_arn", "session_name",
-        "external_id", "load_frequency"
+        "external_id", "load_frequency", "allow_create_buckets"
       ),
       names(args)
     )
@@ -383,7 +386,8 @@ default_s3_options <- list(
   endpoint_override = "",
   scheme = "",
   proxy_options = "",
-  background_writes = TRUE
+  background_writes = TRUE,
+  allow_create_buckets = FALSE
 )
 
 #' Connect to an AWS S3 bucket
