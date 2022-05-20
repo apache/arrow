@@ -198,7 +198,7 @@ test_that("log functions", {
       filter(x != 1) %>%
       mutate(
         y = log(x, base = x),
-        z = log(2, base = x)
+        z = base::log(2, base = x)
       ) %>%
       collect(),
     df
@@ -226,7 +226,8 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = logb(x)
+        y = logb(x),
+        z = base::logb(x)
       ) %>%
       collect(),
     df
@@ -235,7 +236,8 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = log1p(x)
+        y = log1p(x),
+        z = base::log1p(x)
       ) %>%
       collect(),
     df
@@ -244,7 +246,8 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = log2(x)
+        y = log2(x),
+        z = base::log2(x)
       ) %>%
       collect(),
     df
@@ -253,7 +256,8 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = log10(x)
+        y = log10(x),
+        z = base::log10(x)
       ) %>%
       collect(),
     df
@@ -265,35 +269,50 @@ test_that("trig functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = sin(x)) %>%
+      mutate(
+        y = sin(x),
+        z = base::sin(x)
+      ) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = cos(x)) %>%
+      mutate(
+        y = cos(x),
+        z = base::cos(x)
+      ) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = tan(x)) %>%
+      mutate(
+        y = tan(x),
+        z = base::tan(x)
+      ) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = asin(x)) %>%
+      mutate(
+        y = asin(x),
+        z = base::asin(x)
+      ) %>%
       collect(),
     df
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = acos(x)) %>%
+      mutate(
+        y = acos(x),
+        z = base::acos(x)
+      ) %>%
       collect(),
     df
   )
