@@ -195,6 +195,14 @@ tasks:
     params:
       image: conan
 
+  conan-maximum:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      flags: >-
+        -e ARROW_CONAN_WITH_LZ4=True
+      image: conan
+
   ############################## Conda Linux ############################
 
   conda-clean:
