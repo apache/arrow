@@ -15,10 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os
-import pytest
-
-
 groups = [
     'cuda',
     'dataset',
@@ -42,7 +38,7 @@ defaults = {
 }
 
 try:
-    import pyarrow.cuda # noqa
+    import pyarrow.cuda  # noqa
     defaults['cuda'] = True
 except ImportError:
     pass

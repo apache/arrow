@@ -157,7 +157,8 @@ def partitioning(schema=None, field_names=None, flavor=None,
 
     >>> import pyarrow as pa
     >>> import pyarrow.dataset as ds
-    >>> ds.partitioning(pa.schema([("year", pa.int16()), ("month", pa.string())]))
+    >>> ds.partitioning(pa.schema([("year", pa.int16()),
+    ...                            ("month", pa.string())]))
     <pyarrow._dataset.DirectoryPartitioning object at ...>
 
     or let the types be inferred by only specifying the field names:
@@ -679,7 +680,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     animal: string
     ----
     n_legs: [[5],[2],[4,100],[2,4]]
-    animal: [["Brittle stars"],["Flamingo"],["Dog","Centipede"],["Parrot","Horse"]]
+    animal: [["Brittle stars"],["Flamingo"],...["Parrot","Horse"]]
 
     >>> # Single directory from a S3 bucket
     >>> # dataset("s3://mybucket/nyc-taxi/", format="parquet")
