@@ -1508,19 +1508,19 @@ test_that("make_difftime()", {
 
 test_that("`as.Date()` and `as_date()`", {
   test_df <- tibble::tibble(
-    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Pacific/Marquesas"),
-    dt_europe = ymd_hms("2010-08-03 00:50:50", tz = "Europe/London"),
-    dt_utc = ymd_hms("2010-08-03 00:50:50"),
-    date_var = as.Date("2022-02-25"),
-    difference_date = ymd_hms("2010-08-03 00:50:50", tz = "Pacific/Marquesas"),
+    posixct_var = as.POSIXct(c("2022-02-25 00:00:01", "1987-11-24 12:34:56", NA), tz = "Pacific/Marquesas"),
+    dt_europe = ymd_hms("2010-08-03 00:50:50", "1987-11-24 12:34:56", NA, tz = "Europe/London"),
+    dt_utc = ymd_hms("2010-08-03 00:50:50", "1987-11-24 12:34:56", NA),
+    date_var = as.Date(c("2022-02-25", "1987-11-24", NA)),
+    difference_date = ymd_hms("2010-08-03 00:50:50", "1987-11-24 12:34:56", NA, tz = "Pacific/Marquesas"),
     try_formats_string = c(NA, "2022-01-01", "2022/01/01"),
-    character_ymd_hms_var = "2022-02-25 00:00:01",
-    character_ydm_hms_var = "2022/25/02 00:00:01",
-    character_ymd_var = "2022-02-25",
-    character_ydm_var = "2022/25/02",
-    integer_var = 32L,
-    integerish_var = 32,
-    double_var = 34.56
+    character_ymd_hms_var = c("2022-02-25 00:00:01", "1987-11-24 12:34:56", NA),
+    character_ydm_hms_var = c("2022/25/02 00:00:01", "1987/24/11 12:34:56", NA),
+    character_ymd_var = c("2022-02-25", "1987-11-24", NA),
+    character_ydm_var = c("2022/25/02", "1987/24/11", NA),
+    integer_var = c(21L, 32L, NA),
+    integerish_var = c(21, 32, NA),
+    double_var = c(12.34, 56.78, NA)
   )
 
   compare_dplyr_binding(
