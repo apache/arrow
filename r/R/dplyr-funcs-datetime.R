@@ -143,7 +143,7 @@ register_bindings_datetime_utility <- function() {
       (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
   })
 
-  register_binding("lubridate::date", function(x) {
+  register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
   })
 }
