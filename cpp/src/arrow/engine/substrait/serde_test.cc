@@ -1118,5 +1118,73 @@ TEST(Substrait, JoinPlanInvalidExpression) {
           &ext_set));
 }
 
+TEST(Substrait, JoinPlanInvalidKeys) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": { 
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "format": "FILE_FORMAT_PARQUET"
+                }
+              ] 
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "args": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 5
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }]
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }]
+  })"));
+  ExtensionSet ext_set;
+  ASSERT_RAISES(
+      Invalid,
+      DeserializePlan(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
+}
+
 }  // namespace engine
 }  // namespace arrow

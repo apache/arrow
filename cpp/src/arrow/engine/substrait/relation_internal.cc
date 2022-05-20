@@ -267,10 +267,11 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
 
       ARROW_ASSIGN_OR_RAISE(auto expression, FromProto(join.expression(), ext_set));
 
-      const auto& callptr = expression.call();
+      const auto* callptr = expression.call();
       if (!callptr) {
         return Status::Invalid(
-            "Only support call expressions as the join key comparison.");
+            "A join rel's expression must be a simple equality between keys but got ",
+            expression.ToString());
       }
 
       compute::JoinKeyCmp join_key_cmp;
@@ -280,19 +281,25 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         join_key_cmp = compute::JoinKeyCmp::IS;
       } else {
         return Status::Invalid(
-            "Only Support `equal` or `is_not_distinct_from` for join key comparison");
+            "Only `equal` or `is_not_distinct_from` are supported for join key "
+            "comparison but got ",
+            callptr->function_name);
       }
 
       // TODO: Add Suffix support for Substrait
-      compute::HashJoinNodeOptions join_options{
-          {std::move(*callptr->arguments[0].field_ref())},
-          {std::move(*callptr->arguments[1].field_ref())}};
+      const auto* left_keys = callptr->arguments[0].field_ref();
+      const auto* right_keys = callptr->arguments[1].field_ref();
+      if (!left_keys || !right_keys) {
+        return Status::Invalid("Left keys for join cannot be null");
+      }
+      compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
+                                                {std::move(*right_keys)}};
       join_options.join_type = join_type;
       join_options.key_cmp = {join_key_cmp};
       compute::Declaration join_dec{"hashjoin", std::move(join_options)};
       join_dec.inputs.emplace_back(std::move(left));
       join_dec.inputs.emplace_back(std::move(right));
-      return compute::Declaration::Sequence({std::move(join_dec)});
+      return std::move(join_dec);
     }
 
     default:
