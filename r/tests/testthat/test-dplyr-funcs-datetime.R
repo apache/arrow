@@ -943,15 +943,9 @@ test_that("date works in arrow", {
 
   r_date_object <- lubridate::ymd_hms("2012-03-26 23:12:13")
 
-  # we can't (for now) use namespacing, so we need to make sure lubridate::date()
-  # and not base::date() is being used. This is due to the way testthat runs and
-  # normal use of arrow would not have to do this explicitly.
-  # TODO remove once https://issues.apache.org/jira/browse/ARROW-14575 is done
-  date <- lubridate::date
-
   compare_dplyr_binding(
     .input %>%
-      mutate(a_date = date(posixct_date)) %>%
+      mutate(a_date = lubridate::date(posixct_date)) %>%
       collect(),
     test_df
   )
@@ -965,7 +959,7 @@ test_that("date works in arrow", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(date_from_r_object = date(r_date_object)) %>%
+      mutate(date_from_r_object = lubridate::date(r_date_object)) %>%
       collect(),
     test_df
   )
