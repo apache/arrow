@@ -212,7 +212,8 @@ def s3fs(request, s3_server):
         access_key=access_key,
         secret_key=secret_key,
         endpoint_override='{}:{}'.format(host, port),
-        scheme='http'
+        scheme='http',
+        allow_create_buckets=True
     )
     fs.create_dir(bucket)
 
@@ -442,6 +443,9 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
         scheme='http'
     )
     fs.create_dir('existing-bucket/test')
+
+    with pytest.raises(pa.ArrowIOError):
+        fs.create_dir('new-bucket')
 
 
 def test_file_info_constructor():
@@ -1314,11 +1318,6 @@ def test_filesystem_from_uri_s3(s3_server):
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)
     assert path == "mybucket/foo/bar"
-
-    fs.create_dir(path)
-    [info] = fs.get_file_info([path])
-    assert info.path == path
-    assert info.type == FileType.Directory
 
 
 def test_py_filesystem():

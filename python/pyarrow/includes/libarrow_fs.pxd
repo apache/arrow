@@ -155,6 +155,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
+        c_bool allow_create_buckets
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_string role_arn
         c_string session_name

@@ -150,6 +150,8 @@ cdef class S3FileSystem(FileSystem):
             S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
+    allow_create_buckets : bool, default False
+        If True, allows creating and deleting buckets.
     """
 
     cdef:
@@ -159,7 +161,8 @@ cdef class S3FileSystem(FileSystem):
                  bint anonymous=False, region=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
                  default_metadata=None, role_arn=None, session_name=None,
-                 external_id=None, load_frequency=900, proxy_options=None):
+                 external_id=None, load_frequency=900, proxy_options=None,
+                 allow_create_buckets=False):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -252,6 +255,8 @@ cdef class S3FileSystem(FileSystem):
                 raise TypeError(
                     "'proxy_options': expected 'dict' or 'str', "
                     f"got {type(proxy_options)} instead.")
+
+        options.allow_create_buckets = allow_create_buckets
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
