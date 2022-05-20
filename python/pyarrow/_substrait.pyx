@@ -21,7 +21,7 @@ from cython.operator cimport dereference as deref
 from pyarrow import Buffer
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.libarrow_substrait cimport *
+from pyarrow.includes.libarrow_substrait cimport *
 
 
 def run_query(plan):
