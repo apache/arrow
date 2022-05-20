@@ -704,7 +704,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(
       auto sink_decls,
-      DeserializePlan(
+      DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
 
@@ -747,7 +747,7 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
   ExtensionSet ext_set;
   ASSERT_RAISES(
       Invalid,
-      DeserializePlan(
+      DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
 }
