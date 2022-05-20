@@ -23,8 +23,6 @@ namespace arrow {
 
 namespace engine {
 
-namespace substrait {
-
 namespace {
 /// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
 class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
@@ -57,6 +55,11 @@ class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
   arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer producer_;
   std::shared_ptr<Schema> schema_;
 };
+}  // namespace
+
+namespace substrait {
+
+namespace {
 
 /// \brief An executor to run a Substrait Query
 /// This interface is provided as a utility when creating language
