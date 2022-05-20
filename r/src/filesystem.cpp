@@ -334,7 +334,8 @@ std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& f
 }
 
 // [[s3::export]]
-void fs__S3FileSystem__allow_create_buckets(const std::shared_ptr<fs::S3FileSystem>& fs, bool allow) {
+void fs__S3FileSystem__allow_create_buckets(const std::shared_ptr<fs::S3FileSystem>& fs,
+                                            bool allow) {
   fs->allow_create_buckets(allow);
 }
 

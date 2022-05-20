@@ -763,9 +763,7 @@ class ClientBuilder {
 
   const S3Options& options() const { return options_; }
 
-  void allow_create_buckets(bool allow) {
-    options_.allow_create_buckets = allow;
-  }
+  void allow_create_buckets(bool allow) { options_.allow_create_buckets = allow; }
 
  protected:
   S3Options options_;
@@ -1655,9 +1653,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return std::string(FromAwsString(builder_.config().region));
   }
 
-  void allow_create_buckets(bool allow) {
-    builder_.allow_create_buckets(allow);
-  }
+  void allow_create_buckets(bool allow) { builder_.allow_create_buckets(allow); }
 
   template <typename Error>
   void SaveBackend(const Aws::Client::AWSError<Error>& error) {
@@ -2414,9 +2410,8 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
         std::forward_as_tuple("When deleting bucket '", path.bucket, "': "),
         impl_->client_->DeleteBucket(req));
   } else if (path.key.empty()) {
-    return Status::IOError(
-        "Would delete bucket: '", path.bucket, "'. ",
-        "To delete buckets, enable the allow_create_buckets option.");
+    return Status::IOError("Would delete bucket: '", path.bucket, "'. ",
+                           "To delete buckets, enable the allow_create_buckets option.");
   } else {
     // Delete "directory"
     RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key + kSep));
