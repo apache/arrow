@@ -763,6 +763,10 @@ class ClientBuilder {
 
   const S3Options& options() const { return options_; }
 
+  void allow_create_buckets(bool allow) {
+    options_.allow_create_buckets = allow;
+  }
+
  protected:
   S3Options options_;
   Aws::Client::ClientConfiguration client_config_;
@@ -1651,6 +1655,10 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return std::string(FromAwsString(builder_.config().region));
   }
 
+  void allow_create_buckets(bool allow) {
+    builder_.allow_create_buckets(allow);
+  }
+
   template <typename Error>
   void SaveBackend(const Aws::Client::AWSError<Error>& error) {
     if (!backend_ || *backend_ == S3Backend::Other) {
@@ -1693,8 +1701,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
       if (!options().allow_create_buckets) {
         return Status::IOError(
-            "Permission denied: create bucket '", bucket, "'. ",
-            "To create buckets, enable allow_create_buckets option on filesystem.");
+            "Bucket does not exist: '", bucket, "'. ",
+            "To create buckets, enable the allow_create_buckets option.");
       }
     }
 
@@ -2210,6 +2218,10 @@ S3Options S3FileSystem::options() const { return impl_->options(); }
 
 std::string S3FileSystem::region() const { return impl_->region(); }
 
+void S3FileSystem::allow_create_buckets(bool allow) {
+  impl_->allow_create_buckets(allow);
+}
+
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   FileInfo info;
@@ -2403,8 +2415,8 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
         impl_->client_->DeleteBucket(req));
   } else if (path.key.empty()) {
     return Status::IOError(
-        "Permission denied: delete bucket '", path.bucket, "'. ",
-        "To delete buckets, enable allow_create_buckets option on filesystem.");
+        "Would delete bucket: '", path.bucket, "'. ",
+        "To delete buckets, enable the allow_create_buckets option.");
   } else {
     // Delete "directory"
     RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key + kSep));

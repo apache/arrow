@@ -221,6 +221,8 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// Return the actual region this filesystem connects to
   std::string region() const;
 
+  void allow_create_buckets(bool allow);
+
   bool Equals(const FileSystem& other) const override;
 
   /// \cond FALSE

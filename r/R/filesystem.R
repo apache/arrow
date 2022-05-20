@@ -333,6 +333,9 @@ S3FileSystem <- R6Class("S3FileSystem",
   inherit = FileSystem,
   active = list(
     region = function() fs___S3FileSystem__region(self)
+  ),
+  public = list(
+    allow_create_buckets = function(allow) fs__S3FileSystem__allow_create_buckets(self, allow)
   )
 )
 S3FileSystem$create <- function(anonymous = FALSE, ...) {

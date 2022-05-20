@@ -317,3 +317,11 @@ cdef class S3FileSystem(FileSystem):
         The AWS region this filesystem connects to.
         """
         return frombytes(self.s3fs.region())
+
+    @property
+    def allow_create_buckets(self):
+        return self.s3fs.options().allow_create_buckets
+
+    @allow_create_buckets.setter
+    def allow_create_buckets(self, value):
+        self.s3fs.allow_create_buckets(value)

@@ -2490,7 +2490,7 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
 @pytest.fixture
 @pytest.mark.parquet
 def s3_example_simple(s3_server):
-    from pyarrow.fs import S3FileSystem
+    from pyarrow.fs import FileSystem
 
     host, port, access_key, secret_key = s3_server['connection']
     uri = (
@@ -2498,14 +2498,8 @@ def s3_example_simple(s3_server):
         .format(access_key, secret_key, host, port)
     )
 
-    fs = S3FileSystem(
-        access_key=access_key,
-        secret_key=secret_key,
-        scheme="http",
-        endpoint_override="{}:{}".format(host, port),
-        allow_create_buckets=True,
-    )
-    path = "mybucket/data.parquet"
+    fs, path = FileSystem.from_uri(uri)
+    fs.allow_create_buckets = True
 
     fs.create_dir("mybucket")
     table = pa.table({'a': [1, 2, 3]})
@@ -2559,7 +2553,7 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
 @pytest.mark.parquet
 @pytest.mark.s3
 def test_open_dataset_from_s3_with_filesystem_uri(s3_server):
-    from pyarrow.fs import S3FileSystem
+    from pyarrow.fs import FileSystem
 
     host, port, access_key, secret_key = s3_server['connection']
     bucket = 'theirbucket'
@@ -2568,17 +2562,12 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_server):
         access_key, secret_key, bucket, path, host, port
     )
 
-    # At first need a fs that can create buckets
-    fs = S3FileSystem(
-        access_key=access_key,
-        secret_key=secret_key,
-        scheme="http",
-        endpoint_override="{}:{}".format(host, port),
-        allow_create_buckets=True,
-    )
+    fs, path = FileSystem.from_uri(uri)
+    assert path == 'theirbucket/nested/folder/data.parquet'
+
+    fs.allow_create_buckets = True
     fs.create_dir(bucket)
 
-    path = bucket + '/' + path
     table = pa.table({'a': [1, 2, 3]})
     with fs.open_output_stream(path) as out:
         pq.write_table(table, out)

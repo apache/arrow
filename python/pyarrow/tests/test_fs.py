@@ -1319,6 +1319,12 @@ def test_filesystem_from_uri_s3(s3_server):
     assert isinstance(fs, S3FileSystem)
     assert path == "mybucket/foo/bar"
 
+    fs.allow_create_buckets = True
+    fs.create_dir(path)
+    [info] = fs.get_file_info([path])
+    assert info.path == path
+    assert info.type == FileType.Directory
+
 
 def test_py_filesystem():
     handler = DummyHandler()

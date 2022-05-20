@@ -181,6 +181,22 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
     })
 
+    test_that("CreateDir fails on bucket if allow_create_buckets=False", {
+      now_tmp <- paste0(now, "-test-fail-delete")
+      fs$CreateDir(now_tmp)
+
+      fs$allow_create_buckets(FALSE)
+      expect_error(
+        fs$CreateDir("should-fail"),
+        regexp = "Bucket does not exist"
+      )
+      expect_error(
+        fs$DeleteDir(now_tmp),
+        regexp = "Would delete bucket"
+      )
+      fs$allow_create_buckets(TRUE)
+    })
+
     test_that("Let's test copy_files too", {
       td <- make_temp_dir()
       copy_files(minio_uri("hive_dir"), td)
