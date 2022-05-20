@@ -224,3 +224,13 @@ def _docdir(request):
     else:
         # For normal tests, we have to yield, since this is a yield-fixture.
         yield
+
+
+def pytest_ignore_collect(path, config):
+    if config.option.doctest_cython:
+        if "/pyarrow/tests/" in str(path):
+            return True
+        if "/pyarrow/_parquet_encryption" in str(path):
+            return True
+
+    return False

@@ -3366,7 +3366,7 @@ cdef class Table(_PandasConvertible):
         n_legs: int64
         animals: string
         -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 509
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
 
         Define new schema and cast table values:
 
@@ -3712,6 +3712,7 @@ cdef class Table(_PandasConvertible):
         >>> import pyarrow as pa
         >>> n_legs = pa.array([2, 4, 5, 100])
         >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> names = ["n_legs", "animals"]
         >>> batch = pa.record_batch([n_legs, animals], names=names)
         >>> batch.to_pandas()
            n_legs        animals
@@ -3866,7 +3867,7 @@ cdef class Table(_PandasConvertible):
         n_legs: int64
         animals: string
         -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 509
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
         >>> reader.read_all()
         pyarrow.Table
         n_legs: int64
@@ -5278,6 +5279,7 @@ list[tuple(str, str, FunctionOptions)]
 
         Examples
         --------
+        >>> import pyarrow as pa
         >>> t = pa.table([
         ...       pa.array(["a", "a", "b", "b", "c"]),
         ...       pa.array([1, 2, 3, 4, 5]),
