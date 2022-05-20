@@ -2124,3 +2124,30 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     test_dates_times2
   )
 })
+
+test_that("parse_date_time & `exact = TRUE`", {
+  test_df <- tibble(
+    x = c("2022-12-31 12:59:59", "2022-01-01 12:11", "2022-01-01 12", "2022-01-01", NA),
+    y = c("11/23/1998 07:00:00", "6/18/1952 0135", "2/25/1974 0523", "9/07/1985 01", NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_x =
+          parse_date_time(
+            x,
+            c("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d %H", "%Y-%m-%d"),
+            exact = TRUE
+          ),
+        parsed_y =
+          parse_date_time(
+            y,
+            c("%m/%d/%Y %I:%M:%S", "%m/%d/%Y %H%M", "%m/%d/%Y %H"),
+            exact = TRUE
+          )
+      ) %>%
+      collect(),
+    test_df
+  )
+})
