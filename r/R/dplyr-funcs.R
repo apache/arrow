@@ -129,6 +129,6 @@ register_bindings_utils <- function() {
   register_binding("::", function(lhs, rhs) {
     lhs_name <- as.character(substitute(lhs))
     rhs_name <- as.character(substitute(rhs))
-    arrow:::nse_funcs[[paste0(lhs_name, "::", rhs_name)]]
+    nse_funcs[[paste0(lhs_name, "::", rhs_name)]]
   })
 }
