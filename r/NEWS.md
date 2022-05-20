@@ -20,8 +20,7 @@
 # arrow 8.0.0.9000
 
 * `lubridate::parse_date_time()` datetime parser:
-  * currently parses only `orders` with year, month, and day components. In a future release `orders` support for other datetime components (such as hours, minutes, seconds, etc) will be added.
-  * strings with no separators (e.g. `"20210917"`) could be ambiguous and are not yet supported.
+  * `orders` with year, month, day, hours, minutes, and seconds components are supported.
   * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
 
 # arrow 8.0.0
