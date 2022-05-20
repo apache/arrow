@@ -1911,10 +1911,8 @@ Examples
         ...                    "Brittle stars", "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
-        >>> pq.write_to_dataset(table, root_path='dataset_name_read_pandas',
-        ...                     partition_cols=['year'],
-        ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_name_read_pandas/',
+        >>> pq.write_table(table, 'table.parquet')
+        >>> dataset = pq.ParquetDataset('table.parquet',
         ...                             use_legacy_dataset=False)
 
         Read dataset including pandas metadata:
@@ -1923,7 +1921,7 @@ Examples
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],[4,100],[2,4]]
+        n_legs: [[2,2,4,4,5,100]]
 
         Select pandas metadata:
 
@@ -2462,18 +2460,18 @@ class _ParquetDatasetV2:
 
         Examples
         --------
-        Generate an example dataset:
+        Generate an example parquet file:
 
         >>> import pyarrow as pa
-        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                              "Brittle stars", "Centipede"]})
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
-        >>> pq.write_to_dataset(table, root_path='dataset_v2_read_pandas',
-        ...                     partition_cols=['year'],
-        ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_read_pandas/')
+        >>> pq.write_table(table, 'table_V2.parquet')
+        >>> dataset = pq._ParquetDatasetV2('table_V2.parquet')
 
         Read the dataset with pandas metadata:
 
@@ -2481,7 +2479,7 @@ class _ParquetDatasetV2:
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],[4,100],[2,4]]
+        n_legs: [[2,2,4,4,5,100]]
 
         >>> dataset.read_pandas(columns=["n_legs"]).schema.pandas_metadata
         {'index_columns': [{'kind': 'range', ... 'pandas_version': '1.4.1'}
