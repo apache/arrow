@@ -229,3 +229,114 @@ build_format_from_order <- function(order) {
   formats_without_sep <- do.call(paste, c(outcome, sep = ""))
   c(formats_with_sep, formats_without_sep)
 }
+
+process_data_for_parsing <- function(x,
+                                     orders) {
+
+  processed_x <- x$cast(string())
+
+  # make all separators (non-letters and non-numbers) into "-"
+  processed_x <- call_binding("gsub", "[^A-Za-z0-9]", "-", processed_x)
+  # collapse multiple separators into a single one
+  processed_x <- call_binding("gsub", "-{2,}", "-", processed_x)
+
+  # we need to transform `x` when orders are `ym`, `my`, and `yq`
+  # for `ym` and `my` orders we add a day ("01")
+  augmented_x_ym <- NULL
+  if (any(orders %in% c("ym", "my"))) {
+    # add day as "-01" if there is a "-" separator and as "01" if not
+    augmented_x_ym <- call_binding(
+      "if_else",
+      call_binding("grepl", "-", processed_x),
+      call_binding("paste0", processed_x, "-01"),
+      call_binding("paste0", processed_x, "01")
+    )
+  }
+
+  # for `yq` we need to transform the quarter into the start month (lubridate
+  # behaviour) and then add 01 to parse to the first day of the quarter
+  augmented_x_yq <- NULL
+  if (any(orders == "yq")) {
+    # extract everything that comes after the `-` separator, i.e. the quarter
+    # (e.g. 4 from 2022-4)
+    quarter_x <- call_binding("gsub", "^.*?-", "", processed_x)
+    # we should probably error if quarter is not in 1:4
+    # extract everything that comes before the `-`, i.e. the year (e.g. 2002
+    # in 2002-4)
+    year_x <- call_binding("gsub", "-.*$", "", processed_x)
+    quarter_x <- quarter_x$cast(int32())
+    month_x <- (quarter_x - 1) * 3 + 1
+    augmented_x_yq <- call_binding("paste0", year_x, "-", month_x, "-01")
+  }
+
+  list(
+    "augmented_x_ym" = augmented_x_ym,
+    "augmented_x_yq" = augmented_x_yq,
+    "processed_x" = processed_x
+  )
+}
+
+attempt_parsing <- function(x,
+                            orders,
+                            formats = NULL) {
+  if (is.null(formats)) {
+    # this is the situation in which orders were passed with `exact = TRUE`
+    # no data processing takes place
+    # we don't derive formats as the orders are assumed to be formats
+    parse_attempt_expressions <- build_strptime_exps(x, orders)
+    return(parse_attempt_expressions)
+  }
+
+  processed_data <- process_data_for_parsing(x, orders)
+
+  processed_x <- processed_data[["processed_x"]]
+  augmented_x_ym <- processed_data[["augmented_x_ym"]]
+  augmented_x_yq <- processed_data[["augmented_x_yq"]]
+
+  # build a list of expressions for each format
+  parse_attempt_exp_processed_x <- build_strptime_exps(processed_x, formats)
+
+  # build separate expression lists of parsing attempts for the orders that
+  # need an augmented `x`
+  # list for attempts when orders %in% c("ym", "my")
+  parse_attempt_exp_augmented_x_ym <- list()
+
+  if (!is.null(augmented_x_ym)) {
+    parse_attempt_exp_augmented_x_ym <- build_strptime_exps(augmented_x_ym, formats)
+  }
+
+  # list for attempts when orders %in% c("yq")
+  parse_attempt_exp_augmented_x_yq <- list()
+  if (!is.null(augmented_x_yq)) {
+    parse_attempt_exp_augmented_x_yq <- build_strptime_exps(augmented_x_yq, formats)
+  }
+
+  # combine all attempts expressions in prep for coalesce
+  # if the users passes only a short order (`ym`, `my` or `yq`) then only use
+  # the corresponding augmented_x
+  if (all(orders == "ym") || all(orders == "my")) {
+    parse_attempt_expressions <- parse_attempt_exp_augmented_x_ym
+  } else if (all(orders == "yq")) {
+    parse_attempt_expressions <- parse_attempt_exp_augmented_x_yq
+  } else {
+    parse_attempt_expressions <- c(
+      # if we have an augmented x give preference to the corresponding
+      # parsing attempts
+      parse_attempt_exp_augmented_x_ym,
+      parse_attempt_exp_augmented_x_yq,
+      parse_attempt_exp_processed_x
+    )
+  }
+  parse_attempt_expressions
+}
+
+build_strptime_exps <- function(x, formats) {
+  map(
+    formats,
+    ~ build_expr(
+      "strptime",
+      x,
+      options = list(format = .x, unit = 0L, error_is_null = TRUE)
+    )
+  )
+}
