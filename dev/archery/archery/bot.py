@@ -265,7 +265,7 @@ def submit(obj, tasks, groups, params, arrow_version):
                               groups=groups, params=params)
 
         # add the job to the crossbow queue and push to the remote repository
-        queue.put(job, prefix="actions")
+        queue.put(job, prefix="actions", increment_job_id=False)
         queue.push()
 
         # render the response comment's content

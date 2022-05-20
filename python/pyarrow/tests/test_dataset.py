@@ -4620,3 +4620,19 @@ def test_dataset_join_collisions(tempdir):
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
     ], names=["colA", "colB", "colVals", "colB_r", "colVals_r"])
+
+
+@pytest.mark.dataset
+def test_dataset_filter(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="parquet")
+    ds1 = ds.dataset(tempdir / "t1")
+
+    result = ds1.scanner(filter=pc.field("colA") < 3)
+    assert result.to_table() == pa.table({
+        "colA": [1, 2],
+        "col2": ["a", "b"]
+    })

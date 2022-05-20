@@ -17,6 +17,7 @@
 
 import datetime
 import os
+import pathlib
 
 import numpy as np
 import pytest
@@ -1792,3 +1793,29 @@ def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
     with pytest.raises(ValueError, match="existing_data_behavior"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
                             existing_data_behavior='error')
+
+
+@pytest.mark.dataset
+def test_parquet_write_to_dataset_exposed_keywords(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'partitioning'
+
+    paths_written = []
+
+    def file_visitor(written_file):
+        paths_written.append(written_file.path)
+
+    basename_template = 'part-{i}.parquet'
+
+    pq.write_to_dataset(table, path, partitioning=["a"],
+                        file_visitor=file_visitor,
+                        basename_template=basename_template,
+                        use_legacy_dataset=False)
+
+    expected_paths = {
+        path / '1' / 'part-0.parquet',
+        path / '2' / 'part-0.parquet',
+        path / '3' / 'part-0.parquet'
+    }
+    paths_written_set = set(map(pathlib.Path, paths_written))
+    assert paths_written_set == expected_paths
