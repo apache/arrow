@@ -245,13 +245,6 @@ on:
   source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
   options(arrow.dev_repo = "{{ repo }}")
   
-  # Install dependencies by installing (yesterday's) binary, then removing it
-  install.packages(c("arrow", "cpp11"),
-    type = "binary",
-    repos = c("{{ repo }}", "https://cloud.r-project.org")
-  )
-  remove.packages("arrow")
-  
   install.packages(
     "arrow",
     repos = getOption("arrow.dev_repo"),
@@ -259,5 +252,7 @@ on:
   )
   library(arrow)
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+
+  # Our Version should also be > CRAN so we would detect a CRAN version here.
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
 {% endmacro %}
