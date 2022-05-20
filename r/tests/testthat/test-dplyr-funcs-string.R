@@ -504,14 +504,16 @@ test_that("strrep and str_dup", {
   }
 })
 
-test_that("str_to_lower, str_to_upper, and str_to_title", {
+test_that("str_to_lower, str_to_upper, and str_to_title tolower toupper", {
   df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
   compare_dplyr_binding(
     .input %>%
       transmute(
         x_lower = stringr::str_to_lower(x),
         x_upper = str_to_upper(x),
-        x_title = str_to_title(x)
+        x_title = str_to_title(x),
+        x_tolower = base::tolower(x),
+        x_toupper = toupper(x)
       ) %>%
       collect(),
     df
