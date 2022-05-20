@@ -320,6 +320,9 @@ cdef class S3FileSystem(FileSystem):
 
     @property
     def allow_create_buckets(self):
+        """
+        Whether to allow CreateDir and DeleteDir at the bucket-level.
+        """
         return self.s3fs.options().allow_create_buckets
 
     @allow_create_buckets.setter

@@ -182,6 +182,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    sequential writing.
 #' - `$OpenAppendStream(path)`: Open an [output stream][OutputStream] for
 #'    appending.
+#' 
+#' `S3FileSystem` also has a method:
+#' 
+#' - `$allow_create_buckets()` which can set the corresponding option above. 
 #'
 #' @section Active bindings:
 #'
