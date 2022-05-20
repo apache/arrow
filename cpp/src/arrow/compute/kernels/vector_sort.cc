@@ -1963,16 +1963,16 @@ class ArrayRanker : public TypeVisitor {
 
     switch (tiebreaker_) {
       case RankOptions::Dense: {
-        T currValue, prevValue;
+        T curr_value, prev_value;
         for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
-          currValue = GetView::LogicalValue(arr.GetView(*it));
+          curr_value = GetView::LogicalValue(arr.GetView(*it));
           if (rank == 0 || it == sorted.nulls_begin || it == sorted.nulls_end ||
-              currValue != prevValue) {
+              curr_value != prev_value) {
             rank++;
           }
 
           out_begin[*it] = rank;
-          prevValue = currValue;
+          prev_value = curr_value;
         }
         break;
       }
@@ -1983,29 +1983,29 @@ class ArrayRanker : public TypeVisitor {
         break;
       }
       case RankOptions::Min: {
-        T currValue, prevValue;
+        T curr_value, prev_value;
         for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
-          currValue = GetView::LogicalValue(arr.GetView(*it));
+          curr_value = GetView::LogicalValue(arr.GetView(*it));
           if (rank == 0 || it == sorted.nulls_begin || it == sorted.nulls_end ||
-              currValue != prevValue) {
+              curr_value != prev_value) {
             rank = (it - sorted.overall_begin()) + 1;
           }
           out_begin[*it] = rank;
-          prevValue = currValue;
+          prev_value = curr_value;
         }
         break;
       }
       case RankOptions::Max: {
-        T currValue, prevValue;
+        T curr_value, prev_value;
         auto rank = sorted.overall_end() - sorted.overall_begin();
         for (auto it = sorted.overall_end() - 1; it >= sorted.overall_begin(); it--) {
-          currValue = GetView::LogicalValue(arr.GetView(*it));
-          if ((it < sorted.overall_end() - 1 && (currValue != prevValue)) ||
+          curr_value = GetView::LogicalValue(arr.GetView(*it));
+          if ((it < sorted.overall_end() - 1 && (curr_value != prev_value)) ||
               it == sorted.nulls_begin - 1 || it == sorted.nulls_end - 1) {
             rank = it - sorted.overall_begin() + 1;
           }
           out_begin[*it] = rank;
-          prevValue = currValue;
+          prev_value = curr_value;
         }
         break;
       }
@@ -2017,21 +2017,21 @@ class ArrayRanker : public TypeVisitor {
 
   ExecContext* ctx_;
   const Array& array_;
-  SortOrder order_;
-  NullPlacement null_placement_;
-  RankOptions::Tiebreaker tiebreaker_;
+  const SortOrder order_;
+  const NullPlacement null_placement_;
+  const RankOptions::Tiebreaker tiebreaker_;
   const std::shared_ptr<DataType> physical_type_;
   Datum* output_;
 };
 
 const FunctionDoc rank_doc(
-    "Returns the ranking of an array",
+    "Compute numerical ranks of an array (1-based)",
     ("This function computes a rank of the input array.\n"
      "By default, null values are considered greater than any other value and\n"
      "are therefore sorted at the end of the input. For floating-point types,\n"
      "NaNs are considered greater than any other non-null value, but smaller\n"
      "than null values. The default tiebreaker is to assign ranks in order of\n"
-     "when ties appear in the input\n"
+     "when ties appear in the input.\n"
      "\n"
      "The handling of nulls, NaNs and tiebreakers can be changed in RankOptions."),
     {"input"}, "RankOptions");
