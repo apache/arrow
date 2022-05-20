@@ -203,16 +203,26 @@ std::string ErrnoMessage(int errnum) { return std::strerror(errnum); }
 
 #if _WIN32
 std::string WinErrorMessage(int errnum) {
-  char buf[1024];
-  auto nchars = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                               NULL, errnum, 0, buf, sizeof(buf), NULL);
-  if (nchars == 0) {
+#define MAX_N_CHARACTERS 1024
+#define MAX_N_UTF8_BYTES 4096
+  WCHAR utf16_message[MAX_N_CHARACTERS];
+  auto n_utf16_chars =
+      FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
+                     errnum, 0, utf16_message, sizeof(utf16_message), NULL);
+  if (n_utf16_chars == 0) {
     // Fallback
     std::stringstream ss;
     ss << "Windows error #" << errnum;
     return ss.str();
   }
-  return std::string(buf, nchars);
+  const UINT code_page = CP_UTF8;
+  const DWORD flags = 0;
+  char utf8_message[MAX_N_UTF8_BYTES];
+  auto n_utf8_bytes = WideCharToMultiByte(code_page, flags, utf16_message, n_utf16_chars,
+                                          utf8_message, sizeof(utf8_message), NULL, NULL);
+  return std::string(utf8_message, n_utf8_bytes);
+#undef MAX_N_UTF8_BYTES
+#undef MAX_N_CHARACTERS
 }
 #endif
 
