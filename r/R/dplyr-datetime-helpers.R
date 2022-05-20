@@ -122,7 +122,7 @@ binding_as_date_character <- function(x,
                                       format = NULL,
                                       tryFormats = c("%Y-%m-%d", "%Y/%m/%d"),
                                       ...) {
-browser()
+
   force(x)
   for (i in 1:x$length()) {
     if (x$IsValid(i -1)) {
