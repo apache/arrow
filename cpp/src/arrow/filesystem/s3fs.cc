@@ -1678,23 +1678,28 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
     // Check bucket exists first.
-    S3Model::HeadBucketRequest req;
-    req.SetBucket(ToAwsString(bucket));
-    auto outcome = client_->HeadBucket(req);
+    {
+      S3Model::HeadBucketRequest req;
+      req.SetBucket(ToAwsString(bucket));
+      auto outcome = client_->HeadBucket(req);
 
-    if (outcome.IsSuccess()) {
-      return Status::OK();
-    } else if (!IsNotFound(outcome.GetError())) {
-      return ErrorToStatus(std::forward_as_tuple("When creating bucket '", bucket, "': "),
-                           outcome.GetError());
-    }
+      if (outcome.IsSuccess()) {
+        return Status::OK();
+      } else if (!IsNotFound(outcome.GetError())) {
+        return ErrorToStatus(
+            std::forward_as_tuple("When creating bucket '", bucket, "': "),
+            outcome.GetError());
+      }
 
-    if (!options().allow_create_buckets) {
-      return Status::IOError("S3 bucket '", bucket, "' does not exist and client not allowed to create buckets.");
+      if (!options().allow_create_buckets) {
+        return Status::IOError(
+            "Permission denied: create bucket '", bucket, "'. ",
+            "To create buckets, enable allow_create_buckets option on filesystem.");
+      }
     }
 
     S3Model::CreateBucketConfiguration config;
-    S3Model::CreateBucketRequest req2;
+    S3Model::CreateBucketRequest req;
     auto _region = region();
     // AWS S3 treats the us-east-1 differently than other regions
     // https://docs.aws.amazon.com/cli/latest/reference/s3api/create-bucket.html
@@ -1703,13 +1708,13 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
           S3Model::BucketLocationConstraintMapper::GetBucketLocationConstraintForName(
               ToAwsString(_region)));
     }
-    req2.SetBucket(ToAwsString(bucket));
-    req2.SetCreateBucketConfiguration(config);
+    req.SetBucket(ToAwsString(bucket));
+    req.SetCreateBucketConfiguration(config);
 
-    auto outcome2 = client_->CreateBucket(req2);
-    if (!outcome2.IsSuccess() && !IsAlreadyExists(outcome2.GetError())) {
+    auto outcome = client_->CreateBucket(req);
+    if (!outcome.IsSuccess() && !IsAlreadyExists(outcome.GetError())) {
       return ErrorToStatus(std::forward_as_tuple("When creating bucket '", bucket, "': "),
-                           outcome2.GetError());
+                           outcome.GetError());
     }
     return Status::OK();
   }
@@ -2389,13 +2394,17 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
   RETURN_NOT_OK(impl_->DeleteDirContentsAsync(path.bucket, path.key).status());
-  if (path.key.empty()) {
+  if (path.key.empty() && options().allow_create_buckets) {
     // Delete bucket
     S3Model::DeleteBucketRequest req;
     req.SetBucket(ToAwsString(path.bucket));
     return OutcomeToStatus(
         std::forward_as_tuple("When deleting bucket '", path.bucket, "': "),
         impl_->client_->DeleteBucket(req));
+  } else if (path.key.empty()) {
+    return Status::IOError(
+        "Permission denied: delete bucket '", path.bucket, "'. ",
+        "To delete buckets, enable allow_create_buckets option on filesystem.");
   } else {
     // Delete "directory"
     RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key + kSep));

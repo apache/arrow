@@ -405,6 +405,8 @@ class TestS3FS : public S3TestMixin {
  public:
   void SetUp() override {
     S3TestMixin::SetUp();
+    // Most tests will create buckets
+    options_.allow_create_buckets = true;
     MakeFileSystem();
     // Set up test bucket
     {
@@ -442,7 +444,6 @@ class TestS3FS : public S3TestMixin {
     if (!options_.retry_strategy) {
       options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     }
-    options_.allow_create_buckets = true;
     ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
   }
 
@@ -1123,6 +1124,16 @@ TEST_F(TestS3FS, FileSystemFromUri) {
 
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);
+}
+
+TEST_F(TestS3FS, NoCreateDeleteBucket) {
+  // Create a bucket to try deleting
+  ASSERT_OK(fs_->CreateDir("test-no-delete"));
+
+  options_.allow_create_buckets = false;
+  MakeFileSystem();
+  ASSERT_RAISES(IOError, fs_->CreateDir("test-no-create"));
+  ASSERT_RAISES(IOError, fs_->DeleteDir("test-no-delete"));
 }
 
 // Simple retry strategy that records errors encountered and its emitted retry delays
