@@ -87,18 +87,16 @@ public class DirectReservationListener implements ReservationListener {
   public long getCurrentDirectMemReservation() {
     try {
       final Class<?> classBits = Class.forName("java.nio.Bits");
-      final Field f;
-      Field fBaseOnJDKVersion;
+      Field f;
       try {
-        fBaseOnJDKVersion = classBits.getDeclaredField("reservedMemory");
+        f = classBits.getDeclaredField("reservedMemory");
       } catch (NoSuchFieldException e) {
         try {
-          fBaseOnJDKVersion = classBits.getDeclaredField("RESERVED_MEMORY");
+          f = classBits.getDeclaredField("RESERVED_MEMORY");
         } catch (NoSuchFieldException ex) {
           throw new AssertionError(ex);
         }
       }
-      f = fBaseOnJDKVersion;
       f.setAccessible(true);
       return ((AtomicLong) f.get(null)).get();
     } catch (Exception e) {
