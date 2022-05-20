@@ -1915,7 +1915,7 @@ const RankOptions* GetDefaultRankOptions() {
 
 class ArrayRanker : public TypeVisitor {
  public:
-  ArrayRanker(ExecContext* ctx, const Array& array, const RankOptions& options,
+  ArrayRanker(ExecContext* ctx, const Array& array, const ArrayRankOptions& options,
               Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
@@ -2107,8 +2107,13 @@ class RankMetaFunction : public MetaFunction {
  private:
   Result<Datum> Rank(const Array& array, const RankOptions& options,
                      ExecContext* ctx) const {
+    SortOrder order = SortOrder::Ascending;
+    if (!options.sort_keys.empty()) {
+      order = options.sort_keys[0].order;
+    }
+    ArrayRankOptions rank_options(order, options.null_placement, options.tiebreaker);
     Datum output;
-    ArrayRanker ranker(ctx, array, options, &output);
+    ArrayRanker ranker(ctx, array, rank_options, &output);
     ARROW_RETURN_NOT_OK(ranker.Run());
     return output;
   }

@@ -1946,7 +1946,8 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
 void AssertRank(const std::shared_ptr<Array>& input, SortOrder order,
                 NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker,
                 const std::shared_ptr<Array>& expected) {
-  RankOptions options(order, null_placement, tiebreaker);
+  const std::vector<SortKey> sort_keys{SortKey("foo", order)};
+  RankOptions options(sort_keys, null_placement, tiebreaker);
   ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {input}, &options));
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }

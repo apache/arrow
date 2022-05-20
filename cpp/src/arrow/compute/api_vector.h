@@ -179,10 +179,26 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
  public:
   enum Tiebreaker { Min, Max, First, Dense };
 
-  explicit RankOptions(SortOrder order = SortOrder::Ascending,
+  explicit RankOptions(std::vector<SortKey> sort_keys = {},
                        NullPlacement null_placement = NullPlacement::AtEnd,
                        Tiebreaker = RankOptions::First);
   static constexpr char const kTypeName[] = "RankOptions";
+  static RankOptions Defaults() { return RankOptions(); }
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+  /// Tiebreaker for dealing with equal values in ranks
+  Tiebreaker tiebreaker;
+};
+
+class ARROW_EXPORT ArrayRankOptions : public FunctionOptions {
+ public:
+  explicit ArrayRankOptions(SortOrder order = SortOrder::Ascending,
+                            NullPlacement null_placement = NullPlacement::AtEnd,
+                            RankOptions::Tiebreaker = RankOptions::First);
+  static constexpr char const kTypeName[] = "ArrayRankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
   /// Sorting order
@@ -190,7 +206,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   /// Whether nulls and NaNs are placed at the start or at the end
   NullPlacement null_placement;
   /// Tiebreaker for dealing with equal values in ranks
-  Tiebreaker tiebreaker;
+  RankOptions::Tiebreaker tiebreaker;
 };
 
 /// \brief Partitioning options for NthToIndices

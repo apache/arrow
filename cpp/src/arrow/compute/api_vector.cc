@@ -159,8 +159,12 @@ static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOpti
     DataMember("start", &CumulativeSumOptions::start),
     DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
     DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
+static auto kArrayRankOptionsType = GetFunctionOptionsType<ArrayRankOptions>(
+    DataMember("order", &ArrayRankOptions::order),
+    DataMember("null_placement", &ArrayRankOptions::null_placement),
+    DataMember("tiebreaker", &ArrayRankOptions::tiebreaker));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
-    DataMember("order", &RankOptions::order),
+    DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
 }  // namespace
@@ -216,9 +220,18 @@ CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool s
       check_overflow(check_overflow) {}
 constexpr char CumulativeSumOptions::kTypeName[];
 RankOptions::RankOptions(SortOrder order, NullPlacement null_placement,
+ArrayRankOptions::ArrayRankOptions(SortOrder order, NullPlacement null_placement,
+                                   RankOptions::Tiebreaker tiebreaker)
+    : FunctionOptions(internal::kArrayRankOptionsType),
+      order(order),
+      null_placement(null_placement),
+      tiebreaker(tiebreaker) {}
+constexpr char ArrayRankOptions::kTypeName[];
+
+RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
                          RankOptions::Tiebreaker tiebreaker)
     : FunctionOptions(internal::kRankOptionsType),
-      order(order),
+      sort_keys(std::move(sort_keys)),
       null_placement(null_placement),
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
