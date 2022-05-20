@@ -32,7 +32,7 @@
   "base::log10" = "log10_checked",
   "base::log1p" = "log1p_checked",
   "base::log2" = "log2_checked",
-  "sign" = "sign",
+  "base::sign" = "sign",
   # trunc is defined in dplyr-functions.R
 
   # trigonometric functions
@@ -54,7 +54,7 @@
   # str_to_title is defined in dplyr-functions.R
   # str_to_upper is defined in dplyr-functions.R
   # str_trim is defined in dplyr-functions.R
-  "stri_reverse" = "utf8_reverse",
+  "stringi::stri_reverse" = "utf8_reverse",
   # substr is defined in dplyr-functions.R
   # substring is defined in dplyr-functions.R
   "base::tolower" = "utf8_lower",

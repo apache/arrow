@@ -761,7 +761,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = stri_reverse(x)) %>%
+      mutate(x = stringi::stri_reverse(x)) %>%
       collect(),
     df_utf8
   )

@@ -39,7 +39,10 @@ test_that("sign()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(sign = sign(x)) %>%
+      transmute(
+        sign = sign(x),
+        sign2 = base::sign(x)
+      ) %>%
       collect(),
     df
   )
