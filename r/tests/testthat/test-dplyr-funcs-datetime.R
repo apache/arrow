@@ -2108,16 +2108,16 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     .input %>%
       mutate(
         ymd_hms_dttm = parse_date_time(ymd_hms_string, orders = "ymd_HMS"),
-        ymd_hm_dttm  = parse_date_time(ymd_hm_string, orders = "ymd_HM"),
+        ymd_hm_dttm  = parse_date_time(ymd_hm_string, orders = "ymdHM"),
         ymd_h_dttm   = parse_date_time(ymd_h_string, orders = "ymd_H"),
         dmy_hms_dttm = parse_date_time(dmy_hms_string, orders = "dmy_HMS"),
-        dmy_hm_dttm  = parse_date_time(dmy_hm_string, orders = "dmy_HM"),
+        dmy_hm_dttm  = parse_date_time(dmy_hm_string, orders = "dmyHM"),
         dmy_h_dttm   = parse_date_time(dmy_h_string, orders = "dmy_H"),
         mdy_hms_dttm = parse_date_time(mdy_hms_string, orders = "mdy_HMS"),
-        mdy_hm_dttm  = parse_date_time(mdy_hm_string, orders = "mdy_HM"),
+        mdy_hm_dttm  = parse_date_time(mdy_hm_string, orders = "mdyHM"),
         mdy_h_dttm   = parse_date_time(mdy_h_string, orders = "mdy_H"),
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS"),
-        ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydm_HM"),
+        ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydmHM"),
         ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydm_H")
       ) %>%
       collect(),
