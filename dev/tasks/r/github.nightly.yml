@@ -308,7 +308,7 @@ jobs:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
         shell: Rscript {0}
-        run: 8
+        run: |
           {{ macros.test_r_src_pkg()|indent(8) }}
 
       - name: Retry with verbosity if that failed
