@@ -55,7 +55,9 @@ test_that("ceiling(), floor(), trunc(), round()", {
     .input %>%
       mutate(
         c = ceiling(x),
+        c2 = base::ceiling(x),
         f = floor(x),
+        f2 = base::floor(x),
         t = trunc(x),
         t2 = base::trunc(x),
         r = round(x),
