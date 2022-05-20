@@ -1711,7 +1711,7 @@ test_that("parse_date_time() works with year, month, and date components", {
       ),
       string_dmy = c(
         "12 Sep 2021", "13 September 2021", "14 Sep 21", "15 September 21",
-        "16Sep2021",NA
+        "16Sep2021", NA
       ),
       string_mdy = c(
         "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21",
