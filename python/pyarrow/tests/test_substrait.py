@@ -64,7 +64,7 @@ def test_run_serialized_query(tmpdir):
         ]
     }
     """
-
+    # TODO: replace with ipc when the support is finalized in C++
     path = os.path.join(str(tmpdir), 'substrait_data.arrow')
     table = pa.table([[1, 2, 3, 4, 5]], names=['foo'])
     with pa.ipc.RecordBatchFileWriter(path, schema=table.schema) as writer:
