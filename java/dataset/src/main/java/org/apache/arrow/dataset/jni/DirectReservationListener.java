@@ -96,10 +96,10 @@ public class DirectReservationListener implements ReservationListener {
   }
 
   /**
-   * To evaluate method on a class base on JDK version.
-   * @param classBits Object associated with the class with the given string name
-   * @param name Method needed to evaluate
-   * @return
+   * Get the given method via reflection, searching for different signatures based on the Java version.
+   * @param classBits The java.nio.Bits class.
+   * @param name The method being requested.
+   * @return The method object.
    */
   private Method getDeclaredMethodBaseOnJDKVersion(Class<?> classBits, String name) {
     try {
