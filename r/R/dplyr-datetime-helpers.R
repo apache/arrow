@@ -225,6 +225,7 @@ build_format_from_order <- function(order) {
   split_order <- strsplit(order, split = "")[[1]]
 
   outcome <- expand.grid(char_list[split_order])
-  format <- do.call(paste, c(outcome, sep = "-"))
-  format
+  formats_with_sep <- do.call(paste, c(outcome, sep = "-"))
+  formats_without_sep <- do.call(paste, c(outcome, sep = ""))
+  c(formats_with_sep, formats_without_sep)
 }

@@ -1678,22 +1678,17 @@ test_that("parse_date_time() works with year, month, and date components", {
       string_ymd = c(
         "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
         "2021 09   6", "21-09-07", "21/09/08", "21.09.9", "21,09,10", "21:09:11",
-        # not yet working for strings with no separators, like "20210917", "210918" or "2021Sep19
-        # no separators and %b or %B are even more complicated (and they work in
-        # lubridate). not to mention locale
-        NA
+        "20210912", "210913", NA
       ),
       string_dmy = c(
         "1-09-2021", "2/09//2021", "03.09.2021", "04,09,2021", "5:::09:2021",
         "6  09  2021", "07-09-21", "08/09/21", "9.09.21", "10,09,21", "11:09:21",
-        # not yet working for strings with no separators, like "10092021", "100921",
-        NA
+        "12092021", "130921", NA
       ),
       string_mdy = c(
         "09-01-2021", "09/2/2021", "09.3.2021", "09,04,2021", "09:05:2021",
         "09 6 2021", "09-7-21", "09/08/21", "09.9.21", "09,10,21", "09:11:21",
-        # not yet working for strings with no separators, like "09102021", "091021",
-        NA
+        "09122021", "091321", NA
       )
     )
   )
@@ -1711,13 +1706,16 @@ test_that("parse_date_time() works with year, month, and date components", {
       collect(),
     tibble::tibble(
       string_ymd = c(
-        "2021 Sep 12", "2021 September 13", "21 Sep 14", "21 September 15", NA
+        "2021 Sep 12", "2021 September 13", "21 Sep 14", "21 September 15",
+        "2021Sep16", NA
       ),
       string_dmy = c(
-        "12 Sep 2021", "13 September 2021", "14 Sep 21", "15 September 21", NA
+        "12 Sep 2021", "13 September 2021", "14 Sep 21", "15 September 21",
+        "16Sep2021",NA
       ),
       string_mdy = c(
-        "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21", NA
+        "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21",
+        "Sep1621", NA
       )
     )
   )
@@ -1953,19 +1951,32 @@ test_that("lubridate's fast_strptime", {
 
 test_that("parse_date_time with hours, minutes and seconds components", {
   test_dates_times <- tibble(
-    ymd_hms_string = c("67-01-09 12:34:56", "1970-05-22 20:13:59", NA),
-    ymd_hm_string = c("67-01-09 12:34", "1970-05-22 20:13", NA),
-    ymd_h_string = c("67-01-09 12", "1970-05-22 20", NA),
-    dmy_hms_string = c("09-01-67 12:34:56", "22-05-1970 20:13:59", NA),
-    dmy_hm_string = c("09-01-67 12:34", "22-05-1970 20:13", NA),
-    dmy_h_string = c("09-01-67 12", "22-05-1970 20", NA),
-    mdy_hms_string = c("01-09-67 12:34:56", "05-22-1970 20:13:59", NA),
-    mdy_hm_string = c("01-09-67 12:34", "05-22-1970 20:13", NA),
-    mdy_h_string = c("01-09-67 12", "05-22-1970 20", NA),
-    ydm_hms_string = c("67-09-01 12:34:56", "1970-22-05 20:13:59", NA),
-    ydm_hm_string = c("67-09-01 12:34", "1970-22-05 20:13", NA),
-    ydm_h_string = c("67-09-01 12", "1970-22-05 20", NA)
+    ymd_hms_string =
+      c("67-01-09 12:34:56", "1970-05-22 20:13:59", "870822201359", NA),
+    ymd_hm_string =
+      c("67-01-09 12:34", "1970-05-22 20:13", "8708222013", NA),
+    ymd_h_string =
+      c("67-01-09 12", "1970-05-22 20", "87082220", NA),
+    dmy_hms_string =
+      c("09-01-67 12:34:56", "22-05-1970 20:13:59", "220887201359", NA),
+    dmy_hm_string =
+      c("09-01-67 12:34", "22-05-1970 20:13",  "2208872013", NA),
+    dmy_h_string =
+      c("09-01-67 12", "22-05-1970 20", "22088720", NA),
+    mdy_hms_string =
+      c("01-09-67 12:34:56", "05-22-1970 20:13:59", "082287201359", NA),
+    mdy_hm_string =
+      c("01-09-67 12:34", "05-22-1970 20:13", "0822872013", NA),
+    mdy_h_string =
+      c("01-09-67 12", "05-22-1970 20", "08228720", NA),
+    ydm_hms_string =
+      c("67-09-01 12:34:56", "1970-22-05 20:13:59", "872208201359", NA),
+    ydm_hm_string =
+      c("67-09-01 12:34", "1970-22-05 20:13", "8722082013", NA),
+    ydm_h_string =
+      c("67-09-01 12", "1970-22-05 20", "87220820", NA)
   )
+  # the unseparated strings are versions of "1987-08-22 20:13:59" (with %y)
 
   # these functions' internals use some string processing which requires the
   # RE2 library (not available on Windows with R 3.6)
@@ -2062,19 +2073,32 @@ test_that("parse_date_time with hours, minutes and seconds components", {
   )
 
   test_dates_times2 <- tibble(
-    ymd_hms_string = c("67-Jan-09 12:34:56", "1970-June-22 20:13:59", NA),
-    ymd_hm_string = c("67-Jan-09 12:34", "1970-June-22 20:13", NA),
-    ymd_h_string = c("67-Jan-09 12", "1970-June-22 20", NA),
-    dmy_hms_string = c("09-Jan-67 12:34:56", "22-June-1970 20:13:59", NA),
-    dmy_hm_string = c("09-Jan-67 12:34", "22-June-1970 20:13", NA),
-    dmy_h_string = c("09-Jan-67 12", "22-June-1970 20", NA),
-    mdy_hms_string = c("Jan-09-67 12:34:56", "June-22-1970 20:13:59", NA),
-    mdy_hm_string = c("Jan-09-67 12:34", "June-22-1970 20:13", NA),
-    mdy_h_string = c("Jan-09-67 12", "June-22-1970 20", NA),
-    ydm_hms_string = c("67-09-Jan 12:34:56", "1970-22-June 20:13:59", NA),
-    ydm_hm_string = c("67-09-Jan 12:34", "1970-22-June 20:13", NA),
-    ydm_h_string = c("67-09-Jan 12", "1970-22-June 20", NA)
+    ymd_hms_string =
+      c("67-Jan-09 12:34:56", "1970-June-22 20:13:59", "87Aug22201359", NA),
+    ymd_hm_string =
+      c("67-Jan-09 12:34", "1970-June-22 20:13", "87Aug222013", NA),
+    ymd_h_string =
+      c("67-Jan-09 12", "1970-June-22 20", "87Aug2220", NA),
+    dmy_hms_string =
+      c("09-Jan-67 12:34:56", "22-June-1970 20:13:59", "22Aug87201359", NA),
+    dmy_hm_string =
+      c("09-Jan-67 12:34", "22-June-1970 20:13", "22Aug872013", NA),
+    dmy_h_string =
+      c("09-Jan-67 12", "22-June-1970 20", "22Aug8720", NA),
+    mdy_hms_string =
+      c("Jan-09-67 12:34:56", "June-22-1970 20:13:59", "Aug2287201359", NA),
+    mdy_hm_string =
+      c("Jan-09-67 12:34", "June-22-1970 20:13", "Aug22872013", NA),
+    mdy_h_string =
+      c("Jan-09-67 12", "June-22-1970 20", "Aug228720", NA),
+    ydm_hms_string =
+      c("67-09-Jan 12:34:56", "1970-22-June 20:13:59", "8722Aug201359", NA),
+    ydm_hm_string =
+      c("67-09-Jan 12:34", "1970-22-June 20:13", "8722Aug2013", NA),
+    ydm_h_string =
+      c("67-09-Jan 12", "1970-22-June 20", "8722Aug20", NA)
   )
+  # the unseparated strings are versions of "1987-08-22 20:13:59" (with %y)
 
   # locale (affecting "%b% and "%B" formats) does not work properly on Windows
   # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16443 is done
@@ -2094,8 +2118,7 @@ test_that("parse_date_time with hours, minutes and seconds components", {
         mdy_h_dttm   = parse_date_time(mdy_h_string, orders = "mdy_H"),
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS"),
         ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydm_HM"),
-        ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydm_H"),
-        .keep = "used"
+        ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydm_H")
       ) %>%
       collect(),
     test_dates_times2

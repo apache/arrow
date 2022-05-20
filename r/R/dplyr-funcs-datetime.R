@@ -546,7 +546,13 @@ register_bindings_datetime_parsers <- function() {
     # for `ym` and `my` orders we add a day ("01")
     augmented_x <- NULL
     if (any(orders %in% c("ym", "my"))) {
-      augmented_x <- call_binding("paste0", x, "-01")
+      # add day as "-01" if there is a "-" separator and as "01" if not
+      augmented_x <- call_binding(
+        "if_else",
+        call_binding("grepl", "-", x),
+        call_binding("paste0", x, "-01"),
+        call_binding("paste0", x, "01")
+      )
     }
 
     # for `yq` we need to transform the quarter into the start month (lubridate
@@ -622,11 +628,21 @@ register_bindings_datetime_parsers <- function() {
     }
 
     # combine all attempts expressions in prep for coalesce
-    parse_attempt_expressions <- c(
-      parse_attempt_expressions,
-      parse_attempt_exp_augmented_x,
-      parse_attempt_exp_augmented_x2
-    )
+    # if the users passes only a short order (`ym`, `my` or `yq`) then only use
+    # the corresponding augmented_x
+    if (all(orders == "ym") || all(orders == "my")) {
+      parse_attempt_expressions <- parse_attempt_exp_augmented_x
+    } else if (all(orders == "yq")) {
+      parse_attempt_expressions <- parse_attempt_exp_augmented_x2
+    } else {
+      parse_attempt_expressions <- c(
+        # if we have an augmented x give preference to the corresponding
+        # parsing attempts
+        parse_attempt_exp_augmented_x,
+        parse_attempt_exp_augmented_x2,
+        parse_attempt_expressions
+      )
+    }
 
     coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
 
