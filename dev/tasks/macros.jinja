@@ -247,7 +247,7 @@ on:
   
   install.packages(
     "arrow",
-    repos = c("https://nightly.wujciak.de/r", getOption("repos")),
+    repos = c(getOption("arrow.dev_repo"), getOption("repos")),
     verbose = TRUE
   )
   library(arrow)
