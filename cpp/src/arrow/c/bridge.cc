@@ -1766,6 +1766,8 @@ class ArrayStreamBatchReader : public RecordBatchReader {
     }
   }
 
+  Status Close() override { return Status::OK(); }
+
  private:
   std::shared_ptr<Schema> CacheSchema() const {
     if (!schema_) {

@@ -39,6 +39,8 @@ class ARROW_PYTHON_EXPORT PyRecordBatchReader : public RecordBatchReader {
   static Result<std::shared_ptr<RecordBatchReader>> Make(std::shared_ptr<Schema>,
                                                          PyObject* iterable);
 
+  Status Close() override;
+
  protected:
   PyRecordBatchReader();
 

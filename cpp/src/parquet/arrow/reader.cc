@@ -390,6 +390,8 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
 
   std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
 
+  Status Close() override { return Status::OK(); }
+
  private:
   ::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>> batches_;
   std::shared_ptr<::arrow::Schema> schema_;

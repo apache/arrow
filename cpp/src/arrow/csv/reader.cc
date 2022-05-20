@@ -1287,6 +1287,8 @@ Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
                              parse_options, convert_options);
 }
 
+Status StreamingReader::Close() { return Status::OK(); }
+
 Future<int64_t> CountRowsAsync(io::IOContext io_context,
                                std::shared_ptr<io::InputStream> input,
                                Executor* cpu_executor, const ReadOptions& read_options,

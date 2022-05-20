@@ -49,6 +49,8 @@ class SqliteStatementBatchReader : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
+  Status Close() override;
+
  private:
   std::shared_ptr<SqliteStatement> statement_;
   std::shared_ptr<Schema> schema_;

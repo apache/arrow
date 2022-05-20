@@ -104,6 +104,8 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
   return Status::OK();
 }
 
+Status SqliteTablesWithSchemaBatchReader::Close() { return Status::OK(); }
+
 }  // namespace example
 }  // namespace sql
 }  // namespace flight

@@ -669,4 +669,6 @@ Status TableBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status TableBatchReader::Close() { return Status::OK(); }
+
 }  // namespace arrow

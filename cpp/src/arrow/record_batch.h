@@ -243,6 +243,9 @@ class ARROW_EXPORT RecordBatchReader {
     return batch;
   }
 
+  /// \brief finalize reader
+  virtual Status Close() = 0;
+
   class RecordBatchReaderIterator {
    public:
     using iterator_category = std::input_iterator_tag;

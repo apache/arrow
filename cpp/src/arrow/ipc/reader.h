@@ -98,6 +98,8 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
 
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
+
+  Status Close() override;
 };
 
 /// \brief Reads the record batch file format

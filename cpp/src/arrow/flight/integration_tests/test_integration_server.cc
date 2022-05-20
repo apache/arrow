@@ -69,6 +69,8 @@ class RecordBatchListReader : public RecordBatchReader {
     return Status::OK();
   }
 
+  Status Close() override { return Status::OK(); }
+
  private:
   IntegrationDataset dataset_;
   uint64_t current_;

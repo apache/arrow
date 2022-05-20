@@ -476,6 +476,8 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
       return Status::OK();
     }
 
+    Status Close() override { return Status::OK(); }
+
     MemoryPool* pool_;
     std::shared_ptr<Schema> schema_;
     Iterator<util::optional<ExecBatch>> iterator_;

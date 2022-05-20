@@ -106,6 +106,8 @@ class GeneratedRecordBatch : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override { return gen_(batch); }
 
+  Status Close() override { return Status::OK(); }
+
  private:
   std::shared_ptr<Schema> schema_;
   Gen gen_;

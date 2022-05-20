@@ -172,6 +172,8 @@ class OrcStripeReader : public RecordBatchReader {
     return Status::OK();
   }
 
+  Status Close() override { return Status::OK(); }
+
  private:
   std::unique_ptr<liborc::RowReader> row_reader_;
   std::shared_ptr<Schema> schema_;
