@@ -93,7 +93,7 @@ class SubstraitExecutor {
       return sink_consumer_;
     };
     ARROW_ASSIGN_OR_RAISE(declarations_,
-                          engine::DeserializePlan(substrait_buffer, consumer_factory));
+                          engine::DeserializePlans(substrait_buffer, consumer_factory));
     return Status::OK();
   }
 
