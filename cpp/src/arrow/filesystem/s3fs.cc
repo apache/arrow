@@ -1677,8 +1677,24 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
+    // Check bucket exists first.
+    S3Model::HeadBucketRequest req;
+    req.SetBucket(ToAwsString(bucket));
+    auto outcome = client_->HeadBucket(req);
+
+    if (outcome.IsSuccess()) {
+      return Status::OK();
+    } else if (!IsNotFound(outcome.GetError())) {
+      return ErrorToStatus(std::forward_as_tuple("When creating bucket '", bucket, "': "),
+                           outcome.GetError());
+    }
+
+    if (!options().allow_create_buckets) {
+      return Status::IOError("S3 bucket '", bucket, "' does not exist and client not allowed to create buckets.");
+    }
+
     S3Model::CreateBucketConfiguration config;
-    S3Model::CreateBucketRequest req;
+    S3Model::CreateBucketRequest req2;
     auto _region = region();
     // AWS S3 treats the us-east-1 differently than other regions
     // https://docs.aws.amazon.com/cli/latest/reference/s3api/create-bucket.html
@@ -1687,13 +1703,13 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
           S3Model::BucketLocationConstraintMapper::GetBucketLocationConstraintForName(
               ToAwsString(_region)));
     }
-    req.SetBucket(ToAwsString(bucket));
-    req.SetCreateBucketConfiguration(config);
+    req2.SetBucket(ToAwsString(bucket));
+    req2.SetCreateBucketConfiguration(config);
 
-    auto outcome = client_->CreateBucket(req);
-    if (!outcome.IsSuccess() && !IsAlreadyExists(outcome.GetError())) {
+    auto outcome2 = client_->CreateBucket(req2);
+    if (!outcome2.IsSuccess() && !IsAlreadyExists(outcome2.GetError())) {
       return ErrorToStatus(std::forward_as_tuple("When creating bucket '", bucket, "': "),
-                           outcome.GetError());
+                           outcome2.GetError());
     }
     return Status::OK();
   }

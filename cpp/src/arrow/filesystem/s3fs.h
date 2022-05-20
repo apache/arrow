@@ -130,6 +130,9 @@ struct ARROW_EXPORT S3Options {
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
 
+  /// Whether to allow creation of new buckets
+  bool allow_create_buckets = false;
+
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.

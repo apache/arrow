@@ -442,6 +442,7 @@ class TestS3FS : public S3TestMixin {
     if (!options_.retry_strategy) {
       options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     }
+    options_.allow_create_buckets = true;
     ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
   }
 
