@@ -25,7 +25,10 @@ test_that("abs()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(abs = abs(x)) %>%
+      transmute(
+        abs = abs(x),
+        abs_base = base::abs(x)
+      ) %>%
       collect(),
     df
   )

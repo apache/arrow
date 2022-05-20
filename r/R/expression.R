@@ -26,7 +26,7 @@
   # functions are arranged alphabetically by name within categories
 
   # arithmetic functions
-  "abs" = "abs_checked",
+  "base::abs" = "abs_checked",
   "ceiling" = "ceil",
   "floor" = "floor",
   "base::log10" = "log10_checked",
@@ -78,7 +78,7 @@
   "lubridate::leap_year" = "is_leap_year",
 
   # type conversion functions
-  "as.factor" = "dictionary_encode"
+  "base::as.factor" = "dictionary_encode"
 )
 
 .binary_function_map <- list(

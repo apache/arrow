@@ -612,7 +612,7 @@ test_that("as.factor()/dictionary_encode()", {
   expect_warning(
     compare_dplyr_binding(
       .input %>%
-        transmute(x = as.factor(x)) %>%
+        transmute(x = base::as.factor(x)) %>%
         collect(),
       df2
     ),
