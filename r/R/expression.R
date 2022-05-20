@@ -29,18 +29,18 @@
   "abs" = "abs_checked",
   "ceiling" = "ceil",
   "floor" = "floor",
-  "log10" = "log10_checked",
-  "log1p" = "log1p_checked",
-  "log2" = "log2_checked",
+  "base::log10" = "log10_checked",
+  "base::log1p" = "log1p_checked",
+  "base::log2" = "log2_checked",
   "sign" = "sign",
   # trunc is defined in dplyr-functions.R
 
   # trigonometric functions
-  "acos" = "acos_checked",
-  "asin" = "asin_checked",
-  "cos" = "cos_checked",
-  "sin" = "sin_checked",
-  "tan" = "tan_checked",
+  "base::acos" = "acos_checked",
+  "base::asin" = "asin_checked",
+  "base::cos" = "cos_checked",
+  "base::sin" = "sin_checked",
+  "base::tan" = "tan_checked",
 
   # logical functions
   "!" = "invert",
@@ -57,8 +57,8 @@
   "stri_reverse" = "utf8_reverse",
   # substr is defined in dplyr-functions.R
   # substring is defined in dplyr-functions.R
-  "tolower" = "utf8_lower",
-  "toupper" = "utf8_upper",
+  "base::tolower" = "utf8_lower",
+  "base::toupper" = "utf8_upper",
 
   # date and time functions
   "lubridate::day" = "day",
