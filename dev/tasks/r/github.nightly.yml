@@ -16,22 +16,34 @@
 # under the License.
 
 {% import 'macros.jinja' as macros with context %}
+# root of the R nightly repo where the first dir is the mount point used by davfs2 ("nightly")
 {% set r_root = "nightly/r" %}
 {% set webdav_domain = "https://nightly.wujciak.de:8080" %}
 {% set repo_domain = "https://nightly.wujciak.de/r" %}
+# This allows us to set a custom version via param:
+# crossbow submit --param custom_version=8.5.3 r-nightly-packages
+# if the param is unset defaults to the usual Ymd naming scheme
+{%set version = custom_version|default('\\2.\'\"$(date +%Y%m%d)\"\'') %}
 
 {{ macros.github_header() }}
 
+env:
+# prevent upload of R packages or libarrow binaries via param (e.g. for release)
+# crossbow submit --param upload_pkg=false --param upload_libarrow=false r-nightly-packages
+  UPLOAD_PKG: {{ upload_pkg|default("true") }}
+  UPLOAD_LIBARROW: {{ upload_libarrow|default("true")}}
 jobs:
   source:
     name: Source Package
     runs-on: ubuntu-latest
+    # Block submissions via PR unless from a branch within apache/arrow e.g. for release 
+    if: '{{ arrow.github_repo }}' == 'apache/arrow'
     outputs:
       version: {{ '${{ steps.save-version.outputs.version }}' }}
       date: {{ '${{ steps.save-version.outputs.date }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.change_r_pkg_version()|indent }}
+      {{ macros.change_r_pkg_version(version)|indent }}
       - name: Save Version
         id: save-version
         shell: bash
@@ -51,17 +63,27 @@ jobs:
           make sync-cpp
           R CMD build --no-build-vignettes .
 
-      - name: Install davfs2 & Mount Repo
+      - name: Install davfs2 & Mount Repository
+        if: env.UPLOAD_PKG && success()
         run: | 
           sudo apt update && sudo apt install davfs2
+
+          # Create mount point
           mkdir nightly
+
+          # make credentials available
           sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
+
+          # mount with read&write access
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Upload Source Package
+        if: env.UPLOAD_PKG && success()
+        shell: bash
         run: | 
           # ensure repo structure is set up, this job is the fastest and should fix any issue before the other jobs try
           # to push into non existent folder with curl, which would fail silently. 
+          # Add any new architectures or R versions here
           sudo mkdir -p {{ r_root }}/src/contrib 
         {% for os in ["ubuntu-18.04", 
                       "centos-7",
@@ -73,9 +95,9 @@ jobs:
           sudo mkdir -p {{ r_root }}/bin/{{ os }}/contrib/{{ r_version }}
           {% endfor %}
         {% endfor %}
-        
-          sudo cp arrow/r/arrow_*.tar.gz {{ r_root }}/src/contrib
-      - name: Update Repo
+            sudo cp arrow/r/arrow_*.tar.gz {{ r_root }}/src/contrib
+      - name: Update Repository Index
+        if: env.UPLOAD_PKG && success()
         shell: sudo Rscript {0}
         run: |
           if(file.exists("{{ r_root }}/src/contrib/PACKAGES")) {
@@ -84,8 +106,12 @@ jobs:
             tools::write_PACKAGES("{{ r_root }}/src/contrib" , type = "source", latestOnly = FALSE)
           }
 
-      # ensures all changes are written
-      - run: sudo umount nightly 
+      - name: Unmount Repository
+        # ensures all changes are written
+        if: env.UPLOAD_PKG && success()
+        shell: bash
+        run: sudo umount nightly
+
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
@@ -115,23 +141,27 @@ jobs:
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run  {{ '${{ matrix.config.os}}' }}-cpp-static
-      - name: Bundle and upload
+      - name: Bundle libarrow
+        shell: bash
+        env:
+          PKG_FILE: arrow-{{ '${{ needs.source.outputs.version }}' }}.zip
+          VERSION: {{ '${{ needs.source.outputs.version }}' }}
+        run: |
+          cd libarrow/dist
+          # These files were created by the docker user so we have to sudo to get them
+          sudo -E zip -r $PKG_FILE lib/ include/
+      
+      - name: Upload libarrow
+        if: env.UPLOAD_LIBARROW && success()
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
-          VERSION: {{ '${{ needs.source.outputs.version }}' }}
+          PKG_FILE: arrow-{{ '${{ needs.source.outputs.version }}' }}.zip
         run: |
-          cd arrow/r
-          VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
-          export PKG_FILE="arrow-${VERSION}.zip"
-
-          cd libarrow/dist
-          # These files were created by the docker user so we have to sudo to get them
-          sudo -E zip -r $PKG_FILE lib/ include/
           export REPO_PATH={{ 'r/libarrow/bin/${{ matrix.config.os }}-${{ matrix.config.version }}' }}
-
           curl -s --fail --show-error -u $USER:$PW -T $PKG_FILE  {{ webdav_domain }}/$REPO_PATH/
+          
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
@@ -160,12 +190,14 @@ jobs:
         run: arrow/ci/scripts/r_windows_build.sh
 
       - name: Upload Binary
+        if: env.UPLOAD_LIBARROW && success()
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
         run: |
           VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
+
           cd build
           curl -s --fail --show-error -u $USER:$PW -T arrow-$VERSION.zip  {{ webdav_domain }}/r/libarrow/bin/windows/
 
@@ -230,6 +262,7 @@ jobs:
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
       - name: Upload package
+        if: env.UPLOAD_PKG && success()
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
@@ -320,7 +353,7 @@ jobs:
 
   update-repo:
     needs: r-packages
-    if: always()
+    if: ('{{ arrow.github_repo }}' == 'apache/arrow') && env.UPLOAD_PKG
     name: Update PACKAGES
     runs-on: ubuntu-latest
     steps:
@@ -329,16 +362,23 @@ jobs:
         with:
           install-r: false
 
-      - name: Install davfs2 & Mount Repo
+      - name: Install davfs2 & Mount Repository
         run: | 
           sudo apt update && sudo apt install davfs2
+
+          # Create mount point
           mkdir nightly
+
+          # make credentials available
           sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
+
+          # mount with read&write access
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
-      - name: Update Repo
+      - name: Update Repository Index
         shell: sudo Rscript {0}
         run: |
+          # Only keep 14 versions per os/R-version
           prune <- function(dir, keep_n = 14) {
             files <- list.files(dir, pattern = "^arrow", full.names = TRUE)
             n_repo <- length(files)
@@ -356,6 +396,9 @@ jobs:
             }
           }
 
+          # Update & prune R repository
+          
+          # find all dirs that end in R verion number
           bin_dirs <- paste0("{{ r_root }}/bin/", dir("{{ r_root }}/bin", recursive = TRUE, include.dirs = TRUE, pattern = "\\d\\.\\d$"))
           
           for(dir in bin_dirs) {
@@ -371,6 +414,7 @@ jobs:
 
           }
 
+          # prune libarrow 
           lib_dirs <- list.dirs("{{ r_root }}/libarrow/bin")
           lib_dirs <- lib_dirs[ grep("bin/.+", lib_dirs)]
 

@@ -916,7 +916,7 @@ tasks:
   r-nightly-packages:
     ci: github
     template: r/github.nightly.yml
-    
+
 
 
   ########################### Release verification ############################
