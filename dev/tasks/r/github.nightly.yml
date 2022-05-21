@@ -353,7 +353,7 @@ jobs:
 
   update-repo:
     needs: r-packages
-    if: ('{{ arrow.github_repo }}' == 'apache/arrow') && env.UPLOAD_PKG
+    if: ('{{ arrow.github_repo }}' == 'apache/arrow') && 'env.UPLOAD_PKG'
     name: Update PACKAGES
     runs-on: ubuntu-latest
     steps:
