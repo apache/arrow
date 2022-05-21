@@ -33,8 +33,7 @@
 # Configuration environment variables:
 #   - APACHE_JIRA_USERNAME: your Apache JIRA ID
 #   - APACHE_JIRA_PASSWORD: your Apache JIRA password
-#   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests (to
-#                             avoid rate limiting)
+#   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
 #   - PR_REMOTE_NAME: the name of the remote to the Apache git repo (set to
 #                     'apache' by default)
 #   - DEBUG: use for testing to avoid pushing to apache (0 by default)
@@ -242,12 +241,20 @@ class GitHubAPI(object):
         self.github_api = ("https://api.github.com/repos/apache/{0}"
                            .format(project_name))
 
-        token = os.environ.get('ARROW_GITHUB_API_TOKEN', None)
+        token = None
+        config = load_configuration()
+        if "github" in config.sections():
+            token = config["github"]["api_token"]
+        if not token:
+            token = os.environ.get('ARROW_GITHUB_API_TOKEN')
+        if not token:
+            token = cmd.prompt('Env ARROW_GITHUB_API_TOKEN not set, '
+                               'please enter your GitHub API token '
+                               '(GitHub personal access token):')
         headers = {
             'Accept': 'application/vnd.github.v3+json',
+            'Authorization': 'token {0}'.format(token),
         }
-        if token:
-            headers['Authorization'] = 'token {0}'.format(token)
         self.headers = headers
 
     def get_pr_data(self, number):
