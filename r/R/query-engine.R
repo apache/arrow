@@ -196,17 +196,11 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
+      old_schema <- node$extras$source_schema
+      old_meta <- old_schema$metadata
       # Apply any column metadata from the original schema, where appropriate
-      new_r_metadata <- get_r_metadata_from_old_schema(
-        node$schema,
-        node$extras$source_schema,
-        drop_attributes = isTRUE(node$extras$has_aggregation)
-      )
-      old <- node$extras$source_schema
-      if (!is.null(new_r_metadata)) {
-        old$r_metadata <- new_r_metadata
-      }
-      out <- ExecPlan_run(self, node, sorting, prepare_key_value_metadata(old$metadata), select_k)
+      old_meta$r <- get_r_metadata_from_old_schema(node$schema, old_schema)
+      out <- ExecPlan_run(self, node, sorting, prepare_key_value_metadata(old_meta), select_k)
 
       if (!has_sorting) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
@@ -285,8 +279,7 @@ ExecNode <- R6Class("ExecNode",
         ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
       )
       # dplyr drops top-level attributes when you call summarize()
-      # TODO(here): drop the option and modify the schema r_metadata now?
-      out$extras$has_aggregation <- TRUE
+      out$extras$source_schema$metadata[["r"]]$attributes <- NULL
       out
     },
     Join = function(type, right_node, by, left_output, right_output, left_suffix, right_suffix) {

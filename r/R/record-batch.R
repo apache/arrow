@@ -102,7 +102,7 @@ RecordBatch <- R6Class("RecordBatch",
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
     ReplaceSchemaMetadata = function(new) {
-      RecordBatch__ReplaceSchemaMetadata(self, new)
+      RecordBatch__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {

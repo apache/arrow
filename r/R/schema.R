@@ -139,9 +139,18 @@ Schema <- R6Class("Schema",
     num_fields = function() Schema__num_fields(self),
     fields = function() Schema__fields(self),
     HasMetadata = function() Schema__HasMetadata(self),
+    raw_metadata = function() {
+      # This is the named list of strings
+      Schema__metadata(self)
+    },
     metadata = function(new_metadata) {
       if (missing(new_metadata)) {
-        Schema__metadata(self)
+        out <- self$raw_metadata
+        if (!is.null(out[["r"]])) {
+          # Can't unserialize NULL
+          out[["r"]] <- .deserialize_arrow_r_metadata(out[["r"]])
+        }
+        out
       } else {
         # Set the metadata
         out <- self$WithMetadata(new_metadata)
@@ -155,16 +164,10 @@ Schema <- R6Class("Schema",
       # Helper for the R metadata that handles the serialization
       # See also method on ArrowTabular
       if (missing(new)) {
-        out <- self$metadata$r
-        if (!is.null(out)) {
-          # Can't unserialize NULL
-          out <- .unserialize_arrow_r_metadata(out)
-        }
-        # Returns either NULL or a named list
-        out
+        self$metadata$r
       } else {
         # Set the R metadata
-        self$metadata$r <- .serialize_arrow_r_metadata(new)
+        self$metadata$r <- new
         self
       }
     }
@@ -199,6 +202,9 @@ prepare_key_value_metadata <- function(metadata) {
       "Key-value metadata must be a named list or character vector",
       call. = FALSE
     )
+  }
+  if (is.list(metadata[["r"]])) {
+    metadata[["r"]] <- .serialize_arrow_r_metadata(metadata[["r"]])
   }
   map_chr(metadata, as.character)
 }
@@ -347,7 +353,7 @@ unify_schemas <- function(..., schemas = list(...)) {
 #' @export
 print.arrow_r_metadata <- function(x, ...) {
   utils::str(x)
-  utils::str(.unserialize_arrow_r_metadata(x))
+  utils::str(.deserialize_arrow_r_metadata(x))
   invisible(x)
 }
 

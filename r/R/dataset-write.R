@@ -211,17 +211,11 @@ write_dataset <- function(dataset,
   source_schema <- final_node$extras$source_schema
   # For backwards compatibility with Scanner-based writer (arrow <= 7.0.0):
   # retain metadata from source dataset
-  output_schema$metadata <- source_schema$metadata
-  new_r_meta <- get_r_metadata_from_old_schema(
-    output_schema,
-    source_schema,
-    drop_attributes = isTRUE(final_node$extras$has_aggregation)
-  )
-  if (!is.null(new_r_meta)) {
-    output_schema$r_metadata <- new_r_meta
-  }
+  out_metadata <- source_schema$metadata
+  out_metadata$r <- get_r_metadata_from_old_schema(output_schema, source_schema)
+
   plan$Write(
-    final_node, prepare_key_value_metadata(output_schema$metadata),
+    final_node, prepare_key_value_metadata(out_metadata),
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,
