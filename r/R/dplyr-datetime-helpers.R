@@ -277,15 +277,10 @@ process_data_for_parsing <- function(x,
 }
 
 attempt_parsing <- function(x,
-                            orders,
-                            formats = NULL) {
-  if (is.null(formats)) {
-    # this is the situation in which orders were passed with `exact = TRUE`
-    # no data processing takes place
-    # we don't derive formats as the orders are assumed to be formats
-    parse_attempt_expressions <- build_strptime_exps(x, orders)
-    return(parse_attempt_expressions)
-  }
+                            orders) {
+
+  # translate orders into possible formats
+  formats <- build_formats(orders)
 
   processed_data <- process_data_for_parsing(x, orders)
 
