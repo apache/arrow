@@ -247,7 +247,7 @@ on:
   
   install.packages(
     "arrow",
-    repos = getOption("arrow.dev_repo"),
+    repos = c(getOption("arrow.dev_repo"), "https://cloud.r-project.org"),
     verbose = TRUE
   )
   library(arrow)
