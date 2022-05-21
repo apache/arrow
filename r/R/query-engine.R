@@ -19,8 +19,6 @@ ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
     Scan = function(dataset) {
-      # TODO(this PR): each of these exits need to attach source schema to the
-      # ExecNode they return (add ExecPlan methods and a helper that adds extras$source_schema)
       if (inherits(dataset, c("RecordBatchReader", "ArrowTabular"))) {
         return(self$SourceNode(dataset))
       } else if (inherits(dataset, "arrow_dplyr_query")) {
@@ -30,7 +28,8 @@ ExecPlan <- R6Class("ExecPlan",
           # ExecNodes
           return(self$SourceNode(dataset$.data))
         }
-
+        # Else, we're scanning a Dataset, and we need to pull out the filter
+        # and projection (column selection) to push down into the scanner
         filter <- dataset$filtered_rows
         if (isTRUE(filter)) {
           filter <- Expression$scalar(TRUE)
@@ -49,9 +48,10 @@ ExecPlan <- R6Class("ExecPlan",
         filter <- Expression$scalar(TRUE)
         colnames <- names(dataset)
       }
-      # ScanNode needs the filter to do predicate pushdown and skip partitions,
-      # and it needs to know which fields to materialize (and which are unnecessary)
+
       out <- ExecNode_Scan(self, dataset, filter, colnames %||% character(0))
+      # Hold onto the source data's schema so we can preserve schema metadata
+      # in the resulting Scan/Write
       out$extras$source_schema <- dataset$schema
       out
     },
@@ -62,6 +62,8 @@ ExecPlan <- R6Class("ExecPlan",
         assert_is(.data, "ArrowTabular")
         out <- ExecNode_TableSourceNode(self, as_arrow_table(.data))
       }
+      # Hold onto the source data's schema so we can preserve schema metadata
+      # in the resulting Scan/Write
       out$extras$source_schema <- .data$schema
       out
     },
@@ -180,11 +182,11 @@ ExecPlan <- R6Class("ExecPlan",
 
       # This is only safe because we are going to evaluate queries that end
       # with head/tail first, then evaluate any subsequent query as a new query
-      if (!is.null(.data$extras$head)) {
-        node$extras$head <- .data$extras$head
+      if (!is.null(.data$head)) {
+        node$extras$head <- .data$head
       }
-      if (!is.null(.data$extras$tail)) {
-        node$extras$tail <- .data$extras$tail
+      if (!is.null(.data$tail)) {
+        node$extras$tail <- .data$tail
       }
       node
     },
@@ -210,7 +212,13 @@ ExecPlan <- R6Class("ExecPlan",
       old_meta <- old_schema$metadata
       # Apply any column metadata from the original schema, where appropriate
       old_meta$r <- get_r_metadata_from_old_schema(node$schema, old_schema)
-      out <- ExecPlan_run(self, node, sorting, prepare_key_value_metadata(old_meta), select_k)
+      out <- ExecPlan_run(
+        self,
+        node,
+        sorting,
+        prepare_key_value_metadata(old_meta),
+        select_k
+      )
 
       if (!has_sorting) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
