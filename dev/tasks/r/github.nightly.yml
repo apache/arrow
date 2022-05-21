@@ -28,8 +28,8 @@
 {{ macros.github_header() }}
 
 env:
-# prevent upload of R packages or libarrow binaries via param (e.g. for release)
-# crossbow submit --param upload_pkg=false --param upload_libarrow=false r-nightly-packages
+  # prevent upload of R packages or libarrow binaries via param (e.g. for release)
+  # crossbow submit --param upload_pkg=false --param upload_libarrow=false r-nightly-packages
   UPLOAD_PKG: {{ upload_pkg|default("true") }}
   UPLOAD_LIBARROW: {{ upload_libarrow|default("true")}}
 jobs:
