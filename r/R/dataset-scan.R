@@ -206,10 +206,8 @@ map_batches <- function(X, FUN, ..., .data.frame = NULL) {
       call. = FALSE
     )
   }
-  plan <- ExecPlan$create()
-  final_node <- plan$Build(as_adq(X))
-  reader <- plan$Run(final_node)
   FUN <- as_mapper(FUN)
+  reader <- as_record_batch_reader(X)
 
   # TODO: for future consideration
   # * Move eval to C++ and make it a generator so it can stream, not block

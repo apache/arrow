@@ -76,14 +76,24 @@ ExecPlan <- R6Class("ExecPlan",
       .data <- ensure_group_vars(.data)
       .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
-      if (inherits(.data$.data, "arrow_dplyr_query")) {
-        # We have a nested query. Recurse.
-        node <- self$Build(.data$.data)
+      if (is_collapsed(.data)) {
+        # We have a nested query.
+        if (has_head_tail(.data$.data)) {
+          # head and tail are not ExecNodes; at best we can handle them via
+          # SinkNode, so if there are any steps done after head/tail, we need to
+          # evaluate the query up to then and then do a new query for the rest.
+          # as_record_batch_reader() will build and run an ExecPlan
+          node <- self$SourceNode(as_record_batch_reader(.data$.data))
+        } else {
+          # Recurse
+          node <- self$Build(.data$.data)
+        }
       } else {
         node <- self$Scan(.data)
       }
 
-      # ARROW-13498: Even though Scan takes the filter, apparently we have to do it again
+      # ARROW-13498: Even though Scan takes the filter (if you have a Dataset),
+      # we have to do it again
       if (inherits(.data$filtered_rows, "Expression")) {
         node <- node$Filter(.data$filtered_rows)
       }
