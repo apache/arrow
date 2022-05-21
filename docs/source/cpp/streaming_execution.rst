@@ -19,14 +19,13 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
-==========================
-Streaming execution engine
-==========================
+=======================================
+Acero: A C++ streaming execution engine
+=======================================
 
 .. warning::
 
-    The streaming execution engine is experimental, and a stable API
-    is not yet guaranteed.
+    Acero is experimental and a stable API is not yet guaranteed.
 
 Motivation
 ==========
@@ -35,20 +34,23 @@ For many complex computations, successive direct :ref:`invocation of
 compute functions <invoking-compute-functions>` is not feasible
 in either memory or computation time. Doing so causes all intermediate
 data to be fully materialized. To facilitate arbitrarily large inputs
-and more efficient resource usage, Arrow also provides a streaming query
-engine with which computations can be formulated and executed.
+and more efficient resource usage, the Arrow C++ implementation also
+provides Acero, a streaming query engine with which computations can
+be formulated and executed.
 
 .. image:: simple_graph.svg
    :alt: An example graph of a streaming execution workflow.
 
-:class:`ExecNode` is provided to reify the graph of operations in a query.
-Batches of data (:struct:`ExecBatch`) flow along edges of the graph from
-node to node. Structuring the API around streams of batches allows the
-working set for each node to be tuned for optimal performance independent
-of any other nodes in the graph. Each :class:`ExecNode` processes batches
-as they are pushed to it along an edge of the graph by upstream nodes
-(its inputs), and pushes batches along an edge of the graph to downstream
-nodes (its outputs) as they are finalized.
+Acero allows computation to be expressed as an "execution plan"
+(:class:`ExecPlan`) which is a directed graph of operators.  Each operator
+(:class:`ExecNode`) provides, transforms, or consumes the data passing
+through it.  Batches of data (:struct:`ExecBatch`) flow along edges of
+the graph from node to node. Structuring the API around streams of batches
+allows the working set for each node to be tuned for optimal performance
+independent of any other nodes in the graph. Each :class:`ExecNode`
+processes batches as they are pushed to it along an edge of the graph by
+upstream nodes (its inputs), and pushes batches along an edge of the graph
+to downstream nodes (its outputs) as they are finalized.
 
 .. seealso::
 
@@ -366,10 +368,9 @@ This function might be reading a file, iterating through an in memory structure,
 from a network connection.  The arrow library refers to these functions as ``arrow::AsyncGenerator``
 and there are a number of utilities for working with these functions.  For this example we use 
 a vector of record batches that we've already stored in memory.
-In addition, the schema of the data must be known up front.  Arrow's streaming execution
-engine must know the schema of the data at each stage of the execution graph before any
-processing has begun.  This means we must supply the schema for a source node separately
-from the data itself.
+In addition, the schema of the data must be known up front.  Acero must know the schema of the data
+at each stage of the execution graph before any processing has begun.  This means we must supply the
+schema for a source node separately from the data itself.
 
 Here we define a struct to hold the data generator definition. This includes in-memory batches, schema
 and a function that serves as a data generator :
