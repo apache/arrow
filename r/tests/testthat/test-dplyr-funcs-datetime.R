@@ -2069,7 +2069,8 @@ test_that("parse_date_time with hours, minutes and seconds components", {
         ) %>%
         collect(),
       "`quiet = FALSE` not supported in Arrow"
-    )
+    ),
+    "All formats failed to parse"
   )
 
   test_dates_times2 <- tibble(
