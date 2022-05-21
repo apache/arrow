@@ -60,14 +60,8 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   };
 
   struct IdHashEq {
-    size_t operator()(Id id) const {
-      constexpr ::arrow::internal::StringViewHash hash = {};
-      auto out = static_cast<size_t>(hash(id.uri));
-      ::arrow::internal::hash_combine(out, hash(id.name));
-      return out;
-    }
-
-    bool operator()(Id l, Id r) const { return l.uri == r.uri && l.name == r.name; }
+    size_t operator()(Id id) const;
+    bool operator()(Id l, Id r) const;
   };
 
   /// \brief A mapping between a Substrait ID and an arrow::DataType

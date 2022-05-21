@@ -42,6 +42,18 @@ struct TypePtrHashEq {
 
 }  // namespace
 
+size_t ExtensionIdRegistry::IdHashEq::operator()(ExtensionIdRegistry::Id id) const {
+  constexpr ::arrow::internal::StringViewHash hash = {};
+  auto out = static_cast<size_t>(hash(id.uri));
+  ::arrow::internal::hash_combine(out, hash(id.name));
+  return out;
+}
+
+bool ExtensionIdRegistry::IdHashEq::operator()(ExtensionIdRegistry::Id l,
+                                               ExtensionIdRegistry::Id r) const {
+  return l.uri == r.uri && l.name == r.name;
+}
+
 // A builder used when creating a Substrait plan from an Arrow execution plan.  In
 // that situation we do not have a set of anchor values already defined so we keep
 // a map of what Ids we have seen.
