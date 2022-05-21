@@ -534,11 +534,10 @@ register_bindings_datetime_parsers <- function() {
     }
 
     if (exact == TRUE) {
-      parse_attempts <- attempt_parsing(x, orders = orders)
+      # no data processing takes place & we don't derive formats
+      parse_attempts <- build_strptime_exps(x, orders)
     } else {
-      # each order is translated into possible formats
-      formats <- build_formats(orders)
-      parse_attempts <- attempt_parsing(x, orders = orders, formats = formats)
+      parse_attempts <- attempt_parsing(x, orders = orders)
     }
 
     coalesce_output <- build_expr("coalesce", args = parse_attempts)
