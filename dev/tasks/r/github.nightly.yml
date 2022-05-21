@@ -148,7 +148,7 @@ jobs:
           PKG_FILE: arrow-{{ '${{ needs.source.outputs.version }}' }}.zip
           VERSION: {{ '${{ needs.source.outputs.version }}' }}
         run: |
-          cd libarrow/dist
+          cd arrow/r/libarrow/dist
           # These files were created by the docker user so we have to sudo to get them
           sudo -E zip -r $PKG_FILE lib/ include/
       
@@ -160,6 +160,7 @@ jobs:
           PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
           PKG_FILE: arrow-{{ '${{ needs.source.outputs.version }}' }}.zip
         run: |
+          cd arrow/r/libarrow/dist
           export REPO_PATH={{ 'r/libarrow/bin/${{ matrix.config.os }}-${{ matrix.config.version }}' }}
           curl -s --fail --show-error -u $USER:$PW -T $PKG_FILE  {{ webdav_domain }}/$REPO_PATH/
           
