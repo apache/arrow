@@ -203,12 +203,11 @@ std::string ErrnoMessage(int errnum) { return std::strerror(errnum); }
 
 #if _WIN32
 std::string WinErrorMessage(int errnum) {
-#define MAX_N_CHARACTERS 1024
-#define MAX_N_UTF8_BYTES 4096
-  WCHAR utf16_message[MAX_N_CHARACTERS];
+  constexpr DWORD max_n_chars = 1024;
+  WCHAR utf16_message[max_n_chars];
   auto n_utf16_chars =
       FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
-                     errnum, 0, utf16_message, sizeof(utf16_message), NULL);
+                     errnum, 0, utf16_message, max_n_chars, NULL);
   if (n_utf16_chars == 0) {
     // Fallback
     std::stringstream ss;
@@ -217,12 +216,11 @@ std::string WinErrorMessage(int errnum) {
   }
   const UINT code_page = CP_UTF8;
   const DWORD flags = 0;
-  char utf8_message[MAX_N_UTF8_BYTES];
+  constexpr int max_n_utf8_bytes = max_n_chars * 4;
+  char utf8_message[max_n_utf8_bytes];
   auto n_utf8_bytes = WideCharToMultiByte(code_page, flags, utf16_message, n_utf16_chars,
-                                          utf8_message, sizeof(utf8_message), NULL, NULL);
+                                          utf8_message, max_n_utf8_bytes, NULL, NULL);
   return std::string(utf8_message, n_utf8_bytes);
-#undef MAX_N_UTF8_BYTES
-#undef MAX_N_CHARACTERS
 }
 #endif
 
