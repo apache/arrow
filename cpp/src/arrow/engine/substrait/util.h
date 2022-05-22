@@ -39,7 +39,6 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
 
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
 
-
 }  // namespace substrait
 
 }  // namespace engine

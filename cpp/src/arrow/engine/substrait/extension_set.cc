@@ -225,15 +225,14 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   }
 
   util::optional<TypeRecord> GetType(Id id, bool is_variation) const override {
-    if (auto index =
-            GetIndex(is_variation ? variation_id_to_index_ : id_to_index_, id)) {
+    if (auto index = GetIndex(is_variation ? variation_id_to_index_ : id_to_index_, id)) {
       return TypeRecord{type_ids_[*index], types_[*index], type_is_variation_[*index]};
     }
     return {};
   }
 
   virtual Status CanRegisterType(Id id, std::shared_ptr<DataType> type,
-                         bool is_variation) const {
+                                 bool is_variation) const {
     auto& id_to_index = is_variation ? variation_id_to_index_ : id_to_index_;
     if (id_to_index.find(id) != id_to_index.end()) {
       return Status::Invalid("Type id was already registered");
@@ -244,8 +243,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return Status::OK();
   }
 
-  Status RegisterType(Id id, std::shared_ptr<DataType> type,
-                      bool is_variation) override {
+  Status RegisterType(Id id, std::shared_ptr<DataType> type, bool is_variation) override {
     DCHECK_EQ(type_ids_.size(), types_.size());
     DCHECK_EQ(type_ids_.size(), type_is_variation_.size());
 
@@ -344,8 +342,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 };
 
 struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
-  NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent)
-    : parent_(parent) {}
+  NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent) : parent_(parent) {}
 
   std::vector<util::string_view> Uris() const override {
     std::vector<util::string_view> uris = parent_->Uris();
@@ -374,7 +371,7 @@ struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
   Status RegisterType(Id id, std::shared_ptr<DataType> type,
                       bool is_variation) override {
     return parent_->CanRegisterType(id, type, is_variation) &
-        ExtensionIdRegistryImpl::RegisterType(id, type, is_variation);
+           ExtensionIdRegistryImpl::RegisterType(id, type, is_variation);
   }
 
   util::optional<FunctionRecord> GetFunction(
@@ -396,7 +393,7 @@ struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
 
   Status RegisterFunction(Id id, std::string arrow_function_name) override {
     return parent_->CanRegisterFunction(id, arrow_function_name) &
-        ExtensionIdRegistryImpl::RegisterFunction(id, arrow_function_name);
+           ExtensionIdRegistryImpl::RegisterFunction(id, arrow_function_name);
   }
 
   const ExtensionIdRegistry* parent_;
