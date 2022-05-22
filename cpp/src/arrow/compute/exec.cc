@@ -1046,7 +1046,7 @@ ExecContext::ExecContext(MemoryPool* pool, ::arrow::internal::Executor* executor
   this->func_registry_ = func_registry == nullptr ? GetFunctionRegistry() : func_registry;
 }
 
-CpuInfo* ExecContext::cpu_info() const { return CpuInfo::GetInstance(); }
+const CpuInfo* ExecContext::cpu_info() const { return CpuInfo::GetInstance(); }
 
 // ----------------------------------------------------------------------
 // SelectionVector

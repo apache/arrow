@@ -15,6 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[flake8]
-filename = *.pyx,*.pxd,*.pxi
-ignore = E211,E901,E999,E225,E226,E227,W504
+module Arrow
+  module ArrayComputable
+    def min(options: nil)
+      compute("min", options: options).value
+    end
+
+    def max(options: nil)
+      compute("max", options: options).value
+    end
+
+    def uniq
+      unique.values
+    end
+
+    private
+    def compute(name, options: nil)
+      Function.find(name).execute([self], options).value
+    end
+  end
+end

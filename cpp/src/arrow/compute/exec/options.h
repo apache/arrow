@@ -281,14 +281,16 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       JoinType in_join_type, std::vector<FieldRef> in_left_keys,
       std::vector<FieldRef> in_right_keys, Expression filter = literal(true),
       std::string output_suffix_for_left = default_output_suffix_for_left,
-      std::string output_suffix_for_right = default_output_suffix_for_right)
+      std::string output_suffix_for_right = default_output_suffix_for_right,
+      bool disable_bloom_filter = false)
       : join_type(in_join_type),
         left_keys(std::move(in_left_keys)),
         right_keys(std::move(in_right_keys)),
         output_all(true),
         output_suffix_for_left(std::move(output_suffix_for_left)),
         output_suffix_for_right(std::move(output_suffix_for_right)),
-        filter(std::move(filter)) {
+        filter(std::move(filter)),
+        disable_bloom_filter(disable_bloom_filter) {
     this->key_cmp.resize(this->left_keys.size());
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
       this->key_cmp[i] = JoinKeyCmp::EQ;
@@ -299,7 +301,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
       std::vector<FieldRef> right_output, Expression filter = literal(true),
       std::string output_suffix_for_left = default_output_suffix_for_left,
-      std::string output_suffix_for_right = default_output_suffix_for_right)
+      std::string output_suffix_for_right = default_output_suffix_for_right,
+      bool disable_bloom_filter = false)
       : join_type(join_type),
         left_keys(std::move(left_keys)),
         right_keys(std::move(right_keys)),
@@ -308,7 +311,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         right_output(std::move(right_output)),
         output_suffix_for_left(std::move(output_suffix_for_left)),
         output_suffix_for_right(std::move(output_suffix_for_right)),
-        filter(std::move(filter)) {
+        filter(std::move(filter)),
+        disable_bloom_filter(disable_bloom_filter) {
     this->key_cmp.resize(this->left_keys.size());
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
       this->key_cmp[i] = JoinKeyCmp::EQ;
@@ -320,7 +324,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       std::vector<FieldRef> right_output, std::vector<JoinKeyCmp> key_cmp,
       Expression filter = literal(true),
       std::string output_suffix_for_left = default_output_suffix_for_left,
-      std::string output_suffix_for_right = default_output_suffix_for_right)
+      std::string output_suffix_for_right = default_output_suffix_for_right,
+      bool disable_bloom_filter = false)
       : join_type(join_type),
         left_keys(std::move(left_keys)),
         right_keys(std::move(right_keys)),
@@ -330,17 +335,20 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         key_cmp(std::move(key_cmp)),
         output_suffix_for_left(std::move(output_suffix_for_left)),
         output_suffix_for_right(std::move(output_suffix_for_right)),
-        filter(std::move(filter)) {}
+        filter(std::move(filter)),
+        disable_bloom_filter(disable_bloom_filter) {}
+
+  HashJoinNodeOptions() = default;
 
   // type of join (inner, left, semi...)
-  JoinType join_type;
+  JoinType join_type = JoinType::INNER;
   // key fields from left input
   std::vector<FieldRef> left_keys;
   // key fields from right input
   std::vector<FieldRef> right_keys;
   // if set all valid fields from both left and right input will be output
   // (and field ref vectors for output fields will be ignored)
-  bool output_all;
+  bool output_all = false;
   // output fields passed from left input
   std::vector<FieldRef> left_output;
   // output fields passed from right input
@@ -358,7 +366,9 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   // the filter are not included.  The filter is applied against the
   // concatenated input schema (left fields then right fields) and can reference
   // fields that are not included in the output.
-  Expression filter;
+  Expression filter = literal(true);
+  // whether or not to disable Bloom filters in this join
+  bool disable_bloom_filter = false;
 };
 
 /// \brief Make a node which select top_k/bottom_k rows passed through it

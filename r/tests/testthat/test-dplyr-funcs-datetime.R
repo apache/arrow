@@ -1254,7 +1254,7 @@ test_that("`decimal_date()` and `date_decimal()`", {
       mutate(
         decimal_date_from_POSIXct = decimal_date(b),
         decimal_date_from_r_POSIXct_obj = decimal_date(as.POSIXct("2022-03-25 15:37:01")),
-        decimal_date_from_r_date_obj = decimal_date(ymd("2022-03-25")),
+        decimal_date_from_r_date_obj = decimal_date(as.Date("2022-03-25")),
         decimal_date_from_date = decimal_date(c),
         date_from_decimal = date_decimal(a),
         date_from_decimal_r_obj = date_decimal(2022.178)
@@ -1640,7 +1640,8 @@ test_that("`as_datetime()`", {
 })
 
 test_that("parse_date_time() works with year, month, and date components", {
-  # string processing requires RE2 library (not available on Windows with R 3.6)
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -1700,7 +1701,8 @@ test_that("parse_date_time() works with year, month, and date components", {
 })
 
 test_that("parse_date_time() works with a mix of formats and orders", {
-  # string processing requires RE2 library (not available on Windows with R 3.6)
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
   skip_if_not_available("re2")
   test_df <- tibble(
     string_combi = c("2021-09-1", "2/09//2021", "09.3.2021")
@@ -1730,5 +1732,213 @@ test_that("parse_date_time() doesn't work with hour, minutes, and second compone
       mutate(parsed_date_ymd = parse_date_time(date_times, orders = "ymd_HMS")) %>%
       collect(),
     '"ymd_HMS" `orders` not supported in Arrow'
+  )
+})
+
+test_that("year, month, day date/time parsers", {
+  test_df <- tibble::tibble(
+    ymd_string = c("2022-05-11", "2022/05/12", "22.05-13"),
+    ydm_string = c("2022-11-05", "2022/12/05", "22.13-05"),
+    mdy_string = c("05-11-2022", "05/12/2022", "05.13-22"),
+    myd_string = c("05-2022-11", "05/2022/12", "05.22-14"),
+    dmy_string = c("11-05-2022", "12/05/2022", "13.05-22"),
+    dym_string = c("11-2022-05", "12/2022/05", "13.22-05")
+  )
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_date = ymd(ymd_string),
+        ydm_date = ydm(ydm_string),
+        mdy_date = mdy(mdy_string),
+        myd_date = myd(myd_string),
+        dmy_date = dmy(dmy_string),
+        dym_date = dym(dym_string)
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_date = ymd(ymd_string, tz = "Pacific/Marquesas"),
+        ydm_date = ydm(ydm_string, tz = "Pacific/Marquesas"),
+        mdy_date = mdy(mdy_string, tz = "Pacific/Marquesas"),
+        myd_date = myd(myd_string, tz = "Pacific/Marquesas"),
+        dmy_date = dmy(dmy_string, tz = "Pacific/Marquesas"),
+        dym_date = dym(dym_string, tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("ym, my & yq parsers", {
+  test_df <- tibble::tibble(
+    ym_string = c("2022-05", "2022/02", "22.03", "1979//12", "88.09", NA),
+    my_string = c("05-2022", "02/2022", "03.22", "12//1979", "09.88", NA),
+    yq_string = c("2007.3", "1970.2", "2020.1", "2009.4", "1975.1", NA),
+    yq_numeric = c(2007.3, 1970.2, 2020.1, 2009.4, 1975.1, NA),
+    yq_space = c("2007 3", "1970 2", "2020 1", "2009 4", "1975 1", NA)
+  )
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ym_date = ym(ym_string),
+        ym_datetime = ym(ym_string, tz = "Pacific/Marquesas"),
+        my_date = my(my_string),
+        my_datetime = my(my_string, tz = "Pacific/Marquesas"),
+        yq_date_from_string = yq(yq_string),
+        yq_datetime_from_string = yq(yq_string, tz = "Pacific/Marquesas"),
+        yq_date_from_numeric = yq(yq_numeric),
+        yq_datetime_from_numeric = yq(yq_numeric, tz = "Pacific/Marquesas"),
+        yq_date_from_string_with_space = yq(yq_space),
+        yq_datetime_from_string_with_space = yq(yq_space, tz = "Pacific/Marquesas"),
+        ym_date2 = parse_date_time(ym_string, orders = c("ym", "ymd")),
+        my_date2 = parse_date_time(my_string, orders = c("my", "myd")),
+        yq_date_from_string2 = parse_date_time(yq_string, orders = "yq"),
+        yq_date_from_numeric2 = parse_date_time(yq_numeric, orders = "yq"),
+        yq_date_from_string_with_space2 = parse_date_time(yq_space, orders = "yq")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("lubridate's fast_strptime", {
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y =
+          fast_strptime(
+            x,
+            format = "%Y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", "2022-05-17 21:23:45", NA)
+    )#,
+    # arrow does not preserve the `tzone` attribute
+    # test ignore_attr = TRUE
+  )
+
+  # R object
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y =
+          fast_strptime(
+            "68-10-07 19:04:05",
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", NA)
+    )#,
+    # test ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_multi_formats =
+          fast_strptime(
+            x,
+            format = c("%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S"),
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", "10-07-1968 19:04:05")
+    )
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm_with_tz = fast_strptime(
+          dttm_as_string,
+          format = "%Y-%m-%d %H:%M:%S",
+          tz = "Pacific/Marquesas",
+          lt = FALSE
+        )
+      ) %>%
+      collect(),
+    tibble(
+      dttm_as_string =
+        c("2018-10-07 19:04:05", "1969-10-07 19:04:05", NA)
+    )
+  )
+
+  # fast_strptime()'s `cutoff_2000` argument is not supported, but its value is
+  # implicitly set to 68L both in lubridate and in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x =
+        c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    )#,
+    # arrow does not preserve the `tzone` attribute
+    # test ignore_attr = TRUE
+  )
+
+  # the arrow binding errors for a value different from 68L for `cutoff_2000`
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE,
+            cutoff_2000 = 69L
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ),
+    warning = TRUE
+  )
+
+  # compare_dplyr_binding would not work here since lt = TRUE returns a list
+  # and it also errors in regular dplyr pipelines
+  expect_warning(
+    tibble(
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ) %>%
+      arrow_table() %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = TRUE
+          )
+      ) %>%
+      collect()
   )
 })

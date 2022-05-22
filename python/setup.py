@@ -108,6 +108,7 @@ class build_ext(_build_ext):
                       'namespace of boost (default: boost)'),
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
+                     ('with-substrait', None, 'build the Substrait extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-parquet-encryption', None,
@@ -160,6 +161,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_HDFS', '0'))
         self.with_cuda = strtobool(
             os.environ.get('PYARROW_WITH_CUDA', '0'))
+        self.with_substrait = strtobool(
+            os.environ.get('PYARROW_WITH_SUBSTRAIT', '0'))
         self.with_flight = strtobool(
             os.environ.get('PYARROW_WITH_FLIGHT', '0'))
         self.with_dataset = strtobool(
@@ -214,6 +217,7 @@ class build_ext(_build_ext):
         '_orc',
         '_plasma',
         '_s3fs',
+        '_substrait',
         '_hdfs',
         '_hdfsio',
         'gandiva']
@@ -268,6 +272,7 @@ class build_ext(_build_ext):
                 cmake_options += ['-G', self.cmake_generator]
 
             append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
+            append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
             append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
             append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
             append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
@@ -393,6 +398,8 @@ class build_ext(_build_ext):
         move_shared_libs(build_prefix, build_lib, "arrow_python")
         if self.with_cuda:
             move_shared_libs(build_prefix, build_lib, "arrow_cuda")
+        if self.with_substrait:
+            move_shared_libs(build_prefix, build_lib, "arrow_substrait")
         if self.with_flight:
             move_shared_libs(build_prefix, build_lib, "arrow_flight")
             move_shared_libs(build_prefix, build_lib,
@@ -437,6 +444,8 @@ class build_ext(_build_ext):
         if name == '_orc' and not self.with_orc:
             return True
         if name == '_flight' and not self.with_flight:
+            return True
+        if name == '_substrait' and not self.with_substrait:
             return True
         if name == '_s3fs' and not self.with_s3:
             return True

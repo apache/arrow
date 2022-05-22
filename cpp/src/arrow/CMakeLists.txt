@@ -393,7 +393,6 @@ if(ARROW_COMPUTE)
        compute/exec/key_encode.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
-       compute/exec/options.cc
        compute/exec/order_by_impl.cc
        compute/exec/partition_util.cc
        compute/exec/options.cc
@@ -754,20 +753,6 @@ endif()
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)
-
-  if(ARROW_WITH_UCX)
-    add_subdirectory(flight/transport/ucx)
-  endif()
-endif()
-
-if(ARROW_FLIGHT_SQL)
-  add_subdirectory(flight/sql)
-endif()
-
-if(ARROW_FLIGHT
-   AND ARROW_FLIGHT_SQL
-   AND ARROW_BUILD_INTEGRATION)
-  add_subdirectory(flight/integration_tests)
 endif()
 
 if(ARROW_HIVESERVER2)

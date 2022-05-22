@@ -171,7 +171,7 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
 ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
-    const std::shared_ptr<ArrayData>& array_data, int start_row, int num_rows);
+    const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows);
 
 /// \brief Create KeyColumnMetadata instances from an ExecBatch
 ///
@@ -188,8 +188,8 @@ ARROW_EXPORT Status ColumnMetadatasFromExecBatch(
 ///
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnArrayFromArrayData for more details
-ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int start_row,
-                                              int num_rows,
+ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
+                                              int64_t num_rows,
                                               std::vector<KeyColumnArray>* column_arrays);
 
 /// \brief Create KeyColumnArray instances from an ExecBatch

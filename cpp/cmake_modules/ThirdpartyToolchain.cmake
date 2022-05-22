@@ -62,7 +62,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     gRPC
     GTest
     LLVM
-    Lz4
+    lz4
     nlohmann_json
     opentelemetry-cpp
     ORC
@@ -72,6 +72,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Substrait
     Thrift
+    ucx
     utf8proc
     xsimd
     ZLIB
@@ -91,6 +92,14 @@ endif()
 # upstream uses "re2" not "RE2" as package name.
 if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
   set(re2_SOURCE ${RE2_SOURCE})
+endif()
+
+# For backward compatibility. We use "Lz4_SOURCE" if "lz4_SOURCE"
+# isn't specified and "lz4_SOURCE" is specified.
+# We renamed "Lz4" dependency name to "lz4" in 9.0.0 because
+# upstream uses "lz4" not "Lz4" as package name.
+if("${lz4_SOURCE}" STREQUAL "" AND NOT "${Lz4_SOURCE}" STREQUAL "")
+  set(lz4_SOURCE ${Lz4_SOURCE})
 endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
@@ -153,7 +162,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
     build_gtest()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
     build_nlohmann_json()
@@ -173,6 +182,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ucx")
+    build_ucx()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
@@ -651,6 +662,13 @@ else()
            "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_UCX_URL})
+  set(ARROW_UCX_SOURCE_URL "$ENV{ARROW_UCX_URL}")
+else()
+  set_urls(ARROW_UCX_SOURCE_URL
+           "https://github.com/openucx/ucx/archive/v${ARROW_UCX_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
@@ -1412,21 +1430,24 @@ macro(build_thrift)
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
       "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
+      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
+      -DBoost_NO_BOOST_CMAKE=ON
       -DBUILD_COMPILER=OFF
+      -DBUILD_EXAMPLES=OFF
       -DBUILD_SHARED_LIBS=OFF
       -DBUILD_TESTING=OFF
-      -DBUILD_EXAMPLES=OFF
       -DBUILD_TUTORIALS=OFF
-      -DWITH_QT4=OFF
+      -DCMAKE_DEBUG_POSTFIX=
+      -DWITH_AS3=OFF
+      -DWITH_CPP=ON
       -DWITH_C_GLIB=OFF
       -DWITH_JAVA=OFF
-      -DWITH_PYTHON=OFF
-      -DWITH_HASKELL=OFF
-      -DWITH_CPP=ON
-      -DWITH_STATIC_LIB=ON
+      -DWITH_JAVASCRIPT=OFF
       -DWITH_LIBEVENT=OFF
-      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
-      -DBoost_NO_BOOST_CMAKE=ON)
+      -DWITH_NODEJS=OFF
+      -DWITH_PYTHON=OFF
+      -DWITH_QT5=OFF
+      -DWITH_ZLIB=OFF)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if(DEFINED BOOST_ROOT)
@@ -1436,21 +1457,22 @@ macro(build_thrift)
     list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
   endif()
 
-  set(THRIFT_STATIC_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}thrift")
   if(MSVC)
     if(ARROW_USE_STATIC_CRT)
-      set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}mt")
+      set(THRIFT_LIB_SUFFIX "mt")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=ON")
     else()
-      set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}md")
+      set(THRIFT_LIB_SUFFIX "md")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
     endif()
+    set(THRIFT_LIB
+        "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    )
+  else()
+    set(THRIFT_LIB
+        "${THRIFT_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}thrift${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
   endif()
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}d")
-  endif()
-  set(THRIFT_STATIC_LIB
-      "${THRIFT_PREFIX}/lib/${THRIFT_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
   if(BOOST_VENDORED)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
@@ -1459,7 +1481,7 @@ macro(build_thrift)
   externalproject_add(thrift_ep
                       URL ${THRIFT_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}"
+                      BUILD_BYPRODUCTS "${THRIFT_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
@@ -1467,7 +1489,7 @@ macro(build_thrift)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
   set_target_properties(thrift::thrift
-                        PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(CMAKE_VERSION VERSION_LESS 3.11)
     set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
@@ -1957,8 +1979,6 @@ macro(build_gtest)
       -DCMAKE_MACOSX_RPATH=OFF)
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
-  add_definitions(-DGTEST_LINKED_AS_SHARED_LIBRARY=1)
-
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
   endif()
@@ -2016,6 +2036,8 @@ macro(build_gtest)
   add_library(GTest::gtest SHARED IMPORTED)
   set_target_properties(GTest::gtest
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
+                                   INTERFACE_COMPILE_DEFINITIONS
+                                   "GTEST_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
   add_library(GTest::gtest_main SHARED IMPORTED)
@@ -2026,6 +2048,8 @@ macro(build_gtest)
   add_library(GTest::gmock SHARED IMPORTED)
   set_target_properties(GTest::gmock
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
+                                   INTERFACE_COMPILE_DEFINITIONS
+                                   "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
   add_dependencies(GTest::gtest googletest_ep)
@@ -2034,40 +2058,20 @@ macro(build_gtest)
 endmacro()
 
 if(ARROW_TESTING)
+  if(CMAKE_VERSION VERSION_LESS 3.23)
+    set(GTEST_USE_CONFIG TRUE)
+  else()
+    set(GTEST_USE_CONFIG FALSE)
+  endif()
+  # We can't find shred library version of GoogleTest on Windows with
+  # Conda's gtest package because it doesn't provide GTestConfig.cmake
+  # provided by GoogleTest and CMake's built-in FindGTtest.cmake
+  # doesn't support gtest_dll.dll.
   resolve_dependency(GTest
                      REQUIRED_VERSION
                      1.10.0
                      USE_CONFIG
-                     TRUE)
-
-  if(NOT GTEST_VENDORED)
-    # TODO(wesm): This logic does not work correctly with the MSVC static libraries
-    # built for the shared crt
-
-    #     set(CMAKE_REQUIRED_LIBRARIES GTest::GTest GTest::Main GTest::GMock)
-    #     CHECK_CXX_SOURCE_COMPILES("
-    # #include <gmock/gmock.h>
-    # #include <gtest/gtest.h>
-
-    # class A {
-    #   public:
-    #     int run() const { return 1; }
-    # };
-
-    # class B : public A {
-    #   public:
-    #     MOCK_CONST_METHOD0(run, int());
-    # };
-
-    # TEST(Base, Test) {
-    #   B b;
-    # }" GTEST_COMPILES_WITHOUT_MACRO)
-    #     if (NOT GTEST_COMPILES_WITHOUT_MACRO)
-    #       message(STATUS "Setting GTEST_LINKED_AS_SHARED_LIBRARY=1 on GTest::GTest")
-    #       add_compile_definitions("GTEST_LINKED_AS_SHARED_LIBRARY=1")
-    #     endif()
-    #     set(CMAKE_REQUIRED_LIBRARIES)
-  endif()
+                     ${GTEST_USE_CONFIG})
 endif()
 
 macro(build_benchmark)
@@ -2303,7 +2307,7 @@ macro(build_lz4)
     set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
     # Must explicitly invoke sh on MinGW
     set(LZ4_BUILD_COMMAND
-        BUILD_COMMAND sh "${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh"
+        BUILD_COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/build-support/build-lz4-lib.sh"
         "AR=${CMAKE_AR}" "OS=${CMAKE_SYSTEM_NAME}")
   endif()
 
@@ -2320,18 +2324,22 @@ macro(build_lz4)
                       BUILD_BYPRODUCTS ${LZ4_STATIC_LIB} ${LZ4_BUILD_COMMAND})
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
-  add_library(LZ4::lz4 STATIC IMPORTED)
-  set_target_properties(LZ4::lz4
+  add_library(lz4::lz4 STATIC IMPORTED)
+  set_target_properties(lz4::lz4
                         PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
-  add_dependencies(LZ4::lz4 lz4_ep)
+  add_dependencies(lz4::lz4 lz4_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4::lz4)
 endmacro()
 
 if(ARROW_WITH_LZ4)
-  resolve_dependency(Lz4 PC_PACKAGE_NAMES liblz4)
+  resolve_dependency(lz4
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     liblz4)
 endif()
 
 macro(build_zstd)
@@ -4028,7 +4036,7 @@ macro(build_orc)
   get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ORC_LZ4_ROOT lz4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
 
   # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
@@ -4072,7 +4080,7 @@ macro(build_orc)
 
   set(ORC_VENDORED 1)
   add_dependencies(orc_ep ZLIB::ZLIB)
-  add_dependencies(orc_ep LZ4::lz4)
+  add_dependencies(orc_ep lz4::lz4)
   add_dependencies(orc_ep Snappy::snappy)
   add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
@@ -4542,6 +4550,82 @@ if(ARROW_S3)
                           PROPERTIES INTERFACE_LINK_LIBRARIES
                                      "-pthread;pthread;-framework CoreFoundation")
   endif()
+endif()
+
+# ----------------------------------------------------------------------
+# ucx - communication framework for modern, high-bandwidth and low-latency networks
+
+macro(build_ucx)
+  message(STATUS "Building UCX from source")
+
+  set(UCX_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/ucx_ep-install")
+
+  # link with static ucx libraries leads to test failures, use shared libs instead
+  set(UCX_SHARED_LIB_UCP "${UCX_PREFIX}/lib/libucp${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(UCX_SHARED_LIB_UCT "${UCX_PREFIX}/lib/libuct${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(UCX_SHARED_LIB_UCS "${UCX_PREFIX}/lib/libucs${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(UCX_SHARED_LIB_UCM "${UCX_PREFIX}/lib/libucm${CMAKE_SHARED_LIBRARY_SUFFIX}")
+
+  set(UCX_CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure)
+  list(APPEND
+       UCX_CONFIGURE_COMMAND
+       "CC=${CMAKE_C_COMPILER}"
+       "CXX=${CMAKE_CXX_COMPILER}"
+       "CFLAGS=${EP_C_FLAGS}"
+       "CXXFLAGS=${EP_CXX_FLAGS}"
+       "--prefix=${UCX_PREFIX}"
+       "--enable-mt"
+       "--enable-shared")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    list(APPEND
+         UCX_CONFIGURE_COMMAND
+         "--enable-profiling"
+         "--enable-frame-pointer"
+         "--enable-stats"
+         "--enable-fault-injection"
+         "--enable-debug-data")
+  else()
+    list(APPEND
+         UCX_CONFIGURE_COMMAND
+         "--disable-logging"
+         "--disable-debug"
+         "--disable-assertions"
+         "--disable-params-check")
+  endif()
+  set(UCX_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+  externalproject_add(ucx_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${ARROW_UCX_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_UCX_BUILD_SHA256_CHECKSUM}"
+                      CONFIGURE_COMMAND ${UCX_CONFIGURE_COMMAND}
+                      BUILD_IN_SOURCE 1
+                      BUILD_COMMAND ${UCX_BUILD_COMMAND}
+                      BUILD_BYPRODUCTS "${UCX_SHARED_LIB_UCP}" "${UCX_SHARED_LIB_UCT}"
+                                       "${UCX_SHARED_LIB_UCS}" "${UCX_SHARED_LIB_UCM}"
+                      INSTALL_COMMAND ${MAKE} install)
+
+  # ucx cmake module sets UCX_INCLUDE_DIRS
+  set(UCX_INCLUDE_DIRS "${UCX_PREFIX}/include")
+  file(MAKE_DIRECTORY "${UCX_INCLUDE_DIRS}")
+
+  add_library(ucx::ucp SHARED IMPORTED)
+  set_target_properties(ucx::ucp PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCP}")
+  add_library(ucx::uct SHARED IMPORTED)
+  set_target_properties(ucx::uct PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCT}")
+  add_library(ucx::ucs SHARED IMPORTED)
+  set_target_properties(ucx::ucs PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCS}")
+
+  add_dependencies(toolchain ucx_ep)
+  add_dependencies(ucx::ucp ucx_ep)
+  add_dependencies(ucx::uct ucx_ep)
+  add_dependencies(ucx::ucs ucx_ep)
+endmacro()
+
+if(ARROW_WITH_UCX)
+  resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
+  add_library(ucx::ucx INTERFACE IMPORTED)
+  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
+  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

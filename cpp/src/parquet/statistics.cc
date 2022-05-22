@@ -562,10 +562,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
   }
 
-  void Update(const T* values, int64_t num_not_null, int64_t num_null) override;
+  void Update(const T* values, int64_t num_values, int64_t null_count) override;
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_offset,
-                    int64_t num_spaced_values, int64_t num_not_null,
-                    int64_t num_null) override;
+                    int64_t num_spaced_values, int64_t num_values,
+                    int64_t null_count) override;
 
   void Update(const ::arrow::Array& values, bool update_counts) override {
     if (update_counts) {
@@ -698,30 +698,30 @@ inline void TypedStatisticsImpl<ByteArrayType>::Copy(const ByteArray& src, ByteA
 }
 
 template <typename DType>
-void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_not_null,
-                                        int64_t num_null) {
-  DCHECK_GE(num_not_null, 0);
-  DCHECK_GE(num_null, 0);
+void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
+                                        int64_t null_count) {
+  DCHECK_GE(num_values, 0);
+  DCHECK_GE(null_count, 0);
 
-  IncrementNullCount(num_null);
-  IncrementNumValues(num_not_null);
+  IncrementNullCount(null_count);
+  IncrementNumValues(num_values);
 
-  if (num_not_null == 0) return;
-  SetMinMaxPair(comparator_->GetMinMax(values, num_not_null));
+  if (num_values == 0) return;
+  SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
 template <typename DType>
 void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* valid_bits,
                                               int64_t valid_bits_offset,
                                               int64_t num_spaced_values,
-                                              int64_t num_not_null, int64_t num_null) {
-  DCHECK_GE(num_not_null, 0);
-  DCHECK_GE(num_null, 0);
+                                              int64_t num_values, int64_t null_count) {
+  DCHECK_GE(num_values, 0);
+  DCHECK_GE(null_count, 0);
 
-  IncrementNullCount(num_null);
-  IncrementNumValues(num_not_null);
+  IncrementNullCount(null_count);
+  IncrementNumValues(num_values);
 
-  if (num_not_null == 0) return;
+  if (num_values == 0) return;
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }

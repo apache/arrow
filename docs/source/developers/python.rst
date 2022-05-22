@@ -89,6 +89,8 @@ particular group, prepend ``only-`` instead, for example ``--only-parquet``.
 
 The test groups currently include:
 
+* ``dataset``: Apache Arrow Dataset tests
+* ``flight``: Flight RPC tests
 * ``gandiva``: tests for Gandiva expression compiler (uses LLVM)
 * ``hdfs``: tests that use libhdfs or libhdfs3 to access the Hadoop filesystem
 * ``hypothesis``: tests that use the ``hypothesis`` module for generating
@@ -100,7 +102,6 @@ The test groups currently include:
 * ``plasma``: Plasma Object Store tests
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
-* ``flight``: Flight RPC tests
 
 Benchmarking
 ------------
@@ -264,6 +265,7 @@ created above (stored in ``$ARROW_HOME``):
    $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_INSTALL_LIBDIR=lib \
            -DCMAKE_BUILD_TYPE=Debug \
+           -DARROW_DATASET=ON \
            -DARROW_WITH_BZ2=ON \
            -DARROW_WITH_ZLIB=ON \
            -DARROW_WITH_ZSTD=ON \
@@ -283,6 +285,7 @@ There are a number of optional components that can can be switched ON by
 adding flags with ``ON``:
 
 * ``ARROW_CUDA``: Support for CUDA-enabled GPUs
+* ``ARROW_DATASET``: Support for Apache Arrow Dataset
 * ``ARROW_FLIGHT``: Flight RPC framework
 * ``ARROW_GANDIVA``: LLVM-based expression compiler
 * ``ARROW_ORC``: Support for Apache ORC file format
@@ -335,7 +338,7 @@ Python executable which you are using.
 For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is
-advisable to delete the build folder with command ``rm -rf /arrow/cpp/build``.
+advisable to delete the build folder with command ``rm -rf arrow/cpp/build``.
 If the build has passed successfully and you need to rebuild due to latest pull
 from git master, then this step is not needed.
 
@@ -345,6 +348,7 @@ Now, build pyarrow:
 
    $ pushd arrow/python
    $ export PYARROW_WITH_PARQUET=1
+   $ export PYARROW_WITH_DATASET=1
    $ python setup.py build_ext --inplace
    $ popd
 

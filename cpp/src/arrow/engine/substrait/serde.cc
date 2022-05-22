@@ -58,7 +58,7 @@ Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
   return FromProto(rel, ext_set);
 }
 
-static Result<std::vector<compute::Declaration>> DeserializePlan(
+static Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const std::string& factory_name,
     std::function<std::shared_ptr<compute::ExecNodeOptions>()> options_factory,
     ExtensionSet* ext_set_out) {
@@ -91,10 +91,10 @@ static Result<std::vector<compute::Declaration>> DeserializePlan(
   return sink_decls;
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlan(
+Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     ExtensionSet* ext_set_out) {
-  return DeserializePlan(
+  return DeserializePlans(
       buf,
       "consuming_sink",
       [&consumer_factory]() {
@@ -106,10 +106,24 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
   );
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlan(
+Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
     ExtensionSet* ext_set_out) {
-  return DeserializePlan(buf, "write", write_options_factory, ext_set_out);
+  return DeserializePlans(buf, "write", write_options_factory, ext_set_out);
+}
+
+Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
+                                          const ConsumerFactory& consumer_factory,
+                                          ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto declarations,
+                        DeserializePlans(buf, consumer_factory, ext_set_out));
+  if (declarations.size() > 1) {
+    return Status::Invalid("DeserializePlan does not support multiple root relations");
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
+    std::ignore = declarations[0].AddToPlan(plan.get());
+    return *std::move(plan);
+  }
 }
 
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,

@@ -35,6 +35,7 @@
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_compatibility.h"
@@ -729,6 +730,32 @@ TEST(Memory, GetRSS) {
 #else
   ASSERT_EQ(GetCurrentRSS(), 0);
 #endif
+}
+
+// Some loose tests to check if the cpuinfo makes sense
+TEST(CpuInfo, Basic) {
+  const CpuInfo* ci = CpuInfo::GetInstance();
+
+  const int ncores = ci->num_cores();
+  ASSERT_TRUE(ncores >= 1 && ncores <= 1000) << "invalid number of cores " << ncores;
+
+  const auto l1 = ci->CacheSize(CpuInfo::CacheLevel::L1);
+  const auto l2 = ci->CacheSize(CpuInfo::CacheLevel::L2);
+  const auto l3 = ci->CacheSize(CpuInfo::CacheLevel::L3);
+  ASSERT_TRUE(l1 >= 4 * 1024 && l1 <= 512 * 1024) << "unexpected L1 size: " << l1;
+  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 8 * 1024 * 1024) << "unexpected L2 size: " << l2;
+  ASSERT_TRUE(l3 >= 256 * 1024 && l3 <= 1024 * 1024 * 1024)
+      << "unexpected L3 size: " << l3;
+  ASSERT_LE(l1, l2) << "L1 cache size " << l1 << " larger than L2 " << l2;
+  ASSERT_LE(l2, l3) << "L2 cache size " << l2 << " larger than L3 " << l3;
+
+  // Toggle hardware flags
+  CpuInfo* ci_rw = const_cast<CpuInfo*>(ci);
+  const int64_t original_hardware_flags = ci->hardware_flags();
+  ci_rw->EnableFeature(original_hardware_flags, false);
+  ASSERT_EQ(ci->hardware_flags(), 0);
+  ci_rw->EnableFeature(original_hardware_flags, true);
+  ASSERT_EQ(ci->hardware_flags(), original_hardware_flags);
 }
 
 }  // namespace internal
