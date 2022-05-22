@@ -213,6 +213,8 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
 namespace {
 
 struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
+  virtual ~ExtensionIdRegistryImpl() {}
+
   std::vector<util::string_view> Uris() const override {
     return {uris_.begin(), uris_.end()};
   }
@@ -344,6 +346,8 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
   explicit NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent)
       : parent_(parent) {}
+
+  virtual ~NestedExtensionIdRegistryImpl() {}
 
   std::vector<util::string_view> Uris() const override {
     std::vector<util::string_view> uris = parent_->Uris();
