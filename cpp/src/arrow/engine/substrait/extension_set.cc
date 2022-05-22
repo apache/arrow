@@ -107,14 +107,14 @@ struct ExtensionSet::Impl {
   std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_, functions_;
 };
 
-ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry)
+ExtensionSet::ExtensionSet(const ExtensionIdRegistry* registry)
     : registry_(registry), impl_(new Impl(), [](Impl* impl) { delete impl; }) {}
 
 Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
                                         std::vector<Id> type_ids,
                                         std::vector<bool> type_is_variation,
                                         std::vector<Id> function_ids,
-                                        ExtensionIdRegistry* registry) {
+                                        const ExtensionIdRegistry* registry) {
   ExtensionSet set;
   set.registry_ = registry;
 
@@ -210,49 +210,8 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
   return &it->second;
 }
 
-ExtensionIdRegistry* default_extension_id_registry() {
-  static struct Impl : ExtensionIdRegistry {
-    Impl() {
-      struct TypeName {
-        std::shared_ptr<DataType> type;
-        util::string_view name;
-      };
-
-      // The type (variation) mappings listed below need to be kept in sync
-      // with the YAML at substrait/format/extension_types.yaml manually;
-      // see ARROW-15535.
-      for (TypeName e : {
-               TypeName{uint8(), "u8"},
-               TypeName{uint16(), "u16"},
-               TypeName{uint32(), "u32"},
-               TypeName{uint64(), "u64"},
-               TypeName{float16(), "fp16"},
-           }) {
-        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
-                               /*is_variation=*/true));
-      }
-
-      for (TypeName e : {
-               TypeName{null(), "null"},
-               TypeName{month_interval(), "interval_month"},
-               TypeName{day_time_interval(), "interval_day_milli"},
-               TypeName{month_day_nano_interval(), "interval_month_day_nano"},
-           }) {
-        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
-                               /*is_variation=*/false));
-      }
-
-      // TODO: this is just a placeholder right now. We'll need a YAML file for
-      // all functions (and prototypes) that Arrow provides that are relevant
-      // for Substrait, and include mappings for all of them here. See
-      // ARROW-15535.
-      for (util::string_view name : {
-               "add",
-           }) {
-        DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
-      }
-    }
-
+namespace {
+  struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     std::vector<util::string_view> Uris() const override {
       return {uris_.begin(), uris_.end()};
     }
@@ -270,6 +229,18 @@ ExtensionIdRegistry* default_extension_id_registry() {
         return TypeRecord{type_ids_[*index], types_[*index], type_is_variation_[*index]};
       }
       return {};
+    }
+
+    virtual Status CanRegisterType(Id id, std::shared_ptr<DataType> type,
+                           bool is_variation) const {
+      auto& id_to_index = is_variation ? variation_id_to_index_ : id_to_index_;
+      if (id_to_index.find(id) != id_to_index.end()) {
+        return Status::Invalid("Type id was already registered");
+      }
+      if (type_to_index_.find(&*type) != type_to_index_.end()) {
+        return Status::Invalid("Type was already registered");
+      }
+      return Status::OK();
     }
 
     Status RegisterType(Id id, std::shared_ptr<DataType> type,
@@ -315,6 +286,17 @@ ExtensionIdRegistry* default_extension_id_registry() {
       return {};
     }
 
+    virtual Status CanRegisterFunction(Id id, std::string arrow_function_name) const {
+      if (function_id_to_index_.find(id) == function_id_to_index_.end()) {
+        return Status::Invalid("Function id was already registered");
+      }
+      if (function_name_to_index_.find(arrow_function_name) ==
+          function_name_to_index_.end()) {
+        return Status::Invalid("Function name was already registered");
+      }
+      return Status::OK();
+    }
+
     Status RegisterFunction(Id id, std::string arrow_function_name) override {
       DCHECK_EQ(function_ids_.size(), function_name_ptrs_.size());
 
@@ -358,9 +340,119 @@ ExtensionIdRegistry* default_extension_id_registry() {
     std::unordered_map<Id, int, IdHashEq, IdHashEq> function_id_to_index_;
     std::unordered_map<util::string_view, int, ::arrow::internal::StringViewHash>
         function_name_to_index_;
-  } impl_;
+  };
 
+  struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
+    NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent)
+      : parent_(parent) {}
+
+    std::vector<util::string_view> Uris() const override {
+      std::vector<util::string_view> uris = parent_->Uris();
+      std::unordered_set<util::string_view> uri_set;
+      uri_set.insert(uris.begin(), uris.end());
+      uri_set.insert(uris_.begin(), uris_.end());
+      return std::vector<util::string_view>(uris);
+    }
+
+    util::optional<TypeRecord> GetType(const DataType& type) const override {
+      auto type_opt = ExtensionIdRegistryImpl::GetType(type);
+      if (type_opt) {
+        return type_opt;
+      }
+      return parent_->GetType(type);
+    }
+
+    util::optional<TypeRecord> GetType(Id id, bool is_variation) const override {
+      auto type_opt = ExtensionIdRegistryImpl::GetType(id, is_variation);
+      if (type_opt) {
+        return type_opt;
+      }
+      return parent_->GetType(id, is_variation);
+    }
+
+    Status RegisterType(Id id, std::shared_ptr<DataType> type,
+                        bool is_variation) override {
+      return parent_->CanRegisterType(id, type, is_variation) &
+          ExtensionIdRegistryImpl::RegisterType(id, type, is_variation);
+    }
+
+    util::optional<FunctionRecord> GetFunction(
+        util::string_view arrow_function_name) const override {
+      auto func_opt = ExtensionIdRegistryImpl::GetFunction(arrow_function_name);
+      if (func_opt) {
+        return func_opt;
+      }
+      return parent_->GetFunction(arrow_function_name);
+    }
+
+    util::optional<FunctionRecord> GetFunction(Id id) const override {
+      auto func_opt = ExtensionIdRegistryImpl::GetFunction(id);
+      if (func_opt) {
+        return func_opt;
+      }
+      return parent_->GetFunction(id);
+    }
+
+    Status RegisterFunction(Id id, std::string arrow_function_name) override {
+      return parent_->CanRegisterFunction(id, arrow_function_name) &
+          ExtensionIdRegistryImpl::RegisterFunction(id, arrow_function_name);
+    }
+
+    const ExtensionIdRegistry* parent_;
+  };
+
+  struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
+    DefaultExtensionIdRegistry() {
+      struct TypeName {
+        std::shared_ptr<DataType> type;
+        util::string_view name;
+      };
+
+      // The type (variation) mappings listed below need to be kept in sync
+      // with the YAML at substrait/format/extension_types.yaml manually;
+      // see ARROW-15535.
+      for (TypeName e : {
+               TypeName{uint8(), "u8"},
+               TypeName{uint16(), "u16"},
+               TypeName{uint32(), "u32"},
+               TypeName{uint64(), "u64"},
+               TypeName{float16(), "fp16"},
+           }) {
+        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
+                               /*is_variation=*/true));
+      }
+
+      for (TypeName e : {
+               TypeName{null(), "null"},
+               TypeName{month_interval(), "interval_month"},
+               TypeName{day_time_interval(), "interval_day_milli"},
+               TypeName{month_day_nano_interval(), "interval_month_day_nano"},
+           }) {
+        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
+                               /*is_variation=*/false));
+      }
+
+      // TODO: this is just a placeholder right now. We'll need a YAML file for
+      // all functions (and prototypes) that Arrow provides that are relevant
+      // for Substrait, and include mappings for all of them here. See
+      // ARROW-15535.
+      for (util::string_view name : {
+               "add",
+           }) {
+        DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
+      }
+    }
+  };
+}  // namespace
+
+ExtensionIdRegistry* default_extension_id_registry() {
+  static DefaultExtensionIdRegistry impl_;
   return &impl_;
+}
+
+std::shared_ptr<ExtensionIdRegistry> nested_extension_id_registry(
+    const ExtensionIdRegistry *parent) {
+  return std::make_shared<NestedExtensionIdRegistryImpl>(parent);
 }
 
 }  // namespace engine
