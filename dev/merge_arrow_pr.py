@@ -237,7 +237,7 @@ URL\t\t{}/{}""".format(jira_id, summary, assignee, components, status,
 
 class GitHubAPI(object):
 
-    def __init__(self, project_name):
+    def __init__(self, project_name, cmd):
         self.github_api = ("https://api.github.com/repos/apache/{0}"
                            .format(project_name))
 
@@ -555,7 +555,7 @@ def cli():
 
     os.chdir(ARROW_HOME)
 
-    github_api = GitHubAPI(PROJECT_NAME)
+    github_api = GitHubAPI(PROJECT_NAME, cmd)
 
     jira_con = connect_jira(cmd)
     pr = PullRequest(cmd, github_api, PR_REMOTE_NAME, jira_con, pr_num)
