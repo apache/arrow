@@ -233,8 +233,8 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return {};
   }
 
-  virtual Status CanRegisterType(Id id, std::shared_ptr<DataType> type,
-                                 bool is_variation) const override {
+  Status CanRegisterType(Id id, std::shared_ptr<DataType> type,
+                         bool is_variation) const override {
     auto& id_to_index = is_variation ? variation_id_to_index_ : id_to_index_;
     if (id_to_index.find(id) != id_to_index.end()) {
       return Status::Invalid("Type id was already registered");
@@ -287,8 +287,8 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return {};
   }
 
-  virtual Status CanRegisterFunction(Id id,
-                                     std::string arrow_function_name) const override {
+  Status CanRegisterFunction(Id id,
+                             std::string arrow_function_name) const override {
     if (function_id_to_index_.find(id) == function_id_to_index_.end()) {
       return Status::Invalid("Function id was already registered");
     }
