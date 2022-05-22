@@ -110,7 +110,7 @@ ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
 /// the Substrait plan is disposed of, normally after its execution, the nested registry
 /// can be disposed of as well.
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> nested_extension_id_registry(
-    const ExtensionIdRegistry *parent);
+    const ExtensionIdRegistry* parent);
 
 /// \brief A set of extensions used within a plan
 ///
