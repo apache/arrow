@@ -342,7 +342,8 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 };
 
 struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
-  NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent) : parent_(parent) {}
+  explicit NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent)
+      : parent_(parent) {}
 
   std::vector<util::string_view> Uris() const override {
     std::vector<util::string_view> uris = parent_->Uris();
