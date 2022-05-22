@@ -368,8 +368,7 @@ struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
     return parent_->GetType(id, is_variation);
   }
 
-  Status RegisterType(Id id, std::shared_ptr<DataType> type,
-                      bool is_variation) override {
+  Status RegisterType(Id id, std::shared_ptr<DataType> type, bool is_variation) override {
     return parent_->CanRegisterType(id, type, is_variation) &
            ExtensionIdRegistryImpl::RegisterType(id, type, is_variation);
   }
