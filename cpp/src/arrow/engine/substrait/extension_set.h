@@ -28,7 +28,6 @@
 #include "arrow/util/string_view.h"
 
 #include "arrow/util/hash_util.h"
-#include "arrow/util/hashing.h"
 
 namespace arrow {
 namespace engine {
