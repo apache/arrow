@@ -36,6 +36,9 @@ from pyarrow._dataset import InMemoryDataset
 Initialize()  # Initialise support for Datasets in ExecPlan
 
 
+cdef is_supported_execplan_output_type(output_type):
+    return output_type in [Table, InMemoryDataset]
+
 cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
     """
     Internal Function to create an ExecPlan and run it.
@@ -74,6 +77,9 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         vector[CDeclaration].iterator plan_iter
         vector[CDeclaration.Input] no_c_inputs
         CStatus c_plan_status
+
+    if not is_supported_execplan_output_type(output_type):
+        raise TypeError(f"Unsupported output type {output_type}")
 
     if use_threads:
         c_executor = GetCpuThreadPool()
@@ -213,6 +219,9 @@ def _perform_join(join_type, left_operand not None, left_keys,
         vector[CExpression] c_projections
         vector[c_string] c_projected_col_names
         CJoinType c_join_type
+
+    if not is_supported_execplan_output_type(output_type):
+        raise TypeError(f"Unsupported output type {output_type}")
 
     # Prepare left and right tables Keys to send them to the C++ function
     left_keys_order = {}
@@ -376,6 +385,9 @@ def _filter_table(table, expression, output_type=Table):
         vector[CDeclaration] c_decl_plan
         Expression expr = expression
 
+    if not is_supported_execplan_output_type(output_type):
+        raise TypeError(f"Unsupported output type {output_type}")
+
     c_decl_plan.push_back(
         CDeclaration(tobytes("filter"), CFilterNodeOptions(
             <CExpression>expr.unwrap(), True
@@ -392,4 +404,4 @@ def _filter_table(table, expression, output_type=Table):
         # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
         return InMemoryDataset(r.select(table.schema.names))
     else:
-        raise TypeError("Unsupported output type")
+        raise TypeError(f"Unsupported output type {output_type}")

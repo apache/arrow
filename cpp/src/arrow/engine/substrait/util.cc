@@ -123,6 +123,22 @@ Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_j
   return engine::internal::SubstraitFromJSON("Plan", substrait_json);
 }
 
+Result<std::vector<compute::Declaration>> DeserializePlans(const Buffer& buffer) {
+  return engine::DeserializePlans(
+      buffer, []() { return std::make_shared<compute::NullSinkNodeConsumer>(); }
+  );
+}
+
+std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
+  return nested_extension_id_registry(default_extension_id_registry());
+}
+
+Status RegisterFunction(ExtensionIdRegistry& registry, const std::string& id_uri,
+                        const std::string& id_name,
+                        const std::string& arrow_function_name) {
+  return registry.RegisterFunction({id_uri, id_name}, arrow_function_name);
+}
+
 }  // namespace substrait
 
 }  // namespace engine

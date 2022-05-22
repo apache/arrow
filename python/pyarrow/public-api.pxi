@@ -416,3 +416,23 @@ cdef api object pyarrow_wrap_batch(
     cdef RecordBatch batch = RecordBatch.__new__(RecordBatch)
     batch.init(cbatch)
     return batch
+
+
+cdef api bint pyarrow_is_extension_id_registry(object registry):
+    return isinstance(registry, ExtensionIdRegistry)
+
+
+cdef api shared_ptr[CExtensionIdRegistry] pyarrow_unwrap_extension_id_registry(object registry):
+    cdef ExtensionIdRegistry reg
+    if pyarrow_is_extension_id_registry(registry):
+        reg = <ExtensionIdRegistry>(registry)
+        return reg.sp_registry
+
+    return shared_ptr[CExtensionIdRegistry]()
+
+
+cdef api object pyarrow_wrap_extension_id_registry(
+        shared_ptr[CExtensionIdRegistry]& cregistry):
+    cdef ExtensionIdRegistry registry = ExtensionIdRegistry.__new__(ExtensionIdRegistry)
+    registry.init(cregistry)
+    return registry

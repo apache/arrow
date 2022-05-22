@@ -435,6 +435,9 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
                                        const std::vector<std::string>& names) {
   ARROW_ASSIGN_OR_RAISE(auto input, FromProtoInternal(rel, ext_set));
   int names_size = names.size();
+  if (names.size() == 0) {
+    return input;
+  }
   std::vector<compute::Expression> expressions;
   for (int i = 0; i < names_size; i++) {
     expressions.push_back(compute::field_ref(FieldRef(i)));

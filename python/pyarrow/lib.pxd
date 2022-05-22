@@ -446,6 +446,14 @@ cdef class RecordBatch(_PandasConvertible):
     cdef void init(self, const shared_ptr[CRecordBatch]& table)
 
 
+cdef class ExtensionIdRegistry(_Weakrefable):
+    cdef:
+        shared_ptr[CExtensionIdRegistry] sp_registry
+        CExtensionIdRegistry* registry
+
+    cdef void init(self, shared_ptr[CExtensionIdRegistry]& registry)
+
+
 cdef class Buffer(_Weakrefable):
     cdef:
         shared_ptr[CBuffer] buffer
@@ -585,6 +593,8 @@ cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 
+cdef public object pyarrow_wrap_extension_id_registry(shared_ptr[CExtensionIdRegistry]& cregistry)
+
 # Unwrapping Python -> C++
 
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
@@ -611,3 +621,5 @@ cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
 
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
+
+cdef public shared_ptr[CExtensionIdRegistry] pyarrow_unwrap_extension_id_registry(object registry)

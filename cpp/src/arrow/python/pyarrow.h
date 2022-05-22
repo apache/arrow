@@ -40,6 +40,12 @@ class Status;
 class Table;
 class Tensor;
 
+namespace engine {
+
+class ExtensionIdRegistry;
+
+}  // namespace engine
+
 namespace py {
 
 // Returns 0 on success, -1 on error.
@@ -70,6 +76,8 @@ DECLARE_WRAP_FUNCTIONS(tensor, Tensor)
 
 DECLARE_WRAP_FUNCTIONS(batch, RecordBatch)
 DECLARE_WRAP_FUNCTIONS(table, Table)
+
+DECLARE_WRAP_FUNCTIONS(extension_id_registry, engine::ExtensionIdRegistry)
 
 #undef DECLARE_WRAP_FUNCTIONS
 

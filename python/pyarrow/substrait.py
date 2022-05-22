@@ -16,5 +16,8 @@
 # under the License.
 
 from pyarrow._substrait import (  # noqa
+    make_extension_id_registry,
+    register_function,
+    run_query_as,
     run_query,
 )

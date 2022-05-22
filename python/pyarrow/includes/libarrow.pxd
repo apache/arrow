@@ -2696,3 +2696,8 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
 
     CStatus RegisterScalarFunction(PyObject* function,
                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options)
+
+cdef extern from "arrow/engine/substrait/extension_set.h" namespace "arrow::engine" nogil:
+
+    cdef cppclass CExtensionIdRegistry" arrow::engine::ExtensionIdRegistry":
+        pass

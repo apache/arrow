@@ -15,19 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# distutils: language = c++
+# cython: language_level = 3
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
+cdef is_supported_execplan_output_type(output_type)
 
-cdef extern from "arrow/engine/substrait/extension_set.h" namespace "arrow::engine" nogil:
-    cdef cppclass CExtensionIdRegistry "arrow::engine::ExtensionIdRegistry"
-
-cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine::substrait" nogil:
-    shared_ptr[CExtensionIdRegistry] MakeExtensionIdRegistry()
-    CStatus RegisterFunction(CExtensionIdRegistry& registry, const c_string& id_uri, const c_string& id_name, const c_string& arrow_function_name)
-
-    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer)
-    CResult[shared_ptr[CBuffer]] SerializeJsonPlan(const c_string& substrait_json)
-    CResult[vector[CDeclaration]] DeserializePlans(const CBuffer& substrait_buffer)
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=*)

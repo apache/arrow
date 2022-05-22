@@ -37,6 +37,16 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerialized
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
     const std::string& substrait_json);
 
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf);
+
+ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
+
+ARROW_ENGINE_EXPORT Status RegisterFunction(ExtensionIdRegistry& registry,
+                                            const std::string& id_uri,
+                                            const std::string& id_name,
+                                            const std::string& arrow_function_name);
+
 }  // namespace substrait
 
 }  // namespace engine

@@ -59,7 +59,7 @@ Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
 
 using WriteOptionsFactory = std::function<std::shared_ptr<dataset::WriteNodeOptions>()>;
 
-ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
     ExtensionSet* ext_set = NULLPTR);
 

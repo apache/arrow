@@ -229,6 +229,24 @@ class ARROW_EXPORT SinkNodeConsumer {
   virtual Future<> Finish() = 0;
 };
 
+class ARROW_EXPORT NullSinkNodeConsumer : public SinkNodeConsumer {
+public:
+  virtual Status Init(const std::shared_ptr<Schema>&,
+                             BackpressureControl*) override {
+    return Status::OK();
+  }
+  virtual Status Consume(ExecBatch exec_batch) override {
+    return Status::OK();
+  }
+  virtual Future<> Finish() override {
+    return Status::OK();
+  }
+public:
+  static std::shared_ptr<NullSinkNodeConsumer> Make() {
+    return std::make_shared<NullSinkNodeConsumer>();
+  }
+};
+
 /// \brief Add a sink node which consumes data within the exec plan run
 class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
  public:
