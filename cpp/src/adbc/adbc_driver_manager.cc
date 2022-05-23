@@ -46,7 +46,50 @@ std::unordered_map<std::string, std::string> ParseConnectionString(
   }
   return option_pairs;
 }
+
+// Default stubs
+AdbcStatusCode ConnectionSqlPrepare(struct AdbcConnection*, const char*, size_t,
+                                    struct AdbcStatement*, struct AdbcError* error) {
+  return ADBC_STATUS_NOT_IMPLEMENTED;
+}
 }  // namespace
+
+#define FILL_DEFAULT(DRIVER, STUB) \
+  if (!DRIVER->STUB) {             \
+    DRIVER->STUB = &STUB;          \
+  }
+
+// Direct implementations of API methods
+
+void AdbcErrorRelease(struct AdbcError* error) {
+  if (!error->message) return;
+  // TODO: assert
+  auto* release = reinterpret_cast<decltype(&AdbcErrorRelease)>(error->manager_data);
+  release(error);
+}
+
+const char* AdbcStatusCodeMessage(AdbcStatusCode code) {
+#define STRINGIFY(s) #s
+#define STRINGIFY_VALUE(s) STRINGIFY(s)
+#define CASE(CONSTANT) \
+  case CONSTANT:       \
+    return STRINGIFY(CONSTANT) " (" STRINGIFY_VALUE(CONSTANT) ")";
+
+  switch (code) {
+    CASE(ADBC_STATUS_OK)
+    CASE(ADBC_STATUS_UNKNOWN)
+    CASE(ADBC_STATUS_NOT_IMPLEMENTED)
+    CASE(ADBC_STATUS_UNINITIALIZED)
+    CASE(ADBC_STATUS_INVALID_ARGUMENT)
+    CASE(ADBC_STATUS_INTERNAL)
+    CASE(ADBC_STATUS_IO)
+    default:
+      return "(invalid code)";
+  }
+#undef CASE
+#undef STRINGIFY_VALUE
+#undef STRINGIFY
+}
 
 AdbcStatusCode AdbcLoadDriver(const char* connection, size_t count,
                               struct AdbcDriver* driver, size_t* initialized) {
@@ -67,14 +110,17 @@ AdbcStatusCode AdbcLoadDriver(const char* connection, size_t count,
     return ADBC_STATUS_UNKNOWN;
   }
 
-  auto* load =
-      reinterpret_cast<AdbcDriverInitFunc>(dlsym(handle, entrypoint_str->second.c_str()));
+  void* load_handle = dlsym(handle, entrypoint_str->second.c_str());
+  auto* load = reinterpret_cast<AdbcDriverInitFunc>(load_handle);
   if (!load) {
     return ADBC_STATUS_INTERNAL;
   }
-  // TODO: we could do things here like filling in default stubs for
-  // unimplemented functions
-  return load(count, driver, initialized);
+
+  auto result = load(count, driver, initialized);
+  if (result != ADBC_STATUS_OK) {
+    return result;
+  }
+
+  FILL_DEFAULT(driver, ConnectionSqlPrepare);
+  return ADBC_STATUS_OK;
 }
-#undef GET_FUNC
-#undef GET_OPTIONAL

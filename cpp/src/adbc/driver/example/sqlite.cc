@@ -29,6 +29,15 @@
 #include "arrow/status.h"
 #include "arrow/util/string_builder.h"
 
+// XXX: We want to export Adbc* functions, but inside
+// AdbcSqliteDriverInit, we want to always point to the local
+// function, not the global function (so we can cooperate with the
+// driver manager). "protected" visibility gives us this.
+// RTLD_DEEPBIND also works but is glibc-specific and does not work
+// with AddressSanitizer.
+// TODO: should this go in adbc.h instead?
+#define ADBC_DRIVER_EXPORT __attribute__((visibility("protected")))
+
 namespace {
 
 using arrow::Status;
@@ -309,11 +318,13 @@ class SqliteConnectionImpl {
 
 }  // namespace
 
+ADBC_DRIVER_EXPORT
 void AdbcErrorRelease(struct AdbcError* error) {
   delete[] error->message;
   error->message = nullptr;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
                                 struct AdbcDatabase* out, struct AdbcError* error) {
   sqlite3* db = nullptr;
@@ -331,6 +342,7 @@ AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
   return ADBC_STATUS_OK;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
                                    struct AdbcError* error) {
   if (!database->private_data) return ADBC_STATUS_UNINITIALIZED;
@@ -342,6 +354,7 @@ AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
   return status;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
                                   struct AdbcConnection* out, struct AdbcError* error) {
   if (!options->database || !options->database->private_data) {
@@ -355,6 +368,7 @@ AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
   return ADBC_STATUS_OK;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
                                      struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
@@ -366,6 +380,7 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
   return status;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
                                         const char* query, size_t query_length,
                                         struct AdbcStatement* out,
@@ -376,18 +391,21 @@ AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
   return (*ptr)->SqlExecute(query, query_length, out, error);
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
                                              uint8_t* partition_desc,
                                              struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
                                                  size_t* length,
                                                  struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
                                       struct ArrowArrayStream* out,
                                       struct AdbcError* error) {
@@ -397,6 +415,7 @@ AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
   return (*ptr)->GetStream(*ptr, out, error);
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
                                  struct AdbcStatement* statement,
                                  struct AdbcError* error) {
@@ -405,6 +424,7 @@ AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
   return ADBC_STATUS_OK;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
                                     struct AdbcError* error) {
   if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;

@@ -72,6 +72,12 @@ typedef uint8_t AdbcStatusCode;
 struct AdbcError {
   /// \brief The error message.
   char* message;
+
+  /// \brief Opaque driver manager-defined state.
+  /// This field is NULLPTR if the error is unintialized/freed (but it
+  /// need not have a value even if the error is initialized). This
+  /// field is meant for the driver manager's use, not the driver's.
+  void* manager_data;
 };
 
 /// \brief Destroy an error message.
@@ -83,6 +89,7 @@ const char* AdbcStatusCodeMessage(AdbcStatusCode code);
 /// }@
 
 // Forward declarations
+struct AdbcDriver;
 struct AdbcStatement;
 
 /// \defgroup adbc-database Database initialization.
@@ -438,7 +445,7 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
 /// \defgroup adbc-driver Driver initialization.
 /// @{
 
-/// \brief A table of function pointers for ADBC functions.
+/// \brief An instance of an initialized database driver.
 ///
 /// This provides a common interface for implementation-specific
 /// driver initialization routines. Drivers should populate this
@@ -446,7 +453,10 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
 /// struct, without worrying about multiple definitions of the same
 /// symbol.
 struct AdbcDriver {
-  // TODO: migrate drivers
+  /// \brief Opaque implementation-defined state.
+  /// This field is NULLPTR if the driver is unintialized/freed (but
+  /// it need not have a value even if the driver is initialized).
+  void* private_data;
 
   void (*ErrorRelease)(struct AdbcError*);
   const char* (*StatusCodeMessage)(AdbcStatusCode);
