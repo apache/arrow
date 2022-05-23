@@ -1008,7 +1008,7 @@ services:
   conda-python-doctest:
     # Usage:
     #   docker-compose build conda-python-doctest
-    image: ${REPO}:${ARCH}-conda-python-doctest
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-doctest
     build:
       context: .
       dockerfile: ci/docker/conda-python-doctest.dockerfile
