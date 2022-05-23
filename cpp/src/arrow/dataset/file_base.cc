@@ -270,11 +270,11 @@ Future<> FileWriter::Finish() {
 
 namespace {
 
-Status WriteBatch(std::shared_ptr<RecordBatch> batch, compute::Expression guarantee,
-                  FileSystemDatasetWriteOptions write_options,
-                  std::function<Status(std::shared_ptr<RecordBatch>,
-                                       const PartitionPathFormat&)>
-                      write) {
+Status WriteBatch(
+    std::shared_ptr<RecordBatch> batch, compute::Expression guarantee,
+    FileSystemDatasetWriteOptions write_options,
+    std::function<Status(std::shared_ptr<RecordBatch>, const PartitionPathFormat&)>
+        write) {
   ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
   batch.reset();  // drop to hopefully conserve memory
 

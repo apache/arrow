@@ -250,8 +250,7 @@ Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) con
                         compute::literal(std::move(converted)));
 }
 
-Result<compute::Expression> KeyValuePartitioning::Parse(
-    const std::string& path) const {
+Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path) const {
   std::vector<compute::Expression> expressions;
 
   ARROW_ASSIGN_OR_RAISE(auto parsed, ParseKeys(path));
@@ -378,7 +377,8 @@ DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
 
 Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
     const std::string& path) const {
-  std::vector<std::string> segments = fs::internal::SplitAbstractPath(fs::internal::GetAbstractPathParent(path).first);
+  std::vector<std::string> segments =
+      fs::internal::SplitAbstractPath(fs::internal::GetAbstractPathParent(path).first);
   return ParsePartitionSegments(segments);
 }
 
@@ -391,8 +391,8 @@ FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
 
 Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
     const std::string& path) const {
-  std::vector<std::string> segments = fs::internal::SplitAbstractPath(
-      StripNonPrefix(path), kFilenamePartitionSep);
+  std::vector<std::string> segments =
+      fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
   return ParsePartitionSegments(segments);
 }
 
@@ -722,7 +722,8 @@ Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
     const std::string& path) const {
   std::vector<Key> keys;
 
-  for (const auto& segment : fs::internal::SplitAbstractPath(fs::internal::GetAbstractPathParent(path).first)) {
+  for (const auto& segment :
+       fs::internal::SplitAbstractPath(fs::internal::GetAbstractPathParent(path).first)) {
     ARROW_ASSIGN_OR_RAISE(auto maybe_key, ParseKey(segment, hive_options_));
     if (auto key = maybe_key) {
       keys.push_back(std::move(*key));
@@ -816,8 +817,9 @@ std::string StripPrefixAndFilename(const std::string& path, const std::string& p
   auto basename_filename = fs::internal::GetAbstractPathParent(base_less);
   return basename_filename.first;
 }
-std::vector<std::string> StripPrefixAndFilename(
-    const std::vector<std::string>& paths, const std::string& prefix) {
+
+std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,
+                                                const std::string& prefix) {
   std::vector<std::string> result;
   result.reserve(paths.size());
   for (const auto& path : paths) {
@@ -826,8 +828,8 @@ std::vector<std::string> StripPrefixAndFilename(
   return result;
 }
 
-std::vector<std::string> StripPrefixAndFilename(
-    const std::vector<fs::FileInfo>& files, const std::string& prefix) {
+std::vector<std::string> StripPrefixAndFilename(const std::vector<fs::FileInfo>& files,
+                                                const std::string& prefix) {
   std::vector<std::string> result;
   result.reserve(files.size());
   for (const auto& info : files) {

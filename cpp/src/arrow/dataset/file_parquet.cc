@@ -920,9 +920,8 @@ Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchem
 
     size_t i = 0;
     for (const auto& e : paths_with_row_group_ids_) {
-        stripped[i++] =
-            StripPrefixAndFilename(e.first, options_.partition_base_dir);
-      }
+      stripped[i++] = StripPrefixAndFilename(e.first, options_.partition_base_dir);
+    }
     ARROW_ASSIGN_OR_RAISE(auto partition_schema, factory->Inspect(stripped));
 
     schemas.push_back(std::move(partition_schema));

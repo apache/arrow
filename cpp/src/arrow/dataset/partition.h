@@ -358,14 +358,15 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
 
-ARROW_DS_EXPORT std::string StripPrefix(const std::string& path, const std::string& prefix);
+ARROW_DS_EXPORT std::string StripPrefix(const std::string& path,
+                                        const std::string& prefix);
 
 /// \brief Extracts the directory and filename and removes the prefix of a path
 ///
 /// e.g., `StripPrefixAndFilename("/data/year=2019/c.txt", "/data") ->
 /// {"year=2019","c.txt"}`
 ARROW_DS_EXPORT std::string StripPrefixAndFilename(const std::string& path,
-                                                           const std::string& prefix);
+                                                   const std::string& prefix);
 
 /// \brief Vector version of StripPrefixAndFilename.
 ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
@@ -399,8 +400,7 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
   const std::shared_ptr<PartitioningFactory>& factory() const { return factory_; }
 
   /// \brief Get the partition schema, inferring it with the given factory if needed.
-  Result<std::shared_ptr<Schema>> GetOrInferSchema(
-      const std::vector<std::string>& paths);
+  Result<std::shared_ptr<Schema>> GetOrInferSchema(const std::vector<std::string>& paths);
 
  private:
   std::shared_ptr<PartitioningFactory> factory_;

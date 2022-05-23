@@ -64,14 +64,14 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
     ASSERT_EQ(formatted.directory, expected_directory);
     ASSERT_EQ(formatted.filename, expected_filename);
-    
+
     // if ((formatted.filename).empty()){
     //   formatted.filename = "format.parquet";
     // }
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
     ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
-                         partitioning_->Parse(formatted.directory+formatted.filename));
+                         partitioning_->Parse(formatted.directory + formatted.filename));
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
     ASSERT_EQ(simplified, literal(true));
@@ -191,7 +191,7 @@ TEST_F(TestPartitioning, DirectoryPartitioning) {
       schema({field("alpha", int32()), field("beta", utf8())}));
 
   AssertParse("/0/hello", and_(equal(field_ref("alpha"), literal(0)),
-                                     equal(field_ref("beta"), literal("hello"))));
+                               equal(field_ref("beta"), literal("hello"))));
   AssertParse("/3", equal(field_ref("alpha"), literal(3)));
   AssertParseError("/world/0");    // reversed order
   AssertParseError("/0.0/foo");    // invalid alpha
@@ -199,13 +199,11 @@ TEST_F(TestPartitioning, DirectoryPartitioning) {
   AssertParse("", literal(true));  // no segments to parse
 
   // gotcha someday:
-  AssertParse("/0/dat.parquet",
-              and_(equal(field_ref("alpha"), literal(0)),
-                   equal(field_ref("beta"), literal("dat.parquet"))));
+  AssertParse("/0/dat.parquet", and_(equal(field_ref("alpha"), literal(0)),
+                                     equal(field_ref("beta"), literal("dat.parquet"))));
 
-  AssertParse("/0/foo/ignored=2341",
-              and_(equal(field_ref("alpha"), literal(0)),
-                   equal(field_ref("beta"), literal("foo"))));
+  AssertParse("/0/foo/ignored=2341", and_(equal(field_ref("alpha"), literal(0)),
+                                          equal(field_ref("beta"), literal("foo"))));
 }
 
 TEST_F(TestPartitioning, FilenamePartitioning) {
@@ -213,7 +211,7 @@ TEST_F(TestPartitioning, FilenamePartitioning) {
       schema({field("alpha", int32()), field("beta", utf8())}));
 
   AssertParse("0_hello_", and_(equal(field_ref("alpha"), literal(0)),
-                                     equal(field_ref("beta"), literal("hello"))));
+                               equal(field_ref("beta"), literal("hello"))));
   AssertParse("0_", equal(field_ref("alpha"), literal(0)));
   AssertParseError("world_0_");    // reversed order
   AssertParseError("0.0_foo_");    // invalid alpha
@@ -221,7 +219,7 @@ TEST_F(TestPartitioning, FilenamePartitioning) {
   AssertParse("", literal(true));  // no segments to parse
 
   AssertParse("0_foo_ignored=2341", and_(equal(field_ref("alpha"), literal(0)),
-                                               equal(field_ref("beta"), literal("foo"))));
+                                         equal(field_ref("beta"), literal("foo"))));
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
@@ -406,13 +404,12 @@ TEST_F(TestPartitioning, HivePartitioning) {
       schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
 
   AssertParse("/alpha=0/beta=3.25", and_(equal(field_ref("alpha"), literal(0)),
-                                               equal(field_ref("beta"), literal(3.25f))));
+                                         equal(field_ref("beta"), literal(3.25f))));
   AssertParse("/beta=3.25/alpha=0", and_(equal(field_ref("beta"), literal(3.25f)),
-                                               equal(field_ref("alpha"), literal(0))));
+                                         equal(field_ref("alpha"), literal(0))));
   AssertParse("/alpha=0", equal(field_ref("alpha"), literal(0)));
-  AssertParse(
-      "/alpha=xyz/beta=3.25",
-      and_(is_null(field_ref("alpha")), equal(field_ref("beta"), literal(3.25f))));
+  AssertParse("/alpha=xyz/beta=3.25", and_(is_null(field_ref("alpha")),
+                                           equal(field_ref("beta"), literal(3.25f))));
   AssertParse("/beta=3.25", equal(field_ref("beta"), literal(3.25f)));
   AssertParse("", literal(true));
 
@@ -714,11 +711,10 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   AssertParse("/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$",
               and_({equal(field_ref("date"), literal(date)),
                     equal(field_ref("time"), literal(time)), is_null(field_ref("str"))}));
-  AssertParse(
-      "/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
-      and_({equal(field_ref("date"), literal(date)),
-            equal(field_ref("time"), literal(time)),
-            equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
+  AssertParse("/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
+              and_({equal(field_ref("date"), literal(date)),
+                    equal(field_ref("time"), literal(time)),
+                    equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
   // URL-encoded null fallback value
   AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24",
               and_({equal(field_ref("date"), literal(date)),
@@ -727,9 +723,8 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   // Invalid UTF-8
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   factory_->Inspect({"/date=%AF/time=%BF/str=%CF"}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-      partitioning_->Parse("/date=%AF/time=%BF/str=%CF"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  partitioning_->Parse("/date=%AF/time=%BF/str=%CF"));
 
   options.segment_encoding = SegmentEncoding::None;
   options.schema =
@@ -750,9 +745,8 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   // Invalid UTF-8
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   factory_->Inspect({"/date=\xAF/time=\xBF/str=\xCF"}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-      partitioning_->Parse("/date=\xAF/time=\xBF/str=\xCF"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  partitioning_->Parse("/date=\xAF/time=\xBF/str=\xCF"));
 }
 
 TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
@@ -777,18 +771,19 @@ TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
                                                      options.AsHivePartitioningOptions());
   AssertParse(
       "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
-       "07:27:00/str=$",
+      "07:27:00/str=$",
       and_({equal(field_ref("test'; date"), literal(date)),
             equal(field_ref("test'; time"), literal(time)), is_null(field_ref("str"))}));
-  AssertParse("/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
-               "07:27:00/str=%E3%81%8F%E3%81%BE",
-              and_({equal(field_ref("test'; date"), literal(date)),
-                    equal(field_ref("test'; time"), literal(time)),
-                    equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+      "07:27:00/str=%E3%81%8F%E3%81%BE",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)),
+            equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
   // URL-encoded null fallback value
   AssertParse(
       "/test%27%3B%20date=2021-05-04 00%3A00%3A00/test%27%3B%20time=2021-05-04 "
-       "07%3A27%3A00/str=%24",
+      "07%3A27%3A00/str=%24",
       and_({equal(field_ref("test'; date"), literal(date)),
             equal(field_ref("test'; time"), literal(time)), is_null(field_ref("str"))}));
 
@@ -828,8 +823,7 @@ TEST_F(TestPartitioning, EtlThenHive) {
         auto alphabeta_segments_end = etl_segments_end + alphabeta_fields.size();
         auto alphabeta_path =
             fs::internal::JoinAbstractPath(etl_segments_end, alphabeta_segments_end);
-        ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr,
-                              alphabeta_part.Parse(alphabeta_path));
+        ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr, alphabeta_part.Parse(alphabeta_path));
 
         return and_(etl_expr, alphabeta_expr);
       });
@@ -977,7 +971,7 @@ TEST(TestStripPrefixAndFilename, Basic) {
                                  "/data/year=2019/month=12/day=01/file.parquet"};
   auto paths = StripPrefixAndFilename(input, "/data");
   EXPECT_THAT(paths, testing::ElementsAre("year=2019", "year=2019/month=12",
-                                                     "year=2019/month=12/day=01"));
+                                          "year=2019/month=12/day=01"));
 }
 
 }  // namespace dataset
