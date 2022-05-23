@@ -289,6 +289,7 @@ on:
   - name: Update repo index
     shell: Rscript {0}
     run: |
+      # getwd() is necessary as this macro is used within jobs using a docker container
       tools::write_PACKAGES(file.path(getwd(), "/repo/src/contrib"), type = "source", verbose = TRUE)
   - run: ls -R repo
     if: {{ is_fork }}

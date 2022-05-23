@@ -342,6 +342,8 @@ jobs:
         if: {{ is_fork }}
         shell: bash
         run: |
+          # It is important to use pwd here as this happens inside a container so the 
+          # normal github.workspace path is wrong.
           echo "options(arrow.dev_repo = 'file://$(pwd)/repo')" >> ~/.Rprofile
       - name: Install arrow from our repo
         env:
