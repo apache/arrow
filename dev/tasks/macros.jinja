@@ -289,7 +289,7 @@ on:
   - name: Update repo index
     shell: Rscript {0}
     run: |
-      tools::write_PACKAGES("{{ '${{ github.workspace }}' }}/repo/src/contrib", type = "source")
+      tools::write_PACKAGES("{{ '${{ github.workspace }}' }}/repo/src/contrib", type = "source", verbose = TRUE)
   - run: ls -R repo
     if: {{ is_fork }}
 {% endmacro %}

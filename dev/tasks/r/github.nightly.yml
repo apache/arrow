@@ -108,9 +108,15 @@ jobs:
         shell: sudo Rscript {0}
         run: |
           if(file.exists("{{ r_root }}/src/contrib/PACKAGES")) {
-            tools::update_PACKAGES("{{ r_root }}/src/contrib" , type = "source", latestOnly = FALSE)
+            tools::update_PACKAGES("{{ r_root }}/src/contrib" ,
+              type = "source",
+              latestOnly = FALSE,
+              verbose = TRUE)
           } else {
-            tools::write_PACKAGES("{{ r_root }}/src/contrib" , type = "source", latestOnly = FALSE)
+            tools::write_PACKAGES("{{ r_root }}/src/contrib" ,
+              type = "source",
+              latestOnly = FALSE,
+              verbose = TRUE)
           }
 
       - name: Unmount Repository
@@ -436,9 +442,15 @@ jobs:
             prune(dir)
 
             if(file.exists(paste0(dir,"/PACKAGES"))) {
-              tools::update_PACKAGES(dir , type = ifelse(win_bin, "win.binary", "mac.binary"), latestOnly = FALSE)
+              tools::update_PACKAGES(dir ,
+                type = ifelse(win_bin, "win.binary", "mac.binary"),
+                latestOnly = FALSE,
+                verbose = TRUE)
             } else {
-              tools::write_PACKAGES(dir , type = ifelse(win_bin, "win.binary", "mac.binary"), latestOnly = FALSE)
+              tools::write_PACKAGES(dir,
+                type = ifelse(win_bin, "win.binary", "mac.binary"),
+                latestOnly = FALSE,
+                verbose = TRUE)
             }
 
           }
