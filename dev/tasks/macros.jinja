@@ -223,7 +223,7 @@ on:
       done
 {% endmacro %}
 
-{%- macro change_r_pkg_version(version = '\\2.\'\"$(date +%Y%m%d)\"\'' ) -%}
+{%- macro change_r_pkg_version(is_fork, version = '\\2.\'\"$(date +%Y%m%d)\"\'' ) -%}
   - name: Modify version
     shell: bash
     run: |
@@ -237,7 +237,11 @@ on:
       
       # Pin the git commit in the formula to match
       cd tools
-      sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
+      if [ "{{ is_fork }}" == "true" ]; then 
+        sed -i.bak -E -e 's/apache\/arrow.git"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
+      else
+        sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
+      fi
       rm -f apache-arrow.rb.bak
 {% endmacro %}
 
@@ -290,7 +294,7 @@ on:
     shell: Rscript {0}
     run: |
       # getwd() is necessary as this macro is used within jobs using a docker container
-      tools::write_PACKAGES(file.path(getwd(), "/repo/src/contrib"), type = "source", verbose = TRUE)
+      tools::write_PACKAGES(file.path(getwd(), "/repo/src/contrib", fsep = "/"), type = "source", verbose = TRUE)
   - run: ls -R repo
     if: {{ is_fork }}
 {% endmacro %}
