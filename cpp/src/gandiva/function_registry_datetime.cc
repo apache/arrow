@@ -74,15 +74,15 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      utf8(), kResultNullIfNull, "castVARCHAR_timestamp_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", {}, DataTypeVector{time32(), int64()}, utf8(),
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{time32(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_time_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", {}, DataTypeVector{day_time_interval(), int64()},
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{day_time_interval(), int64()},
                      utf8(), kResultNullIfNull, "castVARCHAR_intervalday_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", {}, DataTypeVector{month_interval(), int64()}, utf8(),
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{month_interval(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_intervalyear_int64",
                      NativeFunction::kNeedsContext),
 
