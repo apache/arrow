@@ -80,7 +80,7 @@ class ARROW_DS_EXPORT Partitioning {
       const std::shared_ptr<RecordBatch>& batch) const = 0;
 
   /// \brief Parse a path into a partition expression
-  virtual Result<compute::Expression> Parse(const PartitionPathFormat& path) const = 0;
+  virtual Result<compute::Expression> Parse(const std::string& path) const = 0;
 
   virtual Result<PartitionPathFormat> Format(const compute::Expression& expr) const = 0;
 
@@ -174,7 +174,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const override;
 
-  Result<compute::Expression> Parse(const PartitionPathFormat& path) const override;
+  Result<compute::Expression> Parse(const std::string& path) const override;
 
   Result<PartitionPathFormat> Format(const compute::Expression& expr) const override;
 
@@ -191,7 +191,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
     }
   }
 
-  virtual Result<std::vector<Key>> ParseKeys(const PartitionPathFormat& path) const = 0;
+  virtual Result<std::vector<Key>> ParseKeys(const std::string& path) const = 0;
 
   virtual Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const = 0;
 
@@ -231,7 +231,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
 
  private:
-  Result<std::vector<Key>> ParseKeys(const PartitionPathFormat& path) const override;
+  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
@@ -288,7 +288,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 
  private:
   const HivePartitioningOptions hive_options_;
-  Result<std::vector<Key>> ParseKeys(const PartitionPathFormat& path) const override;
+  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
@@ -310,8 +310,8 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
 
   std::string type_name() const override { return name_; }
 
-  Result<compute::Expression> Parse(const PartitionPathFormat& path) const override {
-    return parse_impl_(path.directory);
+  Result<compute::Expression> Parse(const std::string& path) const override {
+    return parse_impl_(path);
   }
 
   Result<PartitionPathFormat> Format(const compute::Expression& expr) const override {
@@ -353,24 +353,26 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
 
  private:
-  Result<std::vector<Key>> ParseKeys(const PartitionPathFormat& path) const override;
+  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
+
+ARROW_DS_EXPORT std::string StripPrefix(const std::string& path, const std::string& prefix);
 
 /// \brief Extracts the directory and filename and removes the prefix of a path
 ///
 /// e.g., `StripPrefixAndFilename("/data/year=2019/c.txt", "/data") ->
 /// {"year=2019","c.txt"}`
-ARROW_DS_EXPORT PartitionPathFormat StripPrefixAndFilename(const std::string& path,
+ARROW_DS_EXPORT std::string StripPrefixAndFilename(const std::string& path,
                                                            const std::string& prefix);
 
 /// \brief Vector version of StripPrefixAndFilename.
-ARROW_DS_EXPORT std::vector<PartitionPathFormat> StripPrefixAndFilename(
+ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
     const std::vector<std::string>& paths, const std::string& prefix);
 
 /// \brief Vector version of StripPrefixAndFilename.
-ARROW_DS_EXPORT std::vector<PartitionPathFormat> StripPrefixAndFilename(
+ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
     const std::vector<fs::FileInfo>& files, const std::string& prefix);
 
 /// \brief Either a Partitioning or a PartitioningFactory
@@ -398,7 +400,7 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
 
   /// \brief Get the partition schema, inferring it with the given factory if needed.
   Result<std::shared_ptr<Schema>> GetOrInferSchema(
-      const std::vector<PartitionPathFormat>& paths);
+      const std::vector<std::string>& paths);
 
  private:
   std::shared_ptr<PartitioningFactory> factory_;

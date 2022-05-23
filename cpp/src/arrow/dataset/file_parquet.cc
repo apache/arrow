@@ -919,18 +919,10 @@ Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchem
     std::vector<std::string> stripped(paths_with_row_group_ids_.size());
 
     size_t i = 0;
-
-    if (options_.partitioning.factory()->type_name() == "filename") {
-      for (const auto& e : paths_with_row_group_ids_) {
+    for (const auto& e : paths_with_row_group_ids_) {
         stripped[i++] =
-            StripPrefixAndFilename(e.first, options_.partition_base_dir).filename;
+            StripPrefixAndFilename(e.first, options_.partition_base_dir);
       }
-    } else {
-      for (const auto& e : paths_with_row_group_ids_) {
-        stripped[i++] =
-            StripPrefixAndFilename(e.first, options_.partition_base_dir).directory;
-      }
-    }
     ARROW_ASSIGN_OR_RAISE(auto partition_schema, factory->Inspect(stripped));
 
     schemas.push_back(std::move(partition_schema));
