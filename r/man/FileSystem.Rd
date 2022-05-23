@@ -86,6 +86,11 @@ sequential writing.
 \item \verb{$OpenAppendStream(path)}: Open an \link[=OutputStream]{output stream} for
 appending.
 }
+
+\code{S3FileSystem} also has a method:
+\itemize{
+\item \verb{$allow_create_buckets()} which can set the corresponding option above.
+}
 }
 
 \section{Active bindings}{
@@ -98,5 +103,16 @@ containing a \code{S3FileSystem}
 \item \verb{$base_path}: for \code{SubTreeFileSystem}, the path in \verb{$base_fs} which is considered
 root in this \code{SubTreeFileSystem}.
 }
+}
+
+\section{Notes}{
+
+
+On S3FileSystem, \verb{$CreateDir()} on a top-level directory creates a new bucket.
+When S3FileSystem creates new buckets (assuming allow_create_buckets is TRUE),
+it does not pass any non-default settings. In AWS S3, the bucket and all
+objects will be not publicly visible, and will have no bucket policies
+and no resource tags. To have more control over how buckets are created,
+use a different API to create them.
 }
 

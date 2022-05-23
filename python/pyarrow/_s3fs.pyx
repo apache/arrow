@@ -99,6 +99,12 @@ cdef class S3FileSystem(FileSystem):
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
 
+    When S3FileSystem creates new buckets (assuming allow_create_buckets is True),
+    it does not pass any non-default settings. In AWS S3, the bucket and all 
+    objects will be not publicly visible, and will have no bucket policies 
+    and no resource tags. To have more control over how buckets are created,
+    use a different API to create them.
+
     Parameters
     ----------
     access_key : str, default None
@@ -151,7 +157,8 @@ cdef class S3FileSystem(FileSystem):
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
     allow_create_buckets : bool, default False
-        If True, allows creating and deleting buckets.
+        If True, allows creating and deleting buckets. This option may also be
+        passed in a URI query parameter.
     """
 
     cdef:
