@@ -152,14 +152,14 @@ struct ConvertLiteralImpl {
     switch (t.id()) {
       case Type::DECIMAL128: {
         std::array<uint64_t, 2> little_endian;
-        std::memcpy(little_endian.data(), lit->value(), lit->value()->size());
+        std::memcpy(little_endian.data(), lit->value()->data(), lit->value()->size());
         Decimal128 value{BasicDecimal128::LittleEndianArray, little_endian};
         return Datum(std::make_shared<Decimal128Scalar>(value, type_));
       }
 
       case Type::DECIMAL256: {
         std::array<uint64_t, 4> little_endian;
-        std::memcpy(little_endian.data(), lit->value(), lit->value()->size());
+        std::memcpy(little_endian.data(), lit->value()->data(), lit->value()->size());
         Decimal256 value{BasicDecimal256::LittleEndianArray, little_endian};
         return Datum(std::make_shared<Decimal256Scalar>(value, type_));
       }
