@@ -17,13 +17,20 @@
 
 {% import 'macros.jinja' as macros with context %}
 # root of the R nightly repo where the first dir is the mount point used by davfs2 ("nightly")
+# TODO update with nightlies.apache.org/arrow/r
 {% set r_root = "nightly/r" %}
 {% set webdav_domain = "https://nightly.wujciak.de:8080" %}
 {% set repo_domain = "https://nightly.wujciak.de/r" %}
 # This allows us to set a custom version via param:
 # crossbow submit --param custom_version=8.5.3 r-nightly-packages
 # if the param is unset defaults to the usual Ymd naming scheme
-{%set version = custom_version|default('\\2.\'\"$(date +%Y%m%d)\"\'') %}
+{% set version = custom_version|default('\\2.\'\"$(date +%Y%m%d)\"\'') %}
+# We need this as boolean and string
+{% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
+# use filter to cast to string and convert to lowercase to match yaml boolean
+{% set is_upstream = is_upstream_b|lower %}
+{% set upload_pkg = 'env.UPLOAD_PKG && success() && ' + is_upstream %}
+{% set upload_libarrow = 'env.UPLOAD_LIBARROW && success() && ' + is_upstream %}
 
 {{ macros.github_header() }}
 
@@ -35,13 +42,12 @@ env:
   
 jobs:
   source:
+    # This job will change the version to either the custom_version param or YMD format.
+    # The output allows other steps to use the exact version to prevent issues (e.g. date changes during run)
     name: Source Package
     runs-on: ubuntu-latest
-    # Block submissions via PR unless from a branch within apache/arrow e.g. for release 
-    if: {{ '${{' }} '{{ arrow.github_repo }}' == 'apache/arrow' {{ '}}' }}
     outputs:
       version: {{ '${{ steps.save-version.outputs.version }}' }}
-      date: {{ '${{ steps.save-version.outputs.date }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.change_r_pkg_version(version)|indent }}
@@ -50,7 +56,6 @@ jobs:
         shell: bash
         run: | 
           echo "::set-output name=version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)"
-          echo "::set-output name=date::$(date +%Y%m%d)"
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -65,7 +70,7 @@ jobs:
           R CMD build --no-build-vignettes .
 
       - name: Install davfs2 & Mount Repository
-        if: env.UPLOAD_PKG && success()
+        if: {{ upload_pkg }}
         run: | 
           sudo apt update && sudo apt install davfs2
 
@@ -79,7 +84,7 @@ jobs:
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Upload Source Package
-        if: env.UPLOAD_PKG && success()
+        if: {{upload_pkg }}
         shell: bash
         run: | 
           # ensure repo structure is set up, this job is the fastest and should fix any issue before the other jobs try
@@ -98,7 +103,7 @@ jobs:
         {% endfor %}
             sudo cp arrow/r/arrow_*.tar.gz {{ r_root }}/src/contrib
       - name: Update Repository Index
-        if: env.UPLOAD_PKG && success()
+        if: {{ upload_pkg }}
         shell: sudo Rscript {0}
         run: |
           if(file.exists("{{ r_root }}/src/contrib/PACKAGES")) {
@@ -109,11 +114,11 @@ jobs:
 
       - name: Unmount Repository
         # ensures all changes are written
-        if: env.UPLOAD_PKG && success()
+        if: {{ upload_pkg}}
         shell: bash
         run: sudo umount nightly
 
-      - name: Upload binary artifact (temp)
+      - name: Upload package artifact
         uses: actions/upload-artifact@v3
         with:
           name: r-src-pkg
@@ -131,10 +136,9 @@ jobs:
           - { os: centos, version: "7" }
     env:
       UBUNTU: {{ '${{ matrix.config.version }}' }}
-      R: 3.6
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.change_r_pkg_version('${{ needs.source.outputs.date }}')|indent }}
+      {{ macros.change_r_pkg_version('${{ needs.source.outputs.version }}')|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build libarrow
         shell: bash
@@ -153,7 +157,7 @@ jobs:
           sudo -E zip -r $PKG_FILE lib/ include/
       
       - name: Upload libarrow
-        if: env.UPLOAD_LIBARROW && success()
+        if: {{ upload_libarrow }}
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
@@ -164,7 +168,7 @@ jobs:
           export REPO_PATH={{ 'r/libarrow/bin/${{ matrix.config.os }}-${{ matrix.config.version }}' }}
           curl -s --fail --show-error -u $USER:$PW -T $PKG_FILE  {{ webdav_domain }}/$REPO_PATH/
           
-      - name: Upload binary artifact (temp)
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
           name: r-{{ '${{ matrix.config.os}}' }}-libarrow
@@ -177,7 +181,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.change_r_pkg_version('${{ needs.source.outputs.date }}')|indent }}
+      {{ macros.change_r_pkg_version('${{ needs.source.outputs.version }}')|indent }}
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -192,7 +196,7 @@ jobs:
         run: arrow/ci/scripts/r_windows_build.sh
 
       - name: Upload Binary
-        if: env.UPLOAD_LIBARROW && success()
+        if: {{ upload_libarrow }}
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
@@ -203,14 +207,14 @@ jobs:
           cd build
           curl -s --fail --show-error -u $USER:$PW -T arrow-$VERSION.zip  {{ webdav_domain }}/r/libarrow/bin/windows/
 
-      - name: Upload binary artifact (temp)
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
           name: r-windows-libarrow
           path: build/arrow-*.zip 
 
   r-packages:
-    if: {{ '${{' }} '{{ arrow.github_repo }}' == 'apache/arrow' {{ '}}' }}
+    if: true && !cancelled()
     needs: [source, windows-cpp]
     name: {{ '${{ matrix.platform }} ${{ matrix.r_version.r }}' }}
     runs-on: {{ '${{ matrix.platform }}' }}
@@ -231,6 +235,7 @@ jobs:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
           Ncpus: 2
+      {{ macros.setup_local_r_repo(is_upstream, 'matrix.platform')|indent }}
       - name: Build Binary
         shell: Rscript {0}
         run: |
@@ -243,6 +248,15 @@ jobs:
           )
           remove.packages("arrow")
 
+          dev_repo <- "{{ repo_domain }}"
+
+          # Setup local repo
+          if ({{(not is_upstream_b)|upper}}) {
+            tools::write_PACKAGES("repo/src/contrib", type = "source")
+            dev_repo <- "file://{{ '${{ github.workspace }}' }}/repo"
+          }
+          options(arrow.dev_repo = dev_repo)
+          
           # Build
           Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
           INSTALL_opts <- "--build"
@@ -251,12 +265,11 @@ jobs:
             INSTALL_opts <- c(INSTALL_opts, "--strip")
           }
 
-          #TODO remove/replace
-          options(arrow.dev_repo = "https://nightly.wujciak.de/r")
+         
           install.packages(
             "arrow",
             type = "source",
-            repos = "{{ repo_domain }}",
+            repos = dev_repo,
             INSTALL_opts = INSTALL_opts
           )
 
@@ -264,7 +277,7 @@ jobs:
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
       - name: Upload package
-        if: env.UPLOAD_PKG && success()
+        if: {{ upload_pkg }}
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
@@ -278,11 +291,11 @@ jobs:
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
-          name: r-{{ '${{ matrix.config.os}}' }}-pkg
-          path: arrow_*.zip 
+          name: r-{{ '${{ matrix.platform }}-R${{ matrix.r_version.r }}' }}-pkg
+          path: arrow_*
 
   test-linux-binary:
-    if: {{ '${{' }} '{{ arrow.github_repo }}' == 'apache/arrow' {{ '}}' }}
+    if: true && !cancelled()
     needs: [source, linux-cpp]
     name: Test binary {{ '${{ matrix.image }}' }}
     runs-on: ubuntu-latest
@@ -314,21 +327,22 @@ jobs:
 
           # Add R-devel to PATH
           echo "/opt/R-devel/bin" >> $GITHUB_PATH
-
+      {{ macros.setup_local_r_repo(is_upstream, 'ubuntu-latest')|indent }}
       - name: Set dev repo
+        if: !{{ is_upstream }}
         shell: bash
         run: |
-          echo 'options(arrow.dev_repo = "{{ repo_domain }}")' >> ~/.Rprofile
+          echo 'options(arrow.dev_repo = "file://{{ '${{ github.workspace }}' }}/repo")' >> ~/.Rprofile
       - name: Install arrow from our repo
         env:
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: "TRUE"
         shell: Rscript {0}
         run: |
-          {{  macros.test_r_src_pkg(repo_domain)|indent(8) }}
+          {{  macros.test_r_src_pkg(is_upstream_b)|indent(8) }}
 
   test-source:
-    if: {{ '${{' }} '{{ arrow.github_repo }}' == 'apache/arrow' {{ '}}' }}
+    if: true && !cancelled()
     needs: source
     name: Test linux source build
     runs-on: ubuntu-latest
@@ -337,13 +351,19 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           install-r: false
+      {{ macros.setup_local_r_repo(is_upstream, 'ubuntu-latest')|indent }}
+      - name: Set dev repo
+        if: !{{ is_upstream }}
+        shell: bash
+        run: |
+          echo 'options(arrow.dev_repo = "file://{{ '${{ github.workspace }}' }}/repo")' >> ~/.Rprofile
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
         shell: Rscript {0}
         run: |
-          {{ macros.test_r_src_pkg(repo_domain)|indent(8) }}
+          {{ macros.test_r_src_pkg(is_upstream_b)|indent(8) }}
 
       - name: Retry with verbosity if that failed
         if: failure()
@@ -351,11 +371,11 @@ jobs:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
         run: |
-          {{ macros.test_r_src_pkg(repo_domain)|indent(8) }}
+          {{ macros.test_r_src_pkg(is_upstream_b)|indent(8) }}
 
   update-repo:
     needs: r-packages
-    if: {{ '${{' }} ('{{ arrow.github_repo }}' == 'apache/arrow') && 'env.UPLOAD_PKG' {{ '}}' }} 
+    if: {{ upload_pkg }}
     name: Update PACKAGES
     runs-on: ubuntu-latest
     steps:

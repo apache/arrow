@@ -241,10 +241,13 @@ on:
       rm -f apache-arrow.rb.bak
 {% endmacro %}
 
-{%- macro test_r_src_pkg(repo) -%}
+{%- macro test_r_src_pkg(is_upstream) -%}
   source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
-  options(arrow.dev_repo = "{{ repo }}")
   
+  if ({{(not is_upstream)|upper}}) {
+    tools::write_PACKAGES("repo/src/contrib", type = "source")
+  }
+
   install.packages(
     "arrow",
     repos = c(getOption("arrow.dev_repo"), "https://cloud.r-project.org"),
@@ -253,6 +256,39 @@ on:
   library(arrow)
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
 
-  # Our Version should also be > CRAN so we would detect a CRAN version here.
+  # Our Version should always be > CRAN so we would detect a CRAN version here.
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
+{% endmacro %}
+
+{%- macro setup_local_r_repo(upstream, os) -%}
+  - name: Setup local repo
+    if: !{{ upstream }}
+    shell: bash
+    run: mkdir repo 
+  - name: Get windows binary
+    if: !{{ upstream }} && ('{{ os }}' == 'windows-latest')
+    uses: actions/download-artifact@v3
+    with:
+      name: r-windows-libarrow
+      path: repo/libarrow/bin/windows
+  - name: Get ubuntu binary
+    if: !{{ upstream }} && ('{{ os }}' != 'windows-latest')
+    uses: actions/download-artifact@v
+    with:
+      name: r-ubuntu-libarrow
+      path: repo/libarrow/bin/ubuntu-18.04
+  - name: Get centos binary
+    if: !{{ upstream }} && ('{{ os }}' != 'windows-latest')
+    uses: actions/download-artifact@v
+    with:
+      name: r-centos-libarrow
+      path: repo/libarrow/bin/centos-7
+  - name: Get src pkg
+    if: !{{ upstream }}
+    uses: actions/download-artifact@v3
+    with:
+      name: r-src-pkg
+      path: repo/src/contrib
+  - run: ls -R repo
+    if: !{{ upstream }}
 {% endmacro %}
