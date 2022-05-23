@@ -964,6 +964,7 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
   return ret;
 }
 
+// This function get a time entry and cast a varchar to output
 FORCE_INLINE
 const char* castVARCHAR_time_int64(int64_t context, int32_t millis_in_day, int64_t length,
                                    int32_t* out_len) {
@@ -1025,6 +1026,7 @@ static inline int32_t gdv_fn_get_num_digit_int32(int32_t number) {
   return num_digits;
 }
 
+// This function get an interval day entry and cast a varchar to output
 FORCE_INLINE
 const char* castVARCHAR_intervalday_int64(int64_t context, int64_t value, int64_t len,
                                           int32_t* out_len) {
@@ -1090,6 +1092,7 @@ const char* castVARCHAR_intervalday_int64(int64_t context, int64_t value, int64_
   return ret;
 }
 
+// This function get an interval year entry and cast a varchar to output
 FORCE_INLINE
 const char* castVARCHAR_intervalyear_int64(int64_t context, int64_t value, int64_t len,
                                            int32_t* out_len) {

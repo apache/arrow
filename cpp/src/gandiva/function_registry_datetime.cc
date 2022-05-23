@@ -74,17 +74,18 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      utf8(), kResultNullIfNull, "castVARCHAR_timestamp_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{time32(), int64()}, utf8(),
-                     kResultNullIfNull, "castVARCHAR_time_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{time32(), int64()},
+                     utf8(), kResultNullIfNull, "castVARCHAR_time_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{day_time_interval(), int64()},
-                     utf8(), kResultNullIfNull, "castVARCHAR_intervalday_int64",
+      NativeFunction("castVARCHAR", {"varchar"},
+                     DataTypeVector{day_time_interval(), int64()}, utf8(),
+                     kResultNullIfNull, "castVARCHAR_intervalday_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{month_interval(), int64()}, utf8(),
-                     kResultNullIfNull, "castVARCHAR_intervalyear_int64",
-                     NativeFunction::kNeedsContext),
+      NativeFunction("castVARCHAR", {"varchar"},
+                     DataTypeVector{month_interval(), int64()}, utf8(), kResultNullIfNull,
+                     "castVARCHAR_intervalyear_int64", NativeFunction::kNeedsContext),
 
       NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8()}, date64(),
                      kResultNullInternal, "gdv_fn_to_date_utf8_utf8",
