@@ -21,6 +21,7 @@
 
 #include "arrow/array/array_primitive.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/exec/aggregate.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"

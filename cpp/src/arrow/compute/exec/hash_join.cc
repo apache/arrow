@@ -29,12 +29,11 @@
 #include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 namespace compute {
-
-using internal::RowEncoder;
 
 class HashJoinBasicImpl : public HashJoinImpl {
  private:

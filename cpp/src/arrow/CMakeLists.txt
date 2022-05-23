@@ -380,6 +380,7 @@ if(ARROW_COMPUTE)
        compute/api_vector.cc
        compute/cast.cc
        compute/exec.cc
+       compute/exec/aggregate.cc
        compute/exec/aggregate_node.cc
        compute/exec/bloom_filter.cc
        compute/exec/exec_plan.cc
@@ -389,8 +390,6 @@ if(ARROW_COMPUTE)
        compute/exec/hash_join_dict.cc
        compute/exec/hash_join_node.cc
        compute/exec/ir_consumer.cc
-       compute/exec/key_compare.cc
-       compute/exec/key_encode.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
        compute/exec/order_by_impl.cc
@@ -442,17 +441,21 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
-       compute/kernels/vector_sort.cc)
+       compute/kernels/vector_sort.cc
+       compute/row/encode_internal.cc
+       compute/row/compare_internal.cc
+       compute/row/grouper.cc
+       compute/row/row_internal.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
 
   append_avx2_src(compute/exec/bloom_filter_avx2.cc)
-  append_avx2_src(compute/exec/key_compare_avx2.cc)
-  append_avx2_src(compute/exec/key_encode_avx2.cc)
   append_avx2_src(compute/exec/key_hash_avx2.cc)
   append_avx2_src(compute/exec/key_map_avx2.cc)
   append_avx2_src(compute/exec/util_avx2.cc)
+  append_avx2_src(compute/row/compare_internal_avx2.cc)
+  append_avx2_src(compute/row/encode_internal_avx2.cc)
 
   list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
 endif()

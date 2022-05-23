@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/key_compare.h"
+#include "arrow/compute/row/compare_internal.h"
 
 #include <memory.h>
 
@@ -33,9 +33,8 @@ template <bool use_selection>
 void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_compare,
                                        const uint16_t* sel_left_maybe_null,
                                        const uint32_t* left_to_right_map,
-                                       KeyEncoder::KeyEncoderContext* ctx,
-                                       const KeyColumnArray& col,
-                                       const KeyEncoder::KeyRowArray& rows,
+                                       LightContext* ctx, const KeyColumnArray& col,
+                                       const RowTableImpl& rows,
                                        uint8_t* match_bytevector) {
   if (!rows.has_any_nulls(ctx) && !col.data(0)) {
     return;
@@ -90,9 +89,8 @@ template <bool use_selection, class COMPARE_FN>
 void KeyCompare::CompareBinaryColumnToRowHelper(
     uint32_t offset_within_row, uint32_t first_row_to_compare,
     uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
-    const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-    const KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
-    uint8_t* match_bytevector, COMPARE_FN compare_fn) {
+    const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
+    const RowTableImpl& rows, uint8_t* match_bytevector, COMPARE_FN compare_fn) {
   bool is_fixed_length = rows.metadata().is_fixed_length;
   if (is_fixed_length) {
     uint32_t fixed_length = rows.metadata().fixed_length;
@@ -118,11 +116,13 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
 }
 
 template <bool use_selection>
-void KeyCompare::CompareBinaryColumnToRow(
-    uint32_t offset_within_row, uint32_t num_rows_to_compare,
-    const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-    KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-    const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
+void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
+                                          uint32_t num_rows_to_compare,
+                                          const uint16_t* sel_left_maybe_null,
+                                          const uint32_t* left_to_right_map,
+                                          LightContext* ctx, const KeyColumnArray& col,
+                                          const RowTableImpl& rows,
+                                          uint8_t* match_bytevector) {
   uint32_t num_processed = 0;
 #if defined(ARROW_HAVE_AVX2)
   if (ctx->has_avx2()) {
@@ -228,11 +228,13 @@ void KeyCompare::CompareBinaryColumnToRow(
 
 // Overwrites the match_bytevector instead of updating it
 template <bool use_selection, bool is_first_varbinary_col>
-void KeyCompare::CompareVarBinaryColumnToRow(
-    uint32_t id_varbinary_col, uint32_t num_rows_to_compare,
-    const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-    KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-    const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
+void KeyCompare::CompareVarBinaryColumnToRow(uint32_t id_varbinary_col,
+                                             uint32_t num_rows_to_compare,
+                                             const uint16_t* sel_left_maybe_null,
+                                             const uint32_t* left_to_right_map,
+                                             LightContext* ctx, const KeyColumnArray& col,
+                                             const RowTableImpl& rows,
+                                             uint8_t* match_bytevector) {
 #if defined(ARROW_HAVE_AVX2)
   if (ctx->has_avx2()) {
     CompareVarBinaryColumnToRow_avx2(
@@ -290,7 +292,7 @@ void KeyCompare::CompareVarBinaryColumnToRow(
   }
 }
 
-void KeyCompare::AndByteVectors(KeyEncoder::KeyEncoderContext* ctx, uint32_t num_elements,
+void KeyCompare::AndByteVectors(LightContext* ctx, uint32_t num_elements,
                                 uint8_t* bytevector_A, const uint8_t* bytevector_B) {
   uint32_t num_processed = 0;
 #if defined(ARROW_HAVE_AVX2)
@@ -306,11 +308,13 @@ void KeyCompare::AndByteVectors(KeyEncoder::KeyEncoderContext* ctx, uint32_t num
   }
 }
 
-void KeyCompare::CompareColumnsToRows(
-    uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
-    const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-    uint32_t* out_num_rows, uint16_t* out_sel_left_maybe_same,
-    const std::vector<KeyColumnArray>& cols, const KeyEncoder::KeyRowArray& rows) {
+void KeyCompare::CompareColumnsToRows(uint32_t num_rows_to_compare,
+                                      const uint16_t* sel_left_maybe_null,
+                                      const uint32_t* left_to_right_map,
+                                      LightContext* ctx, uint32_t* out_num_rows,
+                                      uint16_t* out_sel_left_maybe_same,
+                                      const std::vector<KeyColumnArray>& cols,
+                                      const RowTableImpl& rows) {
   if (num_rows_to_compare == 0) {
     *out_num_rows = 0;
     return;
