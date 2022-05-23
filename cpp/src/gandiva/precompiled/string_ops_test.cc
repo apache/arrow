@@ -887,6 +887,9 @@ TEST(TestGdvFnStubs, TestCastBinaryUtf8) {
   out = castBINARY_utf8(input, 3, &out_len);
   EXPECT_EQ(std::string(out, out_len), input);
 
+  out = castBINARY_utf8(input, 2, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "ab");
+
   out = castBINARY_utf8(input, 1, &out_len);
   EXPECT_EQ(std::string(out, out_len), "a");
 
