@@ -277,13 +277,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CCSVConvertOptions convert_options
         CCSVReadOptions read_options
 
-    cdef cppclass CPartitionPathFormat "arrow::dataset::PartitionPathFormat":
-        c_string directory
-        c_string filename
-
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
-        CResult[CExpression] Parse(const CPartitionPathFormat & path) const
+        CResult[CExpression] Parse(const c_string & path) const
         const shared_ptr[CSchema] & schema()
 
     cdef cppclass CSegmentEncoding" arrow::dataset::SegmentEncoding":
