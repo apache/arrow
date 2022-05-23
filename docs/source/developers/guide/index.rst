@@ -30,7 +30,7 @@
 New Contributor's Guide
 ***********************
 
-This guide is meant to be a resource for contributing to
+This guide is a resource for contributing to
 Apache Arrow for new contributors.
 
 No matter what your current skills are, you can try and make
