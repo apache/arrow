@@ -841,8 +841,7 @@ Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
   if (auto part = partitioning()) {
     return part->schema();
   }
-  std::vector<std::string> partition_paths(paths.size());
-  return factory()->Inspect(partition_paths);
+  return factory()->Inspect(paths);
 }
 
 }  // namespace dataset

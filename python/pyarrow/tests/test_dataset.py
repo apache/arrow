@@ -582,7 +582,7 @@ def test_partitioning():
     )
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
-    expr = partitioning.parse('/3/3.14')
+    expr = partitioning.parse('/3/3.14/')
     assert isinstance(expr, ds.Expression)
 
     expected = (ds.field('group') == 3) & (ds.field('key') == 3.14)
@@ -591,7 +591,7 @@ def test_partitioning():
     with pytest.raises(pa.ArrowInvalid):
         partitioning.parse('/prefix/3/aaa')
 
-    expr = partitioning.parse('/3')
+    expr = partitioning.parse('/3/')
     expected = ds.field('group') == 3
     assert expr.equals(expected)
 
@@ -604,20 +604,20 @@ def test_partitioning():
     )
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
-    expr = partitioning.parse('/alpha=0/beta=3')
+    expr = partitioning.parse('/alpha=0/beta=3/')
     expected = (
         (ds.field('alpha') == ds.scalar(0)) &
         (ds.field('beta') == ds.scalar(3))
     )
     assert expr.equals(expected)
 
-    expr = partitioning.parse('/alpha=xyz/beta=3')
+    expr = partitioning.parse('/alpha=xyz/beta=3/')
     expected = (
         (ds.field('alpha').is_null() & (ds.field('beta') == ds.scalar(3)))
     )
     assert expr.equals(expected)
 
-    for shouldfail in ['/alpha=one/beta=2', '/alpha=one', '/beta=two']:
+    for shouldfail in ['/alpha=one/beta=2/', '/alpha=one/', '/beta=two/']:
         with pytest.raises(pa.ArrowInvalid):
             partitioning.parse(shouldfail)
 
@@ -629,14 +629,14 @@ def test_partitioning():
     )
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
-    expr = partitioning.parse('', '3_3.14_')
+    expr = partitioning.parse('3_3.14_')
     assert isinstance(expr, ds.Expression)
 
     expected = (ds.field('group') == 3) & (ds.field('key') == 3.14)
     assert expr.equals(expected)
 
     with pytest.raises(pa.ArrowInvalid):
-        partitioning.parse('', 'prefix_3_aaa_')
+        partitioning.parse('prefix_3_aaa_')
 
     partitioning = ds.DirectoryPartitioning(
         pa.schema([

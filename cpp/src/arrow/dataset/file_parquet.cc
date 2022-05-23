@@ -894,7 +894,7 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
     auto row_groups = Iota(metadata_subset->num_row_groups());
 
     auto partition_expression =
-        partitioning.Parse(StripPrefixAndFilename(path, options_.partition_base_dir))
+        partitioning.Parse(StripPrefix(path, options_.partition_base_dir))
             .ValueOr(compute::literal(true));
 
     ARROW_ASSIGN_OR_RAISE(
