@@ -184,6 +184,7 @@ build_formats <- function(orders) {
     "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H", "mdy_HMS",
     "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
   )
+  # support "%I" hour formats
   ymd_ims_orders <- gsub("H", "I", ymd_hms_orders)
 
   supported_orders <- c(
@@ -290,48 +291,22 @@ attempt_parsing <- function(x,
 
   processed_data <- process_data_for_parsing(x, orders)
 
-  processed_x <- processed_data[["processed_x"]]
-  augmented_x_ym <- processed_data[["augmented_x_ym"]]
-  augmented_x_yq <- processed_data[["augmented_x_yq"]]
+  parse_attempt_exprs_list <- map(processed_data, build_strptime_exprs, formats)
 
-  # build a list of expressions for each format
-  parse_attempt_exp_processed_x <- build_strptime_exps(processed_x, formats)
-
-  # build separate expression lists of parsing attempts for the orders that
-  # need an augmented `x`
-  # list for attempts when orders %in% c("ym", "my")
-  parse_attempt_exp_augmented_x_ym <- list()
-
-  if (!is.null(augmented_x_ym)) {
-    parse_attempt_exp_augmented_x_ym <- build_strptime_exps(augmented_x_ym, formats)
+  # if all orders are c("ym", "my", "yq") only attempt to parse the augmented_x
+  if (all(orders %in% c("ym", "my", "yq"))) {
+    parse_attempt_exprs_list$processed_x <- list()
   }
 
-  # list for attempts when orders %in% c("yq")
-  parse_attempt_exp_augmented_x_yq <- list()
-  if (!is.null(augmented_x_yq)) {
-    parse_attempt_exp_augmented_x_yq <- build_strptime_exps(augmented_x_yq, formats)
-  }
-
-  # combine all attempts expressions in prep for coalesce
-  # if the users passes only a short order (`ym`, `my` or `yq`) then only use
-  # the corresponding augmented_x
-  if (all(orders == "ym") || all(orders == "my")) {
-    parse_attempt_expressions <- parse_attempt_exp_augmented_x_ym
-  } else if (all(orders == "yq")) {
-    parse_attempt_expressions <- parse_attempt_exp_augmented_x_yq
-  } else {
-    parse_attempt_expressions <- c(
-      # if we have an augmented x give preference to the corresponding
-      # parsing attempts
-      parse_attempt_exp_augmented_x_ym,
-      parse_attempt_exp_augmented_x_yq,
-      parse_attempt_exp_processed_x
-    )
-  }
-  parse_attempt_expressions
+  purrr::flatten(parse_attempt_exprs_list)
 }
 
-build_strptime_exps <- function(x, formats) {
+build_strptime_exprs <- function(x, formats) {
+  # returning an empty list helps when iterating with build_strptime_exprs
+  if (is.null(x)) {
+    return(list())
+  }
+
   map(
     formats,
     ~ build_expr(

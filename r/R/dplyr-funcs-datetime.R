@@ -538,7 +538,7 @@ register_bindings_datetime_parsers <- function() {
 
     if (exact == TRUE) {
       # no data processing takes place & we don't derive formats
-      parse_attempts <- build_strptime_exps(x, orders)
+      parse_attempts <- build_strptime_exprs(x, orders)
     } else {
       parse_attempts <- attempt_parsing(x, orders = orders)
     }
