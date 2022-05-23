@@ -184,12 +184,16 @@ build_formats <- function(orders) {
     "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H", "mdy_HMS",
     "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
   )
+  ymd_ims_orders <- gsub("H", "I", ymd_hms_orders)
 
   supported_orders <- c(
     ymd_orders,
     ymd_hms_orders,
     gsub("_", " ", ymd_hms_orders), # allow "_", " " and "" as separators
-    gsub("_", "", ymd_hms_orders)
+    gsub("_", "", ymd_hms_orders),
+    ymd_ims_orders,
+    gsub("_", " ", ymd_ims_orders), # allow "_", " " and "" as separators
+    gsub("_", "", ymd_ims_orders)
   )
 
   unsupported_passed_orders <- setdiff(orders, supported_orders)
@@ -219,7 +223,8 @@ build_format_from_order <- function(order) {
     "d" = "%d",
     "H" = "%H",
     "M" = "%M",
-    "S" = "%S"
+    "S" = "%S",
+    "I" = "%I"
   )
 
   split_order <- strsplit(order, split = "")[[1]]
@@ -242,6 +247,7 @@ process_data_for_parsing <- function(x,
 
   # we need to transform `x` when orders are `ym`, `my`, and `yq`
   # for `ym` and `my` orders we add a day ("01")
+  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16627
   augmented_x_ym <- NULL
   if (any(orders %in% c("ym", "my"))) {
     # add day as "-01" if there is a "-" separator and as "01" if not

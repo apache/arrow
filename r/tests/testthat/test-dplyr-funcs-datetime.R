@@ -2034,6 +2034,17 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     test_dates_times
   )
 
+  # test ymd_ims
+  compare_dplyr_binding(
+    .input %>%
+      mutate(ymd_ims_dttm = parse_date_time(ymd_ims_string, orders = "ymd_IMS")) %>%
+      collect(),
+    tibble(
+     ymd_ims_string =
+       c("67-01-09 12:34:56", "1970-05-22 11:13:59", "870822101359", NA)
+   )
+  )
+
   # test truncated formats
   test_truncation_df <-  tibble(
     truncated_ymd_string =
