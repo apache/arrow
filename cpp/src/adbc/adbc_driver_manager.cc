@@ -109,6 +109,48 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
   return status;
 }
 
+AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
+                                        const char* query, size_t query_length,
+                                        struct AdbcStatement* statement,
+                                        struct AdbcError* error) {
+  if (!connection->private_driver) {
+    return ADBC_STATUS_UNINITIALIZED;
+  }
+  return connection->private_driver->ConnectionSqlExecute(connection, query, query_length,
+                                                          statement, error);
+}
+
+AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
+                                 struct AdbcStatement* statement,
+                                 struct AdbcError* error) {
+  if (!connection->private_driver) {
+    // TODO: set error
+    return ADBC_STATUS_INVALID_ARGUMENT;
+  }
+  auto status = connection->private_driver->StatementInit(connection, statement, error);
+  statement->private_driver = connection->private_driver;
+  return status;
+}
+
+AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
+                                    struct AdbcError* error) {
+  if (!statement->private_driver) {
+    return ADBC_STATUS_UNINITIALIZED;
+  }
+  auto status = statement->private_driver->StatementRelease(statement, error);
+  statement->private_driver = nullptr;
+  return status;
+}
+
+AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
+                                      struct ArrowArrayStream* out,
+                                      struct AdbcError* error) {
+  if (!statement->private_driver) {
+    return ADBC_STATUS_UNINITIALIZED;
+  }
+  return statement->private_driver->StatementGetStream(statement, out, error);
+}
+
 const char* AdbcStatusCodeMessage(AdbcStatusCode code) {
 #define STRINGIFY(s) #s
 #define STRINGIFY_VALUE(s) STRINGIFY(s)

@@ -32,6 +32,8 @@
 
 namespace adbc {
 
+using arrow::PointeesEqual;
+
 TEST(AdbcDriverManager, Basics) {
   AdbcDatabase database;
   AdbcConnection connection;
@@ -56,6 +58,39 @@ TEST(AdbcDriverManager, Basics) {
     ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
                               AdbcConnectionInit(&options, &connection, &error));
     ASSERT_NE(connection.private_data, nullptr);
+  }
+
+  {
+    std::string query = "SELECT 1";
+    AdbcStatement statement;
+    std::memset(&statement, 0, sizeof(statement));
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                              AdbcStatementInit(&connection, &statement, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                              AdbcConnectionSqlExecute(&connection, query.c_str(),
+                                                       query.size(), &statement, &error));
+
+    arrow::RecordBatchVector batches;
+    ArrowArrayStream stream;
+
+    ADBC_ASSERT_OK(AdbcStatementGetStream(&statement, &stream, &error));
+    ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
+
+    auto schema = reader->schema();
+    while (true) {
+      ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+      if (!batch) break;
+      batches.push_back(std::move(batch));
+    }
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error, AdbcStatementRelease(&statement, &error));
+
+    arrow::AssertSchemaEqual(*schema,
+                             *arrow::schema({arrow::field("1", arrow::int64())}));
+    EXPECT_THAT(batches,
+                ::testing::UnorderedPointwise(
+                    PointeesEqual(), {
+                                         arrow::RecordBatchFromJSON(schema, "[[1]]"),
+                                     }));
   }
 
   ADBC_ASSERT_OK_WITH_ERROR(&driver, error, AdbcConnectionRelease(&connection, &error));

@@ -174,7 +174,8 @@ struct AdbcConnection {
 
 /// \brief Create a new connection to a database.
 AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
-                                  struct AdbcConnection* out, struct AdbcError* error);
+                                  struct AdbcConnection* connection,
+                                  struct AdbcError* error);
 
 /// \brief Destroy this connection.
 /// \param[in] connection The connection to release.
@@ -374,6 +375,10 @@ struct AdbcStatement {
   /// \brief Opaque implementation-defined state.
   /// This field is NULLPTR iff the connection is unintialized/freed.
   void* private_data;
+
+  /// \brief The associated driver (used by the driver manager to help
+  ///   track state).
+  AdbcDriver* private_driver;
 };
 
 /// \brief Create a new statement for a given connection.
