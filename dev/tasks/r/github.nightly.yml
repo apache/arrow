@@ -342,7 +342,7 @@ jobs:
         if: {{ is_fork }}
         shell: bash
         run: |
-          echo 'options(arrow.dev_repo = "file://{{ '${{ github.workspace }}' }}/repo")' >> ~/.Rprofile
+          echo "options(arrow.dev_repo = 'file://$(pwd)/repo')" >> ~/.Rprofile
       - name: Install arrow from our repo
         env:
           LIBARROW_BUILD: "FALSE"
@@ -366,7 +366,7 @@ jobs:
         if: {{ is_fork }}
         shell: bash
         run: |
-          echo 'options(arrow.dev_repo = "file://{{ '${{ github.workspace }}' }}/repo")' >> ~/.Rprofile
+          echo "options(arrow.dev_repo = 'file://$(pwd)/repo')" >> ~/.Rprofile
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary
