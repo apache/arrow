@@ -328,7 +328,7 @@ def cast(arr, target_type, safe=None, options=None):
     arr : Array-like
     target_type : DataType or str
         Type to cast to
-    safe : bool, default None
+    safe : bool, default True
         Check for overflows or other unsafe conversions
     options : CastOptions, default None
         Additional checks pass by CastOptions
@@ -375,10 +375,10 @@ def cast(arr, target_type, safe=None, options=None):
         raise ValueError(
             "Must past only a value for 'safe' or only a value for 'options'")
     if options is None:
-        if safe:
-            options = CastOptions.safe(target_type)
-        else:
+        if safe is False:
             options = CastOptions.unsafe(target_type)
+        else:
+            options = CastOptions.safe(target_type)
     return call_function("cast", [arr], options)
 
 
