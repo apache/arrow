@@ -97,7 +97,8 @@ BatchesWithSchema MakeNestedBatches();
 
 ARROW_TESTING_EXPORT
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                    int num_batches = 10, int batch_size = 4);
+                                    int num_batches = 10, int batch_size = 4,
+                                    bool add_tag = true);
 
 ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab);

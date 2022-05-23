@@ -211,7 +211,7 @@ BatchesWithSchema MakeNestedBatches() {
 }
 
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                    int num_batches, int batch_size) {
+                                    int num_batches, int batch_size, bool add_tag) {
   BatchesWithSchema out;
 
   random::RandomArrayGenerator rng(42);
@@ -219,8 +219,10 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
 
   for (int i = 0; i < num_batches; ++i) {
     out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
-    // add a tag scalar to ensure the batches are unique
-    out.batches[i].values.emplace_back(i);
+    if (add_tag) {
+      // add a tag scalar to ensure the batches are unique
+      out.batches[i].values.emplace_back(i);
+    }
   }
 
   out.schema = schema;
