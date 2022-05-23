@@ -1003,6 +1003,34 @@ services:
         /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java-dist &&
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist"]
 
+  ##############################  Doctest #################################
+
+  conda-python-doctest:
+    # Usage:
+    #   docker-compose build conda-python-doctest
+    image: ${REPO}:${ARCH}-conda-python-doctest
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-doctest.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-doctest
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      PARQUET_REQUIRE_ENCRYPTION:  # inherit
+      PYTEST_ARGS: ["--doctest-modules --doctest-cython"]
+      HYPOTHESIS_PROFILE:  # inherit
+      PYARROW_TEST_HYPOTHESIS:  # inherit
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
+
   ##############################  Integration #################################
 
   conda-python-pandas:
