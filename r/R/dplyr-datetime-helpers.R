@@ -285,7 +285,6 @@ process_data_for_parsing <- function(x,
 
 attempt_parsing <- function(x,
                             orders) {
-
   # translate orders into possible formats
   formats <- build_formats(orders)
 
@@ -293,7 +292,7 @@ attempt_parsing <- function(x,
 
   parse_attempt_exprs_list <- map(processed_data, build_strptime_exprs, formats)
 
-  # if all orders are c("ym", "my", "yq") only attempt to parse the augmented_x
+  # if all orders are in c("ym", "my", "yq") only attempt to parse the augmented_x
   if (all(orders %in% c("ym", "my", "yq"))) {
     parse_attempt_exprs_list$processed_x <- list()
   }
@@ -302,7 +301,7 @@ attempt_parsing <- function(x,
 }
 
 build_strptime_exprs <- function(x, formats) {
-  # returning an empty list helps when iterating with build_strptime_exprs
+  # returning an empty list helps when iterating
   if (is.null(x)) {
     return(list())
   }
