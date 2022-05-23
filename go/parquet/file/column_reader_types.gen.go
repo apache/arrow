@@ -207,10 +207,11 @@ type BooleanColumnChunkReader struct {
 func (cr *BooleanColumnChunkReader) Skip(nvalues int64) (int64, error) {
 	return cr.columnChunkReader.skipValues(nvalues,
 		func(batch int64, buf []byte) (int64, error) {
+			// buf is large enough to hold values, but not to hold def and rep lvls; use nil for them
 			vals, _, err := cr.ReadBatch(batch,
 				*(*[]bool)(unsafe.Pointer(&buf)),
-				arrow.Int16Traits.CastFromBytes(buf),
-				arrow.Int16Traits.CastFromBytes(buf))
+				nil,
+				nil)
 			return vals, err
 		})
 }
