@@ -22,7 +22,7 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "arrow/compute/exec/key_encode.h"
+#include "arrow/compute/light_array.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 
@@ -377,7 +377,7 @@ void Hashing32::HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t 
 }
 
 void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
-                                KeyEncoder::KeyEncoderContext* ctx, uint32_t* hashes) {
+                                LightContext* ctx, uint32_t* hashes) {
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
@@ -463,7 +463,7 @@ Status Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
   std::vector<KeyColumnArray> column_arrays;
   RETURN_NOT_OK(ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays));
 
-  KeyEncoder::KeyEncoderContext ctx;
+  LightContext ctx;
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
   HashMultiColumn(column_arrays, &ctx, hashes);
@@ -814,7 +814,7 @@ void Hashing64::HashFixed(bool combine_hashes, uint32_t num_rows, uint64_t lengt
 }
 
 void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
-                                KeyEncoder::KeyEncoderContext* ctx, uint64_t* hashes) {
+                                LightContext* ctx, uint64_t* hashes) {
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
@@ -895,7 +895,7 @@ Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
   std::vector<KeyColumnArray> column_arrays;
   RETURN_NOT_OK(ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays));
 
-  KeyEncoder::KeyEncoderContext ctx;
+  LightContext ctx;
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
   HashMultiColumn(column_arrays, &ctx, hashes);

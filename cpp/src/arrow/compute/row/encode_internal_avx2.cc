@@ -17,18 +17,16 @@
 
 #include <immintrin.h>
 
-#include "arrow/compute/exec/key_encode.h"
+#include "arrow/compute/row/encode_internal.h"
 
 namespace arrow {
 namespace compute {
 
 #if defined(ARROW_HAVE_AVX2)
 
-void KeyEncoder::EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length,
-                                                  uint32_t start_row, uint32_t num_rows,
-                                                  uint32_t offset_within_row,
-                                                  const KeyRowArray& rows,
-                                                  KeyColumnArray* col) {
+void EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_row,
+                                      uint32_t num_rows, uint32_t offset_within_row,
+                                      const RowTableImpl& rows, KeyColumnArray* col) {
   if (is_row_fixed_length) {
     DecodeImp_avx2<true>(start_row, num_rows, offset_within_row, rows, col);
   } else {
@@ -37,10 +35,9 @@ void KeyEncoder::EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length,
 }
 
 template <bool is_row_fixed_length>
-void KeyEncoder::EncoderBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
-                                               uint32_t offset_within_row,
-                                               const KeyRowArray& rows,
-                                               KeyColumnArray* col) {
+void EncoderBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
+                                   uint32_t offset_within_row, const RowTableImpl& rows,
+                                   KeyColumnArray* col) {
   DecodeHelper<is_row_fixed_length>(
       start_row, num_rows, offset_within_row, &rows, nullptr, col, col,
       [](uint8_t* dst, const uint8_t* src, int64_t length) {
@@ -52,13 +49,13 @@ void KeyEncoder::EncoderBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_
       });
 }
 
-uint32_t KeyEncoder::EncoderBinaryPair::DecodeHelper_avx2(
+uint32_t EncoderBinaryPair::DecodeHelper_avx2(
     bool is_row_fixed_length, uint32_t col_width, uint32_t start_row, uint32_t num_rows,
-    uint32_t offset_within_row, const KeyRowArray& rows, KeyColumnArray* col1,
+    uint32_t offset_within_row, const RowTableImpl& rows, KeyColumnArray* col1,
     KeyColumnArray* col2) {
   using DecodeImp_avx2_t =
       uint32_t (*)(uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
-                   const KeyRowArray& rows, KeyColumnArray* col1, KeyColumnArray* col2);
+                   const RowTableImpl& rows, KeyColumnArray* col1, KeyColumnArray* col2);
   static const DecodeImp_avx2_t DecodeImp_avx2_fn[] = {
       DecodeImp_avx2<false, 1>, DecodeImp_avx2<false, 2>, DecodeImp_avx2<false, 4>,
       DecodeImp_avx2<false, 8>, DecodeImp_avx2<true, 1>,  DecodeImp_avx2<true, 2>,
@@ -70,9 +67,10 @@ uint32_t KeyEncoder::EncoderBinaryPair::DecodeHelper_avx2(
 }
 
 template <bool is_row_fixed_length, uint32_t col_width>
-uint32_t KeyEncoder::EncoderBinaryPair::DecodeImp_avx2(
-    uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
-    const KeyRowArray& rows, KeyColumnArray* col1, KeyColumnArray* col2) {
+uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
+                                           uint32_t offset_within_row,
+                                           const RowTableImpl& rows, KeyColumnArray* col1,
+                                           KeyColumnArray* col2) {
   ARROW_DCHECK(col_width == 1 || col_width == 2 || col_width == 4 || col_width == 8);
 
   uint8_t* col_vals_A = col1->mutable_data(1);
@@ -207,11 +205,9 @@ uint32_t KeyEncoder::EncoderBinaryPair::DecodeImp_avx2(
   return num_processed;
 }
 
-void KeyEncoder::EncoderVarBinary::DecodeHelper_avx2(uint32_t start_row,
-                                                     uint32_t num_rows,
-                                                     uint32_t varbinary_col_id,
-                                                     const KeyRowArray& rows,
-                                                     KeyColumnArray* col) {
+void EncoderVarBinary::DecodeHelper_avx2(uint32_t start_row, uint32_t num_rows,
+                                         uint32_t varbinary_col_id,
+                                         const RowTableImpl& rows, KeyColumnArray* col) {
   if (varbinary_col_id == 0) {
     DecodeImp_avx2<true>(start_row, num_rows, varbinary_col_id, rows, col);
   } else {
@@ -220,10 +216,9 @@ void KeyEncoder::EncoderVarBinary::DecodeHelper_avx2(uint32_t start_row,
 }
 
 template <bool first_varbinary_col>
-void KeyEncoder::EncoderVarBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
-                                                  uint32_t varbinary_col_id,
-                                                  const KeyRowArray& rows,
-                                                  KeyColumnArray* col) {
+void EncoderVarBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
+                                      uint32_t varbinary_col_id, const RowTableImpl& rows,
+                                      KeyColumnArray* col) {
   DecodeHelper<first_varbinary_col>(
       start_row, num_rows, varbinary_col_id, &rows, nullptr, col, col,
       [](uint8_t* dst, const uint8_t* src, int64_t length) {

@@ -21,7 +21,9 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/type.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
 
 /// This file contains lightweight containers for Arrow buffers.  These containers
@@ -30,6 +32,18 @@
 
 namespace arrow {
 namespace compute {
+
+/// \brief Context needed by various execution engine operations
+///
+/// In the execution engine this context is provided by either the node or the
+/// plan and the context exists for the lifetime of the plan.  Defining this here
+/// allows us to take advantage of these resources without coupling the logic with
+/// the execution engine.
+struct LightContext {
+  bool has_avx2() const { return (hardware_flags & arrow::internal::CpuInfo::AVX2) > 0; }
+  int64_t hardware_flags;
+  util::TempVectorStack* stack;
+};
 
 /// \brief Description of the layout of a "key" column
 ///

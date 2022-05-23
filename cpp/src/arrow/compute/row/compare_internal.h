@@ -19,8 +19,10 @@
 
 #include <cstdint>
 
-#include "arrow/compute/exec/key_encode.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/light_array.h"
+#include "arrow/compute/row/encode_internal.h"
+#include "arrow/compute/row/row_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -33,45 +35,48 @@ class KeyCompare {
   // Returns a single 16-bit selection vector of rows that failed comparison.
   // If there is input selection on the left, the resulting selection is a filtered image
   // of input selection.
-  static void CompareColumnsToRows(
-      uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
-      const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-      uint32_t* out_num_rows, uint16_t* out_sel_left_maybe_same,
-      const std::vector<KeyColumnArray>& cols, const KeyEncoder::KeyRowArray& rows);
+  static void CompareColumnsToRows(uint32_t num_rows_to_compare,
+                                   const uint16_t* sel_left_maybe_null,
+                                   const uint32_t* left_to_right_map, LightContext* ctx,
+                                   uint32_t* out_num_rows,
+                                   uint16_t* out_sel_left_maybe_same,
+                                   const std::vector<KeyColumnArray>& cols,
+                                   const RowTableImpl& rows);
 
  private:
   template <bool use_selection>
   static void NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_compare,
                                     const uint16_t* sel_left_maybe_null,
-                                    const uint32_t* left_to_right_map,
-                                    KeyEncoder::KeyEncoderContext* ctx,
-                                    const KeyColumnArray& col,
-                                    const KeyEncoder::KeyRowArray& rows,
+                                    const uint32_t* left_to_right_map, LightContext* ctx,
+                                    const KeyColumnArray& col, const RowTableImpl& rows,
                                     uint8_t* match_bytevector);
 
   template <bool use_selection, class COMPARE_FN>
   static void CompareBinaryColumnToRowHelper(
       uint32_t offset_within_row, uint32_t first_row_to_compare,
       uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
-      const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-      const KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
-      uint8_t* match_bytevector, COMPARE_FN compare_fn);
+      const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
+      const RowTableImpl& rows, uint8_t* match_bytevector, COMPARE_FN compare_fn);
 
   template <bool use_selection>
-  static void CompareBinaryColumnToRow(
-      uint32_t offset_within_row, uint32_t num_rows_to_compare,
-      const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-      KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-      const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector);
+  static void CompareBinaryColumnToRow(uint32_t offset_within_row,
+                                       uint32_t num_rows_to_compare,
+                                       const uint16_t* sel_left_maybe_null,
+                                       const uint32_t* left_to_right_map,
+                                       LightContext* ctx, const KeyColumnArray& col,
+                                       const RowTableImpl& rows,
+                                       uint8_t* match_bytevector);
 
   template <bool use_selection, bool is_first_varbinary_col>
-  static void CompareVarBinaryColumnToRow(
-      uint32_t id_varlen_col, uint32_t num_rows_to_compare,
-      const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-      KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-      const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector);
+  static void CompareVarBinaryColumnToRow(uint32_t id_varlen_col,
+                                          uint32_t num_rows_to_compare,
+                                          const uint16_t* sel_left_maybe_null,
+                                          const uint32_t* left_to_right_map,
+                                          LightContext* ctx, const KeyColumnArray& col,
+                                          const RowTableImpl& rows,
+                                          uint8_t* match_bytevector);
 
-  static void AndByteVectors(KeyEncoder::KeyEncoderContext* ctx, uint32_t num_elements,
+  static void AndByteVectors(LightContext* ctx, uint32_t num_elements,
                              uint8_t* bytevector_A, const uint8_t* bytevector_B);
 
 #if defined(ARROW_HAVE_AVX2)
@@ -79,53 +84,52 @@ class KeyCompare {
   template <bool use_selection>
   static uint32_t NullUpdateColumnToRowImp_avx2(
       uint32_t id_col, uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
-      const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-      const KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
-      uint8_t* match_bytevector);
+      const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
+      const RowTableImpl& rows, uint8_t* match_bytevector);
 
   template <bool use_selection, class COMPARE8_FN>
   static uint32_t CompareBinaryColumnToRowHelper_avx2(
       uint32_t offset_within_row, uint32_t num_rows_to_compare,
       const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-      KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-      const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector,
-      COMPARE8_FN compare8_fn);
+      LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
+      uint8_t* match_bytevector, COMPARE8_FN compare8_fn);
 
   template <bool use_selection>
   static uint32_t CompareBinaryColumnToRowImp_avx2(
       uint32_t offset_within_row, uint32_t num_rows_to_compare,
       const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-      KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-      const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector);
+      LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
+      uint8_t* match_bytevector);
 
   template <bool use_selection, bool is_first_varbinary_col>
   static void CompareVarBinaryColumnToRowImp_avx2(
       uint32_t id_varlen_col, uint32_t num_rows_to_compare,
       const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-      KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-      const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector);
+      LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
+      uint8_t* match_bytevector);
 
   static uint32_t AndByteVectors_avx2(uint32_t num_elements, uint8_t* bytevector_A,
                                       const uint8_t* bytevector_B);
 
-  static uint32_t NullUpdateColumnToRow_avx2(
-      bool use_selection, uint32_t id_col, uint32_t num_rows_to_compare,
-      const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-      KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-      const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector);
+  static uint32_t NullUpdateColumnToRow_avx2(bool use_selection, uint32_t id_col,
+                                             uint32_t num_rows_to_compare,
+                                             const uint16_t* sel_left_maybe_null,
+                                             const uint32_t* left_to_right_map,
+                                             LightContext* ctx, const KeyColumnArray& col,
+                                             const RowTableImpl& rows,
+                                             uint8_t* match_bytevector);
 
   static uint32_t CompareBinaryColumnToRow_avx2(
       bool use_selection, uint32_t offset_within_row, uint32_t num_rows_to_compare,
       const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-      KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-      const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector);
+      LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
+      uint8_t* match_bytevector);
 
   static void CompareVarBinaryColumnToRow_avx2(
       bool use_selection, bool is_first_varbinary_col, uint32_t id_varlen_col,
       uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
-      const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-      const KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
-      uint8_t* match_bytevector);
+      const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
+      const RowTableImpl& rows, uint8_t* match_bytevector);
 
 #endif
 };

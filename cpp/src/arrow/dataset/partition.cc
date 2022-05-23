@@ -26,11 +26,11 @@
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/builder_dict.h"
-#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/row/grouper.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
@@ -141,14 +141,13 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
     key_batch.values.emplace_back(batch->column_data(i));
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto grouper,
-                        compute::internal::Grouper::Make(key_batch.GetDescriptors()));
+  ARROW_ASSIGN_OR_RAISE(auto grouper, compute::Grouper::Make(key_batch.GetDescriptors()));
 
   ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
   auto ids = id_batch.array_as<UInt32Array>();
-  ARROW_ASSIGN_OR_RAISE(auto groupings, compute::internal::Grouper::MakeGroupings(
-                                            *ids, grouper->num_groups()));
+  ARROW_ASSIGN_OR_RAISE(auto groupings,
+                        compute::Grouper::MakeGroupings(*ids, grouper->num_groups()));
 
   ARROW_ASSIGN_OR_RAISE(auto uniques, grouper->GetUniques());
   ArrayVector unique_arrays(num_keys);
