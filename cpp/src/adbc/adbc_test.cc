@@ -20,6 +20,7 @@
 
 #include "adbc/adbc.h"
 #include "adbc/adbc_driver_manager.h"
+#include "adbc/test_sqlite_internal.h"
 #include "adbc/test_util.h"
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
@@ -29,14 +30,6 @@
 namespace adbc {
 
 using arrow::PointeesEqual;
-
-void InitSqlite(AdbcDriver* driver) {
-  size_t initialized = 0;
-  ADBC_ASSERT_OK(
-      AdbcLoadDriver("Driver=libadbc_driver_sqlite.so;Entrypoint=AdbcSqliteDriverInit",
-                     ADBC_VERSION_0_0_1, driver, &initialized));
-  ASSERT_EQ(initialized, ADBC_VERSION_0_0_1);
-}
 
 TEST(Adbc, Basics) {
   AdbcDatabase database;

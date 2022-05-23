@@ -64,8 +64,49 @@ AdbcStatusCode ConnectionSqlPrepare(struct AdbcConnection*, const char*, size_t,
 void AdbcErrorRelease(struct AdbcError* error) {
   if (!error->message) return;
   // TODO: assert
-  auto* release = reinterpret_cast<decltype(&AdbcErrorRelease)>(error->manager_data);
-  release(error);
+  error->private_driver->ErrorRelease(error);
+}
+
+AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
+                                struct AdbcDatabase* out, struct AdbcError* error) {
+  if (!options->driver) {
+    // TODO: set error
+    return ADBC_STATUS_INVALID_ARGUMENT;
+  }
+  auto status = options->driver->DatabaseInit(options, out, error);
+  out->private_driver = options->driver;
+  return status;
+}
+
+AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
+                                   struct AdbcError* error) {
+  if (!database->private_driver) {
+    return ADBC_STATUS_UNINITIALIZED;
+  }
+  auto status = database->private_driver->DatabaseRelease(database, error);
+  database->private_driver = nullptr;
+  return status;
+}
+
+AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
+                                  struct AdbcConnection* out, struct AdbcError* error) {
+  if (!options->database->private_driver) {
+    // TODO: set error
+    return ADBC_STATUS_INVALID_ARGUMENT;
+  }
+  auto status = options->database->private_driver->ConnectionInit(options, out, error);
+  out->private_driver = options->database->private_driver;
+  return status;
+}
+
+AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
+                                     struct AdbcError* error) {
+  if (!connection->private_driver) {
+    return ADBC_STATUS_UNINITIALIZED;
+  }
+  auto status = connection->private_driver->ConnectionRelease(connection, error);
+  connection->private_driver = nullptr;
+  return status;
 }
 
 const char* AdbcStatusCodeMessage(AdbcStatusCode code) {

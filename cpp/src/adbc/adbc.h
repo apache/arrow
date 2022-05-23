@@ -41,6 +41,10 @@ extern "C" {
 /// Except where noted, objects are not thread-safe and clients should
 /// take care to serialize accesses to methods.
 
+// Forward declarations
+struct AdbcDriver;
+struct AdbcStatement;
+
 /// \defgroup adbc-error-handling Error handling primitives.
 /// ADBC uses integer error codes to signal errors. To provide more
 /// detail about errors, functions may also return an AdbcError via an
@@ -73,11 +77,14 @@ struct AdbcError {
   /// \brief The error message.
   char* message;
 
-  /// \brief Opaque driver manager-defined state.
-  /// This field is NULLPTR if the error is unintialized/freed (but it
-  /// need not have a value even if the error is initialized). This
-  /// field is meant for the driver manager's use, not the driver's.
-  void* manager_data;
+  /// \brief The associated driver (used by the driver manager to help
+  ///   track state).
+  AdbcDriver* private_driver;
+
+  // TODO: go back to just inlining 'release' here? And remove the
+  // global AdbcErrorRelease? It would be slightly inconsistent (and
+  // would make the struct impossible to extend) but would be easier
+  // to manage between the driver manager and driver.
 };
 
 /// \brief Destroy an error message.
@@ -87,10 +94,6 @@ void AdbcErrorRelease(struct AdbcError* error);
 const char* AdbcStatusCodeMessage(AdbcStatusCode code);
 
 /// }@
-
-// Forward declarations
-struct AdbcDriver;
-struct AdbcStatement;
 
 /// \defgroup adbc-database Database initialization.
 /// Clients first initialize a database, then connect to the database
@@ -107,6 +110,10 @@ struct AdbcDatabaseOptions {
   /// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
   const char* target;
   size_t target_length;
+
+  /// \brief The associated driver. Required if using the driver
+  ///   manager; not required if directly calling into a driver.
+  AdbcDriver* driver;
 };
 
 /// \brief An instance of a database.
@@ -116,6 +123,9 @@ struct AdbcDatabase {
   /// \brief Opaque implementation-defined state.
   /// This field is NULLPTR iff the connection is unintialized/freed.
   void* private_data;
+  /// \brief The associated driver (used by the driver manager to help
+  ///   track state).
+  AdbcDriver* private_driver;
 };
 
 /// \brief Initialize a new database.
@@ -157,6 +167,9 @@ struct AdbcConnection {
   /// \brief Opaque implementation-defined state.
   /// This field is NULLPTR iff the connection is unintialized/freed.
   void* private_data;
+  /// \brief The associated driver (used by the driver manager to help
+  ///   track state).
+  AdbcDriver* private_driver;
 };
 
 /// \brief Create a new connection to a database.
@@ -457,6 +470,7 @@ struct AdbcDriver {
   /// This field is NULLPTR if the driver is unintialized/freed (but
   /// it need not have a value even if the driver is initialized).
   void* private_data;
+  // TODO: DriverRelease
 
   void (*ErrorRelease)(struct AdbcError*);
   const char* (*StatusCodeMessage)(AdbcStatusCode);

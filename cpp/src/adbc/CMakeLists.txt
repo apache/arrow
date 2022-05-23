@@ -53,6 +53,8 @@ endif()
 add_arrow_test(adbc_test
                SOURCES
                adbc_test.cc
+               adbc_driver_manager_test.cc
+               test_sqlite_internal.cc
                EXTRA_LINK_LIBS
                ${ADBC_TEST_LINK_LIBS}
                PREFIX
