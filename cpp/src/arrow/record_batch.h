@@ -244,7 +244,9 @@ class ARROW_EXPORT RecordBatchReader {
   }
 
   /// \brief finalize reader
-  virtual Status Close() = 0;
+  virtual Status Close() {
+    return Status::OK();
+  };
 
   class RecordBatchReaderIterator {
    public:
