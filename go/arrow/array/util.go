@@ -36,6 +36,7 @@ func min(a, b int) int {
 type fromJSONCfg struct {
 	multiDocument bool
 	startOffset   int64
+	useNumber     bool
 }
 
 type FromJSONOption func(*fromJSONCfg)
@@ -54,6 +55,16 @@ func WithMultipleDocs() FromJSONOption {
 func WithStartOffset(off int64) FromJSONOption {
 	return func(c *fromJSONCfg) {
 		c.startOffset = off
+	}
+}
+
+// WithUseNumber enables the 'UseNumber' option on the json decoder, using
+// the json.Number type instead of assuming float64 for numbers. This is critical
+// if you have numbers that are larger than what can fit into the 53 bits of
+// an IEEE float64 mantissa and want to preserve its value.
+func WithUseNumber() FromJSONOption {
+	return func(c *fromJSONCfg) {
+		c.useNumber = true
 	}
 }
 
@@ -131,6 +142,10 @@ func FromJSON(mem memory.Allocator, dt arrow.DataType, r io.Reader, opts ...From
 			err = fmt.Errorf("failed parsing json: %w", io.ErrUnexpectedEOF)
 		}
 	}()
+
+	if cfg.useNumber {
+		dec.UseNumber()
+	}
 
 	if !cfg.multiDocument {
 		t, err := dec.Token()
