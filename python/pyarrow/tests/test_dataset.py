@@ -2495,11 +2495,11 @@ def s3_example_simple(s3_server):
     host, port, access_key, secret_key = s3_server['connection']
     uri = (
         "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
+        "&allow_create_buckets=True"
         .format(access_key, secret_key, host, port)
     )
 
     fs, path = FileSystem.from_uri(uri)
-    fs.allow_create_buckets = True
 
     fs.create_dir("mybucket")
     table = pa.table({'a': [1, 2, 3]})
