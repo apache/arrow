@@ -343,6 +343,7 @@ void AdbcErrorRelease(struct AdbcError* error) {
   error->message = nullptr;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
                                 struct AdbcDatabase* out, struct AdbcError* error) {
   std::unordered_map<std::string, std::string> option_pairs;
@@ -380,6 +381,7 @@ AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
   return ADBC_STATUS_OK;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
                                    struct AdbcError* error) {
   if (!database->private_data) return ADBC_STATUS_UNINITIALIZED;
@@ -391,6 +393,7 @@ AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
   return status;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection* connection,
                                                       const uint8_t* serialized_partition,
                                                       size_t serialized_length,
@@ -403,6 +406,7 @@ AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection* con
                                           statement, error);
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
                                            struct AdbcStatement* statement,
                                            struct AdbcError* error) {
@@ -412,6 +416,7 @@ AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
   return (*ptr)->GetTableTypes(statement, error);
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
                                   struct AdbcConnection* out, struct AdbcError* error) {
   if (!options->database || !options->database->private_data) {
@@ -425,6 +430,7 @@ AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
   return ADBC_STATUS_OK;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
                                      struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
@@ -436,6 +442,7 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
   return status;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
                                         const char* query, size_t query_length,
                                         struct AdbcStatement* out,
@@ -446,6 +453,7 @@ AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
   return (*ptr)->SqlExecute(query, query_length, out, error);
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
                                              uint8_t* partition_desc,
                                              struct AdbcError* error) {
@@ -455,6 +463,7 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
   return (*ptr)->GetPartitionDesc(partition_desc, error);
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
                                                  size_t* length,
                                                  struct AdbcError* error) {
@@ -464,6 +473,7 @@ AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement
   return (*ptr)->GetPartitionDescSize(length, error);
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
                                       struct ArrowArrayStream* out,
                                       struct AdbcError* error) {
@@ -473,6 +483,7 @@ AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
   return (*ptr)->GetStream(*ptr, out, error);
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
                                  struct AdbcStatement* statement,
                                  struct AdbcError* error) {
@@ -481,6 +492,7 @@ AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
   return ADBC_STATUS_OK;
 }
 
+ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
                                     struct AdbcError* error) {
   if (!statement->private_data) return ADBC_STATUS_UNINITIALIZED;
