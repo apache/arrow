@@ -35,7 +35,7 @@ test_that("union_all", {
   expect_equal(
     test_table %>%
       union_all(test_table$Slice(0, 0)) %>%
-      collect(test_table, as_data_frame = FALSE),
+      compute(),
     test_table
   )
 
@@ -61,7 +61,7 @@ test_that("union", {
   expect_equal(
     test_table %>%
       dplyr::union(test_table$Slice(0, 0)) %>%
-      collect(test_table, as_data_frame = FALSE),
+      compute(),
     test_table
   )
 
