@@ -241,18 +241,15 @@ on:
       rm -f apache-arrow.rb.bak
 {% endmacro %}
 
-{%- macro test_r_src_pkg(is_upstream) -%}
+{%- macro test_r_src_pkg() -%}
   source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
   
-  if ({{(not is_upstream)|upper}}) {
-    tools::write_PACKAGES("repo/src/contrib", type = "source")
-  }
-
   install.packages(
     "arrow",
     repos = c(getOption("arrow.dev_repo"), "https://cloud.r-project.org"),
     verbose = TRUE
   )
+  
   library(arrow)
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
 
@@ -260,35 +257,39 @@ on:
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
 {% endmacro %}
 
-{%- macro setup_local_r_repo(upstream, os) -%}
+{%- macro setup_local_r_repo(is_fork, os, get_bin = 'true') -%}
   - name: Setup local repo
-    if: !{{ upstream }}
+    if: {{ is_fork }}
     shell: bash
     run: mkdir repo 
   - name: Get windows binary
-    if: !{{ upstream }} && ('{{ os }}' == 'windows-latest')
+    if: {{ '${{' }} {{ is_fork }} && ({{ os }} == 'windows-latest') && {{ get_bin }} {{ '}}' }}
     uses: actions/download-artifact@v3
     with:
       name: r-windows-libarrow
       path: repo/libarrow/bin/windows
   - name: Get ubuntu binary
-    if: !{{ upstream }} && ('{{ os }}' != 'windows-latest')
-    uses: actions/download-artifact@v
+    if: {{ '${{' }} {{ is_fork }} && ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
+    uses: actions/download-artifact@v3
     with:
       name: r-ubuntu-libarrow
       path: repo/libarrow/bin/ubuntu-18.04
   - name: Get centos binary
-    if: !{{ upstream }} && ('{{ os }}' != 'windows-latest')
-    uses: actions/download-artifact@v
+    if: {{ '${{' }} {{ is_fork }} && ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
+    uses: actions/download-artifact@v3
     with:
       name: r-centos-libarrow
       path: repo/libarrow/bin/centos-7
   - name: Get src pkg
-    if: !{{ upstream }}
+    if: {{ is_fork }}
     uses: actions/download-artifact@v3
     with:
       name: r-src-pkg
       path: repo/src/contrib
+  - name: Update repo index
+    shell: Rscript {0}
+    run: |
+      tools::write_PACKAGES("{{ '${{ github.workspace }}' }}/repo/src/contrib", type = "source")
   - run: ls -R repo
-    if: !{{ upstream }}
+    if: {{ is_fork }}
 {% endmacro %}

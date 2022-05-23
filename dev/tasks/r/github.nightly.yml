@@ -28,17 +28,18 @@
 # We need this as boolean and string
 {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
 # use filter to cast to string and convert to lowercase to match yaml boolean
+{% set is_fork = (not is_upstream_b)|lower %}
 {% set is_upstream = is_upstream_b|lower %}
-{% set upload_pkg = 'env.UPLOAD_PKG && success() && ' + is_upstream %}
-{% set upload_libarrow = 'env.UPLOAD_LIBARROW && success() && ' + is_upstream %}
+{% set upload_pkg = "env.UPLOAD_PKG == 'true' && success() && " + is_upstream %}
+{% set upload_libarrow = "env.UPLOAD_LIBARROW == 'true' && success() && " + is_upstream %}
 
 {{ macros.github_header() }}
 
 env:
   # prevent upload of R packages or libarrow binaries via param (e.g. for release)
-  # crossbow submit --param upload_pkg=false --param upload_libarrow=false r-nightly-packages
-  UPLOAD_PKG: {{ upload_pkg|default("true") }}
-  UPLOAD_LIBARROW: {{ upload_libarrow|default("true")}}
+  # crossbow submit --param upload_pkgs=false --param upload_libs=false r-nightly-packages
+  UPLOAD_PKG: {{ upload_pkgs|default("true") }}
+  UPLOAD_LIBARROW: {{ upload_libs|default("true")}}
   
 jobs:
   source:
@@ -70,7 +71,7 @@ jobs:
           R CMD build --no-build-vignettes .
 
       - name: Install davfs2 & Mount Repository
-        if: {{ upload_pkg }}
+        if: {{ '${{ ' + upload_pkg + ' }}' }}
         run: | 
           sudo apt update && sudo apt install davfs2
 
@@ -84,7 +85,7 @@ jobs:
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Upload Source Package
-        if: {{upload_pkg }}
+        if: {{ '${{ ' + upload_pkg + ' }}' }}
         shell: bash
         run: | 
           # ensure repo structure is set up, this job is the fastest and should fix any issue before the other jobs try
@@ -103,7 +104,7 @@ jobs:
         {% endfor %}
             sudo cp arrow/r/arrow_*.tar.gz {{ r_root }}/src/contrib
       - name: Update Repository Index
-        if: {{ upload_pkg }}
+        if: {{ '${{ ' + upload_pkg + ' }}' }}
         shell: sudo Rscript {0}
         run: |
           if(file.exists("{{ r_root }}/src/contrib/PACKAGES")) {
@@ -114,7 +115,7 @@ jobs:
 
       - name: Unmount Repository
         # ensures all changes are written
-        if: {{ upload_pkg}}
+        if: {{ '${{ ' + upload_pkg + ' }}' }}
         shell: bash
         run: sudo umount nightly
 
@@ -157,7 +158,7 @@ jobs:
           sudo -E zip -r $PKG_FILE lib/ include/
       
       - name: Upload libarrow
-        if: {{ upload_libarrow }}
+        if: {{ '${{ ' + upload_libarrow + ' }}' }}
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
@@ -196,7 +197,7 @@ jobs:
         run: arrow/ci/scripts/r_windows_build.sh
 
       - name: Upload Binary
-        if: {{ upload_libarrow }}
+        if: {{ '${{ ' + upload_libarrow + ' }}' }}
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
@@ -235,7 +236,7 @@ jobs:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
           Ncpus: 2
-      {{ macros.setup_local_r_repo(is_upstream, 'matrix.platform')|indent }}
+      {{ macros.setup_local_r_repo(is_fork, 'matrix.platform')|indent }}
       - name: Build Binary
         shell: Rscript {0}
         run: |
@@ -251,9 +252,12 @@ jobs:
           dev_repo <- "{{ repo_domain }}"
 
           # Setup local repo
-          if ({{(not is_upstream_b)|upper}}) {
-            tools::write_PACKAGES("repo/src/contrib", type = "source")
-            dev_repo <- "file://{{ '${{ github.workspace }}' }}/repo"
+          if ({{is_fork|upper}}) {
+            dev_repo <- paste0(
+              ifelse(on_windows, "file:", "file://"),
+              "{{ '${{ github.workspace }}' }}",
+              ifelse(on_windows, "\\", "/"),
+              "repo")
           }
           options(arrow.dev_repo = dev_repo)
           
@@ -277,7 +281,7 @@ jobs:
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
       - name: Upload package
-        if: {{ upload_pkg }}
+        if: {{ '${{ ' + upload_pkg + ' }}' }}
         shell: bash
         env:
           USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
@@ -327,9 +331,9 @@ jobs:
 
           # Add R-devel to PATH
           echo "/opt/R-devel/bin" >> $GITHUB_PATH
-      {{ macros.setup_local_r_repo(is_upstream, 'ubuntu-latest')|indent }}
+      {{ macros.setup_local_r_repo(is_fork, "'ubuntu-latest'")|indent }}
       - name: Set dev repo
-        if: !{{ is_upstream }}
+        if: {{ is_fork }}
         shell: bash
         run: |
           echo 'options(arrow.dev_repo = "file://{{ '${{ github.workspace }}' }}/repo")' >> ~/.Rprofile
@@ -339,7 +343,7 @@ jobs:
           LIBARROW_BINARY: "TRUE"
         shell: Rscript {0}
         run: |
-          {{  macros.test_r_src_pkg(is_upstream_b)|indent(8) }}
+          {{  macros.test_r_src_pkg()|indent(8) }}
 
   test-source:
     if: true && !cancelled()
@@ -351,9 +355,9 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           install-r: false
-      {{ macros.setup_local_r_repo(is_upstream, 'ubuntu-latest')|indent }}
+      {{ macros.setup_local_r_repo(is_fork, "'ubuntu-latest'", 'false')|indent }}
       - name: Set dev repo
-        if: !{{ is_upstream }}
+        if: {{ is_fork }}
         shell: bash
         run: |
           echo 'options(arrow.dev_repo = "file://{{ '${{ github.workspace }}' }}/repo")' >> ~/.Rprofile
@@ -363,7 +367,7 @@ jobs:
           LIBARROW_BINARY: "FALSE"
         shell: Rscript {0}
         run: |
-          {{ macros.test_r_src_pkg(is_upstream_b)|indent(8) }}
+          {{ macros.test_r_src_pkg()|indent(8) }}
 
       - name: Retry with verbosity if that failed
         if: failure()
@@ -371,11 +375,11 @@ jobs:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
         run: |
-          {{ macros.test_r_src_pkg(is_upstream_b)|indent(8) }}
+          {{ macros.test_r_src_pkg()|indent(8) }}
 
   update-repo:
     needs: r-packages
-    if: {{ upload_pkg }}
+    if: true && !cancelled()
     name: Update PACKAGES
     runs-on: ubuntu-latest
     steps:
@@ -385,6 +389,8 @@ jobs:
           install-r: false
 
       - name: Install davfs2 & Mount Repository
+        # We have to add this to every step because env is not availble in the job level "if"
+        if: {{ '${{ ' + upload_pkg + ' }}' }}
         run: | 
           sudo apt update && sudo apt install davfs2
 
@@ -398,6 +404,7 @@ jobs:
           sudo mount -t davfs {{ webdav_domain }} nightly -o rw
 
       - name: Update Repository Index
+        if: {{ '${{ ' + upload_pkg + ' }}' }}
         shell: sudo Rscript {0}
         run: |
           # Only keep 14 versions per os/R-version
@@ -444,3 +451,4 @@ jobs:
             prune(dir)
           }
       - run: sudo umount nightly
+        if: {{ '${{ ' + upload_pkg + ' }}' }}
