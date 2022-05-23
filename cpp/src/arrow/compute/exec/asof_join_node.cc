@@ -206,7 +206,7 @@ class InputState {
         (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.empty();
     if (have_active_batch) {
       // If we have an active batch
-      if (++latest_ref_row_ >= (row_index_t) queue_.unsync_front()->num_rows()) {
+      if (++latest_ref_row_ >= (row_index_t)queue_.unsync_front()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
@@ -599,7 +599,7 @@ class AsofJoinNode : public ExecNode {
         outputs_[0]->InputReceived(this, std::move(out_b));
       } else {
         StopProducing();
-        ErrorIfNotOk(result.status());
+	ErrorIfNotOk(result.status());
 	return;
       }
     }
