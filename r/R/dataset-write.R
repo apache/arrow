@@ -206,16 +206,8 @@ write_dataset <- function(dataset,
   validate_positive_int_value(min_rows_per_group)
   validate_positive_int_value(max_rows_per_group)
 
-  # Collect metadata and trim R metadata based on columns in result
-  # (Move this into plan$Write?)
-  source_schema <- final_node$extras$source_schema
-  # For backwards compatibility with Scanner-based writer (arrow <= 7.0.0):
-  # retain metadata from source dataset
-  out_metadata <- source_schema$metadata
-  out_metadata$r <- get_r_metadata_from_old_schema(output_schema, source_schema)
-
   plan$Write(
-    final_node, prepare_key_value_metadata(out_metadata),
+    final_node,
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,

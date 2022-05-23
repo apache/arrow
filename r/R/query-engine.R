@@ -208,15 +208,11 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      old_schema <- node$extras$source_schema
-      old_meta <- old_schema$metadata
-      # Apply any column metadata from the original schema, where appropriate
-      old_meta$r <- get_r_metadata_from_old_schema(node$schema, old_schema)
       out <- ExecPlan_run(
         self,
         node,
         sorting,
-        prepare_key_value_metadata(old_meta),
+        prepare_key_value_metadata(node$final_metadata()),
         select_k
       )
 
@@ -225,6 +221,7 @@ ExecPlan <- R6Class("ExecPlan",
         # essentially taking a random slice from somewhere in the dataset.
         # And since the head() implementation is way more efficient than tail(),
         # just use it to take the random slice
+        # TODO(ARROW-16628): handle limit in ExecNode
         slice_size <- node$extras$head %||% node$extras$tail
         if (!is.null(slice_size)) {
           out <- head(out, slice_size)
@@ -232,6 +229,7 @@ ExecPlan <- R6Class("ExecPlan",
         # Can we now tell `self$Stop()` to StopProducing? We already have
         # everything we need for the head (but it seems to segfault: ARROW-14329)
       } else if (!is.null(node$extras$tail)) {
+        # TODO(ARROW-16630): proper BottomK support
         # Reverse the row order to get back what we expect
         out <- out$read_table()
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
@@ -242,6 +240,7 @@ ExecPlan <- R6Class("ExecPlan",
       # If arrange() created $temp_columns, make sure to omit them from the result
       # We can't currently handle this in ExecPlan_run itself because sorting
       # happens in the end (SinkNode) so nothing comes after it.
+      # TODO(ARROW-16631): move into ExecPlan
       if (length(node$extras$sort$temp_columns) > 0) {
         tab <- out$read_table()
         tab <- tab[, setdiff(names(tab), node$extras$sort$temp_columns), drop = FALSE]
@@ -252,7 +251,12 @@ ExecPlan <- R6Class("ExecPlan",
     },
     Write = function(node, ...) {
       # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
-      ExecPlan_Write(self, node, ...)
+      ExecPlan_Write(
+        self,
+        node,
+        prepare_key_value_metadata(node$final_metadata()),
+        ...
+      )
     },
     Stop = function() ExecPlan_StopProducing(self)
   )
@@ -279,6 +283,14 @@ ExecNode <- R6Class("ExecNode",
     preserve_extras = function(new_node) {
       new_node$extras <- self$extras
       new_node
+    },
+    final_metadata = function() {
+      # Copy metadata from source schema and trim R column metadata to match
+      # which columns are included in the result
+      old_schema <- self$extras$source_schema
+      old_meta <- old_schema$metadata
+      old_meta$r <- get_r_metadata_from_old_schema(self$schema, old_schema)
+      old_meta
     },
     Project = function(cols) {
       if (length(cols)) {
