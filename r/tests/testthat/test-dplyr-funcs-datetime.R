@@ -2035,6 +2035,16 @@ test_that("parse_date_time with hours, minutes and seconds components", {
   )
 
   # test truncated formats
+  test_truncation_df <-  tibble(
+    truncated_ymd_string =
+      c(
+        "2022-05-19 13:46:51",
+        "2022-05-18 13:46",
+        "2022-05-17 13",
+        "2022-05-16"
+      )
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2046,16 +2056,25 @@ test_that("parse_date_time with hours, minutes and seconds components", {
           )
       ) %>%
       collect(),
-    tibble(
-      truncated_ymd_string =
-        c(
-          "2022-05-19 13:46:51",
-          "2022-05-18 13:46",
-          "2022-05-17 13",
-          "2022-05-16"
-        )
-    )
+    test_truncation_df
   )
+
+  # values for truncated greater than nchar(orders) - 3 not supported in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm =
+          parse_date_time(
+            truncated_ymd_string,
+            orders = "ymd_HMS",
+            truncated = 5
+          )
+      ) %>%
+      collect(),
+    test_truncation_df,
+    warning = "a value for `truncated` > 4 not supported in Arrow"
+  )
+
 
   # we need expect_warning twice as both the arrow pipeline (because quiet =
   # FALSE is not supported) and the fallback dplyr/lubridate one throw

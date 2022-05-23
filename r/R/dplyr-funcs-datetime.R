@@ -529,6 +529,9 @@ register_bindings_datetime_parsers <- function() {
     }
 
     if (truncated != 0) {
+      if (truncated > (nchar(orders) - 3)) {
+        arrow_not_supported(paste0("a value for `truncated` > ", nchar(orders) - 3))
+      }
       # build several orders for truncated formats
       orders <- map_chr(0:truncated, ~ substr(orders, start = 1, stop = nchar(orders) - .x))
     }
