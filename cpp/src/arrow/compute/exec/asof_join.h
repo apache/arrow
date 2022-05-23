@@ -29,7 +29,7 @@ typedef int32_t KeyType;
 
 // Maximum number of tables that can be joined
 #define MAX_JOIN_TABLES 64
-typedef uint32_t row_index_t;
+typedef uint64_t row_index_t;
 typedef int col_index_t;
 
 class AsofJoinSchema {

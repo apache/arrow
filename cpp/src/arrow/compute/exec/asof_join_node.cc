@@ -152,7 +152,7 @@ class InputState {
             schema->GetFieldIndex(time_col_name)),  // TODO: handle missing field name
         key_col_index_(schema->GetFieldIndex(key_col_name)) {}
 
-  size_t init_src_to_dst_mapping(size_t dst_offset, bool skip_time_and_key_fields) {
+  size_t init_src_to_dst_mapping(int dst_offset, bool skip_time_and_key_fields) {
     src_to_dst_.resize(schema_->num_fields());
     for (int i = 0; i < schema_->num_fields(); ++i)
       if (!(skip_time_and_key_fields && is_time_or_key_column(i)))
@@ -206,7 +206,7 @@ class InputState {
         (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.empty();
     if (have_active_batch) {
       // If we have an active batch
-      if (++latest_ref_row_ >= queue_.unsync_front()->num_rows()) {
+      if (++latest_ref_row_ >= (row_index_t) queue_.unsync_front()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
@@ -419,7 +419,7 @@ class CompositeReferenceTable {
       int n_src_cols = state.at(i_table)->get_schema()->num_fields();
       {
         for (col_index_t i_src_col = 0; i_src_col < n_src_cols; ++i_src_col) {
-          util::optional<size_t> i_dst_col_opt =
+          util::optional<col_index_t> i_dst_col_opt =
               state[i_table]->map_src_to_dst(i_src_col);
           if (!i_dst_col_opt) continue;
           col_index_t i_dst_col = *i_dst_col_opt;
@@ -481,7 +481,7 @@ class CompositeReferenceTable {
 
   template <class Builder, class PrimitiveType>
   Result<std::shared_ptr<Array>> materialize_primitive_column(size_t i_table,
-                                                              size_t i_col) {
+                                                              col_index_t i_col) {
     Builder builder;
     builder.Reserve(rows_.size());
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
@@ -599,7 +599,7 @@ class AsofJoinNode : public ExecNode {
         outputs_[0]->InputReceived(this, std::move(out_b));
       } else {
         StopProducing();
-	ErrorIfNotOk(result.status());
+        ErrorIfNotOk(result.status());
 	return;
       }
     }
@@ -791,7 +791,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
     _state.push_back(::arrow::internal::make_unique<InputState>(
         inputs[i]->output_schema(), *_options.time.name(), *_options.keys.name(),
         util::make_optional<KeyType>(0) /*TODO: make wildcard configuirable*/));
-  size_t dst_offset = 0;
+  int dst_offset = 0;
   for (auto& state : _state)
     dst_offset = state->init_src_to_dst_mapping(dst_offset, !!dst_offset);
 
