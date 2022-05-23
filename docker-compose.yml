@@ -1022,7 +1022,7 @@ services:
     environment:
       <<: *ccache
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
-      PYTEST_ARGS: ["--doctest-modules --doctest-cython"]
+      PYTEST_ARGS: "--doctest-modules --doctest-cython"
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
