@@ -77,7 +77,8 @@ using int64_for_gather_t = const long long int;  // NOLINT runtime-int
 //
 class MiniBatch {
  public:
-  static constexpr int kMiniBatchLength = 1024;
+  static constexpr int kLogMiniBatchLength = 10;
+  static constexpr int kMiniBatchLength = 1 << kLogMiniBatchLength;
 };
 
 /// Storage used to allocate temporary vectors of a batch size.
@@ -293,6 +294,52 @@ class ARROW_EXPORT ThreadIndexer {
 
   util::Mutex mutex_;
   std::unordered_map<std::thread::id, size_t> id_to_index_;
+};
+
+// Helper class to calculate the modified number of rows to process using SIMD.
+//
+// Some array elements at the end will be skipped in order to avoid buffer
+// overrun, when doing memory loads and stores using larger word size than a
+// single array element.
+//
+class TailSkipForSIMD {
+ public:
+  static int64_t FixBitAccess(int num_bytes_accessed_together, int64_t num_rows,
+                              int bit_offset) {
+    int64_t num_bytes = bit_util::BytesForBits(num_rows + bit_offset);
+    int64_t num_bytes_safe =
+        std::max(static_cast<int64_t>(0LL), num_bytes - num_bytes_accessed_together + 1);
+    int64_t num_rows_safe =
+        std::max(static_cast<int64_t>(0LL), 8 * num_bytes_safe - bit_offset);
+    return std::min(num_rows_safe, num_rows);
+  }
+  static int64_t FixBinaryAccess(int num_bytes_accessed_together, int64_t num_rows,
+                                 int64_t length) {
+    int64_t num_rows_to_skip = bit_util::CeilDiv(length, num_bytes_accessed_together);
+    int64_t num_rows_safe =
+        std::max(static_cast<int64_t>(0LL), num_rows - num_rows_to_skip);
+    return num_rows_safe;
+  }
+  static int64_t FixVarBinaryAccess(int num_bytes_accessed_together, int64_t num_rows,
+                                    const uint32_t* offsets) {
+    // Do not process rows that could read past the end of the buffer using N
+    // byte loads/stores.
+    //
+    int64_t num_rows_safe = num_rows;
+    while (num_rows_safe > 0 &&
+           offsets[num_rows_safe] + num_bytes_accessed_together > offsets[num_rows]) {
+      --num_rows_safe;
+    }
+    return num_rows_safe;
+  }
+  static int FixSelection(int64_t num_rows_safe, int num_selected,
+                          const uint16_t* selection) {
+    int num_selected_safe = num_selected;
+    while (num_selected_safe > 0 && selection[num_selected_safe] >= num_rows_safe) {
+      --num_selected_safe;
+    }
+    return num_selected_safe;
+  }
 };
 
 }  // namespace compute

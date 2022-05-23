@@ -20,9 +20,8 @@
 namespace arrow {
 namespace compute {
 
-void RowTableEncoder::Init(const std::vector<KeyColumnMetadata>& cols, LightContext* ctx,
-                           int row_alignment, int string_alignment) {
-  ctx_ = ctx;
+void RowTableEncoder::Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
+                           int string_alignment) {
   row_metadata_.FromColumnMetadataVector(cols, row_alignment, string_alignment);
   uint32_t num_cols = row_metadata_.num_cols();
   uint32_t num_varbinary_cols = row_metadata_.num_varbinary_cols();
@@ -59,18 +58,24 @@ void RowTableEncoder::PrepareKeyColumnArrays(int64_t start_row, int64_t num_rows
 void RowTableEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
                                                int64_t start_row_output, int64_t num_rows,
                                                const RowTableImpl& rows,
-                                               std::vector<KeyColumnArray>* cols) {
+                                               std::vector<KeyColumnArray>* cols,
+                                               int64_t hardware_flags,
+                                               util::TempVectorStack* temp_stack) {
   // Prepare column array vectors
   PrepareKeyColumnArrays(start_row_output, num_rows, *cols);
 
+  LightContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
+
   // Create two temp vectors with 16-bit elements
   auto temp_buffer_holder_A =
-      util::TempVectorHolder<uint16_t>(ctx_->stack, static_cast<uint32_t>(num_rows));
+      util::TempVectorHolder<uint16_t>(ctx.stack, static_cast<uint32_t>(num_rows));
   auto temp_buffer_A = KeyColumnArray(
       KeyColumnMetadata(true, sizeof(uint16_t)), num_rows, nullptr,
       reinterpret_cast<uint8_t*>(temp_buffer_holder_A.mutable_data()), nullptr);
   auto temp_buffer_holder_B =
-      util::TempVectorHolder<uint16_t>(ctx_->stack, static_cast<uint32_t>(num_rows));
+      util::TempVectorHolder<uint16_t>(ctx.stack, static_cast<uint32_t>(num_rows));
   auto temp_buffer_B = KeyColumnArray(
       KeyColumnMetadata(true, sizeof(uint16_t)), num_rows, nullptr,
       reinterpret_cast<uint8_t*>(temp_buffer_holder_B.mutable_data()), nullptr);
@@ -79,7 +84,7 @@ void RowTableEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
   if (!is_row_fixed_length) {
     EncoderOffsets::Decode(static_cast<uint32_t>(start_row_input),
                            static_cast<uint32_t>(num_rows), rows, &batch_varbinary_cols_,
-                           batch_varbinary_cols_base_offsets_, ctx_);
+                           batch_varbinary_cols_base_offsets_, &ctx);
   }
 
   // Process fixed length columns
@@ -98,13 +103,13 @@ void RowTableEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
       EncoderBinary::Decode(static_cast<uint32_t>(start_row_input),
                             static_cast<uint32_t>(num_rows),
                             row_metadata_.column_offsets[i], rows, &batch_all_cols_[i],
-                            ctx_, &temp_buffer_A);
+                            &ctx, &temp_buffer_A);
       i += 1;
     } else {
       EncoderBinaryPair::Decode(
           static_cast<uint32_t>(start_row_input), static_cast<uint32_t>(num_rows),
           row_metadata_.column_offsets[i], rows, &batch_all_cols_[i],
-          &batch_all_cols_[i + 1], ctx_, &temp_buffer_A, &temp_buffer_B);
+          &batch_all_cols_[i + 1], &ctx, &temp_buffer_A, &temp_buffer_B);
       i += 2;
     }
   }
@@ -114,13 +119,16 @@ void RowTableEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
                        static_cast<uint32_t>(num_rows), rows, &batch_all_cols_);
 }
 
-void RowTableEncoder::DecodeVaryingLengthBuffers(int64_t start_row_input,
-                                                 int64_t start_row_output,
-                                                 int64_t num_rows,
-                                                 const RowTableImpl& rows,
-                                                 std::vector<KeyColumnArray>* cols) {
+void RowTableEncoder::DecodeVaryingLengthBuffers(
+    int64_t start_row_input, int64_t start_row_output, int64_t num_rows,
+    const RowTableImpl& rows, std::vector<KeyColumnArray>* cols, int64_t hardware_flags,
+    util::TempVectorStack* temp_stack) {
   // Prepare column array vectors
   PrepareKeyColumnArrays(start_row_output, num_rows, *cols);
+
+  LightContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
 
   bool is_row_fixed_length = row_metadata_.is_fixed_length;
   if (!is_row_fixed_length) {
@@ -129,7 +137,7 @@ void RowTableEncoder::DecodeVaryingLengthBuffers(int64_t start_row_input,
       // positions in the output row buffer.
       EncoderVarBinary::Decode(static_cast<uint32_t>(start_row_input),
                                static_cast<uint32_t>(num_rows), static_cast<uint32_t>(i),
-                               rows, &batch_varbinary_cols_[i], ctx_);
+                               rows, &batch_varbinary_cols_[i], &ctx);
     }
   }
 }
@@ -876,6 +884,70 @@ void EncoderNulls::EncodeSelected(RowTableImpl* rows,
       }
     }
   }
+}
+
+int RowTableAccessor::VarbinaryColumnId(const RowTableMetadata& row_metadata,
+                                        int column_id) {
+  ARROW_DCHECK(row_metadata.num_cols() > static_cast<uint32_t>(column_id));
+  ARROW_DCHECK(!row_metadata.is_fixed_length);
+  ARROW_DCHECK(!row_metadata.column_metadatas[column_id].is_fixed_length);
+
+  int varbinary_column_id = 0;
+  for (int i = 0; i < column_id; ++i) {
+    if (!row_metadata.column_metadatas[i].is_fixed_length) {
+      ++varbinary_column_id;
+    }
+  }
+  return varbinary_column_id;
+}
+
+int RowTableAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int num_rows,
+                                    const uint32_t* row_ids, int num_tail_bytes_to_skip) {
+  uint32_t num_bytes_skipped = 0;
+  int num_rows_left = num_rows;
+
+  bool is_fixed_length_column =
+      rows.metadata().column_metadatas[column_id].is_fixed_length;
+
+  if (!is_fixed_length_column) {
+    // Varying length column
+    //
+    int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
+
+    while (num_rows_left > 0 &&
+           num_bytes_skipped < static_cast<uint32_t>(num_tail_bytes_to_skip)) {
+      // Find the pointer to the last requested row
+      //
+      uint32_t last_row_id = row_ids[num_rows_left - 1];
+      const uint8_t* row_ptr = rows.data(2) + rows.offsets()[last_row_id];
+
+      // Find the length of the requested varying length field in that row
+      //
+      uint32_t field_offset_within_row, field_length;
+      if (varbinary_column_id == 0) {
+        rows.metadata().first_varbinary_offset_and_length(
+            row_ptr, &field_offset_within_row, &field_length);
+      } else {
+        rows.metadata().nth_varbinary_offset_and_length(
+            row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
+      }
+
+      num_bytes_skipped += field_length;
+      --num_rows_left;
+    }
+  } else {
+    // Fixed length column
+    //
+    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
+    uint32_t num_bytes_skipped = 0;
+    while (num_rows_left > 0 &&
+           num_bytes_skipped < static_cast<uint32_t>(num_tail_bytes_to_skip)) {
+      num_bytes_skipped += field_length;
+      --num_rows_left;
+    }
+  }
+
+  return num_rows - num_rows_left;
 }
 
 }  // namespace compute

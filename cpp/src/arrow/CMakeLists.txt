@@ -440,6 +440,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
+       compute/row/encode.cc
        compute/row/encode_internal.cc
        compute/row/compare_internal.cc
        compute/row/grouper.cc

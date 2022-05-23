@@ -73,6 +73,7 @@ struct ARROW_EXPORT RowTableMetadata {
 
   /// Order in which fields are encoded.
   std::vector<uint32_t> column_order;
+  std::vector<uint32_t> inverse_column_order;
 
   /// Offsets within a row to fields in their encoding order.
   std::vector<uint32_t> column_offsets;
@@ -132,6 +133,8 @@ struct ARROW_EXPORT RowTableMetadata {
   }
 
   uint32_t encoded_field_order(uint32_t icol) const { return column_order[icol]; }
+
+  uint32_t pos_after_encoding(uint32_t icol) const { return inverse_column_order[icol]; }
 
   uint32_t encoded_field_offset(uint32_t icol) const { return column_offsets[icol]; }
 

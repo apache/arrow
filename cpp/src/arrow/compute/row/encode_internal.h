@@ -46,8 +46,8 @@ namespace compute {
 /// Does not support nested types
 class RowTableEncoder {
  public:
-  void Init(const std::vector<KeyColumnMetadata>& cols, LightContext* ctx,
-            int row_alignment, int string_alignment);
+  void Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
+            int string_alignment);
 
   const RowTableMetadata& row_metadata() { return row_metadata_; }
   // GrouperFastImpl right now needs somewhat intrusive visibility into RowTableEncoder
@@ -84,7 +84,8 @@ class RowTableEncoder {
   /// for the call to DecodeVaryingLengthBuffers
   void DecodeFixedLengthBuffers(int64_t start_row_input, int64_t start_row_output,
                                 int64_t num_rows, const RowTableImpl& rows,
-                                std::vector<KeyColumnArray>* cols);
+                                std::vector<KeyColumnArray>* cols, int64_t hardware_flags,
+                                util::TempVectorStack* temp_stack);
 
   /// \brief Decode the varlength columns of a row table into column storage
   /// \param start_row_input The starting row to decode
@@ -94,7 +95,9 @@ class RowTableEncoder {
   /// \param cols The column arrays to decode into
   void DecodeVaryingLengthBuffers(int64_t start_row_input, int64_t start_row_output,
                                   int64_t num_rows, const RowTableImpl& rows,
-                                  std::vector<KeyColumnArray>* cols);
+                                  std::vector<KeyColumnArray>* cols,
+                                  int64_t hardware_flags,
+                                  util::TempVectorStack* temp_stack);
 
  private:
   /// Prepare column array vectors.
@@ -106,8 +109,6 @@ class RowTableEncoder {
   /// - varying-length columns only
   void PrepareKeyColumnArrays(int64_t start_row, int64_t num_rows,
                               const std::vector<KeyColumnArray>& cols_in);
-
-  LightContext* ctx_;
 
   // Data initialized once, based on data types of key columns
   RowTableMetadata row_metadata_;
@@ -317,6 +318,149 @@ class EncoderNulls {
 
   static void Decode(uint32_t start_row, uint32_t num_rows, const RowTableImpl& rows,
                      std::vector<KeyColumnArray>* cols);
+};
+
+class RowTableAccessor {
+ public:
+  // Find the index of this varbinary column within the sequence of all
+  // varbinary columns encoded in rows.
+  //
+  static int VarbinaryColumnId(const RowTableMetadata& row_metadata, int column_id);
+
+  // Calculate how many rows to skip from the tail of the
+  // sequence of selected rows, such that the total size of skipped rows is at
+  // least equal to the size specified by the caller. Skipping of the tail rows
+  // is used to allow for faster processing by the caller of remaining rows
+  // without checking buffer bounds (useful with SIMD or fixed size memory loads
+  // and stores).
+  //
+  static int NumRowsToSkip(const RowTableImpl& rows, int column_id, int num_rows,
+                           const uint32_t* row_ids, int num_tail_bytes_to_skip);
+
+  // The supplied lambda will be called for each row in the given list of rows.
+  // The arguments given to it will be:
+  // - index of a row (within the set of selected rows),
+  // - pointer to the value,
+  // - byte length of the value.
+  //
+  // The information about nulls (validity bitmap) is not used in this call and
+  // has to be processed separately.
+  //
+  template <class PROCESS_VALUE_FN>
+  static void Visit(const RowTableImpl& rows, int column_id, int num_rows,
+                    const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
+    bool is_fixed_length_column =
+        rows.metadata().column_metadatas[column_id].is_fixed_length;
+
+    // There are 4 cases, each requiring different steps:
+    // 1. Varying length column that is the first varying length column in a row
+    // 2. Varying length column that is not the first varying length column in a
+    // row
+    // 3. Fixed length column in a fixed length row
+    // 4. Fixed length column in a varying length row
+
+    if (!is_fixed_length_column) {
+      int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
+      const uint8_t* row_ptr_base = rows.data(2);
+      const uint32_t* row_offsets = rows.offsets();
+      uint32_t field_offset_within_row, field_length;
+
+      if (varbinary_column_id == 0) {
+        // Case 1: This is the first varbinary column
+        //
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          rows.metadata().first_varbinary_offset_and_length(
+              row_ptr, &field_offset_within_row, &field_length);
+          process_value_fn(i, row_ptr + field_offset_within_row, field_length);
+        }
+      } else {
+        // Case 2: This is second or later varbinary column
+        //
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          rows.metadata().nth_varbinary_offset_and_length(
+              row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
+          process_value_fn(i, row_ptr + field_offset_within_row, field_length);
+        }
+      }
+    }
+
+    if (is_fixed_length_column) {
+      uint32_t field_offset_within_row = rows.metadata().encoded_field_offset(
+          rows.metadata().pos_after_encoding(column_id));
+      uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
+      // Bit column is encoded as a single byte
+      //
+      if (field_length == 0) {
+        field_length = 1;
+      }
+      uint32_t row_length = rows.metadata().fixed_length;
+
+      bool is_fixed_length_row = rows.metadata().is_fixed_length;
+      if (is_fixed_length_row) {
+        // Case 3: This is a fixed length column in a fixed length row
+        //
+        const uint8_t* row_ptr_base = rows.data(1) + field_offset_within_row;
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_length * row_id;
+          process_value_fn(i, row_ptr, field_length);
+        }
+      } else {
+        // Case 4: This is a fixed length column in a varying length row
+        //
+        const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
+        const uint32_t* row_offsets = rows.offsets();
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          process_value_fn(i, row_ptr, field_length);
+        }
+      }
+    }
+  }
+
+  // The supplied lambda will be called for each row in the given list of rows.
+  // The arguments given to it will be:
+  // - index of a row (within the set of selected rows),
+  // - byte 0xFF if the null is set for the row or 0x00 otherwise.
+  //
+  template <class PROCESS_VALUE_FN>
+  static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
+                         const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
+    const uint8_t* null_masks = rows.null_masks();
+    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
+    uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
+    for (int i = 0; i < num_rows; ++i) {
+      uint32_t row_id = row_ids[i];
+      int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
+      process_value_fn(i, bit_util::GetBit(null_masks, bit_id) ? 0xff : 0);
+    }
+  }
+
+ private:
+#if defined(ARROW_HAVE_AVX2)
+  // This is equivalent to Visit method, but processing 8 rows at a time in a
+  // loop.
+  // Returns the number of processed rows, which may be less than requested (up
+  // to 7 rows at the end may be skipped).
+  //
+  template <class PROCESS_8_VALUES_FN>
+  static int Visit_avx2(const RowTableImpl& rows, int column_id, int num_rows,
+                        const uint32_t* row_ids, PROCESS_8_VALUES_FN process_8_values_fn);
+
+  // This is equivalent to VisitNulls method, but processing 8 rows at a time in
+  // a loop. Returns the number of processed rows, which may be less than
+  // requested (up to 7 rows at the end may be skipped).
+  //
+  template <class PROCESS_8_VALUES_FN>
+  static int VisitNulls_avx2(const RowTableImpl& rows, int column_id, int num_rows,
+                             const uint32_t* row_ids,
+                             PROCESS_8_VALUES_FN process_8_values_fn);
+#endif
 };
 
 }  // namespace compute
