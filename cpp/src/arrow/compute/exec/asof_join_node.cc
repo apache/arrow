@@ -152,7 +152,7 @@ class InputState {
             schema->GetFieldIndex(time_col_name)),  // TODO: handle missing field name
         key_col_index_(schema->GetFieldIndex(key_col_name)) {}
 
-  size_t init_src_to_dst_mapping(int dst_offset, bool skip_time_and_key_fields) {
+  col_index_t init_src_to_dst_mapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
     src_to_dst_.resize(schema_->num_fields());
     for (int i = 0; i < schema_->num_fields(); ++i)
       if (!(skip_time_and_key_fields && is_time_or_key_column(i)))
@@ -598,7 +598,7 @@ class AsofJoinNode : public ExecNode {
         ExecBatch out_b(*out_rb);
         outputs_[0]->InputReceived(this, std::move(out_b));
       } else {
-        StopProducing();
+	StopProducing();
 	ErrorIfNotOk(result.status());
 	return;
       }
@@ -791,7 +791,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
     _state.push_back(::arrow::internal::make_unique<InputState>(
         inputs[i]->output_schema(), *_options.time.name(), *_options.keys.name(),
         util::make_optional<KeyType>(0) /*TODO: make wildcard configuirable*/));
-  int dst_offset = 0;
+  col_index_t dst_offset = 0;
   for (auto& state : _state)
     dst_offset = state->init_src_to_dst_mapping(dst_offset, !!dst_offset);
 
