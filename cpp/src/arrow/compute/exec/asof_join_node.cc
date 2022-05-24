@@ -405,15 +405,6 @@ class CompositeReferenceTable {
     size_t n_rows = rows_.size();
     if (!n_rows) return NULLPTR;
 
-    // Count output columns (dbg sanitycheck)
-    {
-      int n_out_cols = 0;
-      for (const auto& s : state) n_out_cols += s->get_schema()->num_fields();
-      n_out_cols -=
-          (state.size() - 1) * 2;  // remove column indices for key and time cols on RHS
-      assert(n_out_cols == output_schema->num_fields());
-    }
-
     // Build the arrays column-by-column from the rows
     std::vector<std::shared_ptr<arrow::Array>> arrays(output_schema->num_fields());
     for (size_t i_table = 0; i_table < n_tables_; ++i_table) {
