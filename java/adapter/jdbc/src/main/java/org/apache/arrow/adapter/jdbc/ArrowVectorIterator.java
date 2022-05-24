@@ -49,9 +49,6 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   // this is used only if reusing vector schema root is enabled.
   private VectorSchemaRoot nextBatch;
 
-  private boolean initialized = false;
-
-
   // This is used to track whether the ResultSet has been fully read, and is needed spcifically for cases where there
   // is a ResultSet having zero rows (empty):
   private boolean readComplete = false;
@@ -132,21 +129,14 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       throw new RuntimeException("Error occurred while creating schema root.", e);
     }
 
-    // ensure consumers have been initialized
-    ensureInitialized(root);
-    return root;
-  }
-
-  private void ensureInitialized(VectorSchemaRoot root) throws SQLException {
-    if (!initialized) {
-      for (int i = 1; i <= consumers.length; i++) {
-        ArrowType arrowType = config.getJdbcToArrowTypeConverter()
-                .apply(new JdbcFieldInfo(resultSet.getMetaData(), i));
-        consumers[i - 1] = JdbcToArrowUtils.getConsumer(
-                arrowType, i, isColumnNullable(resultSet, i), root.getVector(i - 1), config);
-      }
-      initialized = true;
+    // initialize consumers
+    for (int i = 1; i <= consumers.length; i++) {
+      ArrowType arrowType = config.getJdbcToArrowTypeConverter()
+              .apply(new JdbcFieldInfo(resultSet.getMetaData(), i));
+      consumers[i - 1] = JdbcToArrowUtils.getConsumer(
+              arrowType, i, isColumnNullable(resultSet, i), root.getVector(i - 1), config);
     }
+    return root;
   }
 
   // Loads the next schema root or null if no more rows are available.
