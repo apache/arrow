@@ -677,7 +677,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
 
     For a single directory from a S3 bucket:
 
-    >>> ds.dataset("s3://mybucket/nyc-taxi/", format="parquet") # doctest: +SKIP
+    >>> ds.dataset("s3://mybucket/nyc-taxi/", format="parquet")# doctest: +SKIP
 
     Opening a dataset from a list of relatives local paths:
 
@@ -701,11 +701,13 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     ...     'part1/data.parquet',
     ...     'part3/data.parquet',
     ... ]
-    >>> ds.dataset(paths, filesystem='file:///directory/prefix, format='parquet') # doctest: +SKIP
+    >>> ds.dataset(paths, filesystem='file:///directory/prefix,
+    ...            format='parquet') # doctest: +SKIP
 
     Which is equivalent with:
 
-    >>> fs = SubTreeFileSystem("/directory/prefix", LocalFileSystem()) # doctest: +SKIP
+    >>> fs = SubTreeFileSystem("/directory/prefix",
+    ...                        LocalFileSystem()) # doctest: +SKIP
     >>> ds.dataset(paths, filesystem=fs, format='parquet') # doctest: +SKIP
 
     With a remote filesystem URI:
@@ -715,7 +717,8 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     ...     'nested/directory/part1/data.parquet',
     ...     'nested/directory/part3/data.parquet',
     ... ]
-    >>> ds.dataset(paths, filesystem='s3://bucket/', format='parquet') # doctest: +SKIP
+    >>> ds.dataset(paths, filesystem='s3://bucket/',
+    ...            format='parquet') # doctest: +SKIP
 
     Similarly to the local example, the directory prefix may be included in the
     filesystem URI:

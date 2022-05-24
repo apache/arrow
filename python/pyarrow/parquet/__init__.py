@@ -2370,7 +2370,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_schema',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_v2_schema/', use_legacy_dataset=False)
+        >>> dataset = pq.ParquetDataset('dataset_v2_schema/',
+        ...                             use_legacy_dataset=False)
 
         Read the schema:
 
@@ -2415,7 +2416,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_read',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_v2_read/', use_legacy_dataset=False)
+        >>> dataset = pq.ParquetDataset('dataset_v2_read/',
+        ...                             use_legacy_dataset=False)
 
         Read the dataset:
 
@@ -2472,7 +2474,8 @@ class _ParquetDatasetV2:
         >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'table_V2.parquet')
-        >>> dataset = pq.ParquetDataset('table_V2.parquet', use_legacy_dataset=False)
+        >>> dataset = pq.ParquetDataset('table_V2.parquet',
+        ...                             use_legacy_dataset=False)
 
         Read the dataset with pandas metadata:
 
@@ -2514,7 +2517,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_fragments',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_v2_fragments/', use_legacy_dataset=False)
+        >>> dataset = pq.ParquetDataset('dataset_v2_fragments/',
+        ...                             use_legacy_dataset=False)
 
         List the fragments:
 
@@ -2541,7 +2545,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_files',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_v2_files/', use_legacy_dataset=False)
+        >>> dataset = pq.ParquetDataset('dataset_v2_files/',
+        ...                             use_legacy_dataset=False)
 
         List the files:
 

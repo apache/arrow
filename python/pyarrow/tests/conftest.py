@@ -22,6 +22,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import hypothesis as h
+from ..conftest import groups, defaults
 
 from pyarrow.util import find_free_port
 
@@ -41,9 +42,6 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 # Set this at the beginning before the AWS SDK was loaded to avoid reading in
 # user configuration values.
 os.environ['AWS_CONFIG_FILE'] = "/dev/null"
-
-
-from ..conftest import groups, defaults
 
 
 def pytest_addoption(parser):
