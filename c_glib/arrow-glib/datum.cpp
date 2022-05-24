@@ -747,13 +747,17 @@ garrow_datum_new_raw(arrow::Datum *arrow_datum)
     {
       auto arrow_scalar = arrow_datum->scalar();
       auto scalar = garrow_scalar_new_raw(&arrow_scalar);
-      return GARROW_DATUM(garrow_scalar_datum_new_raw(arrow_datum, scalar));
+      auto scalar_datum = garrow_scalar_datum_new_raw(arrow_datum, scalar);
+      g_object_unref(scalar);
+      return GARROW_DATUM(scalar_datum);
     }
   case arrow::Datum::ARRAY:
     {
       auto arrow_array = arrow_datum->make_array();
       auto array = garrow_array_new_raw(&arrow_array);
-      return GARROW_DATUM(garrow_array_datum_new_raw(arrow_datum, array));
+      auto array_datum = garrow_array_datum_new_raw(arrow_datum, array);
+      g_object_unref(array);
+      return GARROW_DATUM(array_datum);
     }
   case arrow::Datum::CHUNKED_ARRAY:
     {
@@ -761,6 +765,7 @@ garrow_datum_new_raw(arrow::Datum *arrow_datum)
       auto chunked_array = garrow_chunked_array_new_raw(&arrow_chunked_array);
       auto chunked_array_datum =
         garrow_chunked_array_datum_new_raw(arrow_datum, chunked_array);
+      g_object_unref(chunked_array);
       return GARROW_DATUM(chunked_array_datum);
     }
   case arrow::Datum::RECORD_BATCH:
@@ -769,13 +774,16 @@ garrow_datum_new_raw(arrow::Datum *arrow_datum)
       auto record_batch = garrow_record_batch_new_raw(&arrow_record_batch);
       auto record_batch_datum =
         garrow_record_batch_datum_new_raw(arrow_datum, record_batch);
+      g_object_unref(record_batch);
       return GARROW_DATUM(record_batch_datum);
     }
   case arrow::Datum::TABLE:
     {
       auto arrow_table = arrow_datum->table();
       auto table = garrow_table_new_raw(&arrow_table);
-      return GARROW_DATUM(garrow_table_datum_new_raw(arrow_datum, table));
+      auto table_datum = garrow_table_datum_new_raw(arrow_datum, table);
+      g_object_unref(table);
+      return GARROW_DATUM(table_datum);
     }
   default:
     // TODO
