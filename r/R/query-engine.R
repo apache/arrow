@@ -163,7 +163,7 @@ ExecPlan <- R6Class("ExecPlan",
         }
 
         if (!is.null(.data$union_all)) {
-          node <- node$UnionAll(self$Build(.data$union_all$right_data))
+          node <- node$Union(self$Build(.data$union_all$right_data))
         }
       }
 
@@ -327,8 +327,8 @@ ExecNode <- R6Class("ExecNode",
         )
       )
     },
-    UnionAll = function(right_node) {
-      self$preserve_sort(ExecNode_Union(self, right_node))
+    Union = function(right_node) {
+      self$preserve_extras(ExecNode_Union(self, right_node))
     }
   ),
   active = list(
