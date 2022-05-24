@@ -2043,7 +2043,15 @@ test_that("parse_date_time with hours, minutes and seconds components", {
   # test ymd_ims
   compare_dplyr_binding(
     .input %>%
-      mutate(ymd_ims_dttm = parse_date_time(ymd_ims_string, orders = "ymd_IMS")) %>%
+      mutate(
+        ymd_ims_dttm =
+          parse_date_time(
+            ymd_ims_string,
+            orders = "ymd_IMS",
+            # we add this since lubridate is chatty and will warn 1 format failed to parse
+            quiet = TRUE
+          )
+      ) %>%
       collect(),
     tibble(
      ymd_ims_string =
