@@ -1796,16 +1796,6 @@ test_that("ym, my & yq parsers", {
     qy_space = c("3 2007", "2 1970", "1 2020", "4 2009", "1 1975", NA)
   )
 
-  test_df %>%
-    # arrow_table() %>%
-    mutate(
-      # qy_date_from_string = parse_date_time(qy_string, orders = "qy"),
-      qy_date_from_numeric = parse_date_time(as.character(qy_numeric), orders = "qy"),
-      # qy_date_from_string_with_space = parse_date_time(qy_space, orders = "qy"),
-      .keep = "used"
-    ) %>%
-    collect()
-
   # these functions' internals use some string processing which requires the
   # RE2 library (not available on Windows with R 3.6)
   skip_if_not_available("re2")
