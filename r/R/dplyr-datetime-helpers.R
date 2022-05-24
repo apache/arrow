@@ -273,7 +273,6 @@ build_format_from_order <- function(order) {
 process_data_for_parsing <- function(x,
                                      orders) {
 
-  # browser()
   processed_x <- x$cast(string())
 
   # make all separators (non-letters and non-numbers) into "-"
@@ -311,6 +310,8 @@ process_data_for_parsing <- function(x,
     augmented_x_yq <- call_binding("paste0", year_x, "-", month_x, "-01")
   }
 
+  # same as for `yq`, we need to derive the month from the quarter and add a
+  # "01" to give us the first day of the month
   augmented_x_qy <- NULL
   if (any(orders == "qy")) {
     quarter_x <- call_binding("gsub", "-.*$", "", processed_x)
