@@ -63,7 +63,5 @@ Result<std::shared_ptr<RecordBatchReader>> PyRecordBatchReader::Make(
   return reader;
 }
 
-Status PyRecordBatchReader::Close() { return Status::OK(); }
-
 }  // namespace py
 }  // namespace arrow

@@ -257,8 +257,6 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
   /// on actual chunking characteristics of each table column.
   void set_chunksize(int64_t chunksize);
 
-  Status Close() override;
-
  private:
   std::shared_ptr<Table> owned_table_;
   const Table& table_;

@@ -96,8 +96,6 @@ class BatchIterator : public RecordBatchReader {
     return Status::OK();
   }
 
-  Status Close() override { return Status::OK(); }
-
  private:
   std::shared_ptr<Schema> schema_;
   std::vector<std::shared_ptr<RecordBatch>> batches_;

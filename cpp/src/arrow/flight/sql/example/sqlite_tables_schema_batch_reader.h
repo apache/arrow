@@ -50,8 +50,6 @@ class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
   std::shared_ptr<Schema> schema() const override;
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override;
-
-  Status Close() override;
 };
 
 }  // namespace example

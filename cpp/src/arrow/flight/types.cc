@@ -425,8 +425,6 @@ class MetadataRecordBatchReaderAdapter : public RecordBatchReader {
     }
   }
 
-  Status Close() override { return Status::OK(); }
-
  private:
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<MetadataRecordBatchReader> delegate_;

@@ -905,8 +905,6 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
   ReadStats stats() const override { return stats_; }
 
-  Status Close() override { return Status::OK(); }
-
  private:
   Result<std::unique_ptr<Message>> ReadNextMessage() {
     ARROW_ASSIGN_OR_RAISE(auto message, message_reader_->ReadNextMessage());
@@ -1020,8 +1018,6 @@ Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     const std::shared_ptr<io::InputStream>& stream, const IpcReadOptions& options) {
   return Open(MessageReader::Open(stream), options);
 }
-
-Status RecordBatchStreamReader::Close() { return Status::OK(); }
 
 // ----------------------------------------------------------------------
 // Reader implementation

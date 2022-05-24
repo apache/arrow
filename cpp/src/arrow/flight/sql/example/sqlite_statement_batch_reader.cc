@@ -184,8 +184,6 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status SqliteStatementBatchReader::Close() { return Status::OK(); }
-
 #undef STRING_BUILDER_CASE
 #undef BINARY_BUILDER_CASE
 #undef INT_BUILDER_CASE

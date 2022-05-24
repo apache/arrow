@@ -476,7 +476,15 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
       return Status::OK();
     }
 
-    Status Close() override { return Status::OK(); }
+    Status Close() override {
+      // reading from generator until end is reached.
+      std::shared_ptr<RecordBatch> batch;
+      RETURN_NOT_OK(ReadNext(&batch));
+      while (batch != NULLPTR) {
+        RETURN_NOT_OK(ReadNext(&batch));
+      }
+      return Status::OK();
+    }
 
     MemoryPool* pool_;
     std::shared_ptr<Schema> schema_;

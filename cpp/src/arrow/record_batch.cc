@@ -372,8 +372,6 @@ class SimpleRecordBatchReader : public RecordBatchReader {
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
-  Status Close() override { return Status::OK(); }
-
  protected:
   std::shared_ptr<Schema> schema_;
   Iterator<std::shared_ptr<RecordBatch>> it_;

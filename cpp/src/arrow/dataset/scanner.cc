@@ -85,7 +85,14 @@ class ScannerRecordBatchReader : public RecordBatchReader {
     return Status::OK();
   }
 
-  Status Close() override { return Status::OK(); }
+  Status Close() override {
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(ReadNext(&batch));
+    while (batch != nullptr) {
+      RETURN_NOT_OK(ReadNext(&batch));
+    }
+    return Status::OK();
+  }
 
  private:
   std::shared_ptr<Schema> schema_;
