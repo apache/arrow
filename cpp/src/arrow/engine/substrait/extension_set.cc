@@ -288,10 +288,10 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   }
 
   Status CanRegisterFunction(Id id, std::string arrow_function_name) const override {
-    if (function_id_to_index_.find(id) == function_id_to_index_.end()) {
+    if (function_id_to_index_.find(id) != function_id_to_index_.end()) {
       return Status::Invalid("Function id was already registered");
     }
-    if (function_name_to_index_.find(arrow_function_name) ==
+    if (function_name_to_index_.find(arrow_function_name) !=
         function_name_to_index_.end()) {
       return Status::Invalid("Function name was already registered");
     }
