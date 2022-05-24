@@ -112,6 +112,7 @@ x-hierarchy:
         - conda-python-kartothek
         - conda-python-spark
         - conda-python-turbodbc
+        - conda-python-doctest
   - conda-verify-rc
   - conan
   - debian-cpp:
