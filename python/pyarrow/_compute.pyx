@@ -2037,10 +2037,9 @@ cdef class Expression(_Weakrefable):
     >>> import pyarrow.compute as pc
     >>> (pc.field("a") < pc.scalar(3)) | (pc.field("b") > 7)
     <pyarrow.compute.Expression ((a < 3) or (b > 7))>
-    >>> import pyarrow.dataset as ds
-    >>> ds.field('a') != 3
+    >>> pc.field('a') != 3
     <pyarrow.compute.Expression (a != 3)>
-    >>> ds.field('a').isin([1, 2, 3])
+    >>> pc.field('a').isin([1, 2, 3])
     <pyarrow.compute.Expression is_in(a, {value_set=int64:[
       1,
       2,
