@@ -81,13 +81,12 @@ struct RunLengthEncodeGenerator {
       Element previous_element = element;
       element = Element(input_validity, input_values, input_position);
       if (output_position == 0 || element != previous_element) {
-        output_position++;
-
         if (has_validity_buffer) {
           bit_util::SetBitTo(output_validity, output_position, element.valid);
         }
         output_values[output_position] = element.value;
         output_indexes[output_position] = input_position;
+        output_position++;
       }
     }
     ARROW_DCHECK(output_position == num_values_output);
