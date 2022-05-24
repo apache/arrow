@@ -44,7 +44,8 @@ TEST_F(TestRunLengthEncode, EncodeInt32Array) {
 
   auto result = result_datum.array();
   ASSERT_EQ(*(result->GetMutableValues<std::array<uint64_t, 3>>(0)), expected_indices);
-  ASSERT_EQ(*(result->child_data[0]->GetMutableValues<std::array<int32_t, 3>>(1)), expected_values);
+  ASSERT_EQ(*(result->child_data[0]->GetMutableValues<std::array<int32_t, 3>>(1)),
+            expected_values);
   ASSERT_EQ(result->child_data[0]->GetMutableValues<uint8_t>(0), nullptr);
   ASSERT_EQ(result->buffers[0]->size(), 3 * sizeof(uint64_t));
   ASSERT_EQ(result->child_data[0]->buffers[1]->size(), 3 * sizeof(int32_t));
