@@ -37,22 +37,16 @@ TEST_F(TestRunLengthEncode, EncodeInt32Array) {
   ASSERT_OK(builder.Append(-5));
   ASSERT_OK_AND_ASSIGN(auto input, builder.Finish());
 
-  NumericBuilder<Int32Type> builder2(default_memory_pool());
-  ASSERT_OK(builder2.Append(1));
-  ASSERT_OK(builder2.Append(2));
-  ASSERT_OK(builder2.Append(-5));
-  ASSERT_OK_AND_ASSIGN(auto expected_values, builder2.Finish());
-
-  NumericBuilder<Int32Type> builder3(default_memory_pool());
-  ASSERT_OK(builder3.Append(1));
-  ASSERT_OK(builder3.Append(2));
-  ASSERT_OK(builder3.Append(-5));
-  ASSERT_OK_AND_ASSIGN(auto expected_indexes, builder3.Finish());
+  std::array<uint64_t, 3> expected_indices{0, 2, 3};
+  std::array<int32_t, 3> expected_values{1, 2, -5};
+  uint8_t expected_null_bitmap{0b111};
 
   ASSERT_OK_AND_ASSIGN(Datum result_datum, RunLengthEncode(input));
 
-  AssertDatumsEqual(result_datum.array()->child_data[0], expected_indexes);
-  AssertDatumsEqual(result_datum.array()->child_data[0], expected_values);
+  auto result = result_datum.array();
+  ASSERT_EQ(memcmp(result->GetMutableValues<uint8_t>(2), static_cast<void *>(&expected_indices), 3 * sizeof(uint64_t)), 0);
+  ASSERT_EQ(memcmp(result->GetMutableValues<uint8_t>(1), static_cast<void *>(&expected_values), 3 * sizeof(int32_t)), 0);
+  ASSERT_EQ(*result->GetMutableValues<uint8_t>(0), expected_null_bitmap);
 }
 
 }  // namespace compute

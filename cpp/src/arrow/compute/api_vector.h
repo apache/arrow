@@ -529,6 +529,13 @@ Result<Datum> DictionaryEncode(
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Run-Length-encode values in an array-like object
+/// \param[in] data array-like input
+/// \param[in] ctx the function execution context, optional
+/// \return result with same shape and type as input
+///
+/// \since 9.0.0
+/// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> RunLengthEncode(const Datum& value, ExecContext* ctx = NULLPTR);
 
