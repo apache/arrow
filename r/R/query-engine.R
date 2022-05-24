@@ -73,7 +73,6 @@ ExecPlan <- R6Class("ExecPlan",
       group_vars <- dplyr::group_vars(.data)
       grouped <- length(group_vars) > 0
 
-      # Collect the target names first because we have to add back the group vars
       .data <- ensure_group_vars(.data)
       .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
@@ -119,7 +118,7 @@ ExecPlan <- R6Class("ExecPlan",
         }
 
         node <- node$Aggregate(
-          options = map(.data$aggregations, ~ .[c("fun", "options", "target", "name")]),
+          options = .data$aggregations,
           key_names = group_vars
         )
 

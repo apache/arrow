@@ -232,10 +232,10 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
   std::vector<arrow::compute::internal::Aggregate> aggregates;
 
   for (cpp11::list name_opts : options) {
-    auto function = cpp11::as_cpp<std::string>(name_opts[0]);
-    auto opts = make_compute_options(function, name_opts[1]);
-    auto target = cpp11::as_cpp<std::string>(name_opts[2]);
-    auto name = cpp11::as_cpp<std::string>(name_opts[3]);
+    auto function = cpp11::as_cpp<std::string>(name_opts["fun"]);
+    auto opts = make_compute_options(function, name_opts["options"]);
+    auto target = cpp11::as_cpp<std::string>(name_opts["target"]);
+    auto name = cpp11::as_cpp<std::string>(name_opts["name"]);
 
     aggregates.push_back(arrow::compute::internal::Aggregate{
         std::move(function), opts.get(), std::move(target), std::move(name)});
