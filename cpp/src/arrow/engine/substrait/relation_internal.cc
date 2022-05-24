@@ -245,15 +245,20 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
           join_type = compute::JoinType::INNER;
           break;
         case 2:
-          return Status::NotImplemented("Outer join type is not supported");
+          join_type = compute::JoinType::FULL_OUTER;
+          break;
         case 3:
-          return Status::NotImplemented("Left join type is not supported");
+          join_type = compute::JoinType::LEFT_OUTER;
+          break;
         case 4:
-          return Status::NotImplemented("Right join type is not supported");
+          join_type = compute::JoinType::RIGHT_OUTER;
+          break;
         case 5:
-          return Status::NotImplemented("Semi join type is not supported");
+          join_type = compute::JoinType::LEFT_SEMI;
+          break;
         case 6:
-          return Status::NotImplemented("Anti join type is not supported");
+          join_type = compute::JoinType::LEFT_ANTI;
+          break;
         default:
           return Status::Invalid("Unsupported join type");
       }
