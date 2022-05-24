@@ -39,7 +39,7 @@ struct ChunkResolver {
 
   explicit ChunkResolver(const RecordBatchVector& batches);
 
-  ChunkResolver(ChunkResolver&& other)
+  ChunkResolver(ChunkResolver&& other) noexcept
       : offsets_(std::move(other.offsets_)), cached_chunk_(other.cached_chunk_.load()) {}
 
   ChunkResolver& operator=(ChunkResolver&& other) {
