@@ -15,8 +15,9 @@
 ;;; specific language governing permissions and limitations
 ;;; under the License.
 
-((sh-mode . ((indent-tabs-mode . nil)
+((cmake-mode . ((indent-tabs-mode . nil)))
+ (powershell-mode . ((indent-tabs-mode . nil)))
+ (sh-mode . ((indent-tabs-mode . nil)
              (sh-indentation   . 2)
              (sh-basic-offset  . 2)))
- (cmake-mode . ((indent-tabs-mode . nil)))
- (powershell-mode . ((indent-tabs-mode . nil))))
+ (vala-mode . ((indent-tabs-mode . nil))))

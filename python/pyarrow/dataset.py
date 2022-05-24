@@ -26,6 +26,7 @@ from pyarrow._dataset import (  # noqa
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
+    FilenamePartitioning,
     FileFormat,
     FileFragment,
     FileSystemDataset,
@@ -117,6 +118,11 @@ def partitioning(schema=None, field_names=None, flavor=None,
       For example, given schema<year:int16, month:int8, day:int8>, a possible
       path would be "/year=2009/month=11/day=15" (but the field order does not
       need to match).
+    - "FilenamePartitioning": this scheme expects the partitions will have
+      filenames containing the field values separated by "_".
+      For example, given schema<year:int16, month:int8, day:int8>, a possible
+      partition filename "2009_11_part-0.parquet" would be parsed
+      to ("year"_ == 2009 and "month"_ == 11).
 
     Parameters
     ----------
@@ -130,7 +136,8 @@ def partitioning(schema=None, field_names=None, flavor=None,
         inferred from the file paths (only valid for DirectoryPartitioning).
     flavor : str, default None
         The default is DirectoryPartitioning. Specify ``flavor="hive"`` for
-        a HivePartitioning.
+        a HivePartitioning, and ``flavor="filename"`` for a
+        FilenamePartitioning.
     dictionaries : dict[str, Array]
         If the type of any field of `schema` is a dictionary type, the
         corresponding entry of `dictionaries` must be an array containing
@@ -209,6 +216,26 @@ def partitioning(schema=None, field_names=None, flavor=None,
         else:
             raise ValueError(
                 "For the default directory flavor, need to specify "
+                "a Schema or a list of field names")
+    if flavor == "filename":
+        # default flavor
+        if schema is not None:
+            if field_names is not None:
+                raise ValueError(
+                    "Cannot specify both 'schema' and 'field_names'")
+            if dictionaries == 'infer':
+                return FilenamePartitioning.discover(schema=schema)
+            return FilenamePartitioning(schema, dictionaries)
+        elif field_names is not None:
+            if isinstance(field_names, list):
+                return FilenamePartitioning.discover(field_names)
+            else:
+                raise ValueError(
+                    "Expected list of field names, got {}".format(
+                        type(field_names)))
+        else:
+            raise ValueError(
+                "For the filename flavor, need to specify "
                 "a Schema or a list of field names")
     elif flavor == 'hive':
         if field_names is not None:
@@ -726,7 +753,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
                   max_partitions=None, max_open_files=None,
                   max_rows_per_file=None, min_rows_per_group=None,
                   max_rows_per_group=None, file_visitor=None,
-                  existing_data_behavior='error'):
+                  existing_data_behavior='error', create_dir=True):
     """
     Write a dataset to a given format and partitioning.
 
@@ -825,6 +852,9 @@ Table/RecordBatch, or iterable of RecordBatch
         dataset.  The first time each partition directory is encountered
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.
+    create_dir : bool, default True
+        If False, directories will not be created.  This can be useful for
+        filesystems that do not require directories.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
@@ -901,5 +931,5 @@ Table/RecordBatch, or iterable of RecordBatch
         scanner, base_dir, basename_template, filesystem, partitioning,
         file_options, max_partitions, file_visitor, existing_data_behavior,
         max_open_files, max_rows_per_file,
-        min_rows_per_group, max_rows_per_group
+        min_rows_per_group, max_rows_per_group, create_dir
     )

@@ -33,6 +33,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/serialization_internal.h"
@@ -72,12 +73,21 @@ std::shared_ptr<FlightWriteSizeStatusDetail> FlightWriteSizeStatusDetail::Unwrap
 
 FlightClientOptions FlightClientOptions::Defaults() { return FlightClientOptions(); }
 
+arrow::Result<std::shared_ptr<Table>> FlightStreamReader::ToTable(
+    const StopToken& stop_token) {
+  ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches(stop_token));
+  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
+  return Table::FromRecordBatches(schema, std::move(batches));
+}
+
+Status FlightStreamReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                                   const StopToken& stop_token) {
+  return ToRecordBatches(stop_token).Value(batches);
+}
+
 Status FlightStreamReader::ReadAll(std::shared_ptr<Table>* table,
                                    const StopToken& stop_token) {
-  std::vector<std::shared_ptr<RecordBatch>> batches;
-  RETURN_NOT_OK(ReadAll(&batches, stop_token));
-  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
-  return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
+  return ToTable(stop_token).Value(table);
 }
 
 /// \brief An ipc::MessageReader adapting the Flight ClientDataStream interface.
@@ -169,40 +179,43 @@ class ClientStreamReader : public FlightStreamReader {
     RETURN_NOT_OK(EnsureDataStarted());
     return batch_reader_->schema();
   }
-  Status Next(FlightStreamChunk* out) override {
+  arrow::Result<FlightStreamChunk> Next() override {
+    FlightStreamChunk out;
     internal::FlightData* data;
     peekable_reader_->Peek(&data);
     if (!data) {
-      out->app_metadata = nullptr;
-      out->data = nullptr;
-      return stream_->Finish(Status::OK());
+      out.app_metadata = nullptr;
+      out.data = nullptr;
+      RETURN_NOT_OK(stream_->Finish(Status::OK()));
+      return out;
     }
 
     if (!data->metadata) {
       // Metadata-only (data->metadata is the IPC header)
-      out->app_metadata = data->app_metadata;
-      out->data = nullptr;
+      out.app_metadata = data->app_metadata;
+      out.data = nullptr;
       peekable_reader_->Next(&data);
-      return Status::OK();
+      return out;
     }
 
     if (!batch_reader_) {
       RETURN_NOT_OK(EnsureDataStarted());
       // Re-peek here since EnsureDataStarted() advances the stream
-      return Next(out);
+      return Next();
     }
-    auto status = batch_reader_->ReadNext(&out->data);
+    auto status = batch_reader_->ReadNext(&out.data);
     if (ARROW_PREDICT_FALSE(!status.ok())) {
       return stream_->Finish(std::move(status));
     }
-    out->app_metadata = std::move(app_metadata_);
-    return Status::OK();
+    out.app_metadata = std::move(app_metadata_);
+    return out;
   }
-  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches) override {
-    return ReadAll(batches, stop_token_);
+  arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches() override {
+    return ToRecordBatches(stop_token_);
   }
-  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
-                 const StopToken& stop_token) override {
+  arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
+      const StopToken& stop_token) override {
+    std::vector<std::shared_ptr<RecordBatch>> batches;
     FlightStreamChunk chunk;
 
     while (true) {
@@ -210,16 +223,16 @@ class ClientStreamReader : public FlightStreamReader {
         Cancel();
         return stop_token.Poll();
       }
-      RETURN_NOT_OK(Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, Next());
       if (!chunk.data) break;
-      batches->emplace_back(std::move(chunk.data));
+      batches.emplace_back(std::move(chunk.data));
     }
-    return Status::OK();
+    return batches;
   }
-  Status ReadAll(std::shared_ptr<Table>* table) override {
-    return ReadAll(table, stop_token_);
+  arrow::Result<std::shared_ptr<Table>> ToTable() override {
+    return ToTable(stop_token_);
   }
-  using FlightStreamReader::ReadAll;
+  using FlightStreamReader::ToTable;
   void Cancel() override { stream_->TryCancel(); }
 
  private:
@@ -361,8 +374,16 @@ class ClientStreamWriter : public FlightStreamWriter {
                                    write_size_limit_bytes_, &app_metadata_));
     // XXX: this does not actually write the message to the stream.
     // See Close().
-    ARROW_ASSIGN_OR_RAISE(batch_writer_, ipc::internal::OpenRecordBatchWriter(
-                                             std::move(payload_writer), schema, options));
+
+    // On failure, we should close the stream to make sure we get any gRPC-side error
+    auto status =
+        ipc::internal::OpenRecordBatchWriter(std::move(payload_writer), schema, options)
+            .Value(&batch_writer_);
+    if (!status.ok()) {
+      closed_ = true;
+      final_status_ = stream_->Finish(std::move(status));
+      return final_status_;
+    }
     return Status::OK();
   }
 
@@ -477,21 +498,32 @@ FlightClient::~FlightClient() {
   }
 }
 
+arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
+    const Location& location) {
+  return Connect(location, FlightClientOptions::Defaults());
+}
+
 Status FlightClient::Connect(const Location& location,
                              std::unique_ptr<FlightClient>* client) {
-  return Connect(location, FlightClientOptions::Defaults(), client);
+  return Connect(location, FlightClientOptions::Defaults()).Value(client);
+}
+
+arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
+    const Location& location, const FlightClientOptions& options) {
+  flight::transport::grpc::InitializeFlightGrpcClient();
+
+  std::unique_ptr<FlightClient> client(new FlightClient());
+  client->write_size_limit_bytes_ = options.write_size_limit_bytes;
+  const auto scheme = location.scheme();
+  ARROW_ASSIGN_OR_RAISE(client->transport_,
+                        internal::GetDefaultTransportRegistry()->MakeClient(scheme));
+  RETURN_NOT_OK(client->transport_->Init(options, location, *location.uri_));
+  return client;
 }
 
 Status FlightClient::Connect(const Location& location, const FlightClientOptions& options,
                              std::unique_ptr<FlightClient>* client) {
-  flight::transport::grpc::InitializeFlightGrpcClient();
-
-  client->reset(new FlightClient);
-  (*client)->write_size_limit_bytes_ = options.write_size_limit_bytes;
-  const auto scheme = location.scheme();
-  ARROW_ASSIGN_OR_RAISE((*client)->transport_,
-                        internal::GetDefaultTransportRegistry()->MakeClient(scheme));
-  return (*client)->transport_->Init(options, location, *location.uri_);
+  return Connect(location, options).Value(client);
 }
 
 Status FlightClient::Authenticate(const FlightCallOptions& options,
@@ -507,89 +539,151 @@ arrow::Result<std::pair<std::string, std::string>> FlightClient::AuthenticateBas
   return transport_->AuthenticateBasicToken(options, username, password);
 }
 
+arrow::Result<std::unique_ptr<ResultStream>> FlightClient::DoAction(
+    const FlightCallOptions& options, const Action& action) {
+  std::unique_ptr<ResultStream> results;
+  RETURN_NOT_OK(CheckOpen());
+  RETURN_NOT_OK(transport_->DoAction(options, action, &results));
+  return results;
+}
+
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
                               std::unique_ptr<ResultStream>* results) {
+  return DoAction(options, action).Value(results);
+}
+
+arrow::Result<std::vector<ActionType>> FlightClient::ListActions(
+    const FlightCallOptions& options) {
+  std::vector<ActionType> actions;
   RETURN_NOT_OK(CheckOpen());
-  return transport_->DoAction(options, action, results);
+  RETURN_NOT_OK(transport_->ListActions(options, &actions));
+  return actions;
 }
 
 Status FlightClient::ListActions(const FlightCallOptions& options,
                                  std::vector<ActionType>* actions) {
+  return ListActions(options).Value(actions);
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>> FlightClient::GetFlightInfo(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor) {
+  std::unique_ptr<FlightInfo> info;
   RETURN_NOT_OK(CheckOpen());
-  return transport_->ListActions(options, actions);
+  RETURN_NOT_OK(transport_->GetFlightInfo(options, descriptor, &info));
+  return info;
 }
 
 Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor,
                                    std::unique_ptr<FlightInfo>* info) {
+  return GetFlightInfo(options, descriptor).Value(info);
+}
+
+arrow::Result<std::unique_ptr<SchemaResult>> FlightClient::GetSchema(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   RETURN_NOT_OK(CheckOpen());
-  return transport_->GetFlightInfo(options, descriptor, info);
+  return transport_->GetSchema(options, descriptor);
 }
 
 Status FlightClient::GetSchema(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<SchemaResult>* schema_result) {
-  RETURN_NOT_OK(CheckOpen());
-  return transport_->GetSchema(options, descriptor, schema_result);
+  return GetSchema(options, descriptor).Value(schema_result);
+}
+
+arrow::Result<std::unique_ptr<FlightListing>> FlightClient::ListFlights() {
+  return ListFlights({}, {});
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
+  return ListFlights({}, {}).Value(listing);
+}
+
+arrow::Result<std::unique_ptr<FlightListing>> FlightClient::ListFlights(
+    const FlightCallOptions& options, const Criteria& criteria) {
+  std::unique_ptr<FlightListing> listing;
   RETURN_NOT_OK(CheckOpen());
-  return ListFlights({}, {}, listing);
+  RETURN_NOT_OK(transport_->ListFlights(options, criteria, &listing));
+  return listing;
 }
 
 Status FlightClient::ListFlights(const FlightCallOptions& options,
                                  const Criteria& criteria,
                                  std::unique_ptr<FlightListing>* listing) {
+  return ListFlights(options, criteria).Value(listing);
+}
+
+arrow::Result<std::unique_ptr<FlightStreamReader>> FlightClient::DoGet(
+    const FlightCallOptions& options, const Ticket& ticket) {
   RETURN_NOT_OK(CheckOpen());
-  return transport_->ListFlights(options, criteria, listing);
+  std::unique_ptr<internal::ClientDataStream> remote_stream;
+  RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
+  std::unique_ptr<FlightStreamReader> stream_reader =
+      arrow::internal::make_unique<ClientStreamReader>(
+          std::move(remote_stream), options.read_options, options.stop_token,
+          options.memory_manager);
+  // Eagerly read the schema
+  RETURN_NOT_OK(
+      static_cast<ClientStreamReader*>(stream_reader.get())->EnsureDataStarted());
+  return stream_reader;
 }
 
 Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
                            std::unique_ptr<FlightStreamReader>* stream) {
+  return DoGet(options, ticket).Value(stream);
+}
+
+arrow::Result<FlightClient::DoPutResult> FlightClient::DoPut(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor,
+    const std::shared_ptr<Schema>& schema) {
   RETURN_NOT_OK(CheckOpen());
   std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
-  *stream = std::unique_ptr<ClientStreamReader>(
-      new ClientStreamReader(std::move(remote_stream), options.read_options,
-                             options.stop_token, options.memory_manager));
-  // Eagerly read the schema
-  return static_cast<ClientStreamReader*>(stream->get())->EnsureDataStarted();
+  RETURN_NOT_OK(transport_->DoPut(options, &remote_stream));
+  std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
+  DoPutResult result;
+  result.reader = arrow::internal::make_unique<ClientMetadataReader>(shared_stream);
+  result.writer = arrow::internal::make_unique<ClientStreamWriter>(
+      std::move(shared_stream), options.write_options, write_size_limit_bytes_,
+      descriptor);
+  RETURN_NOT_OK(result.writer->Begin(schema, options.write_options));
+  return result;
 }
 
 Status FlightClient::DoPut(const FlightCallOptions& options,
                            const FlightDescriptor& descriptor,
                            const std::shared_ptr<Schema>& schema,
-                           std::unique_ptr<FlightStreamWriter>* stream,
+                           std::unique_ptr<FlightStreamWriter>* writer,
                            std::unique_ptr<FlightMetadataReader>* reader) {
+  ARROW_ASSIGN_OR_RAISE(auto result, DoPut(options, descriptor, schema));
+  *writer = std::move(result.writer);
+  *reader = std::move(result.reader);
+  return Status::OK();
+}
+
+arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   RETURN_NOT_OK(CheckOpen());
   std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(transport_->DoPut(options, &remote_stream));
+  RETURN_NOT_OK(transport_->DoExchange(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
-  *reader =
-      std::unique_ptr<FlightMetadataReader>(new ClientMetadataReader(shared_stream));
-  *stream = std::unique_ptr<FlightStreamWriter>(
-      new ClientStreamWriter(std::move(shared_stream), options.write_options,
-                             write_size_limit_bytes_, descriptor));
-  RETURN_NOT_OK((*stream)->Begin(schema, options.write_options));
-  return Status::OK();
+  DoExchangeResult result;
+  result.reader = arrow::internal::make_unique<ClientStreamReader>(
+      shared_stream, options.read_options, options.stop_token, options.memory_manager);
+  auto stream_writer = arrow::internal::make_unique<ClientStreamWriter>(
+      std::move(shared_stream), options.write_options, write_size_limit_bytes_,
+      descriptor);
+  RETURN_NOT_OK(stream_writer->Begin());
+  result.writer = std::move(stream_writer);
+  return result;
 }
 
 Status FlightClient::DoExchange(const FlightCallOptions& options,
                                 const FlightDescriptor& descriptor,
                                 std::unique_ptr<FlightStreamWriter>* writer,
                                 std::unique_ptr<FlightStreamReader>* reader) {
-  RETURN_NOT_OK(CheckOpen());
-  std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(transport_->DoExchange(options, &remote_stream));
-  std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
-  *reader = std::unique_ptr<FlightStreamReader>(new ClientStreamReader(
-      shared_stream, options.read_options, options.stop_token, options.memory_manager));
-  auto stream_writer = std::unique_ptr<ClientStreamWriter>(
-      new ClientStreamWriter(std::move(shared_stream), options.write_options,
-                             write_size_limit_bytes_, descriptor));
-  RETURN_NOT_OK(stream_writer->Begin());
-  *writer = std::move(stream_writer);
+  ARROW_ASSIGN_OR_RAISE(auto result, DoExchange(options, descriptor));
+  *writer = std::move(result.writer);
+  *reader = std::move(result.reader);
   return Status::OK();
 }
 

@@ -213,7 +213,7 @@ enums = gnome.mkenums('enums',
                       symbol_prefix: 'garrow',
                       c_template: 'enums.c.template',
                       h_template: 'enums.h.template',
-                      install_dir: join_paths(include_dir, meson.project_name()),
+                      install_dir: join_paths(include_dir, 'arrow-glib'),
                       install_header: true)
 enums_source = enums[0]
 enums_header = enums[1]
@@ -266,18 +266,26 @@ endif
 
 if have_gi
   arrow_glib_gir = gnome.generate_gir(libarrow_glib,
-                                      sources: sources + c_headers + enums,
-                                      namespace: 'Arrow',
-                                      nsversion: api_version,
-                                      identifier_prefix: 'GArrow',
-                                      symbol_prefix: 'garrow',
                                       export_packages: 'arrow-glib',
+                                      extra_args: [
+                                        '--warn-all',
+                                      ],
+                                      header: 'arrow-glib/arrow-glib.h',
+                                      identifier_prefix: 'GArrow',
                                       includes: [
                                         'GObject-2.0',
                                         'Gio-2.0',
                                       ],
                                       install: true,
-                                      extra_args: [
-                                        '--warn-all',
-                                      ])
+                                      namespace: 'Arrow',
+                                      nsversion: api_version,
+                                      sources: sources + c_headers + enums,
+                                      symbol_prefix: 'garrow')
+
+  if generate_vapi
+    arrow_glib_vapi = gnome.generate_vapi('arrow-glib',
+                                          install: true,
+                                          packages: ['gio-2.0'],
+                                          sources: [arrow_glib_gir[0]])
+  endif
 endif

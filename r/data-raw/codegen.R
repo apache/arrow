@@ -21,30 +21,16 @@
 # This is similar to what compileAttributes() would do,
 # with some arrow specific changes.
 #
-# Functions are decorated with [[arrow::export]]
-# and the generated code adds a layer of protection so that
-# the arrow package can be installed even when libarrow is not
-#
-# All the C++ code should be guarded by
-#
-# #if defined(ARROW_R_WITH_ARROW)
-# // [[arrow::export]]
-# std::shared_ptr<arrow::Array> some_function_using_arrow_api(){
-#     ...
-# }
-# #endif
-
-
-# Different flags can be used to export different features.
-# [[feature::export]]
-# maps to
+# Core functions are decorated with [[arrow::export]].
+# Different decorators can be used to export features that are conditionally
+# available.
+# Use [[feature::export]] to decorate the functions, and be sure to wrap them in
 # #if defined(ARROW_R_WITH_FEATURE)
-# and each feature is written to its own set of export files.
 
 # Ensure that all machines are sorting the same way
 invisible(Sys.setlocale("LC_COLLATE", "C"))
 
-features <- c("arrow", "dataset", "parquet", "s3", "json")
+features <- c("dataset", "substrait", "parquet", "s3", "json")
 
 suppressPackageStartupMessages({
   library(decor)
@@ -109,7 +95,8 @@ write_if_modified <- function(code, file) {
 }
 
 all_decorations <- cpp_decorations()
-arrow_exports <- get_exported_functions(all_decorations, features)
+# Include "arrow" with features here
+arrow_exports <- get_exported_functions(all_decorations, c("arrow", features))
 
 arrow_classes <- c(
   "Table" = "arrow::Table",
@@ -119,10 +106,10 @@ arrow_classes <- c(
 # This takes a cpp11 C wrapper and conditionally makes it available based on
 # a feature decoration
 ifdef_wrap <- function(cpp11_wrapped, name, sexp_signature, decoration) {
-  # if (identical(decoration, "arrow")) {
-  #   # Arrow is now required
-  #   return(cpp11_wrapped)
-  # }
+  if (identical(decoration, "arrow")) {
+    # Arrow is now required so don't wrap them
+    return(cpp11_wrapped)
+  }
   glue('
 #if defined(ARROW_R_WITH_{toupper(decoration)})
 {cpp11_wrapped}
@@ -184,9 +171,9 @@ glue::glue_collapse(glue::glue('
 '
 static const R_CallMethodDef CallEntries[] = {
 ',
-glue::glue_collapse(glue::glue('
-\t\t{{ "_{features}_available", (DL_FUNC)& _{features}_available, 0 }},
-'), sep = '\n'),
+glue::glue_collapse(glue::glue(
+  '\t\t{{ "_{features}_available", (DL_FUNC)& _{features}_available, 0 }},',
+), sep = '\n'),
 glue::glue('\n
 {cpp_functions_registration}
 \t\t{{NULL, NULL, 0}}
@@ -196,7 +183,7 @@ glue::glue('\n
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 
-  #if defined(ARROW_R_WITH_ARROW) && defined(HAS_ALTREP)
+  #if defined(HAS_ALTREP)
   arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 

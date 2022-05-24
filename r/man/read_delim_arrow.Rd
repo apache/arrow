@@ -206,7 +206,6 @@ to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 write.csv(mtcars, file = tf)
@@ -220,5 +219,4 @@ write.csv(data.frame(x = c(1, 3), y = c(2, 4)), file = tf, row.names = FALSE)
 read_csv_arrow(tf, schema = schema(x = int32(), y = utf8()), skip = 1)
 read_csv_arrow(tf, col_types = schema(y = utf8()))
 read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
-\dontshow{\}) # examplesIf}
 }

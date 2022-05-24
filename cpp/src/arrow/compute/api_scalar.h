@@ -129,10 +129,9 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
   /// Rounding scale (multiple to round to).
   ///
-  /// Should be a scalar of a type compatible with the argument to be rounded.
-  /// For example, rounding a decimal value means a decimal multiple is
-  /// required. Rounding a floating point or integer value means a floating
-  /// point scalar is required.
+  /// Should be a positive numeric scalar of a type compatible with the
+  /// argument to be rounded. The cast kernel is used to convert the rounding
+  /// multiple to match the result type.
   std::shared_ptr<Scalar> multiple;
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
@@ -267,12 +266,17 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
 
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
-  explicit StrptimeOptions(std::string format, TimeUnit::type unit);
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit,
+                           bool error_is_null = false);
   StrptimeOptions();
   static constexpr char const kTypeName[] = "StrptimeOptions";
 
+  /// The desired format string.
   std::string format;
+  /// The desired time resolution
   TimeUnit::type unit;
+  /// Return null on parsing errors if true or raise if false
+  bool error_is_null;
 };
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
@@ -1396,6 +1400,22 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 /// \since 6.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
+                                    ExecContext* ctx = NULLPTR);
+
+/// \brief Parse timestamps according to a format string
+///
+/// Return parsed timestamps according to the format string
+/// `StrptimeOptions::format` at time resolution `Strftime::unit`. Parse errors are
+/// raised depending on the `Strftime::error_is_null` setting.
+///
+/// \param[in] values input strings
+/// \param[in] options for setting format string, unit and error_is_null
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Strptime(const Datum& values, StrptimeOptions options,
                                     ExecContext* ctx = NULLPTR);
 
 /// \brief Converts timestamps from local timestamp without a timezone to a timestamp with

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v9/arrow"
 	"github.com/goccy/go-json"
 )
 
@@ -148,5 +148,5 @@ func arrayEqualBinary(left, right *Binary) bool {
 }
 
 var (
-	_ Interface = (*Binary)(nil)
+	_ arrow.Array = (*Binary)(nil)
 )

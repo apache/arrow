@@ -22,12 +22,20 @@
 #include <memory>
 #include <string>
 
+#include "arrow/flight/sql/column_metadata.h"
 #include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace flight {
 namespace sql {
 namespace example {
+
+/// \brief Create an object ColumnMetadata using the column type and
+///        table name.
+/// \param column_type  The SQLite type.
+/// \param table        The table name.
+/// \return             A Column Metadata object.
+ColumnMetadata GetColumnMetadata(int column_type, const char* table);
 
 class SqliteStatement {
  public:

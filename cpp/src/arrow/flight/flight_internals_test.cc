@@ -78,9 +78,8 @@ TEST(FlightTypes, FlightDescriptorToFromProto) {
 // ARROW-6017: we should be able to construct locations for unknown
 // schemes
 TEST(FlightTypes, LocationUnknownScheme) {
-  Location location;
-  ASSERT_OK(Location::Parse("s3://test", &location));
-  ASSERT_OK(Location::Parse("https://example.com/foo", &location));
+  ASSERT_OK(Location::Parse("s3://test"));
+  ASSERT_OK(Location::Parse("https://example.com/foo"));
 }
 
 TEST(FlightTypes, RoundTripTypes) {
@@ -105,10 +104,9 @@ TEST(FlightTypes, RoundTripTypes) {
   std::shared_ptr<Schema> schema =
       arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
                      field("d", int64())});
-  Location location1, location2, location3;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 10010, &location1));
-  ASSERT_OK(Location::ForGrpcTls("localhost", 10010, &location2));
-  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location3));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 10010));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 10010));
+  ASSERT_OK_AND_ASSIGN(auto location3, Location::ForGrpcUnix("/tmp/test.sock"));
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
                                         FlightEndpoint{ticket, {location3}}};
   ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
@@ -176,6 +174,43 @@ TEST(FlightTypes, RoundtripStatus) {
   ASSERT_TRUE(status.IsAlreadyExists());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 }
+
+TEST(FlightTypes, LocationConstruction) {
+  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI").status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcTcp("This is not a hostname", 12345).status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcTls("This is not a hostname", 12345).status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename").status());
+
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("s3://test"));
+  ASSERT_EQ(location.ToString(), "s3://test");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", 12345));
+  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTls("localhost", 12345));
+  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcUnix("/tmp/test.sock"));
+  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
+}
+
+ARROW_SUPPRESS_DEPRECATION_WARNING
+TEST(FlightTypes, DeprecatedLocationConstruction) {
+  Location location;
+  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI", &location));
+  ASSERT_RAISES(Invalid,
+                Location::ForGrpcTcp("This is not a hostname", 12345, &location));
+  ASSERT_RAISES(Invalid,
+                Location::ForGrpcTls("This is not a hostname", 12345, &location));
+  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename", &location));
+
+  ASSERT_OK(Location::Parse("s3://test", &location));
+  ASSERT_EQ(location.ToString(), "s3://test");
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 12345, &location));
+  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
+  ASSERT_OK(Location::ForGrpcTls("localhost", 12345, &location));
+  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
+  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location));
+  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
+}
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 // ----------------------------------------------------------------------
 // Cookie authentication/middleware
@@ -445,6 +480,62 @@ TEST_F(TestCookieParsing, CookieCache) {
   AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=1");
   AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=0; id1=1");
   AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=0; id1=1; id2=2");
+}
+
+// ----------------------------------------------------------------------
+// Transport abstraction tests
+
+TEST(TransportErrorHandling, ReconstructStatus) {
+  Status current = Status::Invalid("Base error message");
+  // Invalid code
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(". Also, server sent unknown or invalid Arrow status code -1"),
+      internal::ReconstructStatus("-1", current, util::nullopt, util::nullopt,
+                                  util::nullopt, /*detail=*/nullptr));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          ". Also, server sent unknown or invalid Arrow status code foobar"),
+      internal::ReconstructStatus("foobar", current, util::nullopt, util::nullopt,
+                                  util::nullopt, /*detail=*/nullptr));
+
+  // Override code
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists, ::testing::HasSubstr("Base error message"),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          util::nullopt, util::nullopt, util::nullopt, /*detail=*/nullptr));
+
+  // Override message
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists, ::testing::HasSubstr("Custom error message"),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          "Custom error message", util::nullopt, util::nullopt, /*detail=*/nullptr));
+
+  // With detail
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists,
+      ::testing::AllOf(::testing::HasSubstr("Custom error message"),
+                       ::testing::HasSubstr(". Detail: Detail message")),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          "Custom error message", "Detail message", util::nullopt, /*detail=*/nullptr));
+
+  // With detail and bin
+  auto reconstructed = internal::ReconstructStatus(
+      std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+      "Custom error message", "Detail message", "Binary error details",
+      /*detail=*/nullptr);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists,
+      ::testing::AllOf(::testing::HasSubstr("Custom error message"),
+                       ::testing::HasSubstr(". Detail: Detail message")),
+      reconstructed);
+  auto detail = FlightStatusDetail::UnwrapStatus(reconstructed);
+  ASSERT_NE(detail, nullptr);
+  ASSERT_EQ(detail->extra_info(), "Binary error details");
 }
 
 }  // namespace flight

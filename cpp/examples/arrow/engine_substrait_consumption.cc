@@ -40,6 +40,11 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
  public:
   explicit IgnoringConsumer(size_t tag) : tag_{tag} {}
 
+  arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
+                     cp::BackpressureControl* backpressure_control) override {
+    return arrow::Status::OK();
+  }
+
   arrow::Status Consume(cp::ExecBatch batch) override {
     // Consume a batch of data
     // (just print its row count to stdout)
@@ -154,7 +159,7 @@ int main(int argc, char** argv) {
 
   // Deserialize each relation tree in the substrait plan to an Arrow compute Declaration
   arrow::Result<std::vector<cp::Declaration>> maybe_decls =
-      eng::DeserializePlan(*serialized_plan, consumer_factory);
+      eng::DeserializePlans(*serialized_plan, consumer_factory);
   ABORT_ON_FAILURE(maybe_decls.status());
   std::vector<cp::Declaration> decls = std::move(maybe_decls).ValueOrDie();
 

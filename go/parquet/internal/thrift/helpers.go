@@ -23,7 +23,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
 	"github.com/apache/thrift/lib/go/thrift"
 )
 

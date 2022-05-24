@@ -45,11 +45,11 @@
 #' @export
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @seealso [Schema] for information about schemas and metadata handling.
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
-#' @include arrow-package.R
+#' @include arrow-object.R
 write_feather <- function(x,
                           sink,
                           version = 2,
@@ -100,11 +100,7 @@ write_feather <- function(x,
   compression <- compression_from_name(compression)
 
   x_out <- x
-  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
-    x <- Table$create(x)
-  }
-
-  assert_that(is_writable_table(x))
+  x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -131,7 +127,7 @@ write_feather <- function(x,
 #'
 #' @export
 #' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
@@ -189,12 +185,12 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #'   file version
 #'
 #' @export
-#' @include arrow-package.R
+#' @include arrow-object.R
 FeatherReader <- R6Class("FeatherReader",
   inherit = ArrowObject,
   public = list(
     Read = function(columns) {
-      ipc___feather___Reader__Read(self, columns)
+      ipc___feather___Reader__Read(self, columns, on_old_windows())
     },
     print = function(...) {
       cat("FeatherReader:\n")
@@ -215,5 +211,5 @@ names.FeatherReader <- function(x) x$column_names
 
 FeatherReader$create <- function(file) {
   assert_is(file, "RandomAccessFile")
-  ipc___feather___Reader__Open(file)
+  ipc___feather___Reader__Open(file, on_old_windows())
 }

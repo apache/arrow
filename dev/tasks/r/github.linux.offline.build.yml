@@ -46,7 +46,7 @@ jobs:
           name: thirdparty_deps
           path: arrow/r/arrow_with_deps.tar.gz
 
-  intall-offline:
+  install-offline:
     name: "Install offline"
     needs: [grab-dependencies]
     runs-on: ubuntu-20.04

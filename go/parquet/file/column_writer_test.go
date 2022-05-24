@@ -22,18 +22,19 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/compress"
-	"github.com/apache/arrow/go/v8/parquet/file"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	arrutils "github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v9/parquet"
+	"github.com/apache/arrow/go/v9/parquet/compress"
+	"github.com/apache/arrow/go/v9/parquet/file"
+	"github.com/apache/arrow/go/v9/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v9/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v9/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v9/parquet/internal/utils"
+	"github.com/apache/arrow/go/v9/parquet/metadata"
+	"github.com/apache/arrow/go/v9/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -233,7 +234,7 @@ func (p *PrimitiveWriterTestSuite) SetupTest() {
 
 func (p *PrimitiveWriterTestSuite) buildReader(nrows int64, compression compress.Compression) file.ColumnChunkReader {
 	p.readbuffer = p.sink.Finish()
-	pagereader, _ := file.NewPageReader(bytes.NewReader(p.readbuffer.Bytes()), nrows, compression, mem, nil)
+	pagereader, _ := file.NewPageReader(arrutils.NewBufferedReader(bytes.NewReader(p.readbuffer.Bytes()), p.readbuffer.Len()), nrows, compression, mem, nil)
 	return file.NewColumnReader(p.descr, pagereader, mem)
 }
 

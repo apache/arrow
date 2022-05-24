@@ -26,7 +26,7 @@ standardized open-source columnar storage format for use in data analysis
 systems. It was created originally for use in `Apache Hadoop
 <http://hadoop.apache.org/>`_ with systems like `Apache Drill
 <http://drill.apache.org>`_, `Apache Hive <http://hive.apache.org>`_, `Apache
-Impala (incubating) <http://impala.apache.org>`_, and `Apache Spark
+Impala <http://impala.apache.org>`_, and `Apache Spark
 <http://spark.apache.org>`_ adopting it as a shared standard for high
 performance data IO.
 
@@ -103,7 +103,7 @@ source, we use ``read_pandas`` to maintain any additional index column data:
 
    pq.read_pandas('example.parquet', columns=['two']).to_pandas()
 
-We need not use a string to specify the origin of the file. It can be any of:
+We do not need to use a string to specify the origin of the file. It can be any of:
 
 * A file path as a string
 * A :ref:`NativeFile <io.native_file>` from PyArrow
@@ -118,7 +118,7 @@ maps) will perform the best.
 Reading Parquet and Memory Mapping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Because Parquet data needs to be decoded from the Parquet format 
+Because Parquet data needs to be decoded from the Parquet format
 and compression, it can't be directly mapped from disk.
 Thus the ``memory_map`` option might perform better on some systems
 but won't help much with resident memory consumption.
@@ -131,9 +131,9 @@ but won't help much with resident memory consumption.
 
       >>> pq_array = pa.parquet.read_table("area1.parquet", memory_map=False)
       >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
-      RSS: 4299MB   
+      RSS: 4299MB
 
-If you need to deal with Parquet data bigger than memory, 
+If you need to deal with Parquet data bigger than memory,
 the :ref:`dataset` and partitioning is probably what you are looking for.
 
 Parquet file writing options
@@ -328,13 +328,16 @@ plain encoding. Whether dictionary encoding is used can be toggled using the
 
 The data pages within a column in a row group can be compressed after the
 encoding passes (dictionary, RLE encoding). In PyArrow we use Snappy
-compression by default, but Brotli, Gzip, and uncompressed are also supported:
+compression by default, but Brotli, Gzip, ZSTD, LZ4, and uncompressed are
+also supported:
 
 .. code-block:: python
 
    pq.write_table(table, where, compression='snappy')
    pq.write_table(table, where, compression='gzip')
    pq.write_table(table, where, compression='brotli')
+   pq.write_table(table, where, compression='zstd')
+   pq.write_table(table, where, compression='lz4')
    pq.write_table(table, where, compression='none')
 
 Snappy generally results in better performance, while Gzip may yield smaller
@@ -411,8 +414,8 @@ Compatibility Note: if using ``pq.write_to_dataset`` to create a table that
 will then be used by HIVE then partition column values must be compatible with
 the allowed character set of the HIVE version you are running.
 
-Writing ``_metadata`` and ``_common_medata`` files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Writing ``_metadata`` and ``_common_metadata`` files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some processing frameworks such as Spark or Dask (optionally) use ``_metadata``
 and ``_common_metadata`` files with partitioned datasets.
@@ -634,7 +637,7 @@ Reading an encrypted Parquet file:
 
 
 In order to create the encryption and decryption properties, a
-:class:`pyarrow.parquet_encryption.CryptoFactory` should be created and
+:class:`pyarrow.parquet.encryption.CryptoFactory` should be created and
 initialized with KMS Client details, as described below.
 
 
@@ -645,11 +648,11 @@ The master encryption keys should be kept and managed in a production-grade
 Key Management System (KMS), deployed in the user's organization. Using Parquet
 encryption requires implementation of a client class for the KMS server.
 Any KmsClient implementation should implement the informal interface
-defined by :class:`pyarrow.parquet_encryption.KmsClient` as following:
+defined by :class:`pyarrow.parquet.encryption.KmsClient` as following:
 
 .. code-block:: python
 
-   import pyarrow.parquet_encryption as pe
+   import pyarrow.parquet.encryption as pe
 
    class MyKmsClient(pe.KmsClient):
 
@@ -671,7 +674,7 @@ defined by :class:`pyarrow.parquet_encryption.KmsClient` as following:
 
 The concrete implementation will be loaded at runtime by a factory function
 provided by the user. This factory function will be used to initialize the
-:class:`pyarrow.parquet_encryption.CryptoFactory` for creating file encryption
+:class:`pyarrow.parquet.encryption.CryptoFactory` for creating file encryption
 and decryption properties.
 
 For example, in order to use the ``MyKmsClient`` defined above:
@@ -696,7 +699,7 @@ above.
 KMS connection configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Configuration of connection to KMS (:class:`pyarrow.parquet_encryption.KmsConnectionConfig`
+Configuration of connection to KMS (:class:`pyarrow.parquet.encryption.KmsConnectionConfig`
 used when creating file encryption and decryption properties) includes the
 following options:
 
@@ -709,7 +712,7 @@ following options:
 Encryption configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-:class:`pyarrow.parquet_encryption.EncryptionConfiguration` (used when
+:class:`pyarrow.parquet.encryption.EncryptionConfiguration` (used when
 creating file encryption properties) includes the following options:
 
 * ``footer_key``, the ID of the master key for footer encryption/signing.
@@ -753,8 +756,8 @@ An example encryption configuration:
 
 Decryption configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~
-   
-:class:`pyarrow.parquet_encryption.DecryptionConfiguration` (used when creating
+
+:class:`pyarrow.parquet.encryption.DecryptionConfiguration` (used when creating
 file decryption properties) is optional and it includes the following options:
 
 * ``cache_lifetime``, the lifetime of cached entities (key encryption keys, local

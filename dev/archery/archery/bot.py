@@ -160,7 +160,7 @@ class CommentBot:
                 run_id=os.environ["GITHUB_RUN_ID"],
             )
             pull.create_issue_comment(
-                f"```\n{e}\nThe Archery job run can be found at: {url}```")
+                f"```\n{e}\nThe Archery job run can be found at: {url}\n```")
             comment.create_reaction('-1')
         else:
             comment.create_reaction('+1')
@@ -265,7 +265,7 @@ def submit(obj, tasks, groups, params, arrow_version):
                               groups=groups, params=params)
 
         # add the job to the crossbow queue and push to the remote repository
-        queue.put(job, prefix="actions")
+        queue.put(job, prefix="actions", increment_job_id=False)
         queue.push()
 
         # render the response comment's content

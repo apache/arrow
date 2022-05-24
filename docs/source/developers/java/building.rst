@@ -32,7 +32,7 @@ Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
-* JDK 8, 9, 10, or 11, but only JDK 11 is tested in CI
+* JDK 8, 9, 10, 11, 17, or 18, but only JDK 8, 11 and 17 are tested in CI.
 * Maven 3+
 
 Building
@@ -78,6 +78,7 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
 
 Building JNI Libraries on MacOS
 -------------------------------
+Note: If you are building on Apple Silicon, be sure to use a JDK version that was compiled for that architecture. See, for example, the `Azul JDK <https://www.azul.com/downloads/?os=macos&architecture=arm-64-bit&package=jdk>`_.
 
 To build only the C Data Interface library:
 
@@ -156,14 +157,14 @@ To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 .. code-block::
 
     $ cd arrow/java
-    $ mvn -Darrow.c.jni.dist.dir=../java-dist/lib -Parrow-c-data clean install
+    $ mvn -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-c-data clean install
 
 To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
 .. code-block::
 
     $ cd arrow/java
-    $ mvn -Darrow.cpp.build.dir=../java-dist/lib -Parrow-jni clean install
+    $ mvn -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-jni clean install
 
 IDE Configuration
 =================
@@ -171,11 +172,31 @@ IDE Configuration
 IntelliJ
 --------
 
-To start working on Arrow in IntelliJ, just open the `java/`
-subdirectory of the Arrow repository.
+To start working on Arrow in IntelliJ: build the project once from the command
+line using ``mvn clean install``. Then open the ``java/`` subdirectory of the
+Arrow repository, and update the following settings:
 
+* In the Files tool window, find the path ``vector/target/generated-sources``,
+  right click the directory, and select Mark Directory as > Generated Sources
+  Root. There is no need to mark other generated sources directories, as only
+  the ``vector`` module generates sources.
 * For JDK 8, disable the ``error-prone`` profile to build the project successfully.
-* For JDK 11, the project should build successfully with the default profiles.
+* For JDK 11, due to an `IntelliJ bug
+  <https://youtrack.jetbrains.com/issue/IDEA-201168>`__, you must go into
+  Settings > Build, Execution, Deployment > Compiler > Java Compiler and disable
+  "Use '--release' option for cross-compilation (Java 9 and later)". Otherwise
+  you will get an error like "package sun.misc does not exist".
+* You may need to disable the ``linux-netty-native`` or ``mac-netty-native``
+  profile in the Maven tool window if you get an error like the following::
+
+    Unresolved dependency: 'io.netty:netty-transport-native-unix-common:jar:4.1.72.Final'
+
+* If using IntelliJ's Maven integration to build, you may need to change
+  ``<fork>`` to ``false`` in the pom.xml files due to an `IntelliJ bug
+  <https://youtrack.jetbrains.com/issue/IDEA-278903>`__.
+
+You may not need to update all of these settings if you build/test with the
+IntelliJ Maven integration instead of with IntelliJ directly.
 
 Common Errors
 =============

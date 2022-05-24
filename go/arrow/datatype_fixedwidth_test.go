@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v9/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -112,7 +112,7 @@ func TestTimestampType(t *testing.T) {
 		{arrow.Second, "", "timestamp[s]"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
-			dt := arrow.TimestampType{tc.unit, tc.timeZone}
+			dt := arrow.TimestampType{Unit: tc.unit, TimeZone: tc.timeZone}
 			if got, want := dt.BitWidth(), 64; got != want {
 				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
 			}

@@ -20,6 +20,7 @@
 #include <cerrno>
 
 #include "arrow/buffer.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
@@ -73,6 +74,65 @@ Status InvalidDeleteDirContents(const std::string& path) {
   return Status::Invalid(
       "DeleteDirContents called on invalid path '", path, "'. ",
       "If you wish to delete the root directory's contents, call DeleteRootDirContents.");
+}
+
+Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
+                                 const std::string& glob) {
+  // The candidate entries at the current depth level.
+  // We start with the filesystem root.
+  FileInfoVector results{FileInfo("", FileType::Directory)};
+  // The exact tail that will later require matching with candidate entries
+  std::string current_tail;
+
+  auto split_glob = SplitAbstractPath(glob, '/');
+
+  // Process one depth level at once, from root to leaf
+  for (const auto& glob_component : split_glob) {
+    if (glob_component.find_first_of("*?") == std::string::npos) {
+      // If there are no wildcards at the current level, just append
+      // the exact glob path component.
+      current_tail = ConcatAbstractPath(current_tail, glob_component);
+      continue;
+    } else {
+      FileInfoVector children;
+      for (const auto& res : results) {
+        if (res.type() != FileType::Directory) {
+          continue;
+        }
+        FileSelector selector;
+        selector.base_dir = current_tail.empty()
+                                ? res.path()
+                                : ConcatAbstractPath(res.path(), current_tail);
+        ARROW_ASSIGN_OR_RAISE(auto entries, filesystem->GetFileInfo(selector));
+        Globber globber(ConcatAbstractPath(selector.base_dir, glob_component));
+        for (auto&& entry : entries) {
+          if (globber.Matches(entry.path())) {
+            children.push_back(std::move(entry));
+          }
+        }
+      }
+      results = std::move(children);
+      current_tail.clear();
+    }
+  }
+
+  if (!current_tail.empty()) {
+    std::vector<std::string> paths;
+    paths.reserve(results.size());
+    for (const auto& file : results) {
+      paths.push_back(ConcatAbstractPath(file.path(), current_tail));
+    }
+    ARROW_ASSIGN_OR_RAISE(results, filesystem->GetFileInfo(paths));
+  }
+
+  std::vector<FileInfo> out;
+  for (auto&& file : results) {
+    if (file.type() != FileType::NotFound) {
+      out.push_back(std::move(file));
+    }
+  }
+
+  return out;
 }
 
 FileSystemGlobalOptions global_options;

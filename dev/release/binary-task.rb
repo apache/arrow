@@ -1053,7 +1053,7 @@ class BinaryTask
   end
 
   def tmp_dir
-    "binary/tmp"
+    "/tmp"
   end
 
   def rc_dir
@@ -1088,6 +1088,7 @@ class BinaryTask
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "impish", "main"],
+      ["ubuntu", "jammy", "main"],
     ]
   end
 

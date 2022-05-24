@@ -37,6 +37,8 @@ test_that("Array from Python", {
   pa <- reticulate::import("pyarrow")
   py <- pa$array(c(1, 2, 3))
   expect_equal(py, Array$create(c(1, 2, 3)))
+
+  expect_equal(as_arrow_array(py), Array$create(c(1, 2, 3)))
 })
 
 test_that("Array to Python", {
@@ -53,6 +55,11 @@ test_that("RecordBatch to/from Python", {
   py <- reticulate::r_to_py(batch)
   expect_s3_class(py, "pyarrow.lib.RecordBatch")
   expect_equal(reticulate::py_to_r(py), batch)
+
+  expect_equal(as_record_batch(py), batch)
+  expect_equal(as_arrow_table(py), as_arrow_table(batch))
+  reader <- as_record_batch_reader(py)
+  expect_equal(reader$read_next_batch(), batch)
 })
 
 test_that("Table and ChunkedArray from Python", {
@@ -65,6 +72,11 @@ test_that("Table and ChunkedArray from Python", {
   expect_s3_class(pytab[0], "pyarrow.lib.ChunkedArray")
   expect_equal(reticulate::py_to_r(pytab[0]), tab$col1)
   expect_equal(reticulate::py_to_r(pytab), tab)
+
+  expect_equal(as_arrow_table(pytab), tab)
+  expect_equal(as_record_batch(pytab), as_record_batch(tab))
+  reader <- as_record_batch_reader(pytab)
+  expect_equal(reader$read_table(), tab)
 })
 
 test_that("Table and ChunkedArray to Python", {
@@ -81,19 +93,33 @@ test_that("Table and ChunkedArray to Python", {
 })
 
 test_that("RecordBatch with metadata roundtrip", {
-  batch <- RecordBatch$create(example_with_times)
+  batch <- RecordBatch$create(example_with_metadata)
   pybatch <- reticulate::r_to_py(batch)
   expect_s3_class(pybatch, "pyarrow.lib.RecordBatch")
-  expect_equal(reticulate::py_to_r(pybatch), batch)
-  expect_identical(as.data.frame(reticulate::py_to_r(pybatch)), example_with_times)
+
+  # Because batch$a is VctrsExtensionType, (which pyarrow doesn't know
+  # about) we don't quite have equality; however, we still have the
+  # ability to roundtrip preserving the extension type.
+  rbatch <- reticulate::py_to_r(pybatch)
+  expect_identical(rbatch$metadata, batch$metadata)
+  expect_equal(rbatch$a, batch$a)
+  expect_equal(rbatch[c("b", "c", "d")], batch[c("b", "c", "d")])
+  expect_identical(as.data.frame(rbatch), example_with_metadata)
 })
 
 test_that("Table with metadata roundtrip", {
-  tab <- Table$create(example_with_times)
+  tab <- Table$create(example_with_metadata)
   pytab <- reticulate::r_to_py(tab)
   expect_s3_class(pytab, "pyarrow.lib.Table")
-  expect_equal(reticulate::py_to_r(pytab), tab)
-  expect_identical(as.data.frame(reticulate::py_to_r(pytab)), example_with_times)
+
+  # Because tab$a is VctrsExtensionType, (which pyarrow doesn't know
+  # about) we don't quite have equality; however, we still have the
+  # ability to roundtrip preserving the extension type.
+  rtab <- reticulate::py_to_r(pytab)
+  expect_identical(rtab$metadata, tab$metadata)
+  expect_equal(rtab$a, tab$a)
+  expect_equal(rtab[c("b", "c", "d")], tab[c("b", "c", "d")])
+  expect_identical(as.data.frame(rtab), example_with_metadata)
 })
 
 test_that("DataType roundtrip", {
@@ -101,6 +127,8 @@ test_that("DataType roundtrip", {
   py <- reticulate::r_to_py(r)
   expect_s3_class(py, "pyarrow.lib.DataType")
   expect_equal(reticulate::py_to_r(py), r)
+
+  expect_equal(as_data_type(py), r)
 })
 
 test_that("Field roundtrip", {
@@ -108,6 +136,8 @@ test_that("Field roundtrip", {
   py <- reticulate::r_to_py(r)
   expect_s3_class(py, "pyarrow.lib.Field")
   expect_equal(reticulate::py_to_r(py), r)
+
+  expect_equal(as_data_type(py), as_data_type(r))
 })
 
 test_that("RecordBatchReader to python", {
@@ -145,4 +175,10 @@ test_that("RecordBatchReader from python", {
   rt_table <- back_to_r$read_table()
   expect_r6_class(rt_table, "Table")
   expect_identical(as.data.frame(rt_table), example_data)
+
+  scan <- Scanner$create(tab)
+  reader <- scan$ToRecordBatchReader()
+  pyreader <- reticulate::r_to_py(reader)
+  back_to_r <- as_record_batch_reader(pyreader)
+  expect_equal(back_to_r$read_table(), rt_table)
 })

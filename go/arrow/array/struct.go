@@ -23,10 +23,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -140,7 +140,7 @@ func (a *Struct) MarshalJSON() ([]byte, error) {
 func arrayEqualStruct(left, right *Struct) bool {
 	for i, lf := range left.fields {
 		rf := right.fields[i]
-		if !ArrayEqual(lf, rf) {
+		if !Equal(lf, rf) {
 			return false
 		}
 	}
@@ -334,6 +334,18 @@ func (b *StructBuilder) unmarshalOne(dec *json.Decoder) error {
 				return err
 			}
 		}
+
+		// Append null values to all optional fields that were not presented in the json input
+		for _, field := range b.dtype.(*arrow.StructType).Fields() {
+			if !field.Nullable {
+				continue
+			}
+			idx, _ := b.dtype.(*arrow.StructType).FieldIdx(field.Name)
+			if _, hasKey := keylist[field.Name]; !hasKey {
+				b.fields[idx].AppendNull()
+			}
+		}
+
 		// consume '}'
 		_, err := dec.Token()
 		return err
@@ -372,6 +384,6 @@ func (b *StructBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*Struct)(nil)
-	_ Builder   = (*StructBuilder)(nil)
+	_ arrow.Array = (*Struct)(nil)
+	_ Builder     = (*StructBuilder)(nil)
 )

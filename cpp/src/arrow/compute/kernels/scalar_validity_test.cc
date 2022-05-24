@@ -48,6 +48,25 @@ TEST_F(TestBooleanValidityKernels, ArrayIsValid) {
                    "[false, true, true, false]");
 }
 
+TEST_F(TestBooleanValidityKernels, TrueUnlessNull) {
+  CheckScalarUnary("true_unless_null", type_singleton(), "[]", type_singleton(), "[]");
+  CheckScalarUnary("true_unless_null", type_singleton(), "[null]", type_singleton(),
+                   "[null]");
+  CheckScalarUnary("true_unless_null", type_singleton(), "[0, 1]", type_singleton(),
+                   "[true, true]");
+  CheckScalarUnary("true_unless_null", type_singleton(), "[null, 1, 0, null]",
+                   type_singleton(), "[null, true, true, null]");
+}
+
+TEST_F(TestBooleanValidityKernels, IsValidIsNullNullType) {
+  CheckScalarUnary("is_null", std::make_shared<NullArray>(5),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
+  CheckScalarUnary("is_valid", std::make_shared<NullArray>(5),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
+  CheckScalarUnary("true_unless_null", std::make_shared<NullArray>(5),
+                   ArrayFromJSON(boolean(), "[null, null, null, null, null]"));
+}
+
 TEST_F(TestBooleanValidityKernels, ArrayIsValidBufferPassthruOptimization) {
   Datum arg = ArrayFromJSON(boolean(), "[null, 1, 0, null]");
   ASSERT_OK_AND_ASSIGN(auto validity, arrow::compute::IsValid(arg));

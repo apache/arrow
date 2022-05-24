@@ -27,6 +27,10 @@ python_build_dir=${build_dir}/python
 
 : ${BUILD_DOCS_PYTHON:=OFF}
 
+if [ -x "$(command -v git)" ]; then
+  git config --global --add safe.directory ${arrow_dir}
+fi
+
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
@@ -60,6 +64,7 @@ export PYARROW_WITH_PLASMA=${ARROW_PLASMA:-OFF}
 export PYARROW_WITH_PARQUET=${ARROW_PARQUET:-OFF}
 export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION:-ON}
 export PYARROW_WITH_S3=${ARROW_S3:-OFF}
+export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF}
 
 export PYARROW_PARALLEL=${n_jobs}
 

@@ -231,9 +231,9 @@ Collecting ``$params`` allows us to record the size of the allocations
 requested, while collecting ``$retval`` allows us to record the address of
 recorded allocations, so we can correlate them with the call to free/de-allocate.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: jemalloc
+   .. tab-item:: jemalloc
       
       .. code-block:: shell
 
@@ -248,7 +248,7 @@ recorded allocations, so we can correlate them with the call to free/de-allocate
             -e probe_libarrow:je_arrow_rallocx__return \
             -e probe_libarrow:je_arrow_dallocx"
 
-   .. tab:: mimalloc
+   .. tab-item:: mimalloc
       
       .. code-block:: shell
 

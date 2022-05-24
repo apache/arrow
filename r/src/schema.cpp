@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
 #include <arrow/util/key_value_metadata.h>
@@ -142,5 +141,3 @@ std::shared_ptr<arrow::Schema> arrow__UnifySchemas(
     const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
   return ValueOrStop(arrow::UnifySchemas(schemas));
 }
-
-#endif

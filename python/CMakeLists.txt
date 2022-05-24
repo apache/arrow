@@ -69,6 +69,7 @@ endif()
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
   option(PYARROW_BUILD_FLIGHT "Build the PyArrow Flight integration" OFF)
+  option(PYARROW_BUILD_SUBSTRAIT "Build the PyArrow Substrait integration" OFF)
   option(PYARROW_BUILD_DATASET "Build the PyArrow Dataset integration" OFF)
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
@@ -225,6 +226,10 @@ include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
 
 if(PYARROW_BUILD_FLIGHT)
   set(ARROW_FLIGHT TRUE)
+endif()
+
+if(PYARROW_BUILD_SUBSTRAIT)
+  set(ARROW_SUBSTRAIT TRUE)
 endif()
 
 # Arrow
@@ -399,6 +404,7 @@ set(CYTHON_EXTENSIONS
     lib
     _compute
     _csv
+    _exec_plan
     _feather
     _fs
     _hdfsio
@@ -534,6 +540,17 @@ if(PYARROW_BUILD_FLIGHT)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
 endif()
 
+# Engine
+if(PYARROW_BUILD_SUBSTRAIT)
+  find_package(ArrowSubstrait REQUIRED)
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(ARROW_SUBSTRAIT_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+  endif()
+
+  set(SUBSTRAIT_LINK_LIBS arrow_substrait_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _substrait)
+endif()
+
 # Gandiva
 if(PYARROW_BUILD_GANDIVA)
   find_package(Gandiva REQUIRED)
@@ -624,8 +641,13 @@ if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(_flight PRIVATE ${FLIGHT_LINK_LIBS})
 endif()
 
+if(PYARROW_BUILD_SUBSTRAIT)
+  target_link_libraries(_substrait PRIVATE ${SUBSTRAIT_LINK_LIBS})
+endif()
+
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
+  target_link_libraries(_exec_plan PRIVATE ${DATASET_LINK_LIBS})
   if(PYARROW_BUILD_ORC)
     target_link_libraries(_dataset_orc PRIVATE ${DATASET_LINK_LIBS})
   endif()

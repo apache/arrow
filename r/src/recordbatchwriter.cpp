@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 
 // [[arrow::export]]
@@ -63,5 +62,3 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Op
   options.memory_pool = gc_memory_pool();
   return ValueOrStop(MakeStreamWriter(stream, schema, options));
 }
-
-#endif

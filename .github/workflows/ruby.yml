@@ -68,7 +68,7 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -90,6 +90,7 @@ jobs:
           ulimit -c unlimited
           archery docker run \
             -e ARROW_FLIGHT=ON \
+            -e ARROW_GCS=ON \
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
             ubuntu-ruby
@@ -103,13 +104,16 @@ jobs:
     name: AMD64 MacOS 10.15 GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
     env:
+      ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_UTILITIES: OFF
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_GLIB_GTK_DOC: true
       ARROW_GLIB_WERROR: true
       ARROW_HOME: /usr/local
@@ -124,7 +128,7 @@ jobs:
       XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -133,6 +137,7 @@ jobs:
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
+          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
       - name: Install Ruby Dependencies
@@ -173,7 +178,7 @@ jobs:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -182,12 +187,13 @@ jobs:
         ruby-version:
           - "3.1"
     env:
-      ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_UTILITIES: OFF
       ARROW_BUILD_TYPE: release
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /ucrt${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
@@ -218,7 +224,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive

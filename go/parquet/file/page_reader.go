@@ -18,17 +18,18 @@ package file
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"sync"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/compress"
-	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/parquet"
+	"github.com/apache/arrow/go/v9/parquet/compress"
+	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v9/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v9/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v9/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -45,7 +46,7 @@ type PageReader interface {
 	// nil if there was no error and you just hit the end of the page
 	Err() error
 	// Reset allows reusing a page reader
-	Reset(r io.ReadSeeker, nrows int64, compressType compress.Compression, ctx *CryptoContext)
+	Reset(r parquet.BufferedReader, nrows int64, compressType compress.Compression, ctx *CryptoContext)
 }
 
 // Page is an interface for handling DataPages or Dictionary Pages
@@ -288,14 +289,13 @@ func (d *DictionaryPage) Release() {
 func (d *DictionaryPage) IsSorted() bool { return d.sorted }
 
 type serializedPageReader struct {
-	r        io.ReadSeeker
+	r        parquet.BufferedReader
 	nrows    int64
 	rowsSeen int64
 	mem      memory.Allocator
 	codec    compress.Codec
 
 	curPageHdr        *format.PageHeader
-	buf               *memory.Buffer
 	pageOrd           int16
 	maxPageHeaderSize int
 
@@ -309,7 +309,7 @@ type serializedPageReader struct {
 }
 
 // NewPageReader returns a page reader for the data which can be read from the provided reader and compression.
-func NewPageReader(r io.ReadSeeker, nrows int64, compressType compress.Compression, mem memory.Allocator, ctx *CryptoContext) (PageReader, error) {
+func NewPageReader(r parquet.BufferedReader, nrows int64, compressType compress.Compression, mem memory.Allocator, ctx *CryptoContext) (PageReader, error) {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
 	}
@@ -325,7 +325,6 @@ func NewPageReader(r io.ReadSeeker, nrows int64, compressType compress.Compressi
 		nrows:             nrows,
 		mem:               mem,
 		codec:             codec,
-		buf:               memory.NewResizableBuffer(mem),
 	}
 	rdr.decompressBuffer.Grow(defaultPageHeaderSize)
 	if ctx != nil {
@@ -335,16 +334,15 @@ func NewPageReader(r io.ReadSeeker, nrows int64, compressType compress.Compressi
 	return rdr, nil
 }
 
-func (p *serializedPageReader) Reset(r io.ReadSeeker, nrows int64, compressType compress.Compression, ctx *CryptoContext) {
-	p.rowsSeen, p.pageOrd = 0, 0
+func (p *serializedPageReader) Reset(r parquet.BufferedReader, nrows int64, compressType compress.Compression, ctx *CryptoContext) {
+	p.rowsSeen, p.pageOrd, p.nrows = 0, 0, nrows
 	p.curPageHdr, p.curPage, p.err = nil, nil, nil
-	p.r, p.nrows = r, nrows
+	p.r = r
 
 	p.codec, p.err = compress.GetCodec(compressType)
 	if p.err != nil {
 		return
 	}
-	p.buf.ResizeNoShrink(0)
 	p.decompressBuffer.Reset()
 	if ctx != nil {
 		p.cryptoCtx = *ctx
@@ -389,7 +387,6 @@ func (p *serializedPageReader) Page() Page {
 }
 
 func (p *serializedPageReader) decompress(lenCompressed int, buf []byte) ([]byte, error) {
-	p.decompressBuffer.Reset()
 	p.decompressBuffer.Grow(lenCompressed)
 	if _, err := io.CopyN(&p.decompressBuffer, p.r, int64(lenCompressed)); err != nil {
 		return nil, err
@@ -443,27 +440,18 @@ func (p *serializedPageReader) Next() bool {
 	p.err = nil
 
 	for p.rowsSeen < p.nrows {
-		// headerSize := 0
 		allowedPgSz := defaultPageHeaderSize
-
-		start, _ := p.r.Seek(0, io.SeekCurrent)
 		p.decompressBuffer.Reset()
-		// Page headers can be very large because of page statistics
-		// We try to deserialize a larger buffer progressively
-		// until a maximum allowed header limit
 		for {
-			n, err := io.CopyN(&p.decompressBuffer, p.r, int64(allowedPgSz))
-			// view, err := p.r.Peek(allowedPgSz)
+			view, err := p.r.Peek(allowedPgSz)
 			if err != nil && err != io.EOF {
 				p.err = err
 				return false
 			}
 
-			if n == 0 {
+			if len(view) == 0 {
 				return false
 			}
-
-			view := p.decompressBuffer.Bytes()
 
 			extra := 0
 			if p.cryptoCtx.MetaDecryptor != nil {
@@ -482,7 +470,7 @@ func (p *serializedPageReader) Next() bool {
 				continue
 			}
 
-			p.r.Seek(start+int64(len(view)-int(remaining)+extra), io.SeekStart)
+			p.r.Discard(len(view) - int(remaining) + extra)
 			break
 		}
 
@@ -497,7 +485,9 @@ func (p *serializedPageReader) Next() bool {
 			p.updateDecryption(p.cryptoCtx.DataDecryptor, encryption.DictPageModule, p.dataPageAad)
 		}
 
-		p.buf.ResizeNoShrink(lenUncompressed)
+		buf := memory.NewResizableBuffer(p.mem)
+		defer buf.Release()
+		buf.ResizeNoShrink(lenUncompressed)
 
 		switch p.curPageHdr.GetType() {
 		case format.PageType_DICTIONARY_PAGE:
@@ -508,17 +498,16 @@ func (p *serializedPageReader) Next() bool {
 				return false
 			}
 
-			data, err := p.decompress(lenCompressed, p.buf.Bytes())
+			data, err := p.decompress(lenCompressed, buf.Bytes())
 			if err != nil {
 				p.err = err
 				return false
 			}
 			if len(data) != lenUncompressed {
-				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed dictionary page, got %d bytes", lenUncompressed, len(data))
+				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed dictionary page, got %d bytes", lenUncompressed, len(data))
 				return false
 			}
 
-			// p.buf.Resize(lenUncompressed)
 			// make dictionary page
 			p.curPage = &DictionaryPage{
 				page: page{
@@ -539,13 +528,13 @@ func (p *serializedPageReader) Next() bool {
 			}
 
 			p.rowsSeen += int64(dataHeader.GetNumValues())
-			data, err := p.decompress(lenCompressed, p.buf.Bytes())
+			data, err := p.decompress(lenCompressed, buf.Bytes())
 			if err != nil {
 				p.err = err
 				return false
 			}
 			if len(data) != lenUncompressed {
-				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
+				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
 				return false
 			}
 
@@ -584,27 +573,30 @@ func (p *serializedPageReader) Next() bool {
 				return false
 			}
 
-			var data []byte
+			var pagebuf *memory.Buffer
 			if compressed {
 				if levelsBytelen > 0 {
-					io.ReadFull(p.r, p.buf.Bytes()[:levelsBytelen])
+					io.ReadFull(p.r, buf.Bytes()[:levelsBytelen])
 				}
-				if data, p.err = p.decompress(lenCompressed-levelsBytelen, p.buf.Bytes()[levelsBytelen:]); p.err != nil {
+				var data []byte
+				if data, p.err = p.decompress(lenCompressed-levelsBytelen, buf.Bytes()[levelsBytelen:]); p.err != nil {
 					return false
 				}
+				pagebuf = memory.NewBufferBytes(data)
 			} else {
-				io.ReadFull(p.r, p.buf.Bytes())
-				data = p.buf.Bytes()
+				io.ReadFull(p.r, buf.Bytes())
+				pagebuf = buf
+				pagebuf.Retain()
 			}
-			if len(data) != lenUncompressed {
-				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
+			if pagebuf.Len() != lenUncompressed {
+				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, pagebuf.Len())
 				return false
 			}
 
 			// make datapage v2
 			p.curPage = &DataPageV2{
 				page: page{
-					buf:      memory.NewBufferBytes(data),
+					buf:      pagebuf,
 					typ:      p.curPageHdr.Type,
 					nvals:    dataHeader.GetNumValues(),
 					encoding: dataHeader.GetEncoding(),
@@ -621,8 +613,6 @@ func (p *serializedPageReader) Next() bool {
 			// we don't know this page type, we're allowed to skip non-data pages
 			continue
 		}
-
-		p.buf = memory.NewResizableBuffer(p.mem)
 		return true
 	}
 

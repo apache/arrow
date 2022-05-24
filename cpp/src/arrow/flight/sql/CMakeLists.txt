@@ -36,8 +36,12 @@ set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENER
 
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
-set(ARROW_FLIGHT_SQL_SRCS server.cc sql_info_internal.cc client.cc
-                          "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
+set(ARROW_FLIGHT_SQL_SRCS
+    server.cc
+    sql_info_internal.cc
+    column_metadata.cc
+    client.cc
+    "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -55,15 +59,16 @@ add_arrow_lib(arrow_flight_sql
               SHARED_LINK_LIBS
               arrow_flight_shared
               STATIC_LINK_LIBS
-              arrow_flight_static)
+              arrow_flight_static
+              PRIVATE_INCLUDES
+              "${Protobuf_INCLUDE_DIRS}")
 
-if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_static
-                                      ${ARROW_FLIGHT_TEST_LINK_LIBS})
+if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_static)
 else()
-  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared
-                                      ${ARROW_FLIGHT_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared)
 endif()
+list(APPEND ARROW_FLIGHT_SQL_TEST_LINK_LIBS ${ARROW_FLIGHT_TEST_LINK_LIBS})
 
 # Build test server for unit tests
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
@@ -71,6 +76,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
 
   set(ARROW_FLIGHT_SQL_TEST_SERVER_SRCS
       example/sqlite_sql_info.cc
+      example/sqlite_type_info.cc
       example/sqlite_statement.cc
       example/sqlite_statement_batch_reader.cc
       example/sqlite_server.cc

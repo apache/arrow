@@ -66,7 +66,7 @@ jobs:
             title: AMD64 Ubuntu 20.04 C++ ASAN UBSAN
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -101,7 +101,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -126,6 +126,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_HDFS: ON
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: ON
@@ -141,9 +142,11 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      # System Abseil installed by Homebrew uses C++ 17
+      CMAKE_CXX_STANDARD: 17
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -152,7 +155,11 @@ jobs:
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
+          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
+      - name: Install Google Cloud Storage Testbench
+        shell: bash
+        run: ci/scripts/install_gcs_testbench.sh default
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
@@ -235,10 +242,13 @@ jobs:
       - name: Install Dependencies
         run: choco install -y --no-progress openssl
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
@@ -265,6 +275,9 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
+      # google-could-cpp uses _dupenv_s() but it can't be used with msvcrt.
+      # We need to use ucrt to use _dupenv_s().
+      # ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
@@ -297,7 +310,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -319,6 +332,9 @@ jobs:
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
       - name: Download MinIO
         shell: msys2 {0}
         run: |

@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include <arrow-dataset-glib/partitioning.h>
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 /*** END file-header ***/

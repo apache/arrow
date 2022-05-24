@@ -46,6 +46,11 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = pytest.mark.parquet
+
+
 def test_parquet_invalid_version(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     with pytest.raises(ValueError, match="Unsupported Parquet format version"):
@@ -77,6 +82,20 @@ def test_set_write_batch_size(use_legacy_dataset):
     _check_roundtrip(
         table, data_page_size=10, write_batch_size=1, version='2.4'
     )
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_set_dictionary_pagesize_limit(use_legacy_dataset):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    _check_roundtrip(table, dictionary_pagesize_limit=1,
+                     data_page_size=10, version='2.4')
+
+    with pytest.raises(TypeError):
+        _check_roundtrip(table, dictionary_pagesize_limit="a",
+                         data_page_size=10, version='2.4')
 
 
 @pytest.mark.pandas
@@ -603,6 +622,7 @@ def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
                       use_legacy_dataset=use_legacy_dataset)
 
     if use_legacy_dataset:
+        # FutureWarning: 'use_legacy_dataset=True'
         assert len(record) == 1
     else:
         assert len(record) == 0
@@ -779,6 +799,6 @@ def test_read_table_legacy_deprecated(tempdir):
     pq.write_table(table, path)
 
     with pytest.warns(
-        DeprecationWarning, match="Passing 'use_legacy_dataset=True'"
+        FutureWarning, match="Passing 'use_legacy_dataset=True'"
     ):
         pq.read_table(path, use_legacy_dataset=True)

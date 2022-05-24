@@ -2773,7 +2773,7 @@ const FunctionDoc choose_doc{
 void RegisterScalarIfElse(FunctionRegistry* registry) {
   {
     auto func =
-        std::make_shared<IfElseFunction>("if_else", Arity::Ternary(), &if_else_doc);
+        std::make_shared<IfElseFunction>("if_else", Arity::Ternary(), if_else_doc);
 
     AddPrimitiveIfElseKernels(func, NumericTypes());
     AddPrimitiveIfElseKernels(func, TemporalTypes());
@@ -2789,7 +2789,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   }
   {
     auto func = std::make_shared<CaseWhenFunction>(
-        "case_when", Arity::VarArgs(/*min_args=*/2), &case_when_doc);
+        "case_when", Arity::VarArgs(/*min_args=*/2), case_when_doc);
     AddPrimitiveCaseWhenKernels(func, NumericTypes());
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
     AddPrimitiveCaseWhenKernels(func, IntervalTypes());
@@ -2812,7 +2812,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   }
   {
     auto func = std::make_shared<CoalesceFunction>(
-        "coalesce", Arity::VarArgs(/*min_args=*/1), &coalesce_doc);
+        "coalesce", Arity::VarArgs(/*min_args=*/1), coalesce_doc);
     AddPrimitiveCoalesceKernels(func, NumericTypes());
     AddPrimitiveCoalesceKernels(func, TemporalTypes());
     AddPrimitiveCoalesceKernels(func, IntervalTypes());
@@ -2837,7 +2837,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   }
   {
     auto func = std::make_shared<ChooseFunction>("choose", Arity::VarArgs(/*min_args=*/2),
-                                                 &choose_doc);
+                                                 choose_doc);
     AddPrimitiveChooseKernels(func, NumericTypes());
     AddPrimitiveChooseKernels(func, TemporalTypes());
     AddPrimitiveChooseKernels(func, IntervalTypes());

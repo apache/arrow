@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 
@@ -101,5 +100,3 @@ std::shared_ptr<arrow::ipc::Message> ipc___ReadMessage(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   return ValueOrStop(arrow::ipc::ReadMessage(stream.get()));
 }
-
-#endif

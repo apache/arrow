@@ -22,13 +22,13 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/compress"
-	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/parquet"
+	"github.com/apache/arrow/go/v9/parquet/compress"
+	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v9/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v9/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v9/parquet/schema"
 	"golang.org/x/xerrors"
 )
 

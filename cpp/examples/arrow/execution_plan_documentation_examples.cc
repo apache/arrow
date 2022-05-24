@@ -67,27 +67,21 @@ template <typename TYPE,
                                              arrow::is_temporal_type<TYPE>::value>::type>
 arrow::Result<std::shared_ptr<arrow::Array>> GetArrayDataSample(
     const std::vector<typename TYPE::c_type>& values) {
-  using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
-  using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
-  ARROW_BUILDER_TYPE builder;
+  using ArrowBuilderType = typename arrow::TypeTraits<TYPE>::BuilderType;
+  ArrowBuilderType builder;
   ARROW_RETURN_NOT_OK(builder.Reserve(values.size()));
-  std::shared_ptr<ARROW_ARRAY_TYPE> array;
   ARROW_RETURN_NOT_OK(builder.AppendValues(values));
-  ARROW_RETURN_NOT_OK(builder.Finish(&array));
-  return array;
+  return builder.Finish();
 }
 
 template <class TYPE>
 arrow::Result<std::shared_ptr<arrow::Array>> GetBinaryArrayDataSample(
     const std::vector<std::string>& values) {
-  using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
-  using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
-  ARROW_BUILDER_TYPE builder;
+  using ArrowBuilderType = typename arrow::TypeTraits<TYPE>::BuilderType;
+  ArrowBuilderType builder;
   ARROW_RETURN_NOT_OK(builder.Reserve(values.size()));
-  std::shared_ptr<ARROW_ARRAY_TYPE> array;
   ARROW_RETURN_NOT_OK(builder.AppendValues(values));
-  ARROW_RETURN_NOT_OK(builder.Finish(&array));
-  return array;
+  return builder.Finish();
 }
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
@@ -100,7 +94,7 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
 
 /// \brief Create a sample table
 /// The table's contents will be:
-/// a, b
+/// a,b
 /// 1,null
 /// 2,true
 /// null,true
@@ -571,7 +565,7 @@ arrow::Status SourceGroupAggregateSinkExample(cp::ExecContext& exec_context) {
 /// \brief An example showing a consuming sink node
 /// \param exec_context The execution context to run the plan in
 ///
-/// Source-ConsumingSink
+/// Source-Consuming-Sink
 /// This example shows how the data can be consumed within the execution plan
 /// by using a ConsumingSink node. There is no data output from this execution plan.
 arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
@@ -590,6 +584,11 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
   struct CustomSinkNodeConsumer : public cp::SinkNodeConsumer {
     CustomSinkNodeConsumer(std::atomic<uint32_t>* batches_seen, arrow::Future<> finish)
         : batches_seen(batches_seen), finish(std::move(finish)) {}
+
+    arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
+                       cp::BackpressureControl* backpressure_control) override {
+      return arrow::Status::OK();
+    }
 
     arrow::Status Consume(cp::ExecBatch batch) override {
       (*batches_seen)++;
@@ -631,7 +630,7 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
 /// \brief An example showing an order-by node
 /// \param exec_context The execution context to run the plan in
 ///
-/// Source-OrderBySink
+/// Source-OrderBy-Sink
 /// In this example, the data enters through the source node
 /// and the data is ordered in the sink node. The order can be
 /// ASCENDING or DESCENDING and it is configurable. The output
@@ -794,7 +793,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   write_options.partitioning = partitioning;
   write_options.basename_template = "part{i}.parquet";
 
-  arrow::dataset::WriteNodeOptions write_node_options{write_options, dataset->schema()};
+  arrow::dataset::WriteNodeOptions write_node_options{write_options};
 
   ARROW_RETURN_NOT_OK(cp::MakeExecNode("write", plan.get(), {scan}, write_node_options));
 
@@ -851,6 +850,46 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
 
 // (Doc section: Union Example)
 
+// (Doc section: Table Sink Example)
+
+/// \brief An example showing a table sink node
+/// \param exec_context The execution context to run the plan in
+///
+/// TableSink Example
+/// This example shows how a table_sink can be used
+/// in an execution plan. This includes a source node
+/// receiving data as batches and the table sink node
+/// which emits the output as a table.
+arrow::Status TableSinkExample(cp::ExecContext& exec_context) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                        cp::ExecPlan::Make(&exec_context));
+
+  ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
+
+  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+
+  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
+                        cp::MakeExecNode("source", plan.get(), {}, source_node_options));
+
+  std::shared_ptr<arrow::Table> output_table;
+  auto table_sink_options = cp::TableSinkNodeOptions{&output_table};
+
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("table_sink", plan.get(), {source}, table_sink_options));
+  // validate the ExecPlan
+  ARROW_RETURN_NOT_OK(plan->Validate());
+  std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
+  // start the ExecPlan
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
+
+  // Wait for the plan to finish
+  auto finished = plan->finished();
+  RETURN_NOT_OK(finished.status());
+  std::cout << "Results : " << output_table->ToString() << std::endl;
+  return arrow::Status::OK();
+}
+// (Doc section: Table Sink Example)
+
 enum ExampleMode {
   SOURCE_SINK = 0,
   TABLE_SOURCE_SINK = 1,
@@ -865,6 +904,7 @@ enum ExampleMode {
   KSELECT = 10,
   WRITE = 11,
   UNION = 12,
+  TABLE_SOURCE_TABLE_SINK = 13
 };
 
 int main(int argc, char** argv) {
@@ -879,8 +919,7 @@ int main(int argc, char** argv) {
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
   // execution context
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
+  cp::ExecContext exec_context;
   switch (mode) {
     case SOURCE_SINK:
       PrintBlock("Source Sink Example");
@@ -933,6 +972,10 @@ int main(int argc, char** argv) {
     case UNION:
       PrintBlock("Union Example");
       status = SourceUnionSinkExample(exec_context);
+      break;
+    case TABLE_SOURCE_TABLE_SINK:
+      PrintBlock("TableSink Example");
+      status = TableSinkExample(exec_context);
       break;
     default:
       break;
