@@ -107,9 +107,10 @@ ValueDescr Expression::descr() const {
   return CallNotNull(*this)->descr;
 }
 
+const std::shared_ptr<DataType> kNoType;
+
 const std::shared_ptr<DataType>& Expression::type() const {
-  const std::shared_ptr<DataType> no_type;
-  if (impl_ == nullptr) return no_type;
+  if (impl_ == nullptr) return kNoType;
 
   if (auto lit = literal()) {
     return lit->type();
