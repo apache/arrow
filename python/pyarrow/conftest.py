@@ -40,6 +40,7 @@ groups = [
     'plasma',
     's3',
     'snappy',
+    'substrait',
     'tensorflow',
     'flight',
     'slow',
@@ -72,6 +73,7 @@ defaults = {
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
+    'substrait': False,
     'tensorflow': False,
     'zstd': Codec.is_available('zstd'),
 }
@@ -152,6 +154,12 @@ except ImportError:
 try:
     from pyarrow.fs import HadoopFileSystem  # noqa
     defaults['hdfs'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.substrait  # noqa
+    defaults['substrait'] = True
 except ImportError:
     pass
 
