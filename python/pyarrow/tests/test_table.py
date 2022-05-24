@@ -2121,3 +2121,27 @@ def test_table_join_collisions():
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
     ], names=["colA", "colB", "colVals", "colB", "colVals"])
+
+
+@pytest.mark.dataset
+def test_table_filter_expression():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"]
+    })
+
+    t3 = pa.concat_tables([t1, t2])
+
+    result = t3.filter(pc.field("colA") < 10)
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6, 2, 1],
+        "colB": [10, 20, 60, 20, 10],
+        "colVals": ["a", "b", "f", "B", "A"]
+    })

@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
 
   // Deserialize each relation tree in the substrait plan to an Arrow compute Declaration
   arrow::Result<std::vector<cp::Declaration>> maybe_decls =
-      eng::DeserializePlan(*serialized_plan, consumer_factory);
+      eng::DeserializePlans(*serialized_plan, consumer_factory);
   ABORT_ON_FAILURE(maybe_decls.status());
   std::vector<cp::Declaration> decls = std::move(maybe_decls).ValueOrDie();
 

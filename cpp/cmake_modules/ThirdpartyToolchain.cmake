@@ -62,7 +62,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     gRPC
     GTest
     LLVM
-    Lz4
+    lz4
     nlohmann_json
     opentelemetry-cpp
     ORC
@@ -92,6 +92,14 @@ endif()
 # upstream uses "re2" not "RE2" as package name.
 if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
   set(re2_SOURCE ${RE2_SOURCE})
+endif()
+
+# For backward compatibility. We use "Lz4_SOURCE" if "lz4_SOURCE"
+# isn't specified and "lz4_SOURCE" is specified.
+# We renamed "Lz4" dependency name to "lz4" in 9.0.0 because
+# upstream uses "lz4" not "Lz4" as package name.
+if("${lz4_SOURCE}" STREQUAL "" AND NOT "${Lz4_SOURCE}" STREQUAL "")
+  set(lz4_SOURCE ${Lz4_SOURCE})
 endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
@@ -154,7 +162,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
     build_gtest()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
     build_nlohmann_json()
@@ -2317,18 +2325,22 @@ macro(build_lz4)
                       BUILD_BYPRODUCTS ${LZ4_STATIC_LIB} ${LZ4_BUILD_COMMAND})
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
-  add_library(LZ4::lz4 STATIC IMPORTED)
-  set_target_properties(LZ4::lz4
+  add_library(lz4::lz4 STATIC IMPORTED)
+  set_target_properties(lz4::lz4
                         PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
-  add_dependencies(LZ4::lz4 lz4_ep)
+  add_dependencies(lz4::lz4 lz4_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4::lz4)
 endmacro()
 
 if(ARROW_WITH_LZ4)
-  resolve_dependency(Lz4 PC_PACKAGE_NAMES liblz4)
+  resolve_dependency(lz4
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     liblz4)
 endif()
 
 macro(build_zstd)
@@ -4025,7 +4037,7 @@ macro(build_orc)
   get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ORC_LZ4_ROOT lz4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
 
   # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
@@ -4069,7 +4081,7 @@ macro(build_orc)
 
   set(ORC_VENDORED 1)
   add_dependencies(orc_ep ZLIB::ZLIB)
-  add_dependencies(orc_ep LZ4::lz4)
+  add_dependencies(orc_ep lz4::lz4)
   add_dependencies(orc_ep Snappy::snappy)
   add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 

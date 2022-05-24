@@ -15,12 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import click
 import collections
+import csv
 import operator
 import fnmatch
 import functools
 
+import click
 import requests
 
 from archery.utils.report import JinjaReport
@@ -28,6 +29,17 @@ from archery.utils.report import JinjaReport
 
 # TODO(kszucs): use archery.report.JinjaReport instead
 class Report:
+
+    ROW_HEADERS = [
+        "task_name",
+        "task_status",
+        "build_links",
+        "crossbow_branch_url",
+        "ci_system",
+        "extra_params",
+        "template",
+        "arrow_commit",
+    ]
 
     def __init__(self, job, task_filters=None):
         self.job = job
@@ -82,6 +94,30 @@ class Report:
 
     def show(self):
         raise NotImplementedError()
+
+    @property
+    def rows(self):
+        """
+        Produces a generator that allow us to iterate over
+        the job tasks as a list of rows.
+        Row headers are defined at Report.ROW_HEADERS.
+        """
+        for task_name, task in sorted(self.job.tasks.items()):
+            task_status = task.status()
+            row = [
+                task_name,
+                task_status.combined_state,
+                task_status.build_links,
+                self.branch_url(task.branch),
+                task.ci,
+                # We want this to be serialized as a dict instead
+                # of an orderedict.
+                {k: v for k, v in task.params.items()},
+                task.template,
+                # Arrow repository commit
+                self.job.target.head
+            ]
+            yield row
 
 
 class ConsoleReport(Report):
@@ -209,6 +245,14 @@ class ReportUtils:
         server.login(smtp_user, smtp_password)
         server.sendmail(smtp_user, recipient_email, message)
         server.close()
+
+    @classmethod
+    def write_csv(cls, report, add_headers=True):
+        with open(f'{report.job.branch}.csv', 'w') as csvfile:
+            task_writer = csv.writer(csvfile)
+            if add_headers:
+                task_writer.writerow(report.ROW_HEADERS)
+            task_writer.writerows(report.rows)
 
 
 class EmailReport(JinjaReport):
