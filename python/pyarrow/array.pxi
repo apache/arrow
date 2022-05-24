@@ -877,6 +877,20 @@ cdef class Array(_PandasConvertible):
         -------
         diff : str
             A human-readable printout of the differences.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> left = pa.array(["one", "two", "three"])
+        >>> right = pa.array(["two", None, "two-and-a-half", "three"])
+        >>> print(left.diff(right)) # doctest: +SKIP
+
+        @@ -0, +0 @@
+        -"one"
+        @@ -2, +1 @@
+        +null
+        +"two-and-a-half"
+
         """
         cdef c_string result
         with nogil:
