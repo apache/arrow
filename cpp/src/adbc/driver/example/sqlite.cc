@@ -235,6 +235,11 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
   // Statement Functions
   //----------------------------------------------------------
 
+  AdbcStatusCode Bind(const std::shared_ptr<SqliteStatementImpl>& self,
+                      struct ArrowArray values, struct AdbcError* error) {
+    return ADBC_STATUS_NOT_IMPLEMENTED;
+  }
+
   AdbcStatusCode Execute(const std::shared_ptr<SqliteStatementImpl>& self,
                          struct AdbcError* error) {
     int rc = 0;
