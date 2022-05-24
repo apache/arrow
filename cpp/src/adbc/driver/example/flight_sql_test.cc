@@ -56,7 +56,6 @@ class AdbcFlightSqlTest : public ::testing::Test {
       AdbcDatabaseOptions options;
       std::string target = "Location=grpc://localhost:" + std::to_string(server->port());
       options.target = target.c_str();
-      options.target_length = target.size();
       ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
                                 driver.DatabaseInit(&options, &database, &error));
     }
@@ -115,8 +114,7 @@ TEST_F(AdbcFlightSqlTest, SqlExecute) {
                             driver.StatementInit(&connection, &statement, &error));
   ADBC_ASSERT_OK_WITH_ERROR(
       &driver, error,
-      driver.ConnectionSqlExecute(&connection, query.c_str(), query.size(), &statement,
-                                  &error));
+      driver.ConnectionSqlExecute(&connection, query.c_str(), &statement, &error));
 
   std::shared_ptr<arrow::Schema> schema;
   arrow::RecordBatchVector batches;
@@ -141,8 +139,7 @@ TEST_F(AdbcFlightSqlTest, Partitions) {
                             driver.StatementInit(&connection, &statement, &error));
   ADBC_ASSERT_OK_WITH_ERROR(
       &driver, error,
-      driver.ConnectionSqlExecute(&connection, query.c_str(), query.size(), &statement,
-                                  &error));
+      driver.ConnectionSqlExecute(&connection, query.c_str(), &statement, &error));
 
   std::vector<std::vector<uint8_t>> descs;
 
@@ -186,8 +183,7 @@ TEST_F(AdbcFlightSqlTest, InvalidSql) {
   std::memset(&statement, 0, sizeof(statement));
   ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
                             driver.StatementInit(&connection, &statement, &error));
-  ASSERT_NE(driver.ConnectionSqlExecute(&connection, query.c_str(), query.size(),
-                                        &statement, &error),
+  ASSERT_NE(driver.ConnectionSqlExecute(&connection, query.c_str(), &statement, &error),
             ADBC_STATUS_OK);
   ADBC_ASSERT_ERROR_THAT(&driver, error, ::testing::HasSubstr("syntax error"));
   ADBC_ASSERT_OK_WITH_ERROR(&driver, error, driver.StatementRelease(&statement, &error));

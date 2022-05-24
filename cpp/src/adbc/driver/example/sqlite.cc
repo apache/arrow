@@ -269,8 +269,8 @@ class SqliteConnectionImpl {
   // SQL Semantics
   //----------------------------------------------------------
 
-  AdbcStatusCode SqlExecute(const char* query, size_t query_length,
-                            struct AdbcStatement* out, struct AdbcError* error) {
+  AdbcStatusCode SqlExecute(const char* query, struct AdbcStatement* out,
+                            struct AdbcError* error) {
     if (!out->private_data) {
       SetError(error, "Statement is uninitialized, use AdbcStatementInit");
       return ADBC_STATUS_UNINITIALIZED;
@@ -281,7 +281,8 @@ class SqliteConnectionImpl {
 
     // TODO: This needs to get RAII-guarded to clean up error handling
     sqlite3_stmt* stmt = nullptr;
-    auto rc = sqlite3_prepare_v2(db_, query, query_length, &stmt, /*pzTail=*/nullptr);
+    auto rc =
+        sqlite3_prepare_v2(db_, query, std::strlen(query), &stmt, /*pzTail=*/nullptr);
     if (rc != SQLITE_OK) {
       if (stmt) {
         rc = sqlite3_finalize(stmt);
@@ -382,13 +383,12 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
 
 ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
-                                        const char* query, size_t query_length,
-                                        struct AdbcStatement* out,
+                                        const char* query, struct AdbcStatement* out,
                                         struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<SqliteConnectionImpl>*>(connection->private_data);
-  return (*ptr)->SqlExecute(query, query_length, out, error);
+  return (*ptr)->SqlExecute(query, out, error);
 }
 
 ADBC_DRIVER_EXPORT

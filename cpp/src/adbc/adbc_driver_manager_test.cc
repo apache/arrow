@@ -66,9 +66,9 @@ TEST(AdbcDriverManager, Basics) {
     std::memset(&statement, 0, sizeof(statement));
     ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
                               AdbcStatementInit(&connection, &statement, &error));
-    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
-                              AdbcConnectionSqlExecute(&connection, query.c_str(),
-                                                       query.size(), &statement, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(
+        &driver, error,
+        AdbcConnectionSqlExecute(&connection, query.c_str(), &statement, &error));
 
     arrow::RecordBatchVector batches;
     ArrowArrayStream stream;

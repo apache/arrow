@@ -109,7 +109,6 @@ struct AdbcDatabaseOptions {
   ///
   /// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
   const char* target;
-  size_t target_length;
 
   /// \brief The associated driver. Required if using the driver
   ///   manager; not required if directly calling into a driver.
@@ -153,7 +152,6 @@ struct AdbcConnectionOptions {
   ///
   /// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
   const char* target;
-  size_t target_length;
 };
 
 /// \brief An active database connection.
@@ -198,11 +196,10 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
 ///
 /// \param[in] connection The database connection.
 /// \param[in] query The query to execute.
-/// \param[in] query_length The length of the query string.
 /// \param[in,out] statement The result set. Allocate with AdbcStatementInit.
 /// \param[out] error Error details, if an error occurs.
 AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
-                                        const char* query, size_t query_length,
+                                        const char* query,
                                         struct AdbcStatement* statement,
                                         struct AdbcError* error);
 
@@ -211,7 +208,7 @@ AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
 /// TODO: this should return AdbcPreparedStatement to disaggregate
 /// preparation and execution
 AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection* connection,
-                                        const char* query, size_t query_length,
+                                        const char* query,
                                         struct AdbcStatement* statement,
                                         struct AdbcError* error);
 
@@ -332,30 +329,22 @@ AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
 /// \param[in] catalog Only show tables in the given catalog. If NULL, do not
 ///   filter by catalog. If an empty string, only show tables without a
 ///   catalog.
-/// \param[in] catalog_length The length of the catalog parameter (ignored if
-///   catalog is NULL).
 /// \param[in] db_schema Only show tables in the given database schema. If
 ///   NULL, do not filter by database schema. If an empty string, only show
 ///   tables without a database schema. May be a search pattern (see section
 ///   documentation).
-/// \param[in] db_schema_length The length of the db_schema parameter (ignored
-///   if db_schema is NULL).
 /// \param[in] table_name Only show tables with the given name. If NULL, do not
 ///   filter by name. May be a search pattern (see section documentation).
-/// \param[in] table_name_length The length of the table_name parameter
-///   (ignored if table_name is NULL).
 /// \param[in] table_types Only show tables matching one of the given table
 ///   types. If NULL, show tables of any type. Valid table types can be fetched
 ///   from get_table_types.
-/// \param[in] table_types_length The size of the table_types array (ignored if
-///   table_types is NULL).
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-AdbcStatusCode AdbcConnectionGetTables(
-    struct AdbcConnection* connection, const char* catalog, size_t catalog_length,
-    const char* db_schema, size_t db_schema_length, const char* table_name,
-    size_t table_name_length, const char** table_types, size_t table_types_length,
-    struct AdbcStatement* statement, struct AdbcError* error);
+AdbcStatusCode AdbcConnectionGetTables(struct AdbcConnection* connection,
+                                       const char* catalog, const char* db_schema,
+                                       const char* table_name, const char** table_types,
+                                       struct AdbcStatement* statement,
+                                       struct AdbcError* error);
 /// }@
 
 /// }@
@@ -487,9 +476,9 @@ struct AdbcDriver {
   AdbcStatusCode (*ConnectionInit)(const struct AdbcConnectionOptions*,
                                    struct AdbcConnection*, struct AdbcError*);
   AdbcStatusCode (*ConnectionRelease)(struct AdbcConnection*, struct AdbcError*);
-  AdbcStatusCode (*ConnectionSqlExecute)(struct AdbcConnection*, const char*, size_t,
+  AdbcStatusCode (*ConnectionSqlExecute)(struct AdbcConnection*, const char*,
                                          struct AdbcStatement*, struct AdbcError*);
-  AdbcStatusCode (*ConnectionSqlPrepare)(struct AdbcConnection*, const char*, size_t,
+  AdbcStatusCode (*ConnectionSqlPrepare)(struct AdbcConnection*, const char*,
                                          struct AdbcStatement*, struct AdbcError*);
   AdbcStatusCode (*ConnectionDeserializePartitionDesc)(struct AdbcConnection*,
                                                        const uint8_t*, size_t,
@@ -502,9 +491,8 @@ struct AdbcDriver {
                                            struct AdbcError*);
   AdbcStatusCode (*ConnectionGetTableTypes)(struct AdbcConnection*, struct AdbcStatement*,
                                             struct AdbcError*);
-  AdbcStatusCode (*ConnectionGetTables)(struct AdbcConnection*, const char*, size_t,
-                                        const char*, size_t, const char*, size_t,
-                                        const char**, size_t, struct AdbcStatement*,
+  AdbcStatusCode (*ConnectionGetTables)(struct AdbcConnection*, const char*, const char*,
+                                        const char*, const char**, struct AdbcStatement*,
                                         struct AdbcError*);
 
   AdbcStatusCode (*StatementInit)(struct AdbcConnection*, struct AdbcStatement*,

@@ -48,7 +48,7 @@ std::unordered_map<std::string, std::string> ParseConnectionString(
 }
 
 // Default stubs
-AdbcStatusCode ConnectionSqlPrepare(struct AdbcConnection*, const char*, size_t,
+AdbcStatusCode ConnectionSqlPrepare(struct AdbcConnection*, const char*,
                                     struct AdbcStatement*, struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
@@ -110,14 +110,14 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
 }
 
 AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
-                                        const char* query, size_t query_length,
+                                        const char* query,
                                         struct AdbcStatement* statement,
                                         struct AdbcError* error) {
   if (!connection->private_driver) {
     return ADBC_STATUS_UNINITIALIZED;
   }
-  return connection->private_driver->ConnectionSqlExecute(connection, query, query_length,
-                                                          statement, error);
+  return connection->private_driver->ConnectionSqlExecute(connection, query, statement,
+                                                          error);
 }
 
 AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,

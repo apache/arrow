@@ -275,8 +275,8 @@ class AdbcFlightSqlImpl {
   // SQL Semantics
   //----------------------------------------------------------
 
-  AdbcStatusCode SqlExecute(const char* query, size_t query_length,
-                            struct AdbcStatement* out, struct AdbcError* error) {
+  AdbcStatusCode SqlExecute(const char* query, struct AdbcStatement* out,
+                            struct AdbcError* error) {
     if (!out->private_data) {
       SetError(error, "Statement is uninitialized, use AdbcStatementInit");
       return ADBC_STATUS_UNINITIALIZED;
@@ -287,8 +287,7 @@ class AdbcFlightSqlImpl {
 
     flight::FlightCallOptions call_options;
     std::unique_ptr<flight::FlightInfo> flight_info;
-    auto status = client_->Execute(call_options, std::string(query, query_length))
-                      .Value(&flight_info);
+    auto status = client_->Execute(call_options, std::string(query)).Value(&flight_info);
     if (!status.ok()) {
       SetError(status, error);
       return ADBC_STATUS_IO;
@@ -347,8 +346,7 @@ ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
                                 struct AdbcDatabase* out, struct AdbcError* error) {
   std::unordered_map<std::string, std::string> option_pairs;
-  auto status = adbc::ParseConnectionString(
-                    arrow::util::string_view(options->target, options->target_length))
+  auto status = adbc::ParseConnectionString(arrow::util::string_view(options->target))
                     .Value(&option_pairs);
   if (!status.ok()) {
     SetError(status, error);
@@ -444,13 +442,12 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
 
 ADBC_DRIVER_EXPORT
 AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
-                                        const char* query, size_t query_length,
-                                        struct AdbcStatement* out,
+                                        const char* query, struct AdbcStatement* out,
                                         struct AdbcError* error) {
   if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
   auto* ptr =
       reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
-  return (*ptr)->SqlExecute(query, query_length, out, error);
+  return (*ptr)->SqlExecute(query, out, error);
 }
 
 ADBC_DRIVER_EXPORT

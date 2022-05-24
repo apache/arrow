@@ -102,8 +102,7 @@ TEST(AdbcSqlite, SqlExecute) {
                               driver.StatementInit(&connection, &statement, &error));
     ADBC_ASSERT_OK_WITH_ERROR(
         &driver, error,
-        driver.ConnectionSqlExecute(&connection, query.c_str(), query.size(), &statement,
-                                    &error));
+        driver.ConnectionSqlExecute(&connection, query.c_str(), &statement, &error));
 
     std::shared_ptr<arrow::Schema> schema;
     arrow::RecordBatchVector batches;
@@ -123,8 +122,7 @@ TEST(AdbcSqlite, SqlExecute) {
     std::memset(&statement, 0, sizeof(statement));
     ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
                               driver.StatementInit(&connection, &statement, &error));
-    ASSERT_NE(driver.ConnectionSqlExecute(&connection, query.c_str(), query.size(),
-                                          &statement, &error),
+    ASSERT_NE(driver.ConnectionSqlExecute(&connection, query.c_str(), &statement, &error),
               ADBC_STATUS_OK);
     ADBC_ASSERT_ERROR_THAT(
         &driver, error,
@@ -172,8 +170,7 @@ TEST(AdbcSqlite, MultipleConnections) {
                               driver.StatementInit(&connection1, &statement, &error));
     ADBC_ASSERT_OK_WITH_ERROR(
         &driver, error,
-        driver.ConnectionSqlExecute(&connection1, query.c_str(), query.size(), &statement,
-                                    &error));
+        driver.ConnectionSqlExecute(&connection1, query.c_str(), &statement, &error));
 
     std::shared_ptr<arrow::Schema> schema;
     arrow::RecordBatchVector batches;
@@ -195,8 +192,7 @@ TEST(AdbcSqlite, MultipleConnections) {
                               driver.StatementInit(&connection2, &statement, &error));
     ADBC_ASSERT_OK_WITH_ERROR(
         &driver, error,
-        driver.ConnectionSqlExecute(&connection2, query.c_str(), query.size(), &statement,
-                                    &error));
+        driver.ConnectionSqlExecute(&connection2, query.c_str(), &statement, &error));
 
     std::shared_ptr<arrow::Schema> schema;
     arrow::RecordBatchVector batches;
