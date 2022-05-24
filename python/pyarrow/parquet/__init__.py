@@ -2232,9 +2232,9 @@ class _ParquetDatasetV2:
     ...                     partition_cols=['year'],
     ...                     use_legacy_dataset=False)
 
-    create a _ParquetDatasetV2 object from the dataset source:
+    create a ParquetDataset object from the dataset source:
 
-    >>> dataset = pq._ParquetDatasetV2('dataset_v2/')
+    >>> dataset = pq.ParquetDataset('dataset_v2/', use_legacy_dataset=False)
 
     and read the data:
 
@@ -2247,10 +2247,11 @@ class _ParquetDatasetV2:
     4       2         Parrot  2022
     5       4          Horse  2022
 
-    create a _ParquetDatasetV2 object with filter:
+    create a ParquetDataset object with filter:
 
-    >>> dataset = pq._ParquetDatasetV2('dataset_v2/',
-    ...                                filters=[('n_legs','=',4)])
+    >>> dataset = pq.ParquetDataset('dataset_v2/',
+    ...                             filters=[('n_legs','=',4)],
+    ...                             use_legacy_dataset=False)
     >>> dataset.read().to_pandas()
        n_legs animal  year
     0       4    Dog  2021
@@ -2369,7 +2370,7 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_schema',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_schema/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_schema/', use_legacy_dataset=False)
 
         Read the schema:
 
@@ -2414,7 +2415,7 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_read',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_read/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_read/', use_legacy_dataset=False)
 
         Read the dataset:
 
@@ -2471,7 +2472,7 @@ class _ParquetDatasetV2:
         >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, 'table_V2.parquet')
-        >>> dataset = pq._ParquetDatasetV2('table_V2.parquet')
+        >>> dataset = pq.ParquetDataset('table_V2.parquet', use_legacy_dataset=False)
 
         Read the dataset with pandas metadata:
 
@@ -2513,7 +2514,7 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_fragments',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_fragments/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_fragments/', use_legacy_dataset=False)
 
         List the fragments:
 
@@ -2540,7 +2541,7 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_files',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_files/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_files/', use_legacy_dataset=False)
 
         List the files:
 
