@@ -316,7 +316,8 @@ process_data_for_parsing <- function(x,
     quarter_x <- call_binding("gsub", "-.*$", "", processed_x)
     quarter_x <- quarter_x$cast(int32())
     year_x <- call_binding("gsub", "^.*?-", "", processed_x)
-    # year might be missing the final 0s when extracted from a float
+    # year might be missing the final 0s when extracted from a float, hence the
+    # need to pad
     year_x <- call_binding("str_pad", year_x, width = 4, side = "right", pad = "0")
     month_x <- (quarter_x - 1) * 3 + 1
     augmented_x_qy <- call_binding("paste0", year_x, "-", month_x, "-01")
@@ -339,7 +340,8 @@ attempt_parsing <- function(x,
 
   parse_attempt_exprs_list <- map(processed_data, build_strptime_exprs, formats)
 
-  # if all orders are in c("ym", "my", "yq") only attempt to parse the augmented_x
+  # if all orders are in c("ym", "my", "yq", "qy") only attempt to parse the
+  # augmented version(s) of x
   if (all(orders %in% c("ym", "my", "yq", "qy"))) {
     parse_attempt_exprs_list$processed_x <- list()
   }
