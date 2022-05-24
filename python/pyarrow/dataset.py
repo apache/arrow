@@ -624,7 +624,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
 
     Examples
     --------
-    Creating an example pa.Table:
+    Creating an example Table:
 
     >>> import pyarrow as pa
     >>> import pyarrow.parquet as pq
