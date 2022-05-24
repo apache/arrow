@@ -157,21 +157,19 @@ def partitioning(schema=None, field_names=None, flavor=None,
 
     >>> import pyarrow as pa
     >>> import pyarrow.dataset as ds
-    >>> ds.partitioning(pa.schema([("year", pa.int16()),
+    >>> part = ds.partitioning(pa.schema([("year", pa.int16()),
     ...                            ("month", pa.string())]))
-    <pyarrow._dataset.DirectoryPartitioning object at ...>
 
     or let the types be inferred by only specifying the field names:
 
-    >>> ds.partitioning(field_names=["year", "month"])
-    <pyarrow._dataset.PartitioningFactory object at ...>
+    >>> part =  ds.partitioning(field_names=["year", "month"])
 
     For paths like "/2009/June", the year will be inferred as int32 while month
     will be inferred as string.
 
     Specify a Schema with dictionary encoding, providing dictionary values:
 
-    >>> ds.partitioning(
+    >>> part = ds.partitioning(
     ...     pa.schema([
     ...         ("year", pa.int16()),
     ...         ("month", pa.dictionary(pa.int8(), pa.string()))
@@ -179,32 +177,27 @@ def partitioning(schema=None, field_names=None, flavor=None,
     ...     dictionaries={
     ...         "month": pa.array(["January", "February", "March"]),
     ...     })
-    <pyarrow._dataset.DirectoryPartitioning object at ...>
 
     Alternatively, specify a Schema with dictionary encoding, but have Arrow
     infer the dictionary values:
 
-    >>> ds.partitioning(
+    >>> part = ds.partitioning(
     ...     pa.schema([
     ...         ("year", pa.int16()),
     ...         ("month", pa.dictionary(pa.int8(), pa.string()))
     ...     ]),
     ...     dictionaries="infer")
-    <pyarrow._dataset.PartitioningFactory object at ...>
 
     Create a Hive scheme for a path like "/year=2009/month=11":
 
-    >>> ds.partitioning(
+    >>> part = ds.partitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]),
     ...     flavor="hive")
-    <pyarrow._dataset.HivePartitioning object at ...>
 
     A Hive scheme can also be discovered from the directory structure (and
     types will be inferred):
 
-    >>> ds.partitioning(flavor="hive")
-    <pyarrow._dataset.PartitioningFactory object at ...>
-
+    >>> part = ds.partitioning(flavor="hive")
     """
     if flavor is None:
         # default flavor
