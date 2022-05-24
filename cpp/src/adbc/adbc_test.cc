@@ -137,6 +137,60 @@ TEST(AdbcSqlite, SqlExecute) {
   ADBC_ASSERT_OK_WITH_ERROR(&driver, error, driver.DatabaseRelease(&database, &error));
 }
 
+TEST(AdbcSqlite, SqlPrepare) {
+  AdbcDatabase database;
+  AdbcConnection connection;
+  AdbcError error = {};
+
+  AdbcDriver driver;
+  ASSERT_NO_FATAL_FAILURE(InitSqlite(&driver));
+
+  {
+    AdbcDatabaseOptions options;
+    std::memset(&options, 0, sizeof(options));
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                              driver.DatabaseInit(&options, &database, &error));
+  }
+  {
+    AdbcConnectionOptions options;
+    std::memset(&options, 0, sizeof(options));
+    options.database = &database;
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                              driver.ConnectionInit(&options, &connection, &error));
+  }
+
+  {
+    std::string query = "SELECT 1";
+    AdbcStatement statement;
+    std::memset(&statement, 0, sizeof(statement));
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                              driver.StatementInit(&connection, &statement, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(
+        &driver, error,
+        driver.ConnectionSqlPrepare(&connection, query.c_str(), &statement, &error));
+
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                              driver.StatementExecute(&statement, &error));
+
+    std::shared_ptr<arrow::Schema> schema;
+    arrow::RecordBatchVector batches;
+    ASSERT_NO_FATAL_FAILURE(ReadStatement(&driver, &statement, &schema, &batches));
+    arrow::AssertSchemaEqual(*schema,
+                             *arrow::schema({arrow::field("1", arrow::int64())}));
+    EXPECT_THAT(batches,
+                ::testing::UnorderedPointwise(
+                    PointeesEqual(), {
+                                         arrow::RecordBatchFromJSON(schema, "[[1]]"),
+                                     }));
+  }
+
+  // TODO: parameters
+
+  ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                            driver.ConnectionRelease(&connection, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(&driver, error, driver.DatabaseRelease(&database, &error));
+}
+
 TEST(AdbcSqlite, MultipleConnections) {
   // Execute a query with the SQLite example driver.
   AdbcDatabase database;
@@ -174,7 +228,7 @@ TEST(AdbcSqlite, MultipleConnections) {
 
     std::shared_ptr<arrow::Schema> schema;
     arrow::RecordBatchVector batches;
-    ReadStatement(&driver, &statement, &schema, &batches);
+    ASSERT_NO_FATAL_FAILURE(ReadStatement(&driver, &statement, &schema, &batches));
     arrow::AssertSchemaEqual(*schema, *arrow::schema({}));
     EXPECT_THAT(batches,
                 ::testing::UnorderedPointwise(

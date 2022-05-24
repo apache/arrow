@@ -386,16 +386,30 @@ AdbcStatusCode AdbcStatementSetOptionInt64(struct AdbcStatement* statement,
 AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
                                     struct AdbcError* error);
 
+/// \brief Bind parameter values for parameterized statements.
+AdbcStatusCode AdbcStatementBind(struct AdbcStatement* statement,
+                                 struct ArrowArray values, struct AdbcError* error);
+
+/// \brief Execute a statement.
+///
+/// Not called for one-shot queries (e.g. AdbcConnectionSqlExecute).
+AdbcStatusCode AdbcStatementExecute(struct AdbcStatement* statement,
+                                    struct AdbcError* error);
+
 /// \brief Read the result of a statement.
 ///
-/// This method can be called only once. It may not be called if any
-/// of the partitioning methods have been called (see below).
+/// This method can be called only once per execution of the
+/// statement. It may not be called if any of the partitioning methods
+/// have been called (see below).
 ///
 /// \return out A stream of Arrow data. The stream itself must be
 ///   released before the statement is released.
 AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
                                       struct ArrowArrayStream* out,
                                       struct AdbcError* error);
+
+// TODO: methods to get a particular result set from the statement,
+// etc. especially for prepared statements with parameter batches
 
 /// \defgroup adbc-statement-partition Partitioned Results
 /// Some backends may internally partition the results. These
@@ -405,10 +419,11 @@ AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
 /// as an iterator.
 ///
 /// Drivers are not required to support partitioning. In this case,
-/// num_partitions will return 0. They are required to support get_results.
+/// num_partitions will return 0. They are required to support
+/// AdbcStatementGetStream.
 ///
-/// If any of the partitioning methods are called, get_results may not be
-/// called, and vice versa.
+/// If any of the partitioning methods are called,
+/// AdbcStatementGetStream may not be called, and vice versa.
 ///
 /// @{
 
@@ -499,6 +514,9 @@ struct AdbcDriver {
                                   struct AdbcError*);
   AdbcStatusCode (*StatementSetOptionInt64)(struct AdbcStatement*, struct AdbcError*);
   AdbcStatusCode (*StatementRelease)(struct AdbcStatement*, struct AdbcError*);
+  AdbcStatusCode (*StatementBind)(struct AdbcStatement*, struct ArrowArray,
+                                  struct AdbcError*);
+  AdbcStatusCode (*StatementExecute)(struct AdbcStatement*, struct AdbcError*);
   AdbcStatusCode (*StatementGetStream)(struct AdbcStatement*, struct ArrowArrayStream*,
                                        struct AdbcError*);
   AdbcStatusCode (*StatementGetPartitionDescSize)(struct AdbcStatement*, size_t*,
@@ -525,7 +543,7 @@ typedef AdbcStatusCode (*AdbcDriverInitFunc)(size_t count, struct AdbcDriver* dr
 // struct/entrypoint instead?
 
 // For use with count
-#define ADBC_VERSION_0_0_1 19
+#define ADBC_VERSION_0_0_1 21
 
 /// }@
 

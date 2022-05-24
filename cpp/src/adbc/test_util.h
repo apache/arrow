@@ -57,7 +57,8 @@ static inline void ReadStatement(AdbcDriver* driver, AdbcStatement* statement,
                                  arrow::RecordBatchVector* batches) {
   AdbcError error = {};
   ArrowArrayStream stream;
-  ADBC_ASSERT_OK(driver->StatementGetStream(statement, &stream, &error));
+  ADBC_ASSERT_OK_WITH_ERROR(driver, error,
+                            driver->StatementGetStream(statement, &stream, &error));
   ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
 
   *schema = reader->schema();
