@@ -69,7 +69,7 @@ jobs:
           maven: 3.8.5
           image: oracle-java
         - jdk: 18
-          title: AMD64 Oracle Linux Server 8.5 Java JDK 18 Maven 3.8.5
+          title: AMD64 Oracle Linux Server 8.6 Java JDK 18 Maven 3.8.5
           maven: 3.8.5
           image: oracle-java
     env:
