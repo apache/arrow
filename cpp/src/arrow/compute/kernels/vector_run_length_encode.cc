@@ -47,7 +47,7 @@ struct RunLengthEncodeGenerator {
       }
     }
 
-    auto pool = default_memory_pool(); //ctx->memory_pool();
+    auto pool = ctx->memory_pool();
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     uint64_t validity_buffer_size = 0;
