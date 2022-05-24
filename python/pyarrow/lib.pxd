@@ -24,6 +24,7 @@ from libcpp.memory cimport dynamic_pointer_cast
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
+from pyarrow.includes.libarrow_substrait cimport *
 
 
 cdef extern from "Python.h":

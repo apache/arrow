@@ -111,7 +111,11 @@ void SetElement(size_t i, const Element& element, std::vector<T>* vector) {
 }  // namespace
 
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
-                                             const ExtensionIdRegistry* registry) {
+                                             const ExtensionIdRegistry* registry,
+                                             bool exclude_functions) {
+  if (registry == NULLPTR) {
+    registry = default_extension_id_registry();
+  }
   std::vector<util::string_view> uris;
   for (const auto& uri : plan.extension_uris()) {
     SetElement(uri.extension_uri_anchor(), uri.uri(), &uris);
@@ -143,6 +147,9 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
       }
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
+        if (exclude_functions) {
+          break; 
+        }
         const auto& fn = ext.extension_function();
         util::string_view uri = uris[fn.extension_uri_reference()];
         SetElement(fn.function_anchor(), Id{uri, fn.name()}, &function_ids);

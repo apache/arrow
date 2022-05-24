@@ -213,6 +213,8 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
 namespace {
 
 struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
+  virtual ~ExtensionIdRegistryImpl() {}
+
   std::vector<util::string_view> Uris() const override {
     return {uris_.begin(), uris_.end()};
   }
@@ -231,8 +233,8 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return {};
   }
 
-  virtual Status CanRegisterType(Id id, std::shared_ptr<DataType> type,
-                                 bool is_variation) const {
+  Status CanRegisterType(Id id, std::shared_ptr<DataType> type,
+                         bool is_variation) const override {
     auto& id_to_index = is_variation ? variation_id_to_index_ : id_to_index_;
     if (id_to_index.find(id) != id_to_index.end()) {
       return Status::Invalid("Type id was already registered");
@@ -285,11 +287,11 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return {};
   }
 
-  virtual Status CanRegisterFunction(Id id, std::string arrow_function_name) const {
-    if (function_id_to_index_.find(id) == function_id_to_index_.end()) {
+  Status CanRegisterFunction(Id id, std::string arrow_function_name) const override {
+    if (function_id_to_index_.find(id) != function_id_to_index_.end()) {
       return Status::Invalid("Function id was already registered");
     }
-    if (function_name_to_index_.find(arrow_function_name) ==
+    if (function_name_to_index_.find(arrow_function_name) !=
         function_name_to_index_.end()) {
       return Status::Invalid("Function name was already registered");
     }
@@ -342,7 +344,10 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 };
 
 struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
-  NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent) : parent_(parent) {}
+  explicit NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent)
+      : parent_(parent) {}
+
+  virtual ~NestedExtensionIdRegistryImpl() {}
 
   std::vector<util::string_view> Uris() const override {
     std::vector<util::string_view> uris = parent_->Uris();

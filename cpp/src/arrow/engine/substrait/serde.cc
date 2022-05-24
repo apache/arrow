@@ -61,10 +61,10 @@ Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
 static Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const std::string& factory_name,
     std::function<std::shared_ptr<compute::ExecNodeOptions>()> options_factory,
-    ExtensionSet* ext_set_out) {
+    ExtensionSet* ext_set_out, const ExtensionIdRegistry* registry) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
-  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan));
+  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan, registry));
 
   std::vector<compute::Declaration> sink_decls;
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
@@ -93,7 +93,7 @@ static Result<std::vector<compute::Declaration>> DeserializePlans(
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
-    ExtensionSet* ext_set_out) {
+    ExtensionSet* ext_set_out, const ExtensionIdRegistry* registry) {
   return DeserializePlans(
       buf,
       "consuming_sink",
@@ -102,21 +102,23 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
               compute::ConsumingSinkNodeOptions{consumer_factory()}
           );
       },
-      ext_set_out
+      ext_set_out,
+      registry
   );
 }
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
-    ExtensionSet* ext_set_out) {
-  return DeserializePlans(buf, "write", write_options_factory, ext_set_out);
+    ExtensionSet* ext_set_out, const ExtensionIdRegistry* registry) {
+  return DeserializePlans(buf, "write", write_options_factory, ext_set_out, registry);
 }
 
 Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
                                           const ConsumerFactory& consumer_factory,
-                                          ExtensionSet* ext_set_out) {
+                                          ExtensionSet* ext_set_out,
+                                          const ExtensionIdRegistry* registry) {
   ARROW_ASSIGN_OR_RAISE(auto declarations,
-                        DeserializePlans(buf, consumer_factory, ext_set_out));
+                        DeserializePlans(buf, consumer_factory, ext_set_out, registry));
   if (declarations.size() > 1) {
     return Status::Invalid("DeserializePlan does not support multiple root relations");
   } else {
@@ -124,6 +126,46 @@ Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
     std::ignore = declarations[0].AddToPlan(plan.get());
     return *std::move(plan);
   }
+}
+
+Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(
+    const Buffer& buf, const ExtensionIdRegistry* registry) {
+  ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
+
+  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan, registry, true));
+
+  std::vector<UdfDeclaration> decls;
+  for (const auto& ext : plan.extensions()) {
+    switch (ext.mapping_type_case()) {
+      case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
+        const auto& fn = ext.extension_function();
+        if (fn.has_udf()) {
+          const auto& udf = fn.udf();
+          const auto& in_types = udf.input_types();
+          int size = in_types.size();
+          std::vector<std::pair<std::shared_ptr<DataType>, bool>> input_types(size);
+          for (int i=0; i<size; i++) {
+            ARROW_ASSIGN_OR_RAISE(auto input_type, FromProto(in_types.Get(i), ext_set));
+            input_types.push_back(std::move(input_type));
+          }
+          ARROW_ASSIGN_OR_RAISE(auto output_type, FromProto(udf.output_type(), ext_set));
+          decls.push_back(std::move(UdfDeclaration{
+            fn.name(),
+	    udf.code(),
+            udf.summary(),
+            udf.description(),
+            std::move(input_types),
+            std::move(output_type),
+          }));
+        }
+        break;
+      }
+      default: {
+        break;
+      }
+    }
+  }
+  return decls;
 }
 
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,

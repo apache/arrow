@@ -17,7 +17,9 @@
 
 from pyarrow._substrait import (  # noqa
     make_extension_id_registry,
+    get_udf_declarations,
     register_function,
     run_query_as,
     run_query,
+    _parse_json_plan,
 )

@@ -20,6 +20,7 @@
 #pragma once
 
 #include <vector>
+#include <set>
 
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
@@ -88,6 +89,12 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
       util::string_view arrow_function_name) const = 0;
   virtual Status CanRegisterFunction(Id, std::string arrow_function_name) const = 0;
   virtual Status RegisterFunction(Id, std::string arrow_function_name) = 0;
+
+  const std::string& AddExternalSymbol(const std::string& symbol) {
+    return *external_symbols.insert(symbol).first;
+  }
+private:
+  std::set<std::string> external_symbols;
 };
 
 constexpr util::string_view kArrowExtTypesUri =
@@ -219,7 +226,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
 
   /// \brief Lookup the anchor for a given function
   ///
-  /// This operation is used when converting an Arrow execution plan to a Substrait  plan.
+  /// This operation is used when converting an Arrow execution plan to a Substrait plan.
   /// If the function has been previously encoded then the same anchor value will be
   /// returned.
   ///

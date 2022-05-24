@@ -84,7 +84,7 @@ class SubstraitExecutor {
 
   Status Close() { return plan_->finished().status(); }
 
-  Status Init(const Buffer& substrait_buffer) {
+  Status Init(const Buffer& substrait_buffer, const ExtensionIdRegistry* registry) {
     if (substrait_buffer.size() == 0) {
       return Status::Invalid("Empty substrait plan is passed.");
     }
@@ -93,7 +93,10 @@ class SubstraitExecutor {
       return sink_consumer_;
     };
     ARROW_ASSIGN_OR_RAISE(declarations_,
-                          engine::DeserializePlans(substrait_buffer, consumer_factory));
+                          engine::DeserializePlans(substrait_buffer,
+                                                   consumer_factory,
+                                                   NULLPTR,
+                                                   registry));
     return Status::OK();
   }
 
@@ -108,13 +111,13 @@ class SubstraitExecutor {
 }  // namespace
 
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    const Buffer& substrait_buffer) {
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry) {
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
   // TODO(ARROW-15732)
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool());
   SubstraitExecutor executor(std::move(plan), exec_context);
-  RETURN_NOT_OK(executor.Init(substrait_buffer));
+  RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   return sink_reader;
 }
@@ -123,9 +126,13 @@ Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_j
   return engine::internal::SubstraitFromJSON("Plan", substrait_json);
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlans(const Buffer& buffer) {
+Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buffer, const ExtensionIdRegistry* registry) {
   return engine::DeserializePlans(
-      buffer, []() { return std::make_shared<compute::NullSinkNodeConsumer>(); }
+      buffer,
+      []() { return std::make_shared<compute::NullSinkNodeConsumer>(); },
+      NULLPTR,
+      registry
   );
 }
 
@@ -136,7 +143,11 @@ std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
 Status RegisterFunction(ExtensionIdRegistry& registry, const std::string& id_uri,
                         const std::string& id_name,
                         const std::string& arrow_function_name) {
-  return registry.RegisterFunction({id_uri, id_name}, arrow_function_name);
+  const std::string& id_uri_sym = registry.AddExternalSymbol(id_uri);
+  const std::string& id_name_sym = registry.AddExternalSymbol(id_name);
+  const std::string& arrow_function_name_sym =
+      registry.AddExternalSymbol(arrow_function_name);
+  return registry.RegisterFunction({id_uri_sym, id_name_sym}, arrow_function_name_sym);
 }
 
 }  // namespace substrait

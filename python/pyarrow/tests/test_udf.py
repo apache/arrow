@@ -16,10 +16,14 @@
 # under the License.
 
 
+import base64
+import cloudpickle
+import os
 import pytest
 
 import pyarrow as pa
 from pyarrow import compute as pc
+from pyarrow.lib import frombytes, tobytes, DoubleArray
 
 # UDFs are all tested with a dataset scan
 pytestmark = pytest.mark.dataset
@@ -29,6 +33,11 @@ try:
     import pyarrow.dataset as ds
 except ImportError:
     ds = None
+
+try:
+    import pyarrow.substrait as substrait
+except ImportError:
+    substrait = None
 
 
 def mock_udf_context(batch_length=10):
@@ -501,3 +510,174 @@ def test_input_lifetime(unary_func_fixture):
     # Calling a UDF should not have kept `v` alive longer than required
     v = None
     assert proxy_pool.bytes_allocated() == 0
+
+
+def demean_and_zscore(scl_udf_ctx, v):
+    mean = v.mean()
+    std = v.std()
+    return v - mean, (v - mean) / std
+
+def twice_and_add_2(scl_udf_ctx, v):
+    return 2 * v, v + 2
+
+def twice(scl_udf_ctx, v):
+    return DoubleArray.from_pandas((2 * v.to_pandas()))
+
+
+def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
+    substrait_query = """
+    {
+      "extensionUris": [
+        {
+          "extensionUriAnchor": 1,
+          "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+        }
+      ],
+      "extensions": [
+        {
+          "extensionFunction": {
+            "extensionUriReference": 1,
+            "functionAnchor": 1,
+            "name": "twice",
+            "udf": {
+              "code": "CODE_PLACEHOLDER",
+              "summary": "twice",
+              "description": "Compute twice the value of the input",
+              "inputTypes": [
+                {
+                  "fp64": {
+                    "nullability": "NULLABILITY_NULLABLE"
+                  }
+                }
+              ],
+              "outputType": {
+                "fp64": {
+                  "nullability": "NULLABILITY_NULLABLE"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "relations": [
+        {
+          "root": {
+            "input": {
+              "project": {
+                "input": {
+                  "read": {
+                    "baseSchema": {
+                      "names": [
+                        "key",
+                        "value"
+                      ],
+                      "struct": {
+                        "types": [
+                          {
+                            "string": {
+                              "nullability": "NULLABILITY_NULLABLE"
+                            }
+                          },
+                          {
+                            "fp64": {
+                              "nullability": "NULLABILITY_NULLABLE"
+                            }
+                          }
+                        ],
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    },
+                    "local_files": {
+                      "items": [
+                        {
+                          "uri_file": "file://FILENAME_PLACEHOLDER"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "expressions": [
+                  {
+                    "selection": {
+                      "directReference": {
+                        "structField": {}
+                      },
+                      "rootReference": {}
+                    }
+                  },
+                  {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 1
+                        }
+                      },
+                      "rootReference": {}
+                    }
+                  },
+                  {
+                    "scalarFunction": {
+                      "functionReference": 1,
+                      "args": [
+                        {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 1
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
+                      ],
+                      "outputType": {
+                        "fp64": {
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "names": [
+              "key",
+              "value",
+              "twice"
+            ]
+          }
+        }
+      ]
+    }
+    """
+    # TODO: replace with ipc when the support is finalized in C++
+    code = frombytes(base64.b64encode(cloudpickle.dumps(twice)))
+    path = os.path.join(str(tmpdir), 'substrait_data.arrow')
+    table = pa.table([["a", "b", "a", "b", "a"], [1.0, 2.0, 3.0, 4.0, 5.0]], names=['key', 'value'])
+    with pa.ipc.RecordBatchFileWriter(path, schema=table.schema) as writer:
+        writer.write_table(table)
+
+    query = tobytes(substrait_query.replace("CODE_PLACEHOLDER", code).replace("FILENAME_PLACEHOLDER", path))
+
+    plan = substrait._parse_json_plan(query)
+
+    registry = substrait.make_extension_id_registry()
+    udf_decls = substrait.get_udf_declarations(plan, registry)
+    for udf_decl in udf_decls:
+        substrait.register_function(registry, None, udf_decl["name"], udf_decl["name"])
+        pc.register_scalar_function(
+            cloudpickle.loads(base64.b64decode(tobytes(udf_decl["code"]))),
+            udf_decl["name"],
+            {"summary": udf_decl["summary"], "description": udf_decl["description"]},
+            {f"arg$i": type_nullable_pair[0]
+             for i, type_nullable_pair in enumerate(udf_decl["input_types"])
+            },
+            udf_decl["output_type"][0],
+        )
+
+    reader = substrait.run_query(plan, registry)
+    res_tb = reader.read_all()
+
+    assert len(res_tb) == len(table)
+    assert res_tb.schema == pa.schema([("key", pa.string()), ("value", pa.float64()), ("twice", pa.float64())])
+    assert res_tb.drop(["twice"]) == table

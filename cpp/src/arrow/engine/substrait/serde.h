@@ -51,17 +51,52 @@ using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
-    ExtensionSet* ext_set_out = NULLPTR);
+    ExtensionSet* ext_set_out = NULLPTR, const ExtensionIdRegistry* registry = NULLPTR);
 
+/// \brief Deserializes a single-relation Substrait Plan message to an execution plan
+///
+/// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
+/// message
+/// \param[in] consumer_factory factory function for generating the node that consumes
+/// the batches produced by each toplevel Substrait relation
+/// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
+/// Plan is returned here.
+/// \return an ExecNode corresponding to the single toplevel relation in the Substrait
+/// Plan
 Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
                                           const ConsumerFactory& consumer_factory,
-                                          ExtensionSet* ext_set_out = NULLPTR);
+                                          ExtensionSet* ext_set_out = NULLPTR,
+                                          const ExtensionIdRegistry* registry = NULLPTR);
 
+/// Factory function type for generating the write options of a node consuming the batches
+/// produced by each toplevel Substrait relation when deserializing a Substrait Plan.
 using WriteOptionsFactory = std::function<std::shared_ptr<dataset::WriteNodeOptions>()>;
 
+/// \brief Deserializes a Substrait Plan message to a list of ExecNode declarations
+///
+/// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
+/// message
+/// \param[in] write_options_factory factory function for generating the write options of
+/// a node consuming the batches produced by each toplevel Substrait relation
+/// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
+/// Plan is returned here.
+/// \return a vector of ExecNode declarations, one for each toplevel relation in the
+/// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
-    ExtensionSet* ext_set = NULLPTR);
+    ExtensionSet* ext_set = NULLPTR, const ExtensionIdRegistry* registry = NULLPTR);
+
+struct ARROW_ENGINE_EXPORT UdfDeclaration {
+  std::string name;
+  std::string code;
+  std::string summary;
+  std::string description;
+  std::vector<std::pair<std::shared_ptr<DataType>, bool>> input_types;
+  std::pair<std::shared_ptr<DataType>, bool> output_type;
+};
+
+ARROW_ENGINE_EXPORT Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(
+    const Buffer& buf, const ExtensionIdRegistry* registry);
 
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///

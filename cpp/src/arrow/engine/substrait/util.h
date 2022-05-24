@@ -30,7 +30,7 @@ namespace substrait {
 
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    const Buffer& substrait_buffer);
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR);
 
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.
@@ -38,7 +38,7 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
     const std::string& substrait_json);
 
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
-    const Buffer& buf);
+    const Buffer& buf, const ExtensionIdRegistry* registry);
 
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
 
@@ -46,6 +46,11 @@ ARROW_ENGINE_EXPORT Status RegisterFunction(ExtensionIdRegistry& registry,
                                             const std::string& id_uri,
                                             const std::string& id_name,
                                             const std::string& arrow_function_name);
+
+ARROW_ENGINE_EXPORT const std::string& default_extension_types_uri() {
+  static std::string uri = engine::kArrowExtTypesUri.to_string();
+  return uri;
+}
 
 }  // namespace substrait
 
