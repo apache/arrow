@@ -600,20 +600,12 @@ dataset___UnionDatasetFactory__Make <- function(children) {
   .Call(`_arrow_dataset___UnionDatasetFactory__Make`, children)
 }
 
-dataset___FileSystemDatasetFactory__Make0 <- function(fs, paths, format) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make0`, fs, paths, format)
+dataset___FileSystemDatasetFactory__Make <- function(fs, selector, format, fsf_options) {
+  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make`, fs, selector, format, fsf_options)
 }
 
-dataset___FileSystemDatasetFactory__Make2 <- function(fs, selector, format, partitioning) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make2`, fs, selector, format, partitioning)
-}
-
-dataset___FileSystemDatasetFactory__Make1 <- function(fs, selector, format) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make1`, fs, selector, format)
-}
-
-dataset___FileSystemDatasetFactory__Make3 <- function(fs, selector, format, factory) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make3`, fs, selector, format, factory)
+dataset___FileSystemDatasetFactory__MakePaths <- function(fs, paths, format, exclude_invalid_files) {
+  .Call(`_arrow_dataset___FileSystemDatasetFactory__MakePaths`, fs, paths, format, exclude_invalid_files)
 }
 
 dataset___FileFormat__type_name <- function(format) {
@@ -2011,3 +2003,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

@@ -1454,71 +1454,37 @@ extern "C" SEXP _arrow_dataset___UnionDatasetFactory__Make(SEXP children_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make0(const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths, const std::shared_ptr<ds::FileFormat>& format);
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make0(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp){
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, cpp11::list fsf_options);
+extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP fsf_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	arrow::r::Input<cpp11::list>::type fsf_options(fsf_options_sexp);
+	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make(fs, selector, format, fsf_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP fsf_options_sexp){
+	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__MakePaths(const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths, const std::shared_ptr<ds::FileFormat>& format, bool exclude_invalid_files);
+extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__MakePaths(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp, SEXP exclude_invalid_files_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
 	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make0(fs, paths, format));
+	arrow::r::Input<bool>::type exclude_invalid_files(exclude_invalid_files_sexp);
+	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__MakePaths(fs, paths, format, exclude_invalid_files));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make0(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp){
-	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make0(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::Partitioning>& partitioning);
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partitioning_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
-	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
-	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make2(fs, selector, format, partitioning));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partitioning_sexp){
-	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format);
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
-	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make1(fs, selector, format));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp){
-	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::PartitioningFactory>& factory);
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP factory_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
-	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::PartitioningFactory>&>::type factory(factory_sexp);
-	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make3(fs, selector, format, factory));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP factory_sexp){
-	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make3(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__MakePaths(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp, SEXP exclude_invalid_files_sexp){
+	Rf_error("Cannot call dataset___FileSystemDatasetFactory__MakePaths(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5286,10 +5252,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___DatasetFactory__Finish2", (DL_FUNC) &_arrow_dataset___DatasetFactory__Finish2, 2}, 
 		{ "_arrow_dataset___DatasetFactory__Inspect", (DL_FUNC) &_arrow_dataset___DatasetFactory__Inspect, 2}, 
 		{ "_arrow_dataset___UnionDatasetFactory__Make", (DL_FUNC) &_arrow_dataset___UnionDatasetFactory__Make, 1}, 
-		{ "_arrow_dataset___FileSystemDatasetFactory__Make0", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make0, 3}, 
-		{ "_arrow_dataset___FileSystemDatasetFactory__Make2", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make2, 4}, 
-		{ "_arrow_dataset___FileSystemDatasetFactory__Make1", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make1, 3}, 
-		{ "_arrow_dataset___FileSystemDatasetFactory__Make3", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make3, 4}, 
+		{ "_arrow_dataset___FileSystemDatasetFactory__Make", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make, 4}, 
+		{ "_arrow_dataset___FileSystemDatasetFactory__MakePaths", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__MakePaths, 4}, 
 		{ "_arrow_dataset___FileFormat__type_name", (DL_FUNC) &_arrow_dataset___FileFormat__type_name, 1}, 
 		{ "_arrow_dataset___FileFormat__DefaultWriteOptions", (DL_FUNC) &_arrow_dataset___FileFormat__DefaultWriteOptions, 1}, 
 		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 2}, 

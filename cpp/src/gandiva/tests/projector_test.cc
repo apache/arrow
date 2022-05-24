@@ -413,6 +413,7 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto field_cot = arrow::field("cot", arrow::float64());
   auto field_radians = arrow::field("radians", arrow::float64());
   auto field_degrees = arrow::field("degrees", arrow::float64());
+  auto field_udfdegrees = arrow::field("udfdegrees", arrow::float64());
 
   // Build expression
   auto cbrt_expr = TreeExprBuilder::MakeExpression("cbrt", {field0}, field_cbrt);
@@ -436,13 +437,15 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto cot_expr = TreeExprBuilder::MakeExpression("cot", {field0}, field_cot);
   auto radians_expr = TreeExprBuilder::MakeExpression("radians", {field0}, field_radians);
   auto degrees_expr = TreeExprBuilder::MakeExpression("degrees", {field0}, field_degrees);
+  auto udfdegrees_expr =
+      TreeExprBuilder::MakeExpression("udfdegrees", {field0}, field_udfdegrees);
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(
-      schema,
-      {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr, sin_expr,
-       cos_expr, asin_expr, acos_expr, tan_expr, atan_expr, sinh_expr, cosh_expr,
-       tanh_expr, atan2_expr, cot_expr, radians_expr, degrees_expr},
+      schema, {cbrt_expr,  exp_expr,  log_expr,     log10_expr,   logb_expr,
+               power_expr, sin_expr,  cos_expr,     asin_expr,    acos_expr,
+               tan_expr,   atan_expr, sinh_expr,    cosh_expr,    tanh_expr,
+               atan2_expr, cot_expr,  radians_expr, degrees_expr, udfdegrees_expr},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
@@ -475,6 +478,7 @@ TEST_F(TestProjector, TestExtendedMath) {
   std::vector<double> cot_vals;
   std::vector<double> radians_vals;
   std::vector<double> degrees_vals;
+  std::vector<double> udfdegrees_vals;
   for (int i = 0; i < num_records; i++) {
     cbrt_vals.push_back(static_cast<double>(cbrtl(input0[i])));
     exp_vals.push_back(static_cast<double>(expl(input0[i])));
@@ -495,6 +499,7 @@ TEST_F(TestProjector, TestExtendedMath) {
     cot_vals.push_back(static_cast<double>(tan(M_PI / 2 - input0[i])));
     radians_vals.push_back(static_cast<double>(input0[i] * M_PI / 180.0));
     degrees_vals.push_back(static_cast<double>(input0[i] * 180.0 / M_PI));
+    udfdegrees_vals.push_back(static_cast<double>(input0[i] * 180.0 / M_PI));
   }
   auto expected_cbrt = MakeArrowArray<arrow::DoubleType, double>(cbrt_vals, validity);
   auto expected_exp = MakeArrowArray<arrow::DoubleType, double>(exp_vals, validity);
@@ -517,6 +522,8 @@ TEST_F(TestProjector, TestExtendedMath) {
       MakeArrowArray<arrow::DoubleType, double>(radians_vals, validity);
   auto expected_degrees =
       MakeArrowArray<arrow::DoubleType, double>(degrees_vals, validity);
+  auto expected_udfdegrees =
+      MakeArrowArray<arrow::DoubleType, double>(udfdegrees_vals, validity);
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
@@ -546,6 +553,7 @@ TEST_F(TestProjector, TestExtendedMath) {
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cot, outputs.at(16), epsilon);
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_radians, outputs.at(17), epsilon);
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_degrees, outputs.at(18), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_udfdegrees, outputs.at(19), epsilon);
 }
 
 TEST_F(TestProjector, TestFloatLessThan) {
