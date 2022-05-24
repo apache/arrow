@@ -38,7 +38,10 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
       )
     }
     # URL templates
-    nightly <- "https://arrow-r-nightly.s3.amazonaws.com/libarrow/bin/windows/arrow-%s.zip"
+    nightly <- paste0(
+      getOption("arrow.dev_repo", "https://arrow-r-nightly.s3.amazonaws.com"),
+      "/libarrow/bin/windows/arrow-%s.zip"
+    )
     rwinlib <- "https://github.com/rwinlib/arrow/archive/v%s.zip"
     # First look for a nightly
     get_file(nightly, VERSION)

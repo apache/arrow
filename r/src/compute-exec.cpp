@@ -389,7 +389,7 @@ std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
   };
 
   arrow::Result<std::vector<compute::Declaration>> maybe_decls =
-      ValueOrStop(arrow::engine::DeserializePlan(*serialized_plan, consumer_factory));
+      ValueOrStop(arrow::engine::DeserializePlans(*serialized_plan, consumer_factory));
   std::vector<compute::Declaration> decls = std::move(ValueOrStop(maybe_decls));
 
   // For now, the Substrait plan must include a 'read' that points to
