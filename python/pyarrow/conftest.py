@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pytest
 from pyarrow import Codec
 
 groups = [
@@ -154,6 +155,8 @@ try:
 except ImportError:
     pass
 
+
+# Doctest should ignore files for the modules that are not built
 def pytest_ignore_collect(path, config):
     if config.option.doctestmodules:
         # don't try to run doctests on the /tests directory
@@ -191,3 +194,23 @@ def pytest_ignore_collect(path, config):
                 return True
 
     return False
+
+
+# Save output files from doctest examples into temp dir
+@pytest.fixture(autouse=True)
+def _docdir(request):
+
+    # Trigger ONLY for the doctests.
+    doctest_plugin = request.config.pluginmanager.getplugin("doctest")
+    if isinstance(request.node, doctest_plugin.DoctestItem):
+
+        # Get the fixture dynamically by its name.
+        tmpdir = request.getfixturevalue('tmpdir')
+
+        # Chdir only for the duration of the test.
+        with tmpdir.as_cwd():
+            yield
+
+    else:
+        # For normal tests, we have to yield, since this is a yield-fixture.
+        yield
