@@ -110,9 +110,7 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   static Result<std::shared_ptr<StreamingReader>> Make(
       MemoryPool* pool, std::shared_ptr<io::InputStream> input,
       const ReadOptions& read_options, const ParseOptions& parse_options,
-      const ConvertOptions& convert_options);
-
-  Status Close() override;
+      const ConvertOptions& convert_options);      
 };
 
 /// \brief Count the logical rows of data in a CSV file (i.e. the

@@ -2997,8 +2997,6 @@ class FailingRecordBatchReader : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override { return error_; }
 
-  Status Close() override { return Status::OK(); }
-
  protected:
   Status error_;
 };
