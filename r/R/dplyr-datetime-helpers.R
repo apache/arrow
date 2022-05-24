@@ -154,7 +154,9 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 
 build_formats <- function(orders) {
   # only keep the letters and the underscore as separator -> allow the users to
-  # pass strptime-like formats (with "%"). Processing is needed (instead of passing
+  # pass strptime-like formats (with "%"). We process the data -> we need to
+  # process the `orders` (even if supplied in the desired format)
+  # Processing is needed (instead of passing
   # formats as-is) due to the processing of the character vector in parse_date_time()
   orders <- gsub("[^A-Za-z]", "", orders)
   orders <- gsub("Y", "y", orders)
@@ -179,6 +181,12 @@ build_formats <- function(orders) {
     orders <- unique(c(orders1, orders2))
   }
 
+  if (any(orders == "qy")) {
+    orders1 <- setdiff(orders, "qy")
+    orders2 <- "ymd"
+    orders <- unique(c(orders1, orders2))
+  }
+
   ymd_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
   ymd_hms_orders <- c(
     "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H", "mdy_HMS",
@@ -190,10 +198,10 @@ build_formats <- function(orders) {
   supported_orders <- c(
     ymd_orders,
     ymd_hms_orders,
-    gsub("_", " ", ymd_hms_orders), # allow "_", " " and "" as separators
+    gsub("_", " ", ymd_hms_orders), # allow "_", " " and "" as order separators
     gsub("_", "", ymd_hms_orders),
     ymd_ims_orders,
-    gsub("_", " ", ymd_ims_orders), # allow "_", " " and "" as separators
+    gsub("_", " ", ymd_ims_orders), # allow "_", " " and "" as order separators
     gsub("_", "", ymd_ims_orders)
   )
 
@@ -236,9 +244,36 @@ build_format_from_order <- function(order) {
   c(formats_with_sep, formats_without_sep)
 }
 
+#' Process data in preparation for parsing
+#'
+#' `process_data_for_parsing()` takes a data column and a vector of `orders` and
+#' prepares several versions of the input data:
+#'   * `processed_x` is a version of `x` where all separators were replaced with
+#'  `"-"` and multiple separators were collapsed into a single one. This element
+#'  is only set to an empty list when the `orders` argument indicate we're only
+#'  interested in parsing the augmented version of `x`.
+#'  * each of the other 3 elements augment `x` in some way
+#'    * `augmented_x_ym` - augments the `ym` and `my` formats by adding `"01"`
+#'    (to indicate the first day of the month)
+#'    * `augmented_x_yq` - transforms the `yq` format to `ymd`, by deriving the
+#'    first month of the quarter and adding `"01"` to indicate the first day
+#'    * `augmented_x_qy` - transforms the `qy` format to `ymd` in a similar
+#'    manner to `"yq"`
+#'
+#' @param x an Expression corresponding to a character or numeric vector of
+#' dates to be parsed.
+#' @param orders a character vector of date-time formats.
+#'
+#' @return a list made up of 4 list, each a different version of x:
+#'  * `processed_x`
+#'  * `augmented_x_ym`
+#'  * `augmented_x_yq`
+#'  * `augmented_x_qy`
+#' @noRd
 process_data_for_parsing <- function(x,
                                      orders) {
 
+  # browser()
   processed_x <- x$cast(string())
 
   # make all separators (non-letters and non-numbers) into "-"
@@ -276,9 +311,21 @@ process_data_for_parsing <- function(x,
     augmented_x_yq <- call_binding("paste0", year_x, "-", month_x, "-01")
   }
 
+  augmented_x_qy <- NULL
+  if (any(orders == "qy")) {
+    quarter_x <- call_binding("gsub", "-.*$", "", processed_x)
+    quarter_x <- quarter_x$cast(int32())
+    year_x <- call_binding("gsub", "^.*?-", "", processed_x)
+    # year might be missing the final 0s when extracted from a float
+    year_x <- call_binding("str_pad", year_x, width = 4, side = "right", pad = "0")
+    month_x <- (quarter_x - 1) * 3 + 1
+    augmented_x_qy <- call_binding("paste0", year_x, "-", month_x, "-01")
+  }
+
   list(
     "augmented_x_ym" = augmented_x_ym,
     "augmented_x_yq" = augmented_x_yq,
+    "augmented_x_qy" = augmented_x_qy,
     "processed_x" = processed_x
   )
 }
@@ -293,7 +340,7 @@ attempt_parsing <- function(x,
   parse_attempt_exprs_list <- map(processed_data, build_strptime_exprs, formats)
 
   # if all orders are in c("ym", "my", "yq") only attempt to parse the augmented_x
-  if (all(orders %in% c("ym", "my", "yq"))) {
+  if (all(orders %in% c("ym", "my", "yq", "qy"))) {
     parse_attempt_exprs_list$processed_x <- list()
   }
 

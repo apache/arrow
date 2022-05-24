@@ -528,7 +528,7 @@ register_bindings_datetime_parsers <- function() {
       arrow_not_supported("`quiet = FALSE`")
     }
 
-    if (truncated != 0) {
+    if (truncated > 0) {
       if (truncated > (nchar(orders) - 3)) {
         arrow_not_supported(paste0("a value for `truncated` > ", nchar(orders) - 3))
       }

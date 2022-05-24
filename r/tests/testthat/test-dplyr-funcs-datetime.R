@@ -1790,8 +1790,21 @@ test_that("ym, my & yq parsers", {
     my_string = c("05-2022", "02/2022", "03.22", "12//1979", "09.88", NA),
     yq_string = c("2007.3", "1970.2", "2020.1", "2009.4", "1975.1", NA),
     yq_numeric = c(2007.3, 1970.2, 2020.1, 2009.4, 1975.1, NA),
-    yq_space = c("2007 3", "1970 2", "2020 1", "2009 4", "1975 1", NA)
+    yq_space = c("2007 3", "1970 2", "2020 1", "2009 4", "1975 1", NA),
+    qy_string = c("3.2007", "2.1970", "1.2020", "4.2009", "1.1975", NA),
+    qy_numeric = c(3.2007, 2.1970, 1.2020, 4.2009, 1.1975, NA),
+    qy_space = c("3 2007", "2 1970", "1 2020", "4 2009", "1 1975", NA)
   )
+
+  test_df %>%
+    # arrow_table() %>%
+    mutate(
+      # qy_date_from_string = parse_date_time(qy_string, orders = "qy"),
+      qy_date_from_numeric = parse_date_time(as.character(qy_numeric), orders = "qy"),
+      # qy_date_from_string_with_space = parse_date_time(qy_space, orders = "qy"),
+      .keep = "used"
+    ) %>%
+    collect()
 
   # these functions' internals use some string processing which requires the
   # RE2 library (not available on Windows with R 3.6)
@@ -1813,7 +1826,10 @@ test_that("ym, my & yq parsers", {
         my_date2 = parse_date_time(my_string, orders = c("my", "myd")),
         yq_date_from_string2 = parse_date_time(yq_string, orders = "yq"),
         yq_date_from_numeric2 = parse_date_time(yq_numeric, orders = "yq"),
-        yq_date_from_string_with_space2 = parse_date_time(yq_space, orders = "yq")
+        yq_date_from_string_with_space2 = parse_date_time(yq_space, orders = "yq"),
+        qy_date_from_string = parse_date_time(qy_string, orders = "qy"),
+        qy_date_from_numeric = parse_date_time(qy_numeric, orders = "qy"),
+        qy_date_from_string_with_space = parse_date_time(qy_space, orders = "qy")
       ) %>%
       collect(),
     test_df
