@@ -15,31 +15,81 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from pyarrow import Codec
+
 groups = [
-    'cuda',
+    'brotli',
+    'bz2',
+    'cython',
     'dataset',
+    'hypothesis',
+    'fastparquet',
+    'gandiva',
+    'gdb',
+    'gzip',
+    'hdfs',
+    'large_memory',
+    'lz4',
+    'memory_leak',
+    'nopandas',
     'orc',
+    'pandas',
     'parquet',
-    'parquet/encryption',
+    'parquet_encryption',
     'plasma',
+    's3',
+    'snappy',
+    'tensorflow',
     'flight',
-    'fs',
+    'slow',
+    'requires_testing_data',
+    'zstd',
 ]
 
 defaults = {
-    'cuda': False,
+    'brotli': Codec.is_available('brotli'),
+    'bz2': Codec.is_available('bz2'),
+    'cython': False,
     'dataset': False,
+    'fastparquet': False,
     'flight': False,
+    'gandiva': False,
+    'gdb': True,
+    'gzip': Codec.is_available('gzip'),
+    'hdfs': False,
+    'hypothesis': False,
+    'large_memory': False,
+    'lz4': Codec.is_available('lz4'),
+    'memory_leak': False,
+    'nopandas': False,
     'orc': False,
+    'pandas': False,
     'parquet': False,
-    'parquet/encryption': False,
+    'parquet_encryption': False,
     'plasma': False,
-    'fs': False,
+    'requires_testing_data': True,
+    's3': False,
+    'slow': False,
+    'snappy': Codec.is_available('snappy'),
+    'tensorflow': False,
+    'zstd': Codec.is_available('zstd'),
 }
 
 try:
-    import pyarrow.cuda  # noqa
-    defaults['cuda'] = True
+    import cython  # noqa
+    defaults['cython'] = True
+except ImportError:
+    pass
+
+try:
+    import fastparquet  # noqa
+    defaults['fastparquet'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.gandiva  # noqa
+    defaults['gandiva'] = True
 except ImportError:
     pass
 
@@ -56,6 +106,12 @@ except ImportError:
     pass
 
 try:
+    import pandas  # noqa
+    defaults['pandas'] = True
+except ImportError:
+    defaults['nopandas'] = True
+
+try:
     import pyarrow.parquet  # noqa
     defaults['parquet'] = True
 except ImportError:
@@ -63,13 +119,20 @@ except ImportError:
 
 try:
     import pyarrow.parquet.encryption  # noqa
-    defaults['parquet/encryption'] = True
+    defaults['parquet_encryption'] = True
 except ImportError:
     pass
+
 
 try:
     import pyarrow.plasma  # noqa
     defaults['plasma'] = True
+except ImportError:
+    pass
+
+try:
+    import tensorflow  # noqa
+    defaults['tensorflow'] = True
 except ImportError:
     pass
 
@@ -81,10 +144,15 @@ except ImportError:
 
 try:
     from pyarrow.fs import S3FileSystem  # noqa
-    defaults['fs'] = True
+    defaults['s3'] = True
 except ImportError:
     pass
 
+try:
+    from pyarrow.fs import HadoopFileSystem  # noqa
+    defaults['hdfs'] = True
+except ImportError:
+    pass
 
 def pytest_ignore_collect(path, config):
     if config.option.doctestmodules:
@@ -92,9 +160,34 @@ def pytest_ignore_collect(path, config):
         if "/pyarrow/tests/" in str(path):
             return True
 
+        doctest_groups = [
+            'dataset',
+            'orc',
+            'parquet',
+            'plasma',
+            'flight',
+        ]
+
         # handle cuda, flight, etc
-        for group in groups:
+        for group in doctest_groups:
             if 'pyarrow/{}'.format(group) in str(path) and not defaults[group]:
+                return True
+
+        if 'pyarrow/parquet/encryption' in str(path) and not defaults['parquet_encryption']:
+            return True
+
+        if 'pyarrow/cuda' in str(path):
+            try:
+                import pyarrow.cuda  # noqa
+                return False
+            except ImportError:
+                return True
+
+        if 'pyarrow/fs' in str(path):
+            try:
+                from pyarrow.fs import S3FileSystem  # noqa
+                return False
+            except ImportError:
                 return True
 
     return False
