@@ -483,14 +483,14 @@ class CompositeReferenceTable {
   Result<std::shared_ptr<Array>> materialize_primitive_column(size_t i_table,
                                                               col_index_t i_col) {
     Builder builder;
-    builder.Reserve(rows_.size());
+    ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
       if (ref.batch) {
         builder.UnsafeAppend(
             ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(1)[ref.row]);
       } else {
-        builder.AppendNull();
+        builder.UnsafeAppendNull();
       }
     }
     std::shared_ptr<Array> result;
