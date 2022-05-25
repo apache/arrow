@@ -23,7 +23,7 @@
 # This allows us to set a custom version via param:
 # crossbow submit --param custom_version=8.5.3 r-nightly-packages
 # if the param is unset defaults to the usual Ymd naming scheme
-{% set version = custom_version|default('\\2.\'\"{{globals.today }}\"\'') %}
+{% set version = custom_version|default("\\2.\'\""+ today +"\"\'") %}
 # We need this as boolean and string
 {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
 # use filter to cast to string and convert to lowercase to match yaml boolean
@@ -65,7 +65,7 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-src-pkg
+          name: r-pkg_src
           path: arrow/r/arrow_*.tar.gz
 
   linux-cpp:
@@ -103,7 +103,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-{{ '${{ matrix.config.os}}' }}-libarrow
+          name: r-libarrow-{{ '${{ matrix.config.os}}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip
 
   windows-cpp:
@@ -130,7 +130,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-windows-libarrow
+          name: r-libarrow-windows
           path: build/arrow-*.zip 
 
   r-packages:
@@ -199,7 +199,7 @@ jobs:
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
-          name: r-{{ '${{ matrix.platform }}-R${{ matrix.r_version.r }}' }}-pkg
+          name: r-pkg_{{ '${{ matrix.platform }}_${{ matrix.r_version.r }}' }}
           path: arrow_*
 
   test-linux-binary:
@@ -287,4 +287,20 @@ jobs:
     name: Update PACKAGES
     runs-on: ubuntu-latest
     steps:
-      {{ macros.github_upload_releases('arrow-?_?.+')|indent }}
+      - name: Download Artifacts 
+        uses: actions/download-artifact@v3
+        with: 
+          path: artifacts
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          install-r: false
+      - name: Rename artifacts
+        shell: Rscript {0}
+        run: |
+          file_paths <- list.files("artifacts", include.dirs = FALSE, recursive = TRUE)
+          new_names <- paste0("binaries/", sub("/","-",file_paths))
+          dir.create("binaries", showWarnings = FALSE)
+          file.copy(paste0("artifacts/", file_paths), new_names)
+
+      {{ macros.github_upload_releases("binaries/r-*")|indent }}

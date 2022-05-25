@@ -269,24 +269,24 @@ on:
     if: {{ '${{' }} ({{ os }} == 'windows-latest') && {{ get_bin }} {{ '}}' }}
     uses: actions/download-artifact@v3
     with:
-      name: r-windows-libarrow
+      name: r-libarrow-windows
       path: repo/libarrow/bin/windows
   - name: Get ubuntu binary
     if: {{ '${{' }} ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
     uses: actions/download-artifact@v3
     with:
-      name: r-ubuntu-libarrow
+      name: r-libarrow-ubuntu
       path: repo/libarrow/bin/ubuntu-18.04
   - name: Get centos binary
     if: {{ '${{' }} ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
     uses: actions/download-artifact@v3
     with:
-      name: r-centos-libarrow
+      name: r-libarrow-centos
       path: repo/libarrow/bin/centos-7
   - name: Get src pkg
     uses: actions/download-artifact@v3
     with:
-      name: r-src-pkg
+      name: r-pkg_src
       path: repo/src/contrib
   - name: Update repo index
     shell: Rscript {0}
