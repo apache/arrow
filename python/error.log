@@ -1,0 +1,704 @@
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/install.py:34: SetuptoolsDeprecationWarning: setup.py install is deprecated. Use build and pip and other standards-based tools.
+  warnings.warn(
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/easy_install.py:144: EasyInstallDeprecationWarning: easy_install command is deprecated. Use build and pip and other standards-based tools.
+  warnings.warn(
+warning: no previously-included files matching '*~' found anywhere in distribution
+warning: no previously-included files matching '#*' found anywhere in distribution
+warning: no previously-included files matching '.DS_Store' found anywhere in distribution
+no previously-included directories found matching '.asv'
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.array' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.array' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.array' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.c' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.c' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.c' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.compute' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.compute' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.compute' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.compute.exec' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.compute.exec' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.compute.exec' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.csv' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.csv' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.csv' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.dataset' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.dataset' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.dataset' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.filesystem' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.filesystem' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.filesystem' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.io' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.io' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.io' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.ipc' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.ipc' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.ipc' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.json' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.json' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.json' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.python' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.python' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.python' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.tensor' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.tensor' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.tensor' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.testing' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.testing' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.testing' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.util' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.util' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.util' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.vendored' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.vendored' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.vendored' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.vendored.datetime' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.vendored.datetime' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.vendored.datetime' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.include.arrow.vendored.pcg' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.include.arrow.vendored.pcg' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.include.arrow.vendored.pcg' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.includes' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.includes' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.includes' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.parquet' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.parquet' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.parquet' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.tensorflow' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.tensorflow' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.tensorflow' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.tests.data.feather' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.tests.data.feather' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.tests.data.feather' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.tests.data.orc' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.tests.data.orc' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.tests.data.orc' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.tests.data.parquet' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.tests.data.parquet' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.tests.data.parquet' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.tests.parquet' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.tests.parquet' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.tests.parquet' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+/home/kshiteej/.conda/envs/pyarrow-dev/lib/python3.9/site-packages/setuptools/command/build_py.py:153: SetuptoolsDeprecationWarning:     Installing 'pyarrow.vendored' as data is deprecated, please list it in `packages`.
+    !!
+
+
+    ############################
+    # Package would be ignored #
+    ############################
+    Python recognizes 'pyarrow.vendored' as an importable package, however it is
+    included in the distribution as "data".
+    This behavior is likely to change in future versions of setuptools (and
+    therefore is considered deprecated).
+
+    Please make sure that 'pyarrow.vendored' is included as a package by using
+    setuptools' `packages` configuration field or the proper discovery methods
+    (for example by using `find_namespace_packages(...)`/`find_namespace:`
+    instead of `find_packages(...)`/`find:`).
+
+    You can read more about "package discovery" and "data files" on setuptools
+    documentation page.
+
+
+!!
+
+  check.warn(importable)
+CMake Warning:
+  Ignoring empty string ("") provided on the command line.
+
+
+Using ld linker
+Configured for RELEASE build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})
+CMake Warning at /home/kshiteej/.conda/envs/pyarrow-dev/lib/cmake/arrow/Findlz4Alt.cmake:25 (find_package):
+  By not providing "Findlz4.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "lz4", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "lz4" with any of
+  the following names:
+
+    lz4Config.cmake
+    lz4-config.cmake
+
+  Add the installation prefix of "lz4" to CMAKE_PREFIX_PATH or set "lz4_DIR"
+  to a directory containing one of the above files.  If "lz4" provides a
+  separate development package or SDK, be sure it has been installed.
+Call Stack (most recent call first):
+  /home/kshiteej/.conda/envs/pyarrow-dev/share/cmake-3.23/Modules/CMakeFindDependencyMacro.cmake:47 (find_package)
+  /home/kshiteej/.conda/envs/pyarrow-dev/lib/cmake/arrow/ArrowConfig.cmake:87 (find_dependency)
+  cmake_modules/FindArrow.cmake:223 (find_package)
+  cmake_modules/FindArrow.cmake:344 (arrow_find_package_cmake_package_configuration)
+  cmake_modules/FindArrow.cmake:389 (arrow_find_package)
+  cmake_modules/FindArrowPython.cmake:46 (find_package)
+  CMakeLists.txt:236 (find_package)
+
+
+[01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:[m[K In function '[01m[KPyObject* __pyx_pf_7pyarrow_8_parquet_12FileMetaData_14format_version___get__(__pyx_obj_7pyarrow_8_parquet_FileMetaData*)[m[K':
+[01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:13898:36:[m[K [01;35m[Kwarning: [m[K'[01m[Kparquet::ParquetVersion::PARQUET_2_0[m[K' is deprecated: use PARQUET_2_4 or PARQUET_2_6 for fine-grained feature selection [[01;35m[K-Wdeprecated-declarations[m[K]
+13898 |     case  parquet::ParquetVersion::[01;35m[KPARQUET_2_0[m[K:
+      |                                    [01;35m[K^~~~~~~~~~~[m[K
+In file included from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/types.h:30[m[K,
+                 from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/schema.h:32[m[K,
+                 from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/api/schema.h:21[m[K,
+                 from [01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:836[m[K:
+[01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/type_fwd.h:44:5:[m[K [01;36m[Knote: [m[Kdeclared here
+   44 |     [01;36m[KPARQUET_2_0[m[K ARROW_DEPRECATED_ENUM_VALUE("use PARQUET_2_4 or PARQUET_2_6 "
+      |     [01;36m[K^~~~~~~~~~~[m[K
+[01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:13898:36:[m[K [01;35m[Kwarning: [m[K'[01m[Kparquet::ParquetVersion::PARQUET_2_0[m[K' is deprecated: use PARQUET_2_4 or PARQUET_2_6 for fine-grained feature selection [[01;35m[K-Wdeprecated-declarations[m[K]
+13898 |     case  parquet::ParquetVersion::[01;35m[KPARQUET_2_0[m[K:
+      |                                    [01;35m[K^~~~~~~~~~~[m[K
+In file included from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/types.h:30[m[K,
+                 from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/schema.h:32[m[K,
+                 from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/api/schema.h:21[m[K,
+                 from [01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:836[m[K:
+[01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/type_fwd.h:44:5:[m[K [01;36m[Knote: [m[Kdeclared here
+   44 |     [01;36m[KPARQUET_2_0[m[K ARROW_DEPRECATED_ENUM_VALUE("use PARQUET_2_4 or PARQUET_2_6 "
+      |     [01;36m[K^~~~~~~~~~~[m[K
+[01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:[m[K In function '[01m[Kstd::shared_ptr<parquet::WriterProperties> __pyx_f_7pyarrow_8_parquet__create_writer_properties(__pyx_opt_args_7pyarrow_8_parquet__create_writer_properties*)[m[K':
+[01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:23890:62:[m[K [01;35m[Kwarning: [m[K'[01m[Kparquet::ParquetVersion::PARQUET_2_0[m[K' is deprecated: use PARQUET_2_4 or PARQUET_2_6 for fine-grained feature selection [[01;35m[K-Wdeprecated-declarations[m[K]
+23890 |       (void)(__pyx_v_props.version( parquet::ParquetVersion::[01;35m[KPARQUET_2_0[m[K));
+      |                                                              [01;35m[K^~~~~~~~~~~[m[K
+In file included from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/types.h:30[m[K,
+                 from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/schema.h:32[m[K,
+                 from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/api/schema.h:21[m[K,
+                 from [01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:836[m[K:
+[01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/type_fwd.h:44:5:[m[K [01;36m[Knote: [m[Kdeclared here
+   44 |     [01;36m[KPARQUET_2_0[m[K ARROW_DEPRECATED_ENUM_VALUE("use PARQUET_2_4 or PARQUET_2_6 "
+      |     [01;36m[K^~~~~~~~~~~[m[K
+[01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:23890:62:[m[K [01;35m[Kwarning: [m[K'[01m[Kparquet::ParquetVersion::PARQUET_2_0[m[K' is deprecated: use PARQUET_2_4 or PARQUET_2_6 for fine-grained feature selection [[01;35m[K-Wdeprecated-declarations[m[K]
+23890 |       (void)(__pyx_v_props.version( parquet::ParquetVersion::[01;35m[KPARQUET_2_0[m[K));
+      |                                                              [01;35m[K^~~~~~~~~~~[m[K
+In file included from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/types.h:30[m[K,
+                 from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/schema.h:32[m[K,
+                 from [01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/api/schema.h:21[m[K,
+                 from [01m[K/home/kshiteej/Apache/arrow/python/build/temp.linux-x86_64-cpython-39/_parquet.cpp:836[m[K:
+[01m[K/home/kshiteej/.conda/envs/pyarrow-dev/include/parquet/type_fwd.h:44:5:[m[K [01;36m[Knote: [m[Kdeclared here
+   44 |     [01;36m[KPARQUET_2_0[m[K ARROW_DEPRECATED_ENUM_VALUE("use PARQUET_2_4 or PARQUET_2_6 "
+      |     [01;36m[K^~~~~~~~~~~[m[K

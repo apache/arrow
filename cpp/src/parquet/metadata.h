@@ -341,6 +341,8 @@ class PARQUET_EXPORT FileMetaData {
   /// \throws ParquetException if schemas are not equal.
   void AppendRowGroups(const FileMetaData& other);
 
+  void AppendRowGroups(const std::vector<std::shared_ptr<FileMetaData>>& other);
+
   /// \brief Return a FileMetaData containing a subset of the row groups in this
   /// FileMetaData.
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;

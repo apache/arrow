@@ -798,6 +798,24 @@ cdef class FileMetaData(_Weakrefable):
         c_metadata = other.sp_metadata
         self._metadata.AppendRowGroups(deref(c_metadata))
 
+    def append_row_groups_list(self, other):
+        """
+        Append row groups from list of other FileMetaData object.
+
+        Parameters
+        ----------
+        other : List[FileMetaData]
+            List of other metadata to append row groups from.
+        """
+        cdef vector[shared_ptr[CFileMetaData]] c_metadatas
+        cdef FileMetaData o
+        cdef shared_ptr[CFileMetaData] c_metadata
+
+        for o in other:
+            c_metadata = o.sp_metadata
+            c_metadatas.push_back(c_metadata)
+        self._metadata.AppendRowGroups(c_metadatas)
+
     def write_metadata_file(self, where):
         """
         Write the metadata to a metadata-only Parquet file.

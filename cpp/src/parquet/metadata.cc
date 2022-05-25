@@ -664,6 +664,34 @@ class FileMetaData::FileMetaDataImpl {
     }
   }
 
+  void AppendRowGroups(const std::vector<std::shared_ptr<FileMetaData>>& others) {
+    // Figure out the total num_groups and reserve vector accordinly.
+    int n = metadata_->row_groups.size();
+    for (auto& other_shared_ptr : others) {
+      const auto& other = other_shared_ptr->impl_;
+      n += other->num_row_groups();
+    }
+
+    metadata_->row_groups.reserve(n);
+
+    // start appending row_groups.
+    for (auto& other_shared_ptr : others) {
+      const auto& other = other_shared_ptr->impl_;
+      if (!schema()->Equals(*other->schema())) {
+        throw ParquetException("AppendRowGroups requires equal schemas.");
+      }
+
+      // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
+      const int n = other->num_row_groups();
+      metadata_->row_groups.reserve(metadata_->row_groups.size() + n);
+      for (int i = 0; i < n; i++) {
+        format::RowGroup other_rg = other->row_group(i);
+        metadata_->num_rows += other_rg.num_rows;
+        metadata_->row_groups.push_back(std::move(other_rg));
+      }
+    }
+  }
+
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) {
     for (int i : row_groups) {
       if (i < num_row_groups()) continue;
@@ -850,6 +878,10 @@ void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path
 
 void FileMetaData::AppendRowGroups(const FileMetaData& other) {
   impl_->AppendRowGroups(other.impl_);
+}
+
+void FileMetaData::AppendRowGroups(const std::vector<std::shared_ptr<FileMetaData>>& others) {
+  impl_->AppendRowGroups(others);
 }
 
 std::shared_ptr<FileMetaData> FileMetaData::Subset(
