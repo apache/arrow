@@ -286,8 +286,7 @@ public abstract class AbstractJdbcToArrowTest {
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        JdbcToArrowUtils.getUtcCalendar())
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), calendar)
         .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
         .build();
     return sqlToArrow(resultSet, config);

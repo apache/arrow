@@ -41,13 +41,17 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private final ResultSet resultSet;
   private final JdbcToArrowConfig config;
+
   private final Schema schema;
-  private final int targetBatchSize;
+  private final ResultSetMetaData rsmd;
+
   private final JdbcConsumer[] consumers;
   final CompositeJdbcConsumer compositeConsumer;
 
-  // this is used only if reusing vector schema root is enabled.
+  // this is used only if resuing vector schema root is enabled.
   private VectorSchemaRoot nextBatch;
+
+  private final int targetBatchSize;
 
   // This is used to track whether the ResultSet has been fully read, and is needed spcifically for cases where there
   // is a ResultSet having zero rows (empty):
@@ -62,10 +66,9 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     this.schema = JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config);
     this.targetBatchSize = config.getTargetBatchSize();
 
-    ResultSetMetaData rsmd = resultSet.getMetaData();
-    this.consumers = new JdbcConsumer[rsmd.getColumnCount()];
+    rsmd = resultSet.getMetaData();
+    consumers = new JdbcConsumer[rsmd.getColumnCount()];
     this.compositeConsumer = new CompositeJdbcConsumer(consumers);
-
     this.nextBatch = config.isReuseVectorSchemaRoot() ? createVectorSchemaRoot() : null;
   }
 
@@ -128,14 +131,18 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       }
       throw new RuntimeException("Error occurred while creating schema root.", e);
     }
+    initialize(root);
+    return root;
+  }
 
+  private void initialize(VectorSchemaRoot root) throws SQLException {
+    // create consumers
     for (int i = 1; i <= consumers.length; i++) {
       ArrowType arrowType = config.getJdbcToArrowTypeConverter()
           .apply(new JdbcFieldInfo(resultSet.getMetaData(), i));
       consumers[i - 1] = JdbcToArrowUtils.getConsumer(
           arrowType, i, isColumnNullable(resultSet, i), root.getVector(i - 1), config);
     }
-    return root;
   }
 
   // Loads the next schema root or null if no more rows are available.
