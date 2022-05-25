@@ -96,8 +96,7 @@ Status ExtensionSet::AddUri(Id id) {
 Result<ExtensionSet> ExtensionSet::Make(
     std::unordered_map<uint32_t, util::string_view> uris,
     std::unordered_map<uint32_t, Id> type_ids,
-    std::unordered_map<uint32_t, Id> function_ids,
-    const ExtensionIdRegistry* registry) {
+    std::unordered_map<uint32_t, Id> function_ids, const ExtensionIdRegistry* registry) {
   ExtensionSet set;
   set.registry_ = registry;
 
@@ -228,8 +227,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return {};
   }
 
-  Status CanRegisterType(Id id,
-                         const std::shared_ptr<DataType>& type) const override {
+  Status CanRegisterType(Id id, const std::shared_ptr<DataType>& type) const override {
     if (id_to_index_.find(id) != id_to_index_.end()) {
       return Status::Invalid("Type id was already registered");
     }
