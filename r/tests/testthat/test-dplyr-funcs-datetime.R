@@ -2176,6 +2176,9 @@ test_that("parse_date_time & `exact = TRUE`", {
     y = c("11/23/1998 07:00:00", "6/18/1952 0135", "2/25/1974 0523", "9/07/1985 01", NA)
   )
 
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
       mutate(
