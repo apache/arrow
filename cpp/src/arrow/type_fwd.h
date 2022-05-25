@@ -405,6 +405,8 @@ struct Type {
     /// Calendar interval type with three fields.
     INTERVAL_MONTH_DAY_NANO,
 
+    RUN_LENGTH_ENCODED,
+
     // Leave this at the end
     MAX_ID
   };

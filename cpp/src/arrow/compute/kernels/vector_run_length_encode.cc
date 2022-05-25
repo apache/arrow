@@ -61,8 +61,8 @@ struct RunLengthEncodeGenerator {
     ARROW_ASSIGN_OR_RAISE(auto indices_buffer,
                           AllocateBuffer(num_values_output * sizeof(uint64_t), pool));
 
-    auto output_array_data =
-        ArrayData::Make(/* TODO */ input_data->type, input_data->length);
+    auto output_type = std::make_shared<RunLengthEncodedType>(input_data->type);
+    auto output_array_data = ArrayData::Make(std::move(output_type), input_data->length);
     auto child_array_data = ArrayData::Make(input_data->type, num_values_output);
     output_array_data->buffers.push_back(std::move(indices_buffer));
     child_array_data->buffers.push_back(std::move(validity_buffer));
@@ -128,8 +128,11 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
     auto sig = KernelSignature::Make(
         {InputType(ty, ValueDescr::ARRAY)},
-        OutputType([](KernelContext*, const std::vector<ValueDescr>& descrs)
-                       -> Result<ValueDescr> { return descrs[0]; }));
+        OutputType([](KernelContext*,
+                      const std::vector<ValueDescr>& descrs) -> Result<ValueDescr> {
+          return ValueDescr(std::make_shared<RunLengthEncodedType>(descrs[0].type),
+                            ValueDescr::ARRAY);
+        }));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(rle->AddKernel(std::move(kernel)));
   }

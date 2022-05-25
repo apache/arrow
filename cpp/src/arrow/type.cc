@@ -697,6 +697,15 @@ Result<std::shared_ptr<DataType>> DenseUnionType::Make(
 }
 
 // ----------------------------------------------------------------------
+// Run-length encoded type
+
+std::string RunLengthEncodedType::ToString() const {
+  std::stringstream s;
+  s << name() << "<" << encoded_type_->ToString() << ">";
+  return s.str();
+}
+
+// ----------------------------------------------------------------------
 // Struct type
 
 namespace {
@@ -2114,6 +2123,14 @@ std::string UnionType::ComputeFingerprint() const {
     }
     ss << child_fingerprint << ";";
   }
+  ss << "}";
+  return ss.str();
+}
+
+std::string RunLengthEncodedType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << "{";
+  ss << encoded_type_->fingerprint();
   ss << "}";
   return ss.str();
 }
