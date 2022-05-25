@@ -879,6 +879,39 @@ TEST(TestGdvFnStubs, TestCastVarbinaryBinary) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestCastBinaryUtf8) {
+  int32_t out_len = 0;
+  const char* input = "abc";
+  const char* out;
+
+  out = castBINARY_utf8(input, 3, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castBINARY_utf8(input, 2, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "ab");
+
+  out = castBINARY_utf8(input, 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "a");
+
+  out = castBINARY_utf8(input, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
+TEST(TestGdvFnStubs, TestCastBinaryBinary) {
+  int32_t out_len = 0;
+  const char* input = "\\x41\\x42\\x43";
+  const char* out;
+
+  out = castBINARY_binary(input, 12, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castBINARY_binary(input, 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\\x41\\x42");
+
+  out = castBINARY_binary(input, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
 TEST(TestStringOps, TestConcat) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
