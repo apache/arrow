@@ -204,6 +204,12 @@ def pytest_ignore_collect(path, config):
             except ImportError:
                 return True
 
+    if getattr(config.option, "doctest_cython", False):
+        if "/pyarrow/tests/" in str(path):
+            return True
+        if "/pyarrow/_parquet_encryption" in str(path):
+            return True
+
     return False
 
 
@@ -224,13 +230,3 @@ def _docdir(request):
     else:
         # For normal tests, we have to yield, since this is a yield-fixture.
         yield
-
-
-def pytest_ignore_collect(path, config):
-    if getattr(config.option, "doctest_cython", False):
-        if "/pyarrow/tests/" in str(path):
-            return True
-        if "/pyarrow/_parquet_encryption" in str(path):
-            return True
-
-    return False
