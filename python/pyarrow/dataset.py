@@ -158,7 +158,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     >>> import pyarrow as pa
     >>> import pyarrow.dataset as ds
     >>> part = ds.partitioning(pa.schema([("year", pa.int16()),
-    ...                            ("month", pa.string())]))
+    ...                                   ("month", pa.string())]))
 
     or let the types be inferred by only specifying the field names:
 
@@ -677,7 +677,8 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
 
     For a single directory from a S3 bucket:
 
-    >>> ds.dataset("s3://mybucket/nyc-taxi/", format="parquet")# doctest: +SKIP
+    >>> ds.dataset("s3://mybucket/nyc-taxi/",
+    ...            format="parquet") # doctest: +SKIP
 
     Opening a dataset from a list of relatives local paths:
 

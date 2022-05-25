@@ -177,17 +177,18 @@ def pytest_ignore_collect(path, config):
             'parquet',
             'plasma',
             'flight',
+            'substrait',
         ]
 
         # handle cuda, flight, etc
         for group in doctest_groups:
-            if 'pyarrow/{}'.format(group) in str(path) and \
-               not defaults[group]:
-                return True
+            if 'pyarrow/{}'.format(group) in str(path):
+                if not defaults[group]:
+                    return True
 
-        if 'pyarrow/parquet/encryption' in str(path) and \
-           not defaults['parquet_encryption']:
-            return True
+        if 'pyarrow/parquet/encryption' in str(path):
+            if not defaults['parquet_encryption']:
+                return True
 
         if 'pyarrow/cuda' in str(path):
             try:
