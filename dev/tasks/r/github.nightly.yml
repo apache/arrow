@@ -23,7 +23,7 @@
 # This allows us to set a custom version via param:
 # crossbow submit --param custom_version=8.5.3 r-nightly-packages
 # if the param is unset defaults to the usual Ymd naming scheme
-{% set version = custom_version|default("\\2.\'\""+ today +"\"\'") %}
+{% set version = custom_version|default("\\2.\'\"$(date +%Y%m%d)\"\'") %}
 # We need this as boolean and string
 {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
 # use filter to cast to string and convert to lowercase to match yaml boolean
