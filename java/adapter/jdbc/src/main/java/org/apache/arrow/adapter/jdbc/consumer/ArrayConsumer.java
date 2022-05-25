@@ -71,6 +71,8 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
 
     FieldVector childVector = vector.getDataVector();
     this.delegate.resetValueVector(childVector);
+
+    innerVectorIndex = 0;
   }
 
   void ensureInnerVectorCapacity(int targetCapacity) {
