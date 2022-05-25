@@ -63,6 +63,8 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   };
   virtual util::optional<TypeRecord> GetType(const DataType&) const = 0;
   virtual util::optional<TypeRecord> GetType(Id, bool is_variation) const = 0;
+  virtual Status CanRegisterType(Id, const std::shared_ptr<DataType>& type,
+                                 bool is_variation) const = 0;
   virtual Status RegisterType(Id, std::shared_ptr<DataType>, bool is_variation) = 0;
 
   /// \brief A mapping between a Substrait ID and an Arrow function
@@ -84,6 +86,8 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   virtual util::optional<FunctionRecord> GetFunction(Id) const = 0;
   virtual util::optional<FunctionRecord> GetFunction(
       util::string_view arrow_function_name) const = 0;
+  virtual Status CanRegisterFunction(Id,
+                                     const std::string& arrow_function_name) const = 0;
   virtual Status RegisterFunction(Id, std::string arrow_function_name) = 0;
 };
 
@@ -95,6 +99,19 @@ constexpr util::string_view kArrowExtTypesUri =
 ///
 /// Note: Function support is currently very minimal, see ARROW-15538
 ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
+
+/// \brief Makes a nested registry with a given parent.
+///
+/// A nested registry supports registering types and functions other and on top of those
+/// already registered in its parent registry. No conflicts in IDs and names used for
+/// lookup are allowed. Normally, the given parent is the default registry.
+///
+/// One use case for a nested registry is for dynamic registration of functions defined
+/// within a Substrait plan while keeping these registrations specific to the plan. When
+/// the Substrait plan is disposed of, normally after its execution, the nested registry
+/// can be disposed of as well.
+ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> nested_extension_id_registry(
+    const ExtensionIdRegistry* parent);
 
 /// \brief A set of extensions used within a plan
 ///
@@ -140,7 +157,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   };
 
   /// Construct an empty ExtensionSet to be populated during serialization.
-  explicit ExtensionSet(ExtensionIdRegistry* = default_extension_id_registry());
+  explicit ExtensionSet(const ExtensionIdRegistry* = default_extension_id_registry());
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExtensionSet);
 
   /// Construct an ExtensionSet with explicit extension ids for efficient referencing
@@ -160,7 +177,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   static Result<ExtensionSet> Make(
       std::vector<util::string_view> uris, std::vector<Id> type_ids,
       std::vector<bool> type_is_variation, std::vector<Id> function_ids,
-      ExtensionIdRegistry* = default_extension_id_registry());
+      const ExtensionIdRegistry* = default_extension_id_registry());
 
   // index in these vectors == value of _anchor/_reference fields
   /// TODO(ARROW-15583) this assumes that _anchor/_references won't be huge, which is not
@@ -224,7 +241,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   std::size_t num_functions() const { return functions_.size(); }
 
  private:
-  ExtensionIdRegistry* registry_;
+  const ExtensionIdRegistry* registry_;
   /// The subset of extension registry URIs referenced by this extension set
   std::vector<util::string_view> uris_;
   std::vector<TypeRecord> types_;

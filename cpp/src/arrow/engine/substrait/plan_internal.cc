@@ -111,7 +111,7 @@ void SetElement(size_t i, const Element& element, std::vector<T>* vector) {
 }  // namespace
 
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
-                                             ExtensionIdRegistry* registry) {
+                                             const ExtensionIdRegistry* registry) {
   std::vector<util::string_view> uris;
   for (const auto& uri : plan.extension_uris()) {
     SetElement(uri.extension_uri_anchor(), uri.uri(), &uris);
