@@ -50,9 +50,21 @@ test_df <- tibble::tibble(
 test_that("strptime", {
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
   t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
-  t_stamp_with_tz <- tibble(
+  t_stamp_with_pm_tz <- tibble(
     x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA)
   )
+
+  withr::with_timezone("Pacific/Marquesas", {
+    expect_equal(
+      t_string %>%
+        arrow_table() %>%
+        mutate(
+          x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
+        ) %>%
+        collect(),
+      t_stamp_with_pm_tz
+    )
+  })
 
   expect_equal(
     t_string %>%
@@ -61,51 +73,47 @@ test_that("strptime", {
         x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "Pacific/Marquesas")
       ) %>%
       collect(),
-    t_stamp_with_tz
+    t_stamp_with_pm_tz
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x)
+        x = strptime(x, tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns")
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s")
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp
   )
 
   tstring <- tibble(x = c("08-05-2008", NA))
