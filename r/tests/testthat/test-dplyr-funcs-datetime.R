@@ -2055,7 +2055,7 @@ test_that("parse_date_time with hours, minutes and seconds components", {
       collect(),
     tibble(
      ymd_ims_string =
-       c("67-01-09 9:34:56", "1970-05-22 10:13:59", "870822171359", NA)
+       c("67-01-09 9:34:56", "1970-05-22 10:13:59", "19870822171359", NA)
    )
   )
 
