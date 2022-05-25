@@ -1702,11 +1702,6 @@ def test_logical():
 
 
 def test_cast():
-    arr = pa.array([2 ** 63 - 1], type='int64')
-
-    with pytest.raises(pa.ArrowInvalid):
-        pc.cast(arr, 'int32')
-
     arr = pa.array([1, 2, 3, 4], type='int64')
     options = pc.CastOptions()
 
@@ -1718,6 +1713,11 @@ def test_cast():
 
     with pytest.raises(ValueError):
         pc.cast(arr, 'int32', safe=False, options=options)
+
+    arr = pa.array([2 ** 63 - 1], type='int64')
+
+    with pytest.raises(pa.ArrowInvalid):
+        pc.cast(arr, 'int32')
 
     assert pc.cast(arr, 'int32', safe=False) == pa.array([-1], type='int32')
 
