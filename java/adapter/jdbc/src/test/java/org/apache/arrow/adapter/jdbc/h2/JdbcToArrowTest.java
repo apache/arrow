@@ -25,6 +25,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertDecimalV
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertFloat4VectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertFloat8VectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertIntVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertListVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertNullVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertSmallIntVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeStampVectorValues;
@@ -39,6 +40,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getDecimalValu
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getDoubleValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getFloatValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getListValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -88,6 +90,7 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -144,17 +147,23 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         Calendar.getInstance()));
     testDataSets(sqlToArrow(
         conn.createStatement().executeQuery(table.getQuery()),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()));
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build()));
     testDataSets(sqlToArrow(
         conn,
         table.getQuery(),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()));
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build()));
   }
 
   @Test
   public void testJdbcSchemaMetadata() throws SQLException {
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
@@ -220,6 +229,9 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         getFloatValues(table.getValues(), REAL));
 
     assertNullVectorValues((NullVector) root.getVector(NULL), table.getRowCount());
+
+    assertListVectorValues((ListVector) root.getVector(LIST), table.getRowCount(),
+        getListValues(table.getValues(), LIST));
   }
 
   @Test
@@ -230,7 +242,9 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     ResultSet rs = ResultSetUtility.generateBasicResultSet(targetRows);
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
         allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
 
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       while (iter.hasNext()) {
@@ -250,12 +264,12 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
   @Test
   public void testZeroRowResultSet() throws Exception {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    int x = 0;
-    final int targetRows = 0;
     ResultSet rs = ResultSetUtility.generateEmptyResultSet();
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
             allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
 
     ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
     assertTrue("Iterator on zero row ResultSet should haveNext() before use", iter.hasNext());
@@ -342,6 +356,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
           allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
           .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+          .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
           .build();
     try {
       ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
@@ -363,6 +378,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
             .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
             .setExplicitTypesByColumnIndex(explicitMapping)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
             .build();
 
     try {
@@ -406,6 +422,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
             .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
             .setExplicitTypesByColumnIndex(explicitMapping)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
             .build();
     try {
       ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);

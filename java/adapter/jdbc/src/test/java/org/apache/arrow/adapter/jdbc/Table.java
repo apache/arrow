@@ -148,6 +148,21 @@ public class Table {
     return getByteArray(values);
   }
 
+  public Integer[][] getListValues() {
+    Integer[][] arr = new Integer[values.length][];
+    int i = 0;
+    for (String str : values) {
+      String[] data = str.replace("(", "").replace(")", "").split(";");
+      Integer[] row = new Integer[data.length];
+      int j = 0;
+      for (String value : data) {
+        row[j++] = Integer.parseInt(value);
+      }
+      arr[i++] = row;
+    }
+    return arr;
+  }
+
   public String getCreate() {
     return create;
   }
