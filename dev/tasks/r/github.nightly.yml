@@ -19,28 +19,20 @@
 # root of the R nightly repo where the first dir is the mount point used by davfs2 ("nightly")
 # TODO update with nightlies.apache.org/arrow/r
 {% set r_root = "nightly/r" %}
-{% set webdav_domain = "https://nightly.wujciak.de:8080" %}
-{% set repo_domain = "https://nightly.wujciak.de/r" %}
+
 # This allows us to set a custom version via param:
 # crossbow submit --param custom_version=8.5.3 r-nightly-packages
 # if the param is unset defaults to the usual Ymd naming scheme
-{% set version = custom_version|default('\\2.\'\"$(date +%Y%m%d)\"\'') %}
+{% set version = custom_version|default('\\2.\'\"{{globals.today }}\"\'') %}
 # We need this as boolean and string
 {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
 # use filter to cast to string and convert to lowercase to match yaml boolean
 {% set is_fork = (not is_upstream_b)|lower %}
 {% set is_upstream = is_upstream_b|lower %}
-{% set upload_pkg = "env.UPLOAD_PKG == 'true' && success() && " + is_upstream %}
-{% set upload_libarrow = "env.UPLOAD_LIBARROW == 'true' && success() && " + is_upstream %}
+
 
 {{ macros.github_header() }}
 
-env:
-  # prevent upload of R packages or libarrow binaries via param (e.g. for release)
-  # crossbow submit --param upload_pkgs=false --param upload_libs=false r-nightly-packages
-  UPLOAD_PKG: {{ upload_pkgs|default("true") }}
-  UPLOAD_LIBARROW: {{ upload_libs|default("true")}}
-  
 jobs:
   source:
     # This job will change the version to either the custom_version param or YMD format.
@@ -69,61 +61,6 @@ jobs:
           # Copy in the Arrow C++ source
           make sync-cpp
           R CMD build --no-build-vignettes .
-
-      - name: Install davfs2 & Mount Repository
-        if: {{ '${{ ' + upload_pkg + ' }}' }}
-        run: | 
-          sudo apt update && sudo apt install davfs2
-
-          # Create mount point
-          mkdir nightly
-
-          # make credentials available
-          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
-
-          # mount with read&write access
-          sudo mount -t davfs {{ webdav_domain }} nightly -o rw
-
-      - name: Upload Source Package
-        if: {{ '${{ ' + upload_pkg + ' }}' }}
-        shell: bash
-        run: | 
-          # ensure repo structure is set up, this job is the fastest and should fix any issue before the other jobs try
-          # to push into non existent folder with curl, which would fail silently. 
-          # Add any new architectures or R versions here
-          sudo mkdir -p {{ r_root }}/src/contrib 
-        {% for os in ["ubuntu-18.04", 
-                      "centos-7",
-                      "windows"] %}     
-          sudo mkdir -p {{ r_root }}/libarrow/bin/{{ os }}
-        {% endfor %}
-        {% for os in ["windows", "macosx", "macosx/big-sur-arm64"] %}     
-          {% for r_version in ["4.1", "4.2"] %}
-          sudo mkdir -p {{ r_root }}/bin/{{ os }}/contrib/{{ r_version }}
-          {% endfor %}
-        {% endfor %}
-            sudo cp arrow/r/arrow_*.tar.gz {{ r_root }}/src/contrib
-      - name: Update Repository Index
-        if: {{ '${{ ' + upload_pkg + ' }}' }}
-        shell: sudo Rscript {0}
-        run: |
-          if(file.exists("{{ r_root }}/src/contrib/PACKAGES")) {
-            tools::update_PACKAGES("{{ r_root }}/src/contrib" ,
-              type = "source",
-              latestOnly = FALSE,
-              verbose = TRUE)
-          } else {
-            tools::write_PACKAGES("{{ r_root }}/src/contrib" ,
-              type = "source",
-              latestOnly = FALSE,
-              verbose = TRUE)
-          }
-
-      - name: Unmount Repository
-        # ensures all changes are written
-        if: {{ '${{ ' + upload_pkg + ' }}' }}
-        shell: bash
-        run: sudo umount nightly
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v3
@@ -162,18 +99,6 @@ jobs:
           cd arrow/r/libarrow/dist
           # These files were created by the docker user so we have to sudo to get them
           sudo -E zip -r $PKG_FILE lib/ include/
-      
-      - name: Upload libarrow
-        if: {{ '${{ ' + upload_libarrow + ' }}' }}
-        shell: bash
-        env:
-          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
-          PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
-          PKG_FILE: arrow-{{ '${{ needs.source.outputs.version }}' }}.zip
-        run: |
-          cd arrow/r/libarrow/dist
-          export REPO_PATH={{ 'r/libarrow/bin/${{ matrix.config.os }}-${{ matrix.config.version }}' }}
-          curl -s --fail --show-error -u $USER:$PW -T $PKG_FILE  {{ webdav_domain }}/$REPO_PATH/
           
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
@@ -201,18 +126,6 @@ jobs:
         env:
           ARROW_HOME: "arrow"
         run: arrow/ci/scripts/r_windows_build.sh
-
-      - name: Upload Binary
-        if: {{ '${{ ' + upload_libarrow + ' }}' }}
-        shell: bash
-        env:
-          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
-          PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
-        run: |
-          VERSION=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)
-
-          cd build
-          curl -s --fail --show-error -u $USER:$PW -T arrow-$VERSION.zip  {{ webdav_domain }}/r/libarrow/bin/windows/
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
@@ -242,7 +155,7 @@ jobs:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
           Ncpus: 2
-      {{ macros.github_setup_local_r_repo(is_fork, 'matrix.platform')|indent }}
+      {{ macros.github_setup_local_r_repo('matrix.platform')|indent }}
       - name: Build Binary
         shell: Rscript {0}
         run: |
@@ -251,19 +164,16 @@ jobs:
           # Install dependencies by installing (yesterday's) binary, then removing it
           install.packages(c("arrow", "cpp11"),
             type = "binary",
-            repos = c("{{ repo_domain }}", "https://cloud.r-project.org")
+            repos = c("https://nightlies.apache.org/arrow/r", "https://cloud.r-project.org")
           )
           remove.packages("arrow")
 
-          dev_repo <- "{{ repo_domain }}"
-
           # Setup local repo
-          if ({{is_fork|upper}}) {
-            dev_repo <- paste0(
-              ifelse(on_windows, "file:", "file://"),
-              getwd(),
-              "/repo")
-          }
+          dev_repo <- paste0(
+            ifelse(on_windows, "file:", "file://"),
+            getwd(),
+            "/repo")
+          
           options(arrow.dev_repo = dev_repo)
           
           # Build
@@ -285,18 +195,7 @@ jobs:
           # Test
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
-      - name: Upload package
-        if: {{ '${{ ' + upload_pkg + ' }}' }}
-        shell: bash
-        env:
-          USER: {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }}' }}
-          PW: {{ '${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}
-          VERSION: {{ '${{ needs.source.outputs.version }}' }}
-        run: |
-          REPO_PATH=r$(Rscript -e "cat(contrib.url('', type = 'binary'))")
-          EXT=$(if [[ {{ '${{ matrix.platform }}' }} == windows* ]]; then echo zip; else echo tgz; fi)
 
-          curl -s --fail --show-error -u $USER:$PW -T arrow_$VERSION.$EXT {{ webdav_domain }}/$REPO_PATH/
       - name: Upload binary artifact (temp)
         uses: actions/upload-artifact@v3
         with:
@@ -336,9 +235,8 @@ jobs:
 
           # Add R-devel to PATH
           echo "/opt/R-devel/bin" >> $GITHUB_PATH
-      {{ macros.github_setup_local_r_repo(is_fork, "'ubuntu-latest'")|indent }}
+      {{ macros.github_setup_local_r_repo("'ubuntu-latest'")|indent }}
       - name: Set dev repo
-        if: {{ is_fork }}
         shell: bash
         run: |
           # It is important to use pwd here as this happens inside a container so the 
@@ -362,9 +260,8 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           install-r: false
-      {{ macros.github_setup_local_r_repo(is_fork, "'ubuntu-latest'", 'false')|indent }}
+      {{ macros.github_setup_local_r_repo("'ubuntu-latest'", 'false')|indent }}
       - name: Set dev repo
-        if: {{ is_fork }}
         shell: bash
         run: |
           echo "options(arrow.dev_repo = 'file://$(pwd)/repo')" >> ~/.Rprofile
@@ -384,84 +281,10 @@ jobs:
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
 
-  update-repo:
+  upload-binaries:
     needs: r-packages
     if: true && !cancelled()
     name: Update PACKAGES
     runs-on: ubuntu-latest
     steps:
-
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          install-r: false
-
-      - name: Install davfs2 & Mount Repository
-        # We have to add this to every step because env is not availble in the job level "if"
-        if: {{ '${{ ' + upload_pkg + ' }}' }}
-        run: | 
-          sudo apt update && sudo apt install davfs2
-
-          # Create mount point
-          mkdir nightly
-
-          # make credentials available
-          sudo bash -c 'echo "{{ webdav_domain }} {{ '${{ secrets.CROSSBOW_NIGHTLIES_USER }} ${{ secrets.CROSSBOW_NIGHTLIES_TOKEN }}' }}" >> /etc/davfs2/secrets'
-
-          # mount with read&write access
-          sudo mount -t davfs {{ webdav_domain }} nightly -o rw
-
-      - name: Update Repository Index
-        if: {{ '${{ ' + upload_pkg + ' }}' }}
-        shell: sudo Rscript {0}
-        run: |
-          # Only keep 14 versions per os/R-version
-          prune <- function(dir, keep_n = 14) {
-            files <- list.files(dir, pattern = "^arrow", full.names = TRUE)
-            n_repo <- length(files)
-
-            if (n_repo > keep_n) {
-              info <- file.info(files)
-              info <- info[
-                order(
-                  as.Date(info$mtime, format = "%d/%m/%Y"),
-                  decreasing = TRUE
-                ),
-              ]
-              excess <- tail(rownames(info), n_repo - keep_n)
-              file.remove(excess)
-            }
-          }
-
-          # Update & prune R repository
-          
-          # find all dirs that end in R verion number
-          bin_dirs <- paste0("{{ r_root }}/bin/", dir("{{ r_root }}/bin", recursive = TRUE, include.dirs = TRUE, pattern = "\\d\\.\\d$"))
-          
-          for(dir in bin_dirs) {
-            win_bin <- grepl("windows", dir)
-            
-            prune(dir)
-
-            if(file.exists(paste0(dir,"/PACKAGES"))) {
-              tools::update_PACKAGES(dir ,
-                type = ifelse(win_bin, "win.binary", "mac.binary"),
-                latestOnly = FALSE,
-                verbose = TRUE)
-            } else {
-              tools::write_PACKAGES(dir,
-                type = ifelse(win_bin, "win.binary", "mac.binary"),
-                latestOnly = FALSE,
-                verbose = TRUE)
-            }
-
-          }
-
-          # prune libarrow 
-          lib_dirs <- list.dirs("{{ r_root }}/libarrow/bin")
-          lib_dirs <- lib_dirs[ grep("bin/.+", lib_dirs)]
-
-          for(dir in lib_dirs) {
-            prune(dir)
-          }
-      - run: sudo umount nightly
-        if: {{ '${{ ' + upload_pkg + ' }}' }}
+      {{ macros.github_upload_releases('arrow-?_?.+')|indent }}
