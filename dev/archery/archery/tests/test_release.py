@@ -167,7 +167,7 @@ def test_commit_title():
     assert t.components == ["Rust", "Arrow"]
     assert t.summary == "pin older version of proc-macro2 during build"
 
-    t = CommitTitle.parse("[Release] Update versions for 1.0.0")
+    t = CommitTitle.parse("MINOR: [Release] Update versions for 1.0.0")
     assert t.project is None
     assert t.issue is None
     assert t.components == ["Release"]
