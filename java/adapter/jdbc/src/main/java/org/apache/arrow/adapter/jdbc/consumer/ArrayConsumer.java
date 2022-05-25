@@ -36,7 +36,7 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
    * Creates a consumer for {@link ListVector}.
    */
   public static ArrayConsumer createConsumer(
-      ListVector vector, JdbcConsumer delegate, int index, boolean nullable) {
+        ListVector vector, JdbcConsumer delegate, int index, boolean nullable) {
     if (nullable) {
       return new ArrayConsumer.NullableArrayConsumer(vector, delegate, index);
     } else {

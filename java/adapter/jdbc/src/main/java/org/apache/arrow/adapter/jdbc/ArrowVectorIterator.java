@@ -136,7 +136,6 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   }
 
   private void initialize(VectorSchemaRoot root) throws SQLException {
-    // create consumers
     for (int i = 1; i <= consumers.length; i++) {
       ArrowType arrowType = config.getJdbcToArrowTypeConverter()
           .apply(new JdbcFieldInfo(resultSet.getMetaData(), i));
