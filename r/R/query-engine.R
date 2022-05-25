@@ -138,6 +138,10 @@ ExecPlan <- R6Class("ExecPlan",
             right_suffix = .data$join$suffix[[2]]
           )
         }
+
+        if (!is.null(.data$union_all)) {
+          node <- node$UnionAll(self$Build(.data$union_all$right_data))
+        }
       }
 
       # Apply sorting: this is currently not an ExecNode itself, it is a
@@ -271,6 +275,9 @@ ExecNode <- R6Class("ExecNode",
           output_suffix_for_right = right_suffix
         )
       )
+    },
+    UnionAll = function(right_node) {
+      self$preserve_sort(ExecNode_Union(self, right_node))
     }
   ),
   active = list(

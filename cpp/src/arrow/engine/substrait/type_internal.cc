@@ -38,12 +38,6 @@ using ::arrow::internal::make_unique;
 namespace {
 
 template <typename TypeMessage>
-Status CheckVariation(const TypeMessage& type) {
-  if (type.type_variation_reference() == 0) return Status::OK();
-  return Status::NotImplemented("Type variations for ", type.DebugString());
-}
-
-template <typename TypeMessage>
 bool IsNullable(const TypeMessage& type) {
   // FIXME what can we do with NULLABILITY_UNSPECIFIED
   return type.nullability() != ::substrait::Type::NULLABILITY_REQUIRED;
@@ -52,8 +46,6 @@ bool IsNullable(const TypeMessage& type) {
 template <typename ArrowType, typename TypeMessage, typename... A>
 Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(const TypeMessage& type,
                                                                  A&&... args) {
-  RETURN_NOT_OK(CheckVariation(type));
-
   return std::make_pair(std::static_pointer_cast<DataType>(
                             std::make_shared<ArrowType>(std::forward<A>(args)...)),
                         IsNullable(type));
@@ -62,8 +54,6 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(const TypeMessa
 template <typename TypeMessage, typename... A>
 Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(
     const TypeMessage& type, std::shared_ptr<DataType> type_factory(A...), A&&... args) {
-  RETURN_NOT_OK(CheckVariation(type));
-
   return std::make_pair(
       std::static_pointer_cast<DataType>(type_factory(std::forward<A>(args)...)),
       IsNullable(type));
@@ -430,7 +420,6 @@ Result<std::shared_ptr<Schema>> FromProto(const ::substrait::NamedStruct& named_
                            "could be attached.");
   }
   const auto& struct_ = named_struct.struct_();
-  RETURN_NOT_OK(CheckVariation(struct_));
 
   int requested_names_count = 0;
   ARROW_ASSIGN_OR_RAISE(auto fields, FieldsFromProto(

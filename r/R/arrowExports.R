@@ -440,6 +440,10 @@ ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_o
   .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
 }
 
+ExecNode_Union <- function(input, right_data) {
+  .Call(`_arrow_ExecNode_Union`, input, right_data)
+}
+
 ExecNode_SourceNode <- function(plan, reader) {
   .Call(`_arrow_ExecNode_SourceNode`, plan, reader)
 }
@@ -2003,4 +2007,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

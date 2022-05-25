@@ -288,9 +288,10 @@ func TestDateJSON(t *testing.T) {
 		bldr := array.NewDate32Builder(memory.DefaultAllocator)
 		defer bldr.Release()
 
-		jsonstr := `["1970-01-06", null, "1970-02-12"]`
+		jsonstr := `["1970-01-06", null, "1970-02-12", 0]`
+		jsonExp := `["1970-01-06", null, "1970-02-12", "1970-01-01"]`
 
-		bldr.AppendValues([]arrow.Date32{5, 0, 42}, []bool{true, false, true})
+		bldr.AppendValues([]arrow.Date32{5, 0, 42, 0}, []bool{true, false, true, true})
 		expected := bldr.NewArray()
 		defer expected.Release()
 
@@ -302,15 +303,16 @@ func TestDateJSON(t *testing.T) {
 
 		data, err := json.Marshal(arr)
 		assert.NoError(t, err)
-		assert.JSONEq(t, jsonstr, string(data))
+		assert.JSONEq(t, jsonExp, string(data))
 	})
 	t.Run("date64", func(t *testing.T) {
 		bldr := array.NewDate64Builder(memory.DefaultAllocator)
 		defer bldr.Release()
 
-		jsonstr := `["1970-01-02", null, "2286-11-20"]`
+		jsonstr := `["1970-01-02", null, "2286-11-20", 86400000]`
+		jsonExp := `["1970-01-02", null, "2286-11-20", "1970-01-02"]`
 
-		bldr.AppendValues([]arrow.Date64{86400000, 0, 9999936000000}, []bool{true, false, true})
+		bldr.AppendValues([]arrow.Date64{86400000, 0, 9999936000000, 86400000}, []bool{true, false, true, true})
 		expected := bldr.NewArray()
 		defer expected.Release()
 
@@ -322,7 +324,7 @@ func TestDateJSON(t *testing.T) {
 
 		data, err := json.Marshal(arr)
 		assert.NoError(t, err)
-		assert.JSONEq(t, jsonstr, string(data))
+		assert.JSONEq(t, jsonExp, string(data))
 	})
 }
 
@@ -331,12 +333,13 @@ func TestTimeJSON(t *testing.T) {
 	tests := []struct {
 		dt       arrow.DataType
 		jsonstr  string
+		jsonexp  string
 		valueadd int
 	}{
-		{arrow.FixedWidthTypes.Time32s, `[null, "10:10:10"]`, 123},
-		{arrow.FixedWidthTypes.Time32ms, `[null, "10:10:10.123"]`, 456},
-		{arrow.FixedWidthTypes.Time64us, `[null, "10:10:10.123456"]`, 789},
-		{arrow.FixedWidthTypes.Time64ns, `[null, "10:10:10.123456789"]`, 0},
+		{arrow.FixedWidthTypes.Time32s, `[null, "10:10:10", 36610]`, `[null, "10:10:10", "10:10:10"]`, 123},
+		{arrow.FixedWidthTypes.Time32ms, `[null, "10:10:10.123", 36610123]`, `[null, "10:10:10.123", "10:10:10.123"]`, 456},
+		{arrow.FixedWidthTypes.Time64us, `[null, "10:10:10.123456", 36610123456]`, `[null, "10:10:10.123456", "10:10:10.123456"]`, 789},
+		{arrow.FixedWidthTypes.Time64ns, `[null, "10:10:10.123456789", 36610123456789]`, `[null, "10:10:10.123456789", "10:10:10.123456789"]`, 0},
 	}
 
 	for _, tt := range tests {
@@ -350,9 +353,9 @@ func TestTimeJSON(t *testing.T) {
 
 			switch tt.dt.ID() {
 			case arrow.TIME32:
-				bldr.(*array.Time32Builder).AppendValues([]arrow.Time32{0, arrow.Time32(tententen)}, []bool{false, true})
+				bldr.(*array.Time32Builder).AppendValues([]arrow.Time32{0, arrow.Time32(tententen), arrow.Time32(tententen)}, []bool{false, true, true})
 			case arrow.TIME64:
-				bldr.(*array.Time64Builder).AppendValues([]arrow.Time64{0, arrow.Time64(tententen)}, []bool{false, true})
+				bldr.(*array.Time64Builder).AppendValues([]arrow.Time64{0, arrow.Time64(tententen), arrow.Time64(tententen)}, []bool{false, true, true})
 			}
 
 			expected := bldr.NewArray()
@@ -366,7 +369,7 @@ func TestTimeJSON(t *testing.T) {
 
 			data, err := json.Marshal(arr)
 			assert.NoError(t, err)
-			assert.JSONEq(t, tt.jsonstr, string(data))
+			assert.JSONEq(t, tt.jsonexp, string(data))
 		})
 	}
 }
