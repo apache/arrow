@@ -666,7 +666,7 @@ class FileMetaData::FileMetaDataImpl {
 
   void AppendRowGroups(const std::vector<std::shared_ptr<FileMetaData>>& others) {
     // Figure out the total num_groups and reserve vector accordinly.
-    int n = metadata_->row_groups.size();
+    size_t n = metadata_->row_groups.size();
     for (auto& other_shared_ptr : others) {
       const auto& other = other_shared_ptr->impl_;
       n += other->num_row_groups();
