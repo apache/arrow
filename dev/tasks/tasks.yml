@@ -916,7 +916,9 @@ tasks:
   r-nightly-packages:
     ci: github
     template: r/github.nightly.yml
-
+    artifacts:
+      - r-libarrow-.+
+      - r-pkg_.+
 
 
   ########################### Release verification ############################
