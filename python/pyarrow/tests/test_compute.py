@@ -1707,6 +1707,18 @@ def test_cast():
     with pytest.raises(pa.ArrowInvalid):
         pc.cast(arr, 'int32')
 
+    arr = pa.array([1, 2, 3, 4], type='int64')
+    options = pc.CastOptions()
+
+    with pytest.raises(ValueError):
+        pc.cast(arr, target_type=None)
+
+    with pytest.raises(ValueError):
+        pc.cast(arr, 'int32', safe=True, options=options)
+
+    with pytest.raises(ValueError):
+        pc.cast(arr, 'int32', safe=False, options=options)
+
     assert pc.cast(arr, 'int32', safe=False) == pa.array([-1], type='int32')
 
     arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
