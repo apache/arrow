@@ -217,8 +217,11 @@ def pytest_ignore_collect(path, config):
 @pytest.fixture(autouse=True)
 def _docdir(request):
 
-    # Trigger ONLY for the doctests.
-    if request.config.option.doctestmodules:
+    # Trigger ONLY for the doctests
+    doctest_m = request.config.option.doctestmodules
+    doctest_c = getattr(request.config.option, "doctest_cython", False)
+
+    if doctest_m or doctest_c:
 
         # Get the fixture dynamically by its name.
         tmpdir = request.getfixturevalue('tmpdir')
