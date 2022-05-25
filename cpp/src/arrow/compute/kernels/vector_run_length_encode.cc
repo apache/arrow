@@ -120,6 +120,11 @@ static const FunctionDoc run_length_encode_doc(
     "Run-length array", ("Return a run-length-encoded version of the input array."),
     {"array"}, "RunLengthEncodeOptions");
 
+static Result<ValueDescr> ResolveEncodeOutput(KernelContext *, const std::vector<ValueDescr>& descrs) {
+  auto output_type = std::make_shared<RunLengthEncodedType>(descrs[0].type);
+  return ValueDescr(output_type, ValueDescr::ARRAY);
+}
+
 void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
   auto rle = std::make_shared<VectorFunction>("run_length_encode", Arity::Unary(),
                                               run_length_encode_doc);
@@ -128,11 +133,7 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
     auto sig = KernelSignature::Make(
         {InputType(ty, ValueDescr::ARRAY)},
-        OutputType([](KernelContext*,
-                      const std::vector<ValueDescr>& descrs) -> Result<ValueDescr> {
-          return ValueDescr(std::make_shared<RunLengthEncodedType>(descrs[0].type),
-                            ValueDescr::ARRAY);
-        }));
+        OutputType(ResolveEncodeOutput));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(rle->AddKernel(std::move(kernel)));
   }
