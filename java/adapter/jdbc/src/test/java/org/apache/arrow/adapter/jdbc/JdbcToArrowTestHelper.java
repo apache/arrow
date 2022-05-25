@@ -401,6 +401,8 @@ public class JdbcToArrowTestHelper {
     for (String data : dataArr) {
       if ("null".equals(data.trim())) {
         valueArr[i++] = null;
+      } else if ("()".equals(data.trim())) {
+        valueArr[i++] = new Integer[0];
       } else {
         String[] row = data.replace("(", "").replace(")", "").split(";");
         Integer[] arr = new Integer[row.length];

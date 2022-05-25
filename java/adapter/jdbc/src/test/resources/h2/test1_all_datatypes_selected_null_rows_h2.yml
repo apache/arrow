@@ -9,7 +9,7 @@
 #OF ANY KIND, either express or implied. See the License for the specific
 #language governing permissions and limitations under the License.
 
-name: 'table1'
+name: 'test1_all_datatypes_selected_null_rows_h2'
 
 type: 'selected_null_row'
 

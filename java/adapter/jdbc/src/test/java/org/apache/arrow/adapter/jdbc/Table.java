@@ -219,6 +219,11 @@ public class Table {
     this.rowCount = rowCount;
   }
 
+  @Override
+  public String toString() {
+    return "Table{name='" + name + "', type='" + type + "'}";
+  }
+
   static byte[][] getByteArray(String[] data) {
     byte[][] byteArr = new byte[data.length][];
 
