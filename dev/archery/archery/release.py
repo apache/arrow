@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from abc import abstractproperty
+from abc import abstractmethod
 from collections import defaultdict
 import functools
 import os
@@ -319,14 +319,16 @@ class Release:
     def tag(self):
         return f"apache-arrow-{self.version}"
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def branch(self):
         """
         Target branch that serves as the base for the release.
         """
         ...
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def siblings(self):
         """
         Releases to consider when calculating previous and next releases.
