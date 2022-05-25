@@ -2048,7 +2048,7 @@ test_that("parse_date_time with hours, minutes and seconds components", {
           parse_date_time(
             ymd_ims_string,
             orders = "ymd_IMS",
-            # we add this since lubridate is chatty and will warn 1 format failed to parse
+            # lubridate is chatty and will warn 1 format failed to parse
             quiet = TRUE
           )
       ) %>%
