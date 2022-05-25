@@ -4543,7 +4543,17 @@ def test_write_dataset_s3_put_only(s3_server):
     ).to_table()
     assert result.equals(table)
 
+    # Error enforced by filesystem
     with pytest.raises(OSError, match="Bucket does not exist"):
+        ds.write_dataset(
+            table, "non-existing-bucket", filesystem=fs,
+            format="feather", create_dir=True,
+            existing_data_behavior='overwrite_or_ignore'
+        )
+
+    # Error enforced by minio / S3 service
+    fs.allow_create_buckets = True
+    with pytest.raises(OSError, match="Access Denied"):
         ds.write_dataset(
             table, "non-existing-bucket", filesystem=fs,
             format="feather", create_dir=True,
