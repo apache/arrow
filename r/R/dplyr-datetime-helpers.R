@@ -239,9 +239,10 @@ build_format_from_order <- function(order) {
   split_order <- strsplit(order, split = "")[[1]]
 
   outcome <- expand.grid(char_list[split_order])
+  # return only formats with "-" separator, which will be removed during parsing
+  # if the string to be parsed does not contain a separator
   formats_with_sep <- do.call(paste, c(outcome, sep = "-"))
-  formats_without_sep <- do.call(paste, c(outcome, sep = ""))
-  c(formats_with_sep, formats_without_sep)
+  formats_with_sep
 }
 
 #' Process data in preparation for parsing
@@ -253,7 +254,7 @@ build_format_from_order <- function(order) {
 #'  is only set to an empty list when the `orders` argument indicate we're only
 #'  interested in parsing the augmented version of `x`.
 #'  * each of the other 3 elements augment `x` in some way
-#'    * `augmented_x_ym` - augments the `ym` and `my` formats by adding `"01"`
+#'    * `augmented_x_ym` - builds the `ym` and `my` formats by adding `"01"`
 #'    (to indicate the first day of the month)
 #'    * `augmented_x_yq` - transforms the `yq` format to `ymd`, by deriving the
 #'    first month of the quarter and adding `"01"` to indicate the first day
@@ -332,13 +333,30 @@ process_data_for_parsing <- function(x,
   )
 }
 
+
+#' Attempt parsing
+#'
+#' This function does several things:
+#'   * builds all possible `formats` from the supplied `orders`
+#'   * processes the data with `process_data_for_parsing()`
+#'   * build a list of the possible `strptime` Expressions for the data & formats
+#'   combinations
+#'
+#' @inheritParams process_data_for_parsing
+#'
+#' @return a list of `strptime` Expressions we can use with `coalesce`
+#' @noRd
 attempt_parsing <- function(x,
                             orders) {
   # translate orders into possible formats
   formats <- build_formats(orders)
 
+  # depending on the orders argument we need to do some processing to the input
+  # data
   processed_data <- process_data_for_parsing(x, orders)
 
+  # build a list of expressions for parsing each processed_data element and
+  # format combination
   parse_attempt_exprs_list <- map(processed_data, build_strptime_exprs, formats)
 
   # if all orders are in c("ym", "my", "yq", "qy") only attempt to parse the
@@ -347,21 +365,58 @@ attempt_parsing <- function(x,
     parse_attempt_exprs_list$processed_x <- list()
   }
 
+  # we need the output to be a list of expressions (currently it is a list of
+  # lists of expressions due to the shape of the processed data. we have one list
+  # of expressions for each element of/ list in processed_data) -> we need to
+  # remove a level of hierarchy from the list
   purrr::flatten(parse_attempt_exprs_list)
 }
 
+#' Build `strptime` expressions
+#'
+#' This function takes several `formats`, iterates over them and builds a
+#' `strptime` Expression for each of them. Given these Expressions are evaluated
+#' row-wise we can leverage this behaviour and introduce a condition. If `x` has
+#' a separator, use the `format` as is, if it doesn't have a separator, remove
+#' the `"-"` separator from the `format`.
+#'
+#' @param x an Expression corresponding to a character or numeric vector of
+#' dates to be parsed.
+#' @param formats a vector of formats as returned by `build_format_from_order`
+#'
+#' @return a list of Expressions
+#' @noRd
 build_strptime_exprs <- function(x, formats) {
   # returning an empty list helps when iterating
   if (is.null(x)) {
     return(list())
   }
 
+  # if x has a separator ("-") use the format as-is (i.e. with separator)
+  # if not, remove the separator
   map(
     formats,
-    ~ build_expr(
-      "strptime",
-      x,
-      options = list(format = .x, unit = 0L, error_is_null = TRUE)
+    ~ call_binding(
+      "if_else",
+      call_binding("grepl", "-", x),
+      build_expr(
+        "strptime",
+        x,
+        options = list(
+          format = .x,
+          unit = 0L,
+          error_is_null = TRUE
+        )
+      ),
+      build_expr(
+        "strptime",
+        x,
+        options = list(
+          format = gsub("-", "", .x),
+          unit = 0L,
+          error_is_null = TRUE
+        )
+      )
     )
   )
 }
