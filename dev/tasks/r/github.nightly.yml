@@ -287,6 +287,7 @@ jobs:
     name: Update PACKAGES
     runs-on: ubuntu-latest
     steps:
+      {{ macros.github_checkout_arrow()|indent }}
       - name: Download Artifacts 
         uses: actions/download-artifact@v3
         with: 
