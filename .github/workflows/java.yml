@@ -54,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: [8, 11, 17]
+        jdk: [8, 11, 17, 18]
         include:
         - jdk: 8
           title: AMD64 Debian 9 Java JDK 8 Maven 3.5.4
@@ -66,6 +66,10 @@ jobs:
           image: debian-java
         - jdk: 17
           title: AMD64 Oracle Linux Server 8.5 Java JDK 17 Maven 3.8.5
+          maven: 3.8.5
+          image: oracle-java
+        - jdk: 18
+          title: AMD64 Oracle Linux Server 8.6 Java JDK 18 Maven 3.8.5
           maven: 3.8.5
           image: oracle-java
     env:
