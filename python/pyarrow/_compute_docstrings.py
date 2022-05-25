@@ -28,13 +28,13 @@ function_doc_additions["filter"] = """
     >>> arr = pa.array(["a", "b", "c", None, "e"])
     >>> mask = pa.array([True, False, None, False, True])
     >>> arr.filter(mask)
-    <pyarrow.lib.StringArray object at 0x7fa826df9200>
+    <pyarrow.lib.StringArray object at ...>
     [
       "a",
       "e"
     ]
     >>> arr.filter(mask, null_selection_behavior='emit_null')
-    <pyarrow.lib.StringArray object at 0x7fa826df9200>
+    <pyarrow.lib.StringArray object at ...>
     [
       "a",
       null,
@@ -50,7 +50,7 @@ function_doc_additions["mode"] = """
     >>> arr = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
     >>> modes = pc.mode(arr, 2)
     >>> modes[0]
-    <pyarrow.StructScalar: {'mode': 2, 'count': 5}>
+    <pyarrow.StructScalar: [('mode', 2), ('count', 5)]>
     >>> modes[1]
-    <pyarrow.StructScalar: {'mode': 1, 'count': 2}>
+    <pyarrow.StructScalar: [('mode', 1), ('count', 2)]>
     """

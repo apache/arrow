@@ -1859,7 +1859,7 @@ Examples
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],...,[2],[4]]
+        n_legs: [[5],[2],[4,100],[2,4]]
         """
         tables = []
         for piece in self._pieces:
@@ -1911,10 +1911,8 @@ Examples
         ...                    "Brittle stars", "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
-        >>> pq.write_to_dataset(table, root_path='dataset_name_read_pandas',
-        ...                     partition_cols=['year'],
-        ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_name_read_pandas/',
+        >>> pq.write_table(table, 'table.parquet')
+        >>> dataset = pq.ParquetDataset('table.parquet',
         ...                             use_legacy_dataset=False)
 
         Read dataset including pandas metadata:
@@ -1923,7 +1921,7 @@ Examples
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],...,[2],[4]]
+        n_legs: [[2,2,4,4,5,100]]
 
         Select pandas metadata:
 
@@ -2104,7 +2102,7 @@ Examples
         >>> pq.write_to_dataset(table, root_path='dataset_name_fragments',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_name_files/',
+        >>> dataset = pq.ParquetDataset('dataset_name_fragments/',
         ...                             use_legacy_dataset=False)
 
         List the fragments:
@@ -2142,7 +2140,7 @@ Examples
         List the files:
 
         >>> dataset.files
-        ['dataset_name_files/year=2019/part-0.parquet', ...
+        ['dataset_name_files/year=2019/...-0.parquet', ...
         """
         raise NotImplementedError(
             "To use this property set 'use_legacy_dataset=False' while "
@@ -2234,9 +2232,9 @@ class _ParquetDatasetV2:
     ...                     partition_cols=['year'],
     ...                     use_legacy_dataset=False)
 
-    create a _ParquetDatasetV2 object from the dataset source:
+    create a ParquetDataset object from the dataset source:
 
-    >>> dataset = pq._ParquetDatasetV2('dataset_v2/')
+    >>> dataset = pq.ParquetDataset('dataset_v2/', use_legacy_dataset=False)
 
     and read the data:
 
@@ -2249,10 +2247,11 @@ class _ParquetDatasetV2:
     4       2         Parrot  2022
     5       4          Horse  2022
 
-    create a _ParquetDatasetV2 object with filter:
+    create a ParquetDataset object with filter:
 
-    >>> dataset = pq._ParquetDatasetV2('dataset_v2/',
-    ...                                filters=[('n_legs','=',4)])
+    >>> dataset = pq.ParquetDataset('dataset_v2/',
+    ...                             filters=[('n_legs','=',4)],
+    ...                             use_legacy_dataset=False)
     >>> dataset.read().to_pandas()
        n_legs animal  year
     0       4    Dog  2021
@@ -2371,7 +2370,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_schema',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_schema/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_schema/',
+        ...                             use_legacy_dataset=False)
 
         Read the schema:
 
@@ -2416,7 +2416,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_read',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_read/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_read/',
+        ...                             use_legacy_dataset=False)
 
         Read the dataset:
 
@@ -2424,7 +2425,7 @@ class _ParquetDatasetV2:
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],...,[2],[4]]
+        n_legs: [[5],[2],[4,100],[2,4]]
         """
         # if use_pandas_metadata, we need to include index columns in the
         # column selection, to be able to restore those in the pandas DataFrame
@@ -2462,18 +2463,19 @@ class _ParquetDatasetV2:
 
         Examples
         --------
-        Generate an example dataset:
+        Generate an example parquet file:
 
         >>> import pyarrow as pa
-        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                              "Brittle stars", "Centipede"]})
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
-        >>> pq.write_to_dataset(table, root_path='dataset_v2_read_pandas',
-        ...                     partition_cols=['year'],
-        ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_read_pandas/')
+        >>> pq.write_table(table, 'table_V2.parquet')
+        >>> dataset = pq.ParquetDataset('table_V2.parquet',
+        ...                             use_legacy_dataset=False)
 
         Read the dataset with pandas metadata:
 
@@ -2481,7 +2483,7 @@ class _ParquetDatasetV2:
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],...,[2],[4]]
+        n_legs: [[2,2,4,4,5,100]]
 
         >>> dataset.read_pandas(columns=["n_legs"]).schema.pandas_metadata
         {'index_columns': [{'kind': 'range', ... 'pandas_version': '1.4.1'}
@@ -2515,7 +2517,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_fragments',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_fragments/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_fragments/',
+        ...                             use_legacy_dataset=False)
 
         List the fragments:
 
@@ -2542,12 +2545,13 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_files',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_files/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_files/',
+        ...                             use_legacy_dataset=False)
 
         List the files:
 
         >>> dataset.files
-        ['dataset_v2_files/year=2019/part-0.parquet', ...
+        ['dataset_v2_files/year=2019/...-0.parquet', ...
         """
         return self._dataset.files
 
@@ -2674,8 +2678,8 @@ pyarrow.Table
 n_legs: int64
 animal: string
 ----
-n_legs: [[5],[2],...,[2],[4]]
-animal: [["Brittle stars"],["Flamingo"],...,["Parrot"],["Horse"]]
+n_legs: [[5],[2],[4,100],[2,4]]
+animal: [["Brittle stars"],["Flamingo"],["Dog","Centipede"],["Parrot","Horse"]]
 
 Read a subset of columns and read one column as DictionaryArray:
 
@@ -2685,16 +2689,16 @@ pyarrow.Table
 n_legs: int64
 animal: dictionary<values=string, indices=int32, ordered=0>
 ----
-n_legs: [[5],[2],...,[2],[4]]
+n_legs: [[5],[2],[4,100],[2,4]]
 animal: [  -- dictionary:
 ["Brittle stars"]  -- indices:
 [0],  -- dictionary:
 ["Flamingo"]  -- indices:
-[0],...,  -- dictionary:
-["Parrot"]  -- indices:
 [0],  -- dictionary:
-["Horse"]  -- indices:
-[0]]
+["Dog","Centipede"]  -- indices:
+[0,1],  -- dictionary:
+["Parrot","Horse"]  -- indices:
+[0,1]]
 
 Read the table with filter:
 
@@ -2711,8 +2715,8 @@ Read data from a single Parquet file:
    n_legs         animal  year
 0       5  Brittle stars  2019
 1       2       Flamingo  2020
-2     100      Centipede  2021
-3       4            Dog  2021
+2       4            Dog  2021
+3     100      Centipede  2021
 4       2         Parrot  2022
 5       4          Horse  2022
 """
@@ -3089,13 +3093,13 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.write_to_dataset(table, root_path='dataset_name_3',
     ...                     partition_cols=['year'])
     >>> pq.ParquetDataset('dataset_name_3', use_legacy_dataset=False).files
-    ['dataset_name_3/year=2019/part-0.parquet', ...
+    ['dataset_name_3/year=2019/...-0.parquet', ...
 
     Write a single Parquet file into the root folder:
 
     >>> pq.write_to_dataset(table, root_path='dataset_name_4')
     >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
-    ['dataset_name_4/part-0.parquet']
+    ['dataset_name_4/...-0.parquet']
     """
     if use_legacy_dataset is None:
         # if partition_filename_cb is specified ->

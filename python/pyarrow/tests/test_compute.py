@@ -780,13 +780,13 @@ def test_generated_docstrings():
         >>> arr = pa.array(["a", "b", "c", None, "e"])
         >>> mask = pa.array([True, False, None, False, True])
         >>> arr.filter(mask)
-        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        <pyarrow.lib.StringArray object at ...>
         [
           "a",
           "e"
         ]
         >>> arr.filter(mask, null_selection_behavior='emit_null')
-        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        <pyarrow.lib.StringArray object at ...>
         [
           "a",
           null,
