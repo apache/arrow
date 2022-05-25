@@ -137,6 +137,7 @@ class CachedJira:
 
 _TITLE_REGEX = re.compile(
     r"(?P<issue>(?P<project>(ARROW|PARQUET))\-\d+)?\s*:?\s*"
+    r"(?P<minor>(MINOR))?\s*:?\s*"
     r"(?P<components>\[.*\])?\s*(?P<summary>.*)"
 )
 _COMPONENT_REGEX = re.compile(r"\[([^\[\]]+)\]")
@@ -144,11 +145,13 @@ _COMPONENT_REGEX = re.compile(r"\[([^\[\]]+)\]")
 
 class CommitTitle:
 
-    def __init__(self, summary, project=None, issue=None, components=None):
+    def __init__(self, summary, project=None, issue=None, minor=None,
+                 components=None):
         self.project = project
         self.issue = issue
         self.components = components or []
         self.summary = summary
+        self.minor = bool(minor)
 
     def __str__(self):
         return self.to_string()
@@ -158,6 +161,7 @@ class CommitTitle:
             self.summary == other.summary and
             self.project == other.project and
             self.issue == other.issue and
+            self.minor == other.minor and
             self.components == other.components
         )
 
@@ -183,6 +187,7 @@ class CommitTitle:
             values['summary'],
             project=values.get('project'),
             issue=values.get('issue'),
+            minor=values.get('minor'),
             components=components
         )
 
