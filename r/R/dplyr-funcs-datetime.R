@@ -30,7 +30,7 @@ register_bindings_datetime <- function() {
 register_bindings_datetime_utility <- function() {
   register_binding("strptime", function(x,
                                         format = "%Y-%m-%d %H:%M:%S",
-                                        tz = NULL,
+                                        tz = "",
                                         unit = "ms") {
     # Arrow uses unit for time parsing, strptime() does not.
     # Arrow has no default option for strptime (format, unit),
@@ -52,6 +52,10 @@ register_bindings_datetime_utility <- function() {
           error_is_null = TRUE
         )
     )
+
+    if (tz == "") {
+      tz <- Sys.timezone()
+    }
 
     if (!is.null(tz)) {
       output <- build_expr(
