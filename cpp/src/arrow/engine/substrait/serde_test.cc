@@ -689,11 +689,6 @@ TEST(Substrait, ExtensionSetFromPlan) {
         "type_anchor": 42,
         "name": "null"
       }},
-      {"extension_type_variation": {
-        "extension_uri_reference": 7,
-        "type_variation_anchor": 23,
-        "name": "u8"
-      }},
       {"extension_function": {
         "extension_uri_reference": 7,
         "function_anchor": 42,
@@ -701,7 +696,6 @@ TEST(Substrait, ExtensionSetFromPlan) {
       }}
     ]
   })"));
-
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(
       auto sink_decls,
@@ -713,13 +707,6 @@ TEST(Substrait, ExtensionSetFromPlan) {
   EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
   EXPECT_EQ(decoded_null_type.id.name, "null");
   EXPECT_EQ(*decoded_null_type.type, NullType());
-  EXPECT_FALSE(decoded_null_type.is_variation);
-
-  EXPECT_OK_AND_ASSIGN(auto decoded_uint8_type, ext_set.DecodeType(23));
-  EXPECT_EQ(decoded_uint8_type.id.uri, kArrowExtTypesUri);
-  EXPECT_EQ(decoded_uint8_type.id.name, "u8");
-  EXPECT_EQ(*decoded_uint8_type.type, UInt8Type());
-  EXPECT_TRUE(decoded_uint8_type.is_variation);
 
   EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set.DecodeFunction(42));
   EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);

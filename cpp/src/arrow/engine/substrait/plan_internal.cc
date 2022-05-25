@@ -43,7 +43,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   auto uris = plan->mutable_extension_uris();
   uris->Reserve(static_cast<int>(ext_set.uris().size()));
   for (uint32_t anchor = 0; anchor < ext_set.uris().size(); ++anchor) {
-    auto uri = ext_set.uris()[anchor];
+    auto uri = ext_set.uris().at(anchor);
     if (uri.empty()) continue;
 
     auto ext_uri = internal::make_unique<substrait::extensions::SimpleExtensionURI>();
@@ -65,20 +65,11 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 
     auto ext_decl = internal::make_unique<ExtDecl>();
 
-    if (type_record.is_variation) {
-      auto type_var = internal::make_unique<ExtDecl::ExtensionTypeVariation>();
-      type_var->set_extension_uri_reference(map[type_record.id.uri]);
-      type_var->set_type_variation_anchor(anchor);
-      type_var->set_name(type_record.id.name.to_string());
-      ext_decl->set_allocated_extension_type_variation(type_var.release());
-    } else {
-      auto type = internal::make_unique<ExtDecl::ExtensionType>();
-      type->set_extension_uri_reference(map[type_record.id.uri]);
-      type->set_type_anchor(anchor);
-      type->set_name(type_record.id.name.to_string());
-      ext_decl->set_allocated_extension_type(type.release());
-    }
-
+    auto type = internal::make_unique<ExtDecl::ExtensionType>();
+    type->set_extension_uri_reference(map[type_record.id.uri]);
+    type->set_type_anchor(anchor);
+    type->set_name(type_record.id.name.to_string());
+    ext_decl->set_allocated_extension_type(type.release());
     extensions->AddAllocated(ext_decl.release());
   }
 
@@ -99,22 +90,12 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   return Status::OK();
 }
 
-namespace {
-template <typename Element, typename T>
-void SetElement(size_t i, const Element& element, std::vector<T>* vector) {
-  DCHECK_LE(i, 1 << 20);
-  if (i >= vector->size()) {
-    vector->resize(i + 1);
-  }
-  (*vector)[i] = static_cast<T>(element);
-}
-}  // namespace
-
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                                              ExtensionIdRegistry* registry) {
-  std::vector<util::string_view> uris;
+  std::unordered_map<uint32_t, util::string_view> uris;
+  uris.reserve(plan.extension_uris_size());
   for (const auto& uri : plan.extension_uris()) {
-    SetElement(uri.extension_uri_anchor(), uri.uri(), &uris);
+    uris[uri.extension_uri_anchor()] = uri.uri();
   }
 
   // NOTE: it's acceptable to use views to memory owned by plan; ExtensionSet::Make
@@ -122,30 +103,24 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 
   using Id = ExtensionSet::Id;
 
-  std::vector<Id> type_ids, function_ids;
-  std::vector<bool> type_is_variation;
+  std::unordered_map<uint32_t, Id> type_ids, function_ids;
   for (const auto& ext : plan.extensions()) {
     switch (ext.mapping_type_case()) {
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionTypeVariation: {
-        const auto& type_var = ext.extension_type_variation();
-        util::string_view uri = uris[type_var.extension_uri_reference()];
-        SetElement(type_var.type_variation_anchor(), Id{uri, type_var.name()}, &type_ids);
-        SetElement(type_var.type_variation_anchor(), true, &type_is_variation);
-        break;
+        return Status::NotImplemented("Type Variations are not yet implemented");
       }
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionType: {
         const auto& type = ext.extension_type();
         util::string_view uri = uris[type.extension_uri_reference()];
-        SetElement(type.type_anchor(), Id{uri, type.name()}, &type_ids);
-        SetElement(type.type_anchor(), false, &type_is_variation);
+        type_ids[type.type_anchor()] = Id{uri, type.name()};
         break;
       }
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
         const auto& fn = ext.extension_function();
         util::string_view uri = uris[fn.extension_uri_reference()];
-        SetElement(fn.function_anchor(), Id{uri, fn.name()}, &function_ids);
+        function_ids[fn.function_anchor()] = Id{uri, fn.name()};
         break;
       }
 
@@ -154,8 +129,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
     }
   }
 
-  return ExtensionSet::Make(std::move(uris), std::move(type_ids),
-                            std::move(type_is_variation), std::move(function_ids),
+  return ExtensionSet::Make(std::move(uris), std::move(type_ids), std::move(function_ids),
                             registry);
 }
 
