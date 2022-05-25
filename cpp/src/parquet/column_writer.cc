@@ -1405,6 +1405,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return pages_change_on_record_boundaries_;
   }
 
+  KeyValueMetadata& key_value_metadata() override {
+    return metadata_->key_value_metadata();
+  }
+
  private:
   using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
   using TypedStats = TypedStatistics<DType>;

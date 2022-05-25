@@ -132,6 +132,31 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
   throw ParquetException("Can't decode page statistics for selected column type");
 }
 
+template <typename Metadata>
+std::shared_ptr<KeyValueMetadata> CopyKeyValueMetadata(const Metadata& source) {
+  std::shared_ptr<KeyValueMetadata> metadata = nullptr;
+  if (source.__isset.key_value_metadata) {
+    metadata = std::make_shared<KeyValueMetadata>();
+    for (const auto& it : source.key_value_metadata) {
+      metadata->Append(it.key, it.value);
+    }
+  }
+  return metadata;
+}
+
+template <typename Metadata>
+void SetKeyValueMetadata(Metadata& metadata, const KeyValueMetadata& source) {
+  metadata.key_value_metadata.clear();
+  metadata.key_value_metadata.reserve(static_cast<size_t>(source.size()));
+  for (int64_t i = 0; i < source.size(); ++i) {
+    format::KeyValue kv_pair;
+    kv_pair.__set_key(source.key(i));
+    kv_pair.__set_value(source.value(i));
+    metadata.key_value_metadata.push_back(kv_pair);
+  }
+  metadata.__isset.key_value_metadata = true;
+}
+
 // MetaData Accessor
 
 // ColumnCryptoMetaData
@@ -230,6 +255,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                  encoding_stats.count});
     }
     possible_stats_ = nullptr;
+    InitKeyValueMetadata();
   }
 
   bool Equals(const ColumnChunkMetaDataImpl& other) const {
@@ -340,7 +366,15 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return std::nullopt;
   }
 
+  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
+    return key_value_metadata_;
+  }
+
  private:
+  void InitKeyValueMetadata() {
+    key_value_metadata_ = CopyKeyValueMetadata(*column_metadata_);
+  }
+
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
   std::vector<PageEncodingStats> encoding_stats_;
@@ -350,6 +384,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   const ColumnDescriptor* descr_;
   const ReaderProperties properties_;
   const ApplicationVersion* writer_version_;
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
@@ -466,6 +501,11 @@ std::optional<IndexLocation> ColumnChunkMetaData::GetOffsetIndexLocation() const
 
 bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
   return impl_->Equals(*other.impl_);
+}
+
+const std::shared_ptr<const KeyValueMetadata>& ColumnChunkMetaData::key_value_metadata()
+    const {
+  return impl_->key_value_metadata();
 }
 
 // row-group metadata
@@ -863,16 +903,7 @@ class FileMetaData::FileMetaDataImpl {
     schema_.updateColumnOrders(column_orders);
   }
 
-  void InitKeyValueMetadata() {
-    std::shared_ptr<KeyValueMetadata> metadata = nullptr;
-    if (metadata_->__isset.key_value_metadata) {
-      metadata = std::make_shared<KeyValueMetadata>();
-      for (const auto& it : metadata_->key_value_metadata) {
-        metadata->Append(it.key, it.value);
-      }
-    }
-    key_value_metadata_ = std::move(metadata);
-  }
+  void InitKeyValueMetadata() { key_value_metadata_ = CopyKeyValueMetadata(*metadata_); }
 };
 
 std::shared_ptr<FileMetaData> FileMetaData::Make(
@@ -1518,6 +1549,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_encodings(std::move(thrift_encodings));
     column_chunk_->meta_data.__set_encoding_stats(std::move(thrift_encoding_stats));
 
+    if (key_value_metadata_) {
+      SetKeyValueMetadata(column_chunk_->meta_data, *key_value_metadata_);
+    }
+
     const auto& encrypt_md =
         properties_->column_encryption_properties(column_->path()->ToDotString());
     // column is encrypted
@@ -1584,6 +1619,13 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     return column_chunk_->meta_data.total_compressed_size;
   }
 
+  KeyValueMetadata& key_value_metadata() {
+    if (!key_value_metadata_) {
+      key_value_metadata_ = std::make_unique<KeyValueMetadata>();
+    }
+    return *key_value_metadata_;
+  }
+
  private:
   void Init(format::ColumnChunk* column_chunk) {
     column_chunk_ = column_chunk;
@@ -1598,6 +1640,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   std::unique_ptr<format::ColumnChunk> owned_column_chunk_;
   const std::shared_ptr<WriterProperties> properties_;
   const ColumnDescriptor* column_;
+  std::unique_ptr<KeyValueMetadata> key_value_metadata_;
 };
 
 std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
@@ -1657,6 +1700,10 @@ void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) 
 
 int64_t ColumnChunkMetaDataBuilder::total_compressed_size() const {
   return impl_->total_compressed_size();
+}
+
+KeyValueMetadata& ColumnChunkMetaDataBuilder::key_value_metadata() {
+  return impl_->key_value_metadata();
 }
 
 class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
@@ -1853,16 +1900,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       } else if (key_value_metadata) {
         key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
       }
-      metadata_->key_value_metadata.clear();
-      metadata_->key_value_metadata.reserve(
-          static_cast<size_t>(key_value_metadata_->size()));
-      for (int64_t i = 0; i < key_value_metadata_->size(); ++i) {
-        format::KeyValue kv_pair;
-        kv_pair.__set_key(key_value_metadata_->key(i));
-        kv_pair.__set_value(key_value_metadata_->value(i));
-        metadata_->key_value_metadata.push_back(std::move(kv_pair));
-      }
-      metadata_->__isset.key_value_metadata = true;
+      SetKeyValueMetadata(*metadata_, *key_value_metadata_);
     }
 
     int32_t file_version = 0;

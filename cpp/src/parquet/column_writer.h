@@ -29,6 +29,7 @@
 namespace arrow {
 
 class Array;
+class KeyValueMetadata;
 
 namespace bit_util {
 class BitWriter;
@@ -52,6 +53,8 @@ class DictionaryPage;
 class Encryptor;
 class OffsetIndexBuilder;
 class WriterProperties;
+
+using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
 class PARQUET_EXPORT LevelEncoder {
  public:
@@ -180,6 +183,10 @@ class PARQUET_EXPORT ColumnWriter {
 
   /// \brief The file-level writer properties
   virtual const WriterProperties* properties() = 0;
+
+  /// \brief Return KeyValueMetadata that can be used to store key-value
+  /// metadata in ColumnChunkMetaData.
+  virtual KeyValueMetadata& key_value_metadata() = 0;
 
   /// \brief Write Apache Arrow columnar data directly to ColumnWriter. Returns
   /// error status if the array data type is not compatible with the concrete
