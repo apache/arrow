@@ -86,7 +86,6 @@ extension type that uses most of these features, see
 \code{\link[=vctrs_extension_type]{vctrs_extension_type()}}.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Create the R6 type whose methods control how Array objects are
 # converted to R objects, how equality between types is computed,
 # and how types are printed.
@@ -118,7 +117,6 @@ QuantizedType <- R6::R6Class(
       private$.scale <- vals[2]
     }
   ),
-
   private = list(
     .center = NULL,
     .scale = NULL
@@ -155,13 +153,13 @@ reregister_extension_type(quantized())
 (array <- quantized_array(
   vals,
   center = 20,
-  scale = 2 ^ 15 - 1,
-  storage_type = int16())
+  scale = 2^15 - 1,
+  storage_type = int16()
+)
 )
 
 array$type$center()
 array$type$scale()
 
 as.vector(array)
-\dontshow{\}) # examplesIf}
 }

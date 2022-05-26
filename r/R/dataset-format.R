@@ -390,7 +390,7 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
 FileWriteOptions <- R6Class("FileWriteOptions",
   inherit = ArrowObject,
   public = list(
-    update = function(table, ...) {
+    update = function(column_names, ...) {
       check_additional_args <- function(format, passed_args) {
         if (format == "parquet") {
           supported_args <- names(formals(write_parquet))
@@ -437,7 +437,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
       if (self$type == "parquet") {
         dataset___ParquetFileWriteOptions__update(
           self,
-          ParquetWriterProperties$create(table, ...),
+          ParquetWriterProperties$create(column_names, ...),
           ParquetArrowWriterProperties$create(...)
         )
       } else if (self$type == "ipc") {

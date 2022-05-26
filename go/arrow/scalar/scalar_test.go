@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/decimal128"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/arrow/scalar"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/decimal128"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -733,7 +733,7 @@ func TestMapScalarBasics(t *testing.T) {
 
 	expectedScalarType := arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int8)
 	assert.True(t, arrow.TypeEqual(s.DataType(), expectedScalarType))
-	assert.True(t, array.ArrayEqual(value, s.GetList()))
+	assert.True(t, array.Equal(value, s.GetList()))
 
 	checkMakeNullScalar(t, expectedScalarType)
 }

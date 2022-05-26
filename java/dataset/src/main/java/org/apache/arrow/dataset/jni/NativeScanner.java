@@ -18,23 +18,19 @@
 package org.apache.arrow.dataset.jni;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
 
-import org.apache.arrow.dataset.scanner.ScanTask;
+import org.apache.arrow.c.ArrowArray;
+import org.apache.arrow.c.Data;
 import org.apache.arrow.dataset.scanner.Scanner;
-import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.BufferLedger;
-import org.apache.arrow.memory.NativeUnderlyingMemory;
-import org.apache.arrow.memory.util.LargeMemoryUtil;
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowReader;
+import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
@@ -60,7 +56,7 @@ public class NativeScanner implements Scanner {
     this.scannerId = scannerId;
   }
 
-  ScanTask.BatchIterator execute() {
+  ArrowReader execute() {
     if (closed) {
       throw new NativeInstanceReleasedException();
     }
@@ -68,67 +64,7 @@ public class NativeScanner implements Scanner {
       throw new UnsupportedOperationException("NativeScanner cannot be executed more than once. Consider creating " +
           "new scanner instead");
     }
-    return new ScanTask.BatchIterator() {
-      private ArrowRecordBatch peek = null;
-
-      @Override
-      public void close() {
-        NativeScanner.this.close();
-      }
-
-      @Override
-      public boolean hasNext() {
-        if (peek != null) {
-          return true;
-        }
-        final NativeRecordBatchHandle handle;
-        readLock.lock();
-        try {
-          if (closed) {
-            throw new NativeInstanceReleasedException();
-          }
-          handle = JniWrapper.get().nextRecordBatch(scannerId);
-        } finally {
-          readLock.unlock();
-        }
-        if (handle == null) {
-          return false;
-        }
-        final ArrayList<ArrowBuf> buffers = new ArrayList<>();
-        for (NativeRecordBatchHandle.Buffer buffer : handle.getBuffers()) {
-          final BufferAllocator allocator = context.getAllocator();
-          final int size = LargeMemoryUtil.checkedCastToInt(buffer.size);
-          final NativeUnderlyingMemory am = NativeUnderlyingMemory.create(allocator,
-              size, buffer.nativeInstanceId, buffer.memoryAddress);
-          BufferLedger ledger = am.associate(allocator);
-          ArrowBuf buf = new ArrowBuf(ledger, null, size, buffer.memoryAddress);
-          buffers.add(buf);
-        }
-
-        try {
-          final int numRows = LargeMemoryUtil.checkedCastToInt(handle.getNumRows());
-          peek = new ArrowRecordBatch(numRows, handle.getFields().stream()
-              .map(field -> new ArrowFieldNode(field.length, field.nullCount))
-              .collect(Collectors.toList()), buffers);
-          return true;
-        } finally {
-          buffers.forEach(buffer -> buffer.getReferenceManager().release());
-        }
-      }
-
-      @Override
-      public ArrowRecordBatch next() {
-        if (!hasNext()) {
-          throw new NoSuchElementException();
-        }
-
-        try {
-          return peek;
-        } finally {
-          peek = null;
-        }
-      }
-    };
+    return new NativeReader(context.getAllocator());
   }
 
   @Override
@@ -165,6 +101,61 @@ public class NativeScanner implements Scanner {
       JniWrapper.get().closeScanner(scannerId);
     } finally {
       writeLock.unlock();
+    }
+  }
+
+  /**
+   * {@link ArrowReader} implementation for NativeDataset.
+   */
+  public class NativeReader extends ArrowReader {
+
+    private NativeReader(BufferAllocator allocator) {
+      super(allocator);
+    }
+
+    @Override
+    protected void loadRecordBatch(ArrowRecordBatch batch) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void loadDictionary(ArrowDictionaryBatch dictionaryBatch) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean loadNextBatch() throws IOException {
+      readLock.lock();
+      try {
+        if (closed) {
+          throw new NativeInstanceReleasedException();
+        }
+        try (ArrowArray arrowArray = ArrowArray.allocateNew(context.getAllocator())) {
+          if (!JniWrapper.get().nextRecordBatch(scannerId, arrowArray.memoryAddress())) {
+            return false;
+          }
+          final VectorSchemaRoot vsr = getVectorSchemaRoot();
+          Data.importIntoVectorSchemaRoot(context.getAllocator(), arrowArray, vsr, this);
+        }
+      } finally {
+        readLock.unlock();
+      }
+      return true;
+    }
+
+    @Override
+    public long bytesRead() {
+      return 0L;
+    }
+
+    @Override
+    protected void closeReadSource() throws IOException {
+      // no-op
+    }
+
+    @Override
+    protected Schema readSchema() throws IOException {
+      return schema();
     }
   }
 }

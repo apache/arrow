@@ -93,7 +93,8 @@ class ARROW_EXPORT Expression {
   /// Return true if this expression is literal and entirely null.
   bool IsNullLiteral() const;
 
-  /// Return true if this expression could evaluate to true.
+  /// Return true if this expression could evaluate to true. Will return true for any
+  /// unbound, non-boolean, or unsimplified Expressions
   bool IsSatisfiable() const;
 
   // XXX someday
@@ -108,7 +109,7 @@ class ARROW_EXPORT Expression {
 
   /// The type and shape to which this expression will evaluate
   ValueDescr descr() const;
-  std::shared_ptr<DataType> type() const { return descr().type; }
+  const std::shared_ptr<DataType>& type() const;
   // XXX someday
   // NullGeneralization::type nullable() const;
 
@@ -171,8 +172,10 @@ std::vector<FieldRef> FieldsInExpression(const Expression&);
 ARROW_EXPORT
 bool ExpressionHasFieldRefs(const Expression&);
 
-/// Assemble a mapping from field references to known values.
 struct ARROW_EXPORT KnownFieldValues;
+
+/// Assemble a mapping from field references to known values. This derives known values
+/// from "equal" and "is_null" Expressions referencing a field and a literal.
 ARROW_EXPORT
 Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate);

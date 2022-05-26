@@ -455,9 +455,9 @@ struct KleeneAndNotOp {
 };
 
 void MakeFunction(const std::string& name, int arity, ArrayKernelExec exec,
-                  const FunctionDoc* doc, FunctionRegistry* registry,
+                  FunctionDoc doc, FunctionRegistry* registry,
                   NullHandling::type null_handling = NullHandling::INTERSECTION) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity(arity), doc);
+  auto func = std::make_shared<ScalarFunction>(name, Arity(arity), std::move(doc));
 
   std::vector<InputType> in_types(arity, InputType(boolean()));
   ScalarKernel kernel(std::move(in_types), boolean(), exec);
@@ -541,19 +541,19 @@ namespace internal {
 
 void RegisterScalarBoolean(FunctionRegistry* registry) {
   // These functions can write into sliced output bitmaps
-  MakeFunction("invert", 1, applicator::SimpleUnary<InvertOp>, &invert_doc, registry);
-  MakeFunction("and", 2, applicator::SimpleBinary<AndOp>, &and_doc, registry);
-  MakeFunction("and_not", 2, applicator::SimpleBinary<AndNotOp>, &and_not_doc, registry);
-  MakeFunction("or", 2, applicator::SimpleBinary<OrOp>, &or_doc, registry);
-  MakeFunction("xor", 2, applicator::SimpleBinary<XorOp>, &xor_doc, registry);
+  MakeFunction("invert", 1, applicator::SimpleUnary<InvertOp>, invert_doc, registry);
+  MakeFunction("and", 2, applicator::SimpleBinary<AndOp>, and_doc, registry);
+  MakeFunction("and_not", 2, applicator::SimpleBinary<AndNotOp>, and_not_doc, registry);
+  MakeFunction("or", 2, applicator::SimpleBinary<OrOp>, or_doc, registry);
+  MakeFunction("xor", 2, applicator::SimpleBinary<XorOp>, xor_doc, registry);
 
   // The null bitmap is not preallocated for Kleene kernels, as sometimes
   // all outputs are valid even though some inputs may be null.
-  MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAndOp>, &and_kleene_doc,
+  MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAndOp>, and_kleene_doc,
                registry, NullHandling::COMPUTED_NO_PREALLOCATE);
   MakeFunction("and_not_kleene", 2, applicator::SimpleBinary<KleeneAndNotOp>,
-               &and_not_kleene_doc, registry, NullHandling::COMPUTED_NO_PREALLOCATE);
-  MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOrOp>, &or_kleene_doc,
+               and_not_kleene_doc, registry, NullHandling::COMPUTED_NO_PREALLOCATE);
+  MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOrOp>, or_kleene_doc,
                registry, NullHandling::COMPUTED_NO_PREALLOCATE);
 }
 

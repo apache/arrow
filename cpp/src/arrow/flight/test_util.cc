@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 #include <sstream>
 
 // We need Windows fixes before including Boost

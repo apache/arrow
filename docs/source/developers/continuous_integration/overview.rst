@@ -31,18 +31,18 @@ Some files central to Arrow CI are:
 
 We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help co-ordinate the various CI tasks.
 
-One thing to note is the some of the services defined in ``docker-compose.yml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery run ...`` which automatically finds and builds dependencies. 
+One thing to note is the some of the services defined in ``docker-compose.yml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery run ...`` which automatically finds and builds dependencies.
 
 There are numerous important directories in the Arrow project which relate to CI:
 
 - ``.github/worflows`` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
-- ``dev/tasks`` - containing on-demand jobs triggered/submitted via ``archery crossbow submit ...``, typically nightly builds or relating to the release process
+- ``dev/tasks`` - containing extended jobs triggered/submitted via ``archery crossbow submit ...``, typically nightly builds or relating to the release process
 - ``ci/`` - containing scripts, dockerfiles, and any supplemental files, e.g. patch files, conda environment files, vcpkg triplet files.
 
 Instead of thinking about Arrow CI in terms of files and folders, it may be conceptually simpler to instead divide it into 2 main categories:
 
-- CI jobs which are triggered based on specific actions on GitHub (pull requests opened, pull requests merged, etc)
-- On-demand builds which are manually triggered on a nightly basis or via Archery
+- **action-triggered builds**: CI jobs which are triggered based on specific actions on GitHub (pull requests opened, pull requests merged, etc)
+- **extended builds**: manually triggered with many being run on a nightly basis
 
 Action-triggered builds
 -----------------------
@@ -61,9 +61,9 @@ The ``.yml`` files in ``.github/worflows`` are workflows which are run on GitHub
 There are two other files which define action-triggered builds:
 
 - ``.travis.yml`` - runs on all commits and is used to test on architectures such as ARM and S390x
-- ``appveyor.yml`` - runs on commits related to Python or C++ 
+- ``appveyor.yml`` - runs on commits related to Python or C++
 
-On-demand builds
+Extended builds
 -----------------------
 
 Crossbow is a subcomponent of Archery and can be used to manually trigger builds.  The tasks which can be run on Crossbow can be found in the ``dev/tasks`` directory.  This directory contains:

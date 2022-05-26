@@ -132,6 +132,16 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
                       ::arrow::internal::tracing::SpanOptionsWithParent(parent_span))}) \
               .span)
 
+#define START_COMPUTE_SPAN(target_span, ...) \
+  START_SPAN(target_span, __VA_ARGS__);      \
+  target_span.Get().span->SetAttribute(      \
+      "arrow.memory_pool_bytes", ::arrow::default_memory_pool()->bytes_allocated())
+
+#define START_COMPUTE_SPAN_WITH_PARENT(target_span, parent_span, ...) \
+  START_SPAN_WITH_PARENT(target_span, parent_span, __VA_ARGS__);      \
+  target_span.Get().span->SetAttribute(                               \
+      "arrow.memory_pool_bytes", ::arrow::default_memory_pool()->bytes_allocated())
+
 #define EVENT(target_span, ...) target_span.Get().span->AddEvent(__VA_ARGS__)
 
 #define MARK_SPAN(target_span, status) \
@@ -177,6 +187,8 @@ class SpanImpl {};
 
 #define START_SPAN(target_span, ...)
 #define START_SPAN_WITH_PARENT(target_span, parent_span, ...)
+#define START_COMPUTE_SPAN(target_span, ...)
+#define START_COMPUTE_SPAN_WITH_PARENT(target_span, parent_span, ...)
 #define MARK_SPAN(target_span, status)
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)

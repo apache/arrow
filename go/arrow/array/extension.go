@@ -17,12 +17,12 @@
 package array
 
 import (
+	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/goccy/go-json"
-	"golang.org/x/xerrors"
 )
 
 // ExtensionArray is the interface that needs to be implemented to handle
@@ -52,7 +52,7 @@ func arrayEqualExtension(l, r ExtensionArray) bool {
 		return false
 	}
 
-	return ArrayEqual(l.Storage(), r.Storage())
+	return Equal(l.Storage(), r.Storage())
 }
 
 // two extension arrays are approximately equal if their data types are
@@ -72,7 +72,7 @@ func arrayApproxEqualExtension(l, r ExtensionArray, opt equalOption) bool {
 // Data buffers.
 func NewExtensionArrayWithStorage(dt arrow.ExtensionType, storage arrow.Array) arrow.Array {
 	if !arrow.TypeEqual(dt.StorageType(), storage.DataType()) {
-		panic(xerrors.Errorf("arrow/array: storage type %s for extension type %s, does not match expected type %s", storage.DataType(), dt.ExtensionName(), dt.StorageType()))
+		panic(fmt.Errorf("arrow/array: storage type %s for extension type %s, does not match expected type %s", storage.DataType(), dt.ExtensionName(), dt.StorageType()))
 	}
 
 	base := ExtensionArrayBase{}
@@ -245,6 +245,6 @@ func (b *ExtensionBuilder) NewExtensionArray() ExtensionArray {
 }
 
 var (
-	_ Interface = (ExtensionArray)(nil)
-	_ Builder   = (*ExtensionBuilder)(nil)
+	_ arrow.Array = (ExtensionArray)(nil)
+	_ Builder     = (*ExtensionBuilder)(nil)
 )

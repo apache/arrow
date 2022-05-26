@@ -167,6 +167,7 @@ TEST(TestGdvFnStubs, TestCastINT) {
   EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "-2147483648", 11), -2147483648LL);
   EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "-02147483648", 12), -2147483648LL);
   EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, " 12 ", 4), 12);
+  EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "12", 2), 12);
 
   gdv_fn_castINT_utf8(ctx_ptr, "2147483648", 10);
   EXPECT_THAT(ctx.get_error(),

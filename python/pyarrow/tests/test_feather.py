@@ -30,7 +30,6 @@ import pyarrow.tests.strategies as past
 from pyarrow.feather import (read_feather, write_feather, read_table,
                              FeatherDataset)
 
-
 try:
     from pandas.testing import assert_frame_equal
     import pandas as pd
@@ -90,13 +89,18 @@ def _check_pandas_roundtrip(df, expected=None, path=None,
     if path is None:
         path = random_path()
 
+    if version is None:
+        version = 2
+
     TEST_FILES.append(path)
     write_feather(df, path, compression=compression,
                   compression_level=compression_level, version=version)
+
     if not os.path.exists(path):
         raise Exception('file not written')
 
     result = read_feather(path, columns, use_threads=use_threads)
+
     if expected is None:
         expected = df
 
@@ -504,8 +508,10 @@ def test_out_of_float64_timestamp_with_nulls(version):
 def test_non_string_columns(version):
     df = pd.DataFrame({0: [1, 2, 3, 4],
                        1: [True, False, True, False]})
+    expected = df
 
-    expected = df.rename(columns=str)
+    if version == 1:
+        expected = df.rename(columns=str)
     _check_pandas_roundtrip(df, expected, version=version)
 
 
@@ -820,3 +826,15 @@ def test_feather_v017_experimental_compression_backward_compatibility(datadir):
     expected = pa.table({'a': range(5)})
     result = read_table(datadir / "v0.17.0.version.2-compression.lz4.feather")
     assert result.equals(expected)
+
+
+@pytest.mark.pandas
+def test_preserve_index_pandas(version):
+    df = pd.DataFrame({'a': [1, 2, 3]}, index=['a', 'b', 'c'])
+
+    if version == 1:
+        expected = df.reset_index(drop=True).rename(columns=str)
+    else:
+        expected = df
+
+    _check_pandas_roundtrip(df, expected, version=version)

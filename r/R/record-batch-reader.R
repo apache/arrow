@@ -56,8 +56,9 @@
 #'
 #' @rdname RecordBatchReader
 #' @name RecordBatchReader
-#' @include arrow-package.R
-#' @examplesIf arrow_available()
+#' @export
+#' @include arrow-object.R
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #'
@@ -104,6 +105,16 @@ RecordBatchReader <- R6Class("RecordBatchReader",
     schema = function() RecordBatchReader__schema(self)
   )
 )
+RecordBatchReader$create <- function(..., batches = list(...), schema = NULL) {
+  are_batches <- map_lgl(batches, ~ inherits(., "RecordBatch"))
+  if (!all(are_batches)) {
+    stop(
+      "All inputs to RecordBatchReader$create must be RecordBatches",
+      call. = FALSE
+    )
+  }
+  RecordBatchReader__from_batches(batches, schema)
+}
 
 #' @export
 names.RecordBatchReader <- function(x) names(x$schema)
@@ -175,4 +186,63 @@ RecordBatchFileReader$create <- function(file) {
   }
   assert_is(file, "InputStream")
   ipc___RecordBatchFileReader__Open(file)
+}
+
+#' Convert an object to an Arrow RecordBatchReader
+#'
+#' @param x An object to convert to a [RecordBatchReader]
+#' @param ... Passed to S3 methods
+#'
+#' @return A [RecordBatchReader]
+#' @export
+#'
+#' @examplesIf arrow_with_dataset()
+#' reader <- as_record_batch_reader(data.frame(col1 = 1, col2 = "two"))
+#' reader$read_next_batch()
+#'
+as_record_batch_reader <- function(x, ...) {
+  UseMethod("as_record_batch_reader")
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.RecordBatchReader <- function(x, ...) {
+  x
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.Table <- function(x, ...) {
+  RecordBatchReader__from_Table(x)
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.RecordBatch <- function(x, ...) {
+  RecordBatchReader$create(x, schema = x$schema)
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.data.frame <- function(x, ...) {
+  RecordBatchReader$create(as_record_batch(x))
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.Dataset <- function(x, ...) {
+  Scanner$create(x)$ToRecordBatchReader()
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.arrow_dplyr_query <- function(x, ...) {
+  # TODO(ARROW-16607): use ExecPlan directly when it handles metadata
+  as_record_batch_reader(compute.arrow_dplyr_query(x))
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.Scanner <- function(x, ...) {
+  x$ToRecordBatchReader()
 }

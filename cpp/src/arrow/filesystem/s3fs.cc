@@ -87,6 +87,7 @@
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -2387,21 +2388,29 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
   }
 }
 
-Status S3FileSystem::DeleteDirContents(const std::string& s) {
-  return DeleteDirContentsAsync(s).status();
+Status S3FileSystem::DeleteDirContents(const std::string& s, bool missing_dir_ok) {
+  return DeleteDirContentsAsync(s, missing_dir_ok).status();
 }
 
-Future<> S3FileSystem::DeleteDirContentsAsync(const std::string& s) {
+Future<> S3FileSystem::DeleteDirContentsAsync(const std::string& s, bool missing_dir_ok) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
   auto self = impl_;
-  return impl_->DeleteDirContentsAsync(path.bucket, path.key).Then([path, self]() {
-    // Directory may be implicitly deleted, recreate it
-    return self->EnsureDirectoryExists(path);
-  });
+  return impl_->DeleteDirContentsAsync(path.bucket, path.key)
+      .Then(
+          [path, self]() {
+            // Directory may be implicitly deleted, recreate it
+            return self->EnsureDirectoryExists(path);
+          },
+          [missing_dir_ok](const Status& err) {
+            if (missing_dir_ok && ::arrow::internal::ErrnoFromStatus(err) == ENOENT) {
+              return Status::OK();
+            }
+            return err;
+          });
 }
 
 Status S3FileSystem::DeleteRootDirContents() {

@@ -95,7 +95,7 @@ const FunctionDoc cast_doc{"Cast values to another data type",
 // to the standard SQL CAST(expr AS target_type)
 class CastMetaFunction : public MetaFunction {
  public:
-  CastMetaFunction() : MetaFunction("cast", Arity::Unary(), &cast_doc) {}
+  CastMetaFunction() : MetaFunction("cast", Arity::Unary(), cast_doc) {}
 
   Result<const CastOptions*> ValidateOptions(const FunctionOptions* options) const {
     auto cast_options = static_cast<const CastOptions*>(options);
@@ -153,7 +153,7 @@ CastOptions::CastOptions(bool safe)
 constexpr char CastOptions::kTypeName[];
 
 CastFunction::CastFunction(std::string name, Type::type out_type_id)
-    : ScalarFunction(std::move(name), Arity::Unary(), /*doc=*/nullptr),
+    : ScalarFunction(std::move(name), Arity::Unary(), FunctionDoc::Empty()),
       out_type_id_(out_type_id) {}
 
 Status CastFunction::AddKernel(Type::type in_type_id, ScalarKernel kernel) {

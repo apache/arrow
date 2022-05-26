@@ -449,14 +449,15 @@ class GcsFileSystem::Impl {
   }
 
   Status DeleteDir(const GcsPath& p, const io::IOContext& io_context) {
-    RETURN_NOT_OK(DeleteDirContents(p, io_context));
+    RETURN_NOT_OK(DeleteDirContents(p, /*missing_dir_ok=*/false, io_context));
     if (!p.object.empty()) {
       return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
     }
     return internal::ToArrowStatus(client_.DeleteBucket(p.bucket));
   }
 
-  Status DeleteDirContents(const GcsPath& p, const io::IOContext& io_context) {
+  Status DeleteDirContents(const GcsPath& p, bool missing_dir_ok,
+                           const io::IOContext& io_context) {
     // If the directory marker exists, it better be a directory.
     auto dir = client_.GetObjectMetadata(p.bucket, p.object);
     if (dir && !IsDirectory(*dir)) return NotDirectoryError(*dir);
@@ -477,8 +478,15 @@ class GcsFileSystem::Impl {
     std::vector<Future<>> submitted;
     // This iterates over all the objects, and schedules parallel deletes.
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
+    bool at_least_one_obj = false;
     for (const auto& o : client_.ListObjects(p.bucket, prefix)) {
+      at_least_one_obj = true;
       submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
+    }
+
+    if (!missing_dir_ok && !at_least_one_obj && !dir) {
+      // No files were found and no directory marker exists
+      return Status::IOError("No such directory: ", p.full_path);
     }
 
     return AllFinished(submitted).status();
@@ -750,9 +758,9 @@ Status GcsFileSystem::DeleteDir(const std::string& path) {
   return impl_->DeleteDir(p, io_context());
 }
 
-Status GcsFileSystem::DeleteDirContents(const std::string& path) {
+Status GcsFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
-  return impl_->DeleteDirContents(p, io_context());
+  return impl_->DeleteDirContents(p, missing_dir_ok, io_context());
 }
 
 Status GcsFileSystem::DeleteRootDirContents() {

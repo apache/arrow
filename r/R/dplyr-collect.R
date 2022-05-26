@@ -27,14 +27,29 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   }
 
   # See query-engine.R for ExecPlan/Nodes
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(x)
   tryCatch(
-    tab <- do_exec_plan(x),
+    tab <- plan$Run(final_node)$read_table(),
     # n = 4 because we want the error to show up as being from collect()
     # and not handle_csv_read_error()
     error = function(e, call = caller_env(n = 4)) {
       handle_csv_read_error(e, x$.data$schema, call)
     }
   )
+
+  # TODO(ARROW-16607): move KVM handling into ExecPlan
+  if (ncol(tab)) {
+    # Apply any column metadata from the original schema, where appropriate
+    new_r_metadata <- get_r_metadata_from_old_schema(
+      tab$schema,
+      source_data(x)$schema,
+      drop_attributes = has_aggregation(x)
+    )
+    if (!is.null(new_r_metadata)) {
+      tab$r_metadata <- new_r_metadata
+    }
+  }
 
   if (as_data_frame) {
     df <- as.data.frame(tab)

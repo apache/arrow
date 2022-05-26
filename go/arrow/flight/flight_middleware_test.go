@@ -18,12 +18,13 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	sync "sync"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow/flight"
-	"github.com/apache/arrow/go/v8/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v9/arrow/flight"
+	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -113,7 +114,7 @@ func TestServerStreamMiddleware(t *testing.T) {
 	for {
 		info, err := flightStream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			assert.NoError(t, err)
@@ -229,7 +230,7 @@ func TestClientStreamMiddleware(t *testing.T) {
 	for {
 		info, err := flightStream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			assert.NoError(t, err)

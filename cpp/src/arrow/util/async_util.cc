@@ -199,45 +199,5 @@ bool SerializedAsyncTaskGroup::TryDrainUnlocked() {
   return false;
 }
 
-Future<> AsyncToggle::WhenOpen() {
-  util::Mutex::Guard guard = mutex_.Lock();
-  return when_open_;
-}
-
-void AsyncToggle::Open() {
-  util::Mutex::Guard guard = mutex_.Lock();
-  if (!closed_) {
-    return;
-  }
-  closed_ = false;
-  Future<> to_finish = when_open_;
-  guard.Unlock();
-  to_finish.MarkFinished();
-}
-
-void AsyncToggle::Close() {
-  util::Mutex::Guard guard = mutex_.Lock();
-  if (closed_) {
-    return;
-  }
-  closed_ = true;
-  when_open_ = Future<>::Make();
-}
-
-bool AsyncToggle::IsOpen() {
-  util::Mutex::Guard guard = mutex_.Lock();
-  return !closed_;
-}
-
-BackpressureOptions BackpressureOptions::Make(uint32_t resume_if_below,
-                                              uint32_t pause_if_above) {
-  auto toggle = std::make_shared<util::AsyncToggle>();
-  return BackpressureOptions{std::move(toggle), resume_if_below, pause_if_above};
-}
-
-BackpressureOptions BackpressureOptions::NoBackpressure() {
-  return BackpressureOptions();
-}
-
 }  // namespace util
 }  // namespace arrow

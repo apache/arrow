@@ -57,6 +57,7 @@ apt-get install -y -q --no-install-recommends \
   cmake \
   curl \
   git \
+  gnupg \
   libcurl4-openssl-dev \
   libgirepository1.0-dev \
   libglib2.0-dev \
@@ -67,12 +68,12 @@ apt-get install -y -q --no-install-recommends \
   nlohmann-json${nlohmann_json}-dev \
   openjdk-11-jdk \
   pkg-config \
-  python3-pip \
   python${python}-dev \
   python${python}-venv \
+  python3-pip \
   ruby-dev \
-  wget \
-  tzdata
+  tzdata \
+  wget
 
 case ${codename} in
   bionic)

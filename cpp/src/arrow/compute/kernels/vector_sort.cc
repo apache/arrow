@@ -1168,7 +1168,7 @@ const FunctionDoc sort_indices_doc(
 class SortIndicesMetaFunction : public MetaFunction {
  public:
   SortIndicesMetaFunction()
-      : MetaFunction("sort_indices", Arity::Unary(), &sort_indices_doc,
+      : MetaFunction("sort_indices", Arity::Unary(), sort_indices_doc,
                      GetDefaultSortOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
@@ -1840,7 +1840,7 @@ static Status CheckConsistency(const Schema& schema,
 class SelectKUnstableMetaFunction : public MetaFunction {
  public:
   SelectKUnstableMetaFunction()
-      : MetaFunction("select_k_unstable", Arity::Unary(), &select_k_unstable_doc,
+      : MetaFunction("select_k_unstable", Arity::Unary(), select_k_unstable_doc,
                      GetDefaultSelectKOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,

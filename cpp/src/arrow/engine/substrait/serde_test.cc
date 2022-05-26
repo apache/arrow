@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/util.h"
 
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/json_util.h>
@@ -33,6 +34,7 @@
 using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;
+using testing::UnorderedElementsAre;
 
 namespace arrow {
 
@@ -654,7 +656,8 @@ TEST(Substrait, ReadRel) {
   ASSERT_EQ(scan_node_options.dataset->type_name(), "filesystem");
   const auto& dataset =
       checked_cast<const dataset::FileSystemDataset&>(*scan_node_options.dataset);
-  EXPECT_THAT(dataset.files(), ElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
+  EXPECT_THAT(dataset.files(),
+              UnorderedElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
   EXPECT_EQ(dataset.format()->type_name(), "parquet");
   EXPECT_EQ(*dataset.schema(), Schema({field("i", int64()), field("b", boolean())}));
 }
@@ -686,11 +689,6 @@ TEST(Substrait, ExtensionSetFromPlan) {
         "type_anchor": 42,
         "name": "null"
       }},
-      {"extension_type_variation": {
-        "extension_uri_reference": 7,
-        "type_variation_anchor": 23,
-        "name": "u8"
-      }},
       {"extension_function": {
         "extension_uri_reference": 7,
         "function_anchor": 42,
@@ -698,11 +696,10 @@ TEST(Substrait, ExtensionSetFromPlan) {
       }}
     ]
   })"));
-
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(
       auto sink_decls,
-      DeserializePlan(
+      DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
 
@@ -710,13 +707,6 @@ TEST(Substrait, ExtensionSetFromPlan) {
   EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
   EXPECT_EQ(decoded_null_type.id.name, "null");
   EXPECT_EQ(*decoded_null_type.type, NullType());
-  EXPECT_FALSE(decoded_null_type.is_variation);
-
-  EXPECT_OK_AND_ASSIGN(auto decoded_uint8_type, ext_set.DecodeType(23));
-  EXPECT_EQ(decoded_uint8_type.id.uri, kArrowExtTypesUri);
-  EXPECT_EQ(decoded_uint8_type.id.name, "u8");
-  EXPECT_EQ(*decoded_uint8_type.type, UInt8Type());
-  EXPECT_TRUE(decoded_uint8_type.is_variation);
 
   EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set.DecodeFunction(42));
   EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
@@ -745,9 +735,70 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
   ExtensionSet ext_set;
   ASSERT_RAISES(
       Invalid,
-      DeserializePlan(
+      DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
+}
+
+Result<std::string> GetSubstraitJSON() {
+  ARROW_ASSIGN_OR_RAISE(std::string dir_string,
+                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto file_name =
+      arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
+  auto file_path = file_name->ToString();
+  std::string substrait_json = R"({
+    "relations": [
+      {"rel": {
+        "read": {
+          "base_schema": {
+            "struct": {
+              "types": [ 
+                         {"binary": {}}
+                       ]
+            },
+            "names": [
+                      "foo"
+                      ]
+          },
+          "local_files": {
+            "items": [
+              {
+                "uri_file": "file://FILENAME_PLACEHOLDER",
+                "format": "FILE_FORMAT_PARQUET"
+              }
+            ]
+          }
+        }
+      }}
+    ]
+  })";
+  std::string filename_placeholder = "FILENAME_PLACEHOLDER";
+  substrait_json.replace(substrait_json.find(filename_placeholder),
+                         filename_placeholder.size(), file_path);
+  return substrait_json;
+}
+
+TEST(Substrait, GetRecordBatchReader) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto reader, substrait::ExecuteSerializedPlan(*buf));
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
+  // Note: assuming the binary.parquet file contains fixed amount of records
+  // in case of a test failure, re-evalaute the content in the file
+  EXPECT_EQ(table->num_rows(), 12);
+#endif
+}
+
+TEST(Substrait, InvalidPlan) {
+  std::string substrait_json = R"({
+    "relations": [
+    ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_RAISES(Invalid, substrait::ExecuteSerializedPlan(*buf));
 }
 
 }  // namespace engine

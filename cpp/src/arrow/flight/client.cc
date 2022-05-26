@@ -374,8 +374,16 @@ class ClientStreamWriter : public FlightStreamWriter {
                                    write_size_limit_bytes_, &app_metadata_));
     // XXX: this does not actually write the message to the stream.
     // See Close().
-    ARROW_ASSIGN_OR_RAISE(batch_writer_, ipc::internal::OpenRecordBatchWriter(
-                                             std::move(payload_writer), schema, options));
+
+    // On failure, we should close the stream to make sure we get any gRPC-side error
+    auto status =
+        ipc::internal::OpenRecordBatchWriter(std::move(payload_writer), schema, options)
+            .Value(&batch_writer_);
+    if (!status.ok()) {
+      closed_ = true;
+      final_status_ = stream_->Finish(std::move(status));
+      return final_status_;
+    }
     return Status::OK();
   }
 

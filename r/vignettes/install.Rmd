@@ -7,6 +7,12 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+TL;DR
+
+In most cases, `install.packages("arrow")` should just work. There are things you can do to make the installation faster (see below). If, for any reason, it doesn't work, set the environment variable `ARROW_R_DEV=true`, retry, and share the logs with us.
+
+----
+
 The Apache Arrow project is implemented in multiple languages, and the R package depends on the Arrow C++ library (referred to from here on as libarrow).  This means that when you install arrow, you need both the R and C++ versions.  If you install arrow from CRAN on a machine running Windows or MacOS, when you call `install.packages("arrow")`, a precompiled binary containing both the R package and libarrow will be downloaded.  However, CRAN does not host R package binaries for Linux, and so you must choose from one of the alternative approaches.  
 
 This vignette outlines the recommend approaches to installing arrow on Linux, starting from the simplest and least customisable to the most complex but with more flexbility to customise your installation.

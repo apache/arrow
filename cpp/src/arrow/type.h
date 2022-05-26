@@ -1615,6 +1615,11 @@ class ARROW_EXPORT FieldRef {
   /// Equivalent to a single index string of indices.
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
 
+  /// Construct a nested FieldRef.
+  FieldRef(std::vector<FieldRef> refs) {  // NOLINT runtime/explicit
+    Flatten(std::move(refs));
+  }
+
   /// Convenience constructor for nested FieldRefs: each argument will be used to
   /// construct a FieldRef
   template <typename A0, typename A1, typename... A>
@@ -1647,7 +1652,7 @@ class ARROW_EXPORT FieldRef {
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
   bool operator==(const FieldRef& other) const { return Equals(other); }
-  bool operator!=(const FieldRef& other) const { return !(*this == other); }
+  bool operator!=(const FieldRef& other) const { return !Equals(other); }
 
   std::string ToString() const;
 

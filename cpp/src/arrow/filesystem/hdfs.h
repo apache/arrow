@@ -77,7 +77,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
 
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
 
   Status DeleteRootDirContents() override;
 

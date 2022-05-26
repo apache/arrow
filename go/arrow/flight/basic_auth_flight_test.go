@@ -18,10 +18,11 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow/flight"
+	"github.com/apache/arrow/go/v9/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -167,7 +168,7 @@ func TestBasicAuthHelpers(t *testing.T) {
 	}
 
 	_, err = fs.Recv()
-	if err == nil || err == io.EOF {
+	if err == nil || errors.Is(err, io.EOF) {
 		t.Fatal("Should have failed with unauthenticated error")
 	}
 

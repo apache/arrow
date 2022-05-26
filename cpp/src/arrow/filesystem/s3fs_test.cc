@@ -865,9 +865,11 @@ TEST_F(TestS3FS, DeleteDirContents) {
   select.base_dir = "bucket";
   std::vector<FileInfo> infos;
 
+  ASSERT_OK(fs_->DeleteDirContents("bucket/doesnotexist", /*missing_dir_ok=*/true));
   ASSERT_OK(fs_->DeleteDirContents("bucket/emptydir"));
   ASSERT_OK(fs_->DeleteDirContents("bucket/somedir"));
   ASSERT_RAISES(IOError, fs_->DeleteDirContents("bucket/somefile"));
+  ASSERT_RAISES(IOError, fs_->DeleteDirContents("bucket/doesnotexist"));
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 4);
   SortInfos(&infos);

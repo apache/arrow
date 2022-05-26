@@ -151,7 +151,7 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
 
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
 
   /// This is not implemented in GcsFileSystem, as it would be too dangerous.
   Status DeleteRootDirContents() override;

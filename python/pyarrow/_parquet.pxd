@@ -19,7 +19,7 @@
 # cython: language_level = 3
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
+from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
                                         CRandomAccessFile, COutputStream,
@@ -484,6 +484,10 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         const ArrowReaderProperties& properties,
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
+
+    CStatus StatisticsAsScalars(const CStatistics& Statistics,
+                                shared_ptr[CScalar]* min,
+                                shared_ptr[CScalar]* max)
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 

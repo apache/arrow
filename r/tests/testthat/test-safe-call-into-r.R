@@ -32,6 +32,7 @@ test_that("SafeCallIntoR works from the main R thread", {
 })
 
 test_that("SafeCallIntoR works within RunWithCapturedR", {
+  skip_if_r_version("3.4.4")
   skip_on_cran()
 
   expect_identical(

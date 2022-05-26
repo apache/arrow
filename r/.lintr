@@ -26,7 +26,6 @@ linters: with_defaults(
   open_curly_linter = NULL # styler and lintr conflict on this (https://github.com/r-lib/styler/issues/549#issuecomment-537191536)
   )
 exclusions: list(
-  "tests/testthat/latin1.R",
   "R/arrowExports.R",
   "data-raw/codegen.R"
   )

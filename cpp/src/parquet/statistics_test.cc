@@ -377,6 +377,24 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     ASSERT_EQ(total->max(), std::max(statistics1->max(), statistics2->max()));
   }
 
+  void TestEquals() {
+    const auto n_values = 1;
+    auto statistics_have_minmax1 = MakeStatistics<TestType>(this->schema_.Column(0));
+    const auto seed1 = 1;
+    this->GenerateData(n_values, seed1);
+    statistics_have_minmax1->Update(this->values_ptr_, this->values_.size(), 0);
+    auto statistics_have_minmax2 = MakeStatistics<TestType>(this->schema_.Column(0));
+    const auto seed2 = 9999;
+    this->GenerateData(n_values, seed2);
+    statistics_have_minmax2->Update(this->values_ptr_, this->values_.size(), 0);
+    auto statistics_no_minmax = MakeStatistics<TestType>(this->schema_.Column(0));
+
+    ASSERT_EQ(true, statistics_have_minmax1->Equals(*statistics_have_minmax1));
+    ASSERT_EQ(true, statistics_no_minmax->Equals(*statistics_no_minmax));
+    ASSERT_EQ(false, statistics_have_minmax1->Equals(*statistics_have_minmax2));
+    ASSERT_EQ(false, statistics_have_minmax1->Equals(*statistics_no_minmax));
+  }
+
   void TestFullRoundtrip(int64_t num_values, int64_t null_count) {
     this->GenerateData(num_values);
 
@@ -543,6 +561,11 @@ TYPED_TEST(TestStatistics, Reset) {
   ASSERT_NO_FATAL_FAILURE(this->TestReset());
 }
 
+TYPED_TEST(TestStatistics, Equals) {
+  this->SetUpSchema(Repetition::OPTIONAL);
+  ASSERT_NO_FATAL_FAILURE(this->TestEquals());
+}
+
 TYPED_TEST(TestStatistics, FullRoundtrip) {
   this->SetUpSchema(Repetition::OPTIONAL);
   ASSERT_NO_FATAL_FAILURE(this->TestFullRoundtrip(100, 31));
@@ -560,6 +583,11 @@ TYPED_TEST_SUITE(TestNumericStatistics, NumericTypes);
 TYPED_TEST(TestNumericStatistics, Merge) {
   this->SetUpSchema(Repetition::OPTIONAL);
   ASSERT_NO_FATAL_FAILURE(this->TestMerge());
+}
+
+TYPED_TEST(TestNumericStatistics, Equals) {
+  this->SetUpSchema(Repetition::OPTIONAL);
+  ASSERT_NO_FATAL_FAILURE(this->TestEquals());
 }
 
 // Helper for basic statistics tests below

@@ -70,7 +70,7 @@
       "inherits": "features-basic",
       "hidden": true,
       "cacheVariables": {
-        "ARROW_ENGINE": "ON",
+        "ARROW_SUBSTRAIT": "ON",
         "ARROW_MIMALLOC": "ON",
         "ARROW_PARQUET": "ON",
         "ARROW_WITH_BROTLI": "ON",
@@ -127,9 +127,14 @@
     },
     {
       "name": "features-maximal",
-      "inherits": ["features-main", "features-cuda",
-                   "features-filesystems", "features-flight",
-                   "features-gandiva", "features-python"],
+      "inherits": [
+        "features-main",
+        "features-cuda",
+        "features-filesystems",
+        "features-flight",
+        "features-gandiva",
+        "features-python"
+      ],
       "hidden": true,
       "displayName": "Debug build with everything enabled (except benchmarks and CUDA)",
       "cacheVariables": {

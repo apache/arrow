@@ -989,6 +989,15 @@ TEST_F(TestReordering, ScanBatchesUnordered) {
   AssertBatchesInOrder(collected, {0, 0, 1, 1, 2}, {0, 2, 3, 1, 4});
 }
 
+static constexpr uint64_t kBatchSizeBytes = 40;
+static constexpr uint64_t kMaxBatchesInSink = 8;
+static constexpr uint64_t kResumeIfBelowBytes = kBatchSizeBytes * kMaxBatchesInSink / 2;
+static constexpr uint64_t kPauseIfAboveBytes = kBatchSizeBytes * kMaxBatchesInSink;
+// This is deterministic but rather odd to figure out.  Because of sequencing we have to
+// read in a few extra batches for each fragment before we hit the backpressure limit
+static constexpr int32_t kMaxBatchesRead =
+    kDefaultFragmentReadahead * 3 + kMaxBatchesInSink + 1;
+
 class TestBackpressure : public ::testing::Test {
  protected:
   static constexpr int NFRAGMENTS = 10;
@@ -1027,12 +1036,16 @@ class TestBackpressure : public ::testing::Test {
     return std::make_shared<FragmentDataset>(schema_, std::move(fragments));
   }
 
-  std::shared_ptr<Scanner> MakeScanner() {
+  std::shared_ptr<Scanner> MakeScanner(::arrow::internal::Executor* io_executor) {
+    compute::BackpressureOptions low_backpressure(kResumeIfBelowBytes,
+                                                  kPauseIfAboveBytes);
+    io::IOContext io_context(default_memory_pool(), io_executor);
     std::shared_ptr<Dataset> dataset = MakeDataset();
     std::shared_ptr<ScanOptions> options = std::make_shared<ScanOptions>();
+    options->io_context = io_context;
     ScannerBuilder builder(std::move(dataset), options);
-    ARROW_EXPECT_OK(builder.UseThreads(true));
-    ARROW_EXPECT_OK(builder.FragmentReadahead(4));
+    ARROW_EXPECT_OK(builder.UseThreads(false));
+    ARROW_EXPECT_OK(builder.Backpressure(low_backpressure));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     return scanner;
   }
@@ -1058,44 +1071,39 @@ class TestBackpressure : public ::testing::Test {
 };
 
 TEST_F(TestBackpressure, ScanBatchesUnordered) {
-  std::shared_ptr<Scanner> scanner = MakeScanner();
-  EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
-                       scanner->ScanBatchesUnorderedAsync());
-  ASSERT_FINISHES_OK(gen());
-  // The exact numbers may be imprecise due to threading but we should pretty quickly read
-  // up to our backpressure limit and a little above.  We should not be able to go too far
-  // above.
-  BusyWait(30, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
-  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
-  // Wait for the thread pool to idle.  By this point the scanner should have paused
-  // itself This helps with timing on slower CI systems where there is only one core and
-  // the scanner might keep that core until it has scanned all the batches which never
-  // gives the sink a chance to report it is falling behind.
+  // By forcing the plan to run on a single thread we know that the backpressure signal
+  // will make it down before we try and read the next item which gives us much more exact
+  // backpressure numbers
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, ::arrow::internal::ThreadPool::Make(1));
+  std::shared_ptr<Scanner> scanner = MakeScanner(thread_pool.get());
+  auto initial_scan_fut = DeferNotOk(thread_pool->Submit(
+      [&] { return scanner->ScanBatchesUnorderedAsync(thread_pool.get()); }));
+  ASSERT_FINISHES_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
+                                initial_scan_fut);
   GetCpuThreadPool()->WaitForIdle();
+  // By this point the plan will have been created and started and filled up to max
+  // backpressure.  The exact measurement of "max backpressure" is a little hard to pin
+  // down but it is deterministic since we're only using one thread.
+  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
   DeliverAdditionalBatches();
-
   SleepABit();
-  // Worst case we read in the entire set of initial batches
-  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
 
+  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
   Finish(std::move(gen));
 }
 
 TEST_F(TestBackpressure, ScanBatchesOrdered) {
-  std::shared_ptr<Scanner> scanner = MakeScanner();
-  EXPECT_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen,
-                       scanner->ScanBatchesAsync());
-  // This future never actually finishes because we only emit the first batch so far and
-  // the scanner delays by one batch.  It is enough to start the system pumping though so
-  // we don't need it to finish.
-  Future<TaggedRecordBatch> fut = gen();
-
-  // See note on other test
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, ::arrow::internal::ThreadPool::Make(1));
+  std::shared_ptr<Scanner> scanner = MakeScanner(nullptr);
+  auto initial_scan_fut = DeferNotOk(
+      thread_pool->Submit([&] { return scanner->ScanBatchesAsync(thread_pool.get()); }));
+  ASSERT_FINISHES_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen, initial_scan_fut);
   GetCpuThreadPool()->WaitForIdle();
-  // Worst case we read in the entire set of initial batches
-  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
-
+  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
   DeliverAdditionalBatches();
+  SleepABit();
+
+  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
   Finish(std::move(gen));
 }
 

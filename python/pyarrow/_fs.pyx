@@ -475,7 +475,9 @@ cdef class FileSystem(_Weakrefable):
         with nogil:
             check_status(self.fs.DeleteDir(directory))
 
-    def delete_dir_contents(self, path, *, bint accept_root_dir=False):
+    def delete_dir_contents(self, path, *,
+                            bint accept_root_dir=False,
+                            bint missing_dir_ok=False):
         """
         Delete a directory's contents, recursively.
 
@@ -488,6 +490,9 @@ cdef class FileSystem(_Weakrefable):
         accept_root_dir : boolean, default False
             Allow deleting the root directory's contents
             (if path is empty or "/")
+        missing_dir_ok : boolean, default False
+            If False then an error is raised if path does
+            not exist
         """
         cdef c_string directory = _path_as_bytes(path)
         if accept_root_dir and directory.strip(b"/") == b"":
@@ -495,7 +500,8 @@ cdef class FileSystem(_Weakrefable):
                 check_status(self.fs.DeleteRootDirContents())
         else:
             with nogil:
-                check_status(self.fs.DeleteDirContents(directory))
+                check_status(self.fs.DeleteDirContents(directory,
+                             missing_dir_ok))
 
     def move(self, src, dest):
         """
@@ -988,7 +994,7 @@ class FileSystemHandler(ABC):
         """
 
     @abstractmethod
-    def delete_dir_contents(self, path):
+    def delete_dir_contents(self, path, missing_dir_ok=False):
         """
         Implement PyFileSystem.delete_dir_contents(...).
 
@@ -996,6 +1002,8 @@ class FileSystemHandler(ABC):
         ----------
         path : str
             path of the directory.
+        missing_dir_ok : bool
+            if False an error should be raised if path does not exist
         """
 
     @abstractmethod
@@ -1151,8 +1159,9 @@ cdef void _cb_create_dir(handler, const c_string& path,
 cdef void _cb_delete_dir(handler, const c_string& path) except *:
     handler.delete_dir(frombytes(path))
 
-cdef void _cb_delete_dir_contents(handler, const c_string& path) except *:
-    handler.delete_dir_contents(frombytes(path))
+cdef void _cb_delete_dir_contents(handler, const c_string& path,
+                                  c_bool missing_dir_ok) except *:
+    handler.delete_dir_contents(frombytes(path), missing_dir_ok)
 
 cdef void _cb_delete_root_dir_contents(handler) except *:
     handler.delete_root_dir_contents()

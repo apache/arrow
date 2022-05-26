@@ -40,6 +40,7 @@ jobs:
         shell: bash
         run: |
           brew update
+          brew install --overwrite git
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile
       {% endif %}
@@ -48,6 +49,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '11'
+
+      - uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '6.0.x'
 
       - uses: actions/setup-node@v2-beta
         with:

@@ -227,7 +227,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
-  define_option(ARROW_ENGINE "Build the Arrow Query Engine Module" OFF)
+  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
 
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
@@ -240,7 +240,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_GCS
                 "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
-  mark_as_advanced(ARROW_GCS) # TODO(ARROW-1231) - remove once completed
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
@@ -354,6 +353,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 "Rely on Protocol Buffers shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
+  define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
   if(WIN32)
     # It seems that Thrift doesn't support DLL well yet.
     # MSYS2, conda-forge and vcpkg don't build shared library.
@@ -363,13 +365,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   endif()
   define_option(ARROW_THRIFT_USE_SHARED "Rely on thrift shared libraries where relevant"
                 ${ARROW_THRIFT_USE_SHARED_DEFAULT})
-
-  define_option(ARROW_UTF8PROC_USE_SHARED
-                "Rely on utf8proc shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
-
-  define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_UTF8PROC_USE_SHARED
                 "Rely on utf8proc shared libraries where relevant"

@@ -22,58 +22,57 @@
 #include "arrow/builder.h"
 #include "arrow/flight/sql/example/sqlite_statement.h"
 
-#define STRING_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                             \
-  case TYPE_CLASS##Type::type_id: {                                               \
-    int bytes = sqlite3_column_bytes(STMT, COLUMN);                               \
-    const unsigned char* string = sqlite3_column_text(STMT, COLUMN);              \
-    if (string == nullptr) {                                                      \
-      ARROW_RETURN_NOT_OK(                                                        \
-          (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).AppendNull());        \
-      break;                                                                      \
-    }                                                                             \
-    ARROW_RETURN_NOT_OK(                                                          \
-        (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).Append(string, bytes)); \
-    break;                                                                        \
+#define STRING_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                        \
+  case TYPE_CLASS##Type::type_id: {                                          \
+    auto builder = reinterpret_cast<TYPE_CLASS##Builder*>(array_builder);    \
+    const int bytes = sqlite3_column_bytes(STMT, COLUMN);                    \
+    const uint8_t* string =                                                  \
+        reinterpret_cast<const uint8_t*>(sqlite3_column_text(STMT, COLUMN)); \
+    if (string == nullptr) {                                                 \
+      ARROW_RETURN_NOT_OK(builder->AppendNull());                            \
+      break;                                                                 \
+    }                                                                        \
+    ARROW_RETURN_NOT_OK(builder->Append(string, bytes));                     \
+    break;                                                                   \
   }
 
-#define BINARY_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                                  \
-  case TYPE_CLASS##Type::type_id: {                                                    \
-    int bytes = sqlite3_column_bytes(STMT, COLUMN);                                    \
-    const void* blob = sqlite3_column_blob(STMT, COLUMN);                              \
-    if (blob == nullptr) {                                                             \
-      ARROW_RETURN_NOT_OK(                                                             \
-          (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).AppendNull());             \
-      break;                                                                           \
-    }                                                                                  \
-    ARROW_RETURN_NOT_OK(                                                               \
-        (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).Append((char*)blob, bytes)); \
-    break;                                                                             \
+#define BINARY_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                        \
+  case TYPE_CLASS##Type::type_id: {                                          \
+    auto builder = reinterpret_cast<TYPE_CLASS##Builder*>(array_builder);    \
+    const int bytes = sqlite3_column_bytes(STMT, COLUMN);                    \
+    const uint8_t* blob =                                                    \
+        reinterpret_cast<const uint8_t*>(sqlite3_column_blob(STMT, COLUMN)); \
+    if (blob == nullptr) {                                                   \
+      ARROW_RETURN_NOT_OK(builder->AppendNull());                            \
+      break;                                                                 \
+    }                                                                        \
+    ARROW_RETURN_NOT_OK(builder->Append(blob, bytes));                       \
+    break;                                                                   \
   }
 
-#define INT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                         \
-  case TYPE_CLASS##Type::type_id: {                                        \
-    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                    \
-      ARROW_RETURN_NOT_OK(                                                 \
-          (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).AppendNull()); \
-      break;                                                               \
-    }                                                                      \
-    sqlite3_int64 value = sqlite3_column_int64(STMT, COLUMN);              \
-    ARROW_RETURN_NOT_OK(                                                   \
-        (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).Append(value));  \
-    break;                                                                 \
+#define INT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                        \
+  case TYPE_CLASS##Type::type_id: {                                       \
+    using c_type = typename TYPE_CLASS##Type::c_type;                     \
+    auto builder = reinterpret_cast<TYPE_CLASS##Builder*>(array_builder); \
+    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                   \
+      ARROW_RETURN_NOT_OK(builder->AppendNull());                         \
+      break;                                                              \
+    }                                                                     \
+    const sqlite3_int64 value = sqlite3_column_int64(STMT, COLUMN);       \
+    ARROW_RETURN_NOT_OK(builder->Append(static_cast<c_type>(value)));     \
+    break;                                                                \
   }
 
-#define FLOAT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                       \
-  case TYPE_CLASS##Type::type_id: {                                        \
-    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                    \
-      ARROW_RETURN_NOT_OK(                                                 \
-          (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).AppendNull()); \
-      break;                                                               \
-    }                                                                      \
-    double value = sqlite3_column_double(STMT, COLUMN);                    \
-    ARROW_RETURN_NOT_OK(                                                   \
-        (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).Append(value));  \
-    break;                                                                 \
+#define FLOAT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                      \
+  case TYPE_CLASS##Type::type_id: {                                       \
+    auto builder = reinterpret_cast<TYPE_CLASS##Builder*>(array_builder); \
+    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                   \
+      ARROW_RETURN_NOT_OK(builder->AppendNull());                         \
+      break;                                                              \
+    }                                                                     \
+    const double value = sqlite3_column_double(STMT, COLUMN);             \
+    ARROW_RETURN_NOT_OK(builder->Append(value));                          \
+    break;                                                                \
   }
 
 namespace arrow {
@@ -139,12 +138,14 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
     for (int i = 0; i < num_fields; i++) {
       const std::shared_ptr<Field>& field = schema_->field(i);
       const std::shared_ptr<DataType>& field_type = field->type();
-      ArrayBuilder& builder = *builders[i];
+      ArrayBuilder* array_builder = builders[i].get();
 
       // NOTE: This is not the optimal way of building Arrow vectors.
       // That would be to presize the builders to avoiding several resizing operations
       // when appending values and also to build one vector at a time.
       switch (field_type->id()) {
+        // XXX This doesn't handle overflows when converting to the target
+        // integer type.
         INT_BUILDER_CASE(Int64, stmt_, i)
         INT_BUILDER_CASE(UInt64, stmt_, i)
         INT_BUILDER_CASE(Int32, stmt_, i)
@@ -182,6 +183,11 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
 
   return Status::OK();
 }
+
+#undef STRING_BUILDER_CASE
+#undef BINARY_BUILDER_CASE
+#undef INT_BUILDER_CASE
+#undef FLOAT_BUILDER_CASE
 
 }  // namespace example
 }  // namespace sql

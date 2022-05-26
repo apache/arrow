@@ -345,7 +345,10 @@ enum SqlInfo {
   // Retrieves a UTF-8 string with the preferred term for "procedure".
   SQL_PROCEDURE_TERM = 530;
 
-  // Retrieves a UTF-8 string with the preferred term for "catalog".
+  /*
+   * Retrieves a UTF-8 string with the preferred term for "catalog".
+   * If a empty string is returned its assumed that the server does NOT supports catalogs.
+   */
   SQL_CATALOG_TERM = 531;
 
   /*
@@ -1118,6 +1121,7 @@ message CommandGetDbSchemas {
  *  - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
  *  - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *  - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *  - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
  *  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
@@ -1457,6 +1461,7 @@ message ActionClosePreparedStatementRequest {
  *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
  *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
@@ -1491,6 +1496,7 @@ message TicketStatementQuery {
  *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
  *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.

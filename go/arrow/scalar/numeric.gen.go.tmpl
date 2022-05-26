@@ -74,7 +74,7 @@ func (s *{{.Name}}) CastTo(dt arrow.DataType) (Scalar, error) {
         return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
-	return nil, xerrors.Errorf("invalid scalar cast from type {{.Type}} to type %s", dt)
+	return nil, fmt.Errorf("invalid scalar cast from type {{.Type}} to type %s", dt)
 }
 
 func New{{.Name}}Scalar(val {{.Type}}) *{{.Name}} {

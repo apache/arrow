@@ -24,7 +24,7 @@ from .util import run_cmd, ARROW_ROOT_DEFAULT, log
 _EXE_PATH = os.path.join(
     ARROW_ROOT_DEFAULT,
     "csharp/artifacts/Apache.Arrow.IntegrationTest",
-    "Debug/netcoreapp3.1/Apache.Arrow.IntegrationTest",
+    "Debug/net6.0/Apache.Arrow.IntegrationTest",
 )
 
 

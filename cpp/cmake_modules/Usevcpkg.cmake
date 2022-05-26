@@ -246,4 +246,7 @@ if(CMAKE_HOST_WIN32)
   set(ZSTD_MSVC_LIB_PREFIX
       ""
       CACHE STRING "")
+  set(ZSTD_MSVC_STATIC_LIB_SUFFIX
+      ""
+      CACHE STRING "")
 endif()

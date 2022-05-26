@@ -107,7 +107,8 @@ cdef class FlightCallOptions(_Weakrefable):
     cdef:
         CFlightCallOptions options
 
-    def __init__(self, timeout=None, write_options=None, headers=None):
+    def __init__(self, timeout=None, write_options=None, headers=None,
+                 IpcReadOptions read_options=None):
         """Create call options.
 
         Parameters
@@ -120,14 +121,22 @@ cdef class FlightCallOptions(_Weakrefable):
             by environment variables (see pyarrow.ipc).
         headers : List[Tuple[str, str]], optional
             A list of arbitrary headers as key, value tuples
+        read_options : pyarrow.ipc.IpcReadOptions, optional
+            Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
+        cdef IpcReadOptions c_read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
         if write_options is not None:
             c_write_options = _get_options(write_options)
             self.options.write_options = c_write_options.c_options
+        if read_options is not None:
+            if not isinstance(read_options, IpcReadOptions):
+                raise TypeError("expected IpcReadOptions, got {}"
+                                .format(type(read_options)))
+            self.options.read_options = read_options.c_options
         if headers is not None:
             self.options.headers = headers
 
@@ -149,6 +158,27 @@ class CertKeyPair(_CertKeyPair):
 
 
 cdef class FlightError(Exception):
+    """
+    The base class for Flight-specific errors.
+
+    A server may raise this class or one of its subclasses to provide
+    a more detailed error to clients.
+
+    Parameters
+    ----------
+    message : str, optional
+        The error message.
+    extra_info : bytes, optional
+        Extra binary error details that were provided by the
+        server/will be sent to the client.
+
+    Attributes
+    ----------
+    extra_info : bytes
+        Extra binary error details that were provided by the
+        server/will be sent to the client.
+  """
+
     cdef dict __dict__
 
     def __init__(self, message='', extra_info=b''):
@@ -159,43 +189,58 @@ cdef class FlightError(Exception):
         message = tobytes("Flight error: {}".format(str(self)))
         return CStatus_UnknownError(message)
 
+
 cdef class FlightInternalError(FlightError, ArrowException):
+    """An error internal to the Flight server occurred."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusInternal,
                                tobytes(str(self)), self.extra_info)
 
 
 cdef class FlightTimedOutError(FlightError, ArrowException):
+    """The Flight RPC call timed out."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusTimedOut,
                                tobytes(str(self)), self.extra_info)
 
 
 cdef class FlightCancelledError(FlightError, ArrowCancelled):
+    """The operation was cancelled."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)),
                                self.extra_info)
 
 
 cdef class FlightServerError(FlightError, ArrowException):
+    """A server error occurred."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusFailed, tobytes(str(self)),
                                self.extra_info)
 
 
 cdef class FlightUnauthenticatedError(FlightError, ArrowException):
+    """The client is not authenticated."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(
             CFlightStatusUnauthenticated, tobytes(str(self)), self.extra_info)
 
 
 cdef class FlightUnauthorizedError(FlightError, ArrowException):
+    """The client is not authorized to perform the given operation."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusUnauthorized, tobytes(str(self)),
                                self.extra_info)
 
 
 cdef class FlightUnavailableError(FlightError, ArrowException):
+    """The server is not reachable or available."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusUnavailable, tobytes(str(self)),
                                self.extra_info)
@@ -2804,14 +2849,15 @@ cdef class FlightServerBase(_Weakrefable):
 
 def connect(location, **kwargs):
     """
-    Connect to the Flight server
+    Connect to a Flight server.
+
     Parameters
     ----------
-    location : str, tuple or Location
-        Location to connect to. Either a gRPC URI like `grpc://localhost:port`,
-        a tuple of (host, port) pair, or a Location instance.
+    location : str, tuple, or Location
+        Location to connect to. Either a URI like "grpc://localhost:port",
+        a tuple of (host, port), or a Location instance.
     tls_root_certs : bytes or None
-        PEM-encoded
+        PEM-encoded.
     cert_chain: str or None
         If provided, enables TLS mutual authentication.
     private_key: str or None
@@ -2832,6 +2878,7 @@ def connect(location, **kwargs):
     generic_options : list or None
         A list of generic (string, int or string) options to pass to
         the underlying transport.
+
     Returns
     -------
     client : FlightClient

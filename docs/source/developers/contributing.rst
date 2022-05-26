@@ -172,6 +172,10 @@ Connection to the specific language development pages:
       * :ref:`C++ Development Guidelines <development-cpp>`
       * :ref:`building-arrow-cpp`
 
+   .. tab-item:: Java
+
+      * :doc:`java/index`
+
    .. tab-item:: Python
 
       * :ref:`python-development`

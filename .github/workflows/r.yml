@@ -50,21 +50,22 @@ env:
 
 jobs:
   ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }} Force-Tests ${{ matrix.force-tests }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.1"]
+        r: ["4.2"]
         ubuntu: [20.04]
+        force-tests: ["true", "false"]
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
@@ -87,7 +88,7 @@ jobs:
           ulimit -c unlimited
           # Setting a non-default and non-probable Marquesas French Polynesia time
           # it has both with a .45 offset and very very few people who live there.
-          archery docker run -e TZ=MART ubuntu-r
+          archery docker run -e TZ=MART -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} ubuntu-r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
@@ -122,7 +123,7 @@ jobs:
       R_TAG: ${{ matrix.config.tag }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
@@ -179,7 +180,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Setup ccache
@@ -243,7 +244,7 @@ jobs:
         config:
         - { rtools: 35, rversion: "3.6" }
         - { rtools: 40, rversion: "4.1" }
-        # TODO: Once R 4.2 comes out we can switch to devel + 4.2
+        - { rtools: 42, rversion: "4.2" }
         - { rtools: 42, rversion: "devel" }
     env:
       ARROW_R_CXXFLAGS: "-Werror"
@@ -251,7 +252,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - run: mkdir r/windows
@@ -383,7 +384,8 @@ jobs:
             timeout = 3600
           )
       - name: Run lintr
-        env: 
+        if: ${{ matrix.config.rversion == '4.2' }}
+        env:
           NOT_CRAN: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: Rscript {0}

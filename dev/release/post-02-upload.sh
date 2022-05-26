@@ -16,7 +16,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
+
 set -e
 set -u
 
@@ -28,44 +28,14 @@ fi
 version=$1
 rc=$2
 
-tmp_dir=tmp-apache-arrow-dist
-
-echo "Recreate temporary directory: ${tmp_dir}"
-rm -rf ${tmp_dir}
-mkdir -p ${tmp_dir}
-
-echo "Clone dev dist repository"
+rc_id="apache-arrow-${version}-rc${rc}"
+release_id="arrow-${version}"
+echo "Copying dev/ to release/"
 svn \
-  co \
-  https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-${version}-rc${rc} \
-  ${tmp_dir}/dev
-
-echo "Clone release dist repository"
-svn co https://dist.apache.org/repos/dist/release/arrow ${tmp_dir}/release
-
-echo "Copy ${version}-rc${rc} to release working copy"
-release_version=arrow-${version}
-mkdir -p ${tmp_dir}/release/${release_version}
-cp -r ${tmp_dir}/dev/* ${tmp_dir}/release/${release_version}/
-svn add ${tmp_dir}/release/${release_version}
-
-echo "Keep only the three most recent versions"
-old_releases=$(
-  svn ls ${tmp_dir}/release/ | \
-  grep -E '^arrow-[0-9\.]+' | \
-  sort --version-sort --reverse | \
-  tail -n +4
-)
-for old_release_version in $old_releases; do
-  echo "Remove old release ${old_release_version}"
-  svn delete ${tmp_dir}/release/${old_release_version}
-done
-
-echo "Commit release"
-svn ci -m "Apache Arrow ${version}" ${tmp_dir}/release
-
-echo "Clean up"
-rm -rf ${tmp_dir}
+  cp \
+  -m "Apache Arrow ${version}" \
+  https://dist.apache.org/repos/dist/dev/arrow/${rc_id} \
+  https://dist.apache.org/repos/dist/release/arrow/${release_id}
 
 echo "Success! The release is available here:"
-echo "  https://dist.apache.org/repos/dist/release/arrow/${release_version}"
+echo "  https://dist.apache.org/repos/dist/release/arrow/${release_id}"

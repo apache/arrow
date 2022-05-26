@@ -16,6 +16,7 @@
 # under the License.
 
 import datetime
+import decimal
 from collections import OrderedDict
 
 import numpy as np
@@ -38,6 +39,11 @@ try:
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
     pd = tm = None
+
+
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
@@ -242,7 +248,13 @@ def test_statistics_convert_logical_types(tempdir):
               pa.timestamp('ms')),
              (datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
               datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
-              pa.timestamp('us'))]
+              pa.timestamp('us')),
+             (datetime.date(2019, 6, 24),
+              datetime.date(2019, 6, 25),
+              pa.date32()),
+             (decimal.Decimal("20.123"),
+              decimal.Decimal("20.124"),
+              pa.decimal128(12, 5))]
 
     for i, (min_val, max_val, typ) in enumerate(cases):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],

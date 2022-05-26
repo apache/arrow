@@ -21,8 +21,10 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -34,76 +36,67 @@ namespace internal {
 /// /sys/devices)
 class ARROW_EXPORT CpuInfo {
  public:
-  static constexpr int64_t SSSE3 = (1 << 1);
-  static constexpr int64_t SSE4_1 = (1 << 2);
-  static constexpr int64_t SSE4_2 = (1 << 3);
-  static constexpr int64_t POPCNT = (1 << 4);
-  static constexpr int64_t ASIMD = (1 << 5);
-  static constexpr int64_t AVX = (1 << 6);
-  static constexpr int64_t AVX2 = (1 << 7);
-  static constexpr int64_t AVX512F = (1 << 8);
-  static constexpr int64_t AVX512CD = (1 << 9);
-  static constexpr int64_t AVX512VL = (1 << 10);
-  static constexpr int64_t AVX512DQ = (1 << 11);
-  static constexpr int64_t AVX512BW = (1 << 12);
-  static constexpr int64_t BMI1 = (1 << 13);
-  static constexpr int64_t BMI2 = (1 << 14);
+  ~CpuInfo();
 
-  /// Typical AVX512 subsets consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
+  /// x86 features
+  static constexpr int64_t SSSE3 = (1LL << 0);
+  static constexpr int64_t SSE4_1 = (1LL << 1);
+  static constexpr int64_t SSE4_2 = (1LL << 2);
+  static constexpr int64_t POPCNT = (1LL << 3);
+  static constexpr int64_t AVX = (1LL << 4);
+  static constexpr int64_t AVX2 = (1LL << 5);
+  static constexpr int64_t AVX512F = (1LL << 6);
+  static constexpr int64_t AVX512CD = (1LL << 7);
+  static constexpr int64_t AVX512VL = (1LL << 8);
+  static constexpr int64_t AVX512DQ = (1LL << 9);
+  static constexpr int64_t AVX512BW = (1LL << 10);
   static constexpr int64_t AVX512 = AVX512F | AVX512CD | AVX512VL | AVX512DQ | AVX512BW;
+  static constexpr int64_t BMI1 = (1LL << 11);
+  static constexpr int64_t BMI2 = (1LL << 12);
+
+  /// Arm features
+  static constexpr int64_t ASIMD = (1LL << 32);
 
   /// Cache enums for L1 (data), L2 and L3
-  enum CacheLevel {
-    L1_CACHE = 0,
-    L2_CACHE = 1,
-    L3_CACHE = 2,
-  };
+  enum class CacheLevel { L1 = 0, L2, L3, Last = L3 };
 
-  enum class Vendor : int { Unknown = 0, Intel, AMD };
+  /// CPU vendors
+  enum class Vendor { Unknown, Intel, AMD };
 
-  static CpuInfo* GetInstance();
-
-  /// Determine if the CPU meets the minimum CPU requirements and if not, issue an error
-  /// and terminate.
-  void VerifyCpuRequirements();
+  static const CpuInfo* GetInstance();
 
   /// Returns all the flags for this cpu
-  int64_t hardware_flags();
+  int64_t hardware_flags() const;
+
+  /// Returns the number of cores (including hyper-threaded) on this machine.
+  int num_cores() const;
+
+  /// Returns the vendor of the cpu.
+  Vendor vendor() const;
+
+  /// Returns the model name of the cpu (e.g. Intel i7-2600)
+  const std::string& model_name() const;
+
+  /// Returns the size of the cache in KB at this cache level
+  int64_t CacheSize(CacheLevel level) const;
 
   /// \brief Returns whether or not the given feature is enabled.
   ///
   /// IsSupported() is true iff IsDetected() is also true and the feature
   /// wasn't disabled by the user (for example by setting the ARROW_USER_SIMD_LEVEL
   /// environment variable).
-  bool IsSupported(int64_t flags) const { return (hardware_flags_ & flags) == flags; }
+  bool IsSupported(int64_t flags) const;
 
   /// Returns whether or not the given feature is available on the CPU.
-  bool IsDetected(int64_t flags) const {
-    return (original_hardware_flags_ & flags) == flags;
-  }
+  bool IsDetected(int64_t flags) const;
 
-  /// \brief The processor supports SSE4.2 and the Arrow libraries are built
-  /// with support for it
-  bool CanUseSSE4_2() const;
+  /// Determine if the CPU meets the minimum CPU requirements and if not, issue an error
+  /// and terminate.
+  void VerifyCpuRequirements() const;
 
   /// Toggle a hardware feature on and off.  It is not valid to turn on a feature
   /// that the underlying hardware cannot support. This is useful for testing.
   void EnableFeature(int64_t flag, bool enable);
-
-  /// Returns the size of the cache in KB at this cache level
-  int64_t CacheSize(CacheLevel level);
-
-  /// Returns the number of cpu cycles per millisecond
-  int64_t cycles_per_ms();
-
-  /// Returns the number of cores (including hyper-threaded) on this machine.
-  int num_cores();
-
-  /// Returns the model name of the cpu (e.g. Intel i7-2600)
-  std::string model_name();
-
-  /// Returns the vendor of the cpu.
-  Vendor vendor() const { return vendor_; }
 
   bool HasEfficientBmi2() const {
     // BMI2 (pext, pdep) is only efficient on Intel X86 processors.
@@ -113,30 +106,8 @@ class ARROW_EXPORT CpuInfo {
  private:
   CpuInfo();
 
-  enum UserSimdLevel {
-    USER_SIMD_NONE = 0,
-    USER_SIMD_SSE4_2,
-    USER_SIMD_AVX,
-    USER_SIMD_AVX2,
-    USER_SIMD_AVX512,
-    USER_SIMD_MAX,
-  };
-
-  void Init();
-
-  /// Inits CPU cache size variables with default values
-  void SetDefaultCacheSize();
-
-  /// Parse the SIMD level by ARROW_USER_SIMD_LEVEL env
-  void ParseUserSimdLevel();
-
-  int64_t hardware_flags_;
-  int64_t original_hardware_flags_;
-  int64_t cache_sizes_[L3_CACHE + 1];
-  int64_t cycles_per_ms_;
-  int num_cores_;
-  std::string model_name_;
-  Vendor vendor_;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace internal

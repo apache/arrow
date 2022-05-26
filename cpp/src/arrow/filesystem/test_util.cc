@@ -298,7 +298,12 @@ void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
   // Not a directory
   CreateFile(fs, "abc", "");
   ASSERT_RAISES(IOError, fs->DeleteDirContents("abc"));
+  ASSERT_RAISES(IOError, fs->DeleteDirContents("abc", /*missing_dir_ok=*/true));
   AssertAllFiles(fs, {"AB/abc", "abc"});
+
+  // Missing directory
+  ASSERT_RAISES(IOError, fs->DeleteDirContents("missing"));
+  ASSERT_OK(fs->DeleteDirContents("missing", /*missing_dir_ok=*/true));
 }
 
 void GenericFileSystemTest::TestDeleteRootDirContents(FileSystem* fs) {

@@ -53,7 +53,7 @@
 #'
 #' @name Scalar
 #' @rdname Scalar
-#' @examplesIf arrow_available()
+#' @examples
 #' Scalar$create(pi)
 #' Scalar$create(404)
 #' # If you pass a vector into Scalar$create, you get a list containing your items

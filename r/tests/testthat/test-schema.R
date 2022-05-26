@@ -251,3 +251,13 @@ test_that("Schemas from lists", {
   expect_equal(name_list_schema, schema(b = double(), c = string(), d = int8()))
   expect_equal(field_list_schema, schema(b = double(), c = bool(), d = string()))
 })
+
+test_that("as_schema() works for Schema objects", {
+  schema <- schema(col1 = int32())
+  expect_identical(as_schema(schema), schema)
+})
+
+test_that("as_schema() works for StructType objects", {
+  struct_type <- struct(col1 = int32())
+  expect_equal(as_schema(struct_type), schema(col1 = int32()))
+})

@@ -101,6 +101,17 @@
 #include "arrow/util/utf8.h"
 #endif
 
+#ifdef _WIN32
+#include <psapi.h>
+#include <windows.h>
+
+#elif __APPLE__
+#include <mach/mach.h>
+
+#elif __linux__
+#include <fstream>
+#endif
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -418,11 +429,17 @@ class SignalDetail : public StatusDetail {
 }  // namespace
 
 std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
+  if (!errnum) {
+    return nullptr;
+  }
   return std::make_shared<ErrnoDetail>(errnum);
 }
 
 #if _WIN32
 std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
+  if (!errnum) {
+    return nullptr;
+  }
   return std::make_shared<WinErrorDetail>(errnum);
 }
 #endif
@@ -1371,8 +1388,12 @@ static inline int64_t pread_compat(int fd, void* buf, int64_t nbytes, int64_t po
     return -1;
   }
 #else
-  return static_cast<int64_t>(
-      pread(fd, buf, static_cast<size_t>(nbytes), static_cast<off_t>(pos)));
+  int64_t ret;
+  do {
+    ret = static_cast<int64_t>(
+        pread(fd, buf, static_cast<size_t>(nbytes), static_cast<off_t>(pos)));
+  } while (ret == -1 && errno == EINTR);
+  return ret;
 #endif
 }
 
@@ -1380,13 +1401,16 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
   int64_t bytes_read = 0;
 
   while (bytes_read < nbytes) {
-    int64_t chunksize =
+    const int64_t chunksize =
         std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_read);
 #if defined(_WIN32)
     int64_t ret =
         static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(chunksize)));
 #else
     int64_t ret = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(chunksize)));
+    if (ret == -1 && errno == EINTR) {
+      continue;
+    }
 #endif
 
     if (ret == -1) {
@@ -1429,28 +1453,28 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
 //
 
 Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
-  int ret = 0;
   int64_t bytes_written = 0;
 
-  while (ret != -1 && bytes_written < nbytes) {
-    int64_t chunksize =
+  while (bytes_written < nbytes) {
+    const int64_t chunksize =
         std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_written);
 #if defined(_WIN32)
-    ret = static_cast<int>(
+    int64_t ret = static_cast<int64_t>(
         _write(fd, buffer + bytes_written, static_cast<uint32_t>(chunksize)));
 #else
-    ret = static_cast<int>(
+    int64_t ret = static_cast<int64_t>(
         write(fd, buffer + bytes_written, static_cast<size_t>(chunksize)));
+    if (ret == -1 && errno == EINTR) {
+      continue;
+    }
 #endif
 
-    if (ret != -1) {
-      bytes_written += ret;
+    if (ret == -1) {
+      return IOErrorFromErrno(errno, "Error writing bytes to file");
     }
+    bytes_written += ret;
   }
 
-  if (ret == -1) {
-    return IOErrorFromErrno(errno, "Error writing bytes to file");
-  }
   return Status::OK();
 }
 
@@ -1865,6 +1889,45 @@ uint64_t GetThreadId() {
 uint64_t GetOptionalThreadId() {
   auto tid = GetThreadId();
   return (tid == 0) ? tid - 1 : tid;
+}
+
+// Returns the current resident set size (physical memory use) measured
+// in bytes, or zero if the value cannot be determined on this OS.
+int64_t GetCurrentRSS() {
+#if defined(_WIN32)
+  // Windows --------------------------------------------------
+  PROCESS_MEMORY_COUNTERS info;
+  GetProcessMemoryInfo(GetCurrentProcess(), &info, sizeof(info));
+  return static_cast<int64_t>(info.WorkingSetSize);
+
+#elif defined(__APPLE__)
+  // OSX ------------------------------------------------------
+  struct mach_task_basic_info info;
+  mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
+      KERN_SUCCESS) {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value";
+    return 0;
+  }
+  return static_cast<int64_t>(info.resident_size);
+
+#elif defined(__linux__)
+  // Linux ----------------------------------------------------
+  int64_t rss = 0L;
+
+  std::ifstream fp("/proc/self/statm");
+  if (fp) {
+    fp >> rss;
+    return rss * sysconf(_SC_PAGESIZE);
+  } else {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value from /proc/self/statm";
+    return 0;
+  }
+
+#else
+  // AIX, BSD, Solaris, and Unknown OS ------------------------
+  return 0;  // Unsupported.
+#endif
 }
 
 }  // namespace internal

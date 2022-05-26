@@ -96,6 +96,7 @@ x-hierarchy:
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
   - almalinux-verify-rc
+  - centos-cpp-static
   - conda:
     - conda-cpp:
       - conda-integration
@@ -112,6 +113,7 @@ x-hierarchy:
         - conda-python-spark
         - conda-python-turbodbc
   - conda-verify-rc
+  - conan
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -119,13 +121,15 @@ x-hierarchy:
   - debian-go:
     - debian-go-cgo
     - debian-go-cgo-python
-  - debian-java:
-    - debian-java-jni
+  - debian-java
+  - debian-java-jni
   - debian-js
   - fedora-cpp:
     - fedora-python
+  - oracle-java
   - python-sdist
   - ubuntu-cpp:
+    - ubuntu-cpp-static
     - ubuntu-c-glib:
       - ubuntu-ruby
     - ubuntu-lint
@@ -196,7 +200,7 @@ services:
     # Base image for conda builds.
     #
     # Usage:
-    #   docker-compose build con
+    #   docker-compose build conda
     #   docker-compose run --rm conda
     # Parameters:
     #   ARCH: amd64, arm32v7
@@ -351,7 +355,65 @@ services:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     command: *cpp-command
+  
+  ubuntu-cpp-static:
+    # Usage:
+    #   docker-compose build ubuntu-cpp-static
+    #   docker-compose run --rm ubuntu-cpp-static
+    # Parameters:
+    #   ARCH: amd64, arm64v8, s390x, ...
+    #   UBUNTU: 18.04, 20.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
+      args:
+        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
+        gcc_version: ${GCC_VERSION}
+    shm_size: *shm-size
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - "/dev/fuse:/dev/fuse"
+    security_opt:
+      - apparmor:unconfined
+    ulimits: *ulimits
+    environment:
+      <<: *ccache
+      ARROW_HOME: /arrow
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      LIBARROW_MINIMAL: "false"
+      ARROW_MIMALLOC: "ON"
+    volumes: *ubuntu-volumes
+    command: /bin/bash -c "
+        cd /arrow && r/inst/build_arrow_static.sh"
 
+  centos-cpp-static:
+    image: ${REPO}:centos-7-cpp-static
+    build:
+      context: .
+      dockerfile: ci/docker/centos-7-cpp.dockerfile
+      cache_from:
+        - ${REPO}:centos-7-cpp-static
+    shm_size: *shm-size
+    volumes: 
+      - .:/arrow:delegated
+    environment:
+      <<: *ccache
+      ARROW_HOME: /arrow
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      LIBARROW_MINIMAL: "false"
+      ARROW_MIMALLOC: "ON"
+    command: >
+      /bin/bash -c "
+        if grep -q -i -e 'centos.* 7' /etc/os-release; then export ARROW_S3=OFF ARROW_MIMALLOC=OFF; fi &&
+        cd /arrow && r/inst/build_arrow_static.sh"
+        
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
@@ -498,6 +560,25 @@ services:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}fedora-ccache:/ccache:delegated
     command: *cpp-command
+
+  conan:
+    # Base service for Conan.
+    #
+    # Usage:
+    #   docker-compose run --rm conan
+    # Parameters:
+    #   CONAN: gcc11, gcc11-armv7, ...
+    #   See https://github.com/conan-io/conan-docker-tools#readme for
+    #   available images.
+    image: conanio/${CONAN}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    volumes:
+      - .:/arrow:delegated
+    command: >-
+      /bin/bash -c "
+        /arrow/ci/scripts/conan_setup.sh &&
+        /arrow/ci/scripts/conan_build.sh /arrow /build"
 
   ############################### C GLib ######################################
 
@@ -1168,6 +1249,7 @@ services:
     environment:
       <<: *ccache
       ARROW_R_CXXFLAGS: '-Werror'
+      ARROW_FLIGHT: 'ON'
       LIBARROW_BUILD: 'false'
       NOT_CRAN: 'true'
       ARROW_R_DEV: ${ARROW_R_DEV}
@@ -1208,6 +1290,7 @@ services:
         devtoolset_version: ${DEVTOOLSET_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_custom_ccache: ${R_CUSTOM_CCACHE}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
@@ -1414,15 +1497,16 @@ services:
     # Usage:
     #   docker-compose build ubuntu-csharp
     #   docker-compose run ubuntu-csharp
-    image: ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
+    image: ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
     build:
       context: .
-      dockerfile: ci/docker/ubuntu-18.04-csharp.dockerfile
+      dockerfile: ci/docker/ubuntu-20.04-csharp.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
+        - ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
       args:
+        arch: ${ARCH}
         dotnet: ${DOTNET}
-        platform: bionic  # use bionic-arm64v8 for ARM
+        platform: focal
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: &csharp-command >
@@ -1437,16 +1521,10 @@ services:
     # Usage:
     #   docker-compose build debian-java
     #   docker-compose run debian-java
-    image: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
-    build:
-      context: .
-      dockerfile: ci/docker/debian-9-java.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
-      args:
-        arch: ${ARCH}
-        jdk: ${JDK}
-        maven: ${MAVEN}
+    # Parameters:
+    #   MAVEN: 3.5.4, 3.6.2
+    #   JDK: 8, 11
+    image: ${ARCH}/maven:${MAVEN}-jdk-${JDK}
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
@@ -1469,7 +1547,6 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}-jni
       args:
-        base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
@@ -1484,6 +1561,18 @@ services:
         /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
+
+  oracle-java:
+    # Usage:
+    #   docker-compose build oracle-java
+    #   docker-compose run oracle-java
+    # Parameters:
+    #   MAVEN: 3.8.5
+    #   JDK: 17
+    image: ${ARCH}/maven:${MAVEN}-openjdk-${JDK}
+    shm_size: *shm-size
+    volumes: *java-volumes
+    command: *java-command
 
   ############################## Integration ##################################
 
@@ -1580,7 +1669,10 @@ services:
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
-    command: archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc
+    command: >
+      /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
+        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
 
   ######################### Integration Tests #################################
 
@@ -1732,6 +1824,7 @@ services:
     command: >
       /bin/bash -c "
         apt update -y && apt install -y curl git gnupg tzdata wget &&
+        git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   almalinux-verify-rc:
@@ -1788,4 +1881,5 @@ services:
       TEST_YUM: 0
     command: >
       /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"

@@ -37,6 +37,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema,
+                              ParquetLogicalType,
                               FileEncryptionProperties,
                               FileDecryptionProperties)
 from pyarrow.fs import (LocalFileSystem, FileSystem,
@@ -1059,7 +1060,7 @@ class ParquetDatasetPiece:
         warnings.warn(
             "ParquetDatasetPiece is deprecated as of pyarrow 5.0.0 and will "
             "be removed in a future version.",
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         self._init(
             path, open_file_func, file_options, row_group, partition_keys)
 
@@ -1692,48 +1693,54 @@ Examples
                 "Specifying the 'metadata_nthreads' argument is deprecated as "
                 "of pyarrow 8.0.0, and the argument will be removed in a "
                 "future version",
-                DeprecationWarning, stacklevel=2,
+                FutureWarning, stacklevel=2,
             )
         else:
             metadata_nthreads = 1
 
-        self._metadata = _ParquetDatasetMetadata()
+        self._ds_metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
 
-        self._metadata.fs, _ = _get_filesystem_and_path(filesystem, a_path)
+        self._ds_metadata.fs, _ = _get_filesystem_and_path(filesystem, a_path)
         if isinstance(path_or_paths, list):
             self.paths = [_parse_uri(path) for path in path_or_paths]
         else:
             self.paths = _parse_uri(path_or_paths)
 
-        self._metadata.read_dictionary = read_dictionary
-        self._metadata.memory_map = memory_map
-        self._metadata.buffer_size = buffer_size
+        self._ds_metadata.read_dictionary = read_dictionary
+        self._ds_metadata.memory_map = memory_map
+        self._ds_metadata.buffer_size = buffer_size
 
         (self._pieces,
          self._partitions,
-         self.common_metadata_path,
-         self.metadata_path) = _make_manifest(
+         self._common_metadata_path,
+         self._metadata_path) = _make_manifest(
              path_or_paths, self._fs, metadata_nthreads=metadata_nthreads,
-             open_file_func=partial(_open_dataset_file, self._metadata)
+             open_file_func=partial(_open_dataset_file, self._ds_metadata)
         )
 
-        if self.common_metadata_path is not None:
-            with self._fs.open(self.common_metadata_path) as f:
-                self._metadata.common_metadata = read_metadata(
+        if self._common_metadata_path is not None:
+            with self._fs.open(self._common_metadata_path) as f:
+                self._ds_metadata.common_metadata = read_metadata(
                     f,
                     memory_map=memory_map
                 )
         else:
-            self._metadata.common_metadata = None
+            self._ds_metadata.common_metadata = None
 
-        if metadata is None and self.metadata_path is not None:
-            with self._fs.open(self.metadata_path) as f:
-                self.metadata = read_metadata(f, memory_map=memory_map)
+        if metadata is not None:
+            warnings.warn(
+                "Specifying the 'metadata' argument with 'use_legacy_dataset="
+                "True' is deprecated as of pyarrow 8.0.0.",
+                FutureWarning, stacklevel=2)
+
+        if metadata is None and self._metadata_path is not None:
+            with self._fs.open(self._metadata_path) as f:
+                self._metadata = read_metadata(f, memory_map=memory_map)
         else:
-            self.metadata = metadata
+            self._metadata = metadata
 
         if schema is not None:
             warnings.warn(
@@ -1742,7 +1749,7 @@ Examples
                 "specify it in combination with 'use_legacy_dataet=False', "
                 "but in that case you need to specify a pyarrow.Schema "
                 "instead of a ParquetSchema.",
-                DeprecationWarning, stacklevel=2)
+                FutureWarning, stacklevel=2)
         self._schema = schema
 
         self.split_row_groups = split_row_groups
@@ -1764,13 +1771,16 @@ Examples
         if self._fs.__class__ != other._fs.__class__:
             return False
         for prop in ('paths', '_pieces', '_partitions',
-                     'common_metadata_path', 'metadata_path',
-                     'common_metadata', 'metadata', '_schema',
+                     '_common_metadata_path', '_metadata_path',
+                     '_common_metadata', '_metadata', '_schema',
                      'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
                 return False
         for prop in ('memory_map', 'buffer_size'):
-            if getattr(self._metadata, prop) != getattr(other._metadata, prop):
+            if (
+                getattr(self._ds_metadata, prop) !=
+                getattr(other._ds_metadata, prop)
+            ):
                 return False
 
         return True
@@ -1782,13 +1792,13 @@ Examples
             return NotImplemented
 
     def validate_schemas(self):
-        if self.metadata is None and self._schema is None:
-            if self.common_metadata is not None:
-                self._schema = self.common_metadata.schema
+        if self._metadata is None and self._schema is None:
+            if self._common_metadata is not None:
+                self._schema = self._common_metadata.schema
             else:
                 self._schema = self._pieces[0].get_metadata().schema
         elif self._schema is None:
-            self._schema = self.metadata.schema
+            self._schema = self._metadata.schema
 
         # Verify schemas are all compatible
         dataset_schema = self._schema.to_arrow_schema()
@@ -1849,7 +1859,7 @@ Examples
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],...,[2],[4]]
+        n_legs: [[5],[2],[4,100],[2,4]]
         """
         tables = []
         for piece in self._pieces:
@@ -1901,10 +1911,8 @@ Examples
         ...                    "Brittle stars", "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
-        >>> pq.write_to_dataset(table, root_path='dataset_name_read_pandas',
-        ...                     partition_cols=['year'],
-        ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_name_read_pandas/',
+        >>> pq.write_table(table, 'table.parquet')
+        >>> dataset = pq.ParquetDataset('table.parquet',
         ...                             use_legacy_dataset=False)
 
         Read dataset including pandas metadata:
@@ -1913,7 +1921,7 @@ Examples
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],...,[2],[4]]
+        n_legs: [[2,2,4,4,5,100]]
 
         Select pandas metadata:
 
@@ -1923,10 +1931,10 @@ Examples
         return self.read(use_pandas_metadata=True, **kwargs)
 
     def _get_common_pandas_metadata(self):
-        if self.common_metadata is None:
+        if self._common_metadata is None:
             return None
 
-        keyvalues = self.common_metadata.metadata
+        keyvalues = self._common_metadata.metadata
         return keyvalues.get(b'pandas', None)
 
     def _filter(self, filters):
@@ -1953,7 +1961,7 @@ Examples
                 " Specify 'use_legacy_dataset=False' while constructing the "
                 "ParquetDataset, and then use the '.fragments' attribute "
                 "instead."),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._pieces
 
     @property
@@ -1967,7 +1975,7 @@ Examples
                 " Specify 'use_legacy_dataset=False' while constructing the "
                 "ParquetDataset, and then use the '.partitioning' attribute "
                 "instead."),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._partitions
 
     @property
@@ -1979,7 +1987,7 @@ Examples
                 "ParquetDataset, and then use the '.schema' attribute "
                 "instead (which will return an Arrow schema instead of a "
                 "Parquet schema)."),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return self._schema
 
     @property
@@ -1989,8 +1997,8 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.memory_map", ""),
-            DeprecationWarning, stacklevel=2)
-        return self._metadata.memory_map
+            FutureWarning, stacklevel=2)
+        return self._ds_metadata.memory_map
 
     @property
     def read_dictionary(self):
@@ -1999,8 +2007,8 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.read_dictionary", ""),
-            DeprecationWarning, stacklevel=2)
-        return self._metadata.read_dictionary
+            FutureWarning, stacklevel=2)
+        return self._ds_metadata.read_dictionary
 
     @property
     def buffer_size(self):
@@ -2009,11 +2017,11 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.buffer_size", ""),
-            DeprecationWarning, stacklevel=2)
-        return self._metadata.buffer_size
+            FutureWarning, stacklevel=2)
+        return self._ds_metadata.buffer_size
 
     _fs = property(
-        operator.attrgetter('_metadata.fs')
+        operator.attrgetter('_ds_metadata.fs')
     )
 
     @property
@@ -2027,11 +2035,41 @@ Examples
                 " Specify 'use_legacy_dataset=False' while constructing the "
                 "ParquetDataset, and then use the '.filesystem' attribute "
                 "instead."),
-            DeprecationWarning, stacklevel=2)
-        return self._metadata.fs
+            FutureWarning, stacklevel=2)
+        return self._ds_metadata.fs
+
+    @property
+    def metadata(self):
+        """
+        DEPRECATED
+        """
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.metadata", ""),
+            FutureWarning, stacklevel=2)
+        return self._metadata
+
+    @property
+    def metadata_path(self):
+        """
+        DEPRECATED
+        """
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.metadata_path", ""),
+            FutureWarning, stacklevel=2)
+        return self._metadata_path
+
+    @property
+    def common_metadata_path(self):
+        """
+        DEPRECATED
+        """
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.common_metadata_path", ""),
+            FutureWarning, stacklevel=2)
+        return self._common_metadata_path
 
     _common_metadata = property(
-        operator.attrgetter('_metadata.common_metadata')
+        operator.attrgetter('_ds_metadata.common_metadata')
     )
 
     @property
@@ -2041,8 +2079,8 @@ Examples
         """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.common_metadata", ""),
-            DeprecationWarning, stacklevel=2)
-        return self._metadata.common_metadata
+            FutureWarning, stacklevel=2)
+        return self._ds_metadata.common_metadata
 
     @property
     def fragments(self):
@@ -2064,7 +2102,7 @@ Examples
         >>> pq.write_to_dataset(table, root_path='dataset_name_fragments',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq.ParquetDataset('dataset_name_files/',
+        >>> dataset = pq.ParquetDataset('dataset_name_fragments/',
         ...                             use_legacy_dataset=False)
 
         List the fragments:
@@ -2102,7 +2140,7 @@ Examples
         List the files:
 
         >>> dataset.files
-        ['dataset_name_files/year=2019/part-0.parquet', ...
+        ['dataset_name_files/year=2019/...-0.parquet', ...
         """
         raise NotImplementedError(
             "To use this property set 'use_legacy_dataset=False' while "
@@ -2194,9 +2232,9 @@ class _ParquetDatasetV2:
     ...                     partition_cols=['year'],
     ...                     use_legacy_dataset=False)
 
-    create a _ParquetDatasetV2 object from the dataset source:
+    create a ParquetDataset object from the dataset source:
 
-    >>> dataset = pq._ParquetDatasetV2('dataset_v2/')
+    >>> dataset = pq.ParquetDataset('dataset_v2/', use_legacy_dataset=False)
 
     and read the data:
 
@@ -2209,10 +2247,11 @@ class _ParquetDatasetV2:
     4       2         Parrot  2022
     5       4          Horse  2022
 
-    create a _ParquetDatasetV2 object with filter:
+    create a ParquetDataset object with filter:
 
-    >>> dataset = pq._ParquetDatasetV2('dataset_v2/',
-    ...                                filters=[('n_legs','=',4)])
+    >>> dataset = pq.ParquetDataset('dataset_v2/',
+    ...                             filters=[('n_legs','=',4)],
+    ...                             use_legacy_dataset=False)
     >>> dataset.read().to_pandas()
        n_legs animal  year
     0       4    Dog  2021
@@ -2331,7 +2370,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_schema',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_schema/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_schema/',
+        ...                             use_legacy_dataset=False)
 
         Read the schema:
 
@@ -2376,7 +2416,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_read',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_read/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_read/',
+        ...                             use_legacy_dataset=False)
 
         Read the dataset:
 
@@ -2384,7 +2425,7 @@ class _ParquetDatasetV2:
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],...,[2],[4]]
+        n_legs: [[5],[2],[4,100],[2,4]]
         """
         # if use_pandas_metadata, we need to include index columns in the
         # column selection, to be able to restore those in the pandas DataFrame
@@ -2422,18 +2463,19 @@ class _ParquetDatasetV2:
 
         Examples
         --------
-        Generate an example dataset:
+        Generate an example parquet file:
 
         >>> import pyarrow as pa
-        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                              "Brittle stars", "Centipede"]})
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
         >>> import pyarrow.parquet as pq
-        >>> pq.write_to_dataset(table, root_path='dataset_v2_read_pandas',
-        ...                     partition_cols=['year'],
-        ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_read_pandas/')
+        >>> pq.write_table(table, 'table_V2.parquet')
+        >>> dataset = pq.ParquetDataset('table_V2.parquet',
+        ...                             use_legacy_dataset=False)
 
         Read the dataset with pandas metadata:
 
@@ -2441,7 +2483,7 @@ class _ParquetDatasetV2:
         pyarrow.Table
         n_legs: int64
         ----
-        n_legs: [[5],[2],...,[2],[4]]
+        n_legs: [[2,2,4,4,5,100]]
 
         >>> dataset.read_pandas(columns=["n_legs"]).schema.pandas_metadata
         {'index_columns': [{'kind': 'range', ... 'pandas_version': '1.4.1'}
@@ -2453,7 +2495,7 @@ class _ParquetDatasetV2:
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.pieces",
                              " Use the '.fragments' attribute instead"),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         return list(self._dataset.get_fragments())
 
     @property
@@ -2475,7 +2517,8 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_fragments',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_fragments/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_fragments/',
+        ...                             use_legacy_dataset=False)
 
         List the fragments:
 
@@ -2502,12 +2545,13 @@ class _ParquetDatasetV2:
         >>> pq.write_to_dataset(table, root_path='dataset_v2_files',
         ...                     partition_cols=['year'],
         ...                     use_legacy_dataset=False)
-        >>> dataset = pq._ParquetDatasetV2('dataset_v2_files/')
+        >>> dataset = pq.ParquetDataset('dataset_v2_files/',
+        ...                             use_legacy_dataset=False)
 
         List the files:
 
         >>> dataset.files
-        ['dataset_v2_files/year=2019/part-0.parquet', ...
+        ['dataset_v2_files/year=2019/...-0.parquet', ...
         """
         return self._dataset.files
 
@@ -2634,8 +2678,8 @@ pyarrow.Table
 n_legs: int64
 animal: string
 ----
-n_legs: [[5],[2],...,[2],[4]]
-animal: [["Brittle stars"],["Flamingo"],...,["Parrot"],["Horse"]]
+n_legs: [[5],[2],[4,100],[2,4]]
+animal: [["Brittle stars"],["Flamingo"],["Dog","Centipede"],["Parrot","Horse"]]
 
 Read a subset of columns and read one column as DictionaryArray:
 
@@ -2645,16 +2689,16 @@ pyarrow.Table
 n_legs: int64
 animal: dictionary<values=string, indices=int32, ordered=0>
 ----
-n_legs: [[5],[2],...,[2],[4]]
+n_legs: [[5],[2],[4,100],[2,4]]
 animal: [  -- dictionary:
 ["Brittle stars"]  -- indices:
 [0],  -- dictionary:
 ["Flamingo"]  -- indices:
-[0],...,  -- dictionary:
-["Parrot"]  -- indices:
 [0],  -- dictionary:
-["Horse"]  -- indices:
-[0]]
+["Dog","Centipede"]  -- indices:
+[0,1],  -- dictionary:
+["Parrot","Horse"]  -- indices:
+[0,1]]
 
 Read the table with filter:
 
@@ -2671,8 +2715,8 @@ Read data from a single Parquet file:
    n_legs         animal  year
 0       5  Brittle stars  2019
 1       2       Flamingo  2020
-2     100      Centipede  2021
-3       4            Dog  2021
+2       4            Dog  2021
+3     100      Centipede  2021
 4       2         Parrot  2022
 5       4          Horse  2022
 """
@@ -2744,7 +2788,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
         "deprecated as of pyarrow 8.0.0, and the legacy implementation will "
         "be removed in a future version.",
-        DeprecationWarning, stacklevel=2)
+        FutureWarning, stacklevel=2)
 
     if ignore_prefixes is not None:
         raise ValueError(
@@ -2926,7 +2970,11 @@ def _mkdir_if_not_exists(fs, path):
 
 def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
-                     use_legacy_dataset=None, **kwargs):
+                     use_legacy_dataset=None, schema=None,
+                     partitioning=None, basename_template=None,
+                     use_threads=None, file_visitor=None,
+                     existing_data_behavior=None,
+                     **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -2962,11 +3010,66 @@ def write_to_dataset(table, root_path, partition_cols=None,
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
     use_legacy_dataset : bool
-        Default is True unless a ``pyarrow.fs`` filesystem is passed.
-        Set to False to enable the new code path (experimental, using the
-        new Arrow Dataset API). This is more efficient when using partition
-        columns, but does not (yet) support `partition_filename_cb` and
-        `metadata_collector` keywords.
+        Default is False. Set to True to use the the legacy behaviour
+        (this option is deprecated, and the legacy implementation will be
+        removed in a future version). The legacy implementation still
+        supports the `partition_filename_cb` keyword but is less efficient
+        when using partition columns.
+    use_threads : bool, default True
+        Write files in parallel. If enabled, then maximum parallelism will be
+        used determined by the number of available CPU cores.
+    schema : Schema, optional
+    partitioning : Partitioning or list[str], optional
+        The partitioning scheme specified with the
+        ``pyarrow.dataset.partitioning()`` function or a list of field names.
+        When providing a list of field names, you can use
+        ``partitioning_flavor`` to drive which partitioning type should be
+        used.
+    basename_template : str, optional
+        A template string used to generate basenames of written data files.
+        The token '{i}' will be replaced with an automatically incremented
+        integer. If not specified, it defaults to "guid-{i}.parquet".
+    file_visitor : function
+        If set, this function will be called with a WrittenFile instance
+        for each file created during the call.  This object will have both
+        a path attribute and a metadata attribute.
+
+        The path attribute will be a string containing the path to
+        the created file.
+
+        The metadata attribute will be the parquet metadata of the file.
+        This metadata will have the file path attribute set and can be used
+        to build a _metadata file.  The metadata attribute will be None if
+        the format is not parquet.
+
+        Example visitor which simple collects the filenames created::
+
+            visited_paths = []
+
+            def file_visitor(written_file):
+                visited_paths.append(written_file.path)
+    existing_data_behavior : 'overwrite_or_ignore' | 'error' | \
+'delete_matching'
+        Controls how the dataset will handle data that already exists in
+        the destination. The default behaviour is 'overwrite_or_ignore'.
+
+        Only used in the new code path using the new Arrow Dataset API
+        (``use_legacy_dataset=False``). In case the legacy implementation
+        is selected the parameter is ignored as the old implementation does
+        not support it (only has the default behaviour).
+
+        'overwrite_or_ignore' will ignore any existing data and will
+        overwrite files with the same name as an output file.  Other
+        existing files will be ignored.  This behavior, in combination
+        with a unique basename_template for each write, will allow for
+        an append workflow.
+
+        'error' will raise an error if any data exists in the destination.
+
+        'delete_matching' is useful when you are writing a partitioned
+        dataset.  The first time each partition directory is encountered
+        the entire directory will be deleted.  This allows you to overwrite
+        old partitions completely.
     **kwargs : dict,
         Additional kwargs for write_table function. See docstring for
         `write_table` or `ParquetWriter` for more information.
@@ -2988,26 +3091,24 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
     >>> import pyarrow.parquet as pq
     >>> pq.write_to_dataset(table, root_path='dataset_name_3',
-    ...                     partition_cols=['year'],
-    ...                     use_legacy_dataset=False
-    ...                    )
+    ...                     partition_cols=['year'])
     >>> pq.ParquetDataset('dataset_name_3', use_legacy_dataset=False).files
-    ['dataset_name_3/year=2019/part-0.parquet', ...
+    ['dataset_name_3/year=2019/...-0.parquet', ...
 
     Write a single Parquet file into the root folder:
 
-    >>> pq.write_to_dataset(table, root_path='dataset_name_4',
-    ...                     use_legacy_dataset=False)
+    >>> pq.write_to_dataset(table, root_path='dataset_name_4')
     >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
-    ['dataset_name_4/part-0.parquet']
+    ['dataset_name_4/...-0.parquet']
     """
     if use_legacy_dataset is None:
-        # if a new filesystem is passed -> default to new implementation
-        if isinstance(filesystem, FileSystem):
-            use_legacy_dataset = False
-        # otherwise the default is still True
-        else:
+        # if partition_filename_cb is specified ->
+        # default to the old implementation
+        if partition_filename_cb:
             use_legacy_dataset = True
+        # otherwise the default is False
+        else:
+            use_legacy_dataset = False
 
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
@@ -3015,6 +3116,12 @@ def write_to_dataset(table, root_path, partition_cols=None,
         # extract non-file format options
         schema = kwargs.pop("schema", None)
         use_threads = kwargs.pop("use_threads", True)
+        chunk_size = kwargs.pop("chunk_size", None)
+        row_group_size = kwargs.pop("row_group_size", None)
+
+        row_group_size = (
+            row_group_size if row_group_size is not None else chunk_size
+        )
 
         # raise for unsupported keywords
         msg = (
@@ -3022,7 +3129,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
             "implementation."
         )
         metadata_collector = kwargs.pop('metadata_collector', None)
-        file_visitor = None
         if metadata_collector is not None:
             def file_visitor(written_file):
                 metadata_collector.append(written_file.metadata)
@@ -3037,17 +3143,57 @@ def write_to_dataset(table, root_path, partition_cols=None,
         if filesystem is not None:
             filesystem = _ensure_filesystem(filesystem)
 
-        partitioning = None
         if partition_cols:
             part_schema = table.select(partition_cols).schema
             partitioning = ds.partitioning(part_schema, flavor="hive")
+
+        if basename_template is None:
+            basename_template = guid() + '-{i}.parquet'
+
+        if existing_data_behavior is None:
+            existing_data_behavior = 'overwrite_or_ignore'
 
         ds.write_dataset(
             table, root_path, filesystem=filesystem,
             format=parquet_format, file_options=write_options, schema=schema,
             partitioning=partitioning, use_threads=use_threads,
-            file_visitor=file_visitor)
+            file_visitor=file_visitor,
+            basename_template=basename_template,
+            existing_data_behavior=existing_data_behavior,
+            max_rows_per_group=row_group_size)
         return
+
+    # warnings and errors when using legecy implementation
+    if use_legacy_dataset:
+        warnings.warn(
+            "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
+            "deprecated as of pyarrow 8.0.0, and the legacy implementation "
+            "will be removed in a future version.",
+            FutureWarning, stacklevel=2)
+    msg2 = (
+        "The '{}' argument is not supported with the legacy "
+        "implementation. To use this argument specify "
+        "'use_legacy_dataset=False' while constructing the "
+        "ParquetDataset."
+    )
+    if schema is not None:
+        raise ValueError(msg2.format("schema"))
+    if partitioning is not None:
+        raise ValueError(msg2.format("partitioning"))
+    if use_threads is not None:
+        raise ValueError(msg2.format("use_threads"))
+    if file_visitor is not None:
+        raise ValueError(msg2.format("file_visitor"))
+    if existing_data_behavior is not None:
+        raise ValueError(msg2.format("existing_data_behavior"))
+    if partition_filename_cb is not None:
+        warnings.warn(
+            _DEPR_MSG.format("partition_filename_cb", " Specify "
+                             "'use_legacy_dataset=False' while constructing "
+                             "the ParquetDataset, and then use the "
+                             "'basename_template' parameter instead. For "
+                             "usage see `pyarrow.dataset.write_dataset`"),
+            FutureWarning, stacklevel=2)
 
     fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)
 
@@ -3162,7 +3308,7 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
 
 def read_metadata(where, memory_map=False, decryption_properties=None):
     """
-    Read FileMetadata from footer of a single Parquet file.
+    Read FileMetaData from footer of a single Parquet file.
 
     Parameters
     ----------
@@ -3174,7 +3320,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
 
     Returns
     -------
-    metadata : FileMetadata
+    metadata : FileMetaData
 
     Examples
     --------

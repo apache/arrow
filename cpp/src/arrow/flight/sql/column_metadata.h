@@ -46,6 +46,9 @@ class ColumnMetadata {
   static const char* kTableName;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
+  static const char* kTypeName;
+  /// \brief Constant variable to hold the value of the key that
+  ///        will be used in the KeyValueMetadata class.
   static const char* kPrecision;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
@@ -77,6 +80,10 @@ class ColumnMetadata {
   /// \brief  Return the table name set in the KeyValueMetadata.
   /// \return The table name.
   arrow::Result<std::string> GetTableName() const;
+
+  /// \brief  Return the data source-specific name for the data type of the column.
+  /// \return The type name.
+  arrow::Result<std::string> GetTypeName() const;
 
   /// \brief  Return the precision set in the KeyValueMetadata.
   /// \return The precision.
@@ -117,14 +124,19 @@ class ColumnMetadata {
     ColumnMetadataBuilder& CatalogName(std::string& catalog_name);
 
     /// \brief Set the schema_name in the KeyValueMetadata object.
-    /// \param[in] schema_name The schema_name.
+    /// \param[in] schema_name  The schema_name.
     /// \return                 A ColumnMetadataBuilder.
     ColumnMetadataBuilder& SchemaName(std::string& schema_name);
 
     /// \brief Set the table name in the KeyValueMetadata object.
-    /// \param[in] table_name The table name.
+    /// \param[in] table_name   The table name.
     /// \return                 A ColumnMetadataBuilder.
     ColumnMetadataBuilder& TableName(std::string& table_name);
+
+    /// \brief Set the type name in the KeyValueMetadata object.
+    /// \param[in] type_name    The type name.
+    /// \return                 A ColumnMetadataBuilder.
+    ColumnMetadataBuilder& TypeName(std::string& type_name);
 
     /// \brief Set the precision in the KeyValueMetadata object.
     /// \param[in] precision    The precision.
@@ -138,22 +150,22 @@ class ColumnMetadata {
 
     /// \brief Set the IsAutoIncrement in the KeyValueMetadata object.
     /// \param[in] is_auto_increment  The IsAutoIncrement.
-    /// \return                     A ColumnMetadataBuilder.
+    /// \return                       A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsAutoIncrement(bool is_auto_increment);
 
     /// \brief Set the IsCaseSensitive in the KeyValueMetadata object.
     /// \param[in] is_case_sensitive The IsCaseSensitive.
-    /// \return                    A ColumnMetadataBuilder.
+    /// \return                      A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsCaseSensitive(bool is_case_sensitive);
 
     /// \brief Set the IsReadOnly in the KeyValueMetadata object.
     /// \param[in] is_read_only   The IsReadOnly.
-    /// \return                 A ColumnMetadataBuilder.
+    /// \return                   A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsReadOnly(bool is_read_only);
 
     /// \brief Set the IsSearchable in the KeyValueMetadata object.
     /// \param[in] is_searchable The IsSearchable.
-    /// \return                 A ColumnMetadataBuilder.
+    /// \return                  A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsSearchable(bool is_searchable);
 
     ColumnMetadata Build() const;

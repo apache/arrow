@@ -18,11 +18,12 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 
-	"github.com/apache/arrow/go/v8/arrow/flight"
+	"github.com/apache/arrow/go/v9/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -33,7 +34,7 @@ type serverAuth struct{}
 
 func (sa *serverAuth) Authenticate(c flight.AuthConn) error {
 	in, err := c.Read()
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return status.Error(codes.Unauthenticated, "no auth info provided")
 	}
 

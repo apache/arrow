@@ -18,7 +18,7 @@
 library(dplyr, warn.conflicts = FALSE)
 
 test_that("do_exec_plan_substrait can evaluate a simple plan", {
-  skip_if_not_available("engine")
+  skip_if_not_available("substrait")
 
   df <- data.frame(i = 1:5, b = rep_len(c(TRUE, FALSE), 5))
   table <- arrow_table(df, schema = schema(i = int64(), b = bool()))
@@ -50,11 +50,11 @@ test_that("do_exec_plan_substrait can evaluate a simple plan", {
     ]
   }', tf)
 
-  substrait_buffer <- engine__internal__SubstraitFromJSON(substrait_json)
+  substrait_buffer <- substrait__internal__SubstraitFromJSON(substrait_json)
   expect_r6_class(substrait_buffer, "Buffer")
   substrait_raw <- as.raw(substrait_buffer)
 
-  substrait_json_roundtrip <- engine__internal__SubstraitToJSON(substrait_buffer)
+  substrait_json_roundtrip <- substrait__internal__SubstraitToJSON(substrait_buffer)
   expect_match(substrait_json_roundtrip, tf, fixed = TRUE)
 
   result <- do_exec_plan_substrait(substrait_json)

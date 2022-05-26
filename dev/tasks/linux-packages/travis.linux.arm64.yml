@@ -141,7 +141,17 @@ script:
         gpg --full-generate-key --batch
   - |
       GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
-  - gpg --export --armor test@example.com > arrow/dev/tasks/linux-packages/KEYS
+  - |
+      case "{{ target }}" in
+        almalinux-*|amazon-linux-*|centos-*)
+          repositories_dir=arrow/dev/tasks/linux-packages/apache-arrow-release/yum/repositories
+          rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.rpm | \
+            cpio -id
+          mv etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow \
+            arrow/dev/tasks/linux-packages/KEYS
+          ;;
+      esac
+  - gpg --export --armor test@example.com >> arrow/dev/tasks/linux-packages/KEYS
   - pushd arrow/dev/tasks/linux-packages
   - |
       rake --trace {{ task_namespace }}:test \

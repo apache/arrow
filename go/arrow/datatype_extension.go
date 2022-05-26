@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-
-	"golang.org/x/xerrors"
 )
 
 var (
@@ -56,7 +54,7 @@ func RegisterExtensionType(typ ExtensionType) error {
 	name := typ.ExtensionName()
 	registry := getExtTypeRegistry()
 	if _, existed := registry.LoadOrStore(name, typ); existed {
-		return xerrors.Errorf("arrow: type extension with name %s already defined", name)
+		return fmt.Errorf("arrow: type extension with name %s already defined", name)
 	}
 	return nil
 }
@@ -68,7 +66,7 @@ func RegisterExtensionType(typ ExtensionType) error {
 func UnregisterExtensionType(typName string) error {
 	registry := getExtTypeRegistry()
 	if _, loaded := registry.LoadAndDelete(typName); !loaded {
-		return xerrors.Errorf("arrow: no type extension with name %s found", typName)
+		return fmt.Errorf("arrow: no type extension with name %s found", typName)
 	}
 	return nil
 }

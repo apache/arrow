@@ -187,8 +187,10 @@ test_that("explicit type conversions with as.*()", {
       ) %>%
       collect() %>%
       # need to use toupper() *after* collect() or else skip if utf8proc not available
-      mutate(lgl2chr = toupper(lgl2chr),
-             rlgl2chr = toupper(rlgl2chr)), # ... but we need "TRUE", "FALSE"
+      mutate(
+        lgl2chr = toupper(lgl2chr),
+        rlgl2chr = toupper(rlgl2chr)
+      ), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
       int = c(1L, 0L, NA_integer_),
@@ -282,9 +284,11 @@ test_that("type checks with is() giving Arrow types", {
       collect() %>%
       t() %>%
       as.vector(),
-    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
+    c(
+      TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
       FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
-      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
+      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE
+    )
   )
   # with class2=string
   expect_equal(
@@ -799,84 +803,14 @@ test_that("nested structs can be created from scalars and existing data frames",
       collect(),
     tibble(a = 1:2)
   )
-
-  })
-
-test_that("as.Date() converts successfully from date, timestamp, integer, char and double", {
-  test_df <- tibble::tibble(
-    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
-    date_var = as.Date("2022-02-25"),
-    character_ymd_var = "2022-02-25 00:00:01",
-    character_ydm_var = "2022/25/02 00:00:01",
-    integer_var = 32L,
-    double_var = 34.56
-  )
-
-  # casting from POSIXct treated separately so we can skip on Windows
-  # TODO move the test for casting from POSIXct below once ARROW-13168 is done
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_dv = as.Date(date_var),
-        date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
-        date_int = as.Date(integer_var, origin = "1970-01-01")
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # currently we do not support an origin different to "1970-01-01"
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
-      collect(),
-    test_df,
-    warning = TRUE
-  )
-
-  # we do not support multiple tryFormats
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var,
-                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
-      collect(),
-    test_df,
-    warning = TRUE
-  )
-
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
-      collect(),
-    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
-    fixed = TRUE
-  )
-
-  # we do not support as.Date() with double/ float
-  compare_dplyr_binding(
-     .input %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect(),
-     test_df,
-     warning = TRUE
-  )
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_pv = as.Date(posixct_var),
-        date_pv_tz = as.Date(posixct_var, tz = "Pacific/Marquesas")
-      ) %>%
-      collect(),
-    test_df
-  )
 })
 
 test_that("format date/time", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # locale issues
+  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16399 is done
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    withr::local_locale(LC_TIME = "C")
+  }
   # In 3.4 the lack of tzone attribute causes spurious failures
   skip_if_r_version("3.4.4")
 
@@ -917,8 +851,10 @@ test_that("format date/time", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = format(1),
-             y = format(13.7, nsmall = 3)) %>%
+      mutate(
+        x = format(1),
+        y = format(13.7, nsmall = 3)
+      ) %>%
       collect(),
     times
   )

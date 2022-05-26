@@ -176,7 +176,7 @@ text version of the IANA timezone database and add the Windows timezone mapping
 XML. To download, you can use the following batch script:
 
 .. literalinclude:: ../../../ci/appveyor-cpp-setup.bat
-   :language: cmd
+   :language: batch
    :start-after: @rem (Doc section: Download timezone database)
    :end-before: @rem (Doc section: Download timezone database)
 

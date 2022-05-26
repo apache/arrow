@@ -15,47 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-do_exec_plan <- function(.data) {
-  plan <- ExecPlan$create()
-  final_node <- plan$Build(.data)
-  tab <- plan$Run(final_node)
-  # TODO (ARROW-14289): make the head/tail methods return RBR not Table
-  if (inherits(tab, "RecordBatchReader")) {
-    tab <- tab$read_table()
-  }
-
-  # If arrange() created $temp_columns, make sure to omit them from the result
-  # We can't currently handle this in the ExecPlan itself because sorting
-  # happens in the end (SinkNode) so nothing comes after it.
-  if (length(final_node$sort$temp_columns) > 0) {
-    tab <- tab[, setdiff(names(tab), final_node$sort$temp_columns), drop = FALSE]
-  }
-
-  if (ncol(tab)) {
-    # Apply any column metadata from the original schema, where appropriate
-    original_schema <- source_data(.data)$schema
-    # TODO: do we care about other (non-R) metadata preservation?
-    # How would we know if it were meaningful?
-    r_meta <- original_schema$r_metadata
-    if (!is.null(r_meta)) {
-      # Filter r_metadata$columns on columns with name _and_ type match
-      new_schema <- tab$schema
-      common_names <- intersect(names(r_meta$columns), names(tab))
-      keep <- common_names[
-        map_lgl(common_names, ~ original_schema[[.]] == new_schema[[.]])
-      ]
-      r_meta$columns <- r_meta$columns[keep]
-      if (has_aggregation(.data)) {
-        # dplyr drops top-level attributes if you do summarize
-        r_meta$attributes <- NULL
-      }
-      tab$r_metadata <- r_meta
-    }
-  }
-
-  tab
-}
-
 ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
@@ -179,6 +138,10 @@ ExecPlan <- R6Class("ExecPlan",
             right_suffix = .data$join$suffix[[2]]
           )
         }
+
+        if (!is.null(.data$union_all)) {
+          node <- node$UnionAll(self$Build(.data$union_all$right_data))
+        }
       }
 
       # Apply sorting: this is currently not an ExecNode itself, it is a
@@ -231,18 +194,32 @@ ExecPlan <- R6Class("ExecPlan",
         # just use it to take the random slice
         slice_size <- node$head %||% node$tail
         if (!is.null(slice_size)) {
-          # TODO (ARROW-14289): make the head methods return RBR not Table
           out <- head(out, slice_size)
         }
         # Can we now tell `self$Stop()` to StopProducing? We already have
         # everything we need for the head (but it seems to segfault: ARROW-14329)
       } else if (!is.null(node$tail)) {
         # Reverse the row order to get back what we expect
-        # TODO: don't return Table, return RecordBatchReader
         out <- out$read_table()
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
+        # Put back into RBR
+        out <- as_record_batch_reader(out)
       }
+
+      # If arrange() created $temp_columns, make sure to omit them from the result
+      # We can't currently handle this in ExecPlan_run itself because sorting
+      # happens in the end (SinkNode) so nothing comes after it.
+      if (length(node$sort$temp_columns) > 0) {
+        tab <- out$read_table()
+        tab <- tab[, setdiff(names(tab), node$sort$temp_columns), drop = FALSE]
+        out <- as_record_batch_reader(tab)
+      }
+
       out
+    },
+    Write = function(node, ...) {
+      # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
+      ExecPlan_Write(self, node, ...)
     },
     Stop = function() ExecPlan_StopProducing(self)
   )
@@ -298,6 +275,9 @@ ExecNode <- R6Class("ExecNode",
           output_suffix_for_right = right_suffix
         )
       )
+    },
+    UnionAll = function(right_node) {
+      self$preserve_sort(ExecNode_Union(self, right_node))
     }
   ),
   active = list(
@@ -307,7 +287,7 @@ ExecNode <- R6Class("ExecNode",
 
 do_exec_plan_substrait <- function(substrait_plan) {
   if (is.string(substrait_plan)) {
-    substrait_plan <- engine__internal__SubstraitFromJSON(substrait_plan)
+    substrait_plan <- substrait__internal__SubstraitFromJSON(substrait_plan)
   } else if (is.raw(substrait_plan)) {
     substrait_plan <- buffer(substrait_plan)
   } else {

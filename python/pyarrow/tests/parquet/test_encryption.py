@@ -38,7 +38,11 @@ COL_KEY_NAME = "col_key"
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet_encryption'
-pytestmark = pytest.mark.parquet_encryption
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = [
+    pytest.mark.parquet_encryption,
+    pytest.mark.parquet
+]
 
 
 @pytest.fixture(scope='module')
@@ -126,7 +130,7 @@ def read_encrypted_parquet(path, decryption_config,
 
     result = pq.ParquetFile(
         path, decryption_properties=file_decryption_properties)
-    return result.read(use_threads=False)
+    return result.read(use_threads=True)
 
 
 def test_encrypted_parquet_write_read_wrong_key(tempdir, data_table):
@@ -486,8 +490,6 @@ def test_encrypted_parquet_write_external(tempdir, data_table):
                             kms_connection_config, crypto_factory)
 
 
-@pytest.mark.skip(reason="ARROW-14114: Multithreaded read sometimes fails"
-                  "decryption finalization or with Segmentation fault")
 def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):
     """Write an encrypted parquet, verify it's encrypted,
     and then read it multithreaded in a loop."""

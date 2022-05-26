@@ -145,7 +145,6 @@ export const setAnyFloat = <T extends Float>(data: Data<T>, index: number, value
             return setFloat16(data as Data<Float16>, index, value);
         case Precision.SINGLE:
         case Precision.DOUBLE:
-        default:
             return setFloat(data as Data<Float32 | Float64>, index, value);
     }
 };

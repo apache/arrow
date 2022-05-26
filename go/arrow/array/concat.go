@@ -17,13 +17,14 @@
 package array
 
 import (
+	"fmt"
 	"math"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -41,7 +42,7 @@ func Concatenate(arrs []arrow.Array, mem memory.Allocator) (arrow.Array, error) 
 	data := make([]arrow.ArrayData, len(arrs))
 	for i, ar := range arrs {
 		if !arrow.TypeEqual(ar.DataType(), arrs[0].DataType()) {
-			return nil, xerrors.Errorf("arrays to be concatenated must be identically typed, but %s and %s were encountered",
+			return nil, fmt.Errorf("arrays to be concatenated must be identically typed, but %s and %s were encountered",
 				arrs[0].DataType(), ar.DataType())
 		}
 		data[i] = ar.Data()
@@ -318,7 +319,7 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 			return nil, err
 		}
 	default:
-		return nil, xerrors.Errorf("concatenate not implemented for type %s", dt)
+		return nil, fmt.Errorf("concatenate not implemented for type %s", dt)
 	}
 
 	return out, nil

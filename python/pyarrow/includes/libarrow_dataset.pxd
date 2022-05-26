@@ -18,6 +18,7 @@
 # distutils: language = c++
 
 from libcpp.unordered_map cimport unordered_map
+from libcpp cimport bool as c_bool
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -223,6 +224,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         function[cb_writer_finish_internal] writer_pre_finish
         function[cb_writer_finish_internal] writer_post_finish
         ExistingDataBehavior existing_data_behavior
+        c_bool create_dir
         uint32_t max_open_files
         uint64_t max_rows_per_file
         uint64_t min_rows_per_group

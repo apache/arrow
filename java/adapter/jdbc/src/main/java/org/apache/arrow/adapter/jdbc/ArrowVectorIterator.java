@@ -53,6 +53,10 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private final int targetBatchSize;
 
+  // This is used to track whether the ResultSet has been fully read, and is needed spcifically for cases where there
+  // is a ResultSet having zero rows (empty):
+  private boolean readComplete = false;
+
   /**
    * Construct an instance.
    */
@@ -107,10 +111,15 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
           compositeConsumer.consume(resultSet);
           readRowCount++;
         }
+        readComplete = true;
       } else {
-        while (readRowCount < targetBatchSize && resultSet.next()) {
-          compositeConsumer.consume(resultSet);
-          readRowCount++;
+        while ((readRowCount < targetBatchSize) && !readComplete) {
+          if (resultSet.next()) {
+            compositeConsumer.consume(resultSet);
+            readRowCount++;
+          } else {
+            readComplete = true;
+          }
         }
       }
 
@@ -154,11 +163,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   @Override
   public boolean hasNext() {
-    try {
-      return !resultSet.isAfterLast();
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
-    }
+    return !readComplete;
   }
 
   /**

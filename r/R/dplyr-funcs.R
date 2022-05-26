@@ -90,24 +90,20 @@ create_binding_cache <- function() {
   arrow_funcs <- list()
 
   # Register all available Arrow Compute functions, namespaced as arrow_fun.
-  if (arrow_available()) {
-    all_arrow_funs <- list_compute_functions()
-    arrow_funcs <- set_names(
-      lapply(all_arrow_funs, function(fun) {
-        force(fun)
-        function(...) build_expr(fun, ...)
-      }),
-      paste0("arrow_", all_arrow_funs)
-    )
-  }
+  all_arrow_funs <- list_compute_functions()
+  arrow_funcs <- set_names(
+    lapply(all_arrow_funs, function(fun) {
+      force(fun)
+      function(...) build_expr(fun, ...)
+    }),
+    paste0("arrow_", all_arrow_funs)
+  )
 
   # Register bindings into nse_funcs and agg_funcs
   register_bindings_array_function_map()
   register_bindings_aggregate()
   register_bindings_conditional()
   register_bindings_datetime()
-  register_bindings_duration()
-  register_bindings_duration_helpers()
   register_bindings_math()
   register_bindings_string()
   register_bindings_type()

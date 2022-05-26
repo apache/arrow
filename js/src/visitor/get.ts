@@ -20,7 +20,7 @@ import { BN } from '../util/bn.js';
 import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
 import { MapRow } from '../row/map.js';
-import { StructRow } from '../row/struct.js';
+import { StructRow, StructRowProxy } from '../row/struct.js';
 import { decodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { uint16ToFloat64 } from '../util/math.js';
@@ -228,7 +228,7 @@ const getMap = <T extends Map_>(data: Data<T>, index: number): T['TValue'] => {
 
 /** @ignore */
 const getStruct = <T extends Struct>(data: Data<T>, index: number): T['TValue'] => {
-    return new StructRow(data, index);
+    return new StructRow(data, index) as StructRowProxy<T['TValue']>;
 };
 
 /* istanbul ignore next */

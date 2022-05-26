@@ -67,6 +67,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
                 .tableName("test")
                 .isAutoIncrement(true)
                 .isCaseSensitive(false)
+                .typeName("type_test")
                 .schemaName("schema_test")
                 .isSearchable(true)
                 .catalogName("catalog_test")

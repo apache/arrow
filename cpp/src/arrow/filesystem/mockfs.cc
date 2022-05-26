@@ -489,7 +489,7 @@ Status MockFileSystem::DeleteDir(const std::string& path) {
   return Status::OK();
 }
 
-Status MockFileSystem::DeleteDirContents(const std::string& path) {
+Status MockFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   RETURN_NOT_OK(ValidatePath(path));
   auto parts = SplitAbstractPath(path);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
@@ -503,6 +503,9 @@ Status MockFileSystem::DeleteDirContents(const std::string& path) {
 
   Entry* entry = impl_->FindEntry(parts);
   if (entry == nullptr) {
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
     return PathNotFound(path);
   }
   if (!entry->is_dir()) {

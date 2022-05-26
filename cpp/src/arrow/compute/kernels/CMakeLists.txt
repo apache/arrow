@@ -41,6 +41,7 @@ add_arrow_benchmark(scalar_if_else_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_random_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Vector kernels

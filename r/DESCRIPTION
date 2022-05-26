@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 7.0.0.9000
+Version: 8.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -36,7 +36,7 @@ Imports:
     R6,
     rlang,
     stats,
-    tidyselect,
+    tidyselect (>= 1.0.0),
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
@@ -66,11 +66,13 @@ LinkingTo: cpp11 (>= 0.4.2)
 Collate:
     'arrowExports.R'
     'enums.R'
-    'arrow-package.R'
+    'arrow-object.R'
     'type.R'
     'array-data.R'
     'arrow-datum.R'
     'array.R'
+    'arrow-info.R'
+    'arrow-package.R'
     'arrow-tabular.R'
     'buffer.R'
     'chunked-array.R'
@@ -91,6 +93,7 @@ Collate:
     'dplyr-arrange.R'
     'dplyr-collect.R'
     'dplyr-count.R'
+    'dplyr-datetime-helpers.R'
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
@@ -106,6 +109,7 @@ Collate:
     'dplyr-mutate.R'
     'dplyr-select.R'
     'dplyr-summarize.R'
+    'dplyr-union.R'
     'record-batch.R'
     'table.R'
     'dplyr.R'
@@ -116,7 +120,7 @@ Collate:
     'filesystem.R'
     'flight.R'
     'install-arrow.R'
-    'ipc_stream.R'
+    'ipc-stream.R'
     'json.R'
     'memory-pool.R'
     'message.R'

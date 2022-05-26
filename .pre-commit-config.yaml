@@ -36,19 +36,13 @@ repos:
          - dockerfile
         entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
         exclude: ^dev/.*$
-  - repo: git://github.com/pre-commit/pre-commit-hooks
-    sha: v1.2.3
+  - repo: https://github.com/pycqa/flake8
+    rev: 4.0.1
     hooks:
-     - id: flake8
-       name: Python Format
-       files: ^(python|dev|integration)/
-       types:
-         - file
-         - python
-     - id: flake8
-       name: Cython Format
-       files: ^python/
-       types:
-         - file
-         - cython
-       args: [--config=python/.flake8.cython]
+      - id: flake8
+        name: Python Format
+        files: ^(python|dev|integration)/
+        types:
+          - file
+          - python
+        exclude: vendored

@@ -129,10 +129,9 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
   /// Rounding scale (multiple to round to).
   ///
-  /// Should be a scalar of a type compatible with the argument to be rounded.
-  /// For example, rounding a decimal value means a decimal multiple is
-  /// required. Rounding a floating point or integer value means a floating
-  /// point scalar is required.
+  /// Should be a positive numeric scalar of a type compatible with the
+  /// argument to be rounded. The cast kernel is used to convert the rounding
+  /// multiple to match the result type.
   std::shared_ptr<Scalar> multiple;
   /// Rounding and tie-breaking mode
   RoundMode round_mode;

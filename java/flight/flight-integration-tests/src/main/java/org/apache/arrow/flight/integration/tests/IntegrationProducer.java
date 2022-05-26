@@ -97,7 +97,7 @@ public class IntegrationProducer extends NoOpFlightProducer implements AutoClose
   public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
     Dataset h = datasets.get(descriptor);
     if (h == null) {
-      throw CallStatus.NOT_FOUND.withDescription("Unknown descriptor.").toRuntimeException();
+      throw CallStatus.NOT_FOUND.withDescription("Unknown descriptor: " + descriptor).toRuntimeException();
     }
     return h.getFlightInfo(location);
   }

@@ -85,6 +85,7 @@ TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
+TEST_P(TestOrcFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 INSTANTIATE_TEST_SUITE_P(TestScan, TestOrcFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);

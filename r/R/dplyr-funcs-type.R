@@ -31,7 +31,7 @@ register_bindings_type_cast <- function() {
   })
 
   register_binding("dictionary_encode", function(x,
-                                                     null_encoding_behavior = c("mask", "encode")) {
+                                                 null_encoding_behavior = c("mask", "encode")) {
     behavior <- toupper(match.arg(null_encoding_behavior))
     null_encoding_behavior <- NullEncodingBehavior[[behavior]]
     Expression$create(
@@ -76,50 +76,6 @@ register_bindings_type_cast <- function() {
   })
   register_binding("as.numeric", function(x) {
     build_expr("cast", x, options = cast_options(to_type = float64()))
-  })
-  register_binding("as.Date", function(x,
-                                       format = NULL,
-                                       tryFormats = "%Y-%m-%d",
-                                       origin = "1970-01-01",
-                                       tz = "UTC") {
-
-    # the origin argument will be better supported once we implement temporal
-    # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
-    # TODO revisit once the above has been sorted
-    if (call_binding("is.numeric", x) & origin != "1970-01-01") {
-      abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
-    }
-
-    # this could be improved with tryFormats once strptime returns NA and we
-    # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
-    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
-    if (is.null(format) && length(tryFormats) > 1) {
-      abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
-    }
-
-    if (call_binding("is.Date", x)) {
-      return(x)
-
-    # cast from POSIXct
-    } else if (call_binding("is.POSIXct", x)) {
-      # base::as.Date() first converts to the desired timezone and then extracts
-      # the date, which is why we need to go through timestamp() first
-      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
-
-    # cast from character
-    } else if (call_binding("is.character", x)) {
-      format <- format %||% tryFormats[[1]]
-      # unit = 0L is the identifier for seconds in valid_time32_units
-      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-
-    # cast from numeric
-    } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
-      # Arrow does not support direct casting from double to date32()
-      # https://issues.apache.org/jira/browse/ARROW-15798
-      # TODO revisit if arrow decides to support double -> date casting
-      abort("`as.Date()` with double/float is not supported in Arrow")
-    }
-    build_expr("cast", x, options = cast_options(to_type = date32()))
   })
 
   register_binding("is", function(object, class2) {
@@ -167,8 +123,8 @@ register_bindings_type_cast <- function() {
   })
 
   register_binding("data.frame", function(..., row.names = NULL,
-                                              check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
-                                              stringsAsFactors = FALSE) {
+                                          check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
+                                          stringsAsFactors = FALSE) {
     # we need a specific value of stringsAsFactors because the default was
     # TRUE in R <= 3.6
     if (!identical(stringsAsFactors, FALSE)) {
@@ -205,7 +161,7 @@ register_bindings_type_inspect <- function() {
   # is.* type functions
   register_binding("is.character", function(x) {
     is.character(x) || (inherits(x, "Expression") &&
-                          x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
+      x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
   })
   register_binding("is.numeric", function(x) {
     is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
@@ -268,7 +224,7 @@ register_bindings_type_elementwise <- function() {
 
   register_binding("is.nan", function(x) {
     if (is.double(x) || (inherits(x, "Expression") &&
-                         x$type_id() %in% TYPES_WITH_NAN)) {
+      x$type_id() %in% TYPES_WITH_NAN)) {
       # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
       # use that to simplify the code here (ARROW-13366)
       build_expr("is_nan", x) & build_expr("is_valid", x)
@@ -303,7 +259,7 @@ register_bindings_type_format <- function() {
     }
 
     if (inherits(x, "Expression") &&
-        x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
+      x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
       binding_format_datetime(x, ...)
     } else {
       build_expr("cast", x, options = cast_options(to_type = string()))

@@ -81,6 +81,11 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
     CRuntimeInfo GetRuntimeInfo()
 
 
+cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
+    cdef cppclass CFuture_Void" arrow::Future<>":
+        CStatus status()
+
+
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef enum Type" arrow::Type::type":
         _Type_NA" arrow::Type::NA"
@@ -427,6 +432,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CFieldRef()
         CFieldRef(c_string name)
         CFieldRef(int index)
+        CFieldRef(vector[CFieldRef])
         const c_string* name() const
 
     cdef cppclass CFieldRefHash" arrow::FieldRef::Hash":
@@ -1475,8 +1481,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CIpcReadOptions" arrow::ipc::IpcReadOptions":
         int max_recursion_depth
         CMemoryPool* memory_pool
-        shared_ptr[unordered_set[int]] included_fields
+        vector[int] included_fields
         c_bool use_threads
+        c_bool ensure_native_endian
 
         @staticmethod
         CIpcReadOptions Defaults()
@@ -1831,6 +1838,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int num_args
         c_bool is_varargs
 
+        CArity()
+
+        CArity(int num_args, c_bool is_varargs)
+
     cdef enum FunctionKind" arrow::compute::Function::Kind":
         FunctionKind_SCALAR" arrow::compute::Function::SCALAR"
         FunctionKind_VECTOR" arrow::compute::Function::VECTOR"
@@ -1967,8 +1978,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
-        CRoundToMultipleOptions(double multiple, CRoundMode round_mode)
-        double multiple
+        CRoundToMultipleOptions(shared_ptr[CScalar] multiple, CRoundMode round_mode)
+        shared_ptr[CScalar] multiple
         CRoundMode round_mode
 
     cdef enum CJoinNullHandlingBehavior \
@@ -2339,6 +2350,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const shared_ptr[CTable]& table() const
         const shared_ptr[CScalar]& scalar() const
 
+    cdef c_string ToString(DatumType kind)
 
 cdef extern from * namespace "arrow::compute":
     # inlined from compute/function_internal.h to avoid exposing
@@ -2402,7 +2414,7 @@ cdef extern from "arrow/compute/exec/expression.h" \
         "arrow::compute::literal"(shared_ptr[CScalar] value)
 
     cdef CExpression CMakeFieldExpression \
-        "arrow::compute::field_ref"(c_string name)
+        "arrow::compute::field_ref"(CFieldRef)
 
     cdef CExpression CMakeFieldExpressionByIndex \
         "arrow::compute::field_ref"(int idx)
@@ -2440,12 +2452,14 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
     cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
         pass
 
-    cdef cppclass CSourceNodeOptions "arrow::compute::SourceNodeOptions"(CExecNodeOptions):
-        @staticmethod
-        CResult[shared_ptr[CSourceNodeOptions]] FromTable(const CTable& table, CExecutor*)
+    cdef cppclass CTableSourceNodeOptions "arrow::compute::TableSourceNodeOptions"(CExecNodeOptions):
+        CTableSourceNodeOptions(shared_ptr[CTable] table, int64_t max_batch_size)
 
     cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
         pass
+
+    cdef cppclass CFilterNodeOptions "arrow::compute::FilterNodeOptions"(CExecNodeOptions):
+        CFilterNodeOptions(CExpression, c_bool async_mode)
 
     cdef cppclass CProjectNodeOptions "arrow::compute::ProjectNodeOptions"(CExecNodeOptions):
         CProjectNodeOptions(vector[CExpression] expressions)
@@ -2494,6 +2508,8 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         CStatus StartProducing()
         CStatus Validate()
         CStatus StopProducing()
+
+        CFuture_Void finished()
 
         vector[CExecNode*] sinks() const
         vector[CExecNode*] sources() const
@@ -2663,3 +2679,20 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     int64_t TotalBufferSize(const CChunkedArray& array)
     int64_t TotalBufferSize(const CRecordBatch& record_batch)
     int64_t TotalBufferSize(const CTable& table)
+
+ctypedef PyObject* CallbackUdf(object user_function, const CScalarUdfContext& context, object inputs)
+
+cdef extern from "arrow/python/udf.h" namespace "arrow::py":
+    cdef cppclass CScalarUdfContext" arrow::py::ScalarUdfContext":
+        CMemoryPool *pool
+        int64_t batch_length
+
+    cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions":
+        c_string func_name
+        CArity arity
+        CFunctionDoc func_doc
+        vector[shared_ptr[CDataType]] input_types
+        shared_ptr[CDataType] output_type
+
+    CStatus RegisterScalarFunction(PyObject* function,
+                                   function[CallbackUdf] wrapper, const CScalarUdfOptions& options)

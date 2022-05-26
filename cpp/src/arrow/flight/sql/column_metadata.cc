@@ -42,6 +42,7 @@ bool StringToBoolean(const std::string& string_value) {
 const char* ColumnMetadata::kCatalogName = "ARROW:FLIGHT:SQL:CATALOG_NAME";
 const char* ColumnMetadata::kSchemaName = "ARROW:FLIGHT:SQL:SCHEMA_NAME";
 const char* ColumnMetadata::kTableName = "ARROW:FLIGHT:SQL:TABLE_NAME";
+const char* ColumnMetadata::kTypeName = "ARROW:FLIGHT:SQL:TYPE_NAME";
 const char* ColumnMetadata::kPrecision = "ARROW:FLIGHT:SQL:PRECISION";
 const char* ColumnMetadata::kScale = "ARROW:FLIGHT:SQL:SCALE";
 const char* ColumnMetadata::kIsAutoIncrement = "ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT";
@@ -63,6 +64,10 @@ arrow::Result<std::string> ColumnMetadata::GetSchemaName() const {
 
 arrow::Result<std::string> ColumnMetadata::GetTableName() const {
   return metadata_map_->Get(kTableName);
+}
+
+arrow::Result<std::string> ColumnMetadata::GetTypeName() const {
+  return metadata_map_->Get(kTypeName);
 }
 
 arrow::Result<int32_t> ColumnMetadata::GetPrecision() const {
@@ -127,6 +132,12 @@ ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::Sc
 ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::TableName(
     std::string& table_name) {
   metadata_map_->Append(ColumnMetadata::kTableName, table_name);
+  return *this;
+}
+
+ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::TypeName(
+    std::string& type_name) {
+  metadata_map_->Append(ColumnMetadata::kTypeName, type_name);
   return *this;
 }
 

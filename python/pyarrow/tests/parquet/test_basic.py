@@ -46,6 +46,11 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = pytest.mark.parquet
+
+
 def test_parquet_invalid_version(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     with pytest.raises(ValueError, match="Unsupported Parquet format version"):
@@ -617,9 +622,8 @@ def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
                       use_legacy_dataset=use_legacy_dataset)
 
     if use_legacy_dataset:
-        # DeprecationWarning: 'use_legacy_dataset=True'
-        # DeprecationWarning: 'ParquetDataset.common_metadata' attribute
-        assert len(record) == 2
+        # FutureWarning: 'use_legacy_dataset=True'
+        assert len(record) == 1
     else:
         assert len(record) == 0
 
@@ -795,6 +799,6 @@ def test_read_table_legacy_deprecated(tempdir):
     pq.write_table(table, path)
 
     with pytest.warns(
-        DeprecationWarning, match="Passing 'use_legacy_dataset=True'"
+        FutureWarning, match="Passing 'use_legacy_dataset=True'"
     ):
         pq.read_table(path, use_legacy_dataset=True)

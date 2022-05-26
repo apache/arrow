@@ -555,7 +555,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
   base.can_execute_chunkwise = false;
 
   auto array_sort_indices = std::make_shared<VectorFunction>(
-      "array_sort_indices", Arity::Unary(), &array_sort_indices_doc,
+      "array_sort_indices", Arity::Unary(), array_sort_indices_doc,
       GetDefaultArraySortOptions());
   base.init = ArraySortIndicesState::Init;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
@@ -563,7 +563,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
 
   // partition_nth_indices has a parameter so needs its init function
   auto part_indices = std::make_shared<VectorFunction>(
-      "partition_nth_indices", Arity::Unary(), &partition_nth_indices_doc);
+      "partition_nth_indices", Arity::Unary(), partition_nth_indices_doc);
   base.init = PartitionNthToIndicesState::Init;
   AddArraySortingKernels<PartitionNthToIndices>(base, part_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));

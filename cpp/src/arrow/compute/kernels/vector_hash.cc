@@ -555,6 +555,7 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::FLOAT:
     case Type::DATE32:
     case Type::TIME32:
+    case Type::INTERVAL_MONTHS:
       return HashInit<UInt32Type, Action>;
     case Type::INT64:
     case Type::UINT64:
@@ -563,6 +564,7 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::TIME64:
     case Type::TIMESTAMP:
     case Type::DURATION:
+    case Type::INTERVAL_DAY_TIME:
       return HashInit<UInt64Type, Action>;
     case Type::BINARY:
     case Type::STRING:
@@ -574,6 +576,8 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::DECIMAL128:
     case Type::DECIMAL256:
       return HashInit<FixedSizeBinaryType, Action>;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return HashInit<MonthDayNanoIntervalType, Action>;
     default:
       DCHECK(false);
       return nullptr;
@@ -723,6 +727,12 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
     base.signature = KernelSignature::Make({InputType::Array(t)}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
+
+  for (const auto& ty : IntervalTypes()) {
+    base.init = GetHashInit<Action>(ty->id());
+    base.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
+    DCHECK_OK(func->AddKernel(base));
+  }
 }
 
 const FunctionDoc unique_doc(
@@ -758,7 +768,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = UniqueFinalize;
   base.output_chunked = false;
-  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary(), &unique_doc);
+  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary(), unique_doc);
   AddHashKernels<UniqueAction>(unique.get(), base, OutputType(FirstType));
 
   // Dictionary unique
@@ -775,7 +785,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = ValueCountsFinalize;
   auto value_counts =
-      std::make_shared<VectorFunction>("value_counts", Arity::Unary(), &value_counts_doc);
+      std::make_shared<VectorFunction>("value_counts", Arity::Unary(), value_counts_doc);
   AddHashKernels<ValueCountsAction>(value_counts.get(), base,
                                     OutputType(ValueCountsOutput));
 
@@ -796,7 +806,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   base.output_chunked = true;
 
   auto dict_encode = std::make_shared<VectorFunction>(
-      "dictionary_encode", Arity::Unary(), &dictionary_encode_doc,
+      "dictionary_encode", Arity::Unary(), dictionary_encode_doc,
       GetDefaultDictionaryEncodeOptions());
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, OutputType(DictEncodeOutput));
 

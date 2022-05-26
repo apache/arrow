@@ -81,7 +81,7 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
-    START_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
+    START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
 #ifdef ARROW_WITH_OPENTELEMETRY
     if (HasMetadata()) {
       auto pairs = metadata().get()->sorted_pairs();
@@ -98,6 +98,9 @@ struct ExecPlanImpl : public ExecPlan {
 
     // producers precede consumers
     sorted_nodes_ = TopoSort();
+    for (ExecNode* node : sorted_nodes_) {
+      RETURN_NOT_OK(node->PrepareToProduce());
+    }
 
     std::vector<Future<>> futures;
 
@@ -387,7 +390,7 @@ void MapNode::InputFinished(ExecNode* input, int total_batches) {
 }
 
 Status MapNode::StartProducing() {
-  START_SPAN(
+  START_COMPUTE_SPAN(
       span_, std::string(kind_name()) + ":" + label(),
       {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
   finished_ = Future<>::Make();
@@ -395,9 +398,13 @@ Status MapNode::StartProducing() {
   return Status::OK();
 }
 
-void MapNode::PauseProducing(ExecNode* output) { EVENT(span_, "PauseProducing"); }
+void MapNode::PauseProducing(ExecNode* output, int32_t counter) {
+  inputs_[0]->PauseProducing(this, counter);
+}
 
-void MapNode::ResumeProducing(ExecNode* output) { EVENT(span_, "ResumeProducing"); }
+void MapNode::ResumeProducing(ExecNode* output, int32_t counter) {
+  inputs_[0]->ResumeProducing(this, counter);
+}
 
 void MapNode::StopProducing(ExecNode* output) {
   DCHECK_EQ(output, outputs_[0]);

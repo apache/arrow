@@ -543,7 +543,7 @@ class TestORCWriterWithConversion : public ::testing::Test {
       EXPECT_OK_AND_ASSIGN(av[i], compute::Cast(*(input_table->column(i)->chunk(0)),
                                                 output_schema->field(i)->type()));
     }
-    for (int i = num_cols - 2; i < num_cols; i++) {
+    for (int i = static_cast<int>(num_cols - 2); i < static_cast<int>(num_cols); i++) {
       av[i] = CastFixedSizeBinaryArrayToBinaryArray(input_table->column(i)->chunk(0));
     }
     std::shared_ptr<Table> expected_output_table = Table::Make(output_schema, av);
@@ -569,9 +569,9 @@ class TestORCWriterSingleArray : public ::testing::Test {
 TEST_F(TestORCWriterSingleArray, WriteStruct) {
   std::vector<std::shared_ptr<Field>> subfields{field("int32", boolean())};
   const int64_t num_rows = 1234;
-  int num_subcols = subfields.size();
+  std::size_t num_subcols = subfields.size();
   ArrayVector av0(num_subcols);
-  for (int i = 0; i < num_subcols; i++) {
+  for (int i = 0; i < static_cast<int>(num_subcols); i++) {
     av0[i] = rand.ArrayOf(subfields[i]->type(), num_rows, 0.4);
   }
   std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.5);
@@ -592,9 +592,9 @@ TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
       field("string", utf8()),
       field("binary", binary())};
   const int64_t num_rows = 1234;
-  int num_subsubcols = subsubfields.size();
+  std::size_t num_subsubcols = subsubfields.size();
   ArrayVector av00(num_subsubcols), av0(1);
-  for (int i = 0; i < num_subsubcols; i++) {
+  for (int i = 0; i < static_cast<int>(num_subsubcols); i++) {
     av00[i] = rand.ArrayOf(subsubfields[i]->type(), num_rows, 0);
   }
   std::shared_ptr<Buffer> bitmap0 = rand.NullBitmap(num_rows, 0);

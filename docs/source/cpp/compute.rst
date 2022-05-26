@@ -380,7 +380,7 @@ equivalents above and reflects how they are implemented internally.
 * \(6) ``hash_one`` returns one arbitrary value from the input for each
   group. The function is biased towards non-null values: if there is at least
   one non-null value for a certain group, that value is returned, and only if
-  all the values are ``null`` for the group will the function return ``null``. 
+  all the values are ``null`` for the group will the function return ``null``.
 
 * \(7) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
@@ -1176,6 +1176,8 @@ Categorizations
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
 | is_valid          | Unary      | Any                     | Boolean             |                        | \(5)    |
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| true_unless_null  | Unary      | Any                     | Boolean             |                        | \(6)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
 
 * \(1) Output is true iff the corresponding input element is finite (neither Infinity,
   -Infinity, nor NaN). Hence, for Decimal and integer inputs this always returns true.
@@ -1189,7 +1191,10 @@ Categorizations
 * \(4) Output is true iff the corresponding input element is null. NaN values
   can also be considered null by setting :member:`NullOptions::nan_is_null`.
 
-* \(5) Output is true iff the corresponding input element is non-null.
+* \(5) Output is true iff the corresponding input element is non-null, else false.
+
+* \(6) Output is true iff the corresponding input element is non-null, else null.
+       Mostly intended for expression simplification/guarantees.
 
 .. _cpp-compute-scalar-selections:
 

@@ -118,4 +118,30 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   })
 }
 
+test_that("sfc columns written by arrow <= 7.0.0 can be re-read", {
+  # nolint start
+  # df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
+  # class(df$x) <- c("sfc_MULTIPOLYGON", "sfc", "list")
+  # withr::with_options(
+  #   list("arrow.preserve_row_level_metadata" = TRUE), {
+  #     arrow::write_feather(
+  #       df,
+  #       "tests/testthat/golden-files/data-arrow-sf_7.0.0.feather",
+  #       compression = "uncompressed"
+  #     )
+  #   })
+  # nolint end
+
+  df <- read_feather(
+    test_path("golden-files/data-arrow-sf_7.0.0.feather")
+  )
+
+  # make sure the class was restored
+  expect_s3_class(df$x, c("sfc_MULTIPOLYGON", "sfc", "list"))
+
+  # make sure the row-level metadata was restored
+  expect_identical(attr(df$x[[1]], "foo"), "bar")
+  expect_identical(attr(df$x[[2]], "baz"), "qux")
+})
+
 # TODO: streams(?)

@@ -58,7 +58,7 @@ Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
   return FromProto(rel, ext_set);
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlan(
+Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
@@ -84,6 +84,20 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
     *ext_set_out = std::move(ext_set);
   }
   return sink_decls;
+}
+
+Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
+                                          const ConsumerFactory& consumer_factory,
+                                          ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto declarations,
+                        DeserializePlans(buf, consumer_factory, ext_set_out));
+  if (declarations.size() > 1) {
+    return Status::Invalid("DeserializePlan does not support multiple root relations");
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
+    std::ignore = declarations[0].AddToPlan(plan.get());
+    return *std::move(plan);
+  }
 }
 
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,

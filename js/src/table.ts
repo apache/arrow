@@ -239,7 +239,7 @@ export class Table<T extends TypeMap = any> {
     /**
      * Returns a string representation of the Table rows.
      *
-     * @returns  A string representation of the Table rows.
+     * @returns A string representation of the Table rows.
      */
     public toString() {
         return `[\n  ${this.toArray().join(',\n  ')}\n]`;
@@ -259,7 +259,7 @@ export class Table<T extends TypeMap = any> {
     /**
      * Return a zero-copy sub-section of this Table.
      *
-     * @param start The beginning of the specified portion of the Table.
+     * @param begin The beginning of the specified portion of the Table.
      * @param end The end of the specified portion of the Table. This is exclusive of the element at the index 'end'.
      */
     public slice(begin?: number, end?: number): Table<T> {
@@ -427,7 +427,7 @@ export function makeTable<I extends Record<string | number | symbol, TypedArray>
  * })
  * ```
  *
- * @param Input an object of typed arrays or JavaScript arrays.
+ * @param input Input an object of typed arrays or JavaScript arrays.
  * @returns A new Table.
  */
 export function tableFromArrays<I extends Record<string | number | symbol, TypedArray | BigIntArray | readonly unknown[]>>(input: I): Table<{ [P in keyof I]: ArrayDataType<I[P]> }> {

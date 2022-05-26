@@ -196,7 +196,7 @@ const FunctionDoc approximate_median_doc{
 std::shared_ptr<ScalarAggregateFunction> AddTDigestAggKernels() {
   static auto default_tdigest_options = TDigestOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>(
-      "tdigest", Arity::Unary(), &tdigest_doc, &default_tdigest_options);
+      "tdigest", Arity::Unary(), tdigest_doc, &default_tdigest_options);
   AddTDigestKernels(TDigestInit, NumericTypes(), func.get());
   AddTDigestKernels(TDigestInit, {decimal128(1, 1), decimal256(1, 1)}, func.get());
   return func;
@@ -207,7 +207,7 @@ std::shared_ptr<ScalarAggregateFunction> AddApproximateMedianAggKernels(
   static ScalarAggregateOptions default_scalar_aggregate_options;
 
   auto median = std::make_shared<ScalarAggregateFunction>(
-      "approximate_median", Arity::Unary(), &approximate_median_doc,
+      "approximate_median", Arity::Unary(), approximate_median_doc,
       &default_scalar_aggregate_options);
 
   auto sig =

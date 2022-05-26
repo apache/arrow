@@ -38,7 +38,5 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
 
-include_directories(SYSTEM ${ARROW_INCLUDE_DIR} ${PARQUET_INCLUDE_DIR})
-
 add_executable(parquet-arrow-example reader_writer.cc)
-target_link_libraries(parquet-arrow-example ${PARQUET_SHARED_LIB} ${ARROW_SHARED_LIB})
+target_link_libraries(parquet-arrow-example parquet_shared arrow_shared)

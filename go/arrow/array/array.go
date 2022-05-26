@@ -19,16 +19,10 @@ package array
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/internal/debug"
 )
-
-// Interface aliases arrow.Array so that existing users don't get broken by
-// the migration to arrow.Array.
-//
-// Deprecated: This alias will be removed in v8
-type Interface = arrow.Array
 
 type arraymarshal interface {
 	arrow.Array
@@ -177,7 +171,7 @@ func init() {
 		arrow.STRUCT:                  func(data arrow.ArrayData) arrow.Array { return NewStructData(data) },
 		arrow.SPARSE_UNION:            unsupportedArrayType,
 		arrow.DENSE_UNION:             unsupportedArrayType,
-		arrow.DICTIONARY:              unsupportedArrayType,
+		arrow.DICTIONARY:              func(data arrow.ArrayData) arrow.Array { return NewDictionaryData(data) },
 		arrow.MAP:                     func(data arrow.ArrayData) arrow.Array { return NewMapData(data) },
 		arrow.EXTENSION:               func(data arrow.ArrayData) arrow.Array { return NewExtensionData(data) },
 		arrow.FIXED_SIZE_LIST:         func(data arrow.ArrayData) arrow.Array { return NewFixedSizeListData(data) },

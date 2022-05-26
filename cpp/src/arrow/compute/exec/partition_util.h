@@ -24,6 +24,7 @@
 #include <random>
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/util/pcg_random.h"
 
 namespace arrow {
 namespace compute {
@@ -59,14 +60,14 @@ class PartitionSort {
   /// out_arr: [2, 5, 3, 5, 4, 7]
   /// prtn_ranges: [0, 1, 5, 6]
   template <class INPUT_PRTN_ID_FN, class OUTPUT_POS_FN>
-  static void Eval(int num_rows, int num_prtns, uint16_t* prtn_ranges,
+  static void Eval(int64_t num_rows, int num_prtns, uint16_t* prtn_ranges,
                    INPUT_PRTN_ID_FN prtn_id_impl, OUTPUT_POS_FN output_pos_impl) {
     ARROW_DCHECK(num_rows > 0 && num_rows <= (1 << 15));
     ARROW_DCHECK(num_prtns >= 1 && num_prtns <= (1 << 15));
 
     memset(prtn_ranges, 0, (num_prtns + 1) * sizeof(uint16_t));
 
-    for (int i = 0; i < num_rows; ++i) {
+    for (int64_t i = 0; i < num_rows; ++i) {
       int prtn_id = static_cast<int>(prtn_id_impl(i));
       ++prtn_ranges[prtn_id + 1];
     }
@@ -78,7 +79,7 @@ class PartitionSort {
       sum = sum_next;
     }
 
-    for (int i = 0; i < num_rows; ++i) {
+    for (int64_t i = 0; i < num_rows; ++i) {
       int prtn_id = static_cast<int>(prtn_id_impl(i));
       int pos = prtn_ranges[prtn_id + 1]++;
       output_pos_impl(i, pos);
@@ -93,12 +94,14 @@ class PartitionLocks {
   ~PartitionLocks();
   /// \brief Initializes the control, must be called before use
   ///
+  /// \param num_threads Maximum number of threads that will access the partitions
   /// \param num_prtns Number of partitions to synchronize
-  void Init(int num_prtns);
+  void Init(size_t num_threads, int num_prtns);
   /// \brief Cleans up the control, it should not be used after this call
   void CleanUp();
   /// \brief Acquire a partition to work on one
   ///
+  /// \param thread_id The index of the thread trying to acquire the partition lock
   /// \param num_prtns Length of prtns_to_try, must be <= num_prtns used in Init
   /// \param prtns_to_try An array of partitions that still have remaining work
   /// \param limit_retries If false, this method will spinwait forever until success
@@ -109,15 +112,15 @@ class PartitionLocks {
   ///         without successfully acquiring a lock
   ///
   /// This method is thread safe
-  bool AcquirePartitionLock(int num_prtns, const int* prtns_to_try, bool limit_retries,
-                            int max_retries, int* locked_prtn_id,
+  bool AcquirePartitionLock(size_t thread_id, int num_prtns, const int* prtns_to_try,
+                            bool limit_retries, int max_retries, int* locked_prtn_id,
                             int* locked_prtn_id_pos);
   /// \brief Release a partition so that other threads can work on it
   void ReleasePartitionLock(int prtn_id);
 
  private:
   std::atomic<bool>* lock_ptr(int prtn_id);
-  int random_int(int num_values);
+  int random_int(size_t thread_id, int num_values);
 
   struct PartitionLock {
     static constexpr int kCacheLineBytes = 64;
@@ -126,10 +129,7 @@ class PartitionLocks {
   };
   int num_prtns_;
   std::unique_ptr<PartitionLock[]> locks_;
-
-  std::seed_seq rand_seed_;
-  std::mt19937 rand_engine_;
-  std::uniform_int_distribution<uint64_t> rand_distribution_;
+  std::unique_ptr<arrow::random::pcg32_fast[]> rngs_;
 };
 
 }  // namespace compute

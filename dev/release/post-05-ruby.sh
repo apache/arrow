@@ -78,6 +78,7 @@ rm -rf ${archive_name}
 tar xf ${tar_gz}
 
 read -p "Please enter your RubyGems MFA one-time password (or leave empty if you don't have MFA enabled): " GEM_HOST_OTP_CODE </dev/tty
+export GEM_HOST_OTP_CODE
 
 modules=()
 for module in ${archive_name}/ruby/red-*; do
