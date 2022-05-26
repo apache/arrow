@@ -257,6 +257,5 @@ TEST(ExtensionIdRegistryTest, RegisterNestedFunctions) {
   }
 }
 
-
 }  // namespace engine
 }  // namespace arrow
