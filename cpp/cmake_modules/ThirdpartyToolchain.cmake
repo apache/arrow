@@ -1423,7 +1423,7 @@ macro(build_thrift)
     message(FATAL_ERROR "Building thrift using ExternalProject requires at least CMake 3.10"
     )
   endif()
-  message("Building Apache Thrift from source")
+  message(STATUS "Building Apache Thrift from source")
   set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
   set(THRIFT_CMAKE_ARGS
@@ -1526,7 +1526,7 @@ endif()
 # Protocol Buffers (required for ORC, Flight, Gandiva and Substrait libraries)
 
 macro(build_protobuf)
-  message("Building Protocol Buffers from source")
+  message(STATUS "Building Protocol Buffers from source")
   set(PROTOBUF_VENDORED TRUE)
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
@@ -1710,7 +1710,7 @@ endif()
 # Substrait (required by compute engine)
 
 macro(build_substrait)
-  message("Building Substrait from source")
+  message(STATUS "Building Substrait from source")
 
   set(SUBSTRAIT_PROTOS
       capabilities
@@ -4019,7 +4019,7 @@ endif()
 # Apache ORC
 
 macro(build_orc)
-  message("Building Apache ORC from source")
+  message(STATUS "Building Apache ORC from source")
 
   set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
   set(ORC_HOME "${ORC_PREFIX}")
@@ -4321,7 +4321,7 @@ endif()
 # AWS SDK for C++
 
 macro(build_awssdk)
-  message("Building AWS C++ SDK from source")
+  message(STATUS "Building AWS C++ SDK from source")
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
                                               "4.9")
     message(FATAL_ERROR "AWS C++ SDK requires gcc >= 4.9")

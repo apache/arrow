@@ -548,8 +548,8 @@ if(NOT WIN32 AND NOT APPLE)
                     OUTPUT_VARIABLE GOLD_LOCATION
                     OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
     if("${GOLD_LOCATION}" MATCHES "^/opt/rh/devtoolset")
-      message("Skipping optional gold linker (version ${GOLD_VERSION}) because "
-              "it's in devtoolset")
+      message(STATUS "Skipping optional gold linker (version ${GOLD_VERSION}) because "
+                     "it's in devtoolset")
       set(GOLD_VERSION)
     endif()
   endif()
@@ -571,7 +571,7 @@ if(NOT WIN32 AND NOT APPLE)
       set(ARROW_BUGGY_GOLD 1)
     endif()
     if(MUST_USE_GOLD)
-      message("Using hard-wired gold linker (version ${GOLD_VERSION})")
+      message(STATUS "Using hard-wired gold linker (version ${GOLD_VERSION})")
       if(ARROW_BUGGY_GOLD)
         if("${ARROW_LINK}" STREQUAL "d" AND "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
           message(SEND_ERROR "Configured to use buggy gold with dynamic linking "
@@ -582,12 +582,12 @@ if(NOT WIN32 AND NOT APPLE)
       # The Gold linker must be manually enabled.
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=gold")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=gold")
-      message("Using optional gold linker (version ${GOLD_VERSION})")
+      message(STATUS "Using optional gold linker (version ${GOLD_VERSION})")
     else()
-      message("Optional gold linker is buggy, using ld linker instead")
+      message(STATUS "Optional gold linker is buggy, using ld linker instead")
     endif()
   else()
-    message("Using ld linker")
+    message(STATUS "Using ld linker")
   endif()
 endif()
 
@@ -625,7 +625,7 @@ set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 
 # Set compile flags based on the build type.
-message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
+message(STATUS "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
 )
 if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
