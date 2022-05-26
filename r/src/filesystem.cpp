@@ -305,7 +305,7 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   if (region != "") {
     s3_opts.region = region;
   }
-  /// If non-empty, override region with a connect string such as "localhost:9000"
+  /// If non-empty, override region with a connect string such as "http://localhost:9000"
   s3_opts.endpoint_override = endpoint_override;
   /// S3 connection transport, default "https"
   if (scheme != "") {

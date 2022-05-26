@@ -103,8 +103,7 @@ struct ARROW_EXPORT S3Options {
   /// server).
   std::string region;
 
-  /// If non-empty, override region with a connect string such as "localhost:9000"
-  // XXX perhaps instead take a URL like "http://localhost:9000"?
+  /// If non-empty, override region with a connect string such as "http://localhost:9000"
   std::string endpoint_override;
   /// S3 connection transport, default "https"
   std::string scheme = "https";
