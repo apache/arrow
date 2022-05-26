@@ -542,20 +542,41 @@ class Repo:
         blobs = [h for h in tree.tree if h.type == 'blob']
         root = Directory('', branch.commit.commit.tree.sha)
         # maintain current directories and files
-        logger.info("Maintain current directories and files")
+        logger.info('Maintain current directories and files')
         for h in trees:
             root.add_directory(h.path, h.sha)
         for h in blobs:
             root.add_file(h.path, h.mode, h.sha)
         # upload new Java jar/pom artifacts
-        logger.info("Upload new Java jar/pom artifacts")
-        version = "8.0.0"
+        logger.info('Upload new Java jar/pom artifacts')
+        pattern = '~/.m2/repository/org/apache/arrow/**'
+        pattern = pattern.replace('~', os.path.expanduser('~'))
+        logger.info('Directory used to find artifacts to upload to GitHub: {}'.format(pattern))
+        update_contains_list = []
+        for path in glob.glob(pattern, recursive=True):
+            # to test partial jar/pom
+            if 'arrow-java-root' in path or 'arrow-format' in path or 'arrow-memory' in path or 'arrow-vector' in path:
+                if path.endswith(('.pom', '.jar')):
+                    upload_to_path = path.replace(os.path.expanduser("~") + '/.m2/', '')
+                    upload_content = path
+                    update_contains = {
+                        'path': upload_to_path,
+                        'content': upload_content,
+                        'mode': '100644'
+                    }
+                    update_contains_list.append(update_contains)
+        for thing in update_contains_list:
+            logger.info('Adding pom/jar to GitHub tree locally: Path {} Mode {} and Type {}...'.format(thing['path'], thing['mode'], thing['content']))
+            root.add_file(thing['path'], thing['mode'], content=thing['content'])
+        # update loca tree repo
         root_info = root.create_tree(repo)
+        # commit
         logger.info("Prepare commit to upload new Java jar/pom artifacts")
         new_commit = repo.create_commit('Uploading Java jar/pom artifacts to configure org/apache/arrow repository.',
                                         tree=root_info['sha'],
                                         parents=[branch.commit.sha])
         ref = repo.ref('heads/{}'.format(tag_name))
+        # update remote branch
         logger.info("Update branch with Java jar/pom artifacts as a folder")
         ref.update(new_commit.sha)
 
