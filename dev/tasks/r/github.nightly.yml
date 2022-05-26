@@ -16,9 +16,6 @@
 # under the License.
 
 {% import 'macros.jinja' as macros with context %}
-# root of the R nightly repo where the first dir is the mount point used by davfs2 ("nightly")
-# TODO update with nightlies.apache.org/arrow/r
-{% set r_root = "nightly/r" %}
 
 # This allows us to set a custom version via param:
 # crossbow submit --param custom_version=8.5.3 r-nightly-packages
