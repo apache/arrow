@@ -75,7 +75,7 @@ if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
   # Update changelog
   archery release changelog add $version
   git add ${SOURCE_DIR}/../../CHANGELOG.md
-  git commit -m "[Release] Update CHANGELOG.md for $version"
+  git commit -m "MINOR: [Release] Update CHANGELOG.md for $version"
 fi
 
 if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
@@ -86,7 +86,7 @@ if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
     ARROW_RELEASE_TIME="$(date +%Y-%m-%dT%H:%M:%S%z)" \
     ARROW_VERSION=${version}
   git add */debian*/changelog */yum/*.spec.in
-  git commit -m "[Release] Update .deb/.rpm changelogs for $version"
+  git commit -m "MINOR: [Release] Update .deb/.rpm changelogs for $version"
   cd -
 fi
 
@@ -94,7 +94,7 @@ if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then
   echo "Prepare release ${version} on tag ${release_tag} then reset to version ${next_version_snapshot}"
 
   update_versions "${version}" "${next_version}" "release"
-  git commit -m "[Release] Update versions for ${version}"
+  git commit -m "MINOR: [Release] Update versions for ${version}"
 fi
 
 ############################## Tag the Release ##############################

@@ -149,6 +149,7 @@ def test_commit_title():
     assert t.issue == "ARROW-9598"
     assert t.components == ["C++", "Parquet"]
     assert t.summary == "Fix writing nullable structs"
+    assert t.minor is False
 
     t = CommitTitle.parse(
         "ARROW-8002: [C++][Dataset][R] Support partitioned dataset writing"
@@ -157,6 +158,7 @@ def test_commit_title():
     assert t.issue == "ARROW-8002"
     assert t.components == ["C++", "Dataset", "R"]
     assert t.summary == "Support partitioned dataset writing"
+    assert t.minor is False
 
     t = CommitTitle.parse(
         "ARROW-9600: [Rust][Arrow] pin older version of proc-macro2 during "
@@ -166,18 +168,28 @@ def test_commit_title():
     assert t.issue == "ARROW-9600"
     assert t.components == ["Rust", "Arrow"]
     assert t.summary == "pin older version of proc-macro2 during build"
+    assert t.minor is False
 
     t = CommitTitle.parse("[Release] Update versions for 1.0.0")
     assert t.project is None
     assert t.issue is None
     assert t.components == ["Release"]
     assert t.summary == "Update versions for 1.0.0"
+    assert t.minor is False
+
+    t = CommitTitle.parse("MINOR: [Release] Update versions for 1.0.0")
+    assert t.project is None
+    assert t.issue is None
+    assert t.components == ["Release"]
+    assert t.summary == "Update versions for 1.0.0"
+    assert t.minor is True
 
     t = CommitTitle.parse("[Python][Doc] Fix rst role dataset.rst (#7725)")
     assert t.project is None
     assert t.issue is None
     assert t.components == ["Python", "Doc"]
     assert t.summary == "Fix rst role dataset.rst (#7725)"
+    assert t.minor is False
 
     t = CommitTitle.parse(
         "PARQUET-1882: [C++] Buffered Reads should allow for 0 length"
@@ -186,6 +198,7 @@ def test_commit_title():
     assert t.issue == 'PARQUET-1882'
     assert t.components == ["C++"]
     assert t.summary == "Buffered Reads should allow for 0 length"
+    assert t.minor is False
 
     t = CommitTitle.parse(
         "ARROW-9340 [R] Use CRAN version of decor package "
@@ -196,6 +209,7 @@ def test_commit_title():
     assert t.issue == 'ARROW-9340'
     assert t.components == ["R"]
     assert t.summary == "Use CRAN version of decor package "
+    assert t.minor is False
 
 
 def test_release_basics(fake_jira):
