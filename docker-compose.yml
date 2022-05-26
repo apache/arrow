@@ -1055,7 +1055,7 @@ services:
       LANG: "C.UTF-8"
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
-      PYTEST_ARGS: "--doctest-modules"
+      PYTEST_ARGS: "--doctest-modules --doctest-cython"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
