@@ -52,8 +52,9 @@ on:
 
 {%- macro github_install_archery() -%}
   - name: Set up Python
-    uses: actions/setup-python@v2
+    uses: actions/setup-python@v3
     with:
+      cache: 'pip'
       python-version: 3.8
   - name: Install Archery
     shell: bash
@@ -220,4 +221,77 @@ on:
         sed -i '' -E -e 's@.git.git@.git@' ${formula}
         cp ${formula} $(brew --repository homebrew/core)/Formula/
       done
+{% endmacro %}
+
+{%- macro github_change_r_pkg_version(is_fork, version = '\\2.\'\"$(date +%Y%m%d)\"\'' ) -%}
+  - name: Modify version
+    shell: bash
+    run: |
+      cd arrow/r
+      sed -i.bak -E -e \
+        's/(^Version: )([0-9]+\.[0-9]+\.[0-9]+).*$/\1{{ version }}/' \
+        DESCRIPTION
+      head DESCRIPTION
+      rm -f DESCRIPTION.bak
+      cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
+      
+      # Pin the git commit in the formula to match
+      cd tools
+      if [ "{{ is_fork }}" == "true" ]; then 
+        sed -i.bak -E -e 's/apache\/arrow.git"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
+      else
+        sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
+      fi
+      rm -f apache-arrow.rb.bak
+{% endmacro %}
+
+{%- macro github_test_r_src_pkg() -%}
+  source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
+  
+  install.packages(
+    "arrow",
+    repos = c(getOption("arrow.dev_repo"), "https://cloud.r-project.org"),
+    verbose = TRUE
+  )
+  
+  library(arrow)
+  read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+
+  # Our Version should always be > CRAN so we would detect a CRAN version here.
+  stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
+{% endmacro %}
+
+{%- macro github_setup_local_r_repo(os, get_bin = 'true') -%}
+  - name: Setup local repo
+    shell: bash
+    run: mkdir repo 
+  - name: Get windows binary
+    if: {{ '${{' }} ({{ os }} == 'windows-latest') && {{ get_bin }} {{ '}}' }}
+    uses: actions/download-artifact@v3
+    with:
+      name: r-libarrow-windows
+      path: repo/libarrow/bin/windows
+  - name: Get ubuntu binary
+    if: {{ '${{' }} ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
+    uses: actions/download-artifact@v3
+    with:
+      name: r-libarrow-ubuntu
+      path: repo/libarrow/bin/ubuntu-18.04
+  - name: Get centos binary
+    if: {{ '${{' }} ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
+    uses: actions/download-artifact@v3
+    with:
+      name: r-libarrow-centos
+      path: repo/libarrow/bin/centos-7
+  - name: Get src pkg
+    uses: actions/download-artifact@v3
+    with:
+      name: r-pkg_src
+      path: repo/src/contrib
+  - name: Update repo index
+    shell: Rscript {0}
+    run: |
+      # getwd() is necessary as this macro is used within jobs using a docker container
+      tools::write_PACKAGES(file.path(getwd(), "/repo/src/contrib", fsep = "/"), type = "source", verbose = TRUE)
+  - run: ls -R repo
 {% endmacro %}
