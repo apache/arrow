@@ -398,8 +398,8 @@ class CompositeReferenceTable {
       const std::shared_ptr<arrow::Schema>& output_schema,
       const std::vector<std::unique_ptr<InputState>>& state) {
     // cerr << "materialize BEGIN\n";
-    assert(state.size() == n_tables_);
-    assert(state.size() >= 1);
+    DCHECK_EQ(state.size(), n_tables_);
+    DCHECK_GE(state.size(), 1);
 
     // Don't build empty batches
     size_t n_rows = rows_.size();
