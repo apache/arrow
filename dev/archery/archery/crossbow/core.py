@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import base64
 import os
 import re
 import fnmatch
@@ -575,8 +576,10 @@ class Repo:
                     update_contains_list.append(update_contains)
         for thing in update_contains_list:
             logger.info('Adding pom/jar to GitHub tree locally: ' +
-                        'Path {} Mode {} and Type {}...'.format(thing['path'],
-                                                                thing['mode'], thing['content'])
+                        'Path {} Mode {} and Type {}...'
+                        .format(thing['path'],
+                                thing['mode'],
+                                thing['content'])
                         )
             root.add_file(thing['path'], thing['mode'],
                           content=thing['content'])
@@ -585,7 +588,8 @@ class Repo:
         # commit
         logger.info("Prepare commit to upload new Java jar/pom artifacts")
         new_commit = repo.create_commit('Uploading Java jar/pom artifacts ' +
-                                        'to configure org/apache/arrow repository.',
+                                        'to configure org/apache/arrow ' +
+                                        ' repository.',
                                         tree=root_info['sha'],
                                         parents=[branch.commit.sha])
         ref = repo.ref('heads/{}'.format(tag_name))
