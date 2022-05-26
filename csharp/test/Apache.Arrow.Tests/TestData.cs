@@ -47,6 +47,8 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(DoubleType.Default, i));
                 builder.Field(CreateField(Date32Type.Default, i));
                 builder.Field(CreateField(Date64Type.Default, i));
+                builder.Field(CreateField(Time32Type.Default, i));
+                builder.Field(CreateField(Time64Type.Default, i));
                 builder.Field(CreateField(TimestampType.Default, i));
                 builder.Field(CreateField(StringType.Default, i));
                 builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
@@ -107,6 +109,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
+            IArrowTypeVisitor<Time32Type>,
+            IArrowTypeVisitor<Time64Type>,
             IArrowTypeVisitor<Int8Type>,
             IArrowTypeVisitor<Int16Type>,
             IArrowTypeVisitor<Int32Type>,
@@ -194,6 +198,30 @@ namespace Apache.Arrow.Tests
                 for (var i = 0; i < Length; i++)
                 {
                     builder.Append(basis.AddSeconds(i));
+                }
+
+                Array = builder.Build();
+            }
+
+            public void Visit(Time32Type type)
+            {
+                var builder = new Time32Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(i);
+                }
+
+                Array = builder.Build();
+            }
+
+            public void Visit(Time64Type type)
+            {
+                var builder = new Time64Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(i);
                 }
 
                 Array = builder.Build();
