@@ -649,14 +649,9 @@ class FileMetaData::FileMetaDataImpl {
     return metadata_->row_groups[i];
   }
 
-  void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
-    if (!schema()->Equals(*other->schema())) {
-      throw ParquetException("AppendRowGroups requires equal schemas.");
-    }
-
+  void _append_row_group_helper(const std::unique_ptr<FileMetaDataImpl>& other) {
     // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
     const int n = other->num_row_groups();
-    metadata_->row_groups.reserve(metadata_->row_groups.size() + n);
     for (int i = 0; i < n; i++) {
       format::RowGroup other_rg = other->row_group(i);
       metadata_->num_rows += other_rg.num_rows;
@@ -664,8 +659,18 @@ class FileMetaData::FileMetaDataImpl {
     }
   }
 
+  void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
+    if (!schema()->Equals(*other->schema())) {
+      throw ParquetException("AppendRowGroups requires equal schemas.");
+    }
+
+    const int n = other->num_row_groups();
+    metadata_->row_groups.reserve(metadata_->row_groups.size() + n);
+    _append_row_group_helper(other);
+  }
+
   void AppendRowGroups(const std::vector<std::shared_ptr<FileMetaData>>& others) {
-    // Figure out the total num_groups and reserve vector accordinly.
+    // Figure out the total num_groups and reserve vector accordingly.
     size_t n = metadata_->row_groups.size();
     for (auto& other_shared_ptr : others) {
       const auto& other = other_shared_ptr->impl_;
@@ -681,14 +686,7 @@ class FileMetaData::FileMetaDataImpl {
         throw ParquetException("AppendRowGroups requires equal schemas.");
       }
 
-      // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
-      const int n = other->num_row_groups();
-      metadata_->row_groups.reserve(metadata_->row_groups.size() + n);
-      for (int i = 0; i < n; i++) {
-        format::RowGroup other_rg = other->row_group(i);
-        metadata_->num_rows += other_rg.num_rows;
-        metadata_->row_groups.push_back(std::move(other_rg));
-      }
+      _append_row_group_helper(other);
     }
   }
 
