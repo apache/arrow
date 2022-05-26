@@ -18,6 +18,7 @@
 import datetime
 import decimal
 from collections import OrderedDict
+import io
 
 import numpy as np
 import pytest
@@ -531,3 +532,40 @@ def test_metadata_exceeds_message_size():
         buf = out.getvalue()
 
     metadata = pq.read_metadata(pa.BufferReader(buf))
+
+
+def test_metadata_append_row_groups_list_overload():
+    def get_data():
+        data = {
+            "str": pa.array(["a", "b", "c", "d"], type=pa.string()),
+            "uint8": pa.array([1, 2, 3, 4], type=pa.uint8()),
+            "int32": pa.array([0, -2147483638, 2147483637, 1],
+                              type=pa.int32()),
+            "bool": pa.array([True, True, False, False], type=pa.bool_()),
+        }
+        table = pa.table(data)
+        metadata_collector = []
+        pq.write_table(table, io.BytesIO(),
+                       metadata_collector=metadata_collector)
+        metadatas = [metadata_collector[0]] * 30
+        return table.schema, metadatas
+
+    schema, metadatas = get_data()
+
+    where1 = io.BytesIO()
+    writer1 = pq.ParquetWriter(where1, schema)
+    writer1.close()
+    m1 = pq.read_metadata(where1)
+
+    for metadata in metadatas:
+        m1.append_row_groups(metadata)
+
+    where2 = io.BytesIO()
+    writer2 = pq.ParquetWriter(where2, schema)
+    writer2.close()
+    m2 = pq.read_metadata(where2)
+    m2.append_row_groups(metadatas)
+
+    assert m1.num_rows == m2.num_rows
+    assert m1.num_row_groups == m2.num_row_groups
+    assert m1.num_columns == m2.num_columns
