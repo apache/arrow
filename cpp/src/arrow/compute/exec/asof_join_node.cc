@@ -748,7 +748,7 @@ class AsofJoinNode : public ExecNode {
 std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(
     const std::vector<ExecNode*>& inputs, const AsofJoinNodeOptions& options) {
   std::vector<std::shared_ptr<arrow::Field>> fields;
-  assert(inputs.size() > 1);
+  DCHECK_GT(inputs.size(), 1);
 
   // Directly map LHS fields
   for (int i = 0; i < inputs[0]->output_schema()->num_fields(); ++i)
