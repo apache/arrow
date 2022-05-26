@@ -65,19 +65,6 @@ garrow_memory_pool_set_property(GObject *object,
 }
 
 static void
-garrow_memory_pool_get_property(GObject *object,
-                                guint prop_id,
-                                GValue *value,
-                                GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 garrow_memory_pool_init(GArrowMemoryPool *object)
 {
 }
@@ -90,7 +77,6 @@ garrow_memory_pool_class_init(GArrowMemoryPoolClass *klass)
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->set_property = garrow_memory_pool_set_property;
-  gobject_class->get_property = garrow_memory_pool_get_property;
 
   spec = g_param_spec_pointer("memory-pool",
                               "Memory Pool",
