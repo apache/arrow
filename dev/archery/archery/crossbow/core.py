@@ -555,7 +555,7 @@ class Repo:
         new_commit = repo.create_commit('Uploading Java jar/pom artifacts to configure org/apache/arrow repository.',
                                         tree=root_info['sha'],
                                         parents=[branch.commit.sha])
-        ref = repo.ref('heads/{}'.format(branch_name))
+        ref = repo.ref('heads/{}'.format(tag_name))
         logger.info("Update branch with Java jar/pom artifacts as a folder")
         ref.update(new_commit.sha)
 
