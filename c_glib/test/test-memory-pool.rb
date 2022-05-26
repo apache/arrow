@@ -19,7 +19,7 @@ class TestMemoryPool < Test::Unit::TestCase
   include Helper::Omittable
 
   def setup
-    @memory_pool = Arrow.default_memory_pool
+    @memory_pool = Arrow::MemoryPool.default
   end
 
   def test_bytes_allocated

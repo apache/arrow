@@ -34,7 +34,7 @@ struct _GArrowMemoryPoolClass
   GObjectClass parent_class;
 };
 
-GArrowMemoryPool *garrow_default_memory_pool();
+GArrowMemoryPool *garrow_memory_pool_default();
 gint64            garrow_memory_pool_get_bytes_allocated(GArrowMemoryPool *memory_pool);
 gint64            garrow_memory_pool_get_max_memory(GArrowMemoryPool *memory_pool);
 gchar            *garrow_memory_pool_get_backend_name(GArrowMemoryPool *memory_pool);

@@ -87,14 +87,14 @@ garrow_memory_pool_class_init(GArrowMemoryPoolClass *klass)
 }
 
 /**
- * garrow_default_memory_pool:
+ * garrow_memory_pool_default:
  * 
  * Returns: (transfer full): The process-wide default memory pool.
  *
  * Since: 9.0.0
  */
 GArrowMemoryPool *
-garrow_default_memory_pool()
+garrow_memory_pool_default()
 {
   auto memory_pool = arrow::default_memory_pool();
   return garrow_memory_pool_new_raw(memory_pool);
