@@ -45,7 +45,7 @@ namespace compute {
 template <class T>
 class ConcurrentQueue {
  public:
-  T pop() {
+  T Pop() {
     std::unique_lock<std::mutex> lock(mutex_);
     cond_.wait(lock, [&] { return !queue_.empty(); });
     auto item = queue_.front();
