@@ -50,10 +50,12 @@ struct ExtensionIdRegistryProvider {
 };
 
 struct DefaultExtensionIdRegistryProvider : public ExtensionIdRegistryProvider {
+  virtual ~DefaultExtensionIdRegistryProvider() {}
   ExtensionIdRegistry* get() const override { return default_extension_id_registry(); }
 };
 
 struct NestedExtensionIdRegistryProvider : public ExtensionIdRegistryProvider {
+  virtual ~NestedExtensionIdRegistryProvider() {}
   std::shared_ptr<ExtensionIdRegistry> registry_ = substrait::MakeExtensionIdRegistry();
   ExtensionIdRegistry* get() const override { return &*registry_; }
 };
