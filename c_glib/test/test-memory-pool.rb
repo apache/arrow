@@ -23,14 +23,20 @@ class TestMemoryPool < Test::Unit::TestCase
   end
 
   def test_bytes_allocated
-    assert(@memory_pool.bytes_allocated.positive?)
+    assert do
+      @memory_pool.bytes_allocated.positive?
+    end
   end
 
   def test_max_memory
-    assert(@memory_pool.max_memory.positive?)
+    assert do
+      @memory_pool.max_memory.positive?
+    end
   end
 
   def test_backend_name
-    assert(%w[system jemalloc mimalloc].include?(@memory_pool.backend_name))
+    assert do
+      %w[system jemalloc mimalloc].include?(@memory_pool.backend_name)
+    end
   end
 end

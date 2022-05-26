@@ -31,7 +31,7 @@ G_BEGIN_DECLS
  */
 
 typedef struct GArrowMemoryPoolPrivate_ {
-  arrow::MemoryPool* memory_pool;
+  arrow::MemoryPool *memory_pool;
 } GArrowMemoryPoolPrivate;
 
 enum {
@@ -96,7 +96,7 @@ garrow_memory_pool_class_init(GArrowMemoryPoolClass *klass)
 
   spec = g_param_spec_pointer("memory-pool",
                               "Memory Pool",
-                              "The raw arrow::MemoryPool* *",
+                              "The raw arrow::MemoryPool *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_MEMORY_POOL, spec);
@@ -105,7 +105,7 @@ garrow_memory_pool_class_init(GArrowMemoryPoolClass *klass)
 /**
  * garrow_default_memory_pool:
  * 
- * Returns: (transfer none): The process-wide default memory pool.
+ * Returns: (transfer full): The process-wide default memory pool.
  *
  * Since: 9.0.0
  */
@@ -121,7 +121,7 @@ garrow_default_memory_pool()
  * @memory_pool: A #GArrowMemoryPool.
  *
  * Returns: The number of bytes that were allocated and not yet free’d
- * through this allocator.
+ *   through this allocator.
  *
  * Since: 9.0.0
  */
@@ -139,7 +139,7 @@ garrow_memory_pool_get_bytes_allocated(GArrowMemoryPool *memory_pool)
  * Return peak memory allocation in this memory pool.
  *
  * Returns: Maximum bytes allocated. If not known (or not implemented),
- *   returns -1
+ *   returns -1.
  *
  * Since: 9.0.0
  */
@@ -154,9 +154,10 @@ garrow_memory_pool_get_max_memory(GArrowMemoryPool *memory_pool)
  * garrow_memory_pool_get_backend_name:
  * @memory_pool: A #GArrowMemoryPool.
  * 
- * The name of the backend used by this MemoryPool (e.g. “system” or
- * “jemalloc”).
+ * The name of the backend used by this MemoryPool (e.g. "system" or
+ * "jemalloc").
  *
+ *  It should be freed with g_free() when no longer needed.
  * Since: 9.0.0
  */
 gchar *
@@ -177,10 +178,9 @@ garrow_memory_pool_new_raw(arrow::MemoryPool *memory_pool)
 GArrowMemoryPool *
 garrow_memory_pool_new_raw_bytes(arrow::MemoryPool *memory_pool)
 {
-  auto arrow_memory_pool = GARROW_MEMORY_POOL(g_object_new(GARROW_TYPE_MEMORY_POOL,
-                                              "memory-pool", memory_pool,
-                                              NULL));
-  return arrow_memory_pool;
+  return GARROW_MEMORY_POOL(g_object_new(GARROW_TYPE_MEMORY_POOL,
+                            "memory-pool", memory_pool,
+                            NULL));
 }
 
 arrow::MemoryPool *
