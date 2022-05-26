@@ -156,12 +156,6 @@ G_END_DECLS
 GArrowMemoryPool *
 garrow_memory_pool_new_raw(arrow::MemoryPool *memory_pool)
 {
-  return garrow_memory_pool_new_raw_bytes(memory_pool);
-}
-
-GArrowMemoryPool *
-garrow_memory_pool_new_raw_bytes(arrow::MemoryPool *memory_pool)
-{
   return GARROW_MEMORY_POOL(g_object_new(GARROW_TYPE_MEMORY_POOL,
                             "memory-pool", memory_pool,
                             NULL));
