@@ -143,8 +143,26 @@ Installing Nightly Packages
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
 The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
-Maven cannot directly use the artifacts from GitHub.
-Instead, install them to the local Maven repository:
+Installing from GitHub Raw
+**************************
+
+Steps involved to install to local Maven repository using GitHub Raw Repository:
+
+1. Is needed to add GitHub Raw Repository to the Maven/Gradle project:
+
+.. code-block:: xml
+
+    <repositories>
+        <repository>
+            <id>arrow-nightly</id>
+            <url>https://raw.github.com/davisusanibar/tmprepocrossbow/actions-7a102b9b5e-github-java-jars/repo</url>
+        </repository>
+    </repositories>
+
+Installing Manually
+*******************
+
+Steps involved to install to local Maven repository manually:
 
 1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-19-0-github-java-jars
 2. Add packages to your pom.xml, for example: flight-core (it depends on: arrow-format, arrow-vector, arrow-memeory-core and arrow-memory-netty).
