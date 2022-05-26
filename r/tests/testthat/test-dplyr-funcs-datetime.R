@@ -54,10 +54,12 @@ test_that("strptime", {
     x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA)
   )
 
+  # base::strptime returns a POSIXlt (a list) => we cannot use compare_dplyr_binding
+  # => we use expect_equal
   withr::with_timezone("Pacific/Marquesas", {
     expect_equal(
       t_string %>%
-        arrow_table() %>%
+        record_batch() %>%
         mutate(
           x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
         ) %>%
