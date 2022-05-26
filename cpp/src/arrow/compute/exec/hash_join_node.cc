@@ -600,16 +600,18 @@ class HashJoinNode : public ExecNode {
                                                join_type_ == JoinType::FULL_OUTER;
     disable_bloom_filter_ = disable_bloom_filter_ || bloom_filter_does_not_apply_to_join;
 
-    SchemaProjectionMap build_keys_to_input =
-        schema_mgr_->proj_maps[1].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
-    // Bloom filter currently doesn't support dictionaries.
-    for (int i = 0; i < build_keys_to_input.num_cols; i++) {
-      int idx = build_keys_to_input.get(i);
-      bool is_dict =
-          inputs_[1]->output_schema()->field(idx)->type()->id() == Type::DICTIONARY;
-      if (is_dict) {
-        disable_bloom_filter_ = true;
-        break;
+    for (int side = 0; side <= 1 && !disable_bloom_filter_; side++) {
+      SchemaProjectionMap keys_to_input = schema_mgr_->proj_maps[side].map(
+          HashJoinProjection::KEY, HashJoinProjection::INPUT);
+      // Bloom filter currently doesn't support dictionaries.
+      for (int i = 0; i < keys_to_input.num_cols; i++) {
+        int idx = keys_to_input.get(i);
+        bool is_dict =
+            inputs_[side]->output_schema()->field(idx)->type()->id() == Type::DICTIONARY;
+        if (is_dict) {
+          disable_bloom_filter_ = true;
+          break;
+        }
       }
     }
 
