@@ -880,7 +880,8 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
   impl_->AppendRowGroups(other.impl_);
 }
 
-void FileMetaData::AppendRowGroups(const std::vector<std::shared_ptr<FileMetaData>>& others) {
+void FileMetaData::AppendRowGroups(
+    const std::vector<std::shared_ptr<FileMetaData>>& others) {
   impl_->AppendRowGroups(others);
 }
 
