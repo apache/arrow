@@ -532,7 +532,7 @@ class Repo:
                     )
         logger.info('Uploading assets to GitHub repository with ' +
                     'directores/folder needed for Java Maven/Gradle'
-        )
+                    )
         branch = repo.branch(tag_name)
         logger.info('Branch `{}`'.format(branch))
         tree = branch.commit.commit.tree.to_tree().recurse()
@@ -540,8 +540,8 @@ class Repo:
         for h in tree.tree:
             logger.info("Current directories and files")
             logger.info('Path `{}` Mode {} Sha {} and Type {}...'
-                .format(h.path, h.mode, h.sha, h.type)
-            )
+                        .format(h.path, h.mode, h.sha, h.type)
+                        )
         trees = [h for h in tree.tree if h.type == 'tree']
         blobs = [h for h in tree.tree if h.type == 'blob']
         root = Directory('', branch.commit.commit.tree.sha)
@@ -556,16 +556,16 @@ class Repo:
         pattern = '~/.m2/repository/org/apache/arrow/**'
         pattern = pattern.replace('~', os.path.expanduser('~'))
         logger.info('Directory used to find artifacts to upload to GitHub: {}'
-            .format(pattern)
-        )
+                    .format(pattern)
+                    )
         update_contains_list = []
         for path in glob.glob(pattern, recursive=True):
             # to test partial jar/pom
-            if ('arrow-java-root' in path or 'arrow-format' in path
-                or 'arrow-memory' in path or 'arrow-vector' in path):
+            if ('arrow-java-root' in path or 'arrow-format' in path or
+                    'arrow-memory' in path or 'arrow-vector' in path):
                 if path.endswith(('.pom', '.jar')):
                     upload_to_path = path.replace(os.path.expanduser("~") +
-                                    '/.m2/', '')
+                                                  '/.m2/', '')
                     upload_content = path
                     update_contains = {
                         'path': upload_to_path,
@@ -575,23 +575,24 @@ class Repo:
                     update_contains_list.append(update_contains)
         for thing in update_contains_list:
             logger.info('Adding pom/jar to GitHub tree locally: ' +
-                'Path {} Mode {} and Type {}...'.format(thing['path'],
-                thing['mode'], thing['content'])
-            )
+                        'Path {} Mode {} and Type {}...'.format(thing['path'],
+                                                                thing['mode'], thing['content'])
+                        )
             root.add_file(thing['path'], thing['mode'],
-                content=thing['content'])
+                          content=thing['content'])
         # update loca tree repo
         root_info = root.create_tree(repo)
         # commit
         logger.info("Prepare commit to upload new Java jar/pom artifacts")
         new_commit = repo.create_commit('Uploading Java jar/pom artifacts ' +
-                        'to configure org/apache/arrow repository.',
-                        tree=root_info['sha'],
-                        parents=[branch.commit.sha])
+                                        'to configure org/apache/arrow repository.',
+                                        tree=root_info['sha'],
+                                        parents=[branch.commit.sha])
         ref = repo.ref('heads/{}'.format(tag_name))
         # update remote branch
         logger.info("Update branch with Java jar/pom artifacts as a folder")
         ref.update(new_commit.sha)
+
 
 class Queue(Repo):
 
@@ -1284,6 +1285,8 @@ class Config(dict):
 
 # Reuse this repository jiffyclub https://nbviewer.org/gist/jiffyclub/10809459.
 # Adding support to upload binary content like jar
+
+
 def split_one(path):
     """
     Utility function for splitting off the very first part of a path.
@@ -1395,6 +1398,7 @@ class File(object):
                 'mode': self.mode,
                 'sha': self.sha,
                 'changed': changed}
+
 
 class Directory(object):
     """
@@ -1555,6 +1559,7 @@ class Directory(object):
                 'sha': self.sha,
                 'type': 'tree',
                 'changed': changed}
+
 
 # configure yaml serializer
 yaml = YAML()
