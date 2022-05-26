@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/filesystem/azure/azurefs.h"
+#include "arrow/filesystem/azurefs.h"
 
 #include <algorithm>
 #include <atomic>
@@ -68,7 +68,8 @@ static const char kSep = '/';
 
 AzureOptions::AzureOptions() {}
 
-std::string GetAccountNameFromConnectionString(const std::string& connectionString) {
+std::string AzureOptions::GetAccountNameFromConnectionString(
+    const std::string& connectionString) {
   std::map<std::string, std::string> connectionStringMap;
   std::string::const_iterator cur = connectionString.begin();
 

@@ -33,9 +33,15 @@ if(ARROW_GCS)
 endif()
 
 if(ARROW_AZURE)
+  set(AZURE_SRCS)
+  list(APPEND
+        AZURE_SRCS
+        azurefs_mock.cc
+        azurefs.cc)
+
   add_arrow_lib(azurefs
                 SOURCES
-                azurefs.cc
+                ${AZURE_SRCS}
                 SHARED_LINK_LIBS
                 ${ARROW_LINK_LIBS}
                 SHARED_PRIVATE_LINK_LIBS
