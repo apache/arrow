@@ -148,7 +148,7 @@ Installing from GitHub Raw
 
 Steps involved to install to local Maven repository using GitHub Raw Repository:
 
-1. Is needed to add GitHub Raw Repository to the Maven/Gradle project:
+1. Is needed to add GitHub Raw Repository to the Maven/Gradle project. For Maven pom.xml is needed to add repositories tag.
 
 .. code-block:: xml
 
