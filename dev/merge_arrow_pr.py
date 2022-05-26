@@ -266,17 +266,17 @@ class GitHubAPI(object):
                         headers=self.headers)
 
     def merge_pr(self, number, commit_title, commit_message):
+        url = f'{self.github_api}/pulls/{number}/merge'
         payload = {
             'commit_title': commit_title,
             'commit_message': commit_message,
             'merge_method': 'squash',
         }
-        response = requests.put(f'{self.github_api}/pulls/{number}/merge',
-                                headers=self.headers,
-                                json=payload)
+        response = requests.put(url, headers=self.headers, json=payload)
         result = response.json()
         if response.status_code != 200 and 'merged' not in result:
             result['merged'] = False
+            result['message'] += f': {url}'
         return result
 
 
