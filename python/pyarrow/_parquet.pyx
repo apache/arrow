@@ -784,35 +784,43 @@ cdef class FileMetaData(_Weakrefable):
             c_string c_path = tobytes(path)
         self._metadata.set_file_path(c_path)
 
-    def append_row_groups(self, FileMetaData other):
+    def append_row_groups(self, other):
         """
-        Append row groups from other FileMetaData object.
+        Append row groups from other FileMetaData or List[FileMetaData] object.
 
         Parameters
         ----------
-        other : FileMetaData
+        other : Union[List[FileMetaData], FileMetaData]
             Other metadata to append row groups from.
         """
+        if isinstance(other, FileMetaData):
+            self._append_row_groups(other)
+        elif isinstance(other, list):
+            self._append_row_groups_list(other)
+        else:
+            raise TypeError("Invalid type passed to append_row_groups")
+
+    def _append_row_groups(self, FileMetaData other):
         cdef shared_ptr[CFileMetaData] c_metadata
 
         c_metadata = other.sp_metadata
         self._metadata.AppendRowGroups(deref(c_metadata))
 
-    def append_row_groups_list(self, other):
+    def _append_row_groups_list(self, others):
         """
         Append row groups from list of other FileMetaData object.
 
         Parameters
         ----------
-        other : List[FileMetaData]
+        others : List[FileMetaData]
             List of other metadata to append row groups from.
         """
         cdef vector[shared_ptr[CFileMetaData]] c_metadatas
-        cdef FileMetaData o
+        cdef FileMetaData other
         cdef shared_ptr[CFileMetaData] c_metadata
 
-        for o in other:
-            c_metadata = o.sp_metadata
+        for other in others:
+            c_metadata = other.sp_metadata
             c_metadatas.push_back(c_metadata)
         self._metadata.AppendRowGroups(c_metadatas)
 

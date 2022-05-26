@@ -3297,7 +3297,7 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
         # ParquetWriter doesn't expose the metadata until it's written. Write
         # it and read it again.
         metadata = read_metadata(where)
-        metadata.append_row_groups_list(metadata_collector)
+        metadata.append_row_groups(metadata_collector)
         metadata.write_metadata_file(where)
 
 
