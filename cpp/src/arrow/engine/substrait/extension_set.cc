@@ -362,6 +362,11 @@ struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
     return parent_->GetType(id);
   }
 
+  Status CanRegisterType(Id id, const std::shared_ptr<DataType>& type) const override {
+    return parent_->CanRegisterType(id, type) &
+           ExtensionIdRegistryImpl::CanRegisterType(id, type);
+  }
+
   Status RegisterType(Id id, std::shared_ptr<DataType> type) override {
     return parent_->CanRegisterType(id, type) &
            ExtensionIdRegistryImpl::RegisterType(id, type);
@@ -382,6 +387,12 @@ struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
       return func_opt;
     }
     return parent_->GetFunction(id);
+  }
+
+  Status CanRegisterFunction(Id id,
+                             const std::string& arrow_function_name) const override {
+    return parent_->CanRegisterFunction(id, arrow_function_name) &
+           ExtensionIdRegistryImpl::CanRegisterFunction(id, arrow_function_name);
   }
 
   Status RegisterFunction(Id id, std::string arrow_function_name) override {

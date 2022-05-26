@@ -38,7 +38,7 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
     const std::string& substrait_json);
 
 /// \brief Makes a nested registry with the default registry as parent.
-/// See arrow:engine::nested_extension_id_registry for details.
+/// See arrow::engine::nested_extension_id_registry for details.
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
 
 }  // namespace substrait
