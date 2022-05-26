@@ -231,5 +231,4 @@ def _docdir(request):
             yield
 
     else:
-        # For normal tests, we have to yield, since this is a yield-fixture.
         yield
