@@ -2170,7 +2170,7 @@ test_that("parse_date_time with hours, minutes and seconds components", {
   )
 })
 
-test_that("parse_date_time & `exact = TRUE`", {
+test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
   test_df <- tibble(
     x = c("2022-12-31 12:59:59", "2022-01-01 12:11", "2022-01-01 12", "2022-01-01", NA),
     y = c("11/23/1998 07:00:00", "6/18/1952 0135", "2/25/1974 0523", "9/07/1985 01", NA)
@@ -2198,9 +2198,6 @@ test_that("parse_date_time & `exact = TRUE`", {
       collect(),
     test_df
   )
-})
-
-test_that("parse_date_time with R objects", {
   compare_dplyr_binding(
     .input %>%
       mutate(
