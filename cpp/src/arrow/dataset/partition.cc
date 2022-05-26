@@ -391,8 +391,9 @@ FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
 
 Result<std::vector<KeyValuePartitioning::Key>> FilenamePartitioning::ParseKeys(
     const std::string& path) const {
-  std::vector<std::string> segments =
-      fs::internal::SplitAbstractPath(StripNonPrefix(path), kFilenamePartitionSep);
+  std::vector<std::string> segments = fs::internal::SplitAbstractPath(
+      StripNonPrefix(fs::internal::GetAbstractPathParent(path).second),
+      kFilenamePartitionSep);
   return ParsePartitionSegments(segments);
 }
 
