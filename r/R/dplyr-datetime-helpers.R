@@ -121,13 +121,32 @@ binding_as_date <- function(x,
 binding_as_date_character <- function(x,
                                       format = NULL,
                                       tryFormats = c("%Y-%m-%d", "%Y/%m/%d"),
+                                      coalesce = TRUE,
                                       ...) {
 
-  # `tryFormats` is an argument only for `as.Date()`, but `as_date()` behaves in
-  # a similar fashion, with its `.parse_iso_dt()`
-  if (is.null(format)) {
+  if (is.null(format) && coalesce) {
     parsed_date <- call_binding("parse_date_time", x, orders = tryFormats)
-  } else {
+  }
+
+  if (is.null(format) && !coalesce) {
+      attempts <- map(
+        tryFormats,
+        ~ build_expr(
+          "strptime",
+          x,
+          options = list(format = .x, unit = 0L, error_is_null = TRUE)
+        )
+      )
+      n <- length(tryFormats)
+      results <- vector("list", n)
+      mask <- caller_env(n = 3)
+      for (i in seq_len(n)) {
+        results[[i]] <- arrow_eval(attempts[[i]], mask)
+      }
+      parsed_date <- results[[1]]
+    }
+
+  if (!is.null(format)) {
     parsed_date <- build_expr("strptime", x, options = list(format = format, unit = 0L))
   }
   parsed_date
