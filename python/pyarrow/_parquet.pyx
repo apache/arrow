@@ -801,6 +801,14 @@ cdef class FileMetaData(_Weakrefable):
             raise TypeError("Invalid type passed to append_row_groups")
 
     def _append_row_groups(self, FileMetaData other):
+        """
+        Append row groups from list of other FileMetaData object.
+
+        Parameters
+        ----------
+        others : FileMetaData
+            other metadata to append row groups from.
+        """
         cdef shared_ptr[CFileMetaData] c_metadata
 
         c_metadata = other.sp_metadata
