@@ -1544,7 +1544,7 @@ class Directory(object):
 
         if changed:
             print('Creating tree for {}'.format(self.name))
-            tree =
+            tree = \
                 [{k: v for k, v in t.items() if k != 'changed'} for t in tree]
             self.sha = repo.create_tree(tree).sha
         else:
