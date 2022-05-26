@@ -57,8 +57,8 @@ jobs:
           if [ -z $JOBID ]; then
             JOBID=nightly-packaging-$(date +%Y-%m-%d)-0-github-r-nightly-packages
           fi
-          
-          archery crossbow download-artifact -t ../binaries $JOBID
+
+          archery crossbow download-artifacts -t ../binaries $JOBID
       - name: Build Repository
         shell: Rscript {0}
         run: |

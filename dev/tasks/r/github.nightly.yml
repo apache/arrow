@@ -196,7 +196,7 @@ jobs:
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
 
-      - name: Upload binary artifact (temp)
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
           name: r-pkg_{{ '${{ matrix.platform }}_${{ matrix.r_version.r }}' }}
@@ -284,7 +284,7 @@ jobs:
   upload-binaries:
     needs: r-packages
     if: true && !cancelled()
-    name: Update PACKAGES
+    name: Upload artifacts
     runs-on: ubuntu-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
