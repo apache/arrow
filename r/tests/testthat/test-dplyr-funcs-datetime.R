@@ -2199,3 +2199,16 @@ test_that("parse_date_time & `exact = TRUE`", {
     test_df
   )
 })
+
+test_that("parse_date_time with R objects", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        b = parse_date_time("2022-12-31 12:59:59", orders = "ymd_HMS")
+      ) %>%
+      collect(),
+    tibble(
+      a = 1
+    )
+  )
+})

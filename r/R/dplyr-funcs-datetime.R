@@ -536,6 +536,10 @@ register_bindings_datetime_parsers <- function() {
       orders <- map_chr(0:truncated, ~ substr(orders, start = 1, stop = nchar(orders) - .x))
     }
 
+    if (!inherits(x, "Expression")) {
+      x <- Expression$scalar(x)
+    }
+
     if (exact == TRUE) {
       # no data processing takes place & we don't derive formats
       parse_attempts <- build_strptime_exprs(x, orders)
