@@ -24,7 +24,7 @@ G_BEGIN_DECLS
 /**
  * SECTION: memory-pool
  * @section_id: memory-pool-classes
- * @title: memory-pool classes
+ * @title: Memory pool classes
  * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowMemoryPool is a class for memory allocation.
@@ -88,7 +88,7 @@ garrow_memory_pool_class_init(GArrowMemoryPoolClass *klass)
 
 /**
  * garrow_memory_pool_default:
- * 
+ *
  * Returns: (transfer full): The process-wide default memory pool.
  *
  * Since: 9.0.0
@@ -119,7 +119,7 @@ garrow_memory_pool_get_bytes_allocated(GArrowMemoryPool *memory_pool)
 /**
  * garrow_memory_pool_get_max_memory:
  * @memory_pool: A #GArrowMemoryPool.
- * 
+ *
  * Return peak memory allocation in this memory pool.
  *
  * Returns: Maximum bytes allocated. If not known (or not implemented),
@@ -137,11 +137,12 @@ garrow_memory_pool_get_max_memory(GArrowMemoryPool *memory_pool)
 /**
  * garrow_memory_pool_get_backend_name:
  * @memory_pool: A #GArrowMemoryPool.
- * 
- * The name of the backend used by this MemoryPool (e.g. "system" or
- * "jemalloc").
  *
- *  It should be freed with g_free() when no longer needed.
+ * Returns: The name of the backend used by this MemoryPool
+ *   (e.g. "system" or "jemalloc").
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
  * Since: 9.0.0
  */
 gchar *
