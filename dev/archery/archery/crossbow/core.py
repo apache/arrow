@@ -561,8 +561,8 @@ class Repo:
         update_contains_list = []
         for path in glob.glob(pattern, recursive=True):
             # to test partial jar/pom
-            if 'arrow-java-root' in path or 'arrow-format' in path
-                or 'arrow-memory' in path or 'arrow-vector' in path:
+            if ('arrow-java-root' in path or 'arrow-format' in path
+                or 'arrow-memory' in path or 'arrow-vector' in path):
                 if path.endswith(('.pom', '.jar')):
                     upload_to_path = path.replace(os.path.expanduser("~") +
                                     '/.m2/', '')
