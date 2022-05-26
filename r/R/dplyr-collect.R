@@ -19,18 +19,8 @@
 # The following S3 methods are registered on load if dplyr is present
 
 collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
-  # head and tail are not ExecNodes, at best we can handle them via sink node
-  # so if there are any steps done after head/tail, we need to
-  # evaluate the query up to then and then do a new query for the rest
-  if (is_collapsed(x) && has_head_tail(x$.data)) {
-    x$.data <- as_adq(dplyr::compute(x$.data))$.data
-  }
-
-  # See query-engine.R for ExecPlan/Nodes
-  plan <- ExecPlan$create()
-  final_node <- plan$Build(x)
   tryCatch(
-    tab <- plan$Run(final_node)$read_table(),
+    out <- as_record_batch_reader(x)$read_table(),
     # n = 4 because we want the error to show up as being from collect()
     # and not handle_csv_read_error()
     error = function(e, call = caller_env(n = 4)) {
@@ -38,25 +28,10 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     }
   )
 
-  # TODO(ARROW-16607): move KVM handling into ExecPlan
-  if (ncol(tab)) {
-    # Apply any column metadata from the original schema, where appropriate
-    new_r_metadata <- get_r_metadata_from_old_schema(
-      tab$schema,
-      source_data(x)$schema,
-      drop_attributes = has_aggregation(x)
-    )
-    if (!is.null(new_r_metadata)) {
-      tab$r_metadata <- new_r_metadata
-    }
-  }
-
   if (as_data_frame) {
-    df <- as.data.frame(tab)
-    restore_dplyr_features(df, x)
-  } else {
-    restore_dplyr_features(tab, x)
+    out <- as.data.frame(out)
   }
+  restore_dplyr_features(out, x)
 }
 collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
   if (as_data_frame) {

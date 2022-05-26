@@ -237,8 +237,10 @@ as_record_batch_reader.Dataset <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.arrow_dplyr_query <- function(x, ...) {
-  # TODO(ARROW-16607): use ExecPlan directly when it handles metadata
-  as_record_batch_reader(compute.arrow_dplyr_query(x))
+  # See query-engine.R for ExecPlan/Nodes
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(x)
+  plan$Run(final_node)
 }
 
 #' @rdname as_record_batch_reader

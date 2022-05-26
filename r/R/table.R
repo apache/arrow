@@ -93,7 +93,7 @@ Table <- R6Class("Table",
     AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
     SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
     ReplaceSchemaMetadata = function(new) {
-      Table__ReplaceSchemaMetadata(self, new)
+      Table__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     field = function(i) Table__field(self, i),
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),

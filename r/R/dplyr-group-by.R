@@ -64,7 +64,7 @@ group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
 group_vars.Dataset <- function(x) NULL
 group_vars.RecordBatchReader <- function(x) NULL
 group_vars.ArrowTabular <- function(x) {
-  x$r_metadata$attributes$.group_vars
+  x$metadata$r$attributes$.group_vars
 }
 
 # the logical literal in the two functions below controls the default value of
@@ -81,6 +81,6 @@ ungroup.arrow_dplyr_query <- function(x, ...) {
 }
 ungroup.Dataset <- ungroup.RecordBatchReader <- force
 ungroup.ArrowTabular <- function(x) {
-  x$r_metadata$attributes$.group_vars <- NULL
+  x$metadata$r$attributes$.group_vars <- NULL
   x
 }
