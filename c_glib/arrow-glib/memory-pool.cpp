@@ -80,8 +80,6 @@ garrow_memory_pool_get_property(GObject *object,
 static void
 garrow_memory_pool_init(GArrowMemoryPool *object)
 {
-  auto priv = GARROW_MEMORY_POOL_GET_PRIVATE(object);
-  new(&priv->memory_pool) arrow::MemoryPool*;
 }
 
 static void
