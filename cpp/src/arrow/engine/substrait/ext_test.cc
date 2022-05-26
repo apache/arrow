@@ -46,23 +46,16 @@ namespace engine {
 // provider that either owns or does not own the registry it provides, depending
 // on the case.
 struct ExtensionIdRegistryProvider {
-  virtual ExtensionIdRegistry *get() const = 0;
+  virtual ExtensionIdRegistry* get() const = 0;
 };
 
-struct DefaultExtensionIdRegistryProvider
-  : public ExtensionIdRegistryProvider {
-  ExtensionIdRegistry *get() const override {
-    return default_extension_id_registry();
-  }
+struct DefaultExtensionIdRegistryProvider : public ExtensionIdRegistryProvider {
+  ExtensionIdRegistry *get() const override { return default_extension_id_registry(); }
 };
 
-struct NestedExtensionIdRegistryProvider
-  : public ExtensionIdRegistryProvider {
-  std::shared_ptr<ExtensionIdRegistry> registry_ =
-    substrait::MakeExtensionIdRegistry();
-  ExtensionIdRegistry *get() const override {
-    return &*registry_;
-  }
+struct NestedExtensionIdRegistryProvider : public ExtensionIdRegistryProvider {
+  std::shared_ptr<ExtensionIdRegistry> registry_ = substrait::MakeExtensionIdRegistry();
+  ExtensionIdRegistry *get() const override { return &*registry_; }
 };
 
 using Id = ExtensionIdRegistry::Id;
@@ -71,9 +64,7 @@ bool operator==(const Id& id1, const Id& id2) {
   return id1.uri == id2.uri && id1.name == id2.name;
 }
 
-bool operator!=(const Id& id1, const Id& id2) {
-  return !(id1 == id2);
-}
+bool operator!=(const Id& id1, const Id& id2) { return !(id1 == id2); }
 
 struct TypeName {
   std::shared_ptr<DataType> type;
@@ -81,15 +72,15 @@ struct TypeName {
 };
 
 static const std::vector<TypeName> kTypeNames = {
-     TypeName{uint8(), "u8"},
-     TypeName{uint16(), "u16"},
-     TypeName{uint32(), "u32"},
-     TypeName{uint64(), "u64"},
-     TypeName{float16(), "fp16"},
-     TypeName{null(), "null"},
-     TypeName{month_interval(), "interval_month"},
-     TypeName{day_time_interval(), "interval_day_milli"},
-     TypeName{month_day_nano_interval(), "interval_month_day_nano"},
+    TypeName{uint8(), "u8"},
+    TypeName{uint16(), "u16"},
+    TypeName{uint32(), "u32"},
+    TypeName{uint64(), "u64"},
+    TypeName{float16(), "fp16"},
+    TypeName{null(), "null"},
+    TypeName{month_interval(), "interval_month"},
+    TypeName{day_time_interval(), "interval_day_milli"},
+    TypeName{month_day_nano_interval(), "interval_month_day_nano"},
 };
 
 static const std::vector<util::string_view> kFunctionNames = {
@@ -102,12 +93,12 @@ static const std::vector<util::string_view> kTempFunctionNames = {
 };
 
 static const std::vector<TypeName> kTempTypeNames = {
-     TypeName{timestamp(TimeUnit::SECOND, "temp_tz_1"), "temp_type_1"},
-     TypeName{timestamp(TimeUnit::SECOND, "temp_tz_2"), "temp_type_2"},
+    TypeName{timestamp(TimeUnit::SECOND, "temp_tz_1"), "temp_type_1"},
+    TypeName{timestamp(TimeUnit::SECOND, "temp_tz_2"), "temp_type_2"},
 };
 
 using ExtensionIdRegistryParams =
-  std::tuple<std::shared_ptr<ExtensionIdRegistryProvider>, std::string>;
+    std::tuple<std::shared_ptr<ExtensionIdRegistryProvider>, std::string>;
 
 struct ExtensionIdRegistryTest
     : public testing::TestWithParam<ExtensionIdRegistryParams> {};
@@ -165,11 +156,12 @@ TEST_P(ExtensionIdRegistryTest, ReregisterFunctions) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    Substrait,
-    ExtensionIdRegistryTest,
+    Substrait, ExtensionIdRegistryTest,
     testing::Values(
-      std::make_tuple(std::make_shared<DefaultExtensionIdRegistryProvider>(), "default"),
-      std::make_tuple(std::make_shared<NestedExtensionIdRegistryProvider>(), "nested")));
+        std::make_tuple(std::make_shared<DefaultExtensionIdRegistryProvider>(),
+                        "default"),
+        std::make_tuple(std::make_shared<NestedExtensionIdRegistryProvider>(),
+                        "nested")));
 
 TEST(ExtensionIdRegistryTest, RegisterTempTypes) {
   auto default_registry = default_extension_id_registry();
