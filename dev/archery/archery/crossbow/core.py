@@ -593,50 +593,6 @@ class Repo:
         logger.info("Update branch with Java jar/pom artifacts as a folder")
         ref.update(new_commit.sha)
 
-    def github_overwrite_release_assets_old(self, tag_name, target_commitish,
-                                        patterns, method='requests'):
-        # Since github has changed something the asset uploading via requests
-        # got instable, so prefer the cURL alternative.
-        # Potential cause:
-        #    sigmavirus24/github3.py/issues/779#issuecomment-379470626
-        repo = self.as_github_repo()
-        if not tag_name:
-            raise CrossbowError('Empty tag name')
-        if not target_commitish:
-            raise CrossbowError('Empty target commit for the release tag')
-
-        # remove the whole release if it already exists
-        try:
-            release = repo.release_from_tag(tag_name)
-        except github3.exceptions.NotFoundError:
-            pass
-        else:
-            release.delete()
-
-        release = repo.create_release(tag_name, target_commitish)
-        for pattern in patterns:
-            for path in glob.glob(pattern, recursive=True):
-                name = os.path.basename(path)
-                size = os.path.getsize(path)
-                mime = mimetypes.guess_type(name)[0] or 'application/zip'
-
-                logger.info(
-                    'Uploading asset `{}` with mimetype {} and size {}...'
-                    .format(name, mime, size)
-                )
-
-                if method == 'requests':
-                    self.github_upload_asset_requests(release, path, name=name,
-                                                      mime=mime)
-                elif method == 'curl':
-                    self.github_upload_asset_curl(release, path, name=name,
-                                                  mime=mime)
-                else:
-                    raise CrossbowError(
-                        'Unsupported upload method {}'.format(method)
-                    )
-
-
 class Queue(Repo):
 
     def _latest_prefix_id(self, prefix):
