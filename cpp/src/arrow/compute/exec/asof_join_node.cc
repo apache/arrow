@@ -606,7 +606,7 @@ class AsofJoinNode : public ExecNode {
     if (_state.at(0)->finished()) {
       total_batches_produced_ = util::make_optional<int>(_progress_batches_produced);
       StopProducing();
-      assert(total_batches_produced_.has_value());
+      DCHECK(total_batches_produced_.has_value());
       outputs_[0]->InputFinished(this, *total_batches_produced_);
     }
   }
