@@ -366,6 +366,15 @@ TEST_F(TestReplaceHolder, TestMultipleReplace) {
   EXPECT_EQ(out_length, 0);
   EXPECT_FALSE(execution_context_.has_error());
   EXPECT_EQ(ret_as_str, "");
+
+  input_string = "路%ana$大";
+
+  ret = replace(&execution_context_, input_string.c_str(),
+                static_cast<int32_t>(input_string.length()), replace_string.c_str(),
+                static_cast<int32_t>(replace_string.length()), &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 8);
+  EXPECT_EQ(ret_as_str, "路%$大");
 }
 
 TEST_F(TestReplaceHolder, TestNoMatchPattern) {
