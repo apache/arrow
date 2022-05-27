@@ -108,6 +108,9 @@ groups:
   example-cpp:
     - example-*cpp*
 
+  example-python:
+    - example-*python*
+
   fuzz:
     - test-*fuzz*
 
@@ -203,6 +206,17 @@ tasks:
       flags: >-
         -e ARROW_CONAN_WITH_LZ4=True
       image: conan
+
+  ########################### Python Minimal ############################
+
+{% for kind in ["fedora-conda", "ubuntu-venv"] %}
+  example-python-minimal-build-{{ kind }}:
+    ci: github
+    template: python-minimal-build/github.linux.yml
+    params:
+      type: minimal_build
+      image: minimal-{{ kind }}
+{% endfor %}
 
   ############################## Conda Linux ############################
 
