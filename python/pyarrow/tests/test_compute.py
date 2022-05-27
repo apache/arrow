@@ -1714,6 +1714,9 @@ def test_cast():
     with pytest.raises(ValueError):
         pc.cast(arr, 'int32', safe=False, options=options)
 
+    assert pc.cast(arr, 'int8', options=options) == pa.array(
+        [1, 2, 3, 4], type='int8')
+
     arr = pa.array([2 ** 63 - 1], type='int64')
 
     with pytest.raises(pa.ArrowInvalid):
