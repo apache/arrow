@@ -166,12 +166,14 @@ Status CheckException(JNIEnv* env) {
   if (env->ExceptionCheck()) {
     jthrowable t = env->ExceptionOccurred();
     env->ExceptionClear();
-    jclass describer_class = env->FindClass("org/apache/arrow/dataset/jni/JniExceptionDescriber");
+    jclass describer_class =
+        env->FindClass("org/apache/arrow/dataset/jni/JniExceptionDescriber");
     jmethodID describe_method = env->GetStaticMethodID(
         describer_class, "describe", "(Ljava/lang/Throwable;)Ljava/lang/String;");
     std::string description = JStringToCString(
-        env, (jstring) env->CallStaticObjectMethod(describer_class, describe_method, t));
-    return Status::Invalid("Error during calling Java code from native code: " + description);
+        env, (jstring)env->CallStaticObjectMethod(describer_class, describe_method, t));
+    return Status::Invalid("Error during calling Java code from native code: " +
+                           description);
   }
   return Status::OK();
 }
