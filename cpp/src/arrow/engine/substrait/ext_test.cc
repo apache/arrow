@@ -208,13 +208,13 @@ TEST(ExtensionIdRegistryTest, RegisterNestedTypes) {
   auto default_registry = default_extension_id_registry();
   constexpr int rounds = 3;
   for (int i = 0; i < rounds; i++) {
-    auto registry1 = substrait::MakeExtensionIdRegistry();
+    auto registry1 = nested_extension_id_registry(default_registry);
 
     ASSERT_OK(registry1->CanRegisterType(id1, type1));
     ASSERT_OK(registry1->RegisterType(id1, type1));
 
     for (int j = 0; j < rounds; j++) {
-      auto registry2 = substrait::MakeExtensionIdRegistry();
+      auto registry2 = nested_extension_id_registry(&*registry1);
 
       ASSERT_OK(registry2->CanRegisterType(id2, type2));
       ASSERT_OK(registry2->RegisterType(id2, type2));
