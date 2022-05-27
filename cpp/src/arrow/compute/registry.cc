@@ -33,8 +33,18 @@ namespace arrow {
 namespace compute {
 
 class FunctionRegistry::FunctionRegistryImpl {
- public:
-  Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
+ private:
+  using FuncAdd = std::function<void(const std::string&, std::shared_ptr<Function>)>;
+
+  const FuncAdd kFuncAddNoOp =
+      [](const std::string& name, std::shared_ptr<Function> func) {};
+  const FuncAdd kFuncAddDo =
+      [this](const std::string& name, std::shared_ptr<Function> func) {
+          name_to_function_[name] = func;
+      };
+
+  Status DoAddFunction(std::shared_ptr<Function> function, bool allow_overwrite,
+                       FuncAdd add) {
 #ifndef NDEBUG
     // This validates docstrings extensively, so don't waste time on it
     // in release builds.
@@ -48,23 +58,56 @@ class FunctionRegistry::FunctionRegistryImpl {
     if (it != name_to_function_.end() && !allow_overwrite) {
       return Status::KeyError("Already have a function registered with name: ", name);
     }
-    name_to_function_[name] = std::move(function);
+    add(name, std::move(function));
     return Status::OK();
   }
 
-  Status AddAlias(const std::string& target_name, const std::string& source_name) {
+ public:
+  virtual Status CanAddFunction(std::shared_ptr<Function> function,
+                                bool allow_overwrite) {
+    return DoAddFunction(function, allow_overwrite, kFuncAddNoOp);
+  }
+
+  virtual Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
+    return DoAddFunction(function, allow_overwrite, kFuncAddDo);
+  }
+
+ private:
+  Status DoAddAlias(const std::string& target_name, const std::string& source_name,
+                    FuncAdd add) {
     std::lock_guard<std::mutex> mutation_guard(lock_);
 
-    auto it = name_to_function_.find(source_name);
-    if (it == name_to_function_.end()) {
+    auto func_res = GetFunction(source_name); // must not acquire the mutex
+    if (!func_res.ok()) {
       return Status::KeyError("No function registered with name: ", source_name);
     }
-    name_to_function_[target_name] = it->second;
+    add(target_name, func_res.ValueOrDie());
     return Status::OK();
   }
 
-  Status AddFunctionOptionsType(const FunctionOptionsType* options_type,
-                                bool allow_overwrite = false) {
+ public:
+  virtual Status CanAddAlias(const std::string& target_name,
+                             const std::string& source_name) {
+    return DoAddAlias(target_name, source_name, kFuncAddNoOp);
+  }
+
+  virtual Status AddAlias(const std::string& target_name,
+                          const std::string& source_name) {
+    return DoAddAlias(target_name, source_name, kFuncAddDo);
+  }
+
+ private:
+  using FuncOptTypeAdd = std::function<void(const FunctionOptionsType* options_type)>;
+
+  const FuncOptTypeAdd kFuncOptTypeAddNoOp =
+      [](const FunctionOptionsType* options_type) {};
+  const FuncOptTypeAdd kFuncOptTypeAddDo =
+      [this](const FunctionOptionsType* options_type) {
+          name_to_options_type_[options_type->type_name()] = options_type;
+      };
+
+  Status DoAddFunctionOptionsType(const FunctionOptionsType* options_type,
+                                  bool allow_overwrite, FuncOptTypeAdd add) {
     std::lock_guard<std::mutex> mutation_guard(lock_);
 
     const std::string name = options_type->type_name();
@@ -73,11 +116,22 @@ class FunctionRegistry::FunctionRegistryImpl {
       return Status::KeyError(
           "Already have a function options type registered with name: ", name);
     }
-    name_to_options_type_[name] = options_type;
+    add(options_type);
     return Status::OK();
   }
 
-  Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const {
+ public:
+  virtual Status CanAddFunctionOptionsType(const FunctionOptionsType* options_type,
+                                           bool allow_overwrite = false) {
+    return DoAddFunctionOptionsType(options_type, allow_overwrite, kFuncOptTypeAddNoOp);
+  }
+
+  virtual Status AddFunctionOptionsType(const FunctionOptionsType* options_type,
+                                        bool allow_overwrite = false) {
+    return DoAddFunctionOptionsType(options_type, allow_overwrite, kFuncOptTypeAddDo);
+  }
+
+  virtual Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const {
     auto it = name_to_function_.find(name);
     if (it == name_to_function_.end()) {
       return Status::KeyError("No function registered with name: ", name);
@@ -85,7 +139,7 @@ class FunctionRegistry::FunctionRegistryImpl {
     return it->second;
   }
 
-  std::vector<std::string> GetFunctionNames() const {
+  virtual std::vector<std::string> GetFunctionNames() const {
     std::vector<std::string> results;
     for (auto it : name_to_function_) {
       results.push_back(it.first);
@@ -94,7 +148,7 @@ class FunctionRegistry::FunctionRegistryImpl {
     return results;
   }
 
-  Result<const FunctionOptionsType*> GetFunctionOptionsType(
+  virtual Result<const FunctionOptionsType*> GetFunctionOptionsType(
       const std::string& name) const {
     auto it = name_to_options_type_.find(name);
     if (it == name_to_options_type_.end()) {
@@ -103,7 +157,7 @@ class FunctionRegistry::FunctionRegistryImpl {
     return it->second;
   }
 
-  int num_functions() const { return static_cast<int>(name_to_function_.size()); }
+  virtual int num_functions() const { return static_cast<int>(name_to_function_.size()); }
 
  private:
   std::mutex lock_;
@@ -111,22 +165,129 @@ class FunctionRegistry::FunctionRegistryImpl {
   std::unordered_map<std::string, const FunctionOptionsType*> name_to_options_type_;
 };
 
+class FunctionRegistry::NestedFunctionRegistryImpl
+    : public FunctionRegistry::FunctionRegistryImpl {
+ public:
+  explicit NestedFunctionRegistryImpl(FunctionRegistry::FunctionRegistryImpl* parent)
+      : parent_(parent) {}
+
+  Status CanAddFunction(std::shared_ptr<Function> function,
+                        bool allow_overwrite) override {
+    return parent_->CanAddFunction(function, allow_overwrite) &
+        FunctionRegistry::FunctionRegistryImpl::CanAddFunction(function, allow_overwrite);
+  }
+
+  Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) override {
+    return parent_->CanAddFunction(function, allow_overwrite) &
+        FunctionRegistry::FunctionRegistryImpl::AddFunction(function, allow_overwrite);
+  }
+
+  Status CanAddAlias(const std::string& target_name,
+                     const std::string& source_name) override {
+    Status st = FunctionRegistry::FunctionRegistryImpl::CanAddAlias(target_name,
+                                                                    source_name);
+    return st.ok() ? st : parent_->CanAddAlias(target_name, source_name);
+  }
+
+  Status AddAlias(const std::string& target_name,
+                  const std::string& source_name) override {
+    Status st = FunctionRegistry::FunctionRegistryImpl::AddAlias(target_name,
+                                                                 source_name);
+    return st.ok() ? st : parent_->AddAlias(target_name, source_name);
+  }
+
+  Status CanAddFunctionOptionsType(const FunctionOptionsType* options_type,
+                                   bool allow_overwrite = false) override {
+    return parent_->CanAddFunctionOptionsType(options_type, allow_overwrite) &
+        FunctionRegistry::FunctionRegistryImpl::CanAddFunctionOptionsType(
+            options_type, allow_overwrite);
+  }
+
+  Status AddFunctionOptionsType(const FunctionOptionsType* options_type,
+                                bool allow_overwrite = false) override {
+    return parent_->CanAddFunctionOptionsType(options_type, allow_overwrite) &
+        FunctionRegistry::FunctionRegistryImpl::AddFunctionOptionsType(
+            options_type, allow_overwrite);
+  }
+
+  Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const override {
+    auto func_res = FunctionRegistry::FunctionRegistryImpl::GetFunction(name);
+    if (func_res.ok()) {
+      return func_res;
+    }
+    return parent_->GetFunction(name);
+  }
+
+  std::vector<std::string> GetFunctionNames() const override {
+    auto names = parent_->GetFunctionNames();
+    auto more_names = FunctionRegistry::FunctionRegistryImpl::GetFunctionNames();
+    names.insert(names.end(), std::make_move_iterator(more_names.begin()),
+                 std::make_move_iterator(more_names.end()));
+    return names;
+  }
+
+  Result<const FunctionOptionsType*> GetFunctionOptionsType(
+      const std::string& name) const override {
+    auto options_type_res =
+        FunctionRegistry::FunctionRegistryImpl::GetFunctionOptionsType(name);
+    if (options_type_res.ok()) {
+      return options_type_res;
+    }
+    return parent_->GetFunctionOptionsType(name);
+  }
+
+  int num_functions() const override {
+    return parent_->num_functions() +
+        FunctionRegistry::FunctionRegistryImpl::num_functions();
+  }
+
+ private:
+  FunctionRegistry::FunctionRegistryImpl* parent_;
+};
+
 std::unique_ptr<FunctionRegistry> FunctionRegistry::Make() {
   return std::unique_ptr<FunctionRegistry>(new FunctionRegistry());
 }
 
-FunctionRegistry::FunctionRegistry() { impl_.reset(new FunctionRegistryImpl()); }
+std::unique_ptr<FunctionRegistry> FunctionRegistry::Make(FunctionRegistry* parent) {
+  return std::unique_ptr<FunctionRegistry>(new FunctionRegistry(
+      new FunctionRegistry::NestedFunctionRegistryImpl(&*parent->impl_)));
+}
+
+std::unique_ptr<FunctionRegistry> FunctionRegistry::Make(
+    std::unique_ptr<FunctionRegistry> parent) {
+  return FunctionRegistry::Make(&*parent);
+}
+
+FunctionRegistry::FunctionRegistry() : FunctionRegistry(new FunctionRegistryImpl()) {}
+
+FunctionRegistry::FunctionRegistry(FunctionRegistryImpl* impl) { impl_.reset(impl); }
 
 FunctionRegistry::~FunctionRegistry() {}
+
+Status FunctionRegistry::CanAddFunction(std::shared_ptr<Function> function,
+                                        bool allow_overwrite) {
+  return impl_->CanAddFunction(std::move(function), allow_overwrite);
+}
 
 Status FunctionRegistry::AddFunction(std::shared_ptr<Function> function,
                                      bool allow_overwrite) {
   return impl_->AddFunction(std::move(function), allow_overwrite);
 }
 
+Status FunctionRegistry::CanAddAlias(const std::string& target_name,
+                                     const std::string& source_name) {
+  return impl_->CanAddAlias(target_name, source_name);
+}
+
 Status FunctionRegistry::AddAlias(const std::string& target_name,
                                   const std::string& source_name) {
   return impl_->AddAlias(target_name, source_name);
+}
+
+Status FunctionRegistry::CanAddFunctionOptionsType(
+    const FunctionOptionsType* options_type, bool allow_overwrite) {
+  return impl_->CanAddFunctionOptionsType(options_type, allow_overwrite);
 }
 
 Status FunctionRegistry::AddFunctionOptionsType(const FunctionOptionsType* options_type,

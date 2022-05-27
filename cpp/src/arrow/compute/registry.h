@@ -45,19 +45,41 @@ class FunctionOptionsType;
 /// lower-level function execution.
 class ARROW_EXPORT FunctionRegistry {
  public:
-  ~FunctionRegistry();
+  virtual ~FunctionRegistry();
 
   /// \brief Construct a new registry. Most users only need to use the global
   /// registry
   static std::unique_ptr<FunctionRegistry> Make();
 
+  /// \brief Construct a new nested registry with the given parent. Most users only need
+  /// to use the global registry
+  static std::unique_ptr<FunctionRegistry> Make(FunctionRegistry* parent);
+
+  /// \brief Construct a new nested registry with the given parent. Most users only need
+  /// to use the global registry
+  static std::unique_ptr<FunctionRegistry> Make(std::unique_ptr<FunctionRegistry> parent);
+
+  /// \brief Checks whether a new function can be added to the registry. Returns
+  /// Status::KeyError if a function with the same name is already registered
+  Status CanAddFunction(std::shared_ptr<Function> function, bool allow_overwrite = false);
+
   /// \brief Add a new function to the registry. Returns Status::KeyError if a
   /// function with the same name is already registered
   Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite = false);
 
-  /// \brief Add aliases for the given function name. Returns Status::KeyError if the
+  /// \brief Checks whether an alias can be added for the given function name. Returns
+  /// Status::KeyError if the function with the given name is not registered
+  Status CanAddAlias(const std::string& target_name, const std::string& source_name);
+
+  /// \brief Add alias for the given function name. Returns Status::KeyError if the
   /// function with the given name is not registered
   Status AddAlias(const std::string& target_name, const std::string& source_name);
+
+  /// \brief Checks whether a new function options type can be added to the registry.
+  /// Returns Status::KeyError if a function options type with the same name is already
+  /// registered
+  Status CanAddFunctionOptionsType(const FunctionOptionsType* options_type,
+                                   bool allow_overwrite = false);
 
   /// \brief Add a new function options type to the registry. Returns Status::KeyError if
   /// a function options type with the same name is already registered
@@ -84,6 +106,11 @@ class ARROW_EXPORT FunctionRegistry {
   // Use PIMPL pattern to not have std::unordered_map here
   class FunctionRegistryImpl;
   std::unique_ptr<FunctionRegistryImpl> impl_;
+
+  explicit FunctionRegistry(FunctionRegistryImpl* impl);
+
+  class NestedFunctionRegistryImpl;
+  friend class NestedFunctionRegistryImpl;
 };
 
 /// \brief Return the process-global function registry
