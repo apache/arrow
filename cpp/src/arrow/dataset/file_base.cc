@@ -270,11 +270,11 @@ Future<> FileWriter::Finish() {
 
 namespace {
 
-Status WriteBatch(std::shared_ptr<RecordBatch> batch, compute::Expression guarantee,
-                  FileSystemDatasetWriteOptions write_options,
-                  std::function<Status(std::shared_ptr<RecordBatch>,
-                                       const Partitioning::PartitionPathFormat&)>
-                      write) {
+Status WriteBatch(
+    std::shared_ptr<RecordBatch> batch, compute::Expression guarantee,
+    FileSystemDatasetWriteOptions write_options,
+    std::function<Status(std::shared_ptr<RecordBatch>, const PartitionPathFormat&)>
+        write) {
   ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
   batch.reset();  // drop to hopefully conserve memory
 
@@ -292,7 +292,7 @@ Status WriteBatch(std::shared_ptr<RecordBatch> batch, compute::Expression guaran
   for (std::size_t index = 0; index < groups.batches.size(); index++) {
     auto partition_expression = and_(groups.expressions[index], guarantee);
     auto next_batch = groups.batches[index];
-    Partitioning::PartitionPathFormat destination;
+    PartitionPathFormat destination;
     ARROW_ASSIGN_OR_RAISE(destination,
                           write_options.partitioning->Format(partition_expression));
     RETURN_NOT_OK(write(next_batch, destination));
@@ -337,10 +337,10 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     return WriteBatch(
         batch, guarantee, write_options_,
         [this](std::shared_ptr<RecordBatch> next_batch,
-               const Partitioning::PartitionPathFormat& destination) {
+               const PartitionPathFormat& destination) {
           return task_group_.AddTask([this, next_batch, destination] {
             Future<> has_room = dataset_writer_->WriteRecordBatch(
-                next_batch, destination.directory, destination.prefix);
+                next_batch, destination.directory, destination.filename);
             if (!has_room.is_finished()) {
               // We don't have to worry about sequencing backpressure here since
               // task_group_ serves as our sequencer.  If batches continue to arrive after
@@ -481,11 +481,11 @@ class TeeNode : public compute::MapNode {
                         compute::Expression guarantee) {
     return WriteBatch(batch, guarantee, write_options_,
                       [this](std::shared_ptr<RecordBatch> next_batch,
-                             const Partitioning::PartitionPathFormat& destination) {
+                             const PartitionPathFormat& destination) {
                         return task_group_.AddTask([this, next_batch, destination] {
                           util::tracing::Span span;
                           Future<> has_room = dataset_writer_->WriteRecordBatch(
-                              next_batch, destination.directory, destination.prefix);
+                              next_batch, destination.directory, destination.filename);
                           if (!has_room.is_finished()) {
                             this->Pause();
                             return has_room.Then([this] { this->Resume(); });

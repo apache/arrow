@@ -220,7 +220,6 @@ def partitioning(schema=None, field_names=None, flavor=None,
                 "For the default directory flavor, need to specify "
                 "a Schema or a list of field names")
     if flavor == "filename":
-        # default flavor
         if schema is not None:
             if field_names is not None:
                 raise ValueError(

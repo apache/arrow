@@ -38,6 +38,10 @@ namespace dataset {
 
 constexpr char kFilenamePartitionSep = '_';
 
+struct ARROW_DS_EXPORT PartitionPathFormat {
+  std::string directory, filename;
+};
+
 // ----------------------------------------------------------------------
 // Partitioning
 
@@ -77,10 +81,6 @@ class ARROW_DS_EXPORT Partitioning {
 
   /// \brief Parse a path into a partition expression
   virtual Result<compute::Expression> Parse(const std::string& path) const = 0;
-
-  struct PartitionPathFormat {
-    std::string directory, prefix;
-  };
 
   virtual Result<PartitionPathFormat> Format(const compute::Expression& expr) const = 0;
 
@@ -358,9 +358,13 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
   Result<PartitionPathFormat> FormatValues(const ScalarVector& values) const override;
 };
 
-/// \brief Remove a prefix and the filename of a path.
+ARROW_DS_EXPORT std::string StripPrefix(const std::string& path,
+                                        const std::string& prefix);
+
+/// \brief Extracts the directory and filename and removes the prefix of a path
 ///
-/// e.g., `StripPrefixAndFilename("/data/year=2019/c.txt", "/data") -> "year=2019"`
+/// e.g., `StripPrefixAndFilename("/data/year=2019/c.txt", "/data") ->
+/// {"year=2019","c.txt"}`
 ARROW_DS_EXPORT std::string StripPrefixAndFilename(const std::string& path,
                                                    const std::string& prefix);
 
