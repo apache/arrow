@@ -99,6 +99,7 @@ import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -701,6 +702,37 @@ public class RoundtripTest {
       });
 
       assertEquals("Cannot import released ArrowArray", e.getMessage());
+    }
+  }
+
+  @Test
+  public void testTransferImportedBuffer() {
+    VectorSchemaRoot imported;
+
+    // Consumer allocates empty structures
+    try (ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator);
+        ArrowArray consumerArrowArray = ArrowArray.allocateNew(allocator)) {
+      try (VectorSchemaRoot vsr = createTestVSR()) {
+        // Producer creates structures from existing memory pointers
+        try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
+            ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
+          // Producer exports vector into the C Data Interface structures
+          Data.exportVectorSchemaRoot(allocator, vsr, null, arrowArray, arrowSchema);
+        }
+      }
+      // Consumer imports vector
+      imported = Data.importVectorSchemaRoot(allocator, consumerArrowArray, consumerArrowSchema, null);
+    }
+
+    try (BufferAllocator targetAllocator = allocator.newChildAllocator("transfer allocator", 0, Long.MAX_VALUE)) {
+      for (FieldVector fieldVector : imported.getFieldVectors()) {
+        int cnt = fieldVector.getValueCount();
+        // Transfer buffer ownerships. Should not report any error
+        TransferPair transferPair = fieldVector.getTransferPair(targetAllocator);
+        transferPair.transfer();
+        ValueVector to = transferPair.getTo();
+        assertEquals(cnt, to.getValueCount());
+      }
     }
   }
 
