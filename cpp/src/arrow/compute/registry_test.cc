@@ -103,7 +103,7 @@ INSTANTIATE_TEST_SUITE_P(
             []() { return 0; }, []() { return std::vector<std::string>{}; }, "default"),
         std::make_tuple(
             static_cast<MakeFunctionRegistry>([]() {
-                return FunctionRegistry::Make(GetFunctionRegistry());
+              return FunctionRegistry::Make(GetFunctionRegistry());
             }),
             []() { return GetFunctionRegistry()->num_functions(); },
             []() { return GetFunctionRegistry()->GetFunctionNames(); }, "nested")));
@@ -226,7 +226,6 @@ TEST(TestRegistry, RegisterNestedFunctions) {
     ASSERT_OK(default_registry->CanAddFunction(func1));
   }
 }
-
 
 }  // namespace compute
 }  // namespace arrow
