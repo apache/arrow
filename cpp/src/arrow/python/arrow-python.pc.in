@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-libdir=@CMAKE_INSTALL_FULL_LIBDIR@
-includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+prefix=@CMAKE_INSTALL_PREFIX@
+includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
+libdir=@ARROW_PKG_CONFIG_LIBDIR@
 
 Name: Apache Arrow Python
 Description: Python integration library for Apache Arrow

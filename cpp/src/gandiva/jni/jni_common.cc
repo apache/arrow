@@ -538,7 +538,7 @@ SchemaPtr ProtoTypeToSchema(const types::Schema& schema) {
 
 bool ParseProtobuf(uint8_t* buf, int bufLen, google::protobuf::Message* msg) {
   google::protobuf::io::CodedInputStream cis(buf, bufLen);
-  cis.SetRecursionLimit(1000);
+  cis.SetRecursionLimit(2000);
   return msg->ParseFromCodedStream(&cis);
 }
 

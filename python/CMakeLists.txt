@@ -69,10 +69,13 @@ endif()
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
   option(PYARROW_BUILD_FLIGHT "Build the PyArrow Flight integration" OFF)
+  option(PYARROW_BUILD_SUBSTRAIT "Build the PyArrow Substrait integration" OFF)
   option(PYARROW_BUILD_DATASET "Build the PyArrow Dataset integration" OFF)
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
   option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
+  option(PYARROW_BUILD_PARQUET_ENCRYPTION
+         "Build the PyArrow Parquet encryption integration" OFF)
   option(PYARROW_BOOST_USE_SHARED
          "Rely on boost shared libraries on linking static parquet" ON)
   option(PYARROW_BUILD_PLASMA "Build the PyArrow Plasma integration" OFF)
@@ -223,6 +226,10 @@ include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
 
 if(PYARROW_BUILD_FLIGHT)
   set(ARROW_FLIGHT TRUE)
+endif()
+
+if(PYARROW_BUILD_SUBSTRAIT)
+  set(ARROW_SUBSTRAIT TRUE)
 endif()
 
 # Arrow
@@ -397,6 +404,7 @@ set(CYTHON_EXTENSIONS
     lib
     _compute
     _csv
+    _exec_plan
     _feather
     _fs
     _hdfsio
@@ -476,6 +484,9 @@ if(PYARROW_BUILD_PARQUET)
     set(PARQUET_LINK_LIBS parquet_static thrift_static boost_regex_static)
   endif()
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet)
+  if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet_encryption)
+  endif()
   if(PYARROW_BUILD_DATASET)
     set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_parquet)
   endif()
@@ -527,6 +538,20 @@ if(PYARROW_BUILD_FLIGHT)
 
   set(FLIGHT_LINK_LIBS arrow_flight_shared arrow_python_flight_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
+endif()
+
+# Engine
+if(PYARROW_BUILD_SUBSTRAIT)
+  find_package(ArrowSubstrait REQUIRED)
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(ARROW_SUBSTRAIT_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    if(MSVC)
+      bundle_arrow_import_lib(ARROW_SUBSTRAIT_IMPORT_LIB)
+    endif()
+  endif()
+
+  set(SUBSTRAIT_LINK_LIBS arrow_substrait_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _substrait)
 endif()
 
 # Gandiva
@@ -619,8 +644,13 @@ if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(_flight PRIVATE ${FLIGHT_LINK_LIBS})
 endif()
 
+if(PYARROW_BUILD_SUBSTRAIT)
+  target_link_libraries(_substrait PRIVATE ${SUBSTRAIT_LINK_LIBS})
+endif()
+
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
+  target_link_libraries(_exec_plan PRIVATE ${DATASET_LINK_LIBS})
   if(PYARROW_BUILD_ORC)
     target_link_libraries(_dataset_orc PRIVATE ${DATASET_LINK_LIBS})
   endif()
@@ -635,6 +665,9 @@ endif()
 
 if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
+  if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+    target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS})
+  endif()
 endif()
 
 if(PYARROW_BUILD_PLASMA)

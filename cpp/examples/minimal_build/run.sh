@@ -45,4 +45,4 @@ echo "== Running example project"
 echo "=="
 echo
 
-${EXAMPLE_BUILD_DIR}/arrow_example
+${EXAMPLE_BUILD_DIR}/arrow-example

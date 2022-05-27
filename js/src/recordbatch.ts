@@ -162,7 +162,7 @@ export class RecordBatch<T extends TypeMap = any> {
      * Iterator for rows in this RecordBatch.
      */
     public [Symbol.iterator]() {
-        return iteratorVisitor.visit(new Vector([this.data]));
+        return iteratorVisitor.visit(new Vector([this.data])) as IterableIterator<Struct<T>['TValue']>;
     }
 
     /**

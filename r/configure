@@ -83,7 +83,8 @@ else
   if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
     # Set the search paths and compile flags
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-    PKGCONFIG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
+    PKGCONFIG_LIBS=`pkg-config --libs-only-l --silence-errors ${PKG_CONFIG_NAME}`
+    PKGCONFIG_LIBS="${PKGCONFIG_LIBS} `pkg-config --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`"
     PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
   fi
 
@@ -182,7 +183,8 @@ else
 
         # Use pkg-config to do static linking of libarrow's dependencies
         if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ] || [ "$ARROW_DEPENDENCY_SOURCE" = "SYSTEM" ]; then
-          PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-l --libs-only-other --static  --silence-errors ${PKG_CONFIG_NAME}`"
+          PKG_LIBS="`PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-l --static  --silence-errors ${PKG_CONFIG_NAME}`"
+          PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-other --static  --silence-errors ${PKG_CONFIG_NAME}`"
         fi
 
         # When using brew's openssl it is not bundled and it is not on the system
@@ -224,7 +226,6 @@ TEST_CMD="${CXX11} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
 if [ $? -eq 0 ]; then
-  PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW"
   # Check for features
   LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
   ARROW_OPTS_CMAKE="$LIB_DIR/cmake/arrow/ArrowOptions.cmake"
@@ -242,6 +243,14 @@ if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
     PKG_LIBS="-larrow_dataset $PKG_LIBS"
     # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
+  fi
+  # Check for Arrow Substrait subcomponent
+  grep -i 'set(ARROW_SUBSTRAIT "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_SUBSTRAIT"
+    PKG_LIBS="-larrow_substrait $PKG_LIBS"
+    # NOTE: arrow-substrait is assumed to have the same -L flag as arrow
     # so there is no need to add its location to PKG_DIRS
   fi
   # Check for S3
@@ -269,13 +278,8 @@ else
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""
-  if [ "$UNAME" != "SunOS" ] && [ "$TEST_R_WITHOUT_LIBARROW" != "TRUE" ]; then
-    # We should build fine on Solaris, but because we don't have CI for it,
-    # allow the build to proceed with most R package features disabled.
-    # But on every other platforom stop here if libarrow was not found.
-    # (also check an env var so that we can test this build configuration)
-    exit 1
-  fi
+  exit 1
+
 fi
 
 # Write to Makevars

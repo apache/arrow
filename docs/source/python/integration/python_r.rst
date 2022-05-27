@@ -227,9 +227,6 @@ Our ``addthree.R`` will thus have both the ``addthree_cdata`` and the
     library(arrow)
 
     addthree_cdata <- function(array_ptr_s, schema_ptr_s) {
-        array_ptr <- as.numeric(array_ptr_s)
-        schema_ptr <- as.numeric(schema_ptr_s)
-
         a <- Array$import_from_c(array_ptr, schema_ptr)
 
         return(addthree(a))
@@ -256,7 +253,6 @@ Our ``addthree.py`` will thus become:
     r_source = robjects.r["source"]
     r_source("addthree.R")
     addthree_cdata = robjects.r["addthree_cdata"]
-    as_r_numeric = robjects.r["as.numeric"]
 
     # Create the pyarrow array we want to pass to R
     import pyarrow
@@ -288,8 +284,7 @@ Our ``addthree.py`` will thus become:
         # arrow Array built from R as the return value of addthree.
         # To make it available as a Python pyarrow array we need to export
         # it as a C Data structure invoking the Array$export_to_c R method
-        r_result_array["export_to_c"](as_r_numeric(str(c_array_ptr)),
-                                      as_r_numeric(str(c_schema_ptr)))
+        r_result_array["export_to_c"](str(c_array_ptr), str(c_schema_ptr))
 
         # Once the returned array is exported to a C Data infrastructure
         # we can import it back into pyarrow using Array._import_from_c

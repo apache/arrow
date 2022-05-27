@@ -105,3 +105,4 @@ For example::
 
 .. seealso::
    :doc:`API reference for error reporting <api/support>`
+

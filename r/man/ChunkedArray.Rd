@@ -55,7 +55,6 @@ within the array's internal data. This can be an expensive check, potentially \c
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Pass items into chunked_array as separate objects to create chunks
 class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
 class_scores$num_chunks
@@ -74,7 +73,11 @@ list_scores$num_chunks
 # When constructing a ChunkedArray, the first chunk is used to infer type.
 doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
 doubles$type
-\dontshow{\}) # examplesIf}
+
+# Concatenating chunked arrays returns a new chunked array containing all chunks
+a <- chunked_array(c(1, 2), 3)
+b <- chunked_array(c(4, 5), 6)
+c(a, b)
 }
 \seealso{
 \link{Array}

@@ -802,17 +802,19 @@ namespace garrow {
     arrow::Result<int64_t> Read(int64_t n_bytes, void *out) override {
       std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
-      auto n_read_bytes = g_input_stream_read(input_stream_,
-                                              out,
-                                              n_bytes,
-                                              NULL,
-                                              &error);
-      if (n_read_bytes == -1) {
+      gsize n_read_bytes = 0;
+      auto success = g_input_stream_read_all(input_stream_,
+                                             out,
+                                             n_bytes,
+                                             &n_read_bytes,
+                                             NULL,
+                                             &error);
+      if (success) {
+        return n_read_bytes;
+      } else {
         return garrow_error_to_status(error,
                                       arrow::StatusCode::IOError,
                                       "[gio-input-stream][read]");
-      } else {
-        return n_read_bytes;
       }
     }
 
@@ -833,20 +835,22 @@ namespace garrow {
 
       std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
-      auto n_read_bytes = g_input_stream_read(input_stream_,
-                                              buffer->mutable_data(),
-                                              n_bytes,
-                                              NULL,
-                                              &error);
-      if (n_read_bytes == -1) {
-        return garrow_error_to_status(error,
-                                      arrow::StatusCode::IOError,
-                                      "[gio-input-stream][read][buffer]");
-      } else {
-        if (n_read_bytes < n_bytes) {
+      gsize n_read_bytes = 0;
+      auto success = g_input_stream_read_all(input_stream_,
+                                             buffer->mutable_data(),
+                                             n_bytes,
+                                             &n_read_bytes,
+                                             NULL,
+                                             &error);
+      if (success) {
+        if (n_read_bytes < static_cast<gsize>(n_bytes)) {
           RETURN_NOT_OK(buffer->Resize(n_read_bytes));
         }
         return std::move(buffer);
+      } else {
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][read][buffer]");
       }
     }
 

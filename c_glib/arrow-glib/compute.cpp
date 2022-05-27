@@ -5269,10 +5269,11 @@ GArrowRoundOptions *
 garrow_round_options_new_raw(
   const arrow::compute::RoundOptions *arrow_options)
 {
-  auto options = g_object_new(GARROW_TYPE_ROUND_OPTIONS,
-                              "n-digits", arrow_options->ndigits,
-                              "mode", arrow_options->round_mode,
-                              NULL);
+  auto options = g_object_new(
+    GARROW_TYPE_ROUND_OPTIONS,
+    "n-digits", arrow_options->ndigits,
+    "mode", static_cast<GArrowRoundMode>(arrow_options->round_mode),
+    NULL);
   return GARROW_ROUND_OPTIONS(options);
 }
 
@@ -5294,10 +5295,11 @@ garrow_round_to_multiple_options_new_raw(
       arrow_copied_options.get());
   auto multiple =
     garrow_scalar_new_raw(&(arrow_copied_round_to_multiple_options->multiple));
-  auto options = g_object_new(GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS,
-                              "multiple", multiple,
-                              "mode", arrow_options->round_mode,
-                              NULL);
+  auto options =
+    g_object_new(GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS,
+                 "multiple", multiple,
+                 "mode", static_cast<GArrowRoundMode>(arrow_options->round_mode),
+                 NULL);
   g_object_unref(multiple);
   return GARROW_ROUND_TO_MULTIPLE_OPTIONS(options);
 }

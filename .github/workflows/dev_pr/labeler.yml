@@ -33,9 +33,6 @@ lang-java:
 lang-js:
   - js/**/*
 
-lang-julia:
-  - julia/**/*
-
 lang-matlab:
   - matlab/**/*
 

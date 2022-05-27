@@ -91,8 +91,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
 }
 
 arrow::Status DoHashJoin() {
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
+  cp::ExecContext exec_context;
 
   arrow::dataset::internal::Initialize();
 

@@ -35,19 +35,18 @@ namespace gandiva {
     AddTrace(__VA_ARGS__); \
   }
 
-LLVMGenerator::LLVMGenerator() : enable_ir_traces_(false) {}
+LLVMGenerator::LLVMGenerator(bool cached) : cached_(cached), enable_ir_traces_(false) {}
 
-Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
+Status LLVMGenerator::Make(std::shared_ptr<Configuration> config, bool cached,
                            std::unique_ptr<LLVMGenerator>* llvm_generator) {
-  std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator());
+  std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator(cached));
 
-  ARROW_RETURN_NOT_OK(Engine::Make(config, &(llvmgen_obj->engine_)));
+  ARROW_RETURN_NOT_OK(Engine::Make(config, cached, &(llvmgen_obj->engine_)));
   *llvm_generator = std::move(llvmgen_obj);
 
   return Status::OK();
 }
 
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
 LLVMGenerator::GetCache() {
   static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
@@ -60,7 +59,6 @@ LLVMGenerator::GetCache() {
 void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   engine_->SetLLVMObjectCache(object_cache);
 }
-#endif
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
@@ -70,12 +68,15 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
   // Generate the IR function for the decomposed expression.
   std::unique_ptr<CompiledExpr> compiled_expr(new CompiledExpr(value_validity, output));
-  llvm::Function* ir_function = nullptr;
-  ARROW_RETURN_NOT_OK(CodeGenExprValue(value_validity->value_expr(),
-                                       annotator_.buffer_count(), output, idx,
-                                       &ir_function, selection_vector_mode_));
-  compiled_expr->SetIRFunction(selection_vector_mode_, ir_function);
-
+  std::string fn_name = "expr_" + std::to_string(idx) + "_" +
+                        std::to_string(static_cast<int>(selection_vector_mode_));
+  if (!cached_) {
+    ARROW_RETURN_NOT_OK(engine_->LoadFunctionIRs());
+    ARROW_RETURN_NOT_OK(CodeGenExprValue(value_validity->value_expr(),
+                                         annotator_.buffer_count(), output, idx, fn_name,
+                                         selection_vector_mode_));
+  }
+  compiled_expr->SetFunctionName(selection_vector_mode_, fn_name);
   compiled_exprs_.push_back(std::move(compiled_expr));
   return Status::OK();
 }
@@ -95,8 +96,8 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode
 
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
-    auto ir_fn = compiled_expr->GetIRFunction(mode);
-    auto jit_fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_fn));
+    auto fn_name = compiled_expr->GetFunctionName(mode);
+    auto jit_fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(fn_name));
     compiled_expr->SetJITFunction(selection_vector_mode_, jit_fn);
   }
 
@@ -266,7 +267,7 @@ llvm::Value* LLVMGenerator::GetLocalBitMapReference(llvm::Value* arg_bitmaps, in
 // }
 Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
                                        FieldDescriptorPtr output, int suffix_idx,
-                                       llvm::Function** fn,
+                                       std::string& fn_name,
                                        SelectionVector::Mode selection_vector_mode) {
   llvm::IRBuilder<>* builder = ir_builder();
   // Create fn prototype :
@@ -294,15 +295,13 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
       llvm::FunctionType::get(types()->i32_type(), arguments, false /*isVarArg*/);
 
   // Create fn
-  std::string func_name = "expr_" + std::to_string(suffix_idx) + "_" +
-                          std::to_string(static_cast<int>(selection_vector_mode));
-  engine_->AddFunctionToCompile(func_name);
-  *fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, func_name,
-                               module());
-  ARROW_RETURN_IF((*fn == nullptr), Status::CodeGenError("Error creating function."));
+  engine_->AddFunctionToCompile(fn_name);
+  llvm::Function* fn = llvm::Function::Create(
+      prototype, llvm::GlobalValue::ExternalLinkage, fn_name, module());
+  ARROW_RETURN_IF((fn == nullptr), Status::CodeGenError("Error creating function."));
 
   // Name the arguments
-  llvm::Function::arg_iterator args = (*fn)->arg_begin();
+  llvm::Function::arg_iterator args = (fn)->arg_begin();
   llvm::Value* arg_addrs = &*args;
   arg_addrs->setName("inputs_addr");
   ++args;
@@ -324,9 +323,9 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   llvm::Value* arg_nrecords = &*args;
   arg_nrecords->setName("nrecords");
 
-  llvm::BasicBlock* loop_entry = llvm::BasicBlock::Create(*context(), "entry", *fn);
-  llvm::BasicBlock* loop_body = llvm::BasicBlock::Create(*context(), "loop", *fn);
-  llvm::BasicBlock* loop_exit = llvm::BasicBlock::Create(*context(), "exit", *fn);
+  llvm::BasicBlock* loop_entry = llvm::BasicBlock::Create(*context(), "entry", fn);
+  llvm::BasicBlock* loop_body = llvm::BasicBlock::Create(*context(), "loop", fn);
+  llvm::BasicBlock* loop_exit = llvm::BasicBlock::Create(*context(), "exit", fn);
 
   // Add reference to output vector (in entry block)
   builder->SetInsertPoint(loop_entry);
@@ -359,7 +358,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   }
 
   // The visitor can add code to both the entry/loop blocks.
-  Visitor visitor(this, *fn, loop_entry, arg_addrs, arg_local_bitmaps, arg_holder_ptrs,
+  Visitor visitor(this, fn, loop_entry, arg_addrs, arg_local_bitmaps, arg_holder_ptrs,
                   slice_offsets, arg_context_ptr, position_var);
   value_expr->Accept(visitor);
   LValuePtr output_value = visitor.result();

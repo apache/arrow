@@ -187,7 +187,10 @@ func createServerBearerTokenStreamInterceptor(validator BasicAuthValidator) grpc
 			if auth[0] == basicAuthPrefix {
 				val, err := base64.RawStdEncoding.DecodeString(auth[1])
 				if err != nil {
-					return status.Errorf(codes.Unauthenticated, "invalid basic auth encoding: %s", err)
+					val, err = base64.StdEncoding.DecodeString(auth[1])
+					if err != nil {
+						return status.Errorf(codes.Unauthenticated, "invalid basic auth encoding: %s", err)
+					}
 				}
 
 				creds := strings.SplitN(string(val), ":", 2)

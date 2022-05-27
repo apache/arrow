@@ -24,9 +24,7 @@
 #include "arrow/filesystem/localfs.h"
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
-
 #include "jni/dataset/jni_util.h"
-
 #include "org_apache_arrow_dataset_file_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_NativeMemoryPool.h"
@@ -37,14 +35,8 @@ jclass illegal_access_exception_class;
 jclass illegal_argument_exception_class;
 jclass runtime_exception_class;
 
-jclass record_batch_handle_class;
-jclass record_batch_handle_field_class;
-jclass record_batch_handle_buffer_class;
 jclass java_reservation_listener_class;
 
-jmethodID record_batch_handle_constructor;
-jmethodID record_batch_handle_field_constructor;
-jmethodID record_batch_handle_buffer_constructor;
 jmethodID reserve_memory_method;
 jmethodID unreserve_memory_method;
 
@@ -100,11 +92,7 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
     env->CallObjectMethod(java_reservation_listener_, reserve_memory_method, size);
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
-      return arrow::Status::Invalid("Error calling Java side reservation listener");
-    }
+    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
     return arrow::Status::OK();
   }
 
@@ -114,11 +102,7 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
     env->CallObjectMethod(java_reservation_listener_, unreserve_memory_method, size);
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
-      return arrow::Status::Invalid("Error calling Java side reservation listener");
-    }
+    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
     return arrow::Status::OK();
   }
 
@@ -206,33 +190,10 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   runtime_exception_class =
       CreateGlobalClassReference(env, "Ljava/lang/RuntimeException;");
 
-  record_batch_handle_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "dataset/jni/NativeRecordBatchHandle;");
-  record_batch_handle_field_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "dataset/jni/NativeRecordBatchHandle$Field;");
-  record_batch_handle_buffer_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "dataset/jni/NativeRecordBatchHandle$Buffer;");
   java_reservation_listener_class =
       CreateGlobalClassReference(env,
                                  "Lorg/apache/arrow/"
                                  "dataset/jni/ReservationListener;");
-
-  record_batch_handle_constructor =
-      JniGetOrThrow(GetMethodID(env, record_batch_handle_class, "<init>",
-                                "(J[Lorg/apache/arrow/dataset/"
-                                "jni/NativeRecordBatchHandle$Field;"
-                                "[Lorg/apache/arrow/dataset/"
-                                "jni/NativeRecordBatchHandle$Buffer;)V"));
-  record_batch_handle_field_constructor =
-      JniGetOrThrow(GetMethodID(env, record_batch_handle_field_class, "<init>", "(JJ)V"));
-  record_batch_handle_buffer_constructor = JniGetOrThrow(
-      GetMethodID(env, record_batch_handle_buffer_class, "<init>", "(JJJJ)V"));
   reserve_memory_method =
       JniGetOrThrow(GetMethodID(env, java_reservation_listener_class, "reserve", "(J)V"));
   unreserve_memory_method = JniGetOrThrow(
@@ -250,9 +211,6 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(illegal_access_exception_class);
   env->DeleteGlobalRef(illegal_argument_exception_class);
   env->DeleteGlobalRef(runtime_exception_class);
-  env->DeleteGlobalRef(record_batch_handle_class);
-  env->DeleteGlobalRef(record_batch_handle_field_class);
-  env->DeleteGlobalRef(record_batch_handle_buffer_class);
   env->DeleteGlobalRef(java_reservation_listener_class);
 
   default_memory_pool_id = -1L;
@@ -458,10 +416,10 @@ Java_org_apache_arrow_dataset_jni_JniWrapper_getSchemaFromScanner(JNIEnv* env, j
 /*
  * Class:     org_apache_arrow_dataset_jni_JniWrapper
  * Method:    nextRecordBatch
- * Signature: (J)Lorg/apache/arrow/dataset/jni/NativeRecordBatchHandle;
+ * Signature: (JJ)Z
  */
-JNIEXPORT jobject JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecordBatch(
-    JNIEnv* env, jobject, jlong scanner_id) {
+JNIEXPORT jboolean JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecordBatch(
+    JNIEnv* env, jobject, jlong scanner_id, jlong struct_array) {
   JNI_METHOD_START
   std::shared_ptr<DisposableScannerAdaptor> scanner_adaptor =
       RetrieveNativeInstance<DisposableScannerAdaptor>(scanner_id);
@@ -469,14 +427,10 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecor
   std::shared_ptr<arrow::RecordBatch> record_batch =
       JniGetOrThrow(scanner_adaptor->Next());
   if (record_batch == nullptr) {
-    return nullptr;  // stream ended
+    return false;  // stream ended
   }
-  std::shared_ptr<arrow::Schema> schema = record_batch->schema();
-  jobjectArray field_array =
-      env->NewObjectArray(schema->num_fields(), record_batch_handle_field_class, nullptr);
-
-  std::vector<std::shared_ptr<arrow::Buffer>> buffers;
-  for (int i = 0; i < schema->num_fields(); ++i) {
+  std::vector<std::shared_ptr<arrow::Array>> offset_zeroed_arrays;
+  for (int i = 0; i < record_batch->num_columns(); ++i) {
     // TODO: If the array has an offset then we need to de-offset the array
     // in order for it to be properly consumed on the Java end.
     // This forces a copy, it would be nice to avoid this if Java
@@ -485,44 +439,22 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecor
     //
     // Generally a non-zero offset will occur whenever the scanner batch
     // size is smaller than the batch size of the underlying files.
-    auto column = record_batch->column(i);
-    if (column->offset() != 0) {
-      column = JniGetOrThrow(arrow::Concatenate({column}));
+    std::shared_ptr<arrow::Array> array = record_batch->column(i);
+    if (array->offset() == 0) {
+      offset_zeroed_arrays.push_back(array);
+      continue;
     }
-    auto dataArray = column->data();
-    jobject field = env->NewObject(record_batch_handle_field_class,
-                                   record_batch_handle_field_constructor,
-                                   column->length(), column->null_count());
-    env->SetObjectArrayElement(field_array, i, field);
-
-    for (auto& buffer : dataArray->buffers) {
-      buffers.push_back(buffer);
-    }
+    std::shared_ptr<arrow::Array> offset_zeroed =
+        JniGetOrThrow(arrow::Concatenate({array}));
+    offset_zeroed_arrays.push_back(offset_zeroed);
   }
 
-  jobjectArray buffer_array =
-      env->NewObjectArray(buffers.size(), record_batch_handle_buffer_class, nullptr);
-
-  for (size_t j = 0; j < buffers.size(); ++j) {
-    auto buffer = buffers[j];
-    uint8_t* data = nullptr;
-    int64_t size = 0;
-    int64_t capacity = 0;
-    if (buffer != nullptr) {
-      data = (uint8_t*)buffer->data();
-      size = buffer->size();
-      capacity = buffer->capacity();
-    }
-    jobject buffer_handle = env->NewObject(record_batch_handle_buffer_class,
-                                           record_batch_handle_buffer_constructor,
-                                           CreateNativeRef(buffer), data, size, capacity);
-    env->SetObjectArrayElement(buffer_array, j, buffer_handle);
-  }
-
-  jobject ret = env->NewObject(record_batch_handle_class, record_batch_handle_constructor,
-                               record_batch->num_rows(), field_array, buffer_array);
-  return ret;
-  JNI_METHOD_END(nullptr)
+  std::shared_ptr<arrow::RecordBatch> offset_zeroed_batch = arrow::RecordBatch::Make(
+      record_batch->schema(), record_batch->num_rows(), offset_zeroed_arrays);
+  JniAssertOkOrThrow(
+      arrow::dataset::jni::ExportRecordBatch(env, offset_zeroed_batch, struct_array));
+  return true;
+  JNI_METHOD_END(false)
 }
 
 /*

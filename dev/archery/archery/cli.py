@@ -303,15 +303,22 @@ def lint(ctx, src, fix, iwyu_all, **checks):
         sys.exit(1)
 
 
+def _flatten_numpydoc_rules(rules):
+    flattened = []
+    for rule in rules:
+        flattened.extend(filter(None, rule.split(',')))
+    return flattened
+
+
 @archery.command(short_help="Lint python docstring with NumpyDoc")
 @click.argument('symbols', nargs=-1)
 @click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 @click.option("--allow-rule", "-a", multiple=True,
-              help="Allow only these rules")
+              help="Allow only these rules (can be comma-separated)")
 @click.option("--disallow-rule", "-d", multiple=True,
-              help="Disallow these rules")
+              help="Disallow these rules (can be comma-separated)")
 def numpydoc(src, symbols, allow_rule, disallow_rule):
     """
     Pass list of modules or symbols as arguments to restrict the validation.
@@ -326,8 +333,9 @@ def numpydoc(src, symbols, allow_rule, disallow_rule):
     """
     disallow_rule = disallow_rule or {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
-        results = python_numpydoc(symbols, allow_rules=allow_rule,
-                                  disallow_rules=disallow_rule)
+        results = python_numpydoc(
+            symbols, allow_rules=_flatten_numpydoc_rules(allow_rule),
+            disallow_rules=_flatten_numpydoc_rules(disallow_rule))
         for result in results:
             result.ok()
     except LintValidationException:

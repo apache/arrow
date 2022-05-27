@@ -151,7 +151,17 @@ def write_feather(df, dest, compression=None, compression_level=None,
             df = df.to_dense()
 
     if _pandas_api.is_data_frame(df):
-        table = Table.from_pandas(df, preserve_index=False)
+        # Feather v1 creates a new column in the resultant Table to
+        # store index information if index type is not RangeIndex
+
+        if version == 1:
+            preserve_index = False
+        elif version == 2:
+            preserve_index = None
+        else:
+            raise ValueError("Version value should either be 1 or 2")
+
+        table = Table.from_pandas(df, preserve_index=preserve_index)
 
         if version == 1:
             # Version 1 does not chunking

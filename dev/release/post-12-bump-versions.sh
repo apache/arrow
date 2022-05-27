@@ -20,6 +20,7 @@
 set -ue
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "${SOURCE_DIR}/git-vars.sh"
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <next_version>"
@@ -27,7 +28,7 @@ if [ "$#" -ne 2 ]; then
 fi
 
 : ${BUMP_DEFAULT:=1}
-: ${BUMP_UPDATE_LOCAL_MASTER:=${BUMP_DEFAULT}}
+: ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH:=${BUMP_DEFAULT}}
 : ${BUMP_VERSION_POST_TAG:=${BUMP_DEFAULT}}
 : ${BUMP_DEB_PACKAGE_NAMES:=${BUMP_DEFAULT}}
 : ${BUMP_LINUX_PACKAGES:=${BUMP_DEFAULT}}
@@ -40,17 +41,17 @@ version=$1
 next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
 
-if [ ${BUMP_UPDATE_LOCAL_MASTER} -gt 0 ]; then
-  echo "Updating local master"
+if [ ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH} -gt 0 ]; then
+  echo "Updating local default branch"
   git fetch --all --prune --tags --force -j$(nproc)
-  git checkout master
-  git rebase apache/master
+  git checkout ${DEFAULT_BRANCH}
+  git rebase apache/${DEFAULT_BRANCH}
 fi
 
 if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
   echo "Updating versions for ${next_version_snapshot}"
   update_versions "${version}" "${next_version}" "snapshot"
-  git commit -m "[Release] Update versions for ${next_version_snapshot}"
+  git commit -m "MINOR: [Release] Update versions for ${next_version_snapshot}"
 fi
 
 if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
@@ -84,7 +85,7 @@ if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
     rm -f rat_exclude_files.txt.bak
     git add rat_exclude_files.txt
-    git commit -m "[Release] Update .deb package names for $next_version"
+    git commit -m "MINOR: [Release] Update .deb package names for $next_version"
     cd -
   fi
 fi
@@ -97,18 +98,18 @@ if [ ${BUMP_LINUX_PACKAGES} -gt 0 ]; then
     ARROW_RELEASE_TIME="$(git log -n1 --format=%aI apache-arrow-${version})" \
     ARROW_VERSION=${version}
   git add */debian*/changelog */yum/*.spec.in
-  git commit -m "[Release] Update .deb/.rpm changelogs for $version"
+  git commit -m "MINOR: [Release] Update .deb/.rpm changelogs for $version"
   cd -
 fi
 
 if [ ${BUMP_PUSH} -gt 0 ]; then
-  echo "Pushing changes to the master in apache/arrow"
-  git push apache master
+  echo "Pushing changes to the default branch in apache/arrow"
+  git push apache ${DEFAULT_BRANCH}
 fi
 
 if [ ${BUMP_TAG} -gt 0 ]; then
   dev_tag=apache-arrow-${next_version}.dev
   echo "Tagging ${dev_tag}"
-  git tag ${dev_tag} master
+  git tag ${dev_tag} ${DEFAULT_BRANCH}
   git push apache ${dev_tag}
 fi

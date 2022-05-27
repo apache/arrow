@@ -24,19 +24,36 @@
 #'
 #' @description A `Scalar` holds a single value of an Arrow type.
 #'
+#' @section Factory:
+#' The `Scalar$create()` factory method instantiates a `Scalar` and takes the following arguments:
+#' * `x`: an R vector, list, or `data.frame`
+#' * `type`: an optional [data type][data-type] for `x`. If omitted, the type will be inferred from the data.
+#' @section Usage:
+#'
+#' ```
+#' a <- Scalar$create(x)
+#' length(a)
+#'
+#' print(a)
+#' a == a
+#' ```
+#'
 #' @section Methods:
-#'   `$ToString()`: convert to a string
-#'   `$as_vector()`: convert to an R vector
-#'   `$as_array()`: convert to an Arrow `Array`
-#'   `$Equals(other)`: is this Scalar equal to `other`
-#'   `$ApproxEquals(other)`: is this Scalar approximately equal to `other`
-#'   `$is_valid`: is this Scalar valid
-#'   `$null_count`: number of invalid values - 1 or 0
-#'   `$type`: Scalar type
+#'
+#' - `$ToString()`: convert to a string
+#' - `$as_vector()`: convert to an R vector
+#' - `$as_array()`: convert to an Arrow `Array`
+#' - `$Equals(other)`: is this Scalar equal to `other`
+#' - `$ApproxEquals(other)`: is this Scalar approximately equal to `other`
+#' - `$is_valid`: is this Scalar valid
+#' - `$null_count`: number of invalid values - 1 or 0
+#' - `$type`: Scalar type
+#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: cast value
+#'     to a different type
 #'
 #' @name Scalar
 #' @rdname Scalar
-#' @examplesIf arrow_available()
+#' @examples
 #' Scalar$create(pi)
 #' Scalar$create(404)
 #' # If you pass a vector into Scalar$create, you get a list containing your items
@@ -53,7 +70,6 @@
 #' @export
 Scalar <- R6Class("Scalar",
   inherit = ArrowDatum,
-  # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
     type_id = function() Scalar__type(self)$id,

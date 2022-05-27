@@ -146,6 +146,10 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 
   int64_t col_length = column_metadata->total_compressed_size();
   int64_t col_end;
+  if (col_start < 0 || col_length < 0) {
+    throw ParquetException("Invalid column metadata (corrupt file?)");
+  }
+
   if (AddWithOverflow(col_start, col_length, &col_end) || col_end > source_size) {
     throw ParquetException("Invalid column metadata (corrupt file?)");
   }

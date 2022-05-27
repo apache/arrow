@@ -24,10 +24,11 @@ from cython.operator cimport dereference as deref
 import collections
 import os
 import warnings
+from libcpp cimport bool
 
 import pyarrow as pa
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowTypeError, frombytes, tobytes
+from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pc
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
@@ -148,10 +149,6 @@ cdef class Dataset(_Weakrefable):
     can accelerate queries that only touch some partitions (files).
     """
 
-    cdef:
-        shared_ptr[CDataset] wrapped
-        CDataset* dataset
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -195,6 +192,11 @@ cdef class Dataset(_Weakrefable):
         The copy will view the same Fragments. If the new schema is not
         compatible with the original dataset's schema then an error will
         be raised.
+
+        Parameters
+        ----------
+        schema : Schema
+            The new dataset schema.
         """
         cdef shared_ptr[CDataset] copy = GetResultValue(
             self.dataset.ReplaceSchema(pyarrow_unwrap_schema(schema)))
@@ -229,48 +231,19 @@ cdef class Dataset(_Weakrefable):
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
     def scanner(self, **kwargs):
-        """Builds a scan operation against the dataset.
+        """
+        Build a scan operation against the dataset.
 
         Data is not loaded immediately. Instead, this produces a Scanner,
         which exposes further operations (e.g. loading all data as a
         table, counting rows).
 
+        See the `Scanner.from_dataset` method for further information.
+
         Parameters
         ----------
-        columns : list of str, default None
-            The columns to project. This can be a list of column names to
-            include (order and duplicates will be preserved), or a dictionary
-            with {new_column_name: expression} values for more advanced
-            projections.
-            The columns will be passed down to Datasets and corresponding data
-            fragments to avoid loading, copying, and deserializing columns
-            that will not be required further down the compute chain.
-            By default all of the available columns are projected. Raises
-            an exception if any of the referenced column names does not exist
-            in the dataset's Schema.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-            If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the data
-            source, e.g. Parquet statistics. Otherwise filters the loaded
-            RecordBatches before yielding them.
-        batch_size : int, default 1M
-            The maximum row count for scanned record batches. If scanned
-            record batches are overflowing memory then this method can be
-            called to reduce their size.
-        use_threads : bool, default True
-            If enabled, then maximum parallelism will be used determined by
-            the number of available CPU cores.
-        use_async : bool, default True
-            This flag is deprecated and is being kept for this release for
-            backwards compatibility.  It will be removed in the next
-            release.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
-        fragment_scan_options : FragmentScanOptions, default None
-            Options specific to a particular scan and fragment type, which
-            can change between different scans of the same dataset.
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_dataset`.
 
         Returns
         -------
@@ -278,29 +251,60 @@ cdef class Dataset(_Weakrefable):
 
         Examples
         --------
+        >>> import pyarrow as pa
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
+        >>> 
+        >>> import pyarrow.parquet as pq
+        >>> pq.write_table(table, "dataset_scanner.parquet")
+
         >>> import pyarrow.dataset as ds
-        >>> dataset = ds.dataset("path/to/dataset")
+        >>> dataset = ds.dataset("dataset_scanner.parquet")
 
         Selecting a subset of the columns:
 
-        >>> dataset.scanner(columns=["A", "B"]).to_table()
+        >>> dataset.scanner(columns=["year", "n_legs"]).to_table()
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        ----
+        year: [[2020,2022,2021,2022,2019,2021]]
+        n_legs: [[2,2,4,4,5,100]]
 
         Projecting selected columns using an expression:
 
         >>> dataset.scanner(columns={
-        ...     "A_int": ds.field("A").cast("int64"),
+        ...     "n_legs_uint": ds.field("n_legs").cast("uint8"),
         ... }).to_table()
+        pyarrow.Table
+        n_legs_uint: uint8
+        ----
+        n_legs_uint: [[2,2,4,4,5,100]]
 
         Filtering rows while scanning:
 
-        >>> dataset.scanner(filter=ds.field("A") > 0).to_table()
+        >>> dataset.scanner(filter=ds.field("year") > 2020).to_table()
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        year: [[2022,2021,2022,2021]]
+        n_legs: [[2,4,4,100]]
+        animal: [["Parrot","Dog","Horse","Centipede"]]
         """
         return Scanner.from_dataset(self, **kwargs)
 
     def to_batches(self, **kwargs):
-        """Read the dataset as materialized record batches.
+        """
+        Read the dataset as materialized record batches.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_dataset`.
 
         Returns
         -------
@@ -309,45 +313,65 @@ cdef class Dataset(_Weakrefable):
         return self.scanner(**kwargs).to_batches()
 
     def to_table(self, **kwargs):
-        """Read the dataset to an arrow table.
+        """
+        Read the dataset to an Arrow table.
 
         Note that this method reads all the selected data from the dataset
         into memory.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_dataset`.
 
         Returns
         -------
-        Table
+        table : Table
         """
         return self.scanner(**kwargs).to_table()
 
     def take(self, object indices, **kwargs):
-        """Select rows of data by index.
+        """
+        Select rows of data by index.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        indices : Array or array-like
+            indices of rows to select in the dataset.
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
-        Table
+        table : Table
         """
         return self.scanner(**kwargs).take(indices)
 
     def head(self, int num_rows, **kwargs):
-        """Load the first N rows of the dataset.
+        """
+        Load the first N rows of the dataset.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        num_rows : int
+            The number of rows to load.
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
-        Table
+        table : Table
         """
         return self.scanner(**kwargs).head(num_rows)
 
     def count_rows(self, **kwargs):
-        """Count rows matching the scanner filter.
+        """
+        Count rows matching the scanner filter.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            See scanner() method for full parameter description.
 
         Returns
         -------
@@ -359,6 +383,54 @@ cdef class Dataset(_Weakrefable):
     def schema(self):
         """The common schema of the full Dataset"""
         return pyarrow_wrap_schema(self.dataset.schema())
+
+    def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
+             left_suffix=None, right_suffix=None, coalesce_keys=True,
+             use_threads=True):
+        """
+        Perform a join between this dataset and another one.
+
+        Result of the join will be a new dataset, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        right_dataset : dataset
+            The dataset to join to the current one, acting as the right dataset
+            in the join operation.
+        keys : str or list[str]
+            The columns from current dataset that should be used as keys
+            of the join operation left side.
+        right_keys : str or list[str], default None
+            The columns from the right_dataset that should be used as keys
+            on the join operation right side.
+            When ``None`` use the same key names as the left dataset.
+        join_type : str, default "left outer"
+            The kind of join that should be performed, one of
+            ("left semi", "right semi", "left anti", "right anti",
+            "inner", "left outer", "right outer", "full outer")
+        left_suffix : str, default None
+            Which suffix to add to right column names. This prevents confusion
+            when the columns in left and right datasets have colliding names.
+        right_suffix : str, default None
+            Which suffic to add to the left column names. This prevents confusion
+            when the columns in left and right datasets have colliding names.
+        coalesce_keys : bool, default True
+            If the duplicated keys should be omitted from one of the sides
+            in the join result.
+        use_threads : bool, default True
+            Whenever to use multithreading or not.
+
+        Returns
+        -------
+        InMemoryDataset
+        """
+        if right_keys is None:
+            right_keys = keys
+        return _pc()._exec_plan._perform_join(join_type, self, keys, right_dataset, right_keys,
+                                              left_suffix=left_suffix, right_suffix=right_suffix,
+                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
+                                              output_type=InMemoryDataset)
 
 
 cdef class InMemoryDataset(Dataset):
@@ -700,17 +772,44 @@ cdef class FileFormat(_Weakrefable):
         return self.wrapped
 
     def inspect(self, file, filesystem=None):
-        """Infer the schema of a file."""
-        c_source = _make_file_source(file, filesystem)
-        c_schema = GetResultValue(self.format.Inspect(c_source))
+        """
+        Infer the schema of a file.
+
+        Parameters
+        ----------
+        file : file-like object, path-like or str
+            The file or file path to infer a schema from.
+        filesystem : Filesystem, optional
+            If `filesystem` is given, `file` must be a string and specifies
+            the path of the file to read from the filesystem.
+
+        Returns
+        -------
+        schema : Schema
+            The schema inferred from the file
+        """
+        cdef:
+            CFileSource c_source = _make_file_source(file, filesystem)
+            CResult[shared_ptr[CSchema]] c_result
+        with nogil:
+            c_result = self.format.Inspect(c_source)
+        c_schema = GetResultValue(c_result)
         return pyarrow_wrap_schema(move(c_schema))
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None):
         """
-        Make a FileFragment of this FileFormat. The filter may not reference
-        fields absent from the provided schema. If no schema is provided then
-        one will be inferred.
+        Make a FileFragment from a given file.
+
+        Parameters
+        ----------
+        file : file-like object, path-like or str
+            The file or file path to make a fragment from.
+        filesystem : Filesystem, optional
+            If `filesystem` is given, `file` must be a string and specifies
+            the path of the file to read from the filesystem.
+        partition_expression : Expression
+            The filter expression.
         """
         if partition_expression is None:
             partition_expression = _true
@@ -772,6 +871,7 @@ cdef class Fragment(_Weakrefable):
             # corresponding subclasses of FileFragment
             'ipc': FileFragment,
             'csv': FileFragment,
+            'orc': FileFragment,
             'parquet': _get_parquet_symbol('ParquetFileFragment'),
         }
 
@@ -804,7 +904,8 @@ cdef class Fragment(_Weakrefable):
         return Expression.wrap(self.fragment.partition_expression())
 
     def scanner(self, Schema schema=None, **kwargs):
-        """Builds a scan operation against the dataset.
+        """
+        Build a scan operation against the fragment.
 
         Data is not loaded immediately. Instead, this produces a Scanner,
         which exposes further operations (e.g. loading all data as a
@@ -816,48 +917,25 @@ cdef class Fragment(_Weakrefable):
             Schema to use for scanning. This is used to unify a Fragment to
             it's Dataset's schema. If not specified this will use the
             Fragment's physical schema which might differ for each Fragment.
-        columns : list of str, default None
-            The columns to project. This can be a list of column names to
-            include (order and duplicates will be preserved), or a dictionary
-            with {new_column_name: expression} values for more advanced
-            projections.
-            The columns will be passed down to Datasets and corresponding data
-            fragments to avoid loading, copying, and deserializing columns
-            that will not be required further down the compute chain.
-            By default all of the available columns are projected. Raises
-            an exception if any of the referenced column names does not exist
-            in the dataset's Schema.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-            If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the data
-            source, e.g. Parquet statistics. Otherwise filters the loaded
-            RecordBatches before yielding them.
-        batch_size : int, default 1M
-            The maximum row count for scanned record batches. If scanned
-            record batches are overflowing memory then this method can be
-            called to reduce their size.
-        use_threads : bool, default True
-            If enabled, then maximum parallelism will be used determined by
-            the number of available CPU cores.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
-        fragment_scan_options : FragmentScanOptions, default None
-            Options specific to a particular scan and fragment type, which
-            can change between different scans of the same dataset.
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_fragment`.
 
         Returns
         -------
         scanner : Scanner
-
         """
         return Scanner.from_fragment(self, schema=schema, **kwargs)
 
     def to_batches(self, Schema schema=None, **kwargs):
-        """Read the fragment as materialized record batches.
+        """
+        Read the fragment as materialized record batches.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        schema : Schema, optional
+            Concrete schema to use for scanning.
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_fragment`.
 
         Returns
         -------
@@ -866,12 +944,18 @@ cdef class Fragment(_Weakrefable):
         return self.scanner(schema=schema, **kwargs).to_batches()
 
     def to_table(self, Schema schema=None, **kwargs):
-        """Convert this Fragment into a Table.
+        """
+        Convert this Fragment into a Table.
 
         Use this convenience utility with care. This will serially materialize
         the Scan result in memory before creating the Table.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        schema : Schema, optional
+            Concrete schema to use for scanning.
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_fragment`.
 
         Returns
         -------
@@ -880,9 +964,15 @@ cdef class Fragment(_Weakrefable):
         return self.scanner(schema=schema, **kwargs).to_table()
 
     def take(self, object indices, **kwargs):
-        """Select rows of data by index.
+        """
+        Select rows of data by index.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices of row to select in the dataset.
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_fragment`.
 
         Returns
         -------
@@ -891,9 +981,15 @@ cdef class Fragment(_Weakrefable):
         return self.scanner(**kwargs).take(indices)
 
     def head(self, int num_rows, **kwargs):
-        """Load the first N rows of the fragment.
+        """
+        Load the first N rows of the fragment.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        num_rows : int
+            The number of rows to load.
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_fragment`.
 
         Returns
         -------
@@ -902,9 +998,13 @@ cdef class Fragment(_Weakrefable):
         return self.scanner(**kwargs).head(num_rows)
 
     def count_rows(self, **kwargs):
-        """Count rows matching the scanner filter.
+        """
+        Count rows matching the scanner filter.
 
-        See scanner method parameters documentation.
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            Arguments for `Scanner.from_fragment`.
 
         Returns
         -------
@@ -1232,6 +1332,7 @@ cdef class Partitioning(_Weakrefable):
         classes = {
             'directory': DirectoryPartitioning,
             'hive': HivePartitioning,
+            'filename': FilenamePartitioning,
         }
 
         class_ = classes.get(type_name, None)
@@ -1299,8 +1400,44 @@ cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
 
     return c_dictionaries
 
+cdef class KeyValuePartitioning(Partitioning):
 
-cdef class DirectoryPartitioning(Partitioning):
+    cdef:
+        CKeyValuePartitioning* keyvalue_partitioning
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+    cdef init(self, const shared_ptr[CPartitioning]& sp):
+        Partitioning.init(self, sp)
+        self.keyvalue_partitioning = <CKeyValuePartitioning*> sp.get()
+        self.wrapped = sp
+        self.partitioning = sp.get()
+
+    @property
+    def dictionaries(self):
+        """
+        The unique values for each partition field, if available.
+
+        Those values are only available if the Partitioning object was
+        created through dataset discovery from a PartitioningFactory, or
+        if the dictionaries were manually specified in the constructor.
+        If no dictionary field is available, this returns an empty list.
+        """
+        cdef vector[shared_ptr[CArray]] c_arrays
+        c_arrays = self.keyvalue_partitioning.dictionaries()
+        res = []
+        for arr in c_arrays:
+            if arr.get() == nullptr:
+                # Partitioning object has not been created through
+                # inspected Factory
+                res.append(None)
+            else:
+                res.append(pyarrow_wrap_array(arr))
+        return res
+
+
+cdef class DirectoryPartitioning(KeyValuePartitioning):
     """
     A Partitioning based on a specified Schema.
 
@@ -1329,10 +1466,10 @@ cdef class DirectoryPartitioning(Partitioning):
     Examples
     --------
     >>> from pyarrow.dataset import DirectoryPartitioning
-    >>> partition = DirectoryPartitioning(
+    >>> partitioning = DirectoryPartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
     >>> print(partitioning.parse("/2009/11"))
-    ((year == 2009:int16) and (month == 11:int8))
+    ((year == 2009) and (month == 11))
     """
 
     cdef:
@@ -1353,7 +1490,7 @@ cdef class DirectoryPartitioning(Partitioning):
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
-        Partitioning.init(self, sp)
+        KeyValuePartitioning.init(self, sp)
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
@@ -1419,29 +1556,8 @@ cdef class DirectoryPartitioning(Partitioning):
         return PartitioningFactory.wrap(
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
-    @property
-    def dictionaries(self):
-        """
-        The unique values for each partition field, if available.
 
-        Those values are only available if the Partitioning object was
-        created through dataset discovery from a PartitioningFactory, or
-        if the dictionaries were manually specified in the constructor.
-        If not available, this returns None.
-        """
-        cdef vector[shared_ptr[CArray]] c_arrays
-        c_arrays = self.directory_partitioning.dictionaries()
-        res = []
-        for arr in c_arrays:
-            if arr.get() == nullptr:
-                # Partitioning object has not been created through
-                # inspected Factory
-                return None
-            res.append(pyarrow_wrap_array(arr))
-        return res
-
-
-cdef class HivePartitioning(Partitioning):
+cdef class HivePartitioning(KeyValuePartitioning):
     """
     A Partitioning for "/$key=$value/" nested directories as found in
     Apache Hive.
@@ -1480,7 +1596,7 @@ cdef class HivePartitioning(Partitioning):
     >>> partitioning = HivePartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
     >>> print(partitioning.parse("/year=2009/month=11"))
-    ((year == 2009:int16) and (month == 11:int8))
+    ((year == 2009) and (month == 11))
 
     """
 
@@ -1508,7 +1624,7 @@ cdef class HivePartitioning(Partitioning):
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
-        Partitioning.init(self, sp)
+        KeyValuePartitioning.init(self, sp)
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
@@ -1571,26 +1687,114 @@ cdef class HivePartitioning(Partitioning):
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))
 
-    @property
-    def dictionaries(self):
-        """
-        The unique values for each partition field, if available.
 
-        Those values are only available if the Partitioning object was
-        created through dataset discovery from a PartitioningFactory, or
-        if the dictionaries were manually specified in the constructor.
-        If not available, this returns None.
+cdef class FilenamePartitioning(KeyValuePartitioning):
+    """
+    A Partitioning based on a specified Schema.
+
+    The FilenamePartitioning expects one segment in the file name for each
+    field in the schema (all fields are required to be present) separated
+    by '_'. For example given schema<year:int16, month:int8> the name
+    ``"2009_11_"`` would be parsed to ("year" == 2009 and "month" == 11).
+
+    Parameters
+    ----------
+    schema : Schema
+        The schema that describes the partitions present in the file path.
+    dictionaries : dict[str, Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
+    segment_encoding : str, default "uri"
+        After splitting paths into segments, decode the segments. Valid
+        values are "uri" (URI-decode segments) and "none" (leave as-is).
+
+    Returns
+    -------
+    FilenamePartitioning
+
+    Examples
+    --------
+    >>> from pyarrow.dataset import FilenamePartitioning
+    >>> partitioning = FilenamePartitioning(
+    ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
+    >>> print(partitioning.parse("2009_11_"))
+    ((year == 2009) and (month == 11))
+    """
+
+    cdef:
+        CFilenamePartitioning* filename_partitioning
+
+    def __init__(self, Schema schema not None, dictionaries=None,
+                 segment_encoding="uri"):
+        cdef:
+            shared_ptr[CFilenamePartitioning] c_partitioning
+            CKeyValuePartitioningOptions c_options
+
+        c_options.segment_encoding = _get_segment_encoding(segment_encoding)
+        c_partitioning = make_shared[CFilenamePartitioning](
+            pyarrow_unwrap_schema(schema),
+            _partitioning_dictionaries(schema, dictionaries),
+            c_options,
+        )
+        self.init(<shared_ptr[CPartitioning]> c_partitioning)
+
+    cdef init(self, const shared_ptr[CPartitioning]& sp):
+        KeyValuePartitioning.init(self, sp)
+        self.filename_partitioning = <CFilenamePartitioning*> sp.get()
+
+    @staticmethod
+    def discover(field_names=None, infer_dictionary=False,
+                 schema=None, segment_encoding="uri"):
         """
-        cdef vector[shared_ptr[CArray]] c_arrays
-        c_arrays = self.hive_partitioning.dictionaries()
-        res = []
-        for arr in c_arrays:
-            if arr.get() == nullptr:
-                # Partitioning object has not been created through
-                # inspected Factory
-                return None
-            res.append(pyarrow_wrap_array(arr))
-        return res
+        Discover a FilenamePartitioning.
+
+        Parameters
+        ----------
+        field_names : list of str
+            The names to associate with the values from the subdirectory names.
+            If schema is given, will be populated from the schema.
+        infer_dictionary : bool, default False
+            When inferring a schema for partition fields, yield dictionary
+            encoded types instead of plain types. This can be more efficient
+            when materializing virtual columns, and Expressions parsed by the
+            finished Partitioning will include dictionaries of all unique
+            inspected values for each field.
+        schema : Schema, default None
+            Use this schema instead of inferring a schema from partition
+            values. Partition values will be validated against this schema
+            before accumulation into the Partitioning's dictionary.
+        segment_encoding : str, default "uri"
+            After splitting paths into segments, decode the segments. Valid
+            values are "uri" (URI-decode segments) and "none" (leave as-is).
+
+        Returns
+        -------
+        PartitioningFactory
+            To be used in the FileSystemFactoryOptions.
+        """
+        cdef:
+            CPartitioningFactoryOptions c_options
+            vector[c_string] c_field_names
+
+        if infer_dictionary:
+            c_options.infer_dictionary = True
+
+        if schema:
+            c_options.schema = pyarrow_unwrap_schema(schema)
+            c_field_names = [tobytes(f.name) for f in schema]
+        elif not field_names:
+            raise TypeError(
+                "Neither field_names nor schema was passed; "
+                "cannot infer field_names")
+        else:
+            c_field_names = [tobytes(s) for s in field_names]
+
+        c_options.segment_encoding = _get_segment_encoding(segment_encoding)
+
+        return PartitioningFactory.wrap(
+            CFilenamePartitioning.MakeFactory(c_field_names, c_options))
 
 
 cdef class DatasetFactory(_Weakrefable):
@@ -1923,8 +2127,10 @@ class TaggedRecordBatch(collections.namedtuple(
 
     Parameters
     ----------
-    record_batch : The record batch.
-    fragment : fragment of the record batch.
+    record_batch : RecordBatch
+        The record batch.
+    fragment : Fragment
+        Fragment of the record batch.
     """
 
 
@@ -1960,7 +2166,7 @@ cdef class TaggedRecordBatchIterator(_Weakrefable):
             fragment=Fragment.wrap(batch.fragment))
 
 
-_DEFAULT_BATCH_SIZE = 2**20
+_DEFAULT_BATCH_SIZE = 2**17
 
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
@@ -2019,22 +2225,31 @@ cdef class Scanner(_Weakrefable):
     dataset : Dataset
         Dataset to scan.
     columns : list of str or dict, default None
-        The columns to project. This can be a list of column names to include
-        (order and duplicates will be preserved), or a dictionary with
-        {new_column_name: expression} values for more advanced projections.
+        The columns to project. This can be a list of column names to
+        include (order and duplicates will be preserved), or a dictionary
+        with {{new_column_name: expression}} values for more advanced
+        projections.
+
+        The list of columns or expressions may use the special fields
+        `__batch_index` (the index of the batch within the fragment), 
+        `__fragment_index` (the index of the fragment within the dataset), 
+        `__last_in_fragment` (whether the batch is last in fragment), and
+        `__filename` (the name of the source file or a description of the 
+        source fragment).
+
         The columns will be passed down to Datasets and corresponding data
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
-        By default all of the available columns are projected. Raises
-        an exception if any of the referenced column names does not exist
-        in the dataset's Schema.
+        By default all of the available columns are projected. 
+        Raises an exception if any of the referenced column names does 
+        not exist in the dataset's Schema.
     filter : Expression, default None
         Scan will return only the rows matching the filter.
         If possible the predicate will be pushed down to exploit the
         partition information or internal metadata found in the data
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
-    batch_size : int, default 1M
+    batch_size : int, default 128Ki
         The maximum row count for scanned record batches. If scanned
         record batches are overflowing memory then this method can be
         called to reduce their size.
@@ -2078,30 +2293,53 @@ cdef class Scanner(_Weakrefable):
                      FragmentScanOptions fragment_scan_options=None):
         """
         Create Scanner from Dataset,
-        refer to Scanner class doc for additional details on Scanner.
 
         Parameters
         ----------
         dataset : Dataset
             Dataset to scan.
-        columns : list of str or dict, default None
-            The columns to project.
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment), 
+            `__fragment_index` (the index of the fragment within the dataset), 
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the 
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
         filter : Expression, default None
             Scan will return only the rows matching the filter.
-        batch_size : int, default 1M
-            The maximum row count for scanned record batches.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default N/A
+        use_async : bool, default True
             This flag is deprecated and is being kept for this release for
             backwards compatibility.  It will be removed in the next
             release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
-        fragment_scan_options : FragmentScanOptions
-            The fragment scan options.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
@@ -2131,32 +2369,55 @@ cdef class Scanner(_Weakrefable):
                       FragmentScanOptions fragment_scan_options=None):
         """
         Create Scanner from Fragment,
-        refer to Scanner class doc for additional details on Scanner.
 
         Parameters
         ----------
         fragment : Fragment
             fragment to scan.
-        schema : Schema
+        schema : Schema, optional
             The schema of the fragment.
-        columns : list of str or dict, default None
-                The columns to project.
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment), 
+            `__fragment_index` (the index of the fragment within the dataset), 
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the 
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
         filter : Expression, default None
             Scan will return only the rows matching the filter.
-        batch_size : int, default 1M
-            The maximum row count for scanned record batches.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default N/A
+        use_async : bool, default True
             This flag is deprecated and is being kept for this release for
             backwards compatibility.  It will be removed in the next
             release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
-        fragment_scan_options : FragmentScanOptions
-            The fragment scan options.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
@@ -2204,7 +2465,7 @@ cdef class Scanner(_Weakrefable):
                 The columns to project.
         filter : Expression, default None
             Scan will return only the rows matching the filter.
-        batch_size : int, default 1M
+        batch_size : int, default 128Ki
             The maximum row count for scanned record batches.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
@@ -2260,7 +2521,8 @@ cdef class Scanner(_Weakrefable):
 
     @property
     def projected_schema(self):
-        """The materialized schema of the data, accounting for projections.
+        """
+        The materialized schema of the data, accounting for projections.
 
         This is the schema of any data returned from the scanner.
         """
@@ -2268,7 +2530,8 @@ cdef class Scanner(_Weakrefable):
             self.scanner.options().get().projected_schema)
 
     def to_batches(self):
-        """Consume a Scanner in record batches.
+        """
+        Consume a Scanner in record batches.
 
         Returns
         -------
@@ -2281,7 +2544,8 @@ cdef class Scanner(_Weakrefable):
         return _iterator(self.scan_batches())
 
     def scan_batches(self):
-        """Consume a Scanner in record batches with corresponding fragments.
+        """
+        Consume a Scanner in record batches with corresponding fragments.
 
         Returns
         -------
@@ -2294,7 +2558,8 @@ cdef class Scanner(_Weakrefable):
         return TaggedRecordBatchIterator.wrap(self, move(iterator))
 
     def to_table(self):
-        """Convert a Scanner into a Table.
+        """
+        Convert a Scanner into a Table.
 
         Use this convenience utility with care. This will serially materialize
         the Scan result in memory before creating the Table.
@@ -2311,11 +2576,17 @@ cdef class Scanner(_Weakrefable):
         return pyarrow_wrap_table(GetResultValue(result))
 
     def take(self, object indices):
-        """Select rows of data by index.
+        """
+        Select rows of data by index.
 
         Will only consume as many batches of the underlying dataset as
         needed. Otherwise, this is equivalent to
         ``to_table().take(indices)``.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            indices of rows to select in the dataset.
 
         Returns
         -------
@@ -2333,7 +2604,13 @@ cdef class Scanner(_Weakrefable):
         return pyarrow_wrap_table(GetResultValue(result))
 
     def head(self, int num_rows):
-        """Load the first N rows of the dataset.
+        """
+        Load the first N rows of the dataset.
+
+        Parameters
+        ----------
+        num_rows : int
+            The number of rows to load.
 
         Returns
         -------
@@ -2345,7 +2622,8 @@ cdef class Scanner(_Weakrefable):
         return pyarrow_wrap_table(GetResultValue(result))
 
     def count_rows(self):
-        """Count rows matching the scanner filter.
+        """
+        Count rows matching the scanner filter.
 
         Returns
         -------
@@ -2357,7 +2635,12 @@ cdef class Scanner(_Weakrefable):
         return GetResultValue(result)
 
     def to_reader(self):
-        """Consume this scanner as a RecordBatchReader."""
+        """Consume this scanner as a RecordBatchReader.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
         reader.reader = GetResultValue(self.scanner.ToRecordBatchReader())
@@ -2433,6 +2716,7 @@ def _filesystemdataset_write(
     int max_rows_per_file,
     int min_rows_per_group,
     int max_rows_per_group,
+    bool create_dir
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -2465,6 +2749,7 @@ def _filesystemdataset_write(
             ("existing_data_behavior must be one of 'error', ",
              "'overwrite_or_ignore' or 'delete_matching'")
         )
+    c_options.create_dir = create_dir
 
     if file_visitor is not None:
         visit_args = {'base_dir': c_options.base_dir,

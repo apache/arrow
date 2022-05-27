@@ -23,8 +23,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -284,6 +284,6 @@ func (b *StringBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*String)(nil)
-	_ Builder   = (*StringBuilder)(nil)
+	_ arrow.Array = (*String)(nil)
+	_ Builder     = (*StringBuilder)(nil)
 )

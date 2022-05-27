@@ -905,8 +905,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
 
 }  // namespace
 
-Status ArrayFromJSON(const std::shared_ptr<DataType>& type, util::string_view json_string,
-                     std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                             util::string_view json_string) {
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
@@ -919,17 +919,19 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>& type, util::string_view js
 
   // The JSON document should be an array, append it
   RETURN_NOT_OK(converter->AppendValues(json_doc));
-  return converter->Finish(out);
+  std::shared_ptr<Array> out;
+  RETURN_NOT_OK(converter->Finish(&out));
+  return out;
 }
 
-Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                     const std::string& json_string, std::shared_ptr<Array>* out) {
-  return ArrayFromJSON(type, util::string_view(json_string), out);
+Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                             const std::string& json_string) {
+  return ArrayFromJSON(type, util::string_view(json_string));
 }
 
-Status ArrayFromJSON(const std::shared_ptr<DataType>& type, const char* json_string,
-                     std::shared_ptr<Array>* out) {
-  return ArrayFromJSON(type, util::string_view(json_string), out);
+Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                             const char* json_string) {
+  return ArrayFromJSON(type, util::string_view(json_string));
 }
 
 Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
@@ -939,7 +941,7 @@ Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
   out_chunks.reserve(json_strings.size());
   for (const std::string& chunk_json : json_strings) {
     out_chunks.emplace_back();
-    RETURN_NOT_OK(ArrayFromJSON(type, chunk_json, &out_chunks.back()));
+    ARROW_ASSIGN_OR_RAISE(out_chunks.back(), ArrayFromJSON(type, chunk_json));
   }
   *out = std::make_shared<ChunkedArray>(std::move(out_chunks), type);
   return Status::OK();
@@ -954,10 +956,10 @@ Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
 
   const auto& dictionary_type = checked_cast<const DictionaryType&>(*type);
 
-  std::shared_ptr<Array> indices, dictionary;
-  RETURN_NOT_OK(ArrayFromJSON(dictionary_type.index_type(), indices_json, &indices));
-  RETURN_NOT_OK(
-      ArrayFromJSON(dictionary_type.value_type(), dictionary_json, &dictionary));
+  ARROW_ASSIGN_OR_RAISE(auto indices,
+                        ArrayFromJSON(dictionary_type.index_type(), indices_json));
+  ARROW_ASSIGN_OR_RAISE(auto dictionary,
+                        ArrayFromJSON(dictionary_type.value_type(), dictionary_json));
 
   return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary))
       .Value(out);
@@ -995,8 +997,8 @@ Status DictScalarFromJSON(const std::shared_ptr<DataType>& type,
   std::shared_ptr<Scalar> index;
   std::shared_ptr<Array> dictionary;
   RETURN_NOT_OK(ScalarFromJSON(dictionary_type.index_type(), index_json, &index));
-  RETURN_NOT_OK(
-      ArrayFromJSON(dictionary_type.value_type(), dictionary_json, &dictionary));
+  ARROW_ASSIGN_OR_RAISE(dictionary,
+                        ArrayFromJSON(dictionary_type.value_type(), dictionary_json));
 
   *out = DictionaryScalar::Make(std::move(index), std::move(dictionary));
   return Status::OK();

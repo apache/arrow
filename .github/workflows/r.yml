@@ -50,21 +50,22 @@ env:
 
 jobs:
   ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }} Force-Tests ${{ matrix.force-tests }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.1"]
+        r: ["4.2"]
         ubuntu: [20.04]
+        force-tests: ["true", "false"]
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
@@ -87,7 +88,7 @@ jobs:
           ulimit -c unlimited
           # Setting a non-default and non-probable Marquesas French Polynesia time
           # it has both with a .45 offset and very very few people who live there.
-          archery docker run -e TZ=MART ubuntu-r
+          archery docker run -e TZ=MART -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} ubuntu-r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
@@ -122,7 +123,7 @@ jobs:
       R_TAG: ${{ matrix.config.tag }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
@@ -179,7 +180,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Setup ccache
@@ -233,50 +234,54 @@ jobs:
 
   windows-r:
     needs: [windows-cpp]
-    name: AMD64 Windows R RTools ${{ matrix.rtools }}
+    name: AMD64 Windows R ${{ matrix.config.rversion }} RTools ${{ matrix.config.rtools }}
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        rtools: [35, 40]
+        config:
+        - { rtools: 35, rversion: "3.6" }
+        - { rtools: 40, rversion: "4.1" }
+        - { rtools: 42, rversion: "4.2" }
+        - { rtools: 42, rversion: "devel" }
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - run: mkdir r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 35 }}
+        if: ${{ matrix.config.rtools == 35 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools35-mingw32.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 35 }}
+        if: ${{ matrix.config.rtools == 35 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools35-mingw64.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 40 }}
+        if: ${{ matrix.config.rtools == 40 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools40-mingw32.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 40 }}
+        if: ${{ matrix.config.rtools == 40 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools40-mingw64.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 40 }}
+        if: ${{ matrix.config.rtools == 42 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools40-ucrt64.zip
@@ -301,19 +306,12 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
+          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-
       - uses: r-lib/actions/setup-r@v2
-        if: ${{ matrix.rtools == 40 }}
         with:
-          r-version: "4.1"
-          rtools-version: 40
-          Ncpus: 2
-      - uses: r-lib/actions/setup-r@v2
-        if: ${{ matrix.rtools == 35 }}
-        with:
-          rtools-version: 35
-          r-version: "3.6"
+          r-version: ${{ matrix.config.rversion }}
+          rtools-version: ${{ matrix.config.rtools }}
           Ncpus: 2
       - name: Make R tests verbose
         # If you get a segfault/mysterious test Execution halted,
@@ -329,15 +327,40 @@ jobs:
       # are frozen for old versions of R. We need newer cpp11 than is available as
       # "binary" (though it doesn't matter because the cpp11 R package is just a
       # vehicle for the header-only C++ code.
-        if: ${{ matrix.rtools == 35 }}
+        if: ${{ matrix.config.rtools == 35 }}
         shell: Rscript {0}
         run: install.packages("cpp11", type = "source")
+      - name: Prune dependencies (on R 3.6)
+        if: ${{ matrix.config.rtools == 35 }}
+        shell: Rscript {0}
+        run: |
+            # To prevent the build from timing out, let's prune some optional deps (and their possible version requirements)
+            setwd("r")
+            # create a backup to use later
+            file.copy("DESCRIPTION", "DESCRIPTION.bak")
+            d <- read.dcf("DESCRIPTION")
+            to_prune <- c("duckdb", "DBI", "dbplyr", "decor", "knitr", "rmarkdown", "pkgload", "reticulate")
+            pattern <- paste0("\\n?", to_prune, "( \\([^,]*\\))?,?", collapse = "|")
+            d[,"Suggests"] <- gsub(pattern, "", d[,"Suggests"])
+            write.dcf(d, "DESCRIPTION")
+      - name: R package cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.R_LIBS_USER }}/*
+          key: r-${{ matrix.config.rtools }}-R-LIBS-${{ hashFiles('r/DESCRIPTION') }}
+          restore-keys: r-${{ matrix.config.rtools }}-R-LIBS-
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
-          options(pkgType="win.binary")
+          # options(pkgType="win.binary") # processx doesn't have a binary for UCRT yet
           install.packages(c("remotes", "rcmdcheck"))
           remotes::install_deps("r", dependencies = TRUE)
+      - name: Restore DESCRIPTION for 3.6
+        if: ${{ matrix.config.rtools == 35 }}
+        run: |
+          rm r/DESCRIPTION
+          mv r/DESCRIPTION.bak r/DESCRIPTION
       - name: Check
         shell: Rscript {0}
         run: |
@@ -360,6 +383,16 @@ jobs:
             check_dir = 'check',
             timeout = 3600
           )
+      - name: Run lintr
+        if: ${{ matrix.config.rversion == '4.2' }}
+        env:
+          NOT_CRAN: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: Rscript {0}
+        working-directory: r
+        run: |
+          remotes::install_github("jonkeane/lintr@arrow-branch")
+          lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
         run: cat r/check/arrow.Rcheck/00install.out

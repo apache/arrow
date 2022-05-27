@@ -21,6 +21,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/partition.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
@@ -69,6 +70,30 @@ static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filt
   }
 }
 
+static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression expr) {
+  const auto rows_per_batch = static_cast<int32_t>(state.range(0));
+  const auto num_batches = 1000000 / rows_per_batch;
+
+  ExecContext ctx;
+  auto dataset_schema = schema({
+      field("x", int64()),
+  });
+  ExecBatch input({Datum(ConstantArrayGenerator::Int64(rows_per_batch, 5))},
+                  /*length=*/rows_per_batch);
+
+  ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
+  for (auto _ : state) {
+    for (int it = 0; it < num_batches; ++it)
+      ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
+  }
+  state.counters["rows_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches * rows_per_batch),
+      benchmark::Counter::kIsRate);
+
+  state.counters["batches_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
+}
+
 auto to_int64 = compute::CastOptions::Safe(int64());
 // A fully simplified filter.
 auto filter_simple_negative = and_(equal(field_ref("a"), literal(int64_t(99))),
@@ -91,6 +116,13 @@ auto guarantee = and_(equal(field_ref("a"), literal(int64_t(99))),
 // A partition expression for "a=99/b=99" that uses dictionaries (inferred by default).
 auto guarantee_dictionary = and_(equal(field_ref("a"), literal(ninety_nine_dict)),
                                  equal(field_ref("b"), literal(ninety_nine_dict)));
+
+auto complex_expression =
+    and_(less(field_ref("x"), literal(20)), greater(field_ref("x"), literal(0)));
+auto simple_expression = call("negate", {field_ref("x")});
+auto zero_copy_expression =
+    call("cast", {field_ref("x")}, compute::CastOptions::Safe(timestamp(TimeUnit::NANO)));
+auto ref_only_expression = field_ref("x");
 
 // Negative queries (partition expressions that fail the filter)
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, negative_filter_simple_guarantee_simple,
@@ -120,5 +152,35 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
                   field_ref(FieldRef("struct_scalar", "float")));
 
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, complex_expression, complex_expression)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, simple_expression, simple_expression)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, zero_copy_expression,
+                  zero_copy_expression)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
+BENCHMARK_CAPTURE(ExecuteScalarExpressionOverhead, ref_only_expression,
+                  ref_only_expression)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 }  // namespace compute
 }  // namespace arrow

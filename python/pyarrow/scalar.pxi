@@ -70,6 +70,15 @@ cdef class Scalar(_Weakrefable):
     def cast(self, object target_type):
         """
         Attempt a safe cast to target data type.
+
+        Parameters
+        ----------
+        target_type : DataType or string coercible to DataType
+            The type to cast the scalar to.
+
+        Returns
+        -------
+        scalar : A Scalar of the given target data type.
         """
         cdef:
             DataType type = ensure_type(target_type)

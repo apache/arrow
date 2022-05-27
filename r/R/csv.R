@@ -61,8 +61,8 @@
 #' * "l": `bool()`
 #' * "f": `dictionary()`
 #' * "D": `date32()`
-#' * "T": `timestamp()`
-#' * "t": `time32()`
+#' * "T": `timestamp(unit = "ns")`
+#' * "t": `time32()` (The `unit` arg is set to the default value `"ms"`)
 #' * "_": `null()`
 #' * "-": `null()`
 #' * "?": infer the type from the data
@@ -129,7 +129,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write.csv(mtcars, file = tf)
@@ -137,6 +137,12 @@
 #' dim(df)
 #' # Can select columns
 #' df <- read_csv_arrow(tf, col_select = starts_with("d"))
+#'
+#' # Specifying column types and names
+#' write.csv(data.frame(x = c(1, 3), y = c(2, 4)), file = tf, row.names = FALSE)
+#' read_csv_arrow(tf, schema = schema(x = int32(), y = utf8()), skip = 1)
+#' read_csv_arrow(tf, col_types = schema(y = utf8()))
+#' read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
@@ -194,8 +200,10 @@ read_delim_arrow <- function(file,
 
   tryCatch(
     tab <- reader$Read(),
-    error = function(e) {
-      handle_csv_read_error(e, schema)
+    # n = 4 because we want the error to show up as being from read_delim_arrow()
+    # and not handle_csv_read_error()
+    error = function(e, call = caller_env(n = 4)) {
+      handle_csv_read_error(e, schema, call)
     }
   )
 
@@ -286,7 +294,7 @@ read_tsv_arrow <- function(file,
 #'
 #' - `$Read()`: returns an Arrow Table.
 #'
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @export
 CsvTableReader <- R6Class("CsvTableReader",
   inherit = ArrowObject,
@@ -338,6 +346,7 @@ CsvTableReader$create <- function(file,
 #' - `autogenerate_column_names` Logical: generate column names instead of
 #' using the first non-skipped row (the default)? If `TRUE`, column names will
 #' be "f0", "f1", ..., "fN".
+#' - `encoding` The file encoding. (default `"UTF-8"`)
 #'
 #' `CsvParseOptions$create()` takes the following arguments:
 #'
@@ -359,9 +368,9 @@ CsvTableReader$create <- function(file,
 #' - `check_utf8` Logical: check UTF8 validity of string columns? (default `TRUE`)
 #' - `null_values` character vector of recognized spellings for null values.
 #'    Analogous to the `na.strings` argument to
-#'    [`read.csv()`][utils::read.csv()] or `na` in `readr::read_csv()`.
+#'    [`read.csv()`][utils::read.csv()] or `na` in [readr::read_csv()].
 #' - `strings_can_be_null` Logical: can string / binary columns have
-#'    null values? Similar to the `quoted_na` argument to `readr::read_csv()`.
+#'    null values? Similar to the `quoted_na` argument to [readr::read_csv()].
 #'    (default `FALSE`)
 #' - `true_values` character vector of recognized spellings for `TRUE` values
 #' - `false_values` character vector of recognized spellings for `FALSE` values
@@ -384,7 +393,6 @@ CsvTableReader$create <- function(file,
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
-#' - `encoding` The file encoding.
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
@@ -599,7 +607,7 @@ readr_to_csv_convert_options <- function(na,
         "l" = bool(),
         "f" = dictionary(),
         "D" = date32(),
-        "T" = timestamp(),
+        "T" = timestamp(unit = "ns"),
         "t" = time32(),
         "_" = null(),
         "-" = null(),
@@ -646,11 +654,11 @@ readr_to_csv_convert_options <- function(na,
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_csv_arrow(mtcars, tf)
-#' @include arrow-package.R
+#' @include arrow-object.R
 write_csv_arrow <- function(x,
                             sink,
                             file = NULL,
@@ -699,7 +707,8 @@ write_csv_arrow <- function(x,
   if (is.null(write_options)) {
     write_options <- readr_to_csv_write_options(
       include_header = include_header,
-      batch_size = batch_size)
+      batch_size = batch_size
+    )
   }
 
   x_out <- x
@@ -707,7 +716,9 @@ write_csv_arrow <- function(x,
     x <- Table$create(x)
   }
 
-  assert_that(is_writable_table(x))
+  if (inherits(x, c("Dataset", "arrow_dplyr_query"))) {
+    x <- Scanner$create(x)$ToRecordBatchReader()
+  }
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -718,6 +729,19 @@ write_csv_arrow <- function(x,
     csv___WriteCSV__RecordBatch(x, write_options, sink)
   } else if (inherits(x, "Table")) {
     csv___WriteCSV__Table(x, write_options, sink)
+  } else if (inherits(x, c("RecordBatchReader"))) {
+    csv___WriteCSV__RecordBatchReader(x, write_options, sink)
+  } else {
+    abort(
+      c(
+        paste0(
+          paste(
+            "x must be an object of class 'data.frame', 'RecordBatch',",
+            "'Dataset', 'Table', or 'RecordBatchReader' not '"
+          ), class(x)[[1]], "'."
+        )
+      )
+    )
   }
 
   invisible(x_out)

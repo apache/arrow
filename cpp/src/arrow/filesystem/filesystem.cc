@@ -24,6 +24,9 @@
 #ifdef ARROW_HDFS
 #include "arrow/filesystem/hdfs.h"
 #endif
+#ifdef ARROW_GCS
+#include "arrow/filesystem/gcsfs.h"
+#endif
 #ifdef ARROW_S3
 #include "arrow/filesystem/s3fs.h"
 #endif
@@ -190,10 +193,12 @@ Status ValidateInputFileInfo(const FileInfo& info) {
 
 }  // namespace
 
-Future<> FileSystem::DeleteDirContentsAsync(const std::string& path) {
-  return FileSystemDefer(
-      this, default_async_is_sync_,
-      [path](std::shared_ptr<FileSystem> self) { return self->DeleteDirContents(path); });
+Future<> FileSystem::DeleteDirContentsAsync(const std::string& path,
+                                            bool missing_dir_ok) {
+  return FileSystemDefer(this, default_async_is_sync_,
+                         [path, missing_dir_ok](std::shared_ptr<FileSystem> self) {
+                           return self->DeleteDirContents(path, missing_dir_ok);
+                         });
 }
 
 Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
@@ -376,12 +381,13 @@ Status SubTreeFileSystem::DeleteDir(const std::string& path) {
   return base_fs_->DeleteDir(real_path);
 }
 
-Status SubTreeFileSystem::DeleteDirContents(const std::string& path) {
+Status SubTreeFileSystem::DeleteDirContents(const std::string& path,
+                                            bool missing_dir_ok) {
   if (internal::IsEmptyPath(path)) {
     return internal::InvalidDeleteDirContents(path);
   }
   ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBase(path));
-  return base_fs_->DeleteDirContents(real_path);
+  return base_fs_->DeleteDirContents(real_path, missing_dir_ok);
 }
 
 Status SubTreeFileSystem::DeleteRootDirContents() {
@@ -518,9 +524,9 @@ Status SlowFileSystem::DeleteDir(const std::string& path) {
   return base_fs_->DeleteDir(path);
 }
 
-Status SlowFileSystem::DeleteDirContents(const std::string& path) {
+Status SlowFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   latencies_->Sleep();
-  return base_fs_->DeleteDirContents(path);
+  return base_fs_->DeleteDirContents(path, missing_dir_ok);
 }
 
 Status SlowFileSystem::DeleteRootDirContents() {
@@ -686,6 +692,16 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     }
     return std::make_shared<LocalFileSystem>(options, io_context);
   }
+  if (scheme == "gs" || scheme == "gcs") {
+#ifdef ARROW_GCS
+    ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
+    ARROW_ASSIGN_OR_RAISE(auto gcsfs, GcsFileSystem::Make(options, io_context));
+    return gcsfs;
+#else
+    return Status::NotImplemented("Got GCS URI but Arrow compiled without GCS support");
+#endif
+  }
+
   if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
     ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));

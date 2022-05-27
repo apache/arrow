@@ -29,31 +29,9 @@ The following guides explain the fundamental data structures used in the Java im
 
 Generated javadoc documentation is available [here](https://arrow.apache.org/docs/java/).
 
-## Setup Build Environment
+## Building from source
 
-install:
- - Java 8 or later
- - Maven 3.3 or later
-
-## Building and running tests
-
-```
-git submodule update --init --recursive # Needed for flight
-cd java
-mvn install
-```
-## Building and running tests for arrow jni modules like gandiva and orc (optional)
-
-[Arrow Cpp][2] must be built before this step. The cpp build directory must
-be provided as the value for argument arrow.cpp.build.dir. eg.
-
-```
-cd java
-mvn install -P arrow-jni -am -Darrow.cpp.build.dir=../../release
-```
-
-The gandiva library is still in Alpha stages, and subject to API changes without
-deprecation warnings.
+Refer to [Building Apache Arrow](https://arrow.apache.org/docs/dev/developers/java/building.html) for documentation of environment setup and build instructions.
 
 ## Flatbuffers dependency
 

@@ -35,5 +35,6 @@ This allows to easily integrate PyArrow with other languages and technologies.
    :maxdepth: 2
 
    integration/python_r
+   integration/python_java
    integration/extending
    integration/cuda

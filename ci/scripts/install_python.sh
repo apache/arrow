@@ -61,7 +61,7 @@ if [ $platform = "MacOSX" ]; then
     pip="${python} -m pip"
 
     $python -m ensurepip
-    $pip install -U pip setuptools virtualenv
+    $pip install -U pip setuptools
 else
     echo "Unsupported platform: $platform"
 fi

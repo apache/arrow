@@ -4,27 +4,37 @@
 \alias{map_batches}
 \title{Apply a function to a stream of RecordBatches}
 \usage{
-map_batches(X, FUN, ..., .data.frame = TRUE)
+map_batches(X, FUN, ..., .data.frame = NULL)
 }
 \arguments{
 \item{X}{A \code{Dataset} or \code{arrow_dplyr_query} object, as returned by the
 \code{dplyr} methods on \code{Dataset}.}
 
 \item{FUN}{A function or \code{purrr}-style lambda expression to apply to each
-batch}
+batch. It must return a RecordBatch or something coercible to one via
+`as_record_batch()'.}
 
 \item{...}{Additional arguments passed to \code{FUN}}
 
-\item{.data.frame}{logical: collect the resulting chunks into a single
-\code{data.frame}? Default \code{TRUE}}
+\item{.data.frame}{Deprecated argument, ignored}
+}
+\value{
+An \code{arrow_dplyr_query}.
 }
 \description{
 As an alternative to calling \code{collect()} on a \code{Dataset} query, you can
 use this function to access the stream of \code{RecordBatch}es in the \code{Dataset}.
-This lets you aggregate on each chunk and pull the intermediate results into
-a \code{data.frame} for further aggregation, even if you couldn't fit the whole
-\code{Dataset} result in memory.
+This lets you do more complex operations in R that operate on chunks of data
+without having to hold the entire Dataset in memory at once. You can include
+\code{map_batches()} in a dplyr pipeline and do additional dplyr methods on the
+stream of data in Arrow after it.
 }
 \details{
-This is experimental and not recommended for production use.
+Note that, unlike the core dplyr methods that are implemented in the Arrow
+query engine, \code{map_batches()} is not lazy: it starts evaluating on the data
+when you call it, even if you send its result to another pipeline function.
+
+This is experimental and not recommended for production use. It is also
+single-threaded and runs in R not C++, so it won't be as fast as core
+Arrow methods.
 }

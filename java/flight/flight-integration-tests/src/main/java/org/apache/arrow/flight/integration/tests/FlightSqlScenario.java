@@ -93,6 +93,8 @@ public class FlightSqlScenario implements Scenario {
         sqlClient.getCrossReference(TableRef.of("pk_catalog", "pk_db_schema", "pk_table"),
             TableRef.of("fk_catalog", "fk_db_schema", "fk_table"), options),
         sqlClient);
+    validate(FlightSqlProducer.Schemas.GET_TYPE_INFO_SCHEMA,
+        sqlClient.getXdbcTypeInfo(options), sqlClient);
     validate(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA,
         sqlClient.getSqlInfo(new FlightSql.SqlInfo[] {FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME,
             FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY}, options), sqlClient);

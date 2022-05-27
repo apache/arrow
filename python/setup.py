@@ -108,8 +108,11 @@ class build_ext(_build_ext):
                       'namespace of boost (default: boost)'),
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
+                     ('with-substrait', None, 'build the Substrait extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
+                     ('with-parquet-encryption', None,
+                      'build the Parquet encryption extension'),
                      ('with-s3', None, 'build the Amazon S3 extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -158,6 +161,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_HDFS', '0'))
         self.with_cuda = strtobool(
             os.environ.get('PYARROW_WITH_CUDA', '0'))
+        self.with_substrait = strtobool(
+            os.environ.get('PYARROW_WITH_SUBSTRAIT', '0'))
         self.with_flight = strtobool(
             os.environ.get('PYARROW_WITH_FLIGHT', '0'))
         self.with_dataset = strtobool(
@@ -166,6 +171,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
             os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
+        self.with_parquet_encryption = strtobool(
+            os.environ.get('PYARROW_WITH_PARQUET_ENCRYPTION', '0'))
         self.with_static_boost = strtobool(
             os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
         self.with_plasma = strtobool(
@@ -189,6 +196,9 @@ class build_ext(_build_ext):
         self.bundle_plasma_executable = strtobool(
             os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
 
+        self.with_parquet_encryption = (self.with_parquet_encryption and
+                                        self.with_parquet)
+
     CYTHON_MODULE_NAMES = [
         'lib',
         '_fs',
@@ -200,11 +210,14 @@ class build_ext(_build_ext):
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',
+        '_exec_plan',
         '_feather',
         '_parquet',
+        '_parquet_encryption',
         '_orc',
         '_plasma',
         '_s3fs',
+        '_substrait',
         '_hdfs',
         '_hdfsio',
         'gandiva']
@@ -236,6 +249,11 @@ class build_ext(_build_ext):
                                      cachefile.read()).group(1)
                 cachefile.close()
                 if (cachedir != build_temp):
+                    build_base = pjoin(saved_cwd, build_cmd.build_base)
+                    print(f"-- Skipping build. Temp build {build_temp} does "
+                          f"not match cached dir {cachedir}")
+                    print("---- For a clean build you might want to delete "
+                          f"{build_base}.")
                     return
 
             static_lib_option = ''
@@ -254,11 +272,14 @@ class build_ext(_build_ext):
                 cmake_options += ['-G', self.cmake_generator]
 
             append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
+            append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
             append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
             append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
             append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
             append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
             append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
+            append_cmake_bool(self.with_parquet_encryption,
+                              'PYARROW_BUILD_PARQUET_ENCRYPTION')
             append_cmake_bool(self.with_plasma, 'PYARROW_BUILD_PLASMA')
             append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
             append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
@@ -377,6 +398,8 @@ class build_ext(_build_ext):
         move_shared_libs(build_prefix, build_lib, "arrow_python")
         if self.with_cuda:
             move_shared_libs(build_prefix, build_lib, "arrow_cuda")
+        if self.with_substrait:
+            move_shared_libs(build_prefix, build_lib, "arrow_substrait")
         if self.with_flight:
             move_shared_libs(build_prefix, build_lib, "arrow_flight")
             move_shared_libs(build_prefix, build_lib,
@@ -414,11 +437,15 @@ class build_ext(_build_ext):
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
             return True
+        if name == '_parquet_encryption' and not self.with_parquet_encryption:
+            return True
         if name == '_plasma' and not self.with_plasma:
             return True
         if name == '_orc' and not self.with_orc:
             return True
         if name == '_flight' and not self.with_flight:
+            return True
+        if name == '_substrait' and not self.with_substrait:
             return True
         if name == '_s3fs' and not self.with_s3:
             return True
@@ -532,7 +559,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '8.0.0-SNAPSHOT'
+default_version = '9.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
@@ -633,5 +660,9 @@ setup(
     maintainer='Apache Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
     test_suite='pyarrow.tests',
-    url='https://arrow.apache.org/'
+    url='https://arrow.apache.org/',
+    project_urls={
+        'Documentation': 'https://arrow.apache.org/docs/python',
+        'Source': 'https://github.com/apache/arrow',
+    },
 )

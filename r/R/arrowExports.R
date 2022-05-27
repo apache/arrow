@@ -404,8 +404,8 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
-ExecPlan_run <- function(plan, final_node, sort_options, head) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, head)
+ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
 ExecPlan_StopProducing <- function(plan) {
@@ -420,6 +420,10 @@ ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, materialized_field_names)
 }
 
+ExecPlan_Write <- function(plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
+}
+
 ExecNode_Filter <- function(input, filter) {
   .Call(`_arrow_ExecNode_Filter`, input, filter)
 }
@@ -432,12 +436,32 @@ ExecNode_Aggregate <- function(input, options, target_names, out_field_names, ke
   .Call(`_arrow_ExecNode_Aggregate`, input, options, target_names, out_field_names, key_names)
 }
 
-ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output) {
-  .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output)
+ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
+  .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
 }
 
-ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
-  .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
+ExecNode_Union <- function(input, right_data) {
+  .Call(`_arrow_ExecNode_Union`, input, right_data)
+}
+
+ExecNode_SourceNode <- function(plan, reader) {
+  .Call(`_arrow_ExecNode_SourceNode`, plan, reader)
+}
+
+ExecNode_TableSourceNode <- function(plan, table) {
+  .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
+}
+
+substrait__internal__SubstraitToJSON <- function(serialized_plan) {
+  .Call(`_arrow_substrait__internal__SubstraitToJSON`, serialized_plan)
+}
+
+substrait__internal__SubstraitFromJSON <- function(substrait_json) {
+  .Call(`_arrow_substrait__internal__SubstraitFromJSON`, substrait_json)
+}
+
+ExecPlan_run_substrait <- function(plan, serialized_plan) {
+  .Call(`_arrow_ExecPlan_run_substrait`, plan, serialized_plan)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -462,6 +486,10 @@ build_info <- function() {
 
 runtime_info <- function() {
   .Call(`_arrow_runtime_info`)
+}
+
+set_timezone_database <- function(path) {
+  invisible(.Call(`_arrow_set_timezone_database`, path))
 }
 
 csv___WriteOptions__initialize <- function(options) {
@@ -514,6 +542,10 @@ csv___WriteCSV__Table <- function(table, write_options, stream) {
 
 csv___WriteCSV__RecordBatch <- function(record_batch, write_options, stream) {
   invisible(.Call(`_arrow_csv___WriteCSV__RecordBatch`, record_batch, write_options, stream))
+}
+
+csv___WriteCSV__RecordBatchReader <- function(reader, write_options, stream) {
+  invisible(.Call(`_arrow_csv___WriteCSV__RecordBatchReader`, reader, write_options, stream))
 }
 
 dataset___Dataset__NewScan <- function(ds) {
@@ -572,20 +604,12 @@ dataset___UnionDatasetFactory__Make <- function(children) {
   .Call(`_arrow_dataset___UnionDatasetFactory__Make`, children)
 }
 
-dataset___FileSystemDatasetFactory__Make0 <- function(fs, paths, format) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make0`, fs, paths, format)
+dataset___FileSystemDatasetFactory__Make <- function(fs, selector, format, fsf_options) {
+  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make`, fs, selector, format, fsf_options)
 }
 
-dataset___FileSystemDatasetFactory__Make2 <- function(fs, selector, format, partitioning) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make2`, fs, selector, format, partitioning)
-}
-
-dataset___FileSystemDatasetFactory__Make1 <- function(fs, selector, format) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make1`, fs, selector, format)
-}
-
-dataset___FileSystemDatasetFactory__Make3 <- function(fs, selector, format, factory) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make3`, fs, selector, format, factory)
+dataset___FileSystemDatasetFactory__MakePaths <- function(fs, paths, format, exclude_invalid_files) {
+  .Call(`_arrow_dataset___FileSystemDatasetFactory__MakePaths`, fs, paths, format, exclude_invalid_files)
 }
 
 dataset___FileFormat__type_name <- function(format) {
@@ -722,10 +746,6 @@ dataset___Scanner__head <- function(scanner, n) {
 
 dataset___Scanner__schema <- function(sc) {
   .Call(`_arrow_dataset___Scanner__schema`, sc)
-}
-
-dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
-  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
 }
 
 dataset___Scanner__TakeRows <- function(scanner, indices) {
@@ -1044,6 +1064,42 @@ compute___expr__type_id <- function(x, schema) {
   .Call(`_arrow_compute___expr__type_id`, x, schema)
 }
 
+ExtensionType__initialize <- function(storage_type, extension_name, extension_metadata, r6_class) {
+  .Call(`_arrow_ExtensionType__initialize`, storage_type, extension_name, extension_metadata, r6_class)
+}
+
+ExtensionType__extension_name <- function(type) {
+  .Call(`_arrow_ExtensionType__extension_name`, type)
+}
+
+ExtensionType__Serialize <- function(type) {
+  .Call(`_arrow_ExtensionType__Serialize`, type)
+}
+
+ExtensionType__storage_type <- function(type) {
+  .Call(`_arrow_ExtensionType__storage_type`, type)
+}
+
+ExtensionType__MakeArray <- function(type, data) {
+  .Call(`_arrow_ExtensionType__MakeArray`, type, data)
+}
+
+ExtensionType__r6_class <- function(type) {
+  .Call(`_arrow_ExtensionType__r6_class`, type)
+}
+
+ExtensionArray__storage <- function(array) {
+  .Call(`_arrow_ExtensionArray__storage`, array)
+}
+
+arrow__RegisterRExtensionType <- function(type) {
+  invisible(.Call(`_arrow_arrow__RegisterRExtensionType`, type))
+}
+
+arrow__UnregisterRExtensionType <- function(type_name) {
+  invisible(.Call(`_arrow_arrow__UnregisterRExtensionType`, type_name))
+}
+
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level) {
   invisible(.Call(`_arrow_ipc___WriteFeather__Table`, stream, table, version, chunk_size, compression, compression_level))
 }
@@ -1052,12 +1108,12 @@ ipc___feather___Reader__version <- function(reader) {
   .Call(`_arrow_ipc___feather___Reader__version`, reader)
 }
 
-ipc___feather___Reader__Read <- function(reader, columns) {
-  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns)
+ipc___feather___Reader__Read <- function(reader, columns, on_old_windows) {
+  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns, on_old_windows)
 }
 
-ipc___feather___Reader__Open <- function(stream) {
-  .Call(`_arrow_ipc___feather___Reader__Open`, stream)
+ipc___feather___Reader__Open <- function(stream, on_old_windows) {
+  .Call(`_arrow_ipc___feather___Reader__Open`, stream, on_old_windows)
 }
 
 ipc___feather___Reader__schema <- function(reader) {
@@ -1268,6 +1324,10 @@ io___RandomAccessFile__ReadAt <- function(x, position, nbytes) {
   .Call(`_arrow_io___RandomAccessFile__ReadAt`, x, position, nbytes)
 }
 
+io___RandomAccessFile__ReadMetadata <- function(x) {
+  .Call(`_arrow_io___RandomAccessFile__ReadMetadata`, x)
+}
+
 io___MemoryMappedFile__Create <- function(path, size) {
   .Call(`_arrow_io___MemoryMappedFile__Create`, path, size)
 }
@@ -1318,6 +1378,18 @@ io___BufferOutputStream__Tell <- function(stream) {
 
 io___BufferOutputStream__Write <- function(stream, bytes) {
   invisible(.Call(`_arrow_io___BufferOutputStream__Write`, stream, bytes))
+}
+
+MakeRConnectionInputStream <- function(con) {
+  .Call(`_arrow_MakeRConnectionInputStream`, con)
+}
+
+MakeRConnectionOutputStream <- function(con) {
+  .Call(`_arrow_MakeRConnectionOutputStream`, con)
+}
+
+MakeRConnectionRandomAccessFile <- function(con) {
+  .Call(`_arrow_MakeRConnectionRandomAccessFile`, con)
 }
 
 MakeReencodeInputStream <- function(wrapped, from) {
@@ -1648,8 +1720,20 @@ RecordBatchReader__batches <- function(reader) {
   .Call(`_arrow_RecordBatchReader__batches`, reader)
 }
 
+RecordBatchReader__from_batches <- function(batches, schema_sxp) {
+  .Call(`_arrow_RecordBatchReader__from_batches`, batches, schema_sxp)
+}
+
+RecordBatchReader__from_Table <- function(table) {
+  .Call(`_arrow_RecordBatchReader__from_Table`, table)
+}
+
 Table__from_RecordBatchReader <- function(reader) {
   .Call(`_arrow_Table__from_RecordBatchReader`, reader)
+}
+
+RecordBatchReader__Head <- function(reader, num_rows) {
+  .Call(`_arrow_RecordBatchReader__Head`, reader, num_rows)
 }
 
 ipc___RecordBatchStreamReader__Open <- function(stream) {
@@ -1698,6 +1782,14 @@ ipc___RecordBatchFileWriter__Open <- function(stream, schema, use_legacy_format,
 
 ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_format, metadata_version) {
   .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
+}
+
+InitializeMainRThread <- function() {
+  invisible(.Call(`_arrow_InitializeMainRThread`))
+}
+
+TestSafeCallIntoR <- function(r_fun_that_returns_a_string, opt) {
+  .Call(`_arrow_TestSafeCallIntoR`, r_fun_that_returns_a_string, opt)
 }
 
 Array__GetScalar <- function(x, i) {
@@ -1892,6 +1984,10 @@ Table__ReferencedBufferSize <- function(table) {
   .Call(`_arrow_Table__ReferencedBufferSize`, table)
 }
 
+Table__ConcatenateTables <- function(tables, unify_schemas) {
+  .Call(`_arrow_Table__ConcatenateTables`, tables, unify_schemas)
+}
+
 GetCpuThreadPoolCapacity <- function() {
   .Call(`_arrow_GetCpuThreadPoolCapacity`)
 }
@@ -1911,4 +2007,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

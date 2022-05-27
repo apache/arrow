@@ -23,6 +23,7 @@ from pathlib import Path
 import click
 
 from .command import Bash, Command, default_bin
+from ..compat import _get_module
 from .cmake import CMake
 from .git import git
 from .logger import logger
@@ -229,9 +230,6 @@ def python_linter(src, fix=False):
         flake8("--extend-exclude=" + ','.join(flake8_exclude),
                setup_py, src.pyarrow, os.path.join(src.python, "examples"),
                src.dev, check=False))
-    config = os.path.join(src.python, ".flake8.cython")
-    yield LintResult.from_cmd(
-        flake8("--config=" + config, src.pyarrow, check=False))
 
 
 def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
@@ -284,7 +282,7 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
         doc = getattr(obj, '__doc__', '')
         name = getattr(obj, '__name__', '')
         qualname = getattr(obj, '__qualname__', '')
-        module = getattr(obj, '__module__', '')
+        module = _get_module(obj, default='')
         instance = getattr(obj, '__self__', '')
         if instance:
             klass = instance.__class__.__name__

@@ -30,12 +30,6 @@
   if [ %{rhel} -lt 8 ]; then \
     echo 3; \
   fi)
-%define python_version %( \
-  if [ %{rhel} -eq 7 ]; then \
-    echo 36; \
-  else \
-    echo 3; \
-  fi)
 
 %define lz4_requirement %( \
   if [ %{_amzn} -eq 0 ]; then \
@@ -45,9 +39,10 @@
 %define use_boost (!%{is_amazon_linux})
 %define use_flight (%{rhel} >= 8)
 %define use_gandiva (%{rhel} >= 8 && %{_arch} != "aarch64")
+%define use_gcs (%{rhel} >= 8 || %{is_amazon_linux})
 %define use_gflags (!%{is_amazon_linux})
 %define use_mimalloc (%{rhel} >= 8)
-%define use_python (!%{is_amazon_linux})
+%define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
 # %define use_s3 (%{rhel} >= 8)
@@ -79,9 +74,7 @@ BuildRequires:	bzip2-devel
 BuildRequires:	c-ares-devel
 %endif
 BuildRequires:	cmake%{cmake_version}
-%if %{use_s3}
 BuildRequires:	curl-devel
-%endif
 BuildRequires:	flex
 BuildRequires:	gcc-c++
 %if %{use_gflags}
@@ -89,6 +82,9 @@ BuildRequires:	gflags-devel
 %endif
 BuildRequires:	git
 BuildRequires:	glog-devel
+%if %{use_gcs}
+BuildRequires:	json-devel
+%endif
 %if %{have_zstd}
 BuildRequires:	libzstd-devel
 %endif
@@ -97,8 +93,8 @@ BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
 %if %{use_python}
-BuildRequires:	python%{python_version}-devel
-BuildRequires:	python%{python_version}-numpy
+BuildRequires:	python39-devel
+BuildRequires:	python39-numpy
 %endif
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
@@ -119,6 +115,7 @@ BuildRequires:	ncurses-devel
 
 BuildRequires:	gobject-introspection-devel
 BuildRequires:	gtk-doc
+BuildRequires:	vala-devel
 
 %description
 Apache Arrow is a data processing library for analysis.
@@ -138,6 +135,9 @@ cd cpp/build
 %endif
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
+%endif
+%if %{use_gcs}
+  -DARROW_GCS=ON \
 %endif
   -DARROW_HDFS=ON \
   -DARROW_JSON=ON \
@@ -180,7 +180,8 @@ meson setup build \
   --prefix=%{_prefix} \
   -Darrow_cpp_build_dir=../cpp/build \
   -Darrow_cpp_build_type=$cpp_build_type \
-  -Dgtk_doc=true
+  -Dgtk_doc=true \
+  -Dvala=true
 LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
   ninja -C build %{?_smp_mflags}
 cd -
@@ -237,6 +238,9 @@ Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
 %endif
+%if %{use_gcs}
+Requires:	json-devel
+%endif
 %if %{have_zstd}
 Requires:	libzstd-devel
 %endif
@@ -271,11 +275,11 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/ArrowTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrow.cmake
 %{_libdir}/cmake/arrow/FindBrotli.cmake
-%{_libdir}/cmake/arrow/FindLz4.cmake
 %{_libdir}/cmake/arrow/FindSnappy.cmake
 %if %{use_flight}
 %{_libdir}/cmake/arrow/Findc-aresAlt.cmake
 %endif
+%{_libdir}/cmake/arrow/Findlz4Alt.cmake
 %if %{have_re2}
 %{_libdir}/cmake/arrow/Findre2Alt.cmake
 %endif
@@ -410,7 +414,7 @@ Libraries and header files for Gandiva.
 Summary:	Python integration library for Apache Arrow
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	python%{python_version}-numpy
+Requires:	python39-numpy
 
 %description -n %{name}%{major_version}-python-libs
 This package contains the Python integration library for Apache Arrow.
@@ -425,7 +429,7 @@ Summary:	Libraries and header files for Python integration library for Apache Ar
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-python-libs = %{version}-%{release}
 Requires:	%{name}-devel = %{version}-%{release}
-Requires:	python%{python_version}-devel
+Requires:	python39-devel
 
 %description python-devel
 Libraries and header files for Python integration library for Apache Arrow.
@@ -598,6 +602,7 @@ Libraries and header files for Apache Arrow GLib.
 %{_libdir}/pkgconfig/arrow-orc-glib.pc
 %{_libdir}/girepository-1.0/Arrow-1.0.typelib
 %{_datadir}/arrow-glib/example/
+%{_datadir}/vala/vapi/arrow-glib.*
 
 %package glib-doc
 Summary:	Documentation for Apache Arrow GLib
@@ -645,6 +650,7 @@ Libraries and header files for Apache Arrow Dataset GLib.
 %{_libdir}/libarrow-dataset-glib.so
 %{_libdir}/pkgconfig/arrow-dataset-glib.pc
 %{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
+%{_datadir}/vala/vapi/arrow-dataset-glib.*
 
 %package dataset-glib-doc
 Summary:	Documentation for Apache Arrow Dataset GLib
@@ -692,6 +698,7 @@ Libraries and header files for Apache Arrow Flight GLib.
 %{_libdir}/libarrow-flight-glib.so
 %{_libdir}/pkgconfig/arrow-flight-glib.pc
 %{_libdir}/girepository-1.0/ArrowFlight-1.0.typelib
+%{_datadir}/vala/vapi/arrow-flight-glib.*
 
 %package flight-glib-doc
 Summary:	Documentation for Apache Arrow Flight GLib
@@ -740,6 +747,7 @@ Libraries and header files for Gandiva GLib.
 %{_libdir}/libgandiva-glib.so
 %{_libdir}/pkgconfig/gandiva-glib.pc
 %{_libdir}/girepository-1.0/Gandiva-1.0.typelib
+%{_datadir}/vala/vapi/gandiva-glib.*
 
 %package -n gandiva-glib-doc
 Summary:	Documentation for Gandiva GLib
@@ -787,6 +795,7 @@ Libraries and header files for Plasma GLib.
 %{_libdir}/libplasma-glib.so
 %{_libdir}/pkgconfig/plasma-glib.pc
 %{_libdir}/girepository-1.0/Plasma-1.0.typelib
+%{_datadir}/vala/vapi/plasma-glib.*
 
 %package -n plasma-glib-doc
 Summary:	Documentation for Plasma GLib
@@ -833,6 +842,7 @@ Libraries and header files for Apache Parquet GLib.
 %{_libdir}/libparquet-glib.so
 %{_libdir}/pkgconfig/parquet-glib.pc
 %{_libdir}/girepository-1.0/Parquet-1.0.typelib
+%{_datadir}/vala/vapi/parquet-glib.*
 
 %package -n parquet-glib-doc
 Summary:	Documentation for Apache Parquet GLib
@@ -847,6 +857,9 @@ Documentation for Apache Parquet GLib.
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
+* Tue May 03 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 8.0.0-1
+- New upstream release.
+
 * Sat Jan 29 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 7.0.0-1
 - New upstream release.
 

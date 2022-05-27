@@ -26,9 +26,13 @@ from collections import namedtuple
 
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
+from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
 
+from libcpp cimport bool as c_bool
+
+import inspect
 import numpy as np
 
 
@@ -313,6 +317,17 @@ cdef class Function(_Weakrefable):
              MemoryPool memory_pool=None):
         """
         Call the function on the given arguments.
+
+        Parameters
+        ----------
+        args : iterable
+            The arguments to pass to the function.  Accepted types depend
+            on the specific function.
+        options : FunctionOptions, optional
+            Options instance for executing this function.  This should have
+            the right concrete options type.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
         """
         cdef:
             const CFunctionOptions* c_options = NULL
@@ -867,10 +882,11 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-    def _set_options(self, multiple, unit):
+    def _set_options(self, multiple, unit, week_starts_monday):
         self.wrapped.reset(
             new CRoundTemporalOptions(
-                multiple, unwrap_round_temporal_unit(unit))
+                multiple, unwrap_round_temporal_unit(unit),
+                week_starts_monday)
         )
 
 
@@ -882,22 +898,32 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     ----------
     multiple : int, default 1
         Number of units to round to.
-    unit : str, default "second"
+    unit : str, default "day"
         The unit in which `multiple` is expressed.
         Accepted values are "year", "quarter", "month", "week", "day",
         "hour", "minute", "second", "millisecond", "microsecond",
         "nanosecond".
+    week_starts_monday : bool, default True
+        If True, weeks start on Monday; if False, on Sunday.
     """
 
-    def __init__(self, multiple=1, unit="second"):
-        self._set_options(multiple, unit)
+    def __init__(self, multiple=1, unit="day", week_starts_monday=True):
+        self._set_options(multiple, unit, week_starts_monday)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
     def _set_options(self, multiple, round_mode):
+        if not isinstance(multiple, Scalar):
+            try:
+                multiple = lib.scalar(multiple)
+            except Exception:
+                _raise_invalid_function_option(
+                    multiple, "multiple type for RoundToMultipleOptions",
+                    exception_class=TypeError)
+
         self.wrapped.reset(
-            new CRoundToMultipleOptions(multiple,
-                                        unwrap_round_mode(round_mode))
+            new CRoundToMultipleOptions(
+                pyarrow_unwrap_scalar(multiple), unwrap_round_mode(round_mode))
         )
 
 
@@ -1395,13 +1421,13 @@ cdef class _SetLookupOptions(FunctionOptions):
     def _set_options(self, value_set, c_bool skip_nulls):
         cdef unique_ptr[CDatum] valset
         if isinstance(value_set, Array):
-            valset.reset(new CDatum((< Array > value_set).sp_array))
+            valset.reset(new CDatum((<Array> value_set).sp_array))
         elif isinstance(value_set, ChunkedArray):
             valset.reset(
-                new CDatum((< ChunkedArray > value_set).sp_chunked_array)
+                new CDatum((<ChunkedArray> value_set).sp_chunked_array)
             )
         elif isinstance(value_set, Scalar):
-            valset.reset(new CDatum((< Scalar > value_set).unwrap()))
+            valset.reset(new CDatum((<Scalar> value_set).unwrap()))
         else:
             _raise_invalid_function_option(value_set, "value set",
                                            exception_class=TypeError)
@@ -1435,10 +1461,11 @@ cdef class _StrptimeOptions(FunctionOptions):
         "ns": TimeUnit_NANO,
     }
 
-    def _set_options(self, format, unit):
+    def _set_options(self, format, unit, error_is_null):
         try:
             self.wrapped.reset(
-                new CStrptimeOptions(tobytes(format), self._unit_map[unit])
+                new CStrptimeOptions(tobytes(format), self._unit_map[unit],
+                                     error_is_null)
             )
         except KeyError:
             _raise_invalid_function_option(unit, "time unit")
@@ -1455,10 +1482,12 @@ class StrptimeOptions(_StrptimeOptions):
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
+    error_is_null : boolean, default False
+        Return null on parsing errors if true or raise if false.
     """
 
-    def __init__(self, format, unit):
-        self._set_options(format, unit)
+    def __init__(self, format, unit, error_is_null=False):
+        self._set_options(format, unit, error_is_null)
 
 
 cdef class _StrftimeOptions(FunctionOptions):
@@ -1999,23 +2028,23 @@ cdef class Expression(_Weakrefable):
       ``|`` (logical or) and ``~`` (logical not).
       Note: python keywords ``and``, ``or`` and ``not`` cannot be used
       to combine expressions.
-    - Check whether the expression is contained in a list of values with
-      the ``pyarrow.compute.Expression.isin()`` member function.
+    - Create expression predicates using Expression methods such as
+      ``pyarrow.compute.Expression.isin()``.
 
     Examples
     --------
 
     >>> import pyarrow.compute as pc
     >>> (pc.field("a") < pc.scalar(3)) | (pc.field("b") > 7)
-    <pyarrow.compute.Expression ((a < 3:int64) or (b > 7:int64))>
-    >>> ds.field('a') != 3
+    <pyarrow.compute.Expression ((a < 3) or (b > 7))>
+    >>> pc.field('a') != 3
     <pyarrow.compute.Expression (a != 3)>
-    >>> ds.field('a').isin([1, 2, 3])
-    <pyarrow.compute.Expression (a is in [
+    >>> pc.field('a').isin([1, 2, 3])
+    <pyarrow.compute.Expression is_in(a, {value_set=int64:[
       1,
       2,
       3
-    ])>
+    ], skip_nulls=false})>
     """
 
     def __init__(self):
@@ -2124,21 +2153,76 @@ cdef class Expression(_Weakrefable):
         return Expression._call("divide_checked", [self, other])
 
     def is_valid(self):
-        """Checks whether the expression is not-null (valid)"""
+        """
+        Check whether the expression is not-null (valid).
+
+        This creates a new expression equivalent to calling the
+        `is_valid` compute function on this expression.
+
+        Returns
+        -------
+        is_valid : Expression
+        """
         return Expression._call("is_valid", [self])
 
     def is_null(self, bint nan_is_null=False):
-        """Checks whether the expression is null"""
+        """
+        Check whether the expression is null.
+
+        This creates a new expression equivalent to calling the
+        `is_null` compute function on this expression.
+
+        Parameters
+        ----------
+        nan_is_null : boolean, default False
+            Whether floating-point NaNs are considered null.
+
+        Returns
+        -------
+        is_null : Expression
+        """
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
 
     def cast(self, type, bint safe=True):
-        """Explicitly change the expression's data type"""
+        """
+        Explicitly set or change the expression's data type.
+
+        This creates a new expression equivalent to calling the
+        `cast` compute function on this expression.
+
+        Parameters
+        ----------
+        type : DataType
+            Type to cast array to.
+        safe : boolean, default True
+            Whether to check for conversion errors such as overflow.
+
+        Returns
+        -------
+        cast : Expression
+        """
         options = CastOptions.safe(ensure_type(type))
         return Expression._call("cast", [self], options)
 
     def isin(self, values):
-        """Checks whether the expression is contained in values"""
+        """
+        Check whether the expression is contained in values.
+
+        This creates a new expression equivalent to calling the
+        `is_in` compute function on this expression.
+
+        Parameters
+        ----------
+        values : Array or iterable
+            The values to check for.
+
+        Returns
+        -------
+        isin : Expression
+            A new expression that, when evaluated, checks whether
+            this expression's value is contained in `values`.
+        """
         if not isinstance(values, Array):
             values = lib.array(values)
 
@@ -2146,8 +2230,27 @@ cdef class Expression(_Weakrefable):
         return Expression._call("is_in", [self], options)
 
     @staticmethod
-    def _field(str name not None):
-        return Expression.wrap(CMakeFieldExpression(tobytes(name)))
+    def _field(name_or_idx not None):
+        cdef:
+            CFieldRef c_field
+
+        if isinstance(name_or_idx, int):
+            return Expression.wrap(CMakeFieldExpressionByIndex(name_or_idx))
+        else:
+            c_field = CFieldRef(<c_string> tobytes(name_or_idx))
+            return Expression.wrap(CMakeFieldExpression(c_field))
+
+    @staticmethod
+    def _nested_field(tuple names not None):
+        cdef:
+            vector[CFieldRef] nested
+
+        if len(names) == 0:
+            raise ValueError("nested field reference should be non-empty")
+        nested.reserve(len(names))
+        for name in names:
+            nested.push_back(CFieldRef(<c_string> tobytes(name)))
+        return Expression.wrap(CMakeFieldExpression(CFieldRef(move(nested))))
 
     @staticmethod
     def _scalar(value):
@@ -2176,3 +2279,211 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
 
     return GetResultValue(filter.unwrap().Bind(
         deref(pyarrow_unwrap_schema(schema).get())))
+
+
+cdef class ScalarUdfContext:
+    """
+    Per-invocation function context/state.
+
+    This object will always be the first argument to a user-defined
+    function. It should not be used outside of a call to the function.
+    """
+
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly"
+                        .format(self.__class__.__name__))
+
+    cdef void init(self, const CScalarUdfContext &c_context):
+        self.c_context = c_context
+
+    @property
+    def batch_length(self):
+        """
+        The common length of all input arguments (int).
+
+        In the case that all arguments are scalars, this value
+        is used to pass the "actual length" of the arguments,
+        e.g. because the scalar values are encoding a column
+        with a constant value.
+        """
+        return self.c_context.batch_length
+
+    @property
+    def memory_pool(self):
+        """
+        A memory pool for allocations (:class:`MemoryPool`).
+
+        This is the memory pool supplied by the user when they invoked
+        the function and it should be used in any calls to arrow that the
+        UDF makes if that call accepts a memory_pool.
+        """
+        return box_memory_pool(self.c_context.pool)
+
+
+cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
+    """
+    Helper function to generate the FunctionDoc
+    This function accepts a dictionary and expects the 
+    summary(str), description(str) and arg_names(List[str]) keys. 
+    """
+    cdef:
+        CFunctionDoc f_doc
+        vector[c_string] c_arg_names
+
+    f_doc.summary = tobytes(func_doc["summary"])
+    f_doc.description = tobytes(func_doc["description"])
+    for arg_name in func_doc["arg_names"]:
+        c_arg_names.push_back(tobytes(arg_name))
+    f_doc.arg_names = c_arg_names
+    # UDFOptions integration:
+    # TODO: https://issues.apache.org/jira/browse/ARROW-16041
+    f_doc.options_class = b""
+    f_doc.options_required = False
+    return f_doc
+
+
+cdef object box_scalar_udf_context(const CScalarUdfContext& c_context):
+    cdef ScalarUdfContext context = ScalarUdfContext.__new__(ScalarUdfContext)
+    context.init(c_context)
+    return context
+
+
+cdef _scalar_udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
+    """
+    Helper callback function used to wrap the ScalarUdfContext from Python to C++
+    execution.
+    """
+    context = box_scalar_udf_context(c_context)
+    return user_function(context, *inputs)
+
+
+def _get_scalar_udf_context(memory_pool, batch_length):
+    cdef CScalarUdfContext c_context
+    c_context.pool = maybe_unbox_memory_pool(memory_pool)
+    c_context.batch_length = batch_length
+    context = box_scalar_udf_context(c_context)
+    return context
+
+
+def register_scalar_function(func, function_name, function_doc, in_types,
+                             out_type):
+    """
+    Register a user-defined scalar function. 
+
+    A scalar function is a function that executes elementwise
+    operations on arrays or scalars, i.e. a scalar function must
+    be computed row-by-row with no state where each output row 
+    is computed only from its corresponding input row.
+    In other words, all argument arrays have the same length,
+    and the output array is of the same length as the arguments.
+    Scalar functions are the only functions allowed in query engine
+    expressions.
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The first argument is the context argument of type
+        ScalarUdfContext.
+        Then, it must take arguments equal to the number of
+        in_types defined. It must return an Array or Scalar
+        matching the out_type. It must return a Scalar if
+        all arguments are scalar, else it must return an Array.
+
+        To define a varargs function, pass a callable that takes
+        varargs. The last in_type will be the type of all varargs
+        arguments.
+    function_name : str
+        Name of the function. This name must be globally unique. 
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        The argument names will be used to generate
+        documentation for the function. The number of
+        arguments specified here determines the function
+        arity.
+    out_type : DataType
+        Output type of the function.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> 
+    >>> func_doc = {}
+    >>> func_doc["summary"] = "simple udf"
+    >>> func_doc["description"] = "add a constant to a scalar"
+    >>> 
+    >>> def add_constant(ctx, array):
+    ...     return pc.add(array, 1, memory_pool=ctx.memory_pool)
+    >>> 
+    >>> func_name = "py_add_func"
+    >>> in_types = {"array": pa.int64()}
+    >>> out_type = pa.int64()
+    >>> pc.register_scalar_function(add_constant, func_name, func_doc,
+    ...                   in_types, out_type)
+    >>> 
+    >>> func = pc.get_function(func_name)
+    >>> func.name
+    'py_add_func'
+    >>> answer = pc.call_function(func_name, [pa.array([20])])
+    >>> answer
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      21
+    ]
+    """
+    cdef:
+        c_string c_func_name
+        CArity c_arity
+        CFunctionDoc c_func_doc
+        vector[shared_ptr[CDataType]] c_in_types
+        PyObject* c_function
+        shared_ptr[CDataType] c_out_type
+        CScalarUdfOptions c_options
+
+    if callable(func):
+        c_function = <PyObject*>func
+    else:
+        raise TypeError("func must be a callable")
+
+    c_func_name = tobytes(function_name)
+
+    func_spec = inspect.getfullargspec(func)
+    num_args = -1
+    if isinstance(in_types, dict):
+        for in_type in in_types.values():
+            c_in_types.push_back(
+                pyarrow_unwrap_data_type(ensure_type(in_type)))
+        function_doc["arg_names"] = in_types.keys()
+        num_args = len(in_types)
+    else:
+        raise TypeError(
+            "in_types must be a dictionary of DataType")
+
+    c_arity = CArity(num_args, func_spec.varargs)
+
+    if "summary" not in function_doc:
+        raise ValueError("Function doc must contain a summary")
+
+    if "description" not in function_doc:
+        raise ValueError("Function doc must contain a description")
+
+    if "arg_names" not in function_doc:
+        raise ValueError("Function doc must contain arg_names")
+
+    c_func_doc = _make_function_doc(function_doc)
+
+    c_out_type = pyarrow_unwrap_data_type(ensure_type(out_type))
+
+    c_options.func_name = c_func_name
+    c_options.arity = c_arity
+    c_options.func_doc = c_func_doc
+    c_options.input_types = c_in_types
+    c_options.output_type = c_out_type
+
+    check_status(RegisterScalarFunction(c_function,
+                                        <function[CallbackUdf]> &_scalar_udf_callback, c_options))

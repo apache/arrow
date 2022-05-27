@@ -17,9 +17,9 @@
 
 package org.apache.arrow.dataset.scanner;
 
-import java.util.Iterator;
+import java.io.Reader;
 
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.ArrowReader;
 
 /**
  * Read record batches from a range of a single data fragment. A
@@ -29,14 +29,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 public interface ScanTask extends AutoCloseable {
 
   /**
-   * Creates and returns a {@link BatchIterator} instance.
+   * Execute this ScanTask and return a {@link Reader} instance.
    */
-  BatchIterator execute();
-
-  /**
-   * The iterator implementation for {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}s.
-   */
-  interface BatchIterator extends Iterator<ArrowRecordBatch>, AutoCloseable {
-
-  }
+  ArrowReader execute();
 }

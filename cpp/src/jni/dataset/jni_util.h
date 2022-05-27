@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <jni.h>
+
 #include "arrow/array.h"
 #include "arrow/io/api.h"
 #include "arrow/ipc/api.h"
@@ -24,11 +26,11 @@
 #include "arrow/result.h"
 #include "arrow/type.h"
 
-#include <jni.h>
-
 namespace arrow {
 namespace dataset {
 namespace jni {
+
+Status CheckException(JNIEnv* env);
 
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name);
 
@@ -47,6 +49,18 @@ arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
 
 arrow::Result<std::shared_ptr<arrow::Schema>> FromSchemaByteArray(JNIEnv* env,
                                                                   jbyteArray schemaBytes);
+
+/// \brief Export arrow::RecordBatch for Java (or other JVM languages) use.
+/// The exported batch is subject to C data interface specification and can be
+/// imported from Java side using provided JNI utilities.
+arrow::Status ExportRecordBatch(JNIEnv* env, const std::shared_ptr<RecordBatch>& batch,
+                                jlong struct_array);
+
+/// \brief Import arrow::RecordBatch from JVM language side. The input data should
+/// ideally be exported from specific JNI utilities from JVM language side and should
+/// conform to C data interface specification.
+arrow::Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(
+    JNIEnv* env, const std::shared_ptr<Schema>& schema, jlong struct_array);
 
 /// \brief Create a new shared_ptr on heap from shared_ptr t to prevent
 /// the managed object from being garbage-collected.

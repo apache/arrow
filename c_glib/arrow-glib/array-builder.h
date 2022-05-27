@@ -754,6 +754,14 @@ GARROW_AVAILABLE_IN_0_16
 gboolean garrow_string_array_builder_append_string(GArrowStringArrayBuilder *builder,
                                                    const gchar *value,
                                                    GError **error);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_string_array_builder_append_string_len(GArrowStringArrayBuilder *builder,
+                                              const gchar *value,
+                                              gint32 length,
+                                              GError **error);
+
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_16_FOR(garrow_string_array_builder_append_strings)
 gboolean garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
@@ -790,6 +798,12 @@ GARROW_AVAILABLE_IN_0_16
 gboolean garrow_large_string_array_builder_append_string(GArrowLargeStringArrayBuilder *builder,
                                                          const gchar *value,
                                                          GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean garrow_large_string_array_builder_append_string_len(
+  GArrowLargeStringArrayBuilder *builder,
+  const gchar *value,
+  gint64 length,
+  GError **error);
 GARROW_AVAILABLE_IN_0_16
 gboolean garrow_large_string_array_builder_append_strings(GArrowLargeStringArrayBuilder *builder,
                                                           const gchar **values,

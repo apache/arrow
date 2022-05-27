@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/compute/api.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
@@ -375,9 +373,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
+    bool error_is_null = false;
+    if (!Rf_isNull(options["error_is_null"])) {
+      error_is_null = cpp11::as_cpp<bool>(options["error_is_null"]);
+    }
     return std::make_shared<Options>(
         cpp11::as_cpp<std::string>(options["format"]),
-        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
+        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]), error_is_null);
   }
 
   if (func_name == "strftime") {
@@ -389,8 +391,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "assume_timezone") {
     using Options = arrow::compute::AssumeTimezoneOptions;
-    enum Options::Ambiguous ambiguous;
-    enum Options::Nonexistent nonexistent;
+    enum Options::Ambiguous ambiguous = Options::AMBIGUOUS_RAISE;
+    enum Options::Nonexistent nonexistent = Options::NONEXISTENT_RAISE;
 
     if (!Rf_isNull(options["ambiguous"])) {
       ambiguous = cpp11::as_cpp<enum Options::Ambiguous>(options["ambiguous"]);
@@ -572,5 +574,3 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
 std::vector<std::string> compute__GetFunctionNames() {
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
-
-#endif

@@ -2018,7 +2018,7 @@ static void TestZigZag64(int64_t v, std::array<uint8_t, 10> buffer_expect) {
   bit_util::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
   EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
-  int64_t result;
+  int64_t result = 0;
   EXPECT_TRUE(reader.GetZigZagVlqInt(&result));
   EXPECT_EQ(v, result);
 }

@@ -15,17 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import click
 import collections
+import csv
 import operator
 import fnmatch
 import functools
-from io import StringIO
-import textwrap
+
+import click
+import requests
+
+from archery.utils.report import JinjaReport
 
 
 # TODO(kszucs): use archery.report.JinjaReport instead
 class Report:
+
+    ROW_HEADERS = [
+        "task_name",
+        "task_status",
+        "build_links",
+        "crossbow_branch_url",
+        "ci_system",
+        "extra_params",
+        "template",
+        "arrow_commit",
+    ]
 
     def __init__(self, job, task_filters=None):
         self.job = job
@@ -41,11 +55,69 @@ class Report:
         self._tasks = dict(tasks)
 
     @property
+    def repo_url(self):
+        url = self.job.queue.remote_url
+        return url[:-4] if url.endswith('.git') else url
+
+    def url(self, query):
+        return '{}/branches/all?query={}'.format(self.repo_url, query)
+
+    def branch_url(self, branch):
+        return '{}/tree/{}'.format(self.repo_url, branch)
+
+    def task_url(self, task):
+        if task.status().build_links:
+            # show link to the actual build, some CI providers implement
+            # the statuses API others implement the checks API, retrieve any.
+            return task.status().build_links[0]
+        else:
+            # show link to the branch if no status build link was found.
+            return self.branch_url(task.branch)
+
+    @property
+    @functools.lru_cache(maxsize=1)
+    def tasks_by_state(self):
+        tasks_by_state = collections.defaultdict(dict)
+        for task_name, task in self.job.tasks.items():
+            state = task.status().combined_state
+            tasks_by_state[state][task_name] = task
+        return tasks_by_state
+
+    @property
+    def contains_failures(self):
+        return any(self.tasks_by_state[state] for state in (
+            "error", "failure"))
+
+    @property
     def tasks(self):
         return self._tasks
 
     def show(self):
         raise NotImplementedError()
+
+    @property
+    def rows(self):
+        """
+        Produces a generator that allow us to iterate over
+        the job tasks as a list of rows.
+        Row headers are defined at Report.ROW_HEADERS.
+        """
+        for task_name, task in sorted(self.job.tasks.items()):
+            task_status = task.status()
+            row = [
+                task_name,
+                task_status.combined_state,
+                task_status.build_links,
+                self.branch_url(task.branch),
+                task.ci,
+                # We want this to be serialized as a dict instead
+                # of an orderedict.
+                {k: v for k, v in task.params.items()},
+                task.template,
+                # Arrow repository commit
+                self.job.target.head
+            ]
+            yield row
 
 
 class ConsoleReport(Report):
@@ -134,104 +206,65 @@ class ConsoleReport(Report):
                                    asset))
 
 
-class EmailReport(Report):
-
-    HEADER = textwrap.dedent("""
-        Arrow Build Report for Job {job_name}
-
-        All tasks: {all_tasks_url}
-    """)
-
-    TASK = textwrap.dedent("""
-          - {name}:
-            URL: {url}
-    """).strip()
-
-    EMAIL = textwrap.dedent("""
-        From: {sender_name} <{sender_email}>
-        To: {recipient_email}
-        Subject: {subject}
-
-        {body}
-    """).strip()
-
-    STATUS_HEADERS = {
-        # from CombinedStatus
-        'error': 'Errored Tasks:',
-        'failure': 'Failed Tasks:',
-        'pending': 'Pending Tasks:',
-        'success': 'Succeeded Tasks:',
+class ChatReport(JinjaReport):
+    templates = {
+        'text': 'chat_nightly_report.txt.j2',
     }
+    fields = [
+        'report',
+        'extra_message_success',
+        'extra_message_failure',
+    ]
 
-    def __init__(self, job, sender_name, sender_email, recipient_email):
-        self.sender_name = sender_name
-        self.sender_email = sender_email
-        self.recipient_email = recipient_email
-        super().__init__(job)
 
-    def url(self, query):
-        repo_url = self.job.queue.remote_url.strip('.git')
-        return '{}/branches/all?query={}'.format(repo_url, query)
+class ReportUtils:
 
-    def listing(self, tasks):
-        return '\n'.join(
-            sorted(
-                self.TASK.format(name=task_name, url=self.url(task.branch))
-                for task_name, task in tasks.items()
-            )
+    @classmethod
+    def send_message(cls, webhook, message):
+        resp = requests.post(webhook, json={
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                            "type": "mrkdwn",
+                            "text": message
+                    }
+                }
+            ]
+        }
         )
+        return resp
 
-    def header(self):
-        url = self.url(self.job.branch)
-        return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
-
-    def subject(self):
-        return (
-            "[NIGHTLY] Arrow Build Report for Job {}".format(self.job.branch)
-        )
-
-    def body(self):
-        buffer = StringIO()
-        buffer.write(self.header())
-
-        tasks_by_state = collections.defaultdict(dict)
-        for task_name, task in self.job.tasks.items():
-            state = task.status().combined_state
-            tasks_by_state[state][task_name] = task
-
-        for state in ('failure', 'error', 'pending', 'success'):
-            if state in tasks_by_state:
-                tasks = tasks_by_state[state]
-                buffer.write('\n')
-                buffer.write(self.STATUS_HEADERS[state])
-                buffer.write('\n')
-                buffer.write(self.listing(tasks))
-                buffer.write('\n')
-
-        return buffer.getvalue()
-
-    def email(self):
-        return self.EMAIL.format(
-            sender_name=self.sender_name,
-            sender_email=self.sender_email,
-            recipient_email=self.recipient_email,
-            subject=self.subject(),
-            body=self.body()
-        )
-
-    def show(self, outstream):
-        outstream.write(self.email())
-
-    def send(self, smtp_user, smtp_password, smtp_server, smtp_port):
+    @classmethod
+    def send_email(cls, smtp_user, smtp_password, smtp_server, smtp_port,
+                   recipient_email, message):
         import smtplib
-
-        email = self.email()
 
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         server.ehlo()
         server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_user, self.recipient_email, email)
+        server.sendmail(smtp_user, recipient_email, message)
         server.close()
+
+    @classmethod
+    def write_csv(cls, report, add_headers=True):
+        with open(f'{report.job.branch}.csv', 'w') as csvfile:
+            task_writer = csv.writer(csvfile)
+            if add_headers:
+                task_writer.writerow(report.ROW_HEADERS)
+            task_writer.writerows(report.rows)
+
+
+class EmailReport(JinjaReport):
+    templates = {
+        'text': 'email_nightly_report.txt.j2',
+    }
+    fields = [
+        'report',
+        'sender_name',
+        'sender_email',
+        'recipient_email',
+    ]
 
 
 class CommentReport(Report):

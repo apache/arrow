@@ -143,7 +143,8 @@ def test_unathorized_user_comment(load_fixture, responses):
                "Please ask someone from the community for help with getting "
                "the first commit in.\n"
                "The Archery job run can be found at: "
-               "https://github.com/apache/arrow/actions/runs/1463784188```")
+               "https://github.com/apache/arrow/actions/runs/1463784188\n"
+               "```")
     assert json.loads(post.request.body) == {
         "body": f'{comment}'}
     assert json.loads(reaction.request.body) == {'content': '-1'}
@@ -223,7 +224,8 @@ def test_respond_with_usage(load_fixture, responses):
         {'body':
          ("```\ntest-usage\n"
           "The Archery job run can be found at: "
-          "https://github.com/apache/arrow/actions/runs/1463784188```")
+          "https://github.com/apache/arrow/actions/runs/1463784188\n"
+          "```")
          }
 
 

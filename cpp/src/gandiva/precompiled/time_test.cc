@@ -223,6 +223,40 @@ TEST(TestTime, TestExtractTime) {
   EXPECT_EQ(extractSecond_time32(time_as_millis_in_day), 33);
 }
 
+TEST(TestTime, TestDateDiff) {
+  gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  gdv_timestamp ts2 = StringToTimestamp("2019-05-31 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 30);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-02-28 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 122);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-03-31 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 91);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-06-30 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), 0);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-01 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -1);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-31 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -31);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-30 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -30);
+
+  ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  ts2 = StringToTimestamp("2019-07-29 00:00:00");
+  EXPECT_EQ(datediff_timestamp_timestamp(ts1, ts2), -29);
+}
+
 TEST(TestTime, TestTimestampDiffMonth) {
   gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
   gdv_timestamp ts2 = StringToTimestamp("2019-05-31 00:00:00");
@@ -811,6 +845,42 @@ TEST(TestTime, TestCastTimestampToDate) {
   gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
   auto out = castDATE_timestamp(ts);
   EXPECT_EQ(StringToTimestamp("2000-05-01 00:00:00"), out);
+}
+
+TEST(TestTime, TestNextDay) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  gdv_timestamp ts = StringToTimestamp("2021-11-08 10:20:34");
+  auto out = next_day_from_timestamp(context_ptr, ts, "FR", 2);
+  EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
+
+  out = next_day_from_timestamp(context_ptr, ts, "FRI", 3);
+  EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
+
+  out = next_day_from_timestamp(context_ptr, ts, "FRIDAY", 6);
+  EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
+
+  ts = StringToTimestamp("2015-08-06 11:12:30");
+  out = next_day_from_timestamp(context_ptr, ts, "THU", 3);
+  EXPECT_EQ(StringToTimestamp("2015-08-13 00:00:00"), out);
+
+  ts = StringToTimestamp("2012-08-14 11:12:30");
+  out = next_day_from_timestamp(context_ptr, ts, "TUE", 3);
+  EXPECT_EQ(StringToTimestamp("2012-08-21 00:00:00"), out);
+
+  ts = StringToTimestamp("2012-12-12 12:00:00");
+  out = next_day_from_timestamp(context_ptr, ts, "TU", 2);
+  EXPECT_EQ(StringToTimestamp("2012-12-18 00:00:00"), out);
+
+  ts = StringToTimestamp("2000-01-01 20:15:00");
+  out = next_day_from_timestamp(context_ptr, ts, "SATURDAY", 8);
+  EXPECT_EQ(StringToTimestamp("2000-01-08 00:00:00"), out);
+
+  ts = StringToTimestamp("2015-08-06 11:12:30");
+  out = next_day_from_timestamp(context_ptr, ts, "AHSRK", 5);
+  EXPECT_EQ(context.get_error(), "The weekday in this entry is invalid");
+  context.Reset();
 }
 
 TEST(TestTime, TestCastTimestampToTime) {

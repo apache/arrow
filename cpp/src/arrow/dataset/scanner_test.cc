@@ -128,6 +128,15 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
     AssertScanBatchesEquals(expected.get(), scanner.get());
   }
 
+  void AssertNoAugmentedFields(std::shared_ptr<Scanner> scanner) {
+    ASSERT_OK_AND_ASSIGN(auto table, scanner.get()->ToTable());
+    auto columns = table.get()->ColumnNames();
+    EXPECT_TRUE(std::none_of(columns.begin(), columns.end(), [](std::string& x) {
+      return x == "__fragment_index" || x == "__batch_index" ||
+             x == "__last_in_fragment" || x == "__filename";
+    }));
+  }
+
   void AssertScanBatchesUnorderedEqualRepetitionsOf(
       std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
       const int64_t total_batches = GetParam().num_child_datasets *
@@ -244,6 +253,38 @@ TEST_P(TestScanner, ProjectedScan) {
   auto batch_out = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch,
                                                   schema({field("i32", int32())}));
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
+}
+
+TEST_P(TestScanner, ProjectionDefaults) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto just_i32 = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch,
+                                                 schema({field("i32", int32())}));
+  // If we don't specify anything we should scan everything
+  {
+    ARROW_SCOPED_TRACE("User does not specify projection or projected_schema");
+    options_->projection = literal(true);
+    options_->projected_schema = nullptr;
+    AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch_in), batch_in);
+    AssertNoAugmentedFields(MakeScanner(batch_in));
+  }
+  // If we only specify a projection expression then infer the projected schema
+  // from the projection expression
+  auto projection_desc = ProjectionDescr::FromNames({"i32"}, *schema_);
+  {
+    ARROW_SCOPED_TRACE("User only specifies projection");
+    options_->projection = projection_desc->expression;
+    options_->projected_schema = nullptr;
+    AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch_in), just_i32);
+  }
+  // If we only specify a projected schema then infer the projection expression
+  // from the schema
+  {
+    ARROW_SCOPED_TRACE("User only specifies projected_schema");
+    options_->projection = literal(true);
+    options_->projected_schema = projection_desc->schema;
+    AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch_in), just_i32);
+  }
 }
 
 TEST_P(TestScanner, ProjectedScanNested) {
@@ -546,11 +587,10 @@ TEST_P(TestScanner, ToRecordBatchReader) {
 
   ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
 
-  std::shared_ptr<Table> actual;
   auto scanner = MakeScanner(batch);
   ASSERT_OK_AND_ASSIGN(auto reader, scanner->ToRecordBatchReader());
   scanner.reset();
-  ASSERT_OK(reader->ReadAll(&actual));
+  ASSERT_OK_AND_ASSIGN(auto actual, reader->ToTable());
   AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
@@ -949,6 +989,15 @@ TEST_F(TestReordering, ScanBatchesUnordered) {
   AssertBatchesInOrder(collected, {0, 0, 1, 1, 2}, {0, 2, 3, 1, 4});
 }
 
+static constexpr uint64_t kBatchSizeBytes = 40;
+static constexpr uint64_t kMaxBatchesInSink = 8;
+static constexpr uint64_t kResumeIfBelowBytes = kBatchSizeBytes * kMaxBatchesInSink / 2;
+static constexpr uint64_t kPauseIfAboveBytes = kBatchSizeBytes * kMaxBatchesInSink;
+// This is deterministic but rather odd to figure out.  Because of sequencing we have to
+// read in a few extra batches for each fragment before we hit the backpressure limit
+static constexpr int32_t kMaxBatchesRead =
+    kDefaultFragmentReadahead * 3 + kMaxBatchesInSink + 1;
+
 class TestBackpressure : public ::testing::Test {
  protected:
   static constexpr int NFRAGMENTS = 10;
@@ -987,12 +1036,16 @@ class TestBackpressure : public ::testing::Test {
     return std::make_shared<FragmentDataset>(schema_, std::move(fragments));
   }
 
-  std::shared_ptr<Scanner> MakeScanner() {
+  std::shared_ptr<Scanner> MakeScanner(::arrow::internal::Executor* io_executor) {
+    compute::BackpressureOptions low_backpressure(kResumeIfBelowBytes,
+                                                  kPauseIfAboveBytes);
+    io::IOContext io_context(default_memory_pool(), io_executor);
     std::shared_ptr<Dataset> dataset = MakeDataset();
     std::shared_ptr<ScanOptions> options = std::make_shared<ScanOptions>();
+    options->io_context = io_context;
     ScannerBuilder builder(std::move(dataset), options);
-    ARROW_EXPECT_OK(builder.UseThreads(true));
-    ARROW_EXPECT_OK(builder.FragmentReadahead(4));
+    ARROW_EXPECT_OK(builder.UseThreads(false));
+    ARROW_EXPECT_OK(builder.Backpressure(low_backpressure));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     return scanner;
   }
@@ -1018,44 +1071,39 @@ class TestBackpressure : public ::testing::Test {
 };
 
 TEST_F(TestBackpressure, ScanBatchesUnordered) {
-  std::shared_ptr<Scanner> scanner = MakeScanner();
-  EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
-                       scanner->ScanBatchesUnorderedAsync());
-  ASSERT_FINISHES_OK(gen());
-  // The exact numbers may be imprecise due to threading but we should pretty quickly read
-  // up to our backpressure limit and a little above.  We should not be able to go too far
-  // above.
-  BusyWait(30, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
-  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
-  // Wait for the thread pool to idle.  By this point the scanner should have paused
-  // itself This helps with timing on slower CI systems where there is only one core and
-  // the scanner might keep that core until it has scanned all the batches which never
-  // gives the sink a chance to report it is falling behind.
+  // By forcing the plan to run on a single thread we know that the backpressure signal
+  // will make it down before we try and read the next item which gives us much more exact
+  // backpressure numbers
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, ::arrow::internal::ThreadPool::Make(1));
+  std::shared_ptr<Scanner> scanner = MakeScanner(thread_pool.get());
+  auto initial_scan_fut = DeferNotOk(thread_pool->Submit(
+      [&] { return scanner->ScanBatchesUnorderedAsync(thread_pool.get()); }));
+  ASSERT_FINISHES_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
+                                initial_scan_fut);
   GetCpuThreadPool()->WaitForIdle();
+  // By this point the plan will have been created and started and filled up to max
+  // backpressure.  The exact measurement of "max backpressure" is a little hard to pin
+  // down but it is deterministic since we're only using one thread.
+  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
   DeliverAdditionalBatches();
-
   SleepABit();
-  // Worst case we read in the entire set of initial batches
-  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
 
+  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
   Finish(std::move(gen));
 }
 
 TEST_F(TestBackpressure, ScanBatchesOrdered) {
-  std::shared_ptr<Scanner> scanner = MakeScanner();
-  EXPECT_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen,
-                       scanner->ScanBatchesAsync());
-  // This future never actually finishes because we only emit the first batch so far and
-  // the scanner delays by one batch.  It is enough to start the system pumping though so
-  // we don't need it to finish.
-  Future<TaggedRecordBatch> fut = gen();
-
-  // See note on other test
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, ::arrow::internal::ThreadPool::Make(1));
+  std::shared_ptr<Scanner> scanner = MakeScanner(nullptr);
+  auto initial_scan_fut = DeferNotOk(
+      thread_pool->Submit([&] { return scanner->ScanBatchesAsync(thread_pool.get()); }));
+  ASSERT_FINISHES_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen, initial_scan_fut);
   GetCpuThreadPool()->WaitForIdle();
-  // Worst case we read in the entire set of initial batches
-  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
-
+  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
   DeliverAdditionalBatches();
+  SleepABit();
+
+  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
   Finish(std::move(gen));
 }
 
@@ -1356,6 +1404,7 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
       // ... and with the last-in-fragment flag
       batches.back().values.emplace_back(batch_index ==
                                          fragment_batch_strs[fragment_index].size() - 1);
+      batches.back().values.emplace_back(fragments[fragment_index]->ToString());
 
       // each batch carries a guarantee inherited from its Fragment's partition expression
       batches.back().guarantee = fragments[fragment_index]->partition_expression();
@@ -1442,7 +1491,8 @@ DatasetAndBatches MakeNestedDataset() {
 compute::Expression Materialize(std::vector<std::string> names,
                                 bool include_aug_fields = false) {
   if (include_aug_fields) {
-    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
+    for (auto aug_name :
+         {"__fragment_index", "__batch_index", "__last_in_fragment", "__filename"}) {
       names.emplace_back(aug_name);
     }
   }
@@ -1472,6 +1522,7 @@ TEST(ScanNode, Schema) {
   fields.push_back(field("__fragment_index", int32()));
   fields.push_back(field("__batch_index", int32()));
   fields.push_back(field("__last_in_fragment", boolean()));
+  fields.push_back(field("__filename", utf8()));
   // output_schema is *always* the full augmented dataset schema, regardless of
   // projection (but some columns *may* be placeholder null Scalars if not projected)
   AssertSchemaEqual(Schema(fields), *scan->output_schema());
@@ -1626,7 +1677,9 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
 
   // TODO(ARROW-1888): allow scanner to "patch up" structs with casts
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      TypeError, ::testing::HasSubstr("struct field sizes do not match"), plan.Run());
+      TypeError,
+      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+      plan.Run());
 }
 
 TEST(ScanNode, MinimalEndToEnd) {

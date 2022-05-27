@@ -188,6 +188,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       lines = File.readlines(path, chomp: true)
       target_lines = lines.grep(/#{Regexp.escape(import_path)}/)
       next if target_lines.empty?
+      hunks = []
       hunk = []
       target_lines.each do |line|
         hunk << "-#{line}"
@@ -198,7 +199,14 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         end
         hunk << "+#{new_line}"
       end
-      expected_changes << {hunks: [hunk], path: path}
+      hunks << hunk
+      if path == "go/parquet/writer_properties.go"
+        hunks << [
+          "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
+          "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"",
+        ]
+      end
+      expected_changes << {hunks: hunks, path: path}
     end
 
     Dir.glob("java/**/pom.xml") do |path|
@@ -252,8 +260,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     expected_changes = [
       {
         sampled_diff: [
-          "-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib#{@so_version}.install",
-          "+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib#{@next_so_version}.install",
+          "-dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-glib#{@so_version}.install",
+          "+dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-glib#{@next_so_version}.install",
         ],
         path: "dev/release/rat_exclude_files.txt",
       },

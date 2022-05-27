@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/util/tracing_internal.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing.h"
 
 #include <iostream>
@@ -134,7 +136,23 @@ std::unique_ptr<sdktrace::SpanExporter> InitializeExporter() {
   return nullptr;
 }
 
+struct StorageSingleton : public Executor::Resource {
+  StorageSingleton()
+      : storage_(otel::context::RuntimeContext::GetConstRuntimeContextStorage()) {}
+  nostd::shared_ptr<const otel::context::RuntimeContextStorage> storage_;
+};
+
+std::shared_ptr<Executor::Resource> GetStorageSingleton() {
+  static std::shared_ptr<StorageSingleton> storage_singleton =
+      std::make_shared<StorageSingleton>();
+  return storage_singleton;
+}
+
 nostd::shared_ptr<sdktrace::TracerProvider> InitializeSdkTracerProvider() {
+  // Bind the lifetime of the OT runtime context to the CPU and I/O thread
+  // pools.  This will keep OT alive until all thread tasks have finished.
+  internal::GetCpuThreadPool()->KeepAlive(GetStorageSingleton());
+  io::default_io_context().executor()->KeepAlive(GetStorageSingleton());
   auto exporter = InitializeExporter();
   if (exporter) {
     sdktrace::BatchSpanProcessorOptions options;

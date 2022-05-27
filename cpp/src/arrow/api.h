@@ -38,6 +38,8 @@
 #include "arrow/tensor.h"                   // IYWU pragma: export
 #include "arrow/type.h"                     // IYWU pragma: export
 #include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
+#include "arrow/visit_array_inline.h"       // IYWU pragma: export
+#include "arrow/visit_scalar_inline.h"      // IYWU pragma: export
 #include "arrow/visitor.h"                  // IYWU pragma: export
 
 /// \brief Top-level namespace for Apache Arrow C++ API

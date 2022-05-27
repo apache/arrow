@@ -331,7 +331,8 @@ static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("round_mode", &RoundOptions::round_mode));
 static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
     DataMember("multiple", &RoundTemporalOptions::multiple),
-    DataMember("unit", &RoundTemporalOptions::unit));
+    DataMember("unit", &RoundTemporalOptions::unit),
+    DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -352,7 +353,8 @@ static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
     DataMember("format", &StrftimeOptions::format));
 static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
-    DataMember("unit", &StrptimeOptions::unit));
+    DataMember("unit", &StrptimeOptions::unit),
+    DataMember("error_is_null", &StrptimeOptions::error_is_null));
 static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
     DataMember("indices", &StructFieldOptions::indices));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
@@ -488,10 +490,12 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
-RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit)
+RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
+                                           bool week_starts_monday)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
-      unit(unit) {}
+      unit(unit),
+      week_starts_monday(week_starts_monday) {}
 constexpr char RoundTemporalOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
@@ -541,11 +545,13 @@ StrftimeOptions::StrftimeOptions() : StrftimeOptions(kDefaultFormat) {}
 constexpr char StrftimeOptions::kTypeName[];
 constexpr const char* StrftimeOptions::kDefaultFormat;
 
-StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
+StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit,
+                                 bool error_is_null)
     : FunctionOptions(internal::kStrptimeOptionsType),
       format(std::move(format)),
-      unit(unit) {}
-StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
+      unit(unit),
+      error_is_null(error_is_null) {}
+StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::MICRO, false) {}
 constexpr char StrptimeOptions::kTypeName[];
 
 StructFieldOptions::StructFieldOptions(std::vector<int> indices)
@@ -637,6 +643,7 @@ SCALAR_ARITHMETIC_UNARY(Ln, "ln", "ln_checked")
 SCALAR_ARITHMETIC_UNARY(Log10, "log10", "log10_checked")
 SCALAR_ARITHMETIC_UNARY(Log1p, "log1p", "log1p_checked")
 SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
+SCALAR_ARITHMETIC_UNARY(Sqrt, "sqrt", "sqrt_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
@@ -816,6 +823,10 @@ Result<Datum> RoundTemporal(const Datum& arg, RoundTemporalOptions options,
 
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {
   return CallFunction("strftime", {arg}, &options, ctx);
+}
+
+Result<Datum> Strptime(const Datum& arg, StrptimeOptions options, ExecContext* ctx) {
+  return CallFunction("strptime", {arg}, &options, ctx);
 }
 
 Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {

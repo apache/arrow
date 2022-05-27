@@ -689,7 +689,7 @@ const FunctionDoc map_lookup_doc{
 
 void RegisterScalarNested(FunctionRegistry* registry) {
   auto list_value_length = std::make_shared<ScalarFunction>(
-      "list_value_length", Arity::Unary(), &list_value_length_doc);
+      "list_value_length", Arity::Unary(), list_value_length_doc);
   DCHECK_OK(list_value_length->AddKernel({InputType(Type::LIST)}, int32(),
                                          ListValueLength<ListType>));
   DCHECK_OK(list_value_length->AddKernel({InputType(Type::FIXED_SIZE_LIST)}, int32(),
@@ -698,25 +698,25 @@ void RegisterScalarNested(FunctionRegistry* registry) {
                                          ListValueLength<LargeListType>));
   DCHECK_OK(registry->AddFunction(std::move(list_value_length)));
 
-  auto list_element = std::make_shared<ScalarFunction>("list_element", Arity::Binary(),
-                                                       &list_element_doc);
+  auto list_element =
+      std::make_shared<ScalarFunction>("list_element", Arity::Binary(), list_element_doc);
   AddListElementArrayKernels(list_element.get());
   AddListElementScalarKernels(list_element.get());
   DCHECK_OK(registry->AddFunction(std::move(list_element)));
 
   auto struct_field =
-      std::make_shared<ScalarFunction>("struct_field", Arity::Unary(), &struct_field_doc);
+      std::make_shared<ScalarFunction>("struct_field", Arity::Unary(), struct_field_doc);
   AddStructFieldKernels(struct_field.get());
   DCHECK_OK(registry->AddFunction(std::move(struct_field)));
 
   auto map_lookup =
-      std::make_shared<ScalarFunction>("map_lookup", Arity::Unary(), &map_lookup_doc);
+      std::make_shared<ScalarFunction>("map_lookup", Arity::Unary(), map_lookup_doc);
   AddMapLookupKernels(map_lookup.get());
   DCHECK_OK(registry->AddFunction(std::move(map_lookup)));
 
   static MakeStructOptions kDefaultMakeStructOptions;
   auto make_struct_function = std::make_shared<ScalarFunction>(
-      "make_struct", Arity::VarArgs(), &make_struct_doc, &kDefaultMakeStructOptions);
+      "make_struct", Arity::VarArgs(), make_struct_doc, &kDefaultMakeStructOptions);
 
   ScalarKernel kernel{KernelSignature::Make({InputType{}}, OutputType{MakeStructResolve},
                                             /*is_varargs=*/true),

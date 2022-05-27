@@ -27,7 +27,7 @@ export CMAKE_BUILD_TYPE=RelWithDebInfo
 pushd ${source_dir}
 
 # build first so that any stray compiled files in r/src are ignored
-${R_BIN} CMD build .
+${R_BIN} CMD build --no-build-vignettes .
 ${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
 
 pushd tests

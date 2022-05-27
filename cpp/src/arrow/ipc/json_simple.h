@@ -37,16 +37,16 @@ namespace internal {
 namespace json {
 
 ARROW_EXPORT
-Status ArrayFromJSON(const std::shared_ptr<DataType>&, const std::string& json,
-                     std::shared_ptr<Array>* out);
+Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
+                                             const std::string& json);
 
 ARROW_EXPORT
-Status ArrayFromJSON(const std::shared_ptr<DataType>&, util::string_view json,
-                     std::shared_ptr<Array>* out);
+Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
+                                             util::string_view json);
 
 ARROW_EXPORT
-Status ArrayFromJSON(const std::shared_ptr<DataType>&, const char* json,
-                     std::shared_ptr<Array>* out);
+Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
+                                             const char* json);
 
 ARROW_EXPORT
 Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,

@@ -26,7 +26,7 @@ import weakref
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.tests.util import changed_environ
+from pyarrow.tests.util import changed_environ, invoke_script
 
 
 try:
@@ -241,6 +241,25 @@ def test_empty_stream():
 
 
 @pytest.mark.pandas
+def test_read_year_month_nano_interval(tmpdir):
+    """ARROW-15783: Verify to_pandas works for interval types.
+
+    Interval types require static structures to be enabled. This test verifies
+    that they are when no other library functions are invoked.
+    """
+    mdn_interval_type = pa.month_day_nano_interval()
+    schema = pa.schema([pa.field('nums', mdn_interval_type)])
+
+    path = tmpdir.join('file.arrow').strpath
+    with pa.OSFile(path, 'wb') as sink:
+        with pa.ipc.new_file(sink, schema) as writer:
+            interval_array = pa.array([(1, 2, 3)], type=mdn_interval_type)
+            batch = pa.record_batch([interval_array], schema)
+            writer.write(batch)
+    invoke_script('read_record_batch.py', path)
+
+
+@pytest.mark.pandas
 def test_stream_categorical_roundtrip(stream_fixture):
     df = pd.DataFrame({
         'one': np.random.randn(5),
@@ -280,6 +299,57 @@ def test_open_stream_from_buffer(stream_fixture):
     assert reader3.stats == st1
 
     assert tuple(st1) == tuple(stream_fixture.write_stats)
+
+
+@pytest.mark.parametrize('options', [
+    pa.ipc.IpcReadOptions(),
+    pa.ipc.IpcReadOptions(use_threads=False),
+])
+def test_open_stream_options(stream_fixture, options):
+    stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+
+    reader = pa.ipc.open_stream(source, options=options)
+
+    reader.read_all()
+    st = reader.stats
+    assert st.num_messages == 6
+    assert st.num_record_batches == 5
+
+    assert tuple(st) == tuple(stream_fixture.write_stats)
+
+
+def test_open_stream_with_wrong_options(stream_fixture):
+    stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+
+    with pytest.raises(TypeError):
+        pa.ipc.open_stream(source, options=True)
+
+
+@pytest.mark.parametrize('options', [
+    pa.ipc.IpcReadOptions(),
+    pa.ipc.IpcReadOptions(use_threads=False),
+])
+def test_open_file_options(file_fixture, options):
+    file_fixture.write_batches()
+    source = file_fixture.get_source()
+
+    reader = pa.ipc.open_file(source, options=options)
+
+    reader.read_all()
+
+    st = reader.stats
+    assert st.num_messages == 6
+    assert st.num_record_batches == 5
+
+
+def test_open_file_with_wrong_options(file_fixture):
+    file_fixture.write_batches()
+    source = file_fixture.get_source()
+
+    with pytest.raises(TypeError):
+        pa.ipc.open_file(source, options=True)
 
 
 @pytest.mark.pandas
@@ -350,7 +420,7 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 @pytest.mark.zstd
 def test_compression_roundtrip():
     sink = io.BytesIO()
-    values = np.random.randint(0, 10, 10000)
+    values = np.random.randint(0, 3, 10000)
     table = pa.Table.from_arrays([values], names=["values"])
 
     options = pa.ipc.IpcWriteOptions(compression='zstd')
@@ -466,6 +536,58 @@ def test_stream_options_roundtrip(stream_fixture, options):
 
     with pytest.raises(StopIteration):
         reader.read_next_batch()
+
+
+def test_read_options():
+    options = pa.ipc.IpcReadOptions()
+    assert options.use_threads is True
+    assert options.ensure_native_endian is True
+    assert options.included_fields == []
+
+    options.ensure_native_endian = False
+    assert options.ensure_native_endian is False
+
+    options.use_threads = False
+    assert options.use_threads is False
+
+    options.included_fields = [0, 1]
+    assert options.included_fields == [0, 1]
+
+    with pytest.raises(TypeError):
+        options.included_fields = None
+
+    options = pa.ipc.IpcReadOptions(
+        use_threads=False, ensure_native_endian=False,
+        included_fields=[1]
+    )
+    assert options.use_threads is False
+    assert options.ensure_native_endian is False
+    assert options.included_fields == [1]
+
+
+def test_read_options_included_fields(stream_fixture):
+    options1 = pa.ipc.IpcReadOptions()
+    options2 = pa.ipc.IpcReadOptions(included_fields=[1])
+    table = pa.Table.from_arrays([pa.array(['foo', 'bar', 'baz', 'qux']),
+                                 pa.array([1, 2, 3, 4])],
+                                 names=['a', 'b'])
+    with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
+        wr.write_table(table)
+    source = stream_fixture.get_source()
+
+    reader1 = pa.ipc.open_stream(source, options=options1)
+    reader2 = pa.ipc.open_stream(
+        source, options=options2, memory_pool=pa.system_memory_pool())
+
+    result1 = reader1.read_all()
+    result2 = reader2.read_all()
+
+    assert result1.num_columns == 2
+    assert result2.num_columns == 1
+
+    expected = pa.Table.from_arrays([pa.array([1, 2, 3, 4])], names=["b"])
+    assert result2 == expected
+    assert result1 == table
 
 
 def test_dictionary_delta(format_fixture):

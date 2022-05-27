@@ -1,148 +1,79 @@
-diff --git a/ports/aws-c-auth/vcpkg.json b/ports/aws-c-auth/vcpkg.json
-index dc8f75e8..be703324 100644
---- a/ports/aws-c-auth/vcpkg.json
-+++ b/ports/aws-c-auth/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "C99 library implementation of AWS client-side authentication: standard credentials providers and signing.",
-   "homepage": "https://github.com/awslabs/aws-c-auth",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-c-common",
-     "aws-c-http",
-diff --git a/ports/aws-c-cal/vcpkg.json b/ports/aws-c-cal/vcpkg.json
-index 48c7406c..40e284dd 100644
---- a/ports/aws-c-cal/vcpkg.json
-+++ b/ports/aws-c-cal/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "C99 wrapper for cryptography primitives.",
-   "homepage": "https://github.com/awslabs/aws-c-cal",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-c-common",
-     {
-diff --git a/ports/aws-c-common/vcpkg.json b/ports/aws-c-common/vcpkg.json
-index 67d58320..3c8e96f7 100644
---- a/ports/aws-c-common/vcpkg.json
-+++ b/ports/aws-c-common/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "AWS common library for C",
-   "homepage": "https://github.com/awslabs/aws-c-common",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "openssl",
-     {
-diff --git a/ports/aws-c-compression/vcpkg.json b/ports/aws-c-compression/vcpkg.json
-index 8b62d038..7aa75eda 100644
---- a/ports/aws-c-compression/vcpkg.json
-+++ b/ports/aws-c-compression/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "C99 implementation of huffman encoding/decoding",
-   "homepage": "https://github.com/awslabs/aws-c-compression",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-c-common",
-     {
-diff --git a/ports/aws-c-event-stream/vcpkg.json b/ports/aws-c-event-stream/vcpkg.json
-index 7018ea0b..df3f85af 100644
---- a/ports/aws-c-event-stream/vcpkg.json
-+++ b/ports/aws-c-event-stream/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "C99 implementation of the vnd.amazon.event-stream content-type.",
-   "homepage": "https://github.com/awslabs/aws-c-event-stream",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-c-cal",
-     "aws-c-common",
-diff --git a/ports/aws-c-http/vcpkg.json b/ports/aws-c-http/vcpkg.json
-index f7cf6547..20ee8be7 100644
---- a/ports/aws-c-http/vcpkg.json
-+++ b/ports/aws-c-http/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "C99 implementation of the HTTP/1.1 and HTTP/2 specifications",
-   "homepage": "https://github.com/awslabs/aws-c-http",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-c-cal",
-     "aws-c-common",
-diff --git a/ports/aws-c-io/vcpkg.json b/ports/aws-c-io/vcpkg.json
-index 60a1fb93..b695deb5 100644
---- a/ports/aws-c-io/vcpkg.json
-+++ b/ports/aws-c-io/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "Handles all IO and TLS work for application protocols.",
-   "homepage": "https://github.com/awslabs/aws-c-io",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-c-cal",
-     "aws-c-common",
-diff --git a/ports/aws-c-mqtt/vcpkg.json b/ports/aws-c-mqtt/vcpkg.json
-index de7e464e..3f459a79 100644
---- a/ports/aws-c-mqtt/vcpkg.json
-+++ b/ports/aws-c-mqtt/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "C99 implementation of the MQTT 3.1.1 specification.",
-   "homepage": "https://github.com/awslabs/aws-c-mqtt",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     {
-       "name": "s2n",
-diff --git a/ports/aws-c-s3/vcpkg.json b/ports/aws-c-s3/vcpkg.json
-index 31dba925..902c07f9 100644
---- a/ports/aws-c-s3/vcpkg.json
-+++ b/ports/aws-c-s3/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 1,
-   "description": "C99 library implementation for communicating with the S3 service, designed for maximizing throughput on high bandwidth EC2 instances.",
-   "homepage": "https://github.com/awslabs/aws-c-s3",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-c-auth",
-     "aws-c-cal",
-diff --git a/ports/aws-checksums/vcpkg.json b/ports/aws-checksums/vcpkg.json
-index 3cdea453..1cbed512 100644
---- a/ports/aws-checksums/vcpkg.json
-+++ b/ports/aws-checksums/vcpkg.json
-@@ -4,7 +4,6 @@
-   "port-version": 2,
-   "description": "Cross-Platform HW accelerated CRC32c and CRC32 with fallback to efficient SW implementations.",
-   "homepage": "https://github.com/awslabs/aws-checksums",
--  "supports": "!arm",
-   "dependencies": [
-     "aws-c-common",
-     {
-diff --git a/ports/aws-crt-cpp/vcpkg.json b/ports/aws-crt-cpp/vcpkg.json
-index 3b8cfafd..38c37ec9 100644
---- a/ports/aws-crt-cpp/vcpkg.json
-+++ b/ports/aws-crt-cpp/vcpkg.json
-@@ -4,7 +4,7 @@
-   "port-version": 2,
-   "description": "Cross-Platform HW accelerated CRC32c and CRC32 with fallback to efficient SW implementations.",
-   "homepage": "https://github.com/awslabs/aws-crt-cpp",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-c-auth",
-     "aws-c-cal",
+diff --git a/ports/abseil/fix-universal2.patch b/ports/abseil/fix-universal2.patch
+new file mode 100644
+index 0000000000..c729e7ae48
+--- /dev/null
++++ b/ports/abseil/fix-universal2.patch
+@@ -0,0 +1,55 @@
++diff --git a/absl/copts/AbseilConfigureCopts.cmake b/absl/copts/AbseilConfigureCopts.cmake
++index 942ce90a4..15d6c895f 100644
++--- a/absl/copts/AbseilConfigureCopts.cmake
+++++ b/absl/copts/AbseilConfigureCopts.cmake
++@@ -12,7 +12,49 @@ else()
++   set(ABSL_BUILD_DLL FALSE)
++ endif()
++
++-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+++if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES [[Clang]])
+++  # Some CMake targets (not known at the moment of processing) could be set to
+++  # compile for multiple architectures as specified by the OSX_ARCHITECTURES
+++  # property, which is target-specific.  We should neither inspect nor rely on
+++  # any CMake property or variable to detect an architecture, in particular:
+++  #
+++  #   - CMAKE_OSX_ARCHITECTURES
+++  #     is just an initial value for OSX_ARCHITECTURES; set too early.
+++  #
+++  #   - OSX_ARCHITECTURES
+++  #     is a per-target property; targets could be defined later, and their
+++  #     properties could be modified any time later.
+++  #
+++  #   - CMAKE_SYSTEM_PROCESSOR
+++  #     does not reflect multiple architectures at all.
+++  #
+++  # When compiling for multiple architectures, a build system can invoke a
+++  # compiler either
+++  #
+++  #   - once: a single command line for multiple architectures (Ninja build)
+++  #   - twice: two command lines per each architecture (Xcode build system)
+++  #
+++  # If case of Xcode, it would be possible to set an Xcode-specific attributes
+++  # like XCODE_ATTRIBUTE_OTHER_CPLUSPLUSFLAGS[arch=arm64] or similar.
+++  #
+++  # In both cases, the viable strategy is to pass all arguments at once, allowing
+++  # the compiler to dispatch arch-specific arguments to a designated backend.
+++  set(ABSL_RANDOM_RANDEN_COPTS "")
+++  foreach(_arch IN ITEMS "x86_64" "arm64")
+++    string(TOUPPER "${_arch}" _arch_uppercase)
+++    string(REPLACE "X86_64" "X64" _arch_uppercase ${_arch_uppercase})
+++    foreach(_flag IN LISTS ABSL_RANDOM_HWAES_${_arch_uppercase}_FLAGS)
+++      list(APPEND ABSL_RANDOM_RANDEN_COPTS "-Xarch_${_arch}" "${_flag}")
+++    endforeach()
+++  endforeach()
+++  # If a compiler happens to deal with an argument for a currently unused
+++  # architecture, it will warn about an unused command line argument.
+++  option(ABSL_RANDOM_RANDEN_COPTS_WARNING OFF
+++         "Warn if one of ABSL_RANDOM_RANDEN_COPTS is unused")
+++  if(ABSL_RANDOM_RANDEN_COPTS AND NOT ABSL_RANDOM_RANDEN_COPTS_WARNING)
+++    list(APPEND ABSL_RANDOM_RANDEN_COPTS "-Wno-unused-command-line-argument")
+++  endif()
+++elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
++   if (MSVC)
++     set(ABSL_RANDOM_RANDEN_COPTS "${ABSL_RANDOM_HWAES_MSVC_X64_FLAGS}")
++   else()
+diff --git a/ports/abseil/portfile.cmake b/ports/abseil/portfile.cmake
+index 1289eed36a..b010a69f13 100644
+--- a/ports/abseil/portfile.cmake
++++ b/ports/abseil/portfile.cmake
+@@ -15,6 +15,7 @@ vcpkg_from_github(
+         # detection can cause ABI issues depending on which compiler options
+         # are enabled for consuming user code
+ 	    fix-cxx-standard.patch
++        fix-universal2.patch
+ )
+ 
+ vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
 diff --git a/ports/aws-sdk-cpp/fix-find-crypto.patch b/ports/aws-sdk-cpp/fix-find-crypto.patch
 new file mode 100644
-index 00000000..4566cc66
+index 0000000000..aafc631e93
 --- /dev/null
 +++ b/ports/aws-sdk-cpp/fix-find-crypto.patch
 @@ -0,0 +1,20 @@
@@ -167,7 +98,7 @@ index 00000000..4566cc66
 +
 + if (NOT SIMPLE_INSTALL)
 diff --git a/ports/aws-sdk-cpp/portfile.cmake b/ports/aws-sdk-cpp/portfile.cmake
-index 2d6bba4d..0ac47887 100644
+index b520a17ae3..ea9e770cf5 100644
 --- a/ports/aws-sdk-cpp/portfile.cmake
 +++ b/ports/aws-sdk-cpp/portfile.cmake
 @@ -8,6 +8,7 @@ vcpkg_from_github(
@@ -176,26 +107,13 @@ index 2d6bba4d..0ac47887 100644
          fix-aws-root.patch
 +        fix-find-crypto.patch
  )
-
+ 
  string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
-diff --git a/ports/aws-sdk-cpp/vcpkg.json b/ports/aws-sdk-cpp/vcpkg.json
-index 3836e2b6..cd88ef07 100644
---- a/ports/aws-sdk-cpp/vcpkg.json
-+++ b/ports/aws-sdk-cpp/vcpkg.json
-@@ -5,7 +5,7 @@
-   "port-version": 5,
-   "description": "AWS SDK for C++",
-   "homepage": "https://github.com/aws/aws-sdk-cpp",
--  "supports": "!arm & !uwp",
-+  "supports": "!uwp",
-   "dependencies": [
-     "aws-crt-cpp",
-     {
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index ce8b7570..8255ba24 100644
+index f81d0c491d..e5ea9cef57 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -92,6 +92,10 @@ vcpkg_cmake_configure(
+@@ -88,6 +88,10 @@ vcpkg_cmake_configure(
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
          -DENABLE_DEBUG=ON
          -DCURL_CA_FALLBACK=ON
@@ -207,7 +125,7 @@ index ce8b7570..8255ba24 100644
          ${OPTIONS_RELEASE}
      OPTIONS_DEBUG
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 45b8c706..b409d8a7 100644
+index 45b8c706db..b409d8a7be 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -4,6 +4,7 @@ vcpkg_from_github(
@@ -216,11 +134,11 @@ index 45b8c706..b409d8a7 100644
      HEAD_REF master
 +    PATCHES "snappy-disable-bmi.patch"
  )
-
+ 
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 00000000..a57ce0c2
+index 0000000000..a57ce0c22f
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
@@ -241,5 +159,5 @@ index 00000000..a57ce0c2
 +   return v & ~(mask << (8 * n));
 +-#endif
 + }
-+
++ 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {

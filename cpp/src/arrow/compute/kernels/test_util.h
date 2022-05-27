@@ -124,6 +124,10 @@ void CheckScalarUnary(std::string func_name, Datum input, Datum expected,
 void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_input,
                        Datum expected, const FunctionOptions* options = nullptr);
 
+void CheckScalarBinaryCommutative(std::string func_name, Datum left_input,
+                                  Datum right_input, Datum expected,
+                                  const FunctionOptions* options = nullptr);
+
 void CheckVectorUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options = nullptr);
 

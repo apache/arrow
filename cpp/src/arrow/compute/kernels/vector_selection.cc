@@ -1958,7 +1958,7 @@ const FunctionDoc filter_doc(
 class FilterMetaFunction : public MetaFunction {
  public:
   FilterMetaFunction()
-      : MetaFunction("filter", Arity::Binary(), &filter_doc, GetDefaultFilterOptions()) {}
+      : MetaFunction("filter", Arity::Binary(), filter_doc, GetDefaultFilterOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2115,7 +2115,7 @@ const FunctionDoc take_doc(
 class TakeMetaFunction : public MetaFunction {
  public:
   TakeMetaFunction()
-      : MetaFunction("take", Arity::Binary(), &take_doc, GetDefaultTakeOptions()) {}
+      : MetaFunction("take", Arity::Binary(), take_doc, GetDefaultTakeOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2276,7 +2276,7 @@ const FunctionDoc drop_null_doc(
 
 class DropNullMetaFunction : public MetaFunction {
  public:
-  DropNullMetaFunction() : MetaFunction("drop_null", Arity::Unary(), &drop_null_doc) {}
+  DropNullMetaFunction() : MetaFunction("drop_null", Arity::Unary(), drop_null_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2329,13 +2329,13 @@ struct SelectionKernelDescr {
   ArrayKernelExec exec;
 };
 
-void RegisterSelectionFunction(const std::string& name, const FunctionDoc* doc,
+void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                VectorKernel base_kernel, InputType selection_type,
                                const std::vector<SelectionKernelDescr>& descrs,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
-  auto func =
-      std::make_shared<VectorFunction>(name, Arity::Binary(), doc, default_options);
+  auto func = std::make_shared<VectorFunction>(name, Arity::Binary(), std::move(doc),
+                                               default_options);
   for (auto& descr : descrs) {
     base_kernel.signature = KernelSignature::Make(
         {std::move(descr.input), selection_type}, OutputType(FirstType));
@@ -2428,8 +2428,8 @@ Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out
 }
 
 std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
-                                                           const FunctionDoc* doc) {
-  auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), doc);
+                                                           FunctionDoc doc) {
+  auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), std::move(doc));
 
   VectorKernel kernel;
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
@@ -2481,7 +2481,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
 
   VectorKernel filter_base;
   filter_base.init = FilterState::Init;
-  RegisterSelectionFunction("array_filter", &array_filter_doc, filter_base,
+  RegisterSelectionFunction("array_filter", array_filter_doc, filter_base,
                             /*selection_type=*/InputType::Array(boolean()),
                             filter_kernel_descrs, GetDefaultFilterOptions(), registry);
 
@@ -2513,7 +2513,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
   RegisterSelectionFunction(
-      "array_take", &array_take_doc, take_base,
+      "array_take", array_take_doc, take_base,
       /*selection_type=*/InputType(match::Integer(), ValueDescr::ARRAY),
       take_kernel_descrs, GetDefaultTakeOptions(), registry);
 
@@ -2523,7 +2523,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<DropNullMetaFunction>()));
 
   DCHECK_OK(registry->AddFunction(
-      MakeIndicesNonZeroFunction("indices_nonzero", &indices_nonzero_doc)));
+      MakeIndicesNonZeroFunction("indices_nonzero", indices_nonzero_doc)));
 }
 
 }  // namespace internal

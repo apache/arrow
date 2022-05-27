@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { metadataFiles, packageJSONFields, mainExport, npmPkgName, npmOrgName, targetDir, packageName, observableFromStreams } from "./util.js";
+import { metadataFiles, packageJSONFields, mainExport, npmPkgName, npmOrgName, targetDir, packageName, observableFromStreams } from './util.js';
 
-import gulp from "gulp";
-import { memoizeTask } from "./memoize-task.js";
-import { ReplaySubject, EMPTY as ObservableEmpty, forkJoin as ObservableForkJoin } from "rxjs";
-import { share } from "rxjs/operators";
-import gulpJsonTransform from "gulp-json-transform";
+import gulp from 'gulp';
+import { memoizeTask } from './memoize-task.js';
+import { ReplaySubject, EMPTY as ObservableEmpty, forkJoin as ObservableForkJoin } from 'rxjs';
+import { share } from 'rxjs/operators';
+import gulpJsonTransform from 'gulp-json-transform';
 
 export const packageTask = ((cache) => memoizeTask(cache, function bundle(target, format) {
     if (target === `src`) return ObservableEmpty();
@@ -50,7 +50,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
         [`./${mainExport}.node.mjs`]: `./${mainExport}.dom.mjs`
     },
     exports: {
-        ".": {
+        '.': {
             node: {
                 import: `./${mainExport}.node.mjs`,
                 require: `./${mainExport}.node.js`,
@@ -58,7 +58,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
             import: `./${mainExport}.dom.mjs`,
             require: `./${mainExport}.dom.js`,
         },
-        "./*": {
+        './*': {
             import: `./*.mjs`,
             require: `./*.js`
         }
@@ -77,7 +77,7 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
     module: `${mainExport}.node.ts`,
     types: `${mainExport}.node.ts`,
     browser: `${mainExport}.dom.ts`,
-    type: "module",
+    type: 'module',
     sideEffects: false,
     esm: { mode: `auto`, sourceMap: true },
     dependencies: {

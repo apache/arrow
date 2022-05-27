@@ -87,6 +87,7 @@
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -321,7 +322,7 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
       path = bucket;
     } else {
       if (path[0] != '/') {
-        return Status::Invalid("S3 URI should absolute, not relative");
+        return Status::Invalid("S3 URI should be absolute, not relative");
       }
       path = bucket + path;
     }
@@ -1702,6 +1703,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     S3Model::PutObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
+    req.SetBody(std::make_shared<std::stringstream>(""));
     return OutcomeToStatus(
         std::forward_as_tuple("When creating key '", key, "' in bucket '", bucket, "': "),
         client_->PutObject(req));
@@ -2386,21 +2388,29 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
   }
 }
 
-Status S3FileSystem::DeleteDirContents(const std::string& s) {
-  return DeleteDirContentsAsync(s).status();
+Status S3FileSystem::DeleteDirContents(const std::string& s, bool missing_dir_ok) {
+  return DeleteDirContentsAsync(s, missing_dir_ok).status();
 }
 
-Future<> S3FileSystem::DeleteDirContentsAsync(const std::string& s) {
+Future<> S3FileSystem::DeleteDirContentsAsync(const std::string& s, bool missing_dir_ok) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
   auto self = impl_;
-  return impl_->DeleteDirContentsAsync(path.bucket, path.key).Then([path, self]() {
-    // Directory may be implicitly deleted, recreate it
-    return self->EnsureDirectoryExists(path);
-  });
+  return impl_->DeleteDirContentsAsync(path.bucket, path.key)
+      .Then(
+          [path, self]() {
+            // Directory may be implicitly deleted, recreate it
+            return self->EnsureDirectoryExists(path);
+          },
+          [missing_dir_ok](const Status& err) {
+            if (missing_dir_ok && ::arrow::internal::ErrnoFromStatus(err) == ENOENT) {
+              return Status::OK();
+            }
+            return err;
+          });
 }
 
 Status S3FileSystem::DeleteRootDirContents() {

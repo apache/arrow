@@ -26,7 +26,6 @@ numpy>=1.16.6
 pytest
 pytest-faulthandler
 pytest-lazy-fixture
-pytz
 s3fs>=2021.8.0
 setuptools
 setuptools_scm

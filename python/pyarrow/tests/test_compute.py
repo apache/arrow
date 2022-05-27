@@ -152,7 +152,7 @@ def test_option_class_equality():
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
-        pc.RoundTemporalOptions(1, "second"),
+        pc.RoundTemporalOptions(1, "second", True),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
@@ -162,7 +162,7 @@ def test_option_class_equality():
         pc.SplitOptions(),
         pc.SplitPatternOptions("pattern"),
         pc.StrftimeOptions(),
-        pc.StrptimeOptions("%Y", "s"),
+        pc.StrptimeOptions("%Y", "s", True),
         pc.StructFieldOptions(indices=[]),
         pc.TakeOptions(),
         pc.TDigestOptions(),
@@ -780,13 +780,13 @@ def test_generated_docstrings():
         >>> arr = pa.array(["a", "b", "c", None, "e"])
         >>> mask = pa.array([True, False, None, False, True])
         >>> arr.filter(mask)
-        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        <pyarrow.lib.StringArray object at ...>
         [
           "a",
           "e"
         ]
         >>> arr.filter(mask, null_selection_behavior='emit_null')
-        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        <pyarrow.lib.StringArray object at ...>
         [
           "a",
           null,
@@ -1554,11 +1554,12 @@ def test_round():
 def test_round_to_multiple():
     values = [320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045, None]
     multiple_and_expected = {
-        2: [320, 4, 4, 4, -4, -36, -4, None],
         0.05: [320, 3.5, 3.1, 4.5, -3.2, -35.1, -3.05, None],
-        0.1: [320, 3.5, 3.1, 4.5, -3.2, -35.1, -3, None],
+        pa.scalar(0.1): [320, 3.5, 3.1, 4.5, -3.2, -35.1, -3, None],
+        2: [320, 4, 4, 4, -4, -36, -4, None],
         10: [320, 0, 0, 0, -0, -40, -0, None],
-        100: [300, 0, 0, 0, -0, -0, -0, None],
+        pa.scalar(100, type=pa.decimal256(10, 4)):
+            [300, 0, 0, 0, -0, -0, -0, None],
     }
     for multiple, expected in multiple_and_expected.items():
         options = pc.RoundToMultipleOptions(multiple, "half_towards_infinity")
@@ -1567,8 +1568,14 @@ def test_round_to_multiple():
         assert pc.round_to_multiple(values, multiple,
                                     "half_towards_infinity") == result
 
-    with pytest.raises(pa.ArrowInvalid, match="multiple must be positive"):
-        pc.round_to_multiple(values, multiple=-2)
+    for multiple in [0, -2, pa.scalar(-10.4)]:
+        with pytest.raises(pa.ArrowInvalid,
+                           match="Rounding multiple must be positive"):
+            pc.round_to_multiple(values, multiple=multiple)
+
+    for multiple in [object, 99999999999999999999999]:
+        with pytest.raises(TypeError, match="is not a valid multiple type"):
+            pc.round_to_multiple(values, multiple=multiple)
 
 
 def test_is_null():
@@ -1721,6 +1728,22 @@ def test_strptime():
     assert got == expected
     # Positional format
     assert pc.strptime(arr, '%m/%d/%Y', unit='s') == got
+
+    expected = pa.array([datetime(2020, 1, 5), None, None],
+                        type=pa.timestamp('s'))
+    got = pc.strptime(arr, format='%d/%m/%Y', unit='s', error_is_null=True)
+    assert got == expected
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Failed to parse string: '5/1/2020'"):
+        pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=False)
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Failed to parse string: '5/1/2020'"):
+        pc.strptime(arr, format='%Y-%m-%d', unit='s')
+
+    got = pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=True)
+    assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
@@ -2029,6 +2052,36 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
         result = pc.round_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.round(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        # Check RoundTemporalOptions partial defaults
+        if unit == "day":
+            result = pc.ceil_temporal(ta, multiple=value).to_pandas()
+            expected = ts.dt.ceil(frequency)
+            np.testing.assert_array_equal(result, expected)
+
+            result = pc.floor_temporal(ta, multiple=value).to_pandas()
+            expected = ts.dt.floor(frequency)
+            np.testing.assert_array_equal(result, expected)
+
+            result = pc.round_temporal(ta, multiple=value).to_pandas()
+            expected = ts.dt.round(frequency)
+            np.testing.assert_array_equal(result, expected)
+
+    # Check RoundTemporalOptions defaults
+    if unit == "day":
+        frequency = "1D"
+
+        result = pc.ceil_temporal(ta).to_pandas()
+        expected = ts.dt.ceil(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        result = pc.floor_temporal(ta).to_pandas()
+        expected = ts.dt.floor(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        result = pc.round_temporal(ta).to_pandas()
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
 
@@ -2606,7 +2659,9 @@ def test_expression_serialization():
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
                  pc.field('i64') > 5, pc.field('i64') == 5,
-                 pc.field('i64') == 7, pc.field('i64').is_null()]
+                 pc.field('i64') == 7, pc.field('i64').is_null(),
+                 pc.field(('foo', 'bar')) == 'value',
+                 pc.field('foo', 'bar') == 'value']
     for expr in all_exprs:
         assert isinstance(expr, pc.Expression)
         restored = pickle.loads(pickle.dumps(expr))
@@ -2620,6 +2675,8 @@ def test_expression_construction():
     false = pc.scalar(False)
     string = pc.scalar("string")
     field = pc.field("field")
+    nested_field = pc.field(("nested", "field"))
+    nested_field2 = pc.field("nested", "field")
 
     zero | one == string
     ~true == false
@@ -2627,6 +2684,8 @@ def test_expression_construction():
         field.cast(typ) == true
 
     field.isin([1, 2])
+    nested_field.isin(["foo", "bar"])
+    nested_field2.isin(["foo", "bar"])
 
     with pytest.raises(TypeError):
         field.isin(1)

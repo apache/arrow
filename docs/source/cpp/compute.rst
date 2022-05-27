@@ -334,23 +334,27 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_distinct           | Unary | Any                                | Input type             | :struct:`CountOptions`           | \(2)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
+| hash_list               | Unary | Any                                | List of input type     |                                  | \(3)  |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_max                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |       |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_mean               | Unary | Numeric                            | Decimal/Float64        | :struct:`ScalarAggregateOptions` | \(3)  |
+| hash_mean               | Unary | Numeric                            | Decimal/Float64        | :struct:`ScalarAggregateOptions` | \(4)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_min                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |       |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_min_max            | Unary | Non-nested types                   | Struct                 | :struct:`ScalarAggregateOptions` | \(4)  |
+| hash_min_max            | Unary | Non-nested types                   | Struct                 | :struct:`ScalarAggregateOptions` | \(5)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(5)  |
+| hash_one                | Unary | Any                                | Input type             |                                  | \(6)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(6)  |
+| hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(7)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(5)  |
+| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(8)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(7)  |
+| hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(7)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(6)  |
+| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(9)  |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
+| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(8)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -363,20 +367,27 @@ equivalents above and reflects how they are implemented internally.
   are emitted. This never affects the grouping keys, only group values
   (i.e. you may get a group where the key is null).
 
-* \(3) For decimal inputs, the resulting decimal will have the same
+* \(3) ``hash_list`` gathers the grouped values into a list array.
+
+* \(4) For decimal inputs, the resulting decimal will have the same
   precision and scale. The result is rounded away from zero.
 
-* \(4) Output is a ``{"min": input type, "max": input type}`` Struct array.
+* \(5) Output is a ``{"min": input type, "max": input type}`` Struct array.
 
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(5) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(6) ``hash_one`` returns one arbitrary value from the input for each
+  group. The function is biased towards non-null values: if there is at least
+  one non-null value for a certain group, that value is returned, and only if
+  all the values are ``null`` for the group will the function return ``null``.
+
+* \(7) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(6) Decimal arguments are cast to Float64 first.
+* \(8) Decimal arguments are cast to Float64 first.
 
-* \(7) T-digest computes approximate quantiles, and so only needs a
+* \(9) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
@@ -434,13 +445,13 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+------------------+----------------------+-------+
 | add_checked      | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
-| divide           | Binary | Numeric          | Numeric              | \(1)  |
+| divide           | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
-| divide_checked   | Binary | Numeric          | Numeric              | \(1)  |
+| divide_checked   | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
-| multiply         | Binary | Numeric          | Numeric              | \(1)  |
+| multiply         | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
-| multiply_checked | Binary | Numeric          | Numeric              | \(1)  |
+| multiply_checked | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
 | negate           | Unary  | Numeric          | Numeric              |       |
 +------------------+--------+------------------+----------------------+-------+
@@ -451,6 +462,10 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 | power_checked    | Binary | Numeric          | Numeric              |       |
 +------------------+--------+------------------+----------------------+-------+
 | sign             | Unary  | Numeric          | Int8/Float32/Float64 | \(2)  |
++------------------+--------+------------------+----------------------+-------+
+| sqrt             | Unary  | Numeric          | Numeric              |       |
++------------------+--------+------------------+----------------------+-------+
+| sqrt_checked     | Unary  | Numeric          | Numeric              |       |
 +------------------+--------+------------------+----------------------+-------+
 | subtract         | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
@@ -1161,6 +1176,8 @@ Categorizations
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
 | is_valid          | Unary      | Any                     | Boolean             |                        | \(5)    |
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| true_unless_null  | Unary      | Any                     | Boolean             |                        | \(6)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
 
 * \(1) Output is true iff the corresponding input element is finite (neither Infinity,
   -Infinity, nor NaN). Hence, for Decimal and integer inputs this always returns true.
@@ -1174,7 +1191,10 @@ Categorizations
 * \(4) Output is true iff the corresponding input element is null. NaN values
   can also be considered null by setting :member:`NullOptions::nan_is_null`.
 
-* \(5) Output is true iff the corresponding input element is non-null.
+* \(5) Output is true iff the corresponding input element is non-null, else false.
+
+* \(6) Output is true iff the corresponding input element is non-null, else null.
+       Mostly intended for expression simplification/guarantees.
 
 .. _cpp-compute-scalar-selections:
 
@@ -1566,7 +1586,7 @@ These functions select and return a subset of their input.
 +===============+========+==============+==============+==============+=========================+===========+
 | array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| array_take    | Binary | Any          | Boolean      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
+| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1) \(2) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+

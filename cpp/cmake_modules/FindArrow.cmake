@@ -36,7 +36,7 @@ if(DEFINED ARROW_FOUND)
   return()
 endif()
 
-include(FindPkgConfig)
+find_package(PkgConfig)
 include(FindPackageHandleStandardArgs)
 
 if(WIN32 AND NOT MINGW)

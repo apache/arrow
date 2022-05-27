@@ -37,11 +37,20 @@
 
 #if defined(__clang__) || defined(__GNUC__)
 #define BYTESWAP(x) __builtin_bswap64(x)
-#define ROTL(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+#define ROTL(x, n) (((x) << (n)) | ((x) >> ((-n) & 31)))
+#define ROTL64(x, n) (((x) << (n)) | ((x) >> ((-n) & 63)))
+#define PREFETCH(ptr) __builtin_prefetch((ptr), 0 /* rw==read */, 3 /* locality */)
 #elif defined(_MSC_VER)
 #include <intrin.h>
 #define BYTESWAP(x) _byteswap_uint64(x)
 #define ROTL(x, n) _rotl((x), (n))
+#define ROTL64(x, n) _rotl64((x), (n))
+#if defined(_M_X64) || defined(_M_I86)
+#include <mmintrin.h>  // https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx
+#define PREFETCH(ptr) _mm_prefetch((const char*)(ptr), _MM_HINT_T0)
+#else
+#define PREFETCH(ptr) (void)(ptr) /* disabled */
+#endif
 #endif
 
 namespace arrow {
@@ -60,6 +69,17 @@ inline void CheckAlignment(const void* ptr) {
 //
 using int64_for_gather_t = const long long int;  // NOLINT runtime-int
 
+// All MiniBatch... classes use TempVectorStack for vector allocations and can
+// only work with vectors up to 1024 elements.
+//
+// They should only be allocated on the stack to guarantee the right sequence
+// of allocation and deallocation of vectors from TempVectorStack.
+//
+class MiniBatch {
+ public:
+  static constexpr int kMiniBatchLength = 1024;
+};
+
 /// Storage used to allocate temporary vectors of a batch size.
 /// Temporary vectors should resemble allocating temporary variables on the stack
 /// but in the context of vectorized processing where we need to store a vector of
@@ -72,7 +92,7 @@ class TempVectorStack {
   Status Init(MemoryPool* pool, int64_t size) {
     num_vectors_ = 0;
     top_ = 0;
-    buffer_size_ = size;
+    buffer_size_ = PaddedAllocationSize(size) + kPadding + 2 * sizeof(uint64_t);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
     // Ensure later operations don't accidentally read uninitialized memory.
     std::memset(buffer->mutable_data(), 0xFF, size);
@@ -173,6 +193,8 @@ class bit_util {
                                  uint32_t num_bytes);
 
  private:
+  inline static uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes);
+  inline static void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value);
   inline static void bits_to_indexes_helper(uint64_t word, uint16_t base_index,
                                             int* num_indexes, uint16_t* indexes);
   inline static void bits_filter_indexes_helper(uint64_t word,
@@ -216,7 +238,7 @@ ARROW_EXPORT
 Result<std::shared_ptr<Table>> TableFromExecBatches(
     const std::shared_ptr<Schema>& schema, const std::vector<ExecBatch>& exec_batches);
 
-class AtomicCounter {
+class ARROW_EXPORT AtomicCounter {
  public:
   AtomicCounter() = default;
 
@@ -260,7 +282,7 @@ class AtomicCounter {
   std::atomic<bool> complete_{false};
 };
 
-class ThreadIndexer {
+class ARROW_EXPORT ThreadIndexer {
  public:
   size_t operator()();
 

@@ -71,11 +71,10 @@ Status PrintResultsForEndpoint(FlightSqlClient& client,
 
   std::cout << "Results:" << std::endl;
 
-  FlightStreamChunk chunk;
   int64_t num_rows = 0;
 
   while (true) {
-    ARROW_RETURN_NOT_OK(stream->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, stream->Next());
     if (chunk.data == nullptr) {
       break;
     }
@@ -102,10 +101,8 @@ Status PrintResults(FlightSqlClient& client, const FlightCallOptions& call_optio
 }
 
 Status RunMain() {
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ARROW_RETURN_NOT_OK(Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
-  ARROW_RETURN_NOT_OK(FlightClient::Connect(location, &client));
+  ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
+  ARROW_ASSIGN_OR_RAISE(auto client, FlightClient::Connect(location));
 
   FlightCallOptions call_options;
 

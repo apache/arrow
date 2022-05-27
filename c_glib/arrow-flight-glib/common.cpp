@@ -245,7 +245,7 @@ gaflight_location_new(const gchar *uri,
   auto location = GAFLIGHT_LOCATION(g_object_new(GAFLIGHT_TYPE_LOCATION, NULL));
   auto flight_location = gaflight_location_get_raw(location);
   if (garrow::check(error,
-                    arrow::flight::Location::Parse(uri, flight_location),
+                    arrow::flight::Location::Parse(uri).Value(flight_location),
                     "[flight-location][new]")) {
     return location;
   } else {
@@ -1018,10 +1018,10 @@ gaflight_info_get_schema(GAFlightInfo *info,
   std::shared_ptr<arrow::Schema> arrow_schema;
   if (options) {
     auto arrow_memo = garrow_read_options_get_dictionary_memo_raw(options);
-    status = flight_info->GetSchema(arrow_memo, &arrow_schema);
+    status = flight_info->GetSchema(arrow_memo).Value(&arrow_schema);
   } else {
     arrow::ipc::DictionaryMemo arrow_memo;
-    status = flight_info->GetSchema(&arrow_memo, &arrow_schema);
+    status = flight_info->GetSchema(&arrow_memo).Value(&arrow_schema);
   }
   if (garrow::check(error, status, "[flight-info][get-schema]")) {
     return garrow_schema_new_raw(&arrow_schema);
@@ -1287,7 +1287,7 @@ gaflight_record_batch_reader_read_next(GAFlightRecordBatchReader *reader,
 {
   auto flight_reader = gaflight_record_batch_reader_get_raw(reader);
   arrow::flight::FlightStreamChunk flight_chunk;
-  auto status = flight_reader->Next(&flight_chunk);
+  auto status = flight_reader->Next().Value(&flight_chunk);
   if (garrow::check(error, status, "[flight-record-batch-reader][read-next]")) {
     if (flight_chunk.data) {
       return gaflight_stream_chunk_new_raw(&flight_chunk);
@@ -1314,7 +1314,7 @@ gaflight_record_batch_reader_read_all(GAFlightRecordBatchReader *reader,
 {
   auto flight_reader = gaflight_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::Table> arrow_table;
-  auto status = flight_reader->ReadAll(&arrow_table);
+  auto status = flight_reader->ToTable().Value(&arrow_table);
   if (garrow::check(error, status, "[flight-record-batch-reader][read-all]")) {
     return garrow_table_new_raw(&arrow_table);
   } else {

@@ -210,6 +210,11 @@ class ARROW_EXPORT RecordBatch {
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
 };
 
+struct ARROW_EXPORT RecordBatchWithMetadata {
+  std::shared_ptr<RecordBatch> batch;
+  std::shared_ptr<KeyValueMetadata> custom_metadata;
+};
+
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:
@@ -226,6 +231,10 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[out] batch the next loaded batch, null at end of stream
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
+
+  virtual Result<RecordBatchWithMetadata> ReadNext() {
+    return Status::NotImplemented("ReadNext with custom metadata");
+  }
 
   /// \brief Iterator interface
   Result<std::shared_ptr<RecordBatch>> Next() {
@@ -297,9 +306,15 @@ class ARROW_EXPORT RecordBatchReader {
   RecordBatchReaderIterator end() { return RecordBatchReaderIterator(); }
 
   /// \brief Consume entire stream as a vector of record batches
+  Result<RecordBatchVector> ToRecordBatches();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
   Status ReadAll(RecordBatchVector* batches);
 
   /// \brief Read all batches and concatenate as arrow::Table
+  Result<std::shared_ptr<Table>> ToTable();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
   Status ReadAll(std::shared_ptr<Table>* table);
 
   /// \brief Create a RecordBatchReader from a vector of RecordBatch.

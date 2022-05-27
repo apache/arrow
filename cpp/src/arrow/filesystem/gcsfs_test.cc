@@ -295,6 +295,52 @@ TEST(GcsFileSystem, OptionsAnonymous) {
   EXPECT_EQ(a.scheme, "http");
 }
 
+TEST(GcsFileSystem, OptionsFromUri) {
+  std::string path;
+  GcsOptions options;
+
+  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs://", &path));
+  EXPECT_EQ(options.default_bucket_location, "");
+  EXPECT_EQ(options.scheme, "https");
+  EXPECT_EQ(options.endpoint_override, "");
+  EXPECT_EQ(path, "");
+
+  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs:", &path));
+  EXPECT_EQ(path, "");
+
+  // Username/password is unsupported
+  ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs://access:secret@mybucket", &path));
+
+  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs://mybucket/", &path));
+  EXPECT_EQ(options.default_bucket_location, "");
+  EXPECT_EQ(options.scheme, "https");
+  EXPECT_EQ(options.endpoint_override, "");
+  EXPECT_EQ(path, "mybucket");
+
+  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs://mybucket/foo/bar/", &path));
+  EXPECT_EQ(options.default_bucket_location, "");
+  EXPECT_EQ(options.scheme, "https");
+  EXPECT_EQ(options.endpoint_override, "");
+  EXPECT_EQ(path, "mybucket/foo/bar");
+
+  // Explicit default_bucket_location override
+  ASSERT_OK_AND_ASSIGN(
+      options,
+      GcsOptions::FromUri("gs://mybucket/foo/bar/"
+                          "?endpoint_override=localhost&scheme=http&location=us-west2",
+                          &path));
+  EXPECT_EQ(options.default_bucket_location, "us-west2");
+  EXPECT_EQ(options.scheme, "http");
+  EXPECT_EQ(options.endpoint_override, "localhost");
+  EXPECT_EQ(path, "mybucket/foo/bar");
+
+  // Missing bucket name
+  ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs:///foo/bar/", &path));
+
+  // Invalid option
+  ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs://mybucket/?xxx=zzz", &path));
+}
+
 TEST(GcsFileSystem, OptionsAccessToken) {
   auto a = GcsOptions::FromAccessToken(
       "invalid-access-token-test-only",
@@ -954,6 +1000,50 @@ TEST_F(GcsIntegrationTest, OpenInputStreamClosed) {
   ASSERT_RAISES(Invalid, stream->Read(buffer.size(), buffer.data()));
   ASSERT_RAISES(Invalid, stream->Read(buffer.size()));
   ASSERT_RAISES(Invalid, stream->Tell());
+}
+
+TEST_F(GcsIntegrationTest, TestWriteWithDefaults) {
+  auto options = TestGcsOptions();
+  options.default_bucket_location = "utopia";
+  options.default_metadata = arrow::key_value_metadata({{"foo", "bar"}});
+  auto fs = GcsFileSystem::Make(options);
+  std::string bucket = "new_bucket_with_default_location";
+  auto file_name = "object_with_defaults";
+  ASSERT_OK(fs->CreateDir(bucket, /*recursive=*/false));
+  const auto path = bucket + "/" + file_name;
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, /*metadata=*/{}));
+  const auto expected = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
+
+  // Verify we can read the object back.
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK_AND_ASSIGN(input, fs->OpenInputStream(path));
+
+  std::array<char, 1024> inbuf{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+
+  EXPECT_EQ(std::string(inbuf.data(), size), expected);
+  auto object = GcsClient().GetObjectMetadata(bucket, file_name);
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  EXPECT_EQ(object->mutable_metadata()["foo"], "bar");
+  auto bucket_info = GcsClient().GetBucketMetadata(bucket);
+  ASSERT_TRUE(bucket_info.ok()) << "status=" << object.status();
+  EXPECT_EQ(bucket_info->location(), "utopia");
+
+  // Check that explicit metadata overrides the defaults.
+  ASSERT_OK_AND_ASSIGN(
+      output, fs->OpenOutputStream(
+                  path, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
+  object = GcsClient().GetObjectMetadata(bucket, file_name);
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  EXPECT_EQ(object->mutable_metadata()["bar"], "foo");
+  // Defaults are overwritten and not merged.
+  EXPECT_FALSE(object->has_metadata("foo"));
 }
 
 TEST_F(GcsIntegrationTest, OpenOutputStreamSmall) {

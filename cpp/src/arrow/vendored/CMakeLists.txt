@@ -19,3 +19,4 @@ arrow_install_all_headers("arrow/vendored")
 
 add_subdirectory(datetime)
 add_subdirectory(double-conversion)
+add_subdirectory(pcg)

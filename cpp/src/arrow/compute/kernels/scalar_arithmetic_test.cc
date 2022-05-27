@@ -148,6 +148,14 @@ class TestBaseUnaryArithmetic : public ::testing::Test {
     }
   }
 
+  // (CScalar, CScalar)
+  void AssertUnaryOpRaises(UnaryFunction func, CType argument,
+                           const std::string& expected_msg) {
+    auto arg = MakeScalar(argument);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
+                                    func(arg, options_, nullptr));
+  }
+
   void AssertUnaryOpRaises(UnaryFunction func, const std::string& argument,
                            const std::string& expected_msg) {
     auto arg = ArrayFromJSON(type_singleton(), argument);
@@ -1542,6 +1550,26 @@ TEST_F(TestUnaryArithmeticDecimal, Log) {
   }
 }
 
+TEST_F(TestUnaryArithmeticDecimal, SquareRoot) {
+  std::vector<std::string> funcs = {"sqrt", "sqrt_checked"};
+  for (const auto& func : funcs) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(
+          func, {DecimalArrayFromJSON(ty, R"(["4.00", "16.00", "36.00", null])")});
+      CheckRaises("sqrt_checked", {DecimalArrayFromJSON(ty, R"(["-2.00"])")},
+                  "square root of negative number");
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {DecimalArrayFromJSON(ty, R"(["400", "1600", "3600", null])")});
+      CheckRaises("sqrt_checked", {DecimalArrayFromJSON(ty, R"(["-400"])")},
+                  "square root of negative number");
+    }
+  }
+}
+
 TEST_F(TestUnaryArithmeticDecimal, Negate) {
   auto max128 = Decimal128::GetMaxValue(38);
   auto max256 = Decimal256::GetMaxValue(76);
@@ -1975,9 +2003,17 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleTowardsInfinity) {
         &options);
     set_multiple(ty, 1);
     CheckScalar(func, {values}, values, &options);
+    set_multiple(decimal128(2, 0), 2);
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(ty,
+                      R"(["2.00", "2.00", "2.00", "-42.00", "-44.00", "-44.00", null])"),
+        &options);
     set_multiple(ty, 0);
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
-                "Rounding multiple must be positive", &options);
+    CheckRaises(func, {values}, "Rounding multiple must be positive", &options);
+    options.multiple =
+        std::make_shared<Decimal128Scalar>(Decimal128(0), decimal128(4, 2));
+    CheckRaises(func, {values}, "Rounding multiple must be positive", &options);
     set_multiple(ty, -10);
     CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
                 "Rounding multiple must be positive", &options);
@@ -1985,12 +2021,8 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleTowardsInfinity) {
     CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
                 "Rounded value 100.00 does not fit in precision", &options);
     options.multiple = std::make_shared<DoubleScalar>(1.0);
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")}, "scalar, not double",
-                &options);
-    options.multiple =
-        std::make_shared<Decimal128Scalar>(Decimal128(0), decimal128(3, 0));
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")}, "scalar, not decimal128(3, 0)",
-                &options);
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounded value 100.00 does not fit in precision", &options);
     options.multiple = std::make_shared<Decimal128Scalar>(decimal128(3, 0));
     CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
                 "Rounding multiple must be non-null and valid", &options);
@@ -2040,6 +2072,14 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleHalfToOdd) {
                 ArrayFromJSON(ty, R"(["-0.48", "-0.48", "-0.24", "-0.24", "-0.24", "0.00",
                               "0.24", "0.24", "0.24", "0.48", "0.48", null])"),
                 &options);
+    set_multiple(decimal128(3, 1), 1);
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-0.40", "-0.40", "-0.30", "-0.10", "-0.10", "0.00", "0.10", "0.10",
+                      "0.30", "0.40", "0.40", null])"),
+        &options);
   }
   for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
     auto values = DecimalArrayFromJSON(
@@ -2317,9 +2357,9 @@ TYPED_TEST(TestUnaryRoundToMultipleUnsigned, RoundToMultiple) {
 
   // Test different round multiples for nearest rounding mode
   std::vector<std::pair<double, std::string>> multiple_and_expected{{
-      {2, "[0, 2, 14, 50, 116]"},
       {0.05, "[0, 1, 13, 50, 115]"},
       {0.1, values},
+      {2, "[0, 2, 14, 50, 116]"},
       {10, "[0, 0, 10, 50, 120]"},
       {100, "[0, 0, 0, 100, 100]"},
   }};
@@ -2359,9 +2399,9 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   // Test different round multiples for nearest rounding mode
   values = "[320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045]";
   std::vector<std::pair<double, std::string>> multiple_and_expected{{
-      {2, "[320, 4, 4, 4, -4, -36, -4]"},
       {0.05, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3.05]"},
       {0.1, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]"},
+      {2, "[320, 4, 4, 4, -4, -36, -4]"},
       {10, "[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]"},
       {100, "[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]"},
   }};
@@ -2372,7 +2412,8 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   }
 
   this->SetRoundMultiple(-2);
-  this->AssertUnaryOpRaises(RoundToMultiple, values, "multiple must be positive");
+  this->AssertUnaryOpRaises(RoundToMultiple, values,
+                            "Rounding multiple must be positive");
 }
 
 class TestBinaryArithmeticDecimal : public TestArithmeticDecimal {};
@@ -3282,6 +3323,35 @@ TYPED_TEST(TestUnaryArithmeticSigned, Log) {
   this->AssertUnaryOpRaises(Log2, "[-1]", "logarithm of negative number");
   this->AssertUnaryOpRaises(Log1p, "[-1]", "logarithm of zero");
   this->AssertUnaryOpRaises(Log1p, "[-2]", "logarithm of negative number");
+}
+
+TYPED_TEST(TestUnaryArithmeticIntegral, Sqrt) {
+  // Integer arguments promoted to double, sanity check here
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Sqrt, "[1, null]", ArrayFromJSON(float64(), "[1, null]"));
+    this->AssertUnaryOp(Sqrt, "[4, null]", ArrayFromJSON(float64(), "[2, null]"));
+    this->AssertUnaryOp(Sqrt, "[null, 9]", ArrayFromJSON(float64(), "[null, 3]"));
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, Sqrt) {
+  using CType = typename TestFixture::CType;
+  this->SetNansEqual(true);
+  auto min_val = std::numeric_limits<CType>::min();
+  auto max_val = std::numeric_limits<CType>::max();
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Sqrt, "[1, 2, null, NaN, Inf]",
+                        "[1, 1.414213562, null, NaN, Inf]");
+    this->AssertUnaryOp(Sqrt, min_val, static_cast<CType>(std::sqrt(min_val)));
+#ifndef __MINGW32__
+    // this is problematic and produces a slight difference on MINGW
+    this->AssertUnaryOp(Sqrt, max_val, static_cast<CType>(std::sqrt(max_val)));
+#endif
+  }
+  this->AssertUnaryOpRaises(Sqrt, "[-1]", "square root of negative number");
+  this->AssertUnaryOpRaises(Sqrt, "[-Inf]", "square root of negative number");
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Sign) {

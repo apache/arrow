@@ -76,6 +76,14 @@ On Fedora Linux:
         gcc-c++ \
         make
 
+On Arch Linux:
+
+.. code-block:: shell
+
+   sudo pacman -S --needed \
+        base-devel \
+        cmake
+
 On macOS, you can use `Homebrew <https://brew.sh/>`_:
 
 .. code-block:: shell
@@ -327,6 +335,7 @@ boolean flags to ``cmake``.
 * ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
+* ``-DPARQUET_REQUIRE_ENCRYPTION=ON``: Parquet Modular Encryption
 * ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
 * ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
 * ``-DARROW_PYTHON=ON``: Arrow Python C++ integration library (required for

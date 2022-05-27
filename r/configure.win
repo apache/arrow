@@ -56,7 +56,7 @@ function configure_release() {
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC \
-              -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET \
+              -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET \
               -DARROW_R_WITH_JSON"
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
@@ -78,43 +78,43 @@ function configure_release() {
 # Returns 1 if CMAKE options is set "ON", otherwise 0
 function cmake_option() {
   ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/arrow/ArrowOptions.cmake"
-  grep -cm1 "set($1 \"ON\")" $ARROW_OPTS_CMAKE 
+  grep -cm1 "set($1 \"ON\")" $ARROW_OPTS_CMAKE
 }
 
 function configure_dev() {
   echo "*** Using locally built Arrow at $ARROW_HOME"
   RWINLIB=$(cygpath $ARROW_HOME)
 
-  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_R_WITH_ARROW"
-  PKG_LIBS=" -L${RWINLIB}/lib -L$MSYSTEM_PREFIX/lib -larrow -larrow_bundled_dependencies -lz -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
-  # These are already in arrow_bundled_dependencies:
-  # -lutf8proc -lthrift -lsnappy -lzstd -llz4
+  export PKG_CONFIG_PATH=$(cygpath $ARROW_HOME)/lib/pkgconfig:$(cygpath $MSYSTEM_PREFIX)/lib
+  PKG_CONFIG_PACKAGES="arrow"
 
-  if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then 
+  PKG_CFLAGS=""
+
+  if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-    PKG_LIBS="-lparquet $PKG_LIBS"
-    # NOTE: parquet is assumed to have the same -L flag as arrow
-    # so there is no need to add its location to PKG_DIRS
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES parquet"
   fi
 
   if [ $(cmake_option ARROW_DATASET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
-    PKG_LIBS="-larrow_dataset $PKG_LIBS"
-    # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
-    # so there is no need to add its location to PKG_DIRS
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-dataset"
   fi
 
   if [ $(cmake_option ARROW_S3) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
-    if [ "$BUNDLED_LIBS" != "" ]; then
-      # We're depending on openssl/curl from the system, so they're not in the bundled deps
-      BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl"
-    fi
   fi
 
   if [ $(cmake_option ARROW_JSON) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
   fi
+
+  if [ $(cmake_option ARROW_SUBSTRAIT) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_SUBSTRAIT"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-substrait"
+  fi
+
+  PKG_CFLAGS="$(pkg-config --cflags $PKG_CONFIG_PACKAGES) $PKG_CFLAGS"
+  PKG_LIBS=$(pkg-config --libs $PKG_CONFIG_PACKAGES)
 }
 
 

@@ -24,7 +24,6 @@ import re
 
 import hypothesis as h
 import numpy as np
-import pytz
 import pytest
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
@@ -995,6 +994,8 @@ def test_sequence_timestamp():
     'ns'
 ])
 def test_sequence_timestamp_with_timezone(timezone, unit):
+    pytz = pytest.importorskip("pytz")
+
     def expected_integer_value(dt):
         units = ['s', 'ms', 'us', 'ns']
         multiplier = 10**(units.index(unit) * 3)
@@ -1067,6 +1068,9 @@ def test_sequence_timestamp_with_timezone(timezone, unit):
 ])
 def test_pyarrow_ignore_timezone_environment_variable(monkeypatch, timezone):
     # note that any non-empty value will evaluate to true
+    pytest.importorskip("pytz")
+    import pytz
+
     monkeypatch.setenv("PYARROW_IGNORE_TIMEZONE", "1")
     data = [
         datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
@@ -1092,6 +1096,9 @@ def test_pyarrow_ignore_timezone_environment_variable(monkeypatch, timezone):
 
 
 def test_sequence_timestamp_with_timezone_inference():
+    pytest.importorskip("pytz")
+    import pytz
+
     data = [
         datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
         pytz.utc.localize(
@@ -1120,6 +1127,8 @@ def test_sequence_timestamp_with_timezone_inference():
 
 @pytest.mark.pandas
 def test_sequence_timestamp_from_mixed_builtin_and_pandas_datetimes():
+    pytest.importorskip("pytz")
+    import pytz
     import pandas as pd
 
     data = [

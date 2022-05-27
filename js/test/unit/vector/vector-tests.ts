@@ -16,7 +16,7 @@
 // under the License.
 
 import {
-    DateDay, DateMillisecond, Dictionary, Field, Int32, List, makeVector, Utf8, util, Vector, vectorFromArray
+    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Utf8, util, Vector, vectorFromArray
 } from 'apache-arrow';
 
 describe(`makeVectorFromArray`, () => {
@@ -30,6 +30,51 @@ describe(`makeVectorFromArray`, () => {
         test(`toJSON retains null`, () => {
             expect(vector.toJSON()).toEqual(values);
         });
+    });
+});
+
+describe(`StructVector`, () => {
+    test(`makeVectorFromArray`, () => {
+        const values: { a?: number; b?: string | null; c?: boolean | null }[] = [
+            { a: 1, b: null },
+            { a: 4, b: 'foo', c: null },
+            { a: 7, b: 'bar', c: true },
+            { a: 10, b: 'baz', c: true },
+        ];
+        const vector = vectorFromArray(values);
+
+        expect(vector.numChildren).toBe(3);
+        expect(vector).toHaveLength(4);
+        expect(vector.type.children[0].type).toBeInstanceOf(Float64);
+        expect(vector.type.children[1].type).toBeInstanceOf(Dictionary);
+        expect(vector.type.children[2].type).toBeInstanceOf(Bool);
+    });
+
+
+    const values: { a?: number; b?: string; c?: boolean }[] = [
+        { a: 1, b: 'foo', c: true },
+        { a: 4, b: 'foo', c: false },
+        { a: 7, b: 'bar', c: true },
+        { a: 10, b: 'baz', c: true },
+    ];
+    const vector = vectorFromArray(values);
+
+    test(`has list struct`, () => {
+        expect(vector.type).toBeInstanceOf(Struct);
+
+        expect(vector.type.children[0].type).toBeInstanceOf(Float64);
+        expect(vector.type.children[1].type).toBeInstanceOf(Dictionary);
+        expect(vector.type.children[2].type).toBeInstanceOf(Bool);
+
+        expect(vector.type.children[0].nullable).toBeTruthy();
+        expect(vector.type.children[1].nullable).toBeTruthy();
+        expect(vector.type.children[2].nullable).toBeTruthy();
+    });
+
+    test(`get value`, () => {
+        for (const [i, value] of values.entries()) {
+            expect(vector.get(i)!.toJSON()).toEqual(value);
+        }
     });
 });
 
@@ -153,7 +198,7 @@ describe(`Utf8Vector`, () => {
 
 describe(`ListVector`, () => {
     const values = [[1, 2], [1, 2, 3]];
-    const vector = vectorFromArray(values, new List(Field.new({ name: 'field', type: new Int32 })));
+    const vector = vectorFromArray(values);
 
     test(`has list type`, () => {
         expect(vector.type).toBeInstanceOf(List);

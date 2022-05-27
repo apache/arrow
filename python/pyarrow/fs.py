@@ -224,12 +224,13 @@ def copy_files(source, destination,
     --------
     Copy an S3 bucket's files to a local directory:
 
-    >>> copy_files("s3://your-bucket-name", "local-directory")
+    >>> copy_files("s3://your-bucket-name",
+    ...            "local-directory") # doctest: +SKIP
 
     Using a FileSystem object:
 
     >>> copy_files("your-bucket-name", "local-directory",
-    ...            source_filesystem=S3FileSystem(...))
+    ...            source_filesystem=S3FileSystem(...)) # doctest: +SKIP
 
     """
     source_fs, source_path = _resolve_filesystem_and_path(
@@ -263,7 +264,7 @@ class FSSpecHandler(FileSystemHandler):
 
     Examples
     --------
-    >>> PyFileSystem(FSSpecHandler(fsspec_fs))
+    >>> PyFileSystem(FSSpecHandler(fsspec_fs)) # doctest: +SKIP
     """
 
     def __init__(self, fs):
@@ -346,18 +347,24 @@ class FSSpecHandler(FileSystemHandler):
     def delete_dir(self, path):
         self.fs.rm(path, recursive=True)
 
-    def _delete_dir_contents(self, path):
-        for subpath in self.fs.listdir(path, detail=False):
+    def _delete_dir_contents(self, path, missing_dir_ok):
+        try:
+            subpaths = self.fs.listdir(path, detail=False)
+        except FileNotFoundError:
+            if missing_dir_ok:
+                return
+            raise
+        for subpath in subpaths:
             if self.fs.isdir(subpath):
                 self.fs.rm(subpath, recursive=True)
             elif self.fs.isfile(subpath):
                 self.fs.rm(subpath)
 
-    def delete_dir_contents(self, path):
+    def delete_dir_contents(self, path, missing_dir_ok):
         if path.strip("/") == "":
             raise ValueError(
                 "delete_dir_contents called on path '", path, "'")
-        self._delete_dir_contents(path)
+        self._delete_dir_contents(path, missing_dir_ok)
 
     def delete_root_dir_contents(self):
         self._delete_dir_contents("/")

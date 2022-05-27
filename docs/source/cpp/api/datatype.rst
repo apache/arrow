@@ -109,3 +109,12 @@ Helpers for looking up fields
 
 .. doxygenclass:: arrow::FieldRef
    :members:
+
+
+Utilities
+=========
+
+.. doxygenclass:: arrow::TypeVisitor
+   :project: arrow_cpp
+   :members:
+   :undoc-members:

@@ -225,7 +225,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
-  define_option(ARROW_ENGINE "Build the Arrow Query Engine Module" OFF)
+  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
 
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
@@ -238,7 +238,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_GCS
                 "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
-  mark_as_advanced(ARROW_GCS) # TODO(ARROW-1231) - remove once completed
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
@@ -352,6 +351,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 "Rely on Protocol Buffers shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
+  define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
   if(WIN32)
     # It seems that Thrift doesn't support DLL well yet.
     # MSYS2, conda-forge and vcpkg don't build shared library.
@@ -361,13 +363,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   endif()
   define_option(ARROW_THRIFT_USE_SHARED "Rely on thrift shared libraries where relevant"
                 ${ARROW_THRIFT_USE_SHARED_DEFAULT})
-
-  define_option(ARROW_UTF8PROC_USE_SHARED
-                "Rely on utf8proc shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
-
-  define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_UTF8PROC_USE_SHARED
                 "Rely on utf8proc shared libraries where relevant"
@@ -390,6 +385,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_WITH_SNAPPY "Build with Snappy compression" OFF)
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
+
+  define_option(ARROW_WITH_UCX
+                "Build with UCX transport for Arrow Flight;(only used if ARROW_FLIGHT is ON)"
+                OFF)
 
   define_option(ARROW_WITH_UTF8PROC
                 "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
@@ -477,16 +476,6 @@ Always OFF if building binaries" OFF)
 advised that if this is enabled 'install' will fail silently on components;\
 that have not been built"
                 OFF)
-
-  set(ARROW_SUBSTRAIT_REPO_DEFAULT "https://github.com/substrait-io/substrait")
-  define_option_string(ARROW_SUBSTRAIT_REPO
-                       "Custom git repository URL for downloading Substrait sources.;\
-See also ARROW_SUBSTRAIT_TAG" "${ARROW_SUBSTRAIT_REPO_DEFAULT}")
-
-  set(ARROW_SUBSTRAIT_TAG_DEFAULT "e1b4c04a1b518912f4c4065b16a1b2c0ac8e14cf")
-  define_option_string(ARROW_SUBSTRAIT_TAG
-                       "Custom git hash/tag/branch for Substrait repository.;\
-See also ARROW_SUBSTRAIT_REPO" "${ARROW_SUBSTRAIT_TAG_DEFAULT}")
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)

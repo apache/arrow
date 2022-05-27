@@ -1394,7 +1394,8 @@ ARROW_EXPORT
 std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-TimeUnit::type CommonTemporalResolution(const ValueDescr* begin, size_t count);
+bool CommonTemporalResolution(const ValueDescr* begin, size_t count,
+                              TimeUnit::type* finest_unit);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count);

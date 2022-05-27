@@ -41,11 +41,6 @@
 # we'd have to declare a different dictionary type for all encoded types
 # (but that is an infinite space). Similarly, we would have to declare a
 # timestamp variation for all possible timezone strings.
-#
-# Ultimately these declarations are a promise which needs to be backed by
-# equivalent serde in c++. This is handled by default_extension_id_registry(),
-# defined in cpp/src/arrow/engine/substrait/extension_set.cc. These files
-# currently need to be kept in sync manually; see ARROW-15535.
 
 type_variations:
   - parent: i8

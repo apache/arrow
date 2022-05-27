@@ -326,7 +326,7 @@ def test_write_options():
     opts = cls()
 
     check_options_class(
-        cls, include_header=[True, False])
+        cls, include_header=[True, False], delimiter=[',', '\t', '|'])
 
     assert opts.batch_size > 0
     opts.batch_size = 12345
@@ -1873,23 +1873,29 @@ def test_write_read_round_trip():
         assert t == read_csv(buf, read_options=read_options)
 
     # Test with writer
-    for read_options, write_options in [
-        (None, WriteOptions(include_header=True)),
-        (ReadOptions(column_names=t.column_names),
+    for read_options, parse_options, write_options in [
+        (None, None, WriteOptions(include_header=True)),
+        (ReadOptions(column_names=t.column_names), None,
          WriteOptions(include_header=False)),
+        (None, ParseOptions(delimiter='|'),
+         WriteOptions(include_header=True, delimiter='|')),
+        (ReadOptions(column_names=t.column_names),
+         ParseOptions(delimiter='\t'),
+         WriteOptions(include_header=False, delimiter='\t')),
     ]:
         buf = io.BytesIO()
         with CSVWriter(buf, t.schema, write_options=write_options) as writer:
             writer.write_table(t)
         buf.seek(0)
-        assert t == read_csv(buf, read_options=read_options)
-
+        assert t == read_csv(buf, read_options=read_options,
+                             parse_options=parse_options)
         buf = io.BytesIO()
         with CSVWriter(buf, t.schema, write_options=write_options) as writer:
             for batch in t.to_batches(max_chunksize=1):
                 writer.write_batch(batch)
         buf.seek(0)
-        assert t == read_csv(buf, read_options=read_options)
+        assert t == read_csv(buf, read_options=read_options,
+                             parse_options=parse_options)
 
 
 def test_read_csv_reference_cycle():

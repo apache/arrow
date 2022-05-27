@@ -1,0 +1,12 @@
+
+*Archery crossbow report for <https://github.com/apache/crossbow/branches/all?query=ursabot-1|ursabot-1>*
+
+:x: *1 failed jobs*
+- <https://github.com/apache/crossbow/runs/2|wheel-osx-cp37m>
+
+:x: *1 errored jobs*
+- <https://github.com/apache/crossbow/runs/3|wheel-osx-cp36m>
+
+:warning: *1 pending jobs*
+
+:tada: *1 successful jobs*

@@ -35,7 +35,11 @@ try:
 except ImportError:
     pd = tm = None
 
+
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
+
 
 # Tests for ARROW-11497
 _test_data_simple = [

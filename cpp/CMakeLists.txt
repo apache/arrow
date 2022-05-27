@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "8.0.0-SNAPSHOT")
+set(ARROW_VERSION "9.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -104,6 +104,21 @@ include(ExternalProject)
 include(FindPackageHandleStandardArgs)
 
 include(GNUInstallDirs)
+if(IS_ABSOLUTE "${CMAKE_INSTALL_BINDIR}")
+  set(ARROW_PKG_CONFIG_BINDIR "${CMAKE_INSTALL_BINDIR}")
+else()
+  set(ARROW_PKG_CONFIG_BINDIR "\${prefix}/${CMAKE_INSTALL_BINDIR}")
+endif()
+if(IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
+  set(ARROW_PKG_CONFIG_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+else()
+  set(ARROW_PKG_CONFIG_INCLUDEDIR "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
+endif()
+if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+  set(ARROW_PKG_CONFIG_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+else()
+  set(ARROW_PKG_CONFIG_LIBDIR "\${prefix}/${CMAKE_INSTALL_LIBDIR}")
+endif()
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
@@ -111,6 +126,7 @@ set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(ARROW_LLVM_VERSIONS
+    "14.0"
     "13.0"
     "12.0"
     "11.1"
@@ -191,12 +207,14 @@ else()
   set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 endif()
 
-if(ARROW_USE_CCACHE)
+if(ARROW_USE_CCACHE
+   AND NOT CMAKE_C_COMPILER_LAUNCHER
+   AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
   find_program(CCACHE_FOUND ccache)
   if(CCACHE_FOUND)
     message(STATUS "Using ccache: ${CCACHE_FOUND}")
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_FOUND})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_FOUND})
     # ARROW-3985: let ccache preserve C++ comments, because some of them may be
     # meaningful to the compiler
     set(ENV{CCACHE_COMMENTS} "1")
@@ -350,8 +368,9 @@ if(ARROW_CUDA
   set(ARROW_IPC ON)
 endif()
 
-if(ARROW_ENGINE)
+if(ARROW_SUBSTRAIT)
   set(ARROW_PARQUET ON)
+  set(ARROW_IPC ON)
   set(ARROW_COMPUTE ON)
   set(ARROW_DATASET ON)
 endif()
@@ -687,10 +706,19 @@ endif()
 # Linker and Dependencies
 #
 
-# Libraries to link statically with libarrow.so
-set(ARROW_LINK_LIBS)
-set(ARROW_STATIC_LINK_LIBS)
+# Libraries to link statically with libarrow.so.
+#
+# Note that arrow::hadoop is a header only target that refers
+# cpp/thirdparty/hadoop/include/. See
+# cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
+set(ARROW_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
+
+if(ARROW_USE_BOOST)
+  list(APPEND ARROW_LINK_LIBS Boost::headers)
+  list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
+endif()
 
 if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
@@ -717,9 +745,9 @@ if(ARROW_WITH_BZ2)
 endif()
 
 if(ARROW_WITH_LZ4)
-  list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
-  if(Lz4_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
+  list(APPEND ARROW_STATIC_LINK_LIBS lz4::lz4)
+  if(lz4_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS lz4::lz4)
   endif()
 endif()
 
@@ -804,6 +832,16 @@ if(ARROW_WITH_RE2)
   endif()
 endif()
 
+if(ARROW_WITH_RAPIDJSON)
+  list(APPEND ARROW_LINK_LIBS rapidjson::rapidjson)
+  list(APPEND ARROW_STATIC_LINK_LIBS rapidjson::rapidjson)
+endif()
+
+if(ARROW_USE_XSIMD)
+  list(APPEND ARROW_LINK_LIBS xsimd)
+  list(APPEND ARROW_STATIC_LINK_LIBS xsimd)
+endif()
+
 add_custom_target(arrow_dependencies)
 add_custom_target(arrow_benchmark_dependencies)
 add_custom_target(arrow_test_dependencies)
@@ -826,26 +864,13 @@ endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
-# boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
-if(((ARROW_FLIGHT
-     OR ARROW_S3
-     OR ARROW_GCS)
-    AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
-   ))
-  list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
-endif()
-
 if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN
-    GTest::gtest_main
-    GTest::gtest
-    GTest::gmock
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY})
+set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers GTest::gtest_main GTest::gtest
+                              GTest::gmock)
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})

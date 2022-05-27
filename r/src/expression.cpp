@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/compute/api_scalar.h>
 #include <arrow/compute/exec/expression.h>
 
@@ -98,5 +96,3 @@ arrow::Type::type compute___expr__type_id(const std::shared_ptr<compute::Express
   auto bound = ValueOrStop(x->Bind(*schema));
   return bound.type()->id();
 }
-
-#endif

@@ -22,15 +22,14 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/goccy/go-json"
-	"golang.org/x/xerrors"
 )
 
-func NewIntervalData(data arrow.ArrayData) Interface {
+func NewIntervalData(data arrow.ArrayData) arrow.Array {
 	switch data.DataType().(type) {
 	case *arrow.MonthIntervalType:
 		return NewMonthIntervalData(data.(*Data))
@@ -39,7 +38,7 @@ func NewIntervalData(data arrow.ArrayData) Interface {
 	case *arrow.MonthDayNanoIntervalType:
 		return NewMonthDayNanoIntervalData(data.(*Data))
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown interval data type %T", data.DataType()))
+		panic(fmt.Errorf("arrow/array: unknown interval data type %T", data.DataType()))
 	}
 }
 
@@ -818,9 +817,9 @@ func (b *MonthDayNanoIntervalBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*MonthInterval)(nil)
-	_ Interface = (*DayTimeInterval)(nil)
-	_ Interface = (*MonthDayNanoInterval)(nil)
+	_ arrow.Array = (*MonthInterval)(nil)
+	_ arrow.Array = (*DayTimeInterval)(nil)
+	_ arrow.Array = (*MonthDayNanoInterval)(nil)
 
 	_ Builder = (*MonthIntervalBuilder)(nil)
 	_ Builder = (*DayTimeIntervalBuilder)(nil)

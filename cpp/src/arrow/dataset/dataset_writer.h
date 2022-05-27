@@ -29,7 +29,8 @@ namespace arrow {
 namespace dataset {
 namespace internal {
 
-constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 64 * 1024 * 1024;
+// This lines up with our other defaults in the scanner and execution plan
+constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 8 * 1024 * 1024;
 
 /// \brief Utility class that manages a set of writers to different paths
 ///
@@ -79,7 +80,7 @@ class ARROW_DS_EXPORT DatasetWriter {
   /// directory.  The only way to get two parallel writes immediately would be to queue
   /// all 1000 pending writes to the first directory.
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
-                            const std::string& directory);
+                            const std::string& directory, const std::string& prefix = "");
 
   /// Finish all pending writes and close any open files
   Future<> Finish();

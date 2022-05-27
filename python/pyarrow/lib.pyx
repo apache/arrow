@@ -27,8 +27,10 @@ import sys
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
+cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
 # Initialize NumPy C API
@@ -117,10 +119,20 @@ Type_DICTIONARY = _Type_DICTIONARY
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
 
+__pc = None
+
 
 def _pc():
-    import pyarrow.compute as pc
-    return pc
+    global __pc
+    if __pc is None:
+        import pyarrow.compute as pc
+        try:
+            from pyarrow import _exec_plan
+            pc._exec_plan = _exec_plan
+        except ImportError:
+            pass
+        __pc = pc
+    return __pc
 
 
 def _gdb_test_session():

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
@@ -25,8 +25,7 @@ tbl <- example_data
 test_that("Empty select returns no columns", {
   compare_dplyr_binding(
     .input %>% select() %>% collect(),
-    tbl,
-    skip_table = "Table with 0 cols doesn't know how many rows it should have"
+    tbl
   )
 })
 test_that("Empty select still includes the group_by columns", {
@@ -39,7 +38,7 @@ test_that("Empty select still includes the group_by columns", {
   )
 })
 
-test_that("select/rename", {
+test_that("select/rename/rename_with", {
   compare_dplyr_binding(
     .input %>%
       select(string = chr, int) %>%
@@ -59,12 +58,37 @@ test_that("select/rename", {
       collect(),
     tbl
   )
+  compare_dplyr_binding(
+    .input %>%
+      rename_with(
+        ~ paste0(.x, "_suffix"),
+        .cols = c("int", "chr")
+      ) %>%
+      collect(),
+    tbl
+  )
 })
 
-test_that("select/rename with selection helpers", {
+test_that("select/rename/rename_with using selection helpers", {
+  compare_dplyr_binding(
+    .input %>%
+      select(everything()) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(any_of(c("int", "not_a_column", "lgl"))) %>%
+      collect(),
+    tbl
+  )
 
-  # TODO: add some passing tests here
-
+  compare_dplyr_binding(
+    .input %>%
+      select(starts_with("d")) %>%
+      collect(),
+    tbl
+  )
   expect_error(
     compare_dplyr_binding(
       .input %>%
@@ -73,6 +97,27 @@ test_that("select/rename with selection helpers", {
       tbl
     ),
     "Unsupported selection helper"
+  )
+  compare_dplyr_binding(
+    .input %>%
+      rename_with(toupper) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      rename_with(toupper, .cols = c()) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      rename_with(
+        ~ paste0(.x, "_suffix"),
+        .cols = starts_with("d")
+      ) %>%
+      collect(),
+    tbl
   )
 })
 

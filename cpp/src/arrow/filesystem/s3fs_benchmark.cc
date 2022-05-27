@@ -314,14 +314,13 @@ static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::strin
     ASSERT_OK(builder.Open(file, parquet_properties));
     ASSERT_OK(builder.properties(properties)->Build(&reader));
 
-    std::shared_ptr<Table> table;
-
     if (read_strategy == "ReadTable") {
+      std::shared_ptr<Table> table;
       ASSERT_OK(reader->ReadTable(column_indices, &table));
     } else {
       std::shared_ptr<RecordBatchReader> rb_reader;
       ASSERT_OK(reader->GetRecordBatchReader({0}, column_indices, &rb_reader));
-      ASSERT_OK(rb_reader->ReadAll(&table));
+      ASSERT_OK(rb_reader->ToTable());
     }
 
     // TODO: actually measure table memory usage

@@ -62,7 +62,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::ParquetFragmentScanOptions"(CFragmentScanOptions):
         shared_ptr[CReaderProperties] reader_properties
         shared_ptr[ArrowReaderProperties] arrow_reader_properties
-        c_bool enable_parallel_column_conversion
 
     cdef cppclass CParquetFactoryOptions \
             "arrow::dataset::ParquetFactoryOptions":

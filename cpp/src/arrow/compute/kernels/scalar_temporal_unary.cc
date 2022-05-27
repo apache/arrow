@@ -25,6 +25,7 @@
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/time.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/vendored/datetime.h"
 
 namespace arrow {
@@ -72,6 +73,7 @@ using std::chrono::minutes;
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
 using WeekState = OptionsWrapper<WeekOptions>;
 using StrftimeState = OptionsWrapper<StrftimeOptions>;
+using StrptimeState = OptionsWrapper<StrptimeOptions>;
 using AssumeTimezoneState = OptionsWrapper<AssumeTimezoneOptions>;
 using RoundTemporalState = OptionsWrapper<RoundTemporalOptions>;
 
@@ -725,6 +727,27 @@ const Duration FloorTimePoint(const int64_t arg, const int64_t multiple,
   }
 }
 
+template <typename Duration, typename Localizer>
+const Duration FloorWeekTimePoint(const int64_t arg, const int64_t multiple,
+                                  Localizer localizer_, const Duration weekday_offset,
+                                  Status* st) {
+  const auto t = localizer_.template ConvertTimePoint<Duration>(arg) + weekday_offset;
+  const weeks d = floor<weeks>(t).time_since_epoch();
+
+  if (multiple == 1) {
+    return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(d),
+                                                           st) -
+           weekday_offset;
+  } else {
+    const weeks unit = weeks{multiple};
+    const weeks m =
+        (d.count() >= 0) ? d / unit * unit : (d - unit + weeks{1}) / unit * unit;
+    return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(m),
+                                                           st) -
+           weekday_offset;
+  }
+}
+
 template <typename Duration, typename Unit, typename Localizer>
 Duration CeilTimePoint(const int64_t arg, const int64_t multiple, Localizer localizer_,
                        Status* st) {
@@ -741,6 +764,23 @@ Duration CeilTimePoint(const int64_t arg, const int64_t multiple, Localizer loca
       duration_cast<Duration>(cl + duration_cast<Duration>(Unit{multiple})), st);
 }
 
+template <typename Duration, typename Localizer>
+Duration CeilWeekTimePoint(const int64_t arg, const int64_t multiple,
+                           Localizer localizer_, const Duration weekday_offset,
+                           Status* st) {
+  const Duration f = FloorWeekTimePoint<Duration, Localizer>(arg, multiple, localizer_,
+                                                             weekday_offset, st);
+  const auto cl =
+      localizer_.template ConvertTimePoint<Duration>(f.count()).time_since_epoch();
+  const Duration cs =
+      localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(cl), st);
+  if (cs >= Duration{arg}) {
+    return cs;
+  }
+  return localizer_.template ConvertLocalToSys<Duration>(
+      duration_cast<Duration>(cl + duration_cast<Duration>(weeks{multiple})), st);
+}
+
 template <typename Duration, typename Unit, typename Localizer>
 Duration RoundTimePoint(const int64_t arg, const int64_t multiple, Localizer localizer_,
                         Status* st) {
@@ -748,6 +788,17 @@ Duration RoundTimePoint(const int64_t arg, const int64_t multiple, Localizer loc
       FloorTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
   const Duration c =
       CeilTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
+  return (Duration{arg} - f >= c - Duration{arg}) ? c : f;
+}
+
+template <typename Duration, typename Localizer>
+Duration RoundWeekTimePoint(const int64_t arg, const int64_t multiple,
+                            Localizer localizer_, const Duration weekday_offset,
+                            Status* st) {
+  const Duration f = FloorWeekTimePoint<Duration, Localizer>(arg, multiple, localizer_,
+                                                             weekday_offset, st);
+  const Duration c = CeilWeekTimePoint<Duration, Localizer>(arg, multiple, localizer_,
+                                                            weekday_offset, st);
   return (Duration{arg} - f >= c - Duration{arg}) ? c : f;
 }
 
@@ -789,8 +840,13 @@ struct CeilTemporal {
                                                      st);
         break;
       case compute::CalendarUnit::WEEK:
-        t = CeilTimePoint<Duration, weeks, Localizer>(arg, options.multiple, localizer_,
-                                                      st);
+        if (options.week_starts_monday) {
+          t = CeilWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
+                                                     days{3}, st);
+        } else {
+          t = CeilWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
+                                                     days{4}, st);
+        }
         break;
       case compute::CalendarUnit::MONTH: {
         year_month_day ymd =
@@ -862,8 +918,13 @@ struct FloorTemporal {
                                                       st);
         break;
       case compute::CalendarUnit::WEEK:
-        t = FloorTimePoint<Duration, weeks, Localizer>(arg, options.multiple, localizer_,
-                                                       st);
+        if (options.week_starts_monday) {
+          t = FloorWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
+                                                      days{3}, st);
+        } else {
+          t = FloorWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
+                                                      days{4}, st);
+        }
         break;
       case compute::CalendarUnit::MONTH: {
         year_month_day ymd =
@@ -932,8 +993,13 @@ struct RoundTemporal {
                                                       st);
         break;
       case compute::CalendarUnit::WEEK:
-        t = RoundTimePoint<Duration, weeks, Localizer>(arg, options.multiple, localizer_,
-                                                       st);
+        if (options.week_starts_monday) {
+          t = RoundWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
+                                                      days{3}, st);
+        } else {
+          t = RoundWeekTimePoint<Duration, Localizer>(arg, options.multiple, localizer_,
+                                                      days{4}, st);
+        }
         break;
       case compute::CalendarUnit::MONTH: {
         auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
@@ -982,7 +1048,6 @@ struct RoundTemporal {
 // ----------------------------------------------------------------------
 // Convert timestamps to a string representation with an arbitrary format
 
-#ifndef _WIN32
 Result<std::locale> GetLocale(const std::string& locale) {
   try {
     return std::locale(locale.c_str());
@@ -1066,18 +1131,131 @@ struct Strftime {
     return Status::OK();
   }
 };
-#else
-// TODO(ARROW-13168)
-template <typename Duration, typename InType>
-struct Strftime {
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    return Status::NotImplemented("Strftime not yet implemented on windows.");
+
+// ----------------------------------------------------------------------
+// Convert string representations of timestamps in arbitrary format to timestamps
+
+const std::string GetZone(const std::string& format) {
+  // Check for use of %z or %Z
+  size_t cur = 0;
+  size_t count = 0;
+  std::string zone = "";
+  while (cur < format.size() - 1) {
+    if (format[cur] == '%') {
+      count++;
+      if (format[cur + 1] == 'z' && count % 2 == 1) {
+        zone = "UTC";
+        break;
+      }
+      cur++;
+    } else {
+      count = 0;
+    }
+    cur++;
   }
+  return zone;
+}
+
+template <typename Duration, typename InType>
+struct Strptime {
+  const std::shared_ptr<TimestampParser> parser;
+  const TimeUnit::type unit;
+  const std::string zone;
+  const bool error_is_null;
+
+  static Result<Strptime> Make(KernelContext* ctx, const DataType& type) {
+    const StrptimeOptions& options = StrptimeState::Get(ctx);
+
+    return Strptime{TimestampParser::MakeStrptime(options.format),
+                    std::move(options.unit), GetZone(options.format),
+                    options.error_is_null};
+  }
+
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+
+    if (in.is_valid) {
+      auto s = internal::UnboxScalar<InType>::Unbox(in);
+      int64_t result;
+      if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
+        *checked_cast<TimestampScalar*>(out) =
+            TimestampScalar(result, timestamp(self.unit, self.zone));
+      } else {
+        if (self.error_is_null) {
+          out->is_valid = false;
+        } else {
+          return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
+                                 TimestampType(self.unit).ToString());
+        }
+      }
+    } else {
+      out->is_valid = false;
+    }
+    return Status::OK();
+  }
+
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
-    return Status::NotImplemented("Strftime not yet implemented on windows.");
+    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+    int64_t* out_data = out->GetMutableValues<int64_t>(1);
+
+    if (self.error_is_null) {
+      if (out->buffers[0] == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(in.length));
+        bit_util::SetBitmap(out->buffers[0]->mutable_data(), out->offset, out->length);
+      }
+
+      int64_t null_count = 0;
+      arrow::internal::BitmapWriter out_writer(out->GetMutableValues<uint8_t>(0, 0),
+                                               out->offset, out->length);
+      auto visit_null = [&]() {
+        *out_data++ = 0;
+        out_writer.Next();
+        null_count++;
+      };
+      auto visit_value = [&](util::string_view s) {
+        int64_t result;
+        if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
+          *out_data++ = result;
+        } else {
+          *out_data++ = 0;
+          out_writer.Clear();
+          null_count++;
+        }
+        out_writer.Next();
+      };
+      VisitArrayDataInline<InType>(in, visit_value, visit_null);
+      out_writer.Finish();
+      out->null_count = null_count;
+    } else {
+      auto visit_null = [&]() {
+        *out_data++ = 0;
+        return Status::OK();
+      };
+      auto visit_value = [&](util::string_view s) {
+        int64_t result;
+        if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
+          *out_data++ = result;
+          return Status::OK();
+        } else {
+          return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
+                                 TimestampType(self.unit).ToString());
+        }
+      };
+      RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
+    }
+    return Status::OK();
   }
 };
-#endif
+
+Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
+                                         const std::vector<ValueDescr>&) {
+  if (!ctx->state()) {
+    return Status::Invalid("strptime does not provide default StrptimeOptions");
+  }
+  const StrptimeOptions& options = StrptimeState::Get(ctx);
+  auto type = timestamp(options.unit, GetZone(options.format));
+  return ValueDescr(std::move(type));
+}
 
 // ----------------------------------------------------------------------
 // Convert timestamps from local timestamp without a timezone to timestamps with a
@@ -1296,12 +1474,12 @@ struct UnaryTemporalFactory {
 
   template <typename... WithTypes>
   static std::shared_ptr<ScalarFunction> Make(
-      std::string name, OutputType out_type, const FunctionDoc* doc,
+      std::string name, OutputType out_type, FunctionDoc doc,
       const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
     DCHECK_NE(sizeof...(WithTypes), 0);
-    UnaryTemporalFactory self{
-        out_type, init,
-        std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options)};
+    UnaryTemporalFactory self{out_type, init,
+                              std::make_shared<ScalarFunction>(
+                                  name, Arity::Unary(), std::move(doc), default_options)};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }
@@ -1321,12 +1499,13 @@ struct SimpleUnaryTemporalFactory {
 
   template <typename... WithTypes>
   static std::shared_ptr<ScalarFunction> Make(
-      std::string name, OutputType out_type, const FunctionDoc* doc,
+      std::string name, OutputType out_type, FunctionDoc doc,
       const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
     DCHECK_NE(sizeof...(WithTypes), 0);
     SimpleUnaryTemporalFactory self{
         out_type, init,
-        std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options)};
+        std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc),
+                                         default_options)};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }
@@ -1335,6 +1514,7 @@ struct SimpleUnaryTemporalFactory {
   void AddKernel(InputType in_type) {
     auto exec = SimpleUnary<Op<Duration, InType>>;
     DCHECK_OK(func->AddKernel({std::move(in_type)}, out_type, std::move(exec), init));
+    ScalarKernel kernel({std::move(in_type)}, out_type, exec, init);
   }
 };
 
@@ -1526,7 +1706,13 @@ const FunctionDoc strftime_doc{
      "does not exist on this system."),
     {"timestamps"},
     "StrftimeOptions"};
-
+const FunctionDoc strptime_doc(
+    "Parse timestamps",
+    ("For each string in `strings`, parse it as a timestamp.\n"
+     "The timestamp unit and the expected string pattern must be given\n"
+     "in StrptimeOptions. Null inputs emit null. If a non-null string\n"
+     "fails parsing, an error is returned by default."),
+    {"strings"}, "StrptimeOptions", /*options_required=*/true);
 const FunctionDoc assume_timezone_doc{
     "Convert naive timestamp to timezone-aware timestamp",
     ("Input timestamps are assumed to be relative to the timezone given in the\n"
@@ -1578,35 +1764,35 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   auto year =
       UnaryTemporalFactory<Year, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("year", int64(),
-                                                                       &year_doc);
+                                                                       year_doc);
   DCHECK_OK(registry->AddFunction(std::move(year)));
 
   auto is_leap_year =
       UnaryTemporalFactory<IsLeapYear, TemporalComponentExtract, BooleanType>::Make<
-          WithDates, WithTimestamps>("is_leap_year", boolean(), &is_leap_year_doc);
+          WithDates, WithTimestamps>("is_leap_year", boolean(), is_leap_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(is_leap_year)));
 
   auto month =
       UnaryTemporalFactory<Month, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("month", int64(),
-                                                                       &month_doc);
+                                                                       month_doc);
   DCHECK_OK(registry->AddFunction(std::move(month)));
 
   auto day =
       UnaryTemporalFactory<Day, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("day", int64(),
-                                                                       &day_doc);
+                                                                       day_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
   auto year_month_day =
       SimpleUnaryTemporalFactory<YearMonthDay>::Make<WithDates, WithTimestamps>(
-          "year_month_day", YearMonthDayType(), &year_month_day_doc);
+          "year_month_day", YearMonthDayType(), year_month_day_doc);
   DCHECK_OK(registry->AddFunction(std::move(year_month_day)));
 
   static const auto default_day_of_week_options = DayOfWeekOptions::Defaults();
   auto day_of_week =
       UnaryTemporalFactory<DayOfWeek, TemporalComponentExtractDayOfWeek, Int64Type>::Make<
-          WithDates, WithTimestamps>("day_of_week", int64(), &day_of_week_doc,
+          WithDates, WithTimestamps>("day_of_week", int64(), day_of_week_doc,
                                      &default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
@@ -1614,119 +1800,124 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
       UnaryTemporalFactory<DayOfYear, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("day_of_year",
                                                                        int64(),
-                                                                       &day_of_year_doc);
+                                                                       day_of_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_of_year)));
 
   auto iso_year =
       UnaryTemporalFactory<ISOYear, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("iso_year",
                                                                        int64(),
-                                                                       &iso_year_doc);
+                                                                       iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
   auto us_year =
       UnaryTemporalFactory<USYear, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("us_year", int64(),
-                                                                       &us_year_doc);
+                                                                       us_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(us_year)));
 
   static const auto default_iso_week_options = WeekOptions::ISODefaults();
   auto iso_week =
       UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
-          WithDates, WithTimestamps>("iso_week", int64(), &iso_week_doc,
+          WithDates, WithTimestamps>("iso_week", int64(), iso_week_doc,
                                      &default_iso_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
   static const auto default_us_week_options = WeekOptions::USDefaults();
   auto us_week =
       UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
-          WithDates, WithTimestamps>("us_week", int64(), &us_week_doc,
+          WithDates, WithTimestamps>("us_week", int64(), us_week_doc,
                                      &default_us_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(us_week)));
 
   static const auto default_week_options = WeekOptions();
   auto week = UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
-      WithDates, WithTimestamps>("week", int64(), &week_doc, &default_week_options,
+      WithDates, WithTimestamps>("week", int64(), week_doc, &default_week_options,
                                  WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(week)));
 
   auto iso_calendar =
       SimpleUnaryTemporalFactory<ISOCalendar>::Make<WithDates, WithTimestamps>(
-          "iso_calendar", IsoCalendarType(), &iso_calendar_doc);
+          "iso_calendar", IsoCalendarType(), iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
   auto quarter =
       UnaryTemporalFactory<Quarter, TemporalComponentExtract,
                            Int64Type>::Make<WithDates, WithTimestamps>("quarter", int64(),
-                                                                       &quarter_doc);
+                                                                       quarter_doc);
   DCHECK_OK(registry->AddFunction(std::move(quarter)));
 
   // Date / time extractors
   auto hour =
       UnaryTemporalFactory<Hour, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("hour", int64(),
-                                                                       &hour_doc);
+                                                                       hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
   auto minute =
       UnaryTemporalFactory<Minute, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("minute", int64(),
-                                                                       &minute_doc);
+                                                                       minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
   auto second =
       UnaryTemporalFactory<Second, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("second", int64(),
-                                                                       &second_doc);
+                                                                       second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond =
       UnaryTemporalFactory<Millisecond, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("millisecond",
                                                                        int64(),
-                                                                       &millisecond_doc);
+                                                                       millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
   auto microsecond =
       UnaryTemporalFactory<Microsecond, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("microsecond",
                                                                        int64(),
-                                                                       &microsecond_doc);
+                                                                       microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
   auto nanosecond =
       UnaryTemporalFactory<Nanosecond, TemporalComponentExtract,
                            Int64Type>::Make<WithTimes, WithTimestamps>("nanosecond",
                                                                        int64(),
-                                                                       &nanosecond_doc);
+                                                                       nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
   auto subsecond =
       UnaryTemporalFactory<Subsecond, TemporalComponentExtract,
                            DoubleType>::Make<WithTimes, WithTimestamps>("subsecond",
                                                                         float64(),
-                                                                        &subsecond_doc);
+                                                                        subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
   // Timezone-related functions
   static const auto default_strftime_options = StrftimeOptions();
   auto strftime =
       SimpleUnaryTemporalFactory<Strftime>::Make<WithTimes, WithDates, WithTimestamps>(
-          "strftime", utf8(), &strftime_doc, &default_strftime_options,
+          "strftime", utf8(), strftime_doc, &default_strftime_options,
           StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
+
+  auto strptime = SimpleUnaryTemporalFactory<Strptime>::Make<WithStringTypes>(
+      "strptime", OutputType::Resolver(ResolveStrptimeOutput), strptime_doc, nullptr,
+      StrptimeState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(strptime)));
 
   auto assume_timezone =
       UnaryTemporalFactory<AssumeTimezone, AssumeTimezoneExtractor, TimestampType>::Make<
           WithTimestamps>("assume_timezone",
                           OutputType::Resolver(ResolveAssumeTimezoneOutput),
-                          &assume_timezone_doc, nullptr, AssumeTimezoneState::Init);
+                          assume_timezone_doc, nullptr, AssumeTimezoneState::Init);
   DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
 
   auto is_dst =
       UnaryTemporalFactory<IsDaylightSavings, DaylightSavingsExtractor,
                            BooleanType>::Make<WithTimestamps>("is_dst", boolean(),
-                                                              &is_dst_doc);
+                                                              is_dst_doc);
   DCHECK_OK(registry->AddFunction(std::move(is_dst)));
 
   // Temporal rounding functions
@@ -1734,19 +1925,19 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   auto floor_temporal = UnaryTemporalFactory<FloorTemporal, TemporalComponentExtractRound,
                                              TimestampType>::Make<WithDates, WithTimes,
                                                                   WithTimestamps>(
-      "floor_temporal", OutputType(FirstType), &floor_temporal_doc,
+      "floor_temporal", OutputType(FirstType), floor_temporal_doc,
       &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(floor_temporal)));
   auto ceil_temporal = UnaryTemporalFactory<CeilTemporal, TemporalComponentExtractRound,
                                             TimestampType>::Make<WithDates, WithTimes,
                                                                  WithTimestamps>(
-      "ceil_temporal", OutputType(FirstType), &ceil_temporal_doc,
+      "ceil_temporal", OutputType(FirstType), ceil_temporal_doc,
       &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(ceil_temporal)));
   auto round_temporal = UnaryTemporalFactory<RoundTemporal, TemporalComponentExtractRound,
                                              TimestampType>::Make<WithDates, WithTimes,
                                                                   WithTimestamps>(
-      "round_temporal", OutputType(FirstType), &round_temporal_doc,
+      "round_temporal", OutputType(FirstType), round_temporal_doc,
       &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(round_temporal)));
 }

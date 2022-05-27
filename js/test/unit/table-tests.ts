@@ -313,10 +313,9 @@ describe(`Table`, () => {
                 expect(table.numRows).toEqual(values.length);
             });
 
-            const table = datum.table();
-            const values = datum.values();
-
             test(`table.select() basic tests`, () => {
+                const table = datum.table();
+                const values = datum.values();
                 const selected = table.select(['f32', 'dictionary']);
                 expect(selected.schema.fields).toHaveLength(2);
                 expect(selected.schema.fields[0]).toEqual(table.schema.fields[0]);
@@ -332,6 +331,13 @@ describe(`Table`, () => {
                         expect(row.f32).toEqual(expected_row[F32]);
                         expect(row.dictionary).toEqual(expected_row[DICT]);
                     }
+                }
+            });
+
+            test(`table.getByteLength() returns the byteLength of each row`, () => {
+                const table = datum.table();
+                for (let i = -1, n = table.numRows; ++i < n;) {
+                    expect(table.getByteLength(i)).toBeGreaterThan(0);
                 }
             });
         });

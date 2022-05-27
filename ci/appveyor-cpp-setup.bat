@@ -71,19 +71,13 @@ if "%JOB%" NEQ "Build_Debug" (
   mamba create -n arrow -q -y -c conda-forge ^
     --file=ci\conda_env_python.txt ^
     %CONDA_PACKAGES%  ^
-    "cmake=3.17" ^
+    "cmake" ^
     "ninja" ^
     "nomkl" ^
     "pandas" ^
     "fsspec" ^
     "python=%PYTHON%" ^
     || exit /B
-
-  @rem On Windows, GTest is always bundled from source instead of using
-  @rem conda binaries, avoid any interference between the two versions.
-  if "%JOB%" == "Toolchain" (
-    mamba uninstall -n arrow -q -y -c conda-forge gtest || exit /B
-  )
 )
 
 @rem
@@ -96,6 +90,8 @@ if defined need_vcvarsall (
         exit /B
     )
     call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
+    set CC=cl.exe
+    set CXX=cl.exe
 )
 
 @rem
@@ -115,3 +111,17 @@ powershell.exe -Command "Start-Process clcache-server" || exit /B
 if "%ARROW_S3%" == "ON" (
     appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/minio.exe -FileName C:\Windows\Minio.exe || exit /B
 )
+
+
+@rem
+@rem Download IANA Timezone Database for unit tests
+@rem
+@rem (Doc section: Download timezone database)
+curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
+mkdir tzdata
+tar --extract --file tzdata.tar.gz --directory tzdata
+move tzdata %USERPROFILE%\Downloads\tzdata
+@rem Also need Windows timezone mapping
+curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
+  --output %USERPROFILE%\Downloads\tzdata\windowsZones.xml
+@rem (Doc section: Download timezone database)

@@ -17,13 +17,126 @@
   under the License.
 -->
 
-# arrow 7.0.0.9000
+# arrow 8.0.0.9000
+
+* `lubridate::parse_date_time()` datetime parser:
+  * currently parses only `orders` with year, month, and day components. In a future release `orders` support for other datetime components (such as hours, minutes, seconds, etc) will be added.
+  * strings with no separators (e.g. `"20210917"`) could be ambiguous and are not yet supported.
+  * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
+
+# arrow 8.0.0
+
+## Enhancements to dplyr and datasets
+
+* `open_dataset()`:
+  - correctly supports the `skip` argument for skipping header rows in CSV datasets.
+  - can take a list of datasets with differing schemas and attempt to unify the
+    schemas to produce a `UnionDataset`.
+* Arrow `{dplyr}` queries:
+  - are supported on `RecordBatchReader`. This allows, for example, results from DuckDB
+  to be streamed back into Arrow rather than materialized before continuing the pipeline.
+  - no longer need to materialize the entire result table before writing to a dataset
+    if the query contains contains aggregations or joins.
+  - supports `dplyr::rename_with()`.
+  - `dplyr::count()` returns an ungrouped dataframe.
+* `write_dataset()` has more options for controlling row group and file sizes when
+  writing partitioned datasets, such as `max_open_files`, `max_rows_per_file`,
+  `min_rows_per_group`, and `max_rows_per_group`.
+* `write_csv_arrow()` accepts a `Dataset` or an Arrow dplyr query.
+* Joining one or more datasets while `option(use_threads = FALSE)` no longer
+  crashes R. That option is set by default on Windows.
+* `dplyr` joins support the `suffix` argument to handle overlap in column names.
+* Filtering a Parquet dataset with `is.na()` no longer misses any rows.
+* `map_batches()` correctly accepts `Dataset` objects.
+
+## Enhancements to date and time support
+
+* `read_csv_arrow()`'s readr-style type `T` is mapped to `timestamp(unit = "ns")` 
+  instead of `timestamp(unit = "s")`.
+* For Arrow dplyr queries, added additional `{lubridate}` features and fixes:
+  * New component extraction functions:
+    * `lubridate::tz()` (timezone),
+    * `lubridate::semester()`,
+    * `lubridate::dst()` (daylight savings time boolean),
+    * `lubridate::date()`,
+    * `lubridate::epiyear()` (year according to epidemiological week calendar),
+  * `lubridate::month()` works with integer inputs.
+  * `lubridate::make_date()` & `lubridate::make_datetime()` +
+    `base::ISOdatetime()` & `base::ISOdate()` to
+    create date-times from numeric representations.
+  * `lubridate::decimal_date()` and `lubridate::date_decimal()`
+  * `lubridate::make_difftime()` (duration constructor)
+  * `?lubridate::duration` helper functions,
+    such as `lubridate::dyears()`, `lubridate::dhours()`, `lubridate::dseconds()`.
+  * `lubridate::leap_year()`
+  * `lubridate::as_date()` and `lubridate::as_datetime()`
+* Also for Arrow dplyr queries, added support and fixes for base date and time functions:
+  * `base::difftime` and `base::as.difftime()`
+  * `base::as.Date()` to convert to date
+  * Arrow timestamp and date arrays support `base::format()`
+  * `strptime()` returns `NA` instead of erroring in case of format mismatch,
+    just like `base::strptime()`.
+* Timezone operations are supported on Windows if the
+  [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
+  installed.
+
+## Extensibility
+
+* Added S3 generic conversion functions such as `as_arrow_array()`
+  and `as_arrow_table()` for main Arrow objects. This includes, Arrow tables,
+  record batches, arrays, chunked arrays, record batch readers, schemas, and
+  data types. This allows other packages to define custom conversions from their
+  types to Arrow objects, including extension arrays.
+* Custom [extension types and arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types) 
+  can be created and registered, allowing other packages to
+  define their own array types. Extension arrays wrap regular Arrow array types and
+  provide customized behavior and/or storage. See description and an example with
+  `?new_extension_type`.
+* Implemented a generic extension type and as_arrow_array() methods for all objects where     
+  `vctrs::vec_is()` returns TRUE (i.e., any object that can be used as a column in a 
+  `tibble::tibble()`), provided that the underlying `vctrs::vec_data()` can be converted 
+  to an Arrow Array.
+
+## Concatenation Support
+
+Arrow arrays and tables can be easily concatenated:
+
+ * Arrays can be concatenated with `concat_arrays()` or, if zero-copy is desired
+   and chunking is acceptable, using `ChunkedArray$create()`.
+ * ChunkedArrays can be concatenated with `c()`.
+ * RecordBatches and Tables support `cbind()`.
+ * Tables support `rbind()`. `concat_tables()` is also provided to
+   concatenate tables while unifying schemas.
+
+## Other improvements and fixes
+
+* Dictionary arrays support using ALTREP when converting to R factors.
+* Math group generics are implemented for ArrowDatum. This means you can use
+  base functions like `sqrt()`, `log()`, and `exp()` with Arrow arrays and scalars.
+* `read_*` and `write_*` functions support R Connection objects for reading
+  and writing files.
+* Parquet improvements:
+  * Parquet writer supports Duration type columns.
+  * The dataset Parquet reader consumes less memory.
+* `median()` and `quantile()` will warn only once about approximate calculations regardless of interactivity.
+* `Array$cast()` can cast StructArrays into another struct type with the same field names
+  and structure (or a subset of fields) but different field types.
+* Removed special handling for Solaris.
+* The CSV writer is much faster when writing string columns.
+* Fixed an issue where `set_io_thread_count()` would set the CPU count instead of
+  the IO thread count.
+* `RandomAccessFile` has a `$ReadMetadata()` method that provides useful
+  metadata provided by the filesystem.
+* `grepl` binding returns `FALSE` for `NA` inputs (previously it returned `NA`),
+  to match the behavior of `base::grepl()`.
+* `create_package_with_all_dependencies()` works on Windows and Mac OS, instead
+  of only Linux.
 
 # arrow 7.0.0
 
 ## Enhancements to dplyr and datasets
 
-* Additional `lubridate` features: `week()`, more of the `is.*()` functions, and the label argument to `month()` have been implemented.
+* Additional `{lubridate}` features: `week()`, more of the `is.*()` functions, and the label argument to `month()` have been implemented.
 * More complex expressions inside `summarize()`, such as `ifelse(n() > 1, mean(y), mean(z))`, are supported.
 * When adding columns in a dplyr pipeline, one can now use `tibble` and `data.frame` to create columns of tibbles or data.frames respectively (e.g. `... %>% mutate(df_col = tibble(a, b)) %>% ...`).
 * Dictionary columns (R `factor` type) are supported inside of `coalesce()`.
@@ -428,7 +541,7 @@ See `vignette("python", package = "arrow")` for details.
 ## Datasets
 
 * Dataset reading benefits from many speedups and fixes in the C++ library
-* Datasets have a `dim()` method, which sums rows across all files (#6635, @boshek)
+* Datasets have a `dim()` method, which sums rows across all files (ARROW-8118, @boshek)
 * Combine multiple datasets into a single queryable `UnionDataset` with the `c()` method
 * Dataset filtering now treats `NA` as `FALSE`, consistent with `dplyr::filter()`
 * Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types
@@ -452,8 +565,8 @@ See `vignette("python", package = "arrow")` for details.
 * `install_arrow()` now installs the latest release of `arrow`, including Linux dependencies, either for CRAN releases or for development builds (if `nightly = TRUE`)
 * Package installation on Linux no longer downloads C++ dependencies unless the `LIBARROW_DOWNLOAD` or `NOT_CRAN` environment variable is set
 * `write_feather()`, `write_arrow()` and `write_parquet()` now return their input,
-similar to the `write_*` functions in the `readr` package (#6387, @boshek)
-* Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (#6275, @michaelchirico)
+similar to the `write_*` functions in the `readr` package (ARROW-7796, @boshek)
+* Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (ARROW-7662, @michaelchirico)
 
 # arrow 0.16.0
 
@@ -485,12 +598,12 @@ See `vignette("install", package = "arrow")` for details.
 
 * `write_parquet()` now supports compression
 * `codec_is_available()` returns `TRUE` or `FALSE` whether the Arrow C++ library was built with support for a given compression library (e.g. gzip, lz4, snappy)
-* Windows builds now include support for zstd and lz4 compression (#5814, @gnguy)
+* Windows builds now include support for zstd and lz4 compression (ARROW-6960, @gnguy)
 
 ## Other fixes and improvements
 
 * Arrow null type is now supported
-* Factor types are now preserved in round trip through Parquet format (#6135, @yutannihilation)
+* Factor types are now preserved in round trip through Parquet format (ARROW-7045, @yutannihilation)
 * Reading an Arrow dictionary type coerces dictionary values to `character` (as R `factor` levels are required to be) instead of raising an error
 * Many improvements to Parquet function documentation (@karldw, @khughitt)
 

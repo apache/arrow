@@ -837,7 +837,9 @@ class ORCFileWriter::Impl {
   }
 
   Status Close() {
-    writer_->close();
+    if (writer_) {
+      writer_->close();
+    }
     return Status::OK();
   }
 

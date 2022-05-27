@@ -17,7 +17,12 @@
 
 package org.apache.arrow.flight.integration.tests;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Objects;
+
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightRuntimeException;
 
 /**
  * Utility methods to implement integration tests without using JUnit assertions.
@@ -70,6 +75,19 @@ final class IntegrationAssertions {
     if (!value) {
       throw new AssertionError("Expected true: " + message);
     }
+  }
+
+  /**
+   * Convert a throwable into a FlightRuntimeException with error details, for debugging.
+   */
+  static FlightRuntimeException toFlightRuntimeException(Throwable t) {
+    final StringWriter stringWriter = new StringWriter();
+    final PrintWriter writer = new PrintWriter(stringWriter);
+    t.printStackTrace(writer);
+    return CallStatus.UNKNOWN
+            .withCause(t)
+            .withDescription("Unknown error: " + t + "\n. Stack trace:\n" + stringWriter.toString())
+            .toRuntimeException();
   }
 
   /**

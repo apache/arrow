@@ -21,7 +21,7 @@ import os
 
 import pyarrow as pa
 
-from pyarrow.lib import (IpcWriteOptions, ReadStats, WriteStats,  # noqa
+from pyarrow.lib import (IpcReadOptions, IpcWriteOptions, ReadStats, WriteStats,  # noqa
                          Message, MessageReader,
                          RecordBatchReader, _ReadPandasMixin,
                          MetadataVersion,
@@ -39,10 +39,16 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
     ----------
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
         Either an in-memory buffer, or a readable file object.
+    options : pyarrow.ipc.IpcReadOptions
+        Options for IPC deserialization.
+        If None, default values will be used.
+    memory_pool : MemoryPool, default None
+        If None, default memory pool is used.
     """
 
-    def __init__(self, source):
-        self._open(source)
+    def __init__(self, source, *, options=None, memory_pool=None):
+        options = _ensure_default_ipc_read_options(options)
+        self._open(source, options=options, memory_pool=memory_pool)
 
 
 _ipc_writer_class_doc = """\
@@ -89,10 +95,18 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
     footer_offset : int, default None
         If the file is embedded in some larger file, this is the byte offset to
         the very end of the file data
+    options : pyarrow.ipc.IpcReadOptions
+        Options for IPC serialization.
+        If None, default values will be used.
+    memory_pool : MemoryPool, default None
+        If None, default memory pool is used.
     """
 
-    def __init__(self, source, footer_offset=None):
-        self._open(source, footer_offset=footer_offset)
+    def __init__(self, source, footer_offset=None, *, options=None,
+                 memory_pool=None):
+        options = _ensure_default_ipc_read_options(options)
+        self._open(source, footer_offset=footer_offset,
+                   options=options, memory_pool=memory_pool)
 
 
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):
@@ -126,6 +140,14 @@ def _get_legacy_format_default(use_legacy_format, options):
                            metadata_version=metadata_version)
 
 
+def _ensure_default_ipc_read_options(options):
+    if options and not isinstance(options, IpcReadOptions):
+        raise TypeError(
+            "expected IpcReadOptions, got {}".format(type(options))
+        )
+    return options or IpcReadOptions()
+
+
 def new_stream(sink, schema, *, use_legacy_format=None, options=None):
     return RecordBatchStreamWriter(sink, schema,
                                    use_legacy_format=use_legacy_format,
@@ -138,7 +160,7 @@ Create an Arrow columnar IPC stream writer instance
 {}""".format(_ipc_writer_class_doc)
 
 
-def open_stream(source):
+def open_stream(source, *, options=None, memory_pool=None):
     """
     Create reader for Arrow streaming format.
 
@@ -146,12 +168,17 @@ def open_stream(source):
     ----------
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
         Either an in-memory buffer, or a readable file object.
-
+    options : pyarrow.ipc.IpcReadOptions
+        Options for IPC serialization.
+        If None, default values will be used.
+    memory_pool : MemoryPool, default None
+        If None, default memory pool is used.
     Returns
     -------
     reader : RecordBatchStreamReader
     """
-    return RecordBatchStreamReader(source)
+    return RecordBatchStreamReader(source, options=options,
+                                   memory_pool=memory_pool)
 
 
 def new_file(sink, schema, *, use_legacy_format=None, options=None):
@@ -166,7 +193,7 @@ Create an Arrow columnar IPC file writer instance
 {}""".format(_ipc_writer_class_doc)
 
 
-def open_file(source, footer_offset=None):
+def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
     """
     Create reader for Arrow file format.
 
@@ -177,12 +204,18 @@ def open_file(source, footer_offset=None):
     footer_offset : int, default None
         If the file is embedded in some larger file, this is the byte offset to
         the very end of the file data.
-
+    options : pyarrow.ipc.IpcReadOptions
+        Options for IPC serialization.
+        If None, default values will be used.
+    memory_pool : MemoryPool, default None
+        If None, default memory pool is used.
     Returns
     -------
     reader : RecordBatchFileReader
     """
-    return RecordBatchFileReader(source, footer_offset=footer_offset)
+    return RecordBatchFileReader(
+        source, footer_offset=footer_offset,
+        options=options, memory_pool=memory_pool)
 
 
 def serialize_pandas(df, *, nthreads=None, preserve_index=None):

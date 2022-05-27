@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/array.h>
 #include <arrow/chunked_array.h>
 #include <arrow/compute/api.h>
@@ -1045,5 +1043,3 @@ void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden"));
 
 // [[arrow::export]]
 bool is_arrow_altrep(SEXP x) { return arrow::r::altrep::is_arrow_altrep(x); }
-
-#endif

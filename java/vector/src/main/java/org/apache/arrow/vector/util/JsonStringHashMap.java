@@ -31,16 +31,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class JsonStringHashMap<K, V> extends LinkedHashMap<K, V> {
 
-  private static ObjectMapper mapper;
-
-  static {
-    mapper = new ObjectMapper();
-  }
+  private static final ObjectMapper MAPPER = ObjectMapperFactory.newObjectMapper();
 
   @Override
   public final String toString() {
     try {
-      return mapper.writeValueAsString(this);
+      return MAPPER.writeValueAsString(this);
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Cannot serialize hash map to JSON string", e);
     }

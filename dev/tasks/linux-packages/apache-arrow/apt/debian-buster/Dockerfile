@@ -63,12 +63,14 @@ RUN \
     libutf8proc-dev \
     lsb-release \
     ninja-build \
+    nlohmann-json3-dev \
     pkg-config \
     python3-dev \
     python3-numpy \
     python3-pip \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   apt install -y -V -t buster-backports ${quiet} \
     clang-11 \

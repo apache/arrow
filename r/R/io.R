@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @include enums.R
 #' @include buffer.R
 
@@ -163,6 +163,9 @@ RandomAccessFile <- R6Class("RandomAccessFile",
         nbytes <- self$GetSize() - position
       }
       io___RandomAccessFile__ReadAt(self, position, nbytes)
+    },
+    ReadMetadata = function() {
+      as.list(io___RandomAccessFile__ReadMetadata(self))
     }
   )
 )
@@ -196,6 +199,7 @@ BufferReader$create <- function(x) {
   x <- buffer(x)
   io___BufferReader__initialize(x)
 }
+
 
 #' Create a new read/write memory mapped file of a given size
 #'
@@ -241,32 +245,62 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   }
   if (is.string(file)) {
     if (is_url(file)) {
-      fs_and_path <- FileSystem$from_uri(file)
-      filesystem <- fs_and_path$fs
-      file <- fs_and_path$path
+      file <- tryCatch(
+        {
+          fs_and_path <- FileSystem$from_uri(file)
+          filesystem <- fs_and_path$fs
+          fs_and_path$path
+        },
+        error = function(e) {
+          MakeRConnectionInputStream(url(file, open = "rb"))
+        }
+      )
     }
+
     if (is.null(compression)) {
       # Infer compression from the file path
       compression <- detect_compression(file)
     }
+
     if (!is.null(filesystem)) {
       file <- filesystem$OpenInputFile(file)
-    } else if (isTRUE(mmap)) {
+    } else if (is.string(file) && isTRUE(mmap)) {
       file <- mmap_open(file)
-    } else {
+    } else if (is.string(file)) {
       file <- ReadableFile$create(file)
     }
-    if (!identical(compression, "uncompressed")) {
+
+    if (is_compressed(compression)) {
       file <- CompressedInputStream$create(file, compression)
     }
   } else if (inherits(file, c("raw", "Buffer"))) {
     file <- BufferReader$create(file)
+  } else if (inherits(file, "connection")) {
+    if (!isOpen(file)) {
+      open(file, "rb")
+    }
+
+    # Try to create a RandomAccessFile first because some readers need this
+    # (e.g., feather, parquet) but fall back on an InputStream for the readers
+    # that don't (e.g., IPC, CSV)
+    file <- tryCatch(
+      MakeRConnectionRandomAccessFile(file),
+      error = function(e) MakeRConnectionInputStream(file)
+    )
   }
   assert_is(file, "InputStream")
   file
 }
 
-make_output_stream <- function(x, filesystem = NULL) {
+make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
+  if (inherits(x, "connection")) {
+    if (!isOpen(x)) {
+      open(x, "wb")
+    }
+
+    return(MakeRConnectionOutputStream(x))
+  }
+
   if (inherits(x, "SubTreeFileSystem")) {
     filesystem <- x$base_fs
     x <- x$base_path
@@ -275,16 +309,32 @@ make_output_stream <- function(x, filesystem = NULL) {
     filesystem <- fs_and_path$fs
     x <- fs_and_path$path
   }
+
+  if (is.null(compression)) {
+    # Infer compression from sink
+    compression <- detect_compression(x)
+  }
+
   assert_that(is.string(x))
-  if (is.null(filesystem)) {
-    FileOutputStream$create(x)
+  if (is.null(filesystem) && is_compressed(compression)) {
+    CompressedOutputStream$create(x) ##compressed local
+  } else if (is.null(filesystem) && !is_compressed(compression)) {
+    FileOutputStream$create(x) ## uncompressed local
+  } else if (!is.null(filesystem) && is_compressed(compression)) {
+    CompressedOutputStream$create(filesystem$OpenOutputStream(x)) ## compressed remote
   } else {
-    filesystem$OpenOutputStream(x)
+    filesystem$OpenOutputStream(x) ## uncompressed remote
   }
 }
 
 detect_compression <- function(path) {
-  assert_that(is.string(path))
+  if (!is.string(path)) {
+    return("uncompressed")
+  }
+
+  # Remove any trailing slashes, which FileSystem$from_uri may add
+  path <- gsub("/$", "", path)
+
   switch(tools::file_ext(path),
     bz2 = "bz2",
     gz = "gzip",

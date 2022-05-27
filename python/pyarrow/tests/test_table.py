@@ -1801,8 +1801,8 @@ def test_table_repr_to_string_ellipsis():
 c0: int16
 c1: int32
 ----
-c0: [[1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]]
-c1: [[10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30,40]]"""
+c0: [[1,2,3,4,1,...,4,1,2,3,4]]
+c1: [[10,20,30,40,10,...,40,10,20,30,40]]"""
 
 
 def test_table_function_unicode_schema():
@@ -2032,3 +2032,116 @@ def test_table_sort_by():
         "keys": ["c", "b", "b", "a", "a"],
         "values": [5, 4, 3, 2, 1]
     }
+
+
+def test_table_to_recordbatchreader():
+    table = pa.Table.from_pydict({'x': [1, 2, 3]})
+    reader = table.to_reader()
+    assert table.schema == reader.schema
+    assert table == reader.read_all()
+
+    reader = table.to_reader(max_chunksize=2)
+    assert reader.read_next_batch().num_rows == 2
+    assert reader.read_next_batch().num_rows == 1
+
+
+@pytest.mark.dataset
+def test_table_join():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colB": [99, 2, 1],
+        "col3": ["Z", "B", "A"]
+    })
+
+    result = t1.join(t2, "colA", "colB")
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"],
+        "col3": ["A", "B", None]
+    })
+
+    result = t1.join(t2, "colA", "colB", join_type="full outer")
+    assert result.combine_chunks().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6, 99],
+        "col2": ["a", "b", "f", None],
+        "col3": ["A", "B", None, "Z"]
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_unique_key():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "col3": ["Z", "B", "A"]
+    })
+
+    result = t1.join(t2, "colA")
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"],
+        "col3": ["A", "B", None]
+    })
+
+    result = t1.join(t2, "colA", join_type="full outer", right_suffix="_r")
+    assert result.combine_chunks().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6, 99],
+        "col2": ["a", "b", "f", None],
+        "col3": ["A", "B", None, "Z"]
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_collisions():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"]
+    })
+
+    result = t1.join(t2, "colA", join_type="full outer")
+    assert result.combine_chunks().sort_by("colA") == pa.table([
+        [1, 2, 6, 99],
+        [10, 20, 60, None],
+        ["a", "b", "f", None],
+        [10, 20, None, 99],
+        ["A", "B", None, "Z"],
+    ], names=["colA", "colB", "colVals", "colB", "colVals"])
+
+
+@pytest.mark.dataset
+def test_table_filter_expression():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"]
+    })
+
+    t3 = pa.concat_tables([t1, t2])
+
+    result = t3.filter(pc.field("colA") < 10)
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6, 2, 1],
+        "colB": [10, 20, 60, 20, 10],
+        "colVals": ["a", "b", "f", "B", "A"]
+    })

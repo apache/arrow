@@ -22,7 +22,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/serde.h"
-#include "arrow/engine/visibility.h"
+#include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
 #include "substrait/relations.pb.h"  // IWYU pragma: export

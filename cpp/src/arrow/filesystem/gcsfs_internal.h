@@ -34,6 +34,8 @@ namespace internal {
 
 Status ToArrowStatus(const google::cloud::Status& s);
 
+int ErrnoFromStatus(const google::cloud::Status& s);
+
 Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 

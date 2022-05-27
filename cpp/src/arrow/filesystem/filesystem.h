@@ -214,10 +214,12 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   ///
   /// Like DeleteDir, but doesn't delete the directory itself.
   /// Passing an empty path ("" or "/") is disallowed, see DeleteRootDirContents.
-  virtual Status DeleteDirContents(const std::string& path) = 0;
+  virtual Status DeleteDirContents(const std::string& path,
+                                   bool missing_dir_ok = false) = 0;
 
   /// Async version of DeleteDirContents.
-  virtual Future<> DeleteDirContentsAsync(const std::string& path);
+  virtual Future<> DeleteDirContentsAsync(const std::string& path,
+                                          bool missing_dir_ok = false);
 
   /// EXPERIMENTAL: Delete the root directory's contents, recursively.
   ///
@@ -348,7 +350,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -416,7 +418,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;

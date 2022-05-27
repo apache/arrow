@@ -19,10 +19,5 @@
 // This addresses platform-specific defines, e.g. on Windows
 #include "arrow/flight/platform.h"  // IWYU pragma: keep
 
-// This header holds the Flight protobuf definitions.
-
-// Need to include this first to get our gRPC customizations
-#include "arrow/flight/customize_protobuf.h"  // IWYU pragma: export
-
-#include "arrow/flight/Flight.grpc.pb.h"  // IWYU pragma: export
-#include "arrow/flight/Flight.pb.h"       // IWYU pragma: export
+// This header holds the Flight Protobuf definitions.
+#include "arrow/flight/Flight.pb.h"  // IWYU pragma: export

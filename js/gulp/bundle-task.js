@@ -15,28 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import gulp from "gulp";
-import size from "gulp-vinyl-size";
-import gulpRename from "gulp-rename";
-import terser from "gulp-terser";
-import source from "vinyl-source-stream";
-import buffer from "vinyl-buffer";
-import { observableFromStreams } from "./util.js";
-import { forkJoin as ObservableForkJoin } from "rxjs";
-import { resolve, join } from "path";
-import { readdirSync } from "fs";
+import gulp from 'gulp';
+import size from 'gulp-vinyl-size';
+import gulpRename from 'gulp-rename';
+import terser from 'gulp-terser';
+import source from 'vinyl-source-stream';
+import buffer from 'vinyl-buffer';
+import { observableFromStreams } from './util.js';
+import { forkJoin as ObservableForkJoin } from 'rxjs';
+import { resolve, join } from 'path';
+import { readdirSync } from 'fs';
 import { execSync } from 'child_process';
 
-import gulpEsbuild from "gulp-esbuild";
-import esbuildAlias from "esbuild-plugin-alias";
+import gulpEsbuild from 'gulp-esbuild';
+import esbuildAlias from 'esbuild-plugin-alias';
 
-import rollupStream from "@rollup/stream";
-import { default as nodeResolve } from "@rollup/plugin-node-resolve";
-import rollupAlias from "@rollup/plugin-alias";
+import rollupStream from '@rollup/stream';
+import { default as nodeResolve } from '@rollup/plugin-node-resolve';
+import rollupAlias from '@rollup/plugin-alias';
 
-import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer";
-import webpack from "webpack-stream";
-import named from "vinyl-named";
+import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
+import webpack from 'webpack-stream';
+import named from 'vinyl-named';
 
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';

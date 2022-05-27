@@ -15,10 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_installed("duckdb", minimum_version = "0.3.1")
-skip_if_not_installed("dbplyr")
 skip_if_not_available("dataset")
 skip_on_cran()
+
+# this test needs to be the first one since all other test blocks are skipped
+# if duckdb is not installed
+test_that("meaningful error message when duckdb is not installed", {
+  # skipping if duckdb is installed since we're testing the to_duckdb function's
+  # complaint when a user tries to call it, but duckdb isn't available
+  skip_if(requireNamespace("duckdb", quietly = TRUE))
+  ds <- InMemoryDataset$create(example_data)
+  expect_error(
+    to_duckdb(ds),
+    regexp = "Please install the `duckdb` package to pass data with `to_duckdb()`.",
+    fixed = TRUE
+  )
+})
+
+skip_if_not_installed("duckdb", minimum_version = "0.3.1")
+skip_if_not_installed("dbplyr")
 
 library(duckdb, quietly = TRUE)
 library(dplyr, warn.conflicts = FALSE)
@@ -33,9 +48,9 @@ test_that("to_duckdb", {
       # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
       select(!fct) %>%
       arrange(int),
-      example_data %>%
-        select(!fct) %>%
-        arrange(int)
+    example_data %>%
+      select(!fct) %>%
+      arrange(int)
   )
 
   expect_identical(
@@ -155,7 +170,7 @@ test_that("to_arrow roundtrip, with dataset", {
   )
 })
 
-test_that("to_arrow roundtrip, with dataset (without wrapping", {
+test_that("to_arrow roundtrip, with dataset (without wrapping)", {
   # these will continue to error until 0.3.2 is released
   # https://github.com/duckdb/duckdb/pull/2957
   skip_if_not_installed("duckdb", minimum_version = "0.3.2")
@@ -169,11 +184,11 @@ test_that("to_arrow roundtrip, with dataset (without wrapping", {
   )
   write_dataset(new_ds, tf, partitioning = "part")
 
-  out <- ds %>%
+  out <- open_dataset(tf) %>%
     to_duckdb() %>%
     select(-fct) %>%
     mutate(dbl_plus = dbl + 1) %>%
-    to_arrow(as_arrow_query = FALSE)
+    to_arrow()
 
   expect_r6_class(out, "RecordBatchReader")
 })

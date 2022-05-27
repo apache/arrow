@@ -17,18 +17,19 @@
 package file
 
 import (
+	"fmt"
 	"sync/atomic"
 	"unsafe"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v9/parquet"
+	"github.com/apache/arrow/go/v9/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v9/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -303,7 +304,6 @@ type recordReader struct {
 	recordReaderImpl
 	leafInfo LevelInfo
 
-	nullable    bool
 	atRecStart  bool
 	recordsRead int64
 
@@ -314,7 +314,6 @@ type recordReader struct {
 	defLevels *memory.Buffer
 	repLevels *memory.Buffer
 
-	readDict bool
 	refCount int64
 }
 
@@ -415,7 +414,7 @@ func (rr *recordReader) reserveLevels(extra int64) error {
 		if newCap > rr.levelsCap {
 			capBytes, ok := overflow.Mul(int(newCap), arrow.Int16SizeBytes)
 			if !ok {
-				return xerrors.Errorf("allocation size too large (corrupt file?)")
+				return fmt.Errorf("allocation size too large (corrupt file?)")
 			}
 			rr.defLevels.ResizeNoShrink(capBytes)
 			if rr.Descriptor().MaxRepetitionLevel() > 0 {

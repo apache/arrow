@@ -84,7 +84,7 @@ if(${ARROW_USE_TSAN})
   # guarantee that is via dynamic linking (not all 3rd party archives are
   # compiled with -fPIC e.g. boost).
   if("${ARROW_LINK}" STREQUAL "a")
-    message("Using dynamic linking for TSAN")
+    message(STATUS "Using dynamic linking for TSAN")
     set(ARROW_LINK "d")
   elseif("${ARROW_LINK}" STREQUAL "s")
     message(SEND_ERROR "Cannot use TSAN with static linking")

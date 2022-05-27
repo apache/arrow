@@ -152,19 +152,6 @@ def main(simd_width):
 
     struct_name = f"UnpackBits{simd_width}"
 
-    define_simd_arch = {
-        # ugly format to get aligned output
-        128: dedent("""\
-                 #ifdef ARROW_HAVE_NEON
-                         using simd_arch = xsimd::neon64;
-                         #else
-                         using simd_arch = xsimd::sse4_2;
-                         #endif
-                 """),
-        256: "using simd_arch = xsimd::avx2;",
-        512: "using simd_arch = xsimd::avx512bw;"
-    }
-
     # NOTE: templating the UnpackBits struct on the dispatch level avoids
     # potential name collisions if there are several UnpackBits generations
     # with the same SIMD width on a given architecture.
@@ -189,8 +176,7 @@ def main(simd_width):
         template <DispatchLevel level>
         struct {struct_name} {{
 
-        {define_simd_arch[simd_width]}
-        using simd_batch = xsimd::batch<uint32_t, simd_arch>;
+        using simd_batch = xsimd::make_sized_batch_t<uint32_t, {simd_width//32}>;
         """))
 
     gen = UnpackGenerator(simd_width)

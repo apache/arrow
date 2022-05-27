@@ -42,9 +42,9 @@ int main(int argc, char** argv) {
 
   arrow::flight::Location location;
   if (FLAGS_unix.empty()) {
-    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+    location = *arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port);
   } else {
-    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_unix, &location));
+    location = *arrow::flight::Location::ForGrpcUnix(FLAGS_unix);
   }
   arrow::flight::FlightServerOptions options(location);
 

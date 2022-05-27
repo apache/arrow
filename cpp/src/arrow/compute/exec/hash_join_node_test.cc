@@ -32,7 +32,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/pcg_random.h"
 #include "arrow/util/thread_pool.h"
 
 using testing::UnorderedElementsAreArray;
@@ -244,20 +243,6 @@ TEST_P(HashJoinTest, TestSemiJoinsEmpty) {
   RunEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
 }
 
-class Random64Bit {
- public:
-  explicit Random64Bit(random::SeedType seed) : rng_(seed) {}
-  uint64_t next() { return dist_(rng_); }
-  template <typename T>
-  inline T from_range(const T& min_val, const T& max_val) {
-    return static_cast<T>(min_val + (next() % (max_val - min_val + 1)));
-  }
-
- private:
-  random::pcg32_fast rng_;
-  std::uniform_int_distribution<uint64_t> dist_;
-};
-
 struct RandomDataTypeConstraints {
   int64_t data_type_enabled_mask;
   // Null related
@@ -361,8 +346,9 @@ struct RandomDataType {
           }
         }
       } else {
-        result.fixed_length =
-            ((1ULL << log_type) == constraints.kBool) ? 0 : (1ULL << log_type);
+        result.fixed_length = ((1ULL << log_type) == constraints.kBool)
+                                  ? 0
+                                  : static_cast<int>(1ULL << log_type);
       }
     } else {
       // Pick parameters for string
@@ -898,20 +884,19 @@ std::shared_ptr<Table> HashJoinSimple(
   return Table::Make(schema, result, result[0]->length());
 }
 
-void HashJoinWithExecPlan(Random64Bit& rng, bool parallel,
-                          const HashJoinNodeOptions& join_options,
-                          const std::shared_ptr<Schema>& output_schema,
-                          const std::vector<std::shared_ptr<Array>>& l,
-                          const std::vector<std::shared_ptr<Array>>& r, int num_batches_l,
-                          int num_batches_r, std::shared_ptr<Table>* output) {
+Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
+    Random64Bit& rng, bool parallel, const HashJoinNodeOptions& join_options,
+    const std::shared_ptr<Schema>& output_schema,
+    const std::vector<std::shared_ptr<Array>>& l,
+    const std::vector<std::shared_ptr<Array>>& r, int num_batches_l, int num_batches_r) {
   auto exec_ctx = arrow::internal::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   // add left source
   BatchesWithSchema l_batches = TableToBatches(rng, num_batches_l, l, "l_");
-  ASSERT_OK_AND_ASSIGN(
+  ARROW_ASSIGN_OR_RAISE(
       ExecNode * l_source,
       MakeExecNode("source", plan.get(), {},
                    SourceNodeOptions{l_batches.schema, l_batches.gen(parallel,
@@ -919,22 +904,29 @@ void HashJoinWithExecPlan(Random64Bit& rng, bool parallel,
 
   // add right source
   BatchesWithSchema r_batches = TableToBatches(rng, num_batches_r, r, "r_");
-  ASSERT_OK_AND_ASSIGN(
+  ARROW_ASSIGN_OR_RAISE(
       ExecNode * r_source,
       MakeExecNode("source", plan.get(), {},
                    SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
                                                                      /*slow=*/false)}));
 
-  ASSERT_OK_AND_ASSIGN(ExecNode * join, MakeExecNode("hashjoin", plan.get(),
-                                                     {l_source, r_source}, join_options));
+  ARROW_ASSIGN_OR_RAISE(
+      ExecNode * join,
+      MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
 
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  ASSERT_OK_AND_ASSIGN(
+  ARROW_ASSIGN_OR_RAISE(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
 
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
-
-  ASSERT_OK_AND_ASSIGN(*output, TableFromExecBatches(output_schema, res));
+  auto batches_fut = StartAndCollect(plan.get(), sink_gen);
+  if (!batches_fut.Wait(::arrow::kDefaultAssertFinishesWaitSeconds)) {
+    plan->StopProducing();
+    // If this second wait fails then there isn't much we can do.  We will abort
+    // and probably get a segmentation fault.
+    plan->finished().Wait(::arrow::kDefaultAssertFinishesWaitSeconds);
+    return Status::Invalid("Plan did not finish in a reasonable amount of time");
+  }
+  return batches_fut.result();
 }
 
 TEST(HashJoin, Suffix) {
@@ -1006,13 +998,16 @@ TEST(HashJoin, Suffix) {
 
 TEST(HashJoin, Random) {
   Random64Bit rng(42);
-#if defined(THREAD_SANITIZER)
+#if defined(THREAD_SANITIZER) || defined(ARROW_VALGRIND)
   const int num_tests = 15;
+#elif defined(ADDRESS_SANITIZER)
+  const int num_tests = 25;
 #else
   const int num_tests = 100;
 #endif
   for (int test_id = 0; test_id < num_tests; ++test_id) {
     bool parallel = (rng.from_range(0, 1) == 1);
+    bool disable_bloom_filter = (rng.from_range(0, 1) == 1);
     auto exec_ctx = arrow::internal::make_unique<ExecContext>(
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
@@ -1118,7 +1113,8 @@ TEST(HashJoin, Random) {
     }
 
     ARROW_SCOPED_TRACE(join_type_name, " ", key_cmp_str,
-                       " parallel = ", (parallel ? "true" : "false"));
+                       " parallel = ", (parallel ? "true" : "false"),
+                       " bloom_filter = ", (disable_bloom_filter ? "false" : "true"));
 
     // Run reference join implementation
     std::vector<bool> null_in_key_vectors[2];
@@ -1138,7 +1134,7 @@ TEST(HashJoin, Random) {
 
     // Turn the last key comparison into a residual filter expression
     Expression filter = literal(true);
-    if (key_cmp.size() > 1 && rng.from_range(0, 1) == 0) {
+    if (key_cmp.size() > 1 && rng.from_range(0, 4) == 0) {
       for (size_t i = 0; i < key_cmp.size(); i++) {
         FieldRef left = key_fields[0][i];
         FieldRef right = key_fields[1][i];
@@ -1166,6 +1162,7 @@ TEST(HashJoin, Random) {
     HashJoinNodeOptions join_options{
         join_type,        key_fields[0], key_fields[1], output_fields[0],
         output_fields[1], key_cmp,       filter};
+    join_options.disable_bloom_filter = disable_bloom_filter;
     std::vector<std::shared_ptr<Field>> output_schema_fields;
     for (int i = 0; i < 2; ++i) {
       for (size_t col = 0; col < output_fields[i].size(); ++col) {
@@ -1176,12 +1173,16 @@ TEST(HashJoin, Random) {
     }
     std::shared_ptr<Schema> output_schema =
         std::make_shared<Schema>(std::move(output_schema_fields));
-    std::shared_ptr<Table> output_rows_test;
-    HashJoinWithExecPlan(rng, parallel, join_options, output_schema,
-                         shuffled_input_arrays[0], shuffled_input_arrays[1],
-                         static_cast<int>(bit_util::CeilDiv(num_rows_l, batch_size)),
-                         static_cast<int>(bit_util::CeilDiv(num_rows_r, batch_size)),
-                         &output_rows_test);
+
+    ASSERT_OK_AND_ASSIGN(
+        auto batches, HashJoinWithExecPlan(
+                          rng, parallel, join_options, output_schema,
+                          shuffled_input_arrays[0], shuffled_input_arrays[1],
+                          static_cast<int>(bit_util::CeilDiv(num_rows_l, batch_size)),
+                          static_cast<int>(bit_util::CeilDiv(num_rows_r, batch_size))));
+
+    ASSERT_OK_AND_ASSIGN(auto output_rows_test,
+                         TableFromExecBatches(output_schema, batches));
 
     // Compare results
     AssertTablesEqual(output_rows_ref, output_rows_test);
@@ -1666,6 +1667,24 @@ TEST(HashJoin, Scalars) {
           ArrayFromJSON(utf8(), R"(["p", "q", "p", "q", "r"])"), 1, swap_sides);
     }
   }
+
+  // Scalars in key columns, Inner join to exercise Bloom filter
+  for (auto use_scalar_dict : {false, true}) {
+    for (auto swap_sides : {false, true}) {
+      TestHashJoinDictionaryHelper(
+          JoinType::INNER, JoinKeyCmp::EQ, false /*parallel*/,
+          // Input
+          use_scalar_dict ? DictScalarFromJSON(int8_utf8, "1", R"(["b", "a", "c"])")
+                          : ScalarFromJSON(utf8(), "\"a\""),
+          ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          ArrayFromJSON(utf8(), R"(["a", null, "b"])"),
+          ArrayFromJSON(utf8(), R"(["p", "q", "r"])"),
+          // Expected output
+          ArrayFromJSON(utf8(), R"(["a", "a"])"), ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          ArrayFromJSON(utf8(), R"(["a", "a"])"), ArrayFromJSON(utf8(), R"(["p", "p"])"),
+          2, swap_sides);
+    }
+  }
 }
 
 TEST(HashJoin, DictNegative) {
@@ -1903,6 +1922,151 @@ TEST(HashJoin, TrivialResidualFilter) {
 
       AssertExecBatchesEqual(hashjoin->output_schema(), result, expected);
     }
+  }
+}
+
+HashJoinNodeOptions GenerateHashJoinNodeOptions(Random64Bit& rng, int num_left_cols,
+                                                int num_right_cols) {
+  HashJoinNodeOptions opts;
+  opts.join_type = static_cast<JoinType>(rng.from_range(0, 7));
+  bool is_left_join = opts.join_type == JoinType::LEFT_SEMI ||
+                      opts.join_type == JoinType::LEFT_ANTI ||
+                      opts.join_type == JoinType::LEFT_OUTER;
+  bool is_right_join = opts.join_type == JoinType::RIGHT_SEMI ||
+                       opts.join_type == JoinType::RIGHT_ANTI ||
+                       opts.join_type == JoinType::RIGHT_OUTER;
+
+  int num_keys = rng.from_range(1, std::min(num_left_cols, num_right_cols));
+  for (int i = 0; i < num_left_cols; i++) {
+    bool is_out = rng.from_range(0, 2) != 2;
+    if (is_out && !is_right_join) opts.left_output.push_back(FieldRef(i));
+  }
+  for (int i = 0; i < num_right_cols; i++) {
+    bool is_out = rng.from_range(0, 2) == 2;
+    if (is_out && !is_left_join) opts.right_output.push_back(FieldRef(i));
+  }
+  // We need at least one output
+  if (opts.right_output.empty() && opts.left_output.empty()) {
+    if (is_left_join) {
+      int col = rng.from_range(0, num_left_cols - 1);
+      opts.left_output.push_back(FieldRef(col));
+    } else if (is_right_join) {
+      int col = rng.from_range(0, num_right_cols - 1);
+      opts.right_output.push_back(FieldRef(col));
+    } else {
+      if (rng.from_range(0, 1) == 0) {
+        int col = rng.from_range(0, num_left_cols - 1);
+        opts.left_output.push_back(FieldRef(col));
+      } else {
+        int col = rng.from_range(0, num_right_cols - 1);
+        opts.right_output.push_back(FieldRef(col));
+      }
+    }
+  }
+
+  for (int i = 0; i < num_keys; i++) {
+    int left = rng.from_range(0, num_left_cols - 1);
+    int right = rng.from_range(0, num_right_cols - 1);
+    bool is_or_eq = rng.from_range(0, 1) == 0;
+    opts.left_keys.push_back(FieldRef(left));
+    opts.right_keys.push_back(FieldRef(right));
+    opts.key_cmp.push_back(is_or_eq ? JoinKeyCmp::IS : JoinKeyCmp::EQ);
+  }
+  return opts;
+}
+
+void TestSingleChainOfHashJoins(Random64Bit& rng) {
+  int num_joins = rng.from_range(2, 5);
+  std::vector<HashJoinNodeOptions> opts;
+  int num_left_cols = rng.from_range(1, 8);
+  int num_right_cols = rng.from_range(1, 8);
+  HashJoinNodeOptions first_opt =
+      GenerateHashJoinNodeOptions(rng, num_left_cols, num_right_cols);
+  opts.push_back(std::move(first_opt));
+
+  std::unordered_map<std::string, std::string> metadata_map;
+  metadata_map["min"] = "0";
+  metadata_map["max"] = "10";
+  auto metadata = key_value_metadata(metadata_map);
+  std::vector<std::shared_ptr<Field>> left_fields;
+  for (int i = 0; i < num_left_cols; i++)
+    left_fields.push_back(field(std::string("l") + std::to_string(i), int32(), metadata));
+  std::vector<std::shared_ptr<Field>> first_right_fields;
+  for (int i = 0; i < num_right_cols; i++)
+    first_right_fields.push_back(
+        field(std::string("r_0_") + std::to_string(i), int32(), metadata));
+
+  BatchesWithSchema input_left = MakeRandomBatches(schema(std::move(left_fields)));
+  std::vector<BatchesWithSchema> input_right;
+  input_right.push_back(MakeRandomBatches(schema(std::move(first_right_fields))));
+
+  for (int i = 1; i < num_joins; i++) {
+    int num_right_cols = rng.from_range(1, 8);
+    HashJoinNodeOptions opt =
+        GenerateHashJoinNodeOptions(rng,
+                                    static_cast<int>(opts[i - 1].left_output.size() +
+                                                     opts[i - 1].right_output.size()),
+                                    num_right_cols);
+    opts.push_back(std::move(opt));
+
+    std::vector<std::shared_ptr<Field>> right_fields;
+    for (int j = 0; j < num_right_cols; j++)
+      right_fields.push_back(
+          field(std::string("r_") + std::to_string(i) + "_" + std::to_string(j), int32(),
+                metadata));
+    BatchesWithSchema input = MakeRandomBatches(schema(std::move(right_fields)));
+    input_right.push_back(std::move(input));
+  }
+
+  std::vector<ExecBatch> reference;
+  for (bool bloom_filters : {false, true}) {
+    bool kParallel = true;
+    ARROW_SCOPED_TRACE(bloom_filters ? "bloom filtered" : "unfiltered");
+    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+        default_memory_pool(), kParallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+
+    ExecNode* left_source;
+    ASSERT_OK_AND_ASSIGN(
+        left_source,
+        MakeExecNode("source", plan.get(), {},
+                     SourceNodeOptions{input_left.schema,
+                                       input_left.gen(kParallel, /*slow=*/false)}));
+    std::vector<ExecNode*> joins(num_joins);
+    for (int i = 0; i < num_joins; i++) {
+      opts[i].disable_bloom_filter = !bloom_filters;
+      ExecNode* right_source;
+      ASSERT_OK_AND_ASSIGN(
+          right_source,
+          MakeExecNode("source", plan.get(), {},
+                       SourceNodeOptions{input_right[i].schema,
+                                         input_right[i].gen(kParallel, /*slow=*/false)}));
+
+      std::vector<ExecNode*> inputs;
+      if (i == 0)
+        inputs = {left_source, right_source};
+      else
+        inputs = {joins[i - 1], right_source};
+      ASSERT_OK_AND_ASSIGN(joins[i],
+                           MakeExecNode("hashjoin", plan.get(), inputs, opts[i]));
+    }
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    ASSERT_OK(
+        MakeExecNode("sink", plan.get(), {joins.back()}, SinkNodeOptions{&sink_gen}));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+    if (!bloom_filters)
+      reference = std::move(result);
+    else
+      AssertExecBatchesEqual(joins.back()->output_schema(), reference, result);
+  }
+}
+
+TEST(HashJoin, ChainedIntegerHashJoins) {
+  Random64Bit rng(42);
+  int num_tests = 30;
+  for (int i = 0; i < num_tests; i++) {
+    ARROW_SCOPED_TRACE("Test ", std::to_string(i));
+    TestSingleChainOfHashJoins(rng);
   }
 }
 

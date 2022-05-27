@@ -34,6 +34,7 @@ module Arrow
     end
 
     def require_libraries
+      require "arrow/array-computable"
       require "arrow/column-containable"
       require "arrow/field-containable"
       require "arrow/generic-filterable"
@@ -59,6 +60,7 @@ module Arrow
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
       require "arrow/datum"
+      require "arrow/day-time-interval-array-builder"
       require "arrow/decimal128"
       require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
@@ -84,6 +86,7 @@ module Arrow
       require "arrow/map-array"
       require "arrow/map-array-builder"
       require "arrow/map-data-type"
+      require "arrow/month-day-nano-interval-array-builder"
       require "arrow/null-array"
       require "arrow/null-array-builder"
       require "arrow/path-extension"

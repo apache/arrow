@@ -17,7 +17,8 @@
 
 from cpython.exc cimport PyErr_CheckSignals, PyErr_SetInterrupt
 
-from pyarrow.includes.libarrow cimport CStatus, IsPyError, RestorePyError
+from pyarrow.includes.libarrow cimport CStatus
+from pyarrow.includes.libarrow_python cimport IsPyError, RestorePyError
 from pyarrow.includes.common cimport c_string
 
 from contextlib import contextmanager

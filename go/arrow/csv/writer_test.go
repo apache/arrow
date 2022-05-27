@@ -24,10 +24,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/csv"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/csv"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 )
 
 func Example_writer() {
@@ -79,6 +79,13 @@ func Example_writer() {
 			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
 		}
 		n++
+	}
+
+	// check for reader errors indicating issues converting csv values
+	// to the arrow schema types
+	err = r.Err()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Output:

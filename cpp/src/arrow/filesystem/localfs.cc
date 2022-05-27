@@ -332,13 +332,13 @@ Status LocalFileSystem::DeleteDir(const std::string& path) {
   return Status::OK();
 }
 
-Status LocalFileSystem::DeleteDirContents(const std::string& path) {
+Status LocalFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   RETURN_NOT_OK(ValidatePath(path));
   if (internal::IsEmptyPath(path)) {
     return internal::InvalidDeleteDirContents(path);
   }
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  auto st = ::arrow::internal::DeleteDirContents(fn, /*allow_not_found=*/false).status();
+  auto st = ::arrow::internal::DeleteDirContents(fn, missing_dir_ok).status();
   if (!st.ok()) {
     std::stringstream ss;
     ss << "Cannot delete directory contents in '" << path << "': " << st.message();

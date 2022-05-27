@@ -32,6 +32,23 @@ namespace arrow {
   case TYPE_CLASS##Type::type_id:       \
     return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar));
 
+/// \brief Apply the visitors Visit() method specialized to the scalar type
+///
+/// \tparam VISITOR Visitor type that implements Visit() for all scalar types.
+/// \return Status
+///
+/// A visitor is a type that implements specialized logic for each Arrow type.
+/// Example usage:
+///
+/// ```
+/// class ExampleVisitor {
+///   arrow::Status Visit(arrow::Int32Scalar arr) { ... }
+///   arrow::Status Visit(arrow::Int64Scalar arr) { ... }
+///   ...
+/// }
+/// ExampleVisitor visitor;
+/// VisitScalarInline(some_scalar, &visitor);
+/// ```
 template <typename VISITOR>
 inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
   switch (scalar.type->id()) {

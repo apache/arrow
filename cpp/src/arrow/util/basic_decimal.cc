@@ -1122,11 +1122,7 @@ BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) co
   if (round) {
     auto divisor_half = ScaleMultipliersHalf[reduce_by];
     if (remainder.Abs() >= divisor_half) {
-      if (result > 0) {
-        result += 1;
-      } else {
-        result -= 1;
-      }
+      result += Sign();
     }
   }
   return result;
@@ -1263,11 +1259,7 @@ BasicDecimal256 BasicDecimal256::ReduceScaleBy(int32_t reduce_by, bool round) co
   if (round) {
     auto divisor_half = ScaleMultipliersHalfDecimal256[reduce_by];
     if (remainder.Abs() >= divisor_half) {
-      if (result > 0) {
-        result += 1;
-      } else {
-        result -= 1;
-      }
+      result += Sign();
     }
   }
   return result;

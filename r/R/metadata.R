@@ -35,7 +35,7 @@
   rawToChar(out)
 }
 
-.unserialize_arrow_r_metadata <- function(x) {
+.deserialize_arrow_r_metadata <- function(x) {
   tryCatch(
     expr = {
       out <- unserialize(charToRaw(x))
@@ -55,6 +55,9 @@
 
 #' @importFrom rlang trace_back
 apply_arrow_r_metadata <- function(x, r_metadata) {
+  if (is.null(r_metadata)) {
+    return(x)
+  }
   tryCatch(
     expr = {
       columns_metadata <- r_metadata$columns
@@ -133,7 +136,6 @@ remove_attributes <- function(x) {
 }
 
 arrow_attributes <- function(x, only_top_level = FALSE) {
-
   att <- attributes(x)
   removed_attributes <- remove_attributes(x)
 
@@ -188,18 +190,6 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     if (all(map_lgl(columns, is.null))) {
       columns <- NULL
     }
-  } else if (inherits(x, c("sfc", "sf"))) {
-    # Check if there are any columns that look like sf columns, warn that we will
-    # not be saving this data for now (but only if arrow.preserve_row_level_metadata
-    # is set to FALSE)
-    warning(
-      "One of the columns given appears to be an `sfc` SF column. Due to their unique ",
-      "nature, these columns do not convert to Arrow well. We are working on ",
-      "better ways to do this, but in the interim we recommend converting any `sfc` ",
-      "columns to WKB (well-known binary) columns before using them with Arrow ",
-      "(for example, with `sf::st_as_binary(col)`).",
-      call. = FALSE
-    )
   }
 
   if (length(att) || !is.null(columns)) {
@@ -207,4 +197,19 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   } else {
     NULL
   }
+}
+
+get_r_metadata_from_old_schema <- function(new_schema, old_schema) {
+  # TODO: do we care about other (non-R) metadata preservation?
+  # How would we know if it were meaningful?
+  r_meta <- old_schema$metadata$r
+  if (!is.null(r_meta)) {
+    # Filter r_metadata$columns on columns with name _and_ type match
+    common_names <- intersect(names(r_meta$columns), names(new_schema))
+    keep <- common_names[
+      map_lgl(common_names, ~ old_schema[[.]] == new_schema[[.]])
+    ]
+    r_meta$columns <- r_meta$columns[keep]
+  }
+  r_meta
 }

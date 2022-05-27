@@ -613,3 +613,24 @@ def test_column_selection(tempdir):
 
     with pytest.raises(ValueError):
         orc_file.read(columns=[5])
+
+
+def test_wrong_usage_orc_writer(tempdir):
+    from pyarrow import orc
+
+    path = str(tempdir / 'test.orc')
+    with orc.ORCWriter(path) as writer:
+        with pytest.raises(AttributeError):
+            writer.test()
+
+
+def test_orc_writer_with_null_arrays(tempdir):
+    from pyarrow import orc
+    import pyarrow as pa
+
+    path = str(tempdir / 'test.orc')
+    a = pa.array([1, None, 3, None])
+    b = pa.array([None, None, None, None])
+    table = pa.table({"int64": a, "utf8": b})
+    with pytest.raises(pa.ArrowNotImplementedError):
+        orc.write_table(table, path)

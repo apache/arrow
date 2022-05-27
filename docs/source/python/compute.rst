@@ -166,3 +166,130 @@ You can use them with or without the ``"hash_"`` prefix.
 
 .. arrow-computefuncs::
   :kind: hash_aggregate
+
+.. _py-joins:
+
+Table and Dataset Joins
+=======================
+
+Both :class:`.Table` and :class:`.Dataset` support
+join operations through :meth:`.Table.join`
+and :meth:`.Dataset.join` methods.
+
+The methods accept a right table or dataset that will
+be joined to the initial one and one or more keys that
+should be used from the two entities to perform the join.
+
+By default a ``left outer join`` is performed, but it's possible
+to ask for any of the supported join types:
+
+* left semi
+* right semi
+* left anti
+* right anti
+* inner
+* left outer
+* right outer
+* full outer
+
+A basic join can be performed just by providing a table and a key
+on which the join should be performed:
+
+.. code-block:: python
+
+   import pyarrow as pa
+
+   table1 = pa.table({'id': [1, 2, 3],
+                      'year': [2020, 2022, 2019]})
+
+   table2 = pa.table({'id': [3, 4],
+                      'n_legs': [5, 100],
+                      'animal': ["Brittle stars", "Centipede"]})
+
+   joined_table = table1.join(table2, keys="id")
+
+The result will be a new table created by joining ``table1`` with
+``table2`` on the ``id`` key with a ``left outer join``::
+
+   pyarrow.Table
+   id: int64
+   year: int64
+   n_legs: int64
+   animal: string
+   ----
+   id: [[3,1,2]]
+   year: [[2019,2020,2022]]
+   n_legs: [[5,null,null]]
+   animal: [["Brittle stars",null,null]]
+
+We can perform additional type of joins, like ``full outer join`` by
+passing them to the ``join_type`` argument:
+
+.. code-block:: python
+
+   table1.join(table2, keys='id', join_type="full outer")
+
+In that case the result would be::
+
+   pyarrow.Table
+   id: int64
+   year: int64
+   n_legs: int64
+   animal: string
+   ----
+   id: [[3,1,2],[4]]
+   year: [[2019,2020,2022],[null]]
+   n_legs: [[5,null,null],[100]]
+   animal: [["Brittle stars",null,null],["Centipede"]]
+
+It's also possible to provide additional join keys, so that the
+join happens on two keys instead of one. For example we can add
+an ``year`` column to ``table2`` so that we can join on ``('id', 'year')``:
+
+.. code-block::
+
+   table2_withyear = table2.append_column("year", pa.array([2019, 2022]))
+   table1.join(table2_withyear, keys=["id", "year"])
+
+The result will be a table where only entries with ``id=3`` and ``year=2019``
+have data, the rest will be ``null``::
+
+   pyarrow.Table
+   id: int64
+   year: int64
+   animal: string
+   n_legs: int64
+   ----
+   id: [[3,1,2]]
+   year: [[2019,2020,2022]]
+   animal: [["Brittle stars",null,null]]
+   n_legs: [[5,null,null]]
+
+The same capabilities are available for :meth:`.Dataset.join` too, so you can
+take two datasets and join them:
+
+.. code-block::
+
+   import pyarrow.dataset as ds
+
+   ds1 = ds.dataset(table1)
+   ds2 = ds.dataset(table2)
+
+   joined_ds = ds1.join(ds2, key="id")
+
+The resulting dataset will be an :class:`.InMemoryDataset` containing the joined data::
+
+   >>> joined_ds.head(5)
+
+   pyarrow.Table
+   id: int64
+   year: int64
+   animal: string
+   n_legs: int64
+   ----
+   id: [[3,1,2]]
+   year: [[2019,2020,2022]]
+   animal: [["Brittle stars",null,null]]
+   n_legs: [[5,null,null]]
+
+

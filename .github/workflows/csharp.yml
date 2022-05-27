@@ -43,14 +43,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Source Link
@@ -71,14 +71,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Source Link
@@ -98,14 +98,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Source Link

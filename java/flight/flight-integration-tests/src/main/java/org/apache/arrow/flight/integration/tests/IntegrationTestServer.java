@@ -19,7 +19,6 @@ package org.apache.arrow.flight.integration.tests;
 
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.example.InMemoryStore;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -58,9 +57,9 @@ class IntegrationTestServer {
       server = builder.producer(scenario.producer(allocator, location)).build();
       server.start();
     } else {
-      final InMemoryStore store = new InMemoryStore(allocator, location);
-      server = FlightServer.builder(allocator, location, store).build().start();
-      store.setLocation(Location.forGrpcInsecure("localhost", server.getPort()));
+      final IntegrationProducer producer = new IntegrationProducer(allocator, location);
+      server = FlightServer.builder(allocator, location, producer).build().start();
+      producer.setLocation(Location.forGrpcInsecure("localhost", server.getPort()));
     }
     // Print out message for integration test script
     System.out.println("Server listening on localhost:" + server.getPort());

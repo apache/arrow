@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 
 # Base class for Array, ChunkedArray, and Scalar, for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
@@ -70,13 +70,83 @@ as.vector.ArrowDatum <- function(x, mode) {
 
 #' @export
 Ops.ArrowDatum <- function(e1, e2) {
-  if (.Generic == "!") {
-    eval_array_expression(.Generic, e1)
-  } else if (.Generic %in% names(.array_function_map)) {
-    eval_array_expression(.Generic, e1, e2)
-  } else {
-    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
+  if (missing(e2)) {
+    switch(.Generic,
+      "!" = return(eval_array_expression(.Generic, e1)),
+      "+" = return(eval_array_expression(.Generic, 0L, e1)),
+      "-" = return(eval_array_expression("negate_checked", e1)),
+    )
   }
+
+  switch(.Generic,
+    "+" = ,
+    "-" = ,
+    "*" = ,
+    "/" = ,
+    "^" = ,
+    "%%" = ,
+    "%/%" = ,
+    "==" = ,
+    "!=" = ,
+    "<" = ,
+    "<=" = ,
+    ">=" = ,
+    ">" = ,
+    "&" = ,
+    "|" = {
+      eval_array_expression(.Generic, e1, e2)
+    },
+    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
+  )
+}
+
+#' @export
+Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
+  switch(.Generic,
+    abs = ,
+    sign = ,
+    floor = ,
+    ceiling = ,
+    trunc = ,
+    acos = ,
+    asin = ,
+    atan = ,
+    cos = ,
+    sin = ,
+    tan = {
+      eval_array_expression(.Generic, x)
+    },
+    log = eval_array_expression("logb_checked", x, base),
+    log10 = eval_array_expression("log10_checked", x),
+    round = eval_array_expression(
+      "round",
+      x,
+      options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+    ),
+    sqrt = eval_array_expression("power_checked", x, 0.5),
+    exp = eval_array_expression("power_checked", exp(1), x),
+    signif = ,
+    expm1 = ,
+    log1p = ,
+    cospi = ,
+    sinpi = ,
+    tanpi = ,
+    cosh = ,
+    sinh = ,
+    tanh = ,
+    acosh = ,
+    asinh = ,
+    atanh = ,
+    lgamma = ,
+    gamma = ,
+    digamma = ,
+    trigamma = ,
+    cumsum = ,
+    cumprod = ,
+    cummax = ,
+    cummin = ,
+    stop(paste0("Unsupported operation on `", class(x)[1L], "` : "), .Generic, call. = FALSE)
+  )
 }
 
 # Wrapper around call_function that:

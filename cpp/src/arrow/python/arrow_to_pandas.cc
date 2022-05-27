@@ -182,6 +182,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::TIMESTAMP:
     case Type::DURATION:
     case Type::DICTIONARY:
+    case Type::INTERVAL_MONTH_DAY_NANO:
     case Type::NA:  // empty list
       // The above types are all supported.
       return true;
@@ -347,7 +348,10 @@ class PandasWriter {
   };
 
   PandasWriter(const PandasOptions& options, int64_t num_rows, int num_columns)
-      : options_(options), num_rows_(num_rows), num_columns_(num_columns) {}
+      : options_(options), num_rows_(num_rows), num_columns_(num_columns) {
+    PyAcquireGIL lock;
+    internal::InitPandasStaticData();
+  }
   virtual ~PandasWriter() {}
 
   void SetBlockData(PyObject* arr) {
@@ -370,7 +374,6 @@ class PandasWriter {
       return Status::OK();
     }
     PyAcquireGIL lock;
-
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
     RETURN_IF_PYERROR();
@@ -654,7 +657,12 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
     auto arr = checked_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
-      const auto field = arr->field(static_cast<int>(i));
+      auto field = arr->field(static_cast<int>(i));
+      // In case the field is an extension array, use .storage() to convert to Pandas
+      if (field->type()->id() == Type::EXTENSION) {
+        const ExtensionArray& arr_ext = checked_cast<const ExtensionArray&>(*field);
+        field = arr_ext.storage();
+      }
       RETURN_NOT_OK(ConvertArrayToPandas(options, field, nullptr,
                                          fields_data[i + fields_data_offset].ref()));
       DCHECK(PyArray_Check(fields_data[i + fields_data_offset].obj()));

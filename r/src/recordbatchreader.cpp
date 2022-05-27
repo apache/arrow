@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/reader.h>
 #include <arrow/table.h>
 
@@ -38,17 +37,48 @@ std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
 // [[arrow::export]]
 cpp11::list RecordBatchReader__batches(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  std::vector<std::shared_ptr<arrow::RecordBatch>> res;
-  StopIfNotOk(reader->ReadAll(&res));
-  return arrow::r::to_r_list(res);
+  return arrow::r::to_r_list(ValueOrStop(reader->ToRecordBatches()));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_batches(
+    const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches,
+    cpp11::sexp schema_sxp) {
+  bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
+
+  if (infer_schema) {
+    return ValueOrStop(arrow::RecordBatchReader::Make(std::move(batches)));
+  } else {
+    auto schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(schema_sxp);
+    return ValueOrStop(arrow::RecordBatchReader::Make(std::move(batches), schema));
+  }
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_Table(
+    const std::shared_ptr<arrow::Table>& table) {
+  return std::make_shared<arrow::TableBatchReader>(table);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  std::shared_ptr<arrow::Table> table = nullptr;
-  StopIfNotOk(reader->ReadAll(&table));
-  return table;
+  return ValueOrStop(reader->ToTable());
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__Head(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows) {
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  std::shared_ptr<arrow::RecordBatch> this_batch;
+  while (num_rows > 0) {
+    this_batch = ValueOrStop(reader->Next());
+    if (this_batch == nullptr) break;
+    batches.push_back(this_batch->Slice(0, num_rows));
+    num_rows -= this_batch->num_rows();
+  }
+  return ValueOrStop(
+      arrow::RecordBatchReader::Make(std::move(batches), reader->schema()));
 }
 
 // -------- RecordBatchStreamReader
@@ -118,5 +148,3 @@ cpp11::list ipc___RecordBatchFileReader__batches(
 
   return arrow::r::to_r_list(res);
 }
-
-#endif

@@ -65,7 +65,8 @@ extensions = [
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
     'numpydoc',
-    'sphinx_tabs.tabs',
+    'sphinx_design',
+    'sphinx_copybutton',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
@@ -89,6 +90,10 @@ breathe_default_project = "arrow_cpp"
 
 # Overriden conditionally below
 autodoc_mock_imports = []
+
+# copybutton configuration
+copybutton_prompt_text = "$"
+copybutton_line_continuation_character = "\\"
 
 # ipython directive options
 ipython_mplbackend = ''
@@ -233,7 +238,6 @@ html_theme = 'pydata_sphinx_theme'
 #
 html_theme_options = {
     "show_toc_level": 2,
-    "google_analytics_id": "UA-107500873-1",
     "use_edit_page_button": True,
 }
 

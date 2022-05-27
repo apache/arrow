@@ -25,7 +25,7 @@ ARG manylinux
 ENV MANYLINUX_VERSION=${manylinux}
 
 # Install basic dependencies
-RUN yum install -y git flex curl autoconf zip wget
+RUN yum install -y git flex curl autoconf zip perl-IPC-Cmd wget 
 
 # Install CMake
 # AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524

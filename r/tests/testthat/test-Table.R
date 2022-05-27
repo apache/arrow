@@ -15,6 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Common fixtures used in many tests
+tbl <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  chr = letters[1:10],
+  fct = factor(letters[1:10])
+)
+tab <- Table$create(tbl)
+
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
@@ -89,15 +99,6 @@ test_that("Table $column and $field", {
 })
 
 test_that("[, [[, $ for Table", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   expect_identical(names(tab), names(tbl))
 
   expect_data_frame(tab[6:7, ], tbl[6:7, ])
@@ -148,15 +149,6 @@ test_that("[, [[, $ for Table", {
 })
 
 test_that("[[<- assignment", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   # can remove a column
   tab[["chr"]] <- NULL
   expect_data_frame(tab, tbl[-4])
@@ -217,14 +209,6 @@ test_that("[[<- assignment", {
 })
 
 test_that("Table$Slice", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
   tab2 <- tab$Slice(5)
   expect_data_frame(tab2, tbl[6:10, ])
 
@@ -248,15 +232,6 @@ test_that("Table$Slice", {
 })
 
 test_that("head and tail on Table", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   expect_data_frame(head(tab), head(tbl))
   expect_data_frame(head(tab, 4), head(tbl, 4))
   expect_data_frame(head(tab, 40), head(tbl, 40))
@@ -287,15 +262,6 @@ test_that("Table print method", {
 })
 
 test_that("table active bindings", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   expect_identical(dim(tbl), dim(tab))
   expect_type(tab$columns, "list")
   expect_equal(tab$columns[[1]], tab[[1]])
@@ -518,6 +484,147 @@ test_that("Table$create() no recycling with tibbles", {
   )
 })
 
+test_that("Tables can be combined with concat_tables()", {
+  expect_error(
+    concat_tables(arrow_table(a = 1:10), arrow_table(a = c("a", "b")), unify_schemas = FALSE),
+    regexp = "Schema at index 2 does not match the first schema"
+  )
+
+  expect_error(
+    concat_tables(arrow_table(a = 1:10), arrow_table(a = c("a", "b")), unify_schemas = TRUE),
+    regexp = "Unable to merge: Field a has incompatible types: int32 vs string"
+  )
+  expect_error(
+    concat_tables(),
+    regexp = "Must pass at least one Table"
+  )
+
+  expect_equal(
+    concat_tables(
+      arrow_table(a = 1:5),
+      arrow_table(a = 6:7, b = c("d", "e"))
+    ),
+    arrow_table(a = 1:7, b = c(rep(NA, 5), "d", "e"))
+  )
+
+  # concat_tables() with one argument returns identical table
+  expected <- arrow_table(a = 1:10)
+  expect_equal(expected, concat_tables(expected))
+})
+
+test_that("Table supports rbind", {
+  expect_error(
+    rbind(arrow_table(a = 1:10), arrow_table(a = c("a", "b"))),
+    regexp = "Schema at index 2 does not match the first schema"
+  )
+
+  tables <- list(
+    arrow_table(a = 1:10, b = Scalar$create("x")),
+    arrow_table(a = 2:42, b = Scalar$create("y")),
+    arrow_table(a = 8:10, b = Scalar$create("z"))
+  )
+  expected <- Table$create(do.call(rbind, lapply(tables, as.data.frame)))
+  actual <- do.call(rbind, tables)
+  expect_equal(actual, expected, ignore_attr = TRUE)
+
+  # rbind with empty table produces identical table
+  expected <- arrow_table(a = 1:10, b = Scalar$create("x"))
+  expect_equal(
+    rbind(expected, arrow_table(a = integer(0), b = character(0))),
+    expected
+  )
+  # rbind() with one argument returns identical table
+  expect_equal(rbind(expected), expected)
+})
+
+test_that("Table supports cbind", {
+  expect_snapshot_error(
+    cbind(
+      arrow_table(a = 1:10),
+      arrow_table(a = c("a", "b"))
+    )
+  )
+  expect_error(
+    cbind(arrow_table(a = 1:10), arrow_table(b = character(0))),
+    regexp = "Non-scalar inputs must have an equal number of rows"
+  )
+
+  actual <- cbind(
+    arrow_table(a = 1:10, b = Scalar$create("x")),
+    arrow_table(a = 11:20, b = Scalar$create("y")),
+    arrow_table(c = 1:10)
+  )
+  expected <- arrow_table(cbind(
+    tibble::tibble(a = 1:10, b = "x"),
+    tibble::tibble(a = 11:20, b = "y"),
+    tibble::tibble(c = 1:10)
+  ))
+  expect_equal(actual, expected, ignore_attr = TRUE)
+
+  # cbind() with one argument returns identical table
+  expected <- arrow_table(a = 1:10)
+  expect_equal(expected, cbind(expected))
+
+  # Handles Arrow arrays and chunked arrays
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = Array$create(4:5)),
+    arrow_table(a = 1:2, b = 4:5)
+  )
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = chunked_array(4, 5)),
+    arrow_table(a = 1:2, b = chunked_array(4, 5))
+  )
+
+  # Handles data.frame
+  if (getRversion() >= "4.0.0") {
+    # Prior to R 4.0, cbind would short-circuit to the data.frame implementation
+    # if **any** of the arguments are a data.frame.
+    expect_equal(
+      cbind(arrow_table(a = 1:2), data.frame(b = 4:5)),
+      arrow_table(a = 1:2, b = 4:5)
+    )
+  }
+
+  # Handles factors
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = factor(c("a", "b"))),
+    arrow_table(a = 1:2, b = factor(c("a", "b")))
+  )
+
+  # Handles scalar values
+  expect_equal(
+    cbind(arrow_table(a = 1:2), b = "x"),
+    arrow_table(a = 1:2, b = c("x", "x"))
+  )
+
+  # Handles zero rows
+  expect_equal(
+    cbind(arrow_table(a = character(0)), b = Array$create(numeric(0)), c = integer(0)),
+    arrow_table(a = character(0), b = numeric(0), c = integer(0)),
+  )
+
+  # Rejects unnamed arrays, even in cases where no named arguments are passed
+  expect_error(
+    cbind(arrow_table(a = 1:2), b = 3:4, 5:6),
+    regexp = "Vector and array arguments must have names"
+  )
+  expect_error(
+    cbind(arrow_table(a = 1:2), 3:4, 5:6),
+    regexp = "Vector and array arguments must have names"
+  )
+})
+
+test_that("cbind.Table handles record batches and tables", {
+  # R 3.6 cbind dispatch rules cause cbind to fall back to default impl if
+  # there are multiple arguments with distinct cbind implementations
+  skip_if(getRversion() < "4.0.0", "R 3.6 cbind dispatch rules prevent this behavior")
+
+  expect_equal(
+    cbind(arrow_table(a = 1L:2L), record_batch(b = 4:5)),
+    arrow_table(a = 1L:2L, b = 4:5)
+  )
+})
+
 test_that("ARROW-11769 - grouping preserved in table creation", {
   skip_if_not_available("dataset")
 
@@ -546,4 +653,46 @@ test_that("ARROW-12729 - length returns number of columns in Table", {
   tab <- Table$create(!!!tbl)
 
   expect_identical(length(tab), 3L)
+})
+
+test_that("as_arrow_table() works for Table", {
+  table <- arrow_table(col1 = 1L, col2 = "two")
+  expect_identical(as_arrow_table(table), table)
+  expect_equal(
+    as_arrow_table(table, schema = schema(col1 = float64(), col2 = string())),
+    arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+})
+
+test_that("as_arrow_table() works for RecordBatch", {
+  table <- arrow_table(col1 = 1L, col2 = "two")
+  batch <- record_batch(col1 = 1L, col2 = "two")
+
+  expect_equal(as_arrow_table(batch), table)
+  expect_equal(
+    as_arrow_table(batch, schema = schema(col1 = float64(), col2 = string())),
+    arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+})
+
+test_that("as_arrow_table() works for data.frame()", {
+  table <- arrow_table(col1 = 1L, col2 = "two")
+  tbl <- tibble::tibble(col1 = 1L, col2 = "two")
+
+  expect_equal(as_arrow_table(tbl), table)
+
+  expect_equal(
+    as_arrow_table(
+      tbl,
+      schema = schema(col1 = float64(), col2 = string())
+    ),
+    arrow_table(col1 = Array$create(1, type = float64()), col2 = "two")
+  )
+})
+
+test_that("as_arrow_table() errors for invalid input", {
+  expect_error(
+    as_arrow_table("no as_arrow_table() method"),
+    class = "arrow_no_method_as_arrow_table"
+  )
 })

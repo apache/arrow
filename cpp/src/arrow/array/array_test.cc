@@ -2525,7 +2525,9 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
 TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
   ASSERT_EQ(0, builder_->null_count());
+  ASSERT_OK(builder_->AppendNulls(0));
   ASSERT_OK(builder_->AppendNulls(size));
+  ASSERT_OK(builder_->AppendNulls(0));
   ASSERT_EQ(size, builder_->null_count());
 
   Done();
@@ -2536,6 +2538,7 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendEmptyValue) {
+  ASSERT_OK(builder_->AppendEmptyValues(0));
   ASSERT_OK(builder_->AppendNulls(2));
   ASSERT_OK(builder_->AppendEmptyValue());
   ASSERT_OK(builder_->Append(42));
@@ -2755,7 +2758,9 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
+  ASSERT_OK(builder_->AppendNulls(0));
   ASSERT_OK(builder_->AppendNulls(size));
+  ASSERT_OK(builder_->AppendNulls(0));
   ASSERT_EQ(size, builder_->null_count());
 
   Done();
@@ -2766,6 +2771,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
 }
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendEmptyValue) {
+  ASSERT_OK(builder_->AppendEmptyValues(0));
   ASSERT_OK(builder_->AppendNulls(2));
   ASSERT_OK(builder_->AppendEmptyValue());
   ASSERT_OK(builder_->Append(42));

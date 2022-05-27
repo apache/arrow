@@ -24,6 +24,7 @@ API Reference
 
    api/support
    api/memory
+   api/thread
    api/datatype
    api/array
    api/scalar
@@ -39,5 +40,6 @@ API Reference
    api/formats
    api/cuda
    api/flight
+   api/flightsql
    api/filesystem
    api/dataset

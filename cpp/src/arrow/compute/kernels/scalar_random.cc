@@ -99,7 +99,7 @@ void RegisterScalarRandom(FunctionRegistry* registry) {
   static auto random_options = RandomOptions::Defaults();
 
   auto random_func = std::make_shared<ScalarFunction>("random", Arity::Nullary(),
-                                                      &random_doc, &random_options);
+                                                      random_doc, &random_options);
   ScalarKernel kernel{
       {}, ValueDescr(float64(), ValueDescr::Shape::ARRAY), ExecRandom, RandomState::Init};
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
