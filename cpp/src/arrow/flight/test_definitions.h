@@ -263,6 +263,8 @@ class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
 
   // Test methods
   void TestGetFlightInfo();
+  void TestDoPut();
+  void TestDoExchange();
 
  private:
   std::unique_ptr<FlightClient> client_;
@@ -272,7 +274,9 @@ class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
 #define ARROW_FLIGHT_TEST_ERROR_HANDLING(FIXTURE)                                 \
   static_assert(std::is_base_of<ErrorHandlingTest, FIXTURE>::value,               \
                 ARROW_STRINGIFY(FIXTURE) " must inherit from ErrorHandlingTest"); \
-  TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }
+  TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }                     \
+  TEST_F(FIXTURE, TestDoPut) { TestDoPut(); }                                     \
+  TEST_F(FIXTURE, TestDoExchange) { TestDoExchange(); }
 
 }  // namespace flight
 }  // namespace arrow
