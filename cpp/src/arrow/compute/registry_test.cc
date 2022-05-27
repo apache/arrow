@@ -96,15 +96,17 @@ TEST_P(TestRegistry, Basics) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-  TestRegistry, TestRegistry,
-  testing::Values(
-      std::make_tuple(static_cast<MakeFunctionRegistry>(
-          []() { return FunctionRegistry::Make(); }), []() { return 0; },
-          []() { return std::vector<std::string>{}; }, "default"),
-      std::make_tuple(static_cast<MakeFunctionRegistry>(
-          []() { return FunctionRegistry::Make(GetFunctionRegistry()); }),
-          []() { return GetFunctionRegistry()->num_functions(); },
-          []() { return GetFunctionRegistry()->GetFunctionNames(); }, "nested")));
+    TestRegistry, TestRegistry,
+    testing::Values(
+        std::make_tuple(
+            static_cast<MakeFunctionRegistry>([]() { return FunctionRegistry::Make(); }),
+            []() { return 0; }, []() { return std::vector<std::string>{}; }, "default"),
+        std::make_tuple(
+            static_cast<MakeFunctionRegistry>([]() {
+                return FunctionRegistry::Make(GetFunctionRegistry());
+            }),
+            []() { return GetFunctionRegistry()->num_functions(); },
+            []() { return GetFunctionRegistry()->GetFunctionNames(); }, "nested")));
 
 TEST(TestRegistry, RegisterTempFunctions) {
   auto default_registry = GetFunctionRegistry();
