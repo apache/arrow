@@ -2036,15 +2036,15 @@ cdef class Expression(_Weakrefable):
 
     >>> import pyarrow.compute as pc
     >>> (pc.field("a") < pc.scalar(3)) | (pc.field("b") > 7)
-    <pyarrow.compute.Expression ((a < 3:int64) or (b > 7:int64))>
-    >>> ds.field('a') != 3
+    <pyarrow.compute.Expression ((a < 3) or (b > 7))>
+    >>> pc.field('a') != 3
     <pyarrow.compute.Expression (a != 3)>
-    >>> ds.field('a').isin([1, 2, 3])
-    <pyarrow.compute.Expression (a is in [
+    >>> pc.field('a').isin([1, 2, 3])
+    <pyarrow.compute.Expression is_in(a, {value_set=int64:[
       1,
       2,
       3
-    ])>
+    ], skip_nulls=false})>
     """
 
     def __init__(self):
@@ -2410,7 +2410,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
 
     Examples
     --------
-
+    >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>> 
     >>> func_doc = {}
@@ -2431,9 +2431,9 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     'py_add_func'
     >>> answer = pc.call_function(func_name, [pa.array([20])])
     >>> answer
-    <pyarrow.lib.Int64Array object at 0x10c22e700>
+    <pyarrow.lib.Int64Array object at ...>
     [
-    21
+      21
     ]
     """
     cdef:

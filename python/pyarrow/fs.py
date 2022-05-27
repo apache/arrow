@@ -224,12 +224,13 @@ def copy_files(source, destination,
     --------
     Copy an S3 bucket's files to a local directory:
 
-    >>> copy_files("s3://your-bucket-name", "local-directory")
+    >>> copy_files("s3://your-bucket-name",
+    ...            "local-directory") # doctest: +SKIP
 
     Using a FileSystem object:
 
     >>> copy_files("your-bucket-name", "local-directory",
-    ...            source_filesystem=S3FileSystem(...))
+    ...            source_filesystem=S3FileSystem(...)) # doctest: +SKIP
 
     """
     source_fs, source_path = _resolve_filesystem_and_path(
@@ -263,7 +264,7 @@ class FSSpecHandler(FileSystemHandler):
 
     Examples
     --------
-    >>> PyFileSystem(FSSpecHandler(fsspec_fs))
+    >>> PyFileSystem(FSSpecHandler(fsspec_fs)) # doctest: +SKIP
     """
 
     def __init__(self, fs):

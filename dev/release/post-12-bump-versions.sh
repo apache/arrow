@@ -51,7 +51,7 @@ fi
 if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
   echo "Updating versions for ${next_version_snapshot}"
   update_versions "${version}" "${next_version}" "snapshot"
-  git commit -m "[Release] Update versions for ${next_version_snapshot}"
+  git commit -m "MINOR: [Release] Update versions for ${next_version_snapshot}"
 fi
 
 if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
@@ -85,7 +85,7 @@ if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
     rm -f rat_exclude_files.txt.bak
     git add rat_exclude_files.txt
-    git commit -m "[Release] Update .deb package names for $next_version"
+    git commit -m "MINOR: [Release] Update .deb package names for $next_version"
     cd -
   fi
 fi
@@ -98,7 +98,7 @@ if [ ${BUMP_LINUX_PACKAGES} -gt 0 ]; then
     ARROW_RELEASE_TIME="$(git log -n1 --format=%aI apache-arrow-${version})" \
     ARROW_VERSION=${version}
   git add */debian*/changelog */yum/*.spec.in
-  git commit -m "[Release] Update .deb/.rpm changelogs for $version"
+  git commit -m "MINOR: [Release] Update .deb/.rpm changelogs for $version"
   cd -
 fi
 

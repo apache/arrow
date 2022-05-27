@@ -36,11 +36,13 @@ func (cr *{{.Name}}ColumnChunkReader) Skip(nvalues int64) (int64, error) {
       vals, _, err := cr.ReadBatch(batch,
         {{- if ne .Name "Boolean"}}
         {{.prefix}}.{{.Name}}Traits.CastFromBytes(buf),
-        {{- else}}
-        *(*[]bool)(unsafe.Pointer(&buf)),
-        {{- end}}
         arrow.Int16Traits.CastFromBytes(buf),
         arrow.Int16Traits.CastFromBytes(buf))
+        {{- else}}
+        *(*[]bool)(unsafe.Pointer(&buf)),
+        nil,
+        nil)
+        {{- end}}
       return vals, err
     })
 }

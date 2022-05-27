@@ -55,3 +55,17 @@ func TestBufferReset(t *testing.T) {
 	assert.Equal(t, newBytes, buf.Bytes())
 	assert.Equal(t, len(newBytes), buf.Len())
 }
+
+func TestBufferSlice(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	buf := memory.NewResizableBuffer(mem)
+	buf.Resize(1024)
+	assert.Equal(t, 1024, mem.CurrentAlloc())
+
+	slice := memory.SliceBuffer(buf, 512, 256)
+	buf.Release()
+	assert.Equal(t, 1024, mem.CurrentAlloc())
+	slice.Release()
+}
