@@ -467,7 +467,9 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     ~Impl() {
       auto st = this->Close();
       if (!st.ok()) {
-        ARROW_LOG(WARNING) << "MakeGeneratorReader failed in finalzing reading.";
+        ARROW_LOG(WARNING)
+            << "Implicityly called Close and MakeGeneratorReader failed with "
+            << st.message();
       }
     }
 
