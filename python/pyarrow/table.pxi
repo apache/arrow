@@ -4670,7 +4670,8 @@ cdef class Table(_PandasConvertible):
 
         Left outer join:
 
-        >>> t1.join(t2, 'id')
+        >>> t = t1.join(t2, 'id')
+        >>> t.select(["id", "year", "n_legs", "animal"])
         pyarrow.Table
         id: int64
         year: int64
