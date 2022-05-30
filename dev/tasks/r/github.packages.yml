@@ -65,7 +65,7 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-pkg_src
+          name: r-pkg-src
           path: arrow/r/arrow_*.tar.gz
 
   linux-cpp:
@@ -86,6 +86,8 @@ jobs:
       {{ macros.github_install_archery()|indent }}
       - name: Build libarrow
         shell: bash
+        env:
+          UBUNTU: {{ '${{ matrix.config.version}}' }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -174,6 +176,8 @@ jobs:
             getwd(),
             "/repo")
           
+          # This is necessary to use the local folder as a repo in both
+          # install_arrow & tools/*libs.R
           options(arrow.dev_repo = dev_repo)
           
           # Build
@@ -199,7 +203,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-pkg_{{ '${{ matrix.platform }}_${{ matrix.r_version.r }}' }}
+          name: r-pkg-{{ '${{ matrix.platform }}-${{ matrix.r_version.r }}' }}
           path: arrow_*
 
   test-linux-binary:
@@ -218,6 +222,7 @@ jobs:
           - "rocker/r-ver:3.6.3" # for debian:buster (10)
           - "rocker/r-ver" # ubuntu-20.04
           - "rhub/fedora-clang-devel" # tests distro-map.csv, mapped t
+          - "rocker/r-ubuntu:22.04" # tests openssl3 compatability
     steps:
       - name: Install system requirements
         shell: bash
@@ -282,7 +287,8 @@ jobs:
           {{ macros.github_test_r_src_pkg()|indent(8) }}
 
   upload-binaries:
-    needs: r-packages
+    # Only upload binaries if all tests pass.
+    needs: [ r-packages, test-source, test-linux-binary]
     if: true && !cancelled()
     name: Upload artifacts
     runs-on: ubuntu-latest
