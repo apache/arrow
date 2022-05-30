@@ -218,7 +218,8 @@ std::string WinErrorMessage(int errnum) {
       arrow::util::WideStringToUTF8(std::wstring(utf16_message, n_utf16_chars));
   if (!utf8_message_result.ok()) {
     std::stringstream ss;
-    ss << "Failed to convert to UTF-8: " << utf8_message_result.status();
+    ss << "Windows error #" << errnum;
+    ss << "; failed to convert error message to UTF-8: " << utf8_message_result.status();
     return ss.str();
   }
   return *utf8_message_result;
