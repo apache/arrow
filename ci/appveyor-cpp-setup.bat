@@ -46,10 +46,10 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-conda install -q -y -c conda-forge mamba || exit /B
+conda install -q -y -c conda-forge mamba python=3.9 || exit /B
 
 @rem Update for newer CA certificates
-mamba update -q -y --all || exit /B
+mamba update -q -y -c conda-forge --all || exit /B
 
 @rem
 @rem Create conda environment for Build and Toolchain jobs
