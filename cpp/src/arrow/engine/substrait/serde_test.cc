@@ -1174,7 +1174,30 @@ TEST(Substrait, JoinPlanInvalidKeys) {
 TEST(Substrait, SerializePlan) {
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+  auto dummy_schema = schema({field("a", int32()),
+  field("b", int32())
+  });
+  ASSERT_OK_AND_ASSIGN(auto tb, Table::MakeEmpty(dummy_schema));
+  auto ds = std::make_shared<dataset::InMemoryDataset>(tb);
+
+  auto options = std::make_shared<dataset::ScanOptions>();
+  options->projection = compute::project({}, {});  // create empty projection
+
+  // construct the scan node
+  compute::ExecNode* scan;
+  auto scan_node_options = dataset::ScanNodeOptions{ds, options};
+
+  ASSERT_OK_AND_ASSIGN(scan,
+                        compute::MakeExecNode("scan", plan.get(), {}, scan_node_options));
+
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+
+  ASSERT_OK(compute::MakeExecNode("sink", plan.get(), {scan}, compute::SinkNodeOptions{&sink_gen}));
+
+  std::cout << "Plan " << std::endl;
+  std::cout << plan->ToString() << std::endl;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializePlan(*plan, &ext_set));
+  
 
 }
 

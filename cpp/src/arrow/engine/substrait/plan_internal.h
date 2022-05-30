@@ -52,7 +52,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(
     const substrait::Plan& plan,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
 
-ARROW_ENGINE_EXPORT Result<substrait::Plan> ToProto(const compute::ExecPlan&,
+ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> ToProto(const compute::ExecPlan&,
                                                     ExtensionSet*);
 
 }  // namespace engine
