@@ -4685,7 +4685,8 @@ cdef class Table(_PandasConvertible):
 
         Full outer join:
 
-        >>> t1.join(t2, 'id', join_type="full outer")
+        >>> t = t1.join(t2, 'id', join_type="full outer")
+        >>> t.select(["id", "year", "n_legs", "animal"])
         pyarrow.Table
         id: int64
         year: int64
@@ -4699,21 +4700,23 @@ cdef class Table(_PandasConvertible):
 
         Right outer join:
 
-        >>> t1.join(t2, 'id', join_type="right outer")
+        >>> t = t1.join(t2, 'id', join_type="right outer")
+        >>> t.select(["id", "year", "n_legs", "animal"])
         pyarrow.Table
-        year: int64
         id: int64
+        year: int64
         n_legs: int64
         animal: string
         ----
-        year: [[2019],[null]]
         id: [[3],[4]]
+        year: [[2019],[null]]
         n_legs: [[5],[100]]
         animal: [["Brittle stars"],["Centipede"]]
 
         Right anti join
 
-        >>> t1.join(t2, 'id', join_type="right anti")
+        >>> t = t1.join(t2, 'id', join_type="right anti")
+        >>> t.select(["id", "n_legs", "animal"])
         pyarrow.Table
         id: int64
         n_legs: int64
