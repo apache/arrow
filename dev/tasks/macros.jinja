@@ -265,24 +265,14 @@ on:
   - name: Setup local repo
     shell: bash
     run: mkdir repo 
-  - name: Get windows binary
-    if: {{ '${{' }} ({{ os }} == 'windows-latest') && {{ get_bin }} {{ '}}' }}
+  {% for os in ["windows", "ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
+  - name: Get {{ os }} binary
+    if: {{ '${{' }} {{ get_bin }} {{ '}}' }}
     uses: actions/download-artifact@v3
     with:
-      name: r-libarrow-windows
-      path: repo/libarrow/bin/windows
-  - name: Get ubuntu binary
-    if: {{ '${{' }} ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
-    uses: actions/download-artifact@v3
-    with:
-      name: r-libarrow-ubuntu
-      path: repo/libarrow/bin/ubuntu-18.04
-  - name: Get centos binary
-    if: {{ '${{' }} ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
-    uses: actions/download-artifact@v3
-    with:
-      name: r-libarrow-centos
-      path: repo/libarrow/bin/centos-7
+      name: r-libarrow-{{ os }}
+      path: repo/libarrow/bin/{{ os }}
+  {% endfor %}
   - name: Get src pkg
     uses: actions/download-artifact@v3
     with:
