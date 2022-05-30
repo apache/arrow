@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
+# This workflow was adapted from https://github.com/ursa-labs/arrow-r-nightly
+# to this templated form.
 
 {% import 'macros.jinja' as macros with context %}
 
@@ -73,7 +76,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { os: ubuntu, version: "18.04" }
+          - { os: ubuntu, version: ["18.04", "22.04"] }
           - { os: centos, version: "7" }
     env:
       UBUNTU: {{ '${{ matrix.config.version }}' }}
@@ -100,7 +103,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-libarrow-{{ '${{ matrix.config.os}}' }}
+          name: r-libarrow-{{ '${{ matrix.config.os}}-${{ matrix.config.version}}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip
 
   windows-cpp:
