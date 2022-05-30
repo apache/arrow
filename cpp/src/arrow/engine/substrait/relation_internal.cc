@@ -256,7 +256,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         case substrait::JoinRel::JOIN_TYPE_SEMI:
           join_type = compute::JoinType::LEFT_SEMI;
           break;
-        case 6:
+        case substrait::JoinRel::JOIN_TYPE_ANTI:
           join_type = compute::JoinType::LEFT_ANTI;
           break;
         default:
