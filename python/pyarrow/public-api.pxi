@@ -418,8 +418,21 @@ cdef api object pyarrow_wrap_batch(
     return batch
 
 
+cdef api bint pyarrow_is_function_registry(object registry):
+    return isinstance(registry, BaseFunctionRegistry)
+
+
 cdef api bint pyarrow_is_extension_id_registry(object registry):
     return isinstance(registry, ExtensionIdRegistry)
+
+
+cdef api CFunctionRegistry* pyarrow_unwrap_function_registry(object registry):
+    cdef BaseFunctionRegistry reg
+    if pyarrow_is_function_registry(registry):
+        reg = <BaseFunctionRegistry>(registry)
+        return reg.registry
+
+    return NULL
 
 
 cdef api shared_ptr[CExtensionIdRegistry] pyarrow_unwrap_extension_id_registry(object registry):
@@ -429,6 +442,12 @@ cdef api shared_ptr[CExtensionIdRegistry] pyarrow_unwrap_extension_id_registry(o
         return reg.sp_registry
 
     return shared_ptr[CExtensionIdRegistry]()
+
+
+cdef api object pyarrow_wrap_function_registry(CFunctionRegistry* cregistry):
+    cdef BaseFunctionRegistry registry = BaseFunctionRegistry.__new__(BaseFunctionRegistry)
+    registry.registry = cregistry
+    return registry
 
 
 cdef api object pyarrow_wrap_extension_id_registry(

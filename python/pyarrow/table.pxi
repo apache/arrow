@@ -2568,20 +2568,6 @@ cdef class RecordBatch(_PandasConvertible):
         return pyarrow_wrap_batch(c_batch)
 
 
-cdef class ExtensionIdRegistry(_Weakrefable):
-
-    def __cinit__(self):
-        self.registry = NULL
-
-    def __init__(self):
-        raise TypeError("Do not call ExtensionIdRegistry's constructor directly, use "
-                        "the `MakeExtensionIdRegistry` function instead.")
-
-    cdef void init(self, shared_ptr[CExtensionIdRegistry]& registry):
-        self.sp_registry = registry
-        self.registry = registry.get()
-
-
 def _reconstruct_record_batch(columns, schema):
     """
     Internal: reconstruct RecordBatch from pickled components.

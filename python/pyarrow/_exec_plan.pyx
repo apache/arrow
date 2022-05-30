@@ -39,7 +39,7 @@ Initialize()  # Initialise support for Datasets in ExecPlan
 cdef is_supported_execplan_output_type(output_type):
     return output_type in [Table, InMemoryDataset]
 
-cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True, CFunctionRegistry* c_func_registry=NULL):
     """
     Internal Function to create an ExecPlan and run it.
 
@@ -87,7 +87,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         c_executor = NULL
 
     c_exec_context = make_shared[CExecContext](
-        c_default_memory_pool(), c_executor)
+        c_default_memory_pool(), c_executor, c_func_registry)
     c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
 
     plan_iter = plan.begin()

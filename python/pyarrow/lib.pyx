@@ -169,6 +169,9 @@ include "builder.pxi"
 # Column, Table, Record Batch
 include "table.pxi"
 
+# Compute registries
+include "compute.pxi"
+
 # Tensors
 include "tensor.pxi"
 

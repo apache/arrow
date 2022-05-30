@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include "arrow/compute/registry.h"
 #include "arrow/engine/substrait/api.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/optional.h"
@@ -30,7 +31,8 @@ namespace substrait {
 
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR);
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR,
+    compute::FunctionRegistry* func_registry = NULLPTR);
 
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.

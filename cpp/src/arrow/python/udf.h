@@ -50,9 +50,9 @@ using ScalarUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
 
 /// \brief register a Scalar user-defined-function from Python
-Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* user_function,
-                                                  ScalarUdfWrapperCallback wrapper,
-                                                  const ScalarUdfOptions& options);
+Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
+    PyObject* user_function, ScalarUdfWrapperCallback wrapper,
+    const ScalarUdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
 
 }  // namespace py
 

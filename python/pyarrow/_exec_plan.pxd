@@ -22,4 +22,4 @@ from pyarrow.includes.libarrow cimport *
 
 cdef is_supported_execplan_output_type(output_type)
 
-cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=*)
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=*, CFunctionRegistry* c_func_registry=*)

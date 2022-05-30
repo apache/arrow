@@ -16,8 +16,6 @@
 # under the License.
 
 
-import base64
-import cloudpickle
 import os
 import pytest
 
@@ -517,8 +515,10 @@ def demean_and_zscore(scl_udf_ctx, v):
     std = v.std()
     return v - mean, (v - mean) / std
 
+
 def twice_and_add_2(scl_udf_ctx, v):
     return 2 * v, v + 2
+
 
 def twice(scl_udf_ctx, v):
     return DoubleArray.from_pandas((2 * v.to_pandas()))
@@ -651,9 +651,10 @@ def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
     }
     """
     # TODO: replace with ipc when the support is finalized in C++
-    code = frombytes(base64.b64encode(cloudpickle.dumps(twice)))
+    code = substrait._get_udf_code(twice)
     path = os.path.join(str(tmpdir), 'substrait_data.arrow')
-    table = pa.table([["a", "b", "a", "b", "a"], [1.0, 2.0, 3.0, 4.0, 5.0]], names=['key', 'value'])
+    table = pa.table([["a", "b", "a", "b", "a"], [
+                     1.0, 2.0, 3.0, 4.0, 5.0]], names=['key', 'value'])
     with pa.ipc.RecordBatchFileWriter(path, schema=table.schema) as writer:
         writer.write_table(table)
 
@@ -661,23 +662,14 @@ def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
 
     plan = substrait._parse_json_plan(query)
 
-    registry = substrait.make_extension_id_registry()
-    udf_decls = substrait.get_udf_declarations(plan, registry)
-    for udf_decl in udf_decls:
-        substrait.register_function(registry, None, udf_decl["name"], udf_decl["name"])
-        pc.register_scalar_function(
-            cloudpickle.loads(base64.b64decode(tobytes(udf_decl["code"]))),
-            udf_decl["name"],
-            {"summary": udf_decl["summary"], "description": udf_decl["description"]},
-            {f"arg$i": type_nullable_pair[0]
-             for i, type_nullable_pair in enumerate(udf_decl["input_types"])
-            },
-            udf_decl["output_type"][0],
-        )
+    extid_registry = substrait.make_extension_id_registry()
+    func_registry = substrait.make_function_registry()
+    substrait.register_udf_declarations(plan, extid_registry, func_registry)
 
-    reader = substrait.run_query(plan, registry)
+    reader = substrait.run_query(plan, extid_registry, func_registry)
     res_tb = reader.read_all()
 
     assert len(res_tb) == len(table)
-    assert res_tb.schema == pa.schema([("key", pa.string()), ("value", pa.float64()), ("twice", pa.float64())])
+    assert res_tb.schema == pa.schema(
+        [("key", pa.string()), ("value", pa.float64()), ("twice", pa.float64())])
     assert res_tb.drop(["twice"]) == table
