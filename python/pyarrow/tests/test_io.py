@@ -1220,8 +1220,8 @@ def test_native_file_TextIOWrapper_perf(tmpdir):
 
 
 def test_native_file_read1(tmpdir):
-    # read1() should not exhaust the input stream if there is a large amount
-    # of data remaining.
+    # ARROW-16272: read1() should not exhaust the input stream if there
+    # is a large amount of data remaining.
     data = b'123\n' * 1_000_000
     path = str(tmpdir / 'largefile.txt')
     with open(path, 'wb') as f:
