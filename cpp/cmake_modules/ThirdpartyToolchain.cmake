@@ -1379,6 +1379,7 @@ macro(build_gflags)
   add_dependencies(toolchain gflags_ep)
 
   add_thirdparty_lib(gflags::gflags_static STATIC ${GFLAGS_STATIC_LIB})
+  add_dependencies(gflags::gflags_static gflags_ep)
   set(GFLAGS_LIBRARY gflags::gflags_static)
   set_target_properties(${GFLAGS_LIBRARY}
                         PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GFLAGS_IS_A_DLL=0"
