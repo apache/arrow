@@ -235,15 +235,27 @@ ExecContext* small_chunksize_context(bool use_threads = false) {
   return use_threads ? &ctx_with_threads : &ctx;
 }
 
-Result<Datum> GroupByTest(
-    const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-    const std::vector<::arrow::compute::internal::Aggregate>& aggregates,
-    bool use_threads, bool use_exec_plan) {
+struct TestAggregate {
+  std::string function;
+  const FunctionOptions* options;
+};
+
+Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
+                          const std::vector<Datum>& keys,
+                          const std::vector<TestAggregate>& aggregates, bool use_threads,
+                          bool use_exec_plan) {
+  std::vector<internal::Aggregate> internal_aggregates;
+  int idx = 0;
+  for (auto t_agg : aggregates) {
+    internal_aggregates.push_back(
+        {t_agg.function, t_agg.options, "agg_" + std::to_string(idx), t_agg.function});
+    idx = idx + 1;
+  }
   if (use_exec_plan) {
-    return GroupByUsingExecPlan(arguments, keys, aggregates, use_threads,
+    return GroupByUsingExecPlan(arguments, keys, internal_aggregates, use_threads,
                                 small_chunksize_context(use_threads));
   } else {
-    return internal::GroupBy(arguments, keys, aggregates, use_threads,
+    return internal::GroupBy(arguments, keys, internal_aggregates, use_threads,
                              default_exec_context());
   }
 }
@@ -745,7 +757,7 @@ TEST(GroupBy, NoBatches) {
       Datum aggregated_and_grouped,
       GroupByTest({table->GetColumnByName("argument")}, {table->GetColumnByName("key")},
                   {
-                      {"hash_count", nullptr, "agg_0", "hash_count"},
+                      {"hash_count", nullptr},
                   },
                   /*use_threads=*/true, /*use_exec_plan=*/true));
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -810,7 +822,7 @@ TEST(GroupBy, CountOnly) {
                            GroupByTest({table->GetColumnByName("argument")},
                                        {table->GetColumnByName("key")},
                                        {
-                                           {"hash_count", nullptr, "agg_0", "hash_count"},
+                                           {"hash_count", nullptr},
                                        },
                                        use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -898,7 +910,7 @@ TEST(GroupBy, SumOnly) {
                            GroupByTest({table->GetColumnByName("argument")},
                                        {table->GetColumnByName("key")},
                                        {
-                                           {"hash_sum", nullptr, "agg_0", "hash_sum"},
+                                           {"hash_sum", nullptr},
                                        },
                                        use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -963,12 +975,12 @@ TEST(GroupBy, SumMeanProductDecimal) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_sum", nullptr, "agg_0", "hash_sum"},
-                                   {"hash_sum", nullptr, "agg_1", "hash_sum"},
-                                   {"hash_mean", nullptr, "agg_2", "hash_mean"},
-                                   {"hash_mean", nullptr, "agg_3", "hash_mean"},
-                                   {"hash_product", nullptr, "agg_4", "hash_product"},
-                                   {"hash_product", nullptr, "agg_5", "hash_product"},
+                                   {"hash_sum", nullptr},
+                                   {"hash_sum", nullptr},
+                                   {"hash_mean", nullptr},
+                                   {"hash_mean", nullptr},
+                                   {"hash_product", nullptr},
+                                   {"hash_product", nullptr},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -1608,9 +1620,9 @@ TEST(GroupBy, MinMaxOnly) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_min_max", nullptr, "agg_0", "hash_min_max"},
-                                   {"hash_min_max", nullptr, "agg_1", "hash_min_max"},
-                                   {"hash_min_max", nullptr, "agg_2", "hash_min_max"},
+                                   {"hash_min_max", nullptr},
+                                   {"hash_min_max", nullptr},
+                                   {"hash_min_max", nullptr},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
@@ -1712,11 +1724,11 @@ TEST(GroupBy, MinMaxTypes) {
     auto table =
         TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table : default_table);
 
-    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         GroupByTest({table->GetColumnByName("argument0")},
-                                     {table->GetColumnByName("key")},
-                                     {{"hash_min_max", nullptr, "agg_0", "hash_min_max"}},
-                                     /*use_threads=*/true, /*use_exec_plan=*/true));
+    ASSERT_OK_AND_ASSIGN(
+        Datum aggregated_and_grouped,
+        GroupByTest({table->GetColumnByName("argument0")},
+                    {table->GetColumnByName("key")}, {{"hash_min_max", nullptr}},
+                    /*use_threads=*/true, /*use_exec_plan=*/true));
     ValidateOutput(aggregated_and_grouped);
     SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -1769,8 +1781,8 @@ TEST(GroupBy, MinMaxDecimal) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_min_max", nullptr, "agg_0", "hash_min_max"},
-                                   {"hash_min_max", nullptr, "agg_1", "hash_min_max"},
+                                   {"hash_min_max", nullptr},
+                                   {"hash_min_max", nullptr},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
@@ -1831,9 +1843,8 @@ TEST(GroupBy, MinMaxBinary) {
         ASSERT_OK_AND_ASSIGN(
             Datum aggregated_and_grouped,
             GroupByTest({table->GetColumnByName("argument0")},
-                        {table->GetColumnByName("key")},
-                        {{"hash_min_max", nullptr, "agg_0", "hash_min_max"}}, use_threads,
-                        use_exec_plan));
+                        {table->GetColumnByName("key")}, {{"hash_min_max", nullptr}},
+                        use_threads, use_exec_plan));
         ValidateOutput(aggregated_and_grouped);
         SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -1886,9 +1897,8 @@ TEST(GroupBy, MinMaxFixedSizeBinary) {
       ASSERT_OK_AND_ASSIGN(
           Datum aggregated_and_grouped,
           GroupByTest({table->GetColumnByName("argument0")},
-                      {table->GetColumnByName("key")},
-                      {{"hash_min_max", nullptr, "agg_0", "hash_min_max"}}, use_threads,
-                      use_exec_plan));
+                      {table->GetColumnByName("key")}, {{"hash_min_max", nullptr}},
+                      use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
       SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -1941,8 +1951,8 @@ TEST(GroupBy, MinOrMax) {
                                     table->GetColumnByName("argument")},
                                    {table->GetColumnByName("key")},
                                    {
-                                       {"hash_min", nullptr, "agg_0", "hash_min"},
-                                       {"hash_max", nullptr, "agg_1", "hash_max"},
+                                       {"hash_min", nullptr},
+                                       {"hash_max", nullptr},
                                    },
                                    /*use_threads=*/true, /*use_exec_plan=*/true));
   SortBy({"key_0"}, &aggregated_and_grouped);
@@ -2499,12 +2509,12 @@ TEST(GroupBy, OneMiscTypes) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_one", nullptr, "agg_0", "hash_one"},
-                                   {"hash_one", nullptr, "agg_1", "hash_one"},
-                                   {"hash_one", nullptr, "agg_2", "hash_one"},
-                                   {"hash_one", nullptr, "agg_3", "hash_one"},
-                                   {"hash_one", nullptr, "agg_4", "hash_one"},
-                                   {"hash_one", nullptr, "agg_5", "hash_one"},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
@@ -2627,11 +2637,11 @@ TEST(GroupBy, OneNumericTypes) {
         auto table =
             TableFromJSON(in_schema, (type->name() == "date64") ? temporal_table_json
                                                                 : numeric_table_json);
-        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                             GroupByTest({table->GetColumnByName("argument0")},
-                                         {table->GetColumnByName("key")},
-                                         {{"hash_one", nullptr, "agg_0", "hash_one"}},
-                                         use_threads, use_exec_plan));
+        ASSERT_OK_AND_ASSIGN(
+            Datum aggregated_and_grouped,
+            GroupByTest({table->GetColumnByName("argument0")},
+                        {table->GetColumnByName("key")}, {{"hash_one", nullptr}},
+                        use_threads, use_exec_plan));
         ValidateOutput(aggregated_and_grouped);
         SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -2690,11 +2700,11 @@ TEST(GroupBy, OneBinaryTypes) {
     [null,  3]
 ])"});
 
-        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                             GroupByTest({table->GetColumnByName("argument0")},
-                                         {table->GetColumnByName("key")},
-                                         {{"hash_one", nullptr, "agg_0", "hash_one"}},
-                                         use_threads, use_exec_plan));
+        ASSERT_OK_AND_ASSIGN(
+            Datum aggregated_and_grouped,
+            GroupByTest({table->GetColumnByName("argument0")},
+                        {table->GetColumnByName("key")}, {{"hash_one", nullptr}},
+                        use_threads, use_exec_plan));
         ValidateOutput(aggregated_and_grouped);
         SortBy({"key_0"}, &aggregated_and_grouped);
 
@@ -3068,12 +3078,12 @@ TEST(GroupBy, ListMiscTypes) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_list", nullptr, "agg_0", "hash_list"},
-                                   {"hash_list", nullptr, "agg_1", "hash_list"},
-                                   {"hash_list", nullptr, "agg_2", "hash_list"},
-                                   {"hash_list", nullptr, "agg_3", "hash_list"},
-                                   {"hash_list", nullptr, "agg_4", "hash_list"},
-                                   {"hash_list", nullptr, "agg_5", "hash_list"},
+                                   {"hash_list", nullptr},
+                                   {"hash_list", nullptr},
+                                   {"hash_list", nullptr},
+                                   {"hash_list", nullptr},
+                                   {"hash_list", nullptr},
+                                   {"hash_list", nullptr},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);
@@ -3752,10 +3762,10 @@ TEST(GroupBy, SingleNullTypeKey) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_count", nullptr, "agg_0", "hash_count"},
-                                   {"hash_sum", nullptr, "agg_1", "hash_sum"},
-                                   {"hash_mean", nullptr, "agg_2", "hash_mean"},
-                                   {"hash_min_max", nullptr, "agg_3", "hash_min_max"},
+                                   {"hash_count", nullptr},
+                                   {"hash_sum", nullptr},
+                                   {"hash_mean", nullptr},
+                                   {"hash_min_max", nullptr},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -3812,9 +3822,9 @@ TEST(GroupBy, MultipleKeysIncludesNullType) {
               },
               {table->GetColumnByName("key_0"), table->GetColumnByName("key_1")},
               {
-                  {"hash_count", nullptr, "agg_0", "hash_count"},
-                  {"hash_sum", nullptr, "agg_1", "hash_sum"},
-                  {"hash_min_max", nullptr, "agg_2", "hash_min_max"},
+                  {"hash_count", nullptr},
+                  {"hash_sum", nullptr},
+                  {"hash_min_max", nullptr},
               },
               use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
