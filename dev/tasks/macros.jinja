@@ -261,18 +261,26 @@ on:
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
 {% endmacro %}
 
-{%- macro github_setup_local_r_repo(os, get_bin = 'true') -%}
+{%- macro github_setup_local_r_repo(get_nix, get_win) -%}
   - name: Setup local repo
     shell: bash
     run: mkdir repo 
-  {% for os in ["windows", "ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
+  {% if get_win %}
+  - name: Get windows binary
+    uses: actions/download-artifact@v3
+    with:
+      name: r-libarrow-windows
+      path: repo/libarrow/bin/windows
+  {% endif %}
+  {% if get_nix %}
+    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
   - name: Get {{ os }} binary
-    if: {{ '${{' }} {{ get_bin }} {{ '}}' }}
     uses: actions/download-artifact@v3
     with:
       name: r-libarrow-{{ os }}
       path: repo/libarrow/bin/{{ os }}
-  {% endfor %}
+    {% endfor %}
+  {% endif %}
   - name: Get src pkg
     uses: actions/download-artifact@v3
     with:
