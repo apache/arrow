@@ -137,7 +137,6 @@ jobs:
           path: build/arrow-*.zip 
 
   r-packages:
-    if: true && !cancelled()
     needs: [source, windows-cpp]
     name: {{ '${{ matrix.platform }} ${{ matrix.r_version.r }}' }}
     runs-on: {{ '${{ matrix.platform }}' }}
@@ -208,7 +207,6 @@ jobs:
           path: arrow_*
 
   test-linux-binary:
-    if: true && !cancelled()
     needs: [source, linux-cpp]
     name: Test binary {{ '${{ matrix.image }}' }}
     runs-on: ubuntu-latest
@@ -257,7 +255,6 @@ jobs:
           {{  macros.github_test_r_src_pkg()|indent(8) }}
 
   test-source:
-    if: true && !cancelled()
     needs: source
     name: Test linux source build
     runs-on: ubuntu-latest
@@ -290,7 +287,6 @@ jobs:
   upload-binaries:
     # Only upload binaries if all tests pass.
     needs: [ r-packages, test-source, test-linux-binary]
-    if: true && !cancelled()
     name: Upload artifacts
     runs-on: ubuntu-latest
     steps:
