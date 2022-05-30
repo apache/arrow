@@ -276,7 +276,7 @@ on:
   - name: Get src pkg
     uses: actions/download-artifact@v3
     with:
-      name: r-pkg_src
+      name: r-pkg-src
       path: repo/src/contrib
   - name: Update repo index
     shell: Rscript {0}
