@@ -378,11 +378,11 @@ static inline void PrintToImpl(const std::string& factory_name,
 
     *os << "aggregates={";
     for (const auto& agg : o->aggregates) {
-      *os << agg.function << "<";
+      *os << "function=" << agg.function << "<";
       if (agg.options) PrintTo(*agg.options, os);
-      *os << agg.target.ToString() << "<";
-      *os << agg.name << "<";
       *os << ">,";
+      *os << "target=" << agg.target.ToString() << ",";
+      *os << "name=" << agg.name;
     }
     *os << "},";
 
