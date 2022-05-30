@@ -294,10 +294,9 @@ TEST_F(TestBufferedOutputStream, Tell) {
   ASSERT_OK(buffered_->Close());
 
   // write long bytes after raw_pos is cached
-  const std::string basic_string = "1234568790";
-  OpenBuffered(/*buffer_size=*/3, false);
+  OpenBuffered(/*buffer_size=*/3);
   AssertTell(0);
-  ASSERT_OK(buffered_->Write(basic_string.data(), 5));
+  ASSERT_OK(buffered_->Write("1234568790", 5));
   AssertTell(5);
 
   ASSERT_OK(buffered_->Close());
