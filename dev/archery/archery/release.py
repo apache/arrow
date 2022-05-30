@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from abc import abstractmethod
 from collections import defaultdict
 import functools
 import os
@@ -29,6 +30,7 @@ from semver import VersionInfo as SemVer
 
 from .utils.source import ArrowSources
 from .utils.report import JinjaReport
+from .utils.logger import logger
 
 
 def cached_property(fn):
@@ -256,20 +258,27 @@ class JiraChangelog(JinjaReport):
 
 class Release:
 
-    def __init__(self):
-        raise TypeError("Do not initialize Release class directly, use "
-                        "Release.from_jira(version) instead.")
+    def __new__(self, version, jira=None, repo=None):
+        if isinstance(version, str):
+            version = Version.parse(version)
+        elif not isinstance(version, Version):
+            raise TypeError(version)
 
-    def __repr__(self):
-        if self.version.released:
-            status = "released_at={!r}".format(self.version.release_date)
+        # decide the type of the release based on the version number
+        if version.patch == 0:
+            if version.minor == 0:
+                klass = MajorRelease
+            elif version.major == 0:
+                # handle minor releases before 1.0 as major releases
+                klass = MajorRelease
+            else:
+                klass = MinorRelease
         else:
-            status = "pending"
-        return "<{} {!r} {}>".format(self.__class__.__name__,
-                                     str(self.version), status)
+            klass = PatchRelease
 
-    @staticmethod
-    def from_jira(version, jira=None, repo=None):
+        return super().__new__(klass)
+
+    def __init__(self, version, jira, repo):
         if jira is None:
             jira = Jira()
         elif isinstance(jira, str):
@@ -292,25 +301,20 @@ class Release:
         elif not isinstance(version, Version):
             raise TypeError(version)
 
-        # decide the type of the release based on the version number
-        if version.patch == 0:
-            if version.minor == 0:
-                klass = MajorRelease
-            elif version.major == 0:
-                # handle minor releases before 1.0 as major releases
-                klass = MajorRelease
-            else:
-                klass = MinorRelease
+        self.version = version
+        self.jira = jira
+        self.repo = repo
+
+    def __repr__(self):
+        if self.version.released:
+            status = "released_at={self.version.release_date!r}"
         else:
-            klass = PatchRelease
+            status = "pending"
+        return f"<{self.__class__.__name__} {self.version!r} {status}>"
 
-        # prevent instantiating release object directly
-        obj = klass.__new__(klass)
-        obj.version = version
-        obj.jira = jira
-        obj.repo = repo
-
-        return obj
+    @staticmethod
+    def from_jira(version, jira=None, repo=None):
+        return Release(version, jira, repo)
 
     @property
     def is_released(self):
@@ -318,18 +322,23 @@ class Release:
 
     @property
     def tag(self):
-        return "apache-arrow-{}".format(str(self.version))
+        return f"apache-arrow-{self.version}"
 
     @property
+    @abstractmethod
     def branch(self):
-        raise NotImplementedError()
+        """
+        Target branch that serves as the base for the release.
+        """
+        ...
 
     @property
+    @abstractmethod
     def siblings(self):
         """
         Releases to consider when calculating previous and next releases.
         """
-        raise NotImplementedError()
+        ...
 
     @cached_property
     def previous(self):
@@ -349,7 +358,7 @@ class Release:
         position = self.siblings.index(self.version)
         if position <= 0:
             raise ValueError("There is no upcoming release set in JIRA after "
-                             "version {}".format(self.version))
+                             f"version {self.version}")
         upcoming = self.siblings[position - 1]
         return Release.from_jira(upcoming, jira=self.jira, repo=self.repo)
 
@@ -375,11 +384,10 @@ class Release:
             try:
                 upper = self.repo.branches[self.branch]
             except IndexError:
-                warnings.warn("Release branch `{}` doesn't exist."
-                              .format(self.branch))
+                warnings.warn(f"Release branch `{self.branch}` doesn't exist.")
                 return []
 
-        commit_range = "{}..{}".format(lower, upper)
+        commit_range = f"{lower}..{upper}"
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
     def curate(self):
@@ -436,29 +444,15 @@ class Release:
             categories[issue_types[issue.type]].append((issue, commit))
 
         # sort issues by the issue key in ascending order
-        for name, issues in categories.items():
+        for issues in categories.values():
             issues.sort(key=lambda pair: (pair[0].project, pair[0].number))
 
         return JiraChangelog(release=self, categories=categories)
 
-
-class MaintenanceMixin:
-    """
-    Utility methods for cherry-picking commits from the main branch.
-    """
-
     def commits_to_pick(self, exclude_already_applied=True):
         # collect commits applied on the main branch since the root of the
         # maintenance branch (the previous major release)
-        if self.version.major == 0:
-            # treat minor releases as major releases preceeding 1.0.0 release
-            commit_range = "apache-arrow-0.{}.0..master".format(
-                self.version.minor
-            )
-        else:
-            commit_range = "apache-arrow-{}.0.0..master".format(
-                self.version.major
-            )
+        commit_range = f"{self.previous.tag}..master"
 
         # keeping the original order of the commits helps to minimize the merge
         # conflicts during cherry-picks
@@ -485,14 +479,20 @@ class MaintenanceMixin:
             # delete, create and checkout the maintenance branch based off of
             # the previous tag
             if self.branch in self.repo.branches:
+                logger.info(f"Deleting branch {self.branch}")
                 self.repo.git.branch('-D', self.branch)
-            self.repo.git.checkout(self.previous.tag, b=self.branch)
+            logger.info(
+                f"Creating branch {self.branch} from {self.base_branch} branch"
+            )
+            self.repo.git.checkout(self.base_branch, b=self.branch)
         else:
             # just checkout the already existing maintenance branch
+            logger.info(f"Checking out branch {self.branch}")
             self.repo.git.checkout(self.branch)
 
         # cherry pick the commits based on the jira tickets
         for commit in self.commits_to_pick():
+            logger.info(f"Cherry-picking commit {commit.hexsha}")
             self.repo.git.cherry_pick(commit.hexsha)
 
 
@@ -500,6 +500,10 @@ class MajorRelease(Release):
 
     @property
     def branch(self):
+        return f"maint-{self.version}"
+
+    @property
+    def base_branch(self):
         return "master"
 
     @cached_property
@@ -512,11 +516,15 @@ class MajorRelease(Release):
                 if v.patch == 0 and (v.major == 0 or v.minor == 0)]
 
 
-class MinorRelease(Release, MaintenanceMixin):
+class MinorRelease(Release):
 
     @property
     def branch(self):
-        return "maint-{}.x.x".format(self.version.major)
+        return f"maint-{self.version.major}.x.x"
+
+    @property
+    def base_branch(self):
+        return self.previous.tag
 
     @cached_property
     def siblings(self):
@@ -526,11 +534,15 @@ class MinorRelease(Release, MaintenanceMixin):
         return [v for v in self.jira.project_versions('ARROW') if v.patch == 0]
 
 
-class PatchRelease(Release, MaintenanceMixin):
+class PatchRelease(Release):
 
     @property
     def branch(self):
-        return "maint-{}.{}.x".format(self.version.major, self.version.minor)
+        return f"maint-{self.version.major}.{self.version.minor}.x"
+
+    @property
+    def base_branch(self):
+        return self.previous.tag
 
     @cached_property
     def siblings(self):

@@ -216,7 +216,7 @@ def test_release_basics(fake_jira):
     r = Release.from_jira("1.0.0", jira=fake_jira)
     assert isinstance(r, MajorRelease)
     assert r.is_released is True
-    assert r.branch == 'master'
+    assert r.branch == 'maint-1.0.0'
     assert r.tag == 'apache-arrow-1.0.0'
 
     r = Release.from_jira("1.1.0", jira=fake_jira)
@@ -229,7 +229,7 @@ def test_release_basics(fake_jira):
     r = Release.from_jira("0.17.0", jira=fake_jira)
     assert isinstance(r, MajorRelease)
     assert r.is_released is True
-    assert r.branch == 'master'
+    assert r.branch == 'maint-0.17.0'
     assert r.tag == 'apache-arrow-0.17.0'
 
     r = Release.from_jira("0.17.1", jira=fake_jira)
