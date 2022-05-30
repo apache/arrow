@@ -27,9 +27,14 @@
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace engine {
+
+namespace internal {
+using ::arrow::internal::make_unique;
+}  // namespace internal
 
 template <typename RelMessage>
 Status CheckRelCommon(const RelMessage& rel) {
@@ -314,6 +319,13 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
   return Status::NotImplemented(
       "conversion to arrow::compute::Declaration from Substrait relation ",
       rel.DebugString());
+}
+
+Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& declaration,
+                                                ExtensionSet* ext_set) {
+  auto out = internal::make_unique<substrait::Rel>();
+
+  return nullptr;
 }
 
 }  // namespace engine

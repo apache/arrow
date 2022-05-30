@@ -52,9 +52,12 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     ExtensionSet* ext_set_out = NULLPTR);
 
-Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
-                                          const ConsumerFactory& consumer_factory,
-                                          ExtensionSet* ext_set_out = NULLPTR);
+ARROW_ENGINE_EXPORT Result<compute::ExecPlan> DeserializePlan(
+    const Buffer& buf, const ConsumerFactory& consumer_factory,
+    ExtensionSet* ext_set_out = NULLPTR);
+
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializePlan(
+    const compute::ExecPlan& exec_plan, ExtensionSet* ext_set);
 
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
