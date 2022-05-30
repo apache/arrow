@@ -214,13 +214,14 @@ std::string WinErrorMessage(int errnum) {
     ss << "Windows error #" << errnum;
     return ss.str();
   }
-  const UINT code_page = CP_UTF8;
-  const DWORD flags = 0;
-  constexpr int max_n_utf8_bytes = max_n_chars * 4;
-  char utf8_message[max_n_utf8_bytes];
-  auto n_utf8_bytes = WideCharToMultiByte(code_page, flags, utf16_message, n_utf16_chars,
-                                          utf8_message, max_n_utf8_bytes, NULL, NULL);
-  return std::string(utf8_message, n_utf8_bytes);
+  auto utf8_message_result =
+      arrow::util::WideStringToUTF8(std::wstring(utf16_message, n_utf16_chars));
+  if (!utf8_message_result.ok()) {
+    std::stringstream ss;
+    ss << "Failed to convert to UTF-8: " << utf8_message_result.status();
+    return ss.str();
+  }
+  return *utf8_message_result;
 }
 #endif
 
