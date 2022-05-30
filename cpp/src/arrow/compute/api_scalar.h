@@ -132,6 +132,11 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   /// Exceptions: week and quarter are not used as greater units, therefore days will
   /// will be rounded to the beginning of the month not week. Greater unit of week
   /// is year.
+  /// Note that ceiling and rounding might change sorting order of an array near greater
+  /// unit change. For example rounding YYYY-mm-dd 23:00:00 to 5 hours will ceil and
+  /// round to YYYY-mm-dd+1 01:00:00 and floor to YYYY-mm-dd 20:00:00. On the other hand
+  /// YYYY-mm-dd+1 00:00:00 will ceil, round and floor to YYYY-mm-dd+1 00:00:00. This
+  /// can break the order of an already ordered array.
   bool calendar_based_origin;
 };
 
