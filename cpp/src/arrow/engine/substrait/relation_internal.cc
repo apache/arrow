@@ -241,7 +241,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       switch (join.type()) {
         case 0:
           return Status::NotImplemented("Unspecified join type is not supported");
-        case 1:
+        case substrait::JoinRel::JOIN_TYPE_INNER:
           join_type = compute::JoinType::INNER;
           break;
         case 2:
