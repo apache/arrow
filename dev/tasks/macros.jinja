@@ -258,7 +258,7 @@ on:
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
 
   # Our Version should always be > CRAN so we would detect a CRAN version here.
-  stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
+  stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
 {% endmacro %}
 
 {%- macro github_setup_local_r_repo(os, get_bin = 'true') -%}
