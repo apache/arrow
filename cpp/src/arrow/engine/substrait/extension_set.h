@@ -22,12 +22,15 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/compute/function.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
 #include "arrow/util/hash_util.h"
+#include "substrait/expression.pb.h"  // IWYU pragma: export
 
 namespace arrow {
 namespace engine {
@@ -266,6 +269,8 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   void AddUri(std::pair<uint32_t, util::string_view> uri);
   Status AddUri(Id id);
 };
+
+
 
 }  // namespace engine
 }  // namespace arrow
