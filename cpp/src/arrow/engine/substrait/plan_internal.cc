@@ -133,5 +133,12 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                             registry);
 }
 
+Result<substrait::Plan> ToProto(const compute::ExecPlan& exec_plan,
+                                ExtensionSet* ext_set) {
+  std::cout << "ToProto[ExecPlan]" << std::endl;                          
+  auto plan = internal::make_unique<substrait::Plan>();
+  return *std::move(plan);
+}
+
 }  // namespace engine
 }  // namespace arrow

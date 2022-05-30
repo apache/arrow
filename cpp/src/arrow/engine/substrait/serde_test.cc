@@ -1171,6 +1171,11 @@ TEST(Substrait, JoinPlanInvalidKeys) {
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
+TEST(Substrait, SerializePlan) {
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializePlan(*plan, &ext_set));
+
 }
 
 }  // namespace engine

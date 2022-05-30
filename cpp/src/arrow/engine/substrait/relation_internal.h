@@ -33,5 +33,9 @@ namespace engine {
 ARROW_ENGINE_EXPORT
 Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&);
 
+ARROW_ENGINE_EXPORT
+Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration&,
+                                                ExtensionSet*);
+
 }  // namespace engine
 }  // namespace arrow
