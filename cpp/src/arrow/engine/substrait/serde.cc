@@ -108,7 +108,7 @@ Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
 Result<std::shared_ptr<Buffer>> SerializePlan(const compute::ExecPlan& exec_plan,
                                               ExtensionSet* ext_set) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ToProto(exec_plan, ext_set));
-  std::string serialized = "";  // named_struct->SerializeAsString();
+  std::string serialized = plan->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }
 
