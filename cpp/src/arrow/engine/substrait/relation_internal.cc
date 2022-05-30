@@ -291,7 +291,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
             callptr->function_name);
       }
 
-      // TODO: Add Suffix support for Substrait
+      // TODO: ARROW-166241 Add Suffix support for Substrait
       const auto* left_keys = callptr->arguments[0].field_ref();
       const auto* right_keys = callptr->arguments[1].field_ref();
       if (!left_keys || !right_keys) {
