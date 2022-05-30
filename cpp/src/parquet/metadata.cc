@@ -662,7 +662,7 @@ class FileMetaData::FileMetaDataImpl {
     //  about inappropriate uses of reserve()).
     const auto start = metadata_->row_groups.size();
     metadata_->row_groups.resize(start + n);
-    for (int64_t i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
       metadata_->row_groups[start + i] = other->row_group(i);
       metadata_->num_rows += metadata_->row_groups[start + i].num_rows;
     }
