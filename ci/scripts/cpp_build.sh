@@ -161,6 +161,7 @@ cmake \
   -DThrift_SOURCE=${Thrift_SOURCE:-} \
   -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \
   -Dzstd_SOURCE=${zstd_SOURCE:-} \
+  -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
   -G "${CMAKE_GENERATOR:-Ninja}" \
   ${CMAKE_ARGS} \
   ${source_dir}

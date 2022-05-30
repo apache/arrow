@@ -2208,8 +2208,6 @@ endif()
 set(ARROW_XSIMD_REQUIRED_VERSION "8.1.0")
 
 if(ARROW_USE_XSIMD)
-  # Distros don't always provide up to date xsimd packages
-  set(xsimd_SOURCE "AUTO")
   resolve_dependency(xsimd REQUIRED_VERSION ${ARROW_XSIMD_REQUIRED_VERSION})
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
