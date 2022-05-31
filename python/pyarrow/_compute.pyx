@@ -908,11 +908,11 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     week_starts_monday : bool, default True
         If True, weeks start on Monday; if False, on Sunday.
     ceil_is_strictly_greater : bool, default False
-        If True return a rounded value that is strictly greater than the
+        If True, ceil returns a rounded value that is strictly greater than the
         input. For example: ceiling 1970-01-01T00:00:00 to 3 hours would
         yield 1970-01-01T03:00:00 if set to True and 1970-01-01T00:00:00
         if set to False.
-        This applies for ceiling only.
+        This applies to the ceil_temporal function only.
     calendar_based_origin : bool, default False
         By default, the origin is 1970-01-01T00:00:00. By setting this to True,
         rounding origin will be beginning of one less precise calendar unit.
