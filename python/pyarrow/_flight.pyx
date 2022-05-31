@@ -2120,7 +2120,8 @@ cdef CStatus _middleware_sending_headers(
             if isinstance(values, (str, bytes)):
                 values = (values,)
             # Headers in gRPC (and HTTP/1, HTTP/2) are required to be
-            # valid ASCII.
+            # valid, lowercase ASCII.
+            header = header.lower()
             if isinstance(header, str):
                 header = header.encode("ascii")
             for value in values:
@@ -2347,6 +2348,8 @@ cdef class ClientMiddleware(_Weakrefable):
             not support them or may restrict them. For gRPC, binary
             values are only allowed on headers ending in "-bin".
 
+            Header names must be lowercase ASCII.
+
         """
 
     def received_headers(self, headers):
@@ -2446,6 +2449,8 @@ cdef class ServerMiddleware(_Weakrefable):
             not support them or may restrict them. For gRPC, binary
             values are only allowed on headers ending in "-bin".
 
+            Header names must be lowercase ASCII.
+
         """
 
     def call_completed(self, exception):
@@ -2506,6 +2511,8 @@ cdef class _ServerMiddlewareWrapper(ServerMiddleware):
             # Manually merge with existing headers (since headers are
             # multi-valued)
             for key, values in more_headers.items():
+                # ARROW-16606 gRPC aborts given non-lowercase headers
+                key = key.lower()
                 if isinstance(values, (bytes, str)):
                     values = (values,)
                 headers[key].extend(values)
