@@ -87,7 +87,7 @@ class ConcurrentQueue {
   // For this to be "safe":
   // 1) the caller logically guarantees that queue is not empty
   // 2) pop/try_pop cannot be called concurrently with this
-  const T& unsync_front() const { return queue_.front(); }
+  const T& UnsyncFront() const { return queue_.front(); }
 
  private:
   std::queue<T> queue_;
@@ -157,65 +157,68 @@ class InputState {
             schema->GetFieldIndex(time_col_name)),  // TODO: handle missing field name
         key_col_index_(schema->GetFieldIndex(key_col_name)) {}
 
-  col_index_t init_src_to_dst_mapping(col_index_t dst_offset,
+  col_index_t InitSrcToDstMapping(col_index_t dst_offset,
                                       bool skip_time_and_key_fields) {
     src_to_dst_.resize(schema_->num_fields());
     for (int i = 0; i < schema_->num_fields(); ++i)
-      if (!(skip_time_and_key_fields && is_time_or_key_column(i)))
+      if (!(skip_time_and_key_fields && IsTimeOrKeyColumn(i)))
         src_to_dst_[i] = dst_offset++;
     return dst_offset;
   }
 
-  const util::optional<col_index_t>& map_src_to_dst(col_index_t src) const {
+  const util::optional<col_index_t>& MapSrcToDst(col_index_t src) const {
     return src_to_dst_[src];
   }
 
-  bool is_time_or_key_column(col_index_t i) const {
+  bool IsTimeOrKeyColumn(col_index_t i) const {
     DCHECK_LT(i, schema_->num_fields());
     return (i == time_col_index_) || (i == key_col_index_);
   }
 
   // Gets the latest row index,  assuming the queue isn't empty
-  row_index_t get_latest_row() const { return latest_ref_row_; }
+  row_index_t GetLatestRow() const { return latest_ref_row_; }
 
-  bool empty() const {
+  bool Empty() const {
+    // cannot be empty if ref row is >0 -- can avoid slow queue lock
+    // below
     if (latest_ref_row_ > 0)
-      return false;  // cannot be empty if ref row is >0 -- can avoid slow queue lock
-                     // below
-    return queue_.empty();
+      return false;
+    return queue_.Empty();
   }
 
-  int count_total_batches() const { return total_batches_; }
+  int total_batches() const { return total_batches_; }
 
   // Gets latest batch (precondition: must not be empty)
-  const std::shared_ptr<arrow::RecordBatch>& get_latest_batch() const {
-    return queue_.unsync_front();
+  const std::shared_ptr<arrow::RecordBatch>& GetLatestBatch() const {
+    return queue_.UnsyncFront();
   }
-  KeyType get_latest_key() const {
-    return queue_.unsync_front()
+  KeyType GetLatestKey() const {
+    return queue_.UnsyncFront()
         ->column_data(key_col_index_)
         ->GetValues<KeyType>(1)[latest_ref_row_];
   }
-  int64_t get_latest_time() const {
-    return queue_.unsync_front()
+  int64_t GetLatestTime() const {
+    return queue_.UnsyncFront()
         ->column_data(time_col_index_)
         ->GetValues<int64_t>(1)[latest_ref_row_];
   }
 
-  bool finished() const { return batches_processed_ == total_batches_; }
+  bool Finished() const { return batches_processed_ == total_batches_; }
 
-  bool advance() {
+  bool Advance() {
     // Returns true if able to advance, false if not.
+    bool have_active_batch =
+        (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.Empty();
 
-    if (!empty()) {
+    if (have_active_batch) {
       // If we have an active batch
-      if (++latest_ref_row_ >= (row_index_t)queue_.unsync_front()->num_rows()) {
+      if (++latest_ref_row_ >= (row_index_t) queue_.UnsyncFront()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
-        have_active_batch &= !queue_.try_pop();
+        have_active_batch &= !queue_.TryPop();
         if (have_active_batch)
-          DCHECK_GT(queue_.unsync_front()->num_rows(), 0);  // empty batches disallowed
+          DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
       }
     }
     return have_active_batch;
@@ -224,34 +227,34 @@ class InputState {
   // Advance the data to be immediately past the specified TS, updating latest and
   // latest_ref_row to the latest data prior to that immediate just past Returns true if
   // updates were made, false if not.
-  bool advance_and_memoize(int64_t ts) {
+  bool AdvanceAndMemoize(int64_t ts) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
 
     // Check if already updated for TS (or if there is no latest)
-    if (empty()) return false;  // can't advance if empty
-    auto latest_time = get_latest_time();
+    if (Empty()) return false;  // can't advance if empty
+    auto latest_time = GetLatestTime();
     if (latest_time > ts) return false;  // already advanced
 
     // Not updated.  Try to update and possibly advance.
     bool updated = false;
     do {
-      latest_time = get_latest_time();
+      latest_time = GetLatestTime();
       // if advance() returns true, then the latest_ts must also be valid
       // Keep advancing right table until we hit the latest row that has
       // timestamp <= ts. This is because we only need the latest row for the
       // match given a left ts.
       if (latest_time <= ts) {
-        memo_.store(get_latest_batch(), latest_ref_row_, latest_time, get_latest_key());
+        memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
       } else {
         break;  // hit a future timestamp -- done updating for now
       }
       updated = true;
-    } while (advance());
+    } while (Advance());
     return updated;
   }
 
-  void push(const std::shared_ptr<arrow::RecordBatch>& rb) {
+  void Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
       queue_.Push(rb);
     } else {
@@ -259,19 +262,19 @@ class InputState {
     }
   }
 
-  util::optional<const MemoStore::Entry*> get_memo_entry_for_key(KeyType key) {
-    auto r = memo_.get_entry_for_key(key);
+  util::optional<const MemoStore::Entry*> GetMemoEntryForKey(KeyType key) {
+    auto r = memo_.GetEntryForKey(key);
     if (r.has_value()) return r;
     return r;
   }
 
-  util::optional<int64_t> get_memo_time_for_key(KeyType key) {
-    auto r = get_memo_entry_for_key(key);
-    return r.has_value() ? (*r)->_time : util::nullopt;
+  util::optional<int64_t> GetMemoTimeForKey(KeyType key) {
+    auto r = GetMemoEntryForKey(key);
+    return r.has_value() ? util::make_optional((*r)->_time) : util::nullopt;
   }
 
-  void remove_memo_entries_with_lesser_time(int64_t ts) {
-    memo_.remove_entries_with_lesser_time(ts);
+  void RemoveMemoEntriesWithLesserTime(int64_t ts) {
+    memo_.RemoveEntriesWithLesserTime(ts);
   }
 
   const std::shared_ptr<Schema>& get_schema() const { return schema_; }
@@ -344,19 +347,19 @@ class CompositeReferenceTable {
   // Adds the latest row from the input state as a new composite reference row
   // - LHS must have a valid key,timestep,and latest rows
   // - RHS must have valid data memo'ed for the key
-  void emplace(std::vector<std::unique_ptr<InputState>>& in, int64_t tolerance) {
+  void Emplace(std::vector<std::unique_ptr<InputState>>& in, int64_t tolerance) {
     DCHECK_EQ(in.size(), n_tables_);
 
     // Get the LHS key
-    KeyType key = in[0]->get_latest_key();
+    KeyType key = in[0]->GetLatestKey();
 
     // Add row and setup LHS
     // (the LHS state comes just from the latest row of the LHS table)
-    DCHECK(!in[0]->empty());
+    DCHECK(!in[0]->Empty());
     const std::shared_ptr<arrow::RecordBatch>& lhs_latest_batch =
-        in[0]->get_latest_batch();
-    row_index_t lhs_latest_row = in[0]->get_latest_row();
-    int64_t lhs_latest_time = in[0]->get_latest_time();
+        in[0]->GetLatestBatch();
+    row_index_t lhs_latest_row = in[0]->GetLatestRow();
+    int64_t lhs_latest_time = in[0]->GetLatestTime();
     if (0 == lhs_latest_row) {
       // On the first row of the batch, we resize the destination.
       // The destination size is dictated by the size of the LHS batch.
@@ -368,13 +371,13 @@ class CompositeReferenceTable {
     auto& row = rows_.back();
     row.refs[0].batch = lhs_latest_batch.get();
     row.refs[0].row = lhs_latest_row;
-    add_record_batch_ref(lhs_latest_batch);
+    AddRecordBatchRef(lhs_latest_batch);
 
     // Get the state for that key from all on the RHS -- assumes it's up to date
     // (the RHS state comes from the memoized row references)
     for (size_t i = 1; i < in.size(); ++i) {
       util::optional<const MemoStore::Entry*> opt_entry =
-          in[i]->get_memo_entry_for_key(key);
+          in[i]->GetMemoEntryForKey(key);
       if (opt_entry.has_value()) {
         DCHECK(*opt_entry);
         if ((*opt_entry)->_time + tolerance >= lhs_latest_time) {
@@ -382,7 +385,7 @@ class CompositeReferenceTable {
           const MemoStore::Entry* entry = *opt_entry;
           row.refs[i].batch = entry->_batch.get();
           row.refs[i].row = entry->_row;
-          add_record_batch_ref(entry->_batch);
+          AddRecordBatchRef(entry->_batch);
           continue;
         }
       }
@@ -392,7 +395,7 @@ class CompositeReferenceTable {
   }
 
   // Materializes the current reference table into a target record batch
-  Result<std::shared_ptr<RecordBatch>> materialize(
+  Result<std::shared_ptr<RecordBatch>> Materialize(
       const std::shared_ptr<arrow::Schema>& output_schema,
       const std::vector<std::unique_ptr<InputState>>& state) {
     // cerr << "materialize BEGIN\n";
@@ -410,7 +413,7 @@ class CompositeReferenceTable {
       {
         for (col_index_t i_src_col = 0; i_src_col < n_src_cols; ++i_src_col) {
           util::optional<col_index_t> i_dst_col_opt =
-              state[i_table]->map_src_to_dst(i_src_col);
+              state[i_table]->MapSrcToDst(i_src_col);
           if (!i_dst_col_opt) continue;
           col_index_t i_dst_col = *i_dst_col_opt;
           const auto& src_field = state[i_table]->get_schema()->field(i_src_col);
@@ -422,18 +425,18 @@ class CompositeReferenceTable {
           if (field_type->Equals(arrow::int32())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
-                (materialize_primitive_column<arrow::Int32Builder, int32_t>(i_table,
-                                                                            i_src_col)));
+                (MaterializePrimitiveColumn<arrow::Int32Builder, int32_t>(i_table,
+									  i_src_col)));
           } else if (field_type->Equals(arrow::int64())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
-                (materialize_primitive_column<arrow::Int64Builder, int64_t>(i_table,
-                                                                            i_src_col)));
+                (MaterializePrimitiveColumn<arrow::Int64Builder, int64_t>(i_table,
+									  i_src_col)));
           } else if (field_type->Equals(arrow::float64())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
-                (materialize_primitive_column<arrow::DoubleBuilder, double>(i_table,
-                                                                            i_src_col)));
+                (MaterializePrimitiveColumn<arrow::DoubleBuilder, double>(i_table,
+									  i_src_col)));
           } else {
             ARROW_RETURN_NOT_OK(
                 Status::Invalid("Unsupported data type: ", src_field->name()));
@@ -465,13 +468,13 @@ class CompositeReferenceTable {
   size_t n_tables_;
 
   // Adds a RecordBatch ref to the mapping, if needed
-  void add_record_batch_ref(const std::shared_ptr<RecordBatch>& ref) {
+  void AddRecordBatchRef(const std::shared_ptr<RecordBatch>& ref) {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
 
   template <class Builder, class PrimitiveType>
-  Result<std::shared_ptr<Array>> materialize_primitive_column(size_t i_table,
-                                                              col_index_t i_col) {
+  Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(size_t i_table,
+							    col_index_t i_col) {
     Builder builder;
     ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
@@ -496,44 +499,37 @@ class AsofJoinSchema {
 };
 
 class AsofJoinNode : public ExecNode {
-  // Constructs labels for inputs
-  static std::vector<std::string> build_input_labels(
-      const std::vector<ExecNode*>& inputs) {
-    std::vector<std::string> r(inputs.size());
-    for (size_t i = 0; i < r.size(); ++i) r[i] = "input_" + std::to_string(i) + "_label";
-    return r;
-  }
 
   // Advances the RHS as far as possible to be up to date for the current LHS timestamp
-  bool update_rhs() {
+  bool UpdateRhs() {
     auto& lhs = *state_.at(0);
-    auto lhs_latest_time = lhs.get_latest_time();
+    auto lhs_latest_time = lhs.GetLatestTime();
     bool any_updated = false;
     for (size_t i = 1; i < state_.size(); ++i)
-      any_updated |= state_[i]->advance_and_memoize(lhs_latest_time);
+      any_updated |= state_[i]->AdvanceAndMemoize(lhs_latest_time);
     return any_updated;
   }
 
   // Returns false if RHS not up to date for LHS
-  bool is_up_to_date_for_lhs_row() const {
+  bool IsUpToDateWithLhsRow() const {
     auto& lhs = *state_[0];
-    if (lhs.empty()) return false;  // can't proceed if nothing on the LHS
-    int64_t lhs_ts = lhs.get_latest_time();
+    if (lhs.Empty()) return false;  // can't proceed if nothing on the LHS
+    int64_t lhs_ts = lhs.GetLatestTime();
     for (size_t i = 1; i < state_.size(); ++i) {
       auto& rhs = *state_[i];
-      if (!rhs.finished()) {
+      if (!rhs.Finished()) {
         // If RHS is finished, then we know it's up to date (but if it isn't, it might be
         // up to date)
-        if (rhs.empty())
+        if (rhs.Empty())
           return false;  // RHS isn't finished, but is empty --> not up to date
-        if (lhs_ts >= rhs.get_latest_time())
+        if (lhs_ts >= rhs.GetLatestTime())
           return false;  // TS not up to date (and not finished)
       }
     }
     return true;
   }
 
-  Result<std::shared_ptr<RecordBatch>> process_inner() {
+  Result<std::shared_ptr<RecordBatch>> ProcessInner() {
 
     assert(!state_.empty());
     auto& lhs = *state_.at(0);
@@ -545,24 +541,24 @@ class AsofJoinNode : public ExecNode {
     // limit, or run out of input
     for (;;) {
       // If LHS is finished or empty then there's nothing we can do here
-      if (lhs.finished() || lhs.empty()) break;
+      if (lhs.Finished() || lhs.Empty()) break;
 
       // Advance each of the RHS as far as possible to be up to date for the LHS timestamp
-      bool any_advanced = update_rhs();
+      bool any_advanced = UpdateRhs();
 
       // Only update if we have up-to-date information for the LHS row
-      if (is_up_to_date_for_lhs_row()) {
-        dst.emplace(state_, options_.tolerance);
-        if (!lhs.advance()) break;  // if we can't advance LHS, we're done for this batch
+      if (IsUpToDateWithLhsRow()) {
+        dst.Emplace(state_, options_.tolerance);
+        if (!lhs.Advance()) break;  // if we can't advance LHS, we're done for this batch
       } else {
         if ((!any_advanced) && (state_.size() > 1)) break;  // need to wait for new data
       }
     }
 
     // Prune memo entries that have expired (to bound memory consumption)
-    if (!lhs.empty()) {
+    if (!lhs.Empty()) {
       for (size_t i = 1; i < state_.size(); ++i) {
-        state_[i]->remove_memo_entries_with_lesser_time(lhs.get_latest_time() -
+        state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() -
                                                         options_.tolerance);
       }
     }
@@ -571,11 +567,11 @@ class AsofJoinNode : public ExecNode {
     if (dst.empty()) {
       return NULLPTR;
     } else {
-      return dst.materialize(output_schema(), state_);
+      return dst.Materialize(output_schema(), state_);
     }
   }
 
-  void process() {
+  void Process() {
     std::cerr << "process() begin\n";
 
     std::lock_guard<std::mutex> guard(gate_);
@@ -586,7 +582,7 @@ class AsofJoinNode : public ExecNode {
 
     // Process batches while we have data
     for (;;) {
-      Result<std::shared_ptr<RecordBatch>> result = process_inner();
+      Result<std::shared_ptr<RecordBatch>> result = ProcessInner();
 
       if (result.ok()) {
         auto out_rb = *result;
@@ -608,24 +604,24 @@ class AsofJoinNode : public ExecNode {
     //
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
-    if (state_.at(0)->finished()) {
+    if (state_.at(0)->Finished()) {
       StopProducing();
       outputs_[0]->InputFinished(this, batches_produced_);
     }
   }
 
-  void process_thread() {
+  void ProcessThread() {
     std::cerr << "AsofJoinNode::process_thread started.\n";
     for (;;) {
       if (!process_.Pop()) {
         std::cerr << "AsofJoinNode::process_thread done.\n";
         return;
       }
-      process();
+      Process();
     }
   }
 
-  static void process_thread_wrapper(AsofJoinNode* node) { node->process_thread(); }
+  static void ProcessThreadWrapper(AsofJoinNode* node) { node->ProcessThread(); }
 
  public:
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
@@ -669,7 +665,7 @@ class AsofJoinNode : public ExecNode {
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
 
-    state_.at(k)->push(rb);
+    state_.at(k)->Push(rb);
     process_.Push(true);
 
     std::cerr << "InputReceived END\n";
@@ -774,13 +770,13 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                /*num_outputs=*/1),
       options_(join_options),
       process_(),
-      process_thread_(&AsofJoinNode::process_thread_wrapper, this) {
+      process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
   for (size_t i = 0; i < inputs.size(); ++i)
     state_.push_back(::arrow::internal::make_unique<InputState>(
         inputs[i]->output_schema(), *options_.on_key.name(), *options_.by_key.name()));
   col_index_t dst_offset = 0;
   for (auto& state : state_)
-    dst_offset = state->init_src_to_dst_mapping(dst_offset, !!dst_offset);
+    dst_offset = state->InitSrcToDstMapping(dst_offset, !!dst_offset);
 
   finished_ = arrow::Future<>::MakeFinished();
 }
