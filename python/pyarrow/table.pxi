@@ -4701,15 +4701,15 @@ cdef class Table(_PandasConvertible):
         Right outer join:
 
         >>> t = t1.join(t2, 'id', join_type="right outer")
-        >>> t.select(["id", "year", "n_legs", "animal"])
+        >>> t.select(["year", "id", "n_legs", "animal"])
         pyarrow.Table
-        id: int64
         year: int64
+        id: int64
         n_legs: int64
         animal: string
         ----
-        id: [[3],[4]]
         year: [[2019],[null]]
+        id: [[3],[4]]
         n_legs: [[5],[100]]
         animal: [["Brittle stars"],["Centipede"]]
 
