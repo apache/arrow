@@ -361,16 +361,27 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   Expression filter;
 };
 
+
+/// \brief Make a node which implements asof join operation
+///
+/// This node takes one left table and (n-1) right tables, and asof joins them
+/// together. Batches produced by each inputs must be ordered by the "on" key.
+/// The batch size that this node produces is decided by the left table.
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
-  AsofJoinNodeOptions(FieldRef time, FieldRef keys, int64_t tolerance)
-      : time(std::move(time)), keys(std::move(keys)), tolerance(tolerance) {}
+  AsofJoinNodeOptions(FieldRef on_key, FieldRef by_key, int64_t tolerance)
+      : on_key(std::move(on_key)), by_key(std::move(by_key)), tolerance(tolerance) {}
 
-  // time column
-  FieldRef time;
-  // keys used for the join. All tables must have the same join key.
-  FieldRef keys;
-  // tolerance for the inexact timestamp matching in nanoseconds
+  // "on" key for the join. Each input table must be sorted by the "on" key. Inexact
+  // match is used on the "on" key. i.e., a row is considiered match iff
+  // left_on - tolerance <= right_on <= left_on.
+  // Currently, "on" key must be an int64 field
+  FieldRef on_key;
+  // "by" key for the join. All tables must have the "by" key. Equity prediciate
+  // are used on the "by" key.
+  // Currently, "by" key must be an int32 field
+  FieldRef by_key;
+  // tolerance for inexact "on" key matching
   int64_t tolerance;
 };
 

@@ -21,7 +21,6 @@
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/util/optional.h>
-#include "arrow/compute/exec/asof_join.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
@@ -38,6 +37,14 @@
 
 namespace arrow {
 namespace compute {
+
+// Remove this when multiple keys and/or types is supported
+typedef int32_t KeyType;
+
+// Maximum number of tables that can be joined
+#define MAX_JOIN_TABLES 64
+typedef uint64_t row_index_t;
+typedef int col_index_t;
 
 /**
  * Simple implementation for an unbound concurrent queue
@@ -143,10 +150,8 @@ class InputState {
 
  public:
   InputState(const std::shared_ptr<arrow::Schema>& schema,
-             const std::string& time_col_name, const std::string& key_col_name,
-             util::optional<KeyType> wildcard_key)
+             const std::string& time_col_name, const std::string& key_col_name)
       : queue_(),
-        wildcard_key_(wildcard_key),
         schema_(schema),
         time_col_index_(
             schema->GetFieldIndex(time_col_name)),  // TODO: handle missing field name
@@ -180,7 +185,6 @@ class InputState {
     return queue_.empty();
   }
 
-  int countbatches_processed_() const { return batches_processed_; }
   int count_total_batches() const { return total_batches_; }
 
   // Gets latest batch (precondition: must not be empty)
@@ -249,7 +253,7 @@ class InputState {
 
   void push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
-      queue_.push(rb);
+      queue_.Push(rb);
     } else {
       ++batches_processed_;  // don't enqueue empty batches, just record as processed
     }
@@ -258,7 +262,6 @@ class InputState {
   util::optional<const MemoStore::Entry*> get_memo_entry_for_key(KeyType key) {
     auto r = memo_.get_entry_for_key(key);
     if (r.has_value()) return r;
-    if (wildcard_key_.has_value()) r = memo_.get_entry_for_key(*wildcard_key_);
     return r;
   }
 
@@ -282,9 +285,6 @@ class InputState {
  private:
   // Pending record batches.  The latest is the front.  Batches cannot be empty.
   ConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
-
-  // Wildcard key for this input, if applicable.
-  util::optional<KeyType> wildcard_key_;
 
   // Schema associated with the input
   std::shared_ptr<Schema> schema_;
@@ -489,6 +489,12 @@ class CompositeReferenceTable {
   }
 };
 
+class AsofJoinSchema {
+ public:
+  std::shared_ptr<Schema> MakeOutputSchema(const std::vector<ExecNode*>& inputs,
+                                           const AsofJoinNodeOptions& options);
+};
+
 class AsofJoinNode : public ExecNode {
   // Constructs labels for inputs
   static std::vector<std::string> build_input_labels(
@@ -500,21 +506,21 @@ class AsofJoinNode : public ExecNode {
 
   // Advances the RHS as far as possible to be up to date for the current LHS timestamp
   bool update_rhs() {
-    auto& lhs = *_state.at(0);
+    auto& lhs = *state_.at(0);
     auto lhs_latest_time = lhs.get_latest_time();
     bool any_updated = false;
-    for (size_t i = 1; i < _state.size(); ++i)
-      any_updated |= _state[i]->advance_and_memoize(lhs_latest_time);
+    for (size_t i = 1; i < state_.size(); ++i)
+      any_updated |= state_[i]->advance_and_memoize(lhs_latest_time);
     return any_updated;
   }
 
   // Returns false if RHS not up to date for LHS
   bool is_up_to_date_for_lhs_row() const {
-    auto& lhs = *_state[0];
+    auto& lhs = *state_[0];
     if (lhs.empty()) return false;  // can't proceed if nothing on the LHS
     int64_t lhs_ts = lhs.get_latest_time();
-    for (size_t i = 1; i < _state.size(); ++i) {
-      auto& rhs = *_state[i];
+    for (size_t i = 1; i < state_.size(); ++i) {
+      auto& rhs = *state_[i];
       if (!rhs.finished()) {
         // If RHS is finished, then we know it's up to date (but if it isn't, it might be
         // up to date)
@@ -528,11 +534,12 @@ class AsofJoinNode : public ExecNode {
   }
 
   Result<std::shared_ptr<RecordBatch>> process_inner() {
-    assert(!_state.empty());
-    auto& lhs = *_state.at(0);
+
+    assert(!state_.empty());
+    auto& lhs = *state_.at(0);
 
     // Construct new target table if needed
-    CompositeReferenceTable<MAX_JOIN_TABLES> dst(_state.size());
+    CompositeReferenceTable<MAX_JOIN_TABLES> dst(state_.size());
 
     // Generate rows into the dst table until we either run out of data or hit the row
     // limit, or run out of input
@@ -545,18 +552,18 @@ class AsofJoinNode : public ExecNode {
 
       // Only update if we have up-to-date information for the LHS row
       if (is_up_to_date_for_lhs_row()) {
-        dst.emplace(_state, _options.tolerance);
+        dst.emplace(state_, options_.tolerance);
         if (!lhs.advance()) break;  // if we can't advance LHS, we're done for this batch
       } else {
-        if ((!any_advanced) && (_state.size() > 1)) break;  // need to wait for new data
+        if ((!any_advanced) && (state_.size() > 1)) break;  // need to wait for new data
       }
     }
 
     // Prune memo entries that have expired (to bound memory consumption)
     if (!lhs.empty()) {
-      for (size_t i = 1; i < _state.size(); ++i) {
-        _state[i]->remove_memo_entries_with_lesser_time(lhs.get_latest_time() -
-                                                        _options.tolerance);
+      for (size_t i = 1; i < state_.size(); ++i) {
+        state_[i]->remove_memo_entries_with_lesser_time(lhs.get_latest_time() -
+                                                        options_.tolerance);
       }
     }
 
@@ -564,14 +571,14 @@ class AsofJoinNode : public ExecNode {
     if (dst.empty()) {
       return NULLPTR;
     } else {
-      return dst.materialize(output_schema(), _state);
+      return dst.materialize(output_schema(), state_);
     }
   }
 
   void process() {
     std::cerr << "process() begin\n";
 
-    std::lock_guard<std::mutex> guard(_gate);
+    std::lock_guard<std::mutex> guard(gate_);
     if (finished_.is_finished()) {
       std::cerr << "InputReceived EARLYEND\n";
       return;
@@ -584,7 +591,7 @@ class AsofJoinNode : public ExecNode {
       if (result.ok()) {
         auto out_rb = *result;
         if (!out_rb) break;
-        ++_progress_batches_produced;
+        ++batches_produced_;
         ExecBatch out_b(*out_rb);
         outputs_[0]->InputReceived(this, std::move(out_b));
       } else {
@@ -601,18 +608,16 @@ class AsofJoinNode : public ExecNode {
     //
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
-    if (_state.at(0)->finished()) {
-      total_batches_produced_ = util::make_optional<int>(_progress_batches_produced);
+    if (state_.at(0)->finished()) {
       StopProducing();
-      DCHECK(total_batches_produced_.has_value());
-      outputs_[0]->InputFinished(this, *total_batches_produced_);
+      outputs_[0]->InputFinished(this, batches_produced_);
     }
   }
 
   void process_thread() {
     std::cerr << "AsofJoinNode::process_thread started.\n";
     for (;;) {
-      if (!_process.pop()) {
+      if (!process_.Pop()) {
         std::cerr << "AsofJoinNode::process_thread done.\n";
         return;
       }
@@ -629,8 +634,8 @@ class AsofJoinNode : public ExecNode {
                std::unique_ptr<AsofJoinSchema> schema_mgr);
 
   virtual ~AsofJoinNode() {
-    _process.push(false);  // poison pill
-    _process_thread.join();
+    process_.Push(false);  // poison pill
+    process_thread_.join();
   }
 
   static arrow::Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -664,8 +669,8 @@ class AsofJoinNode : public ExecNode {
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
 
-    _state.at(k)->push(rb);
-    _process.push(true);
+    state_.at(k)->push(rb);
+    process_.Push(true);
 
     std::cerr << "InputReceived END\n";
   }
@@ -675,20 +680,18 @@ class AsofJoinNode : public ExecNode {
   }
   void InputFinished(ExecNode* input, int total_batches) override {
     std::cerr << "InputFinished BEGIN\n";
-    // bool is_finished=false;
     {
-      std::lock_guard<std::mutex> guard(_gate);
+      std::lock_guard<std::mutex> guard(gate_);
       std::cerr << "InputFinished find\n";
       ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
       size_t k = std::find(inputs_.begin(), inputs_.end(), input) - inputs_.begin();
-      // cerr << "set_total_batches for input " << k << ": " << total_batches << "\n";
-      _state.at(k)->set_total_batches(total_batches);
+      state_.at(k)->set_total_batches(total_batches);
     }
     // Trigger a process call
     // The reason for this is that there are cases at the end of a table where we don't
     // know whether the RHS of the join is up-to-date until we know that the table is
     // finished.
-    _process.push(true);
+    process_.Push(true);
 
     std::cerr << "InputFinished END\n";
   }
@@ -724,22 +727,18 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished_;
   // InputStates
   // Each input state correponds to an input table
-  //
-  std::vector<std::unique_ptr<InputState>> _state;
-  std::mutex _gate;
-  AsofJoinNodeOptions _options;
+  std::vector<std::unique_ptr<InputState>> state_;
+  std::mutex gate_;
+  AsofJoinNodeOptions options_;
 
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
-  ConcurrentQueue<bool> _process;
+  ConcurrentQueue<bool> process_;
   // Worker thread
-  std::thread _process_thread;
-
-  // Total batches produced, once we've finished -- only known at completion time.
-  util::optional<int> total_batches_produced_;
+  std::thread process_thread_;
 
   // In-progress batches produced
-  int _progress_batches_produced = 0;
+  int batches_produced_ = 0;
 };
 
 std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(
@@ -756,7 +755,7 @@ std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(
     const auto& input_schema = inputs[j]->output_schema();
     for (int i = 0; i < input_schema->num_fields(); ++i) {
       const auto& name = input_schema->field(i)->name();
-      if ((name != *options.keys.name()) && (name != *options.time.name())) {
+      if ((name != *options.by_key.name()) && (name != *options.on_key.name())) {
         fields.push_back(input_schema->field(i));
       }
     }
@@ -773,15 +772,14 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
-      _options(join_options),
-      _process(),
-      _process_thread(&AsofJoinNode::process_thread_wrapper, this) {
+      options_(join_options),
+      process_(),
+      process_thread_(&AsofJoinNode::process_thread_wrapper, this) {
   for (size_t i = 0; i < inputs.size(); ++i)
-    _state.push_back(::arrow::internal::make_unique<InputState>(
-        inputs[i]->output_schema(), *_options.time.name(), *_options.keys.name(),
-        util::make_optional<KeyType>(0) /*TODO: make wildcard configuirable*/));
+    state_.push_back(::arrow::internal::make_unique<InputState>(
+        inputs[i]->output_schema(), *options_.on_key.name(), *options_.by_key.name()));
   col_index_t dst_offset = 0;
-  for (auto& state : _state)
+  for (auto& state : state_)
     dst_offset = state->init_src_to_dst_mapping(dst_offset, !!dst_offset);
 
   finished_ = arrow::Future<>::MakeFinished();
