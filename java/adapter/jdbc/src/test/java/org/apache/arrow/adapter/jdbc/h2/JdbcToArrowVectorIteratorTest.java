@@ -105,16 +105,16 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
   @Test
   public void testVectorSchemaRootReuse() throws SQLException, IOException {
     Integer[][] intValues = {
-          {101, 102, 103},
-          {104, null, null},
-          {107, 108, 109},
-          {110}
+            {101, 102, 103},
+            {104, null, null},
+            {107, 108, 109},
+            {110}
     };
     Integer[][][] listValues = {
-          {{1, 2, 3}, {1, 2}, {1}},
-          {{2, 3, 4}, {2, 3}, {2}},
-          {{3, 4, 5}, {3, 4}, {3}},
-          {{}}
+            {{1, 2, 3}, {1, 2}, {1}},
+            {{2, 3, 4}, {2, 3}, {2}},
+            {{3, 4, 5}, {3, 4}, {3}},
+            {{}}
     };
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
