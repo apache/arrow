@@ -280,8 +280,8 @@ class InputState {
   const std::shared_ptr<Schema>& get_schema() const { return schema_; }
 
   void set_total_batches(int n) {
-    assert(n >= 0);
-    assert(total_batches_ == -1);  // shouldn't be set more than once
+    DCHECK_GE(n, 0);
+    DCHECK_EQ(total_batches_, -1) << "Set total batch more than once";
     total_batches_ = n;
   }
 
@@ -446,7 +446,7 @@ class CompositeReferenceTable {
     }
 
     // Build the result
-    DCHECK_GE(sizeof(size_t), sizeof(int64_t)) << "AsofJoinNode requires size_t >= 8 bytes";
+    DCHECK_GE(sizeof(size_t), sizeof(int64_t)) << "Requires size_t >= 8 bytes";
 
     // TODO: check n_rows for cast
     std::shared_ptr<arrow::RecordBatch> r =
@@ -499,7 +499,6 @@ class AsofJoinSchema {
 };
 
 class AsofJoinNode : public ExecNode {
-
   // Advances the RHS as far as possible to be up to date for the current LHS timestamp
   bool UpdateRhs() {
     auto& lhs = *state_.at(0);
@@ -530,8 +529,7 @@ class AsofJoinNode : public ExecNode {
   }
 
   Result<std::shared_ptr<RecordBatch>> ProcessInner() {
-
-    assert(!state_.empty());
+    DCHECK(!state_.empty());
     auto& lhs = *state_.at(0);
 
     // Construct new target table if needed
