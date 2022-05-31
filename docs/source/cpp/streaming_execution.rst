@@ -35,7 +35,7 @@ compute functions <invoking-compute-functions>` is not feasible
 in either memory or computation time. Doing so causes all intermediate
 data to be fully materialized. To facilitate arbitrarily large inputs
 and more efficient resource usage, the Arrow C++ implementation also
-provides Acero (pronounced AH-serr-oh), a streaming query engine with which computations can
+provides Acero, a streaming query engine with which computations can
 be formulated and executed.
 
 .. image:: simple_graph.svg
