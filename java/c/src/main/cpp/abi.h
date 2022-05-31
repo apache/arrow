@@ -65,14 +65,6 @@ struct ArrowArray {
 
 #endif  // ARROW_C_DATA_INTERFACE
 
-#ifdef __cplusplus
-}
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // EXPERIMENTAL: C stream interface
 
 #ifndef ARROW_C_STREAM_INTERFACE
