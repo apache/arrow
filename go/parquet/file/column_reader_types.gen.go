@@ -19,8 +19,6 @@
 package file
 
 import (
-	"unsafe"
-
 	"github.com/apache/arrow/go/v9/arrow"
 	"github.com/apache/arrow/go/v9/parquet"
 	"github.com/apache/arrow/go/v9/parquet/internal/encoding"
@@ -208,7 +206,7 @@ func (cr *BooleanColumnChunkReader) Skip(nvalues int64) (int64, error) {
 	return cr.columnChunkReader.skipValues(nvalues,
 		func(batch int64, buf []byte) (int64, error) {
 			vals, _, err := cr.ReadBatch(batch,
-				*(*[]bool)(unsafe.Pointer(&buf)),
+				make([]bool, len(buf)*8),
 				nil,
 				nil)
 			return vals, err
