@@ -35,8 +35,7 @@ class ReservationListenableMemoryPool::Impl {
       : pool_(pool),
         listener_(listener),
         block_size_(block_size),
-        blocks_reserved_(0),
-        bytes_reserved_(0) {}
+        blocks_reserved_(0) {}
 
   arrow::Status Allocate(int64_t size, uint8_t** out) {
     RETURN_NOT_OK(UpdateReservation(size));
