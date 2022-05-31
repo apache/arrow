@@ -213,7 +213,8 @@ def s3fs(request, s3_server):
         secret_key=secret_key,
         endpoint_override='{}:{}'.format(host, port),
         scheme='http',
-        allow_create_buckets=True
+        allow_bucket_creation=True,
+        allow_bucket_deletion=True
     )
     fs.create_dir(bucket)
 
@@ -446,6 +447,9 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
 
     with pytest.raises(pa.ArrowIOError):
         fs.create_dir('new-bucket')
+    
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir('existing-bucket')
 
 
 def test_file_info_constructor():
@@ -1319,7 +1323,7 @@ def test_filesystem_from_uri_s3(s3_server):
     assert isinstance(fs, S3FileSystem)
     assert path == "mybucket/foo/bar"
 
-    fs.allow_create_buckets = True
+    fs.allow_bucket_creation = True
     fs.create_dir(path)
     [info] = fs.get_file_info([path])
     assert info.path == path

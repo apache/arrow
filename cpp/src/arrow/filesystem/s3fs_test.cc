@@ -406,7 +406,8 @@ class TestS3FS : public S3TestMixin {
   void SetUp() override {
     S3TestMixin::SetUp();
     // Most tests will create buckets
-    options_.allow_create_buckets = true;
+    options_.allow_bucket_creation = true;
+    options_.allow_bucket_deletion = true;
     MakeFileSystem();
     // Set up test bucket
     {
@@ -1130,7 +1131,8 @@ TEST_F(TestS3FS, NoCreateDeleteBucket) {
   // Create a bucket to try deleting
   ASSERT_OK(fs_->CreateDir("test-no-delete"));
 
-  options_.allow_create_buckets = false;
+  options_.allow_bucket_creation = false;
+  options_.allow_bucket_deletion = false;
   MakeFileSystem();
   ASSERT_RAISES(IOError, fs_->CreateDir("test-no-create"));
   ASSERT_RAISES(IOError, fs_->DeleteDir("test-no-delete"));

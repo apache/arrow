@@ -283,7 +283,7 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
     std::string session_name = "", std::string external_id = "", int load_frequency = 900,
     std::string region = "", std::string endpoint_override = "", std::string scheme = "",
     std::string proxy_options = "", bool background_writes = true,
-    bool allow_create_buckets = false) {
+    bool allow_bucket_creation = false, bool allow_bucket_deletion = false) {
   // We need to ensure that S3 is initialized before we start messing with the
   // options
   StopIfNotOk(fs::EnsureS3Initialized());
@@ -322,7 +322,8 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   /// default true
   s3_opts.background_writes = background_writes;
 
-  s3_opts.allow_create_buckets = allow_create_buckets;
+  s3_opts.allow_bucket_creation = allow_bucket_creation;
+  s3_opts.allow_bucket_deletion = allow_bucket_deletion;
 
   auto io_context = arrow::io::IOContext(gc_memory_pool());
   return ValueOrStop(fs::S3FileSystem::Make(s3_opts, io_context));
@@ -334,9 +335,15 @@ std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& f
 }
 
 // [[s3::export]]
-void fs__S3FileSystem__allow_create_buckets(const std::shared_ptr<fs::S3FileSystem>& fs,
-                                            bool allow) {
-  fs->allow_create_buckets(allow);
+void fs__S3FileSystem__allow_bucket_creation(const std::shared_ptr<fs::S3FileSystem>& fs,
+                                             bool allow) {
+  fs->allow_bucket_creation(allow);
+}
+
+// [[s3::export]]
+void fs__S3FileSystem__allow_bucket_deletion(const std::shared_ptr<fs::S3FileSystem>& fs,
+                                             bool allow) {
+  fs->allow_bucket_deletion(allow);
 }
 
 #endif

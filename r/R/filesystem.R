@@ -150,9 +150,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `scheme`: S3 connection transport (default "https")
 #' - `background_writes`: logical, whether `OutputStream` writes will be issued
 #'    in the background, without blocking (default `TRUE`)
-#' - `allow_create_buckets`: logical, if TRUE, the filesystem will create or
-#'    delete buckets if `$CreateDir()` or `$DeleteDir()` is called on the bucket
-#'    level (default `FALSE`).
+#' - `allow_bucket_creation`: logical, if TRUE, the filesystem will create
+#'    buckets if `$CreateDir()` is called on the bucket level (default `FALSE`).
+#' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
+#'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
 #'
 #' @section Methods:
 #'
@@ -183,9 +184,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$OpenAppendStream(path)`: Open an [output stream][OutputStream] for
 #'    appending.
 #'
-#' `S3FileSystem` also has a method:
+#' `S3FileSystem` also has methods:
 #'
-#' - `$allow_create_buckets()` which can set the corresponding option above.
+#' - `$allow_bucket_creation()` which can set the corresponding option above.
+#' - `$allow_bucket_deletion()` which can set the corresponding option above.
 #'
 #' @section Active bindings:
 #'
@@ -199,7 +201,7 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' @section Notes:
 #'
 #' On S3FileSystem, `$CreateDir()` on a top-level directory creates a new bucket.
-#' When S3FileSystem creates new buckets (assuming allow_create_buckets is TRUE),
+#' When S3FileSystem creates new buckets (assuming allow_bucket_creation is TRUE),
 #' it does not pass any non-default settings. In AWS S3, the bucket and all
 #' objects will be not publicly visible, and will have no bucket policies
 #' and no resource tags. To have more control over how buckets are created,
@@ -348,7 +350,8 @@ S3FileSystem <- R6Class("S3FileSystem",
     region = function() fs___S3FileSystem__region(self)
   ),
   public = list(
-    allow_create_buckets = function(allow) fs__S3FileSystem__allow_create_buckets(self, allow)
+    allow_bucket_creation = function(allow) fs__S3FileSystem__allow_bucket_creation(self, allow),
+    allow_bucket_deletion = function(allow) fs__S3FileSystem__allow_bucket_deletion(self, allow)
   )
 )
 S3FileSystem$create <- function(anonymous = FALSE, ...) {
@@ -357,7 +360,7 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
     invalid_args <- intersect(
       c(
         "access_key", "secret_key", "session_token", "role_arn", "session_name",
-        "external_id", "load_frequency", "allow_create_buckets"
+        "external_id", "load_frequency", "allow_bucket_creation", "allow_bucket_deletion"
       ),
       names(args)
     )
@@ -403,7 +406,8 @@ default_s3_options <- list(
   scheme = "",
   proxy_options = "",
   background_writes = TRUE,
-  allow_create_buckets = FALSE
+  allow_bucket_creation = FALSE,
+  allow_bucket_deletion = FALSE
 )
 
 #' Connect to an AWS S3 bucket

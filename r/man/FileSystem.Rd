@@ -50,9 +50,10 @@ that emulate S3.
 \item \code{scheme}: S3 connection transport (default "https")
 \item \code{background_writes}: logical, whether \code{OutputStream} writes will be issued
 in the background, without blocking (default \code{TRUE})
-\item \code{allow_create_buckets}: logical, if TRUE, the filesystem will create or
-delete buckets if \verb{$CreateDir()} or \verb{$DeleteDir()} is called on the bucket
-level (default \code{FALSE}).
+\item \code{allow_bucket_creation}: logical, if TRUE, the filesystem will create
+buckets if \verb{$CreateDir()} is called on the bucket level (default \code{FALSE}).
+\item \code{allow_bucket_deletion}: logical, if TRUE, the filesystem will delete
+buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE}).
 }
 }
 
@@ -87,9 +88,10 @@ sequential writing.
 appending.
 }
 
-\code{S3FileSystem} also has a method:
+\code{S3FileSystem} also has methods:
 \itemize{
-\item \verb{$allow_create_buckets()} which can set the corresponding option above.
+\item \verb{$allow_bucket_creation()} which can set the corresponding option above.
+\item \verb{$allow_bucket_deletion()} which can set the corresponding option above.
 }
 }
 
@@ -109,7 +111,7 @@ root in this \code{SubTreeFileSystem}.
 
 
 On S3FileSystem, \verb{$CreateDir()} on a top-level directory creates a new bucket.
-When S3FileSystem creates new buckets (assuming allow_create_buckets is TRUE),
+When S3FileSystem creates new buckets (assuming allow_bucket_creation is TRUE),
 it does not pass any non-default settings. In AWS S3, the bucket and all
 objects will be not publicly visible, and will have no bucket policies
 and no resource tags. To have more control over how buckets are created,

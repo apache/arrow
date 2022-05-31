@@ -99,9 +99,9 @@ cdef class S3FileSystem(FileSystem):
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
 
-    When S3FileSystem creates new buckets (assuming allow_create_buckets is True),
-    it does not pass any non-default settings. In AWS S3, the bucket and all 
-    objects will be not publicly visible, and will have no bucket policies 
+    When S3FileSystem creates new buckets (assuming allow_bucket_creation is 
+    True), it does not pass any non-default settings. In AWS S3, the bucket and 
+    all objects will be not publicly visible, and will have no bucket policies 
     and no resource tags. To have more control over how buckets are created,
     use a different API to create them.
 
@@ -156,9 +156,12 @@ cdef class S3FileSystem(FileSystem):
             S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
-    allow_create_buckets : bool, default False
-        If True, allows creating and deleting buckets. This option may also be
-        passed in a URI query parameter.
+    allow_bucket_creation : bool, default False
+        If True, allows creating buckets. This option may also be passed in a 
+        URI query parameter.
+    allow_bucket_deletion : bool, default False
+        If True, allows deleting buckets. This option may also be passed in a 
+        URI query parameter.
     """
 
     cdef:
@@ -169,7 +172,7 @@ cdef class S3FileSystem(FileSystem):
                  endpoint_override=None, bint background_writes=True,
                  default_metadata=None, role_arn=None, session_name=None,
                  external_id=None, load_frequency=900, proxy_options=None,
-                 allow_create_buckets=False):
+                 allow_bucket_creation=False, allow_bucket_deletion=False):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -263,7 +266,8 @@ cdef class S3FileSystem(FileSystem):
                     "'proxy_options': expected 'dict' or 'str', "
                     f"got {type(proxy_options)} instead.")
 
-        options.allow_create_buckets = allow_create_buckets
+        options.allow_bucket_creation = allow_bucket_creation
+        options.allow_bucket_deletion = allow_bucket_deletion
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
@@ -326,12 +330,23 @@ cdef class S3FileSystem(FileSystem):
         return frombytes(self.s3fs.region())
 
     @property
-    def allow_create_buckets(self):
+    def allow_bucket_creation(self):
         """
-        Whether to allow CreateDir and DeleteDir at the bucket-level.
+        Whether to allow CreateDir at the bucket-level.
         """
-        return self.s3fs.options().allow_create_buckets
+        return self.s3fs.options().allow_bucket_creation
 
-    @allow_create_buckets.setter
-    def allow_create_buckets(self, value):
-        self.s3fs.allow_create_buckets(value)
+    @allow_bucket_creation.setter
+    def allow_bucket_creation(self, value):
+        self.s3fs.allow_bucket_creation(value)
+
+    @property
+    def allow_bucket_deletion(self):
+        """
+        Whether to allow DeleteDir at the bucket-level.
+        """
+        return self.s3fs.options().allow_bucket_deletion
+
+    @allow_bucket_deletion.setter
+    def allow_bucket_deletion(self, value):
+        self.s3fs.allow_bucket_deletion(value)

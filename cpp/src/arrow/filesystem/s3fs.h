@@ -136,7 +136,10 @@ struct ARROW_EXPORT S3Options {
   /// In AWS S3, the bucket and all objects will be not publicly visible, and there
   /// will be no bucket policies and no resource tags. To have more control over how
   /// buckets are created, use a different API to create them.
-  bool allow_create_buckets = false;
+  bool allow_bucket_creation = false;
+
+  /// Whether to allow deletion of buckets
+  bool allow_bucket_deletion = false;
 
   /// \brief Default metadata for OpenOutputStream.
   ///
@@ -226,7 +229,11 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// Return the actual region this filesystem connects to
   std::string region() const;
 
-  void allow_create_buckets(bool allow);
+  /// Set create_buckets property of options
+  void allow_bucket_creation(bool allow);
+
+  /// Set delete_buckets property of options
+  void allow_bucket_deletion(bool allow);
 
   bool Equals(const FileSystem& other) const override;
 

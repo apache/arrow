@@ -354,8 +354,11 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
       options.scheme = kv.second;
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
-    } else if (kv.first == "allow_create_buckets") {
-      options.allow_create_buckets =
+    } else if (kv.first == "allow_bucket_creation") {
+      options.allow_bucket_creation =
+          ::arrow::internal::AsciiEqualsCaseInsensitive(kv.second, "true");
+    } else if (kv.first == "allow_bucket_deletion") {
+      options.allow_bucket_deletion =
           ::arrow::internal::AsciiEqualsCaseInsensitive(kv.second, "true");
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
@@ -767,7 +770,8 @@ class ClientBuilder {
 
   const S3Options& options() const { return options_; }
 
-  void allow_create_buckets(bool allow) { options_.allow_create_buckets = allow; }
+  void allow_bucket_creation(bool allow) { options_.allow_bucket_creation = allow; }
+  void allow_bucket_deletion(bool allow) { options_.allow_bucket_deletion = allow; }
 
  protected:
   S3Options options_;
@@ -1657,7 +1661,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return std::string(FromAwsString(builder_.config().region));
   }
 
-  void allow_create_buckets(bool allow) { builder_.allow_create_buckets(allow); }
+  void allow_bucket_creation(bool allow) { builder_.allow_bucket_creation(allow); }
+  void allow_bucket_deletion(bool allow) { builder_.allow_bucket_deletion(allow); }
 
   template <typename Error>
   void SaveBackend(const Aws::Client::AWSError<Error>& error) {
@@ -1699,10 +1704,10 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
             outcome.GetError());
       }
 
-      if (!options().allow_create_buckets) {
+      if (!options().allow_bucket_creation) {
         return Status::IOError(
             "Bucket does not exist: '", bucket, "'. ",
-            "To create buckets, enable the allow_create_buckets option.");
+            "To create buckets, enable the allow_bucket_creation option.");
       }
     }
 
@@ -2218,8 +2223,12 @@ S3Options S3FileSystem::options() const { return impl_->options(); }
 
 std::string S3FileSystem::region() const { return impl_->region(); }
 
-void S3FileSystem::allow_create_buckets(bool allow) {
-  impl_->allow_create_buckets(allow);
+void S3FileSystem::allow_bucket_creation(bool allow) {
+  impl_->allow_bucket_creation(allow);
+}
+
+void S3FileSystem::allow_bucket_deletion(bool allow) {
+  impl_->allow_bucket_deletion(allow);
 }
 
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
@@ -2406,7 +2415,7 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
   RETURN_NOT_OK(impl_->DeleteDirContentsAsync(path.bucket, path.key).status());
-  if (path.key.empty() && options().allow_create_buckets) {
+  if (path.key.empty() && options().allow_bucket_deletion) {
     // Delete bucket
     S3Model::DeleteBucketRequest req;
     req.SetBucket(ToAwsString(path.bucket));
@@ -2415,7 +2424,7 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
         impl_->client_->DeleteBucket(req));
   } else if (path.key.empty()) {
     return Status::IOError("Would delete bucket: '", path.bucket, "'. ",
-                           "To delete buckets, enable the allow_create_buckets option.");
+                           "To delete buckets, enable the allow_bucket_deletion option.");
   } else {
     // Delete "directory"
     RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key + kSep));

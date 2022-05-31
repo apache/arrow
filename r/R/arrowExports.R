@@ -1280,16 +1280,20 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_create_buckets) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_create_buckets)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion)
 }
 
 fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
-fs__S3FileSystem__allow_create_buckets <- function(fs, allow) {
-  invisible(.Call(`_arrow_fs__S3FileSystem__allow_create_buckets`, fs, allow))
+fs__S3FileSystem__allow_bucket_creation <- function(fs, allow) {
+  invisible(.Call(`_arrow_fs__S3FileSystem__allow_bucket_creation`, fs, allow))
+}
+
+fs__S3FileSystem__allow_bucket_deletion <- function(fs, allow) {
+  invisible(.Call(`_arrow_fs__S3FileSystem__allow_bucket_deletion`, fs, allow))
 }
 
 io___Readable__Read <- function(x, nbytes) {
