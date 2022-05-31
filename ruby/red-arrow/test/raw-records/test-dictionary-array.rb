@@ -292,6 +292,36 @@ module RawRecordsDictionaryArrayTests
     target = build(Arrow::Decimal256Array.new(data_type, records.collect(&:first)))
     assert_equal(records, target.raw_records)
   end
+
+  def test_month_interval
+    records = [
+      [1],
+      [nil],
+      [12],
+    ]
+    target = build(Arrow::MonthIntervalArray.new(records.collect(&:first)))
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_day_time_interval
+    records = [
+      [{day: 1, millisecond: 100}],
+      [nil],
+      [{day: 2, millisecond: 300}],
+    ]
+    target = build(Arrow::DayTimeIntervalArray.new(records.collect(&:first)))
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_month_day_nano_interval
+    records = [
+      [{month: 1, day: 1, nanosecond: 100}],
+      [nil],
+      [{month: 2, day: 3, nanosecond: 400}],
+    ]
+    target = build(Arrow::MonthDayNanoIntervalArray.new(records.collect(&:first)))
+    assert_equal(records, target.raw_records)
+  end
 end
 
 class RawRecordsRecordBatchDictionaryArraysTest < Test::Unit::TestCase

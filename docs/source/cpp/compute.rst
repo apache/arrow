@@ -1551,6 +1551,32 @@ random generator.
 Array-wise ("vector") functions
 -------------------------------
 
+Cumulative Functions
+~~~~~~~~~~~~~~~~~~~~
+
+Cumulative functions are vector functions that perform a running total on their
+input using an given binary associatve operation and output an array containing
+the corresponding intermediate running values. The input is expected to be of
+numeric type. By default these functions do not detect overflow. They are also
+available in an overflow-checking variant, suffixed ``_checked``, which returns
+an ``Invalid`` :class:`Status` when overflow is detected.
+
++------------------------+-------+-------------+-------------+--------------------------------+-------+
+| Function name          | Arity | Input types | Output type | Options class                  | Notes |
++========================+=======+=============+=============+================================+=======+
+| cumulative_sum         | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
++------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_sum_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
++------------------------+-------+-------------+-------------+--------------------------------+-------+
+
+* \(1) CumulativeSumOptions has two optional parameters. The first parameter
+  :member:`CumulativeSumOptions::start` is a starting value for the running
+  sum. It has a default value of 0. Specified values of ``start`` must have the
+  same type as the input. The second parameter 
+  :member:`CumulativeSumOptions::skip_nulls` is a boolean. When set to
+  false (the default), the first encountered null is propagated. When set to
+  true, each null in the input produces a corresponding null in the output.
+
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
 

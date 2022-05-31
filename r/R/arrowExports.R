@@ -404,8 +404,8 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
-ExecPlan_run <- function(plan, final_node, sort_options, head) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, head)
+ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
 ExecPlan_StopProducing <- function(plan) {
@@ -438,6 +438,10 @@ ExecNode_Aggregate <- function(input, options, target_names, out_field_names, ke
 
 ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
   .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
+}
+
+ExecNode_Union <- function(input, right_data) {
+  .Call(`_arrow_ExecNode_Union`, input, right_data)
 }
 
 ExecNode_SourceNode <- function(plan, reader) {
@@ -2003,4 +2007,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

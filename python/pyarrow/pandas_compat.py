@@ -291,11 +291,11 @@ def _column_name_to_strings(name):
     'foo'
     >>> name = ('foo', 'bar')
     >>> _column_name_to_strings(name)
-    ('foo', 'bar')
+    "('foo', 'bar')"
     >>> import pandas as pd
     >>> name = (1, pd.Timestamp('2017-02-01 00:00:00'))
     >>> _column_name_to_strings(name)
-    ('1', '2017-02-01 00:00:00')
+    "('1', '2017-02-01 00:00:00')"
     """
     if isinstance(name, str):
         return name

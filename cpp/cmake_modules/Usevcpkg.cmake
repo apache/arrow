@@ -121,7 +121,7 @@ set(_INST_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed") # try here fi
 set(_INST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed") # try here second
 set(_INST_VCPKG_ROOT "${VCPKG_ROOT}/installed")
 # Iterate over the places
-foreach(_INST_DIR IN LISTS _INST_BUILD_DIR _INST_SOURCE_DIR _INST_VCPKG_ROOT "notfound")
+foreach(_INST_DIR ${_INST_BUILD_DIR} ${_INST_SOURCE_DIR} ${_INST_VCPKG_ROOT} "notfound")
   if(_INST_DIR STREQUAL "notfound")
     message(FATAL_ERROR "vcpkg installed libraries directory not found. "
                         "Install packages with vcpkg before executing cmake.")

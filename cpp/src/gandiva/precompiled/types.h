@@ -573,6 +573,10 @@ const char* castVARBINARY_binary_int64(gdv_int64 context, const char* data,
                                        gdv_int32 data_len, int64_t out_len,
                                        int32_t* out_length);
 
+const char* castBINARY_utf8(const char* data, gdv_int32 data_len, int32_t* out_length);
+
+const char* castBINARY_binary(const char* data, gdv_int32 data_len, int32_t* out_length);
+
 gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const char* in2,
                       int32_t in2_len);
 

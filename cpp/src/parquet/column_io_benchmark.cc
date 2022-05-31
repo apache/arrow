@@ -61,7 +61,7 @@ void SetBytesProcessed(::benchmark::State& state, Repetition::type repetition) {
   if (repetition == Repetition::REPEATED) {
     bytes_processed += state.iterations() * state.range(0) * sizeof(int16_t);
   }
-  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int16_t));
+  state.SetBytesProcessed(bytes_processed);
 }
 
 template <Repetition::type repetition,

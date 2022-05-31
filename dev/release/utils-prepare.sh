@@ -161,11 +161,14 @@ update_versions() {
   popd
 
   case ${type} in
-    snapshot)
+    release)
       pushd "${ARROW_DIR}"
-      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" . "${version}" "${r_version}"
-      git add r/pkgdown/assets/versions.json
+      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
+                         . \
+                         "${version}" \
+                         "${next_version}"
       git add docs/source/_static/versions.json
+      git add r/pkgdown/assets/versions.json
       popd
       ;;
   esac

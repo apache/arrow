@@ -45,6 +45,9 @@ Structure definition
 
 The C stream interface is defined by a single ``struct`` definition::
 
+   #ifndef ARROW_C_STREAM_INTERFACE
+   #define ARROW_C_STREAM_INTERFACE
+
    struct ArrowArrayStream {
      // Callbacks providing stream functionality
      int (*get_schema)(struct ArrowArrayStream*, struct ArrowSchema* out);
@@ -57,6 +60,15 @@ The C stream interface is defined by a single ``struct`` definition::
      // Opaque producer-specific data
      void* private_data;
    };
+
+   #endif  // ARROW_C_STREAM_INTERFACE
+
+.. note::
+   The canonical guard ``ARROW_C_STREAM_INTERFACE`` is meant to avoid
+   duplicate definitions if two projects copy the C data interface
+   definitions in their own headers, and a third-party project
+   includes from these two projects.  It is therefore important that
+   this guard is kept exactly as-is when these definitions are copied.
 
 The ArrowArrayStream structure
 ------------------------------

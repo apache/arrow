@@ -116,21 +116,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "docs/source/_static/versions.json",
-        hunks: [
-          [
-            "-        \"name\": \"#{@release_compatible_version} (dev)\",",
-            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
-            "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
-            "+        \"name\": \"#{@release_compatible_version} (stable)\",",
-            "+    {",
-            "+        \"name\": \"#{@previous_compatible_version}\",",
-            "+        \"version\": \"#{@previous_compatible_version}/\"",
-            "+    },",
-          ]
-        ]
-      },
-      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
@@ -166,20 +151,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+",
            "+# arrow #{@release_version}",],
         ],
-      },
-      {
-        path: "r/pkgdown/assets/versions.json",
-        hunks: [
-          [ "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
-            "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-            "-        \"name\": \"#{@previous_version} (release)\",",
-            "+        \"name\": \"#{@release_version} (release)\",",
-            "+    {",
-            "+        \"name\": \"#{@previous_version}\",",
-            "+        \"version\": \"#{@previous_compatible_version}/\"",
-            "+    },"
-          ]
-        ]
       },
     ]
 
