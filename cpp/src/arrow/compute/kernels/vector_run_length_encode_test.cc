@@ -50,7 +50,7 @@ TEST_F(TestRunLengthEncode, EncodeInt32Array) {
   ASSERT_EQ(result->child_data[0]->GetMutableValues<uint8_t>(0), nullptr);
   ASSERT_EQ(result->buffers[0]->size(), 3 * sizeof(uint64_t));
   ASSERT_EQ(result->child_data[0]->buffers[1]->size(), 3 * sizeof(int32_t));
-  ASSERT_EQ(result->length, 6);
+  ASSERT_EQ(result->length, 3);
   ASSERT_EQ(*result->type, RunLengthEncodedType(int32()));
 }
 
@@ -77,7 +77,7 @@ TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
   ASSERT_EQ(*(result->child_data[0]->GetMutableValues<uint8_t>(0)), expected_null_bitmap);
   ASSERT_EQ(result->buffers[0]->size(), 4 * sizeof(uint64_t));
   ASSERT_EQ(result->child_data[0]->buffers[1]->size(), 4 * sizeof(int32_t));
-  ASSERT_EQ(result->length, 6);
+  ASSERT_EQ(result->length, 4);
   ASSERT_EQ(*result->type, RunLengthEncodedType(int32()));
 }
 
