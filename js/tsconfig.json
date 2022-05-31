@@ -5,8 +5,8 @@
     "indentSize": 2
   },
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
+    "target": "ESNext",
+    "module": "NodeNext",
     "isolatedModules": true,
     "noEmit": true,
     "esModuleInterop": true,
