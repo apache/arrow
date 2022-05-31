@@ -464,15 +464,6 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema> schema,
     std::function<Future<util::optional<ExecBatch>>()> gen, MemoryPool* pool) {
   struct Impl : RecordBatchReader {
-    ~Impl() {
-      auto st = this->Close();
-      if (!st.ok()) {
-        ARROW_LOG(WARNING)
-            << "Implicityly called Close and MakeGeneratorReader failed with "
-            << st.message();
-      }
-    }
-
     std::shared_ptr<Schema> schema() const override { return schema_; }
 
     Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
