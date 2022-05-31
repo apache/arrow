@@ -126,6 +126,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
       const ApplicationVersion* writer_version = NULLPTR, int16_t row_group_ordinal = -1,
       int16_t column_ordinal = -1,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+  static std::unique_ptr<ColumnChunkMetaData> Make(
+      const void* metadata, const ColumnDescriptor* descr,
+      const ReaderProperties& properties,
+      const ApplicationVersion* writer_version = NULLPTR, int16_t row_group_ordinal = -1,
+      int16_t column_ordinal = -1,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   ~ColumnChunkMetaData();
 
@@ -164,7 +170,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
  private:
   explicit ColumnChunkMetaData(
       const void* metadata, const ColumnDescriptor* descr, int16_t row_group_ordinal,
-      int16_t column_ordinal, const ApplicationVersion* writer_version = NULLPTR,
+      int16_t column_ordinal, const ReaderProperties& properties,
+      const ApplicationVersion* writer_version = NULLPTR,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
@@ -177,6 +184,12 @@ class PARQUET_EXPORT RowGroupMetaData {
   /// \brief Create a RowGroupMetaData from a serialized thrift message.
   static std::unique_ptr<RowGroupMetaData> Make(
       const void* metadata, const SchemaDescriptor* schema,
+      const ApplicationVersion* writer_version = NULLPTR,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+
+  static std::unique_ptr<RowGroupMetaData> Make(
+      const void* metadata, const SchemaDescriptor* schema,
+      const ReaderProperties& properties,
       const ApplicationVersion* writer_version = NULLPTR,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
@@ -225,6 +238,7 @@ class PARQUET_EXPORT RowGroupMetaData {
  private:
   explicit RowGroupMetaData(
       const void* metadata, const SchemaDescriptor* schema,
+      const ReaderProperties& properties,
       const ApplicationVersion* writer_version = NULLPTR,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
   // PIMPL Idiom
@@ -240,6 +254,10 @@ class PARQUET_EXPORT FileMetaData {
   /// \brief Create a FileMetaData from a serialized thrift message.
   static std::shared_ptr<FileMetaData> Make(
       const void* serialized_metadata, uint32_t* inout_metadata_len,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+  static std::shared_ptr<FileMetaData> Make(
+      const void* serialized_metadata, uint32_t* inout_metadata_len,
+      const ReaderProperties& properties,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   ~FileMetaData();
@@ -350,6 +368,7 @@ class PARQUET_EXPORT FileMetaData {
   friend class SerializedFile;
 
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
+                        const ReaderProperties& properties,
                         std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
@@ -363,8 +382,9 @@ class PARQUET_EXPORT FileMetaData {
 class PARQUET_EXPORT FileCryptoMetaData {
  public:
   // API convenience to get a MetaData accessor
-  static std::shared_ptr<FileCryptoMetaData> Make(const uint8_t* serialized_metadata,
-                                                  uint32_t* metadata_len);
+  static std::shared_ptr<FileCryptoMetaData> Make(
+      const uint8_t* serialized_metadata, uint32_t* metadata_len,
+      const ReaderProperties& properties = default_reader_properties());
   ~FileCryptoMetaData();
 
   EncryptionAlgorithm encryption_algorithm() const;
@@ -374,7 +394,8 @@ class PARQUET_EXPORT FileCryptoMetaData {
 
  private:
   friend FileMetaDataBuilder;
-  FileCryptoMetaData(const uint8_t* serialized_metadata, uint32_t* metadata_len);
+  FileCryptoMetaData(const uint8_t* serialized_metadata, uint32_t* metadata_len,
+                     const ReaderProperties& properties);
 
   // PIMPL Idiom
   FileCryptoMetaData();
