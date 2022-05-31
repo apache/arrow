@@ -193,22 +193,6 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   Tiebreaker tiebreaker;
 };
 
-class ARROW_EXPORT ArrayRankOptions : public FunctionOptions {
- public:
-  explicit ArrayRankOptions(SortOrder order = SortOrder::Ascending,
-                            NullPlacement null_placement = NullPlacement::AtEnd,
-                            RankOptions::Tiebreaker = RankOptions::First);
-  static constexpr char const kTypeName[] = "ArrayRankOptions";
-  static RankOptions Defaults() { return RankOptions(); }
-
-  /// Sorting order
-  SortOrder order;
-  /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
-  /// Tiebreaker for dealing with equal values in ranks
-  RankOptions::Tiebreaker tiebreaker;
-};
-
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:

@@ -1915,12 +1915,12 @@ const RankOptions* GetDefaultRankOptions() {
 
 class ArrayRanker : public TypeVisitor {
  public:
-  ArrayRanker(ExecContext* ctx, const Array& array, const ArrayRankOptions& options,
+  ArrayRanker(ExecContext* ctx, const Array& array, const RankOptions& options,
               Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
         array_(array),
-        order_(options.order),
+        options_(options),
         null_placement_(options.null_placement),
         tiebreaker_(options.tiebreaker),
         physical_type_(GetPhysicalType(array.type())),
@@ -1942,7 +1942,12 @@ class ArrayRanker : public TypeVisitor {
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
     ArrayType arr(array_.data());
-    ArraySortOptions array_options(order_, null_placement_);
+
+    SortOrder order = SortOrder::Ascending;
+    if (!options_.sort_keys.empty()) {
+      order = options_.sort_keys[0].order;
+    }
+    ArraySortOptions array_options(order, null_placement_);
 
     auto length = array_.length();
     ARROW_ASSIGN_OR_RAISE(auto sort_indices,
@@ -2060,7 +2065,7 @@ class ArrayRanker : public TypeVisitor {
 
   ExecContext* ctx_;
   const Array& array_;
-  const SortOrder order_;
+  const RankOptions& options_;
   const NullPlacement null_placement_;
   const RankOptions::Tiebreaker tiebreaker_;
   const std::shared_ptr<DataType> physical_type_;
@@ -2103,13 +2108,8 @@ class RankMetaFunction : public MetaFunction {
  private:
   Result<Datum> Rank(const Array& array, const RankOptions& options,
                      ExecContext* ctx) const {
-    SortOrder order = SortOrder::Ascending;
-    if (!options.sort_keys.empty()) {
-      order = options.sort_keys[0].order;
-    }
-    ArrayRankOptions rank_options(order, options.null_placement, options.tiebreaker);
     Datum output;
-    ArrayRanker ranker(ctx, array, rank_options, &output);
+    ArrayRanker ranker(ctx, array, options, &output);
     ARROW_RETURN_NOT_OK(ranker.Run());
     return output;
   }
