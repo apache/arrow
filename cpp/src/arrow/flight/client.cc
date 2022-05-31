@@ -270,6 +270,25 @@ class ClientMetadataReader : public FlightMetadataReader {
   std::shared_ptr<internal::ClientDataStream> stream_;
 };
 
+/// This status detail indicates the write failed in the transport
+/// (due to the server) and that we should finish the call at a higher
+/// level (to get the server error); otherwise the client should pass
+/// through the status (it may be recoverable) instead of finishing
+/// the call (which may inadvertently make the server think the client
+/// intended to end the call successfully) or canceling the call
+/// (which may generate an unexpected error message on the client
+/// side).
+const char* kTagDetailTypeId = "flight::ServerErrorTagStatusDetail";
+class ServerErrorTagStatusDetail : public arrow::StatusDetail {
+ public:
+  const char* type_id() const override { return kTagDetailTypeId; }
+  std::string ToString() const override { return type_id(); };
+
+  static bool UnwrapStatus(const arrow::Status& status) {
+    return status.detail() && status.detail()->type_id() == kTagDetailTypeId;
+  }
+};
+
 /// \brief An IpcPayloadWriter for any ClientDataStream.
 ///
 /// To support app_metadata and reuse the existing IPC infrastructure,
@@ -321,8 +340,8 @@ class ClientPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
     }
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
-      return MakeFlightError(
-          FlightStatusCode::Internal,
+      return Status::FromDetailAndArgs(
+          StatusCode::IOError, std::make_shared<ServerErrorTagStatusDetail>(),
           "Could not write record batch to stream (server disconnect?)");
     }
     return Status::OK();
@@ -397,9 +416,7 @@ class ClientStreamWriter : public FlightStreamWriter {
     RETURN_NOT_OK(internal::ToPayload(descriptor_, &payload.descriptor));
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
-      return MakeFlightError(
-          FlightStatusCode::Internal,
-          "Could not write record batch to stream (server disconnect?)");
+      return Close();
     }
     return Status::OK();
   }
@@ -414,8 +431,7 @@ class ClientStreamWriter : public FlightStreamWriter {
     payload.app_metadata = app_metadata;
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Could not write metadata to stream (server disconnect?)");
+      return Close();
     }
     return Status::OK();
   }
@@ -424,7 +440,13 @@ class ClientStreamWriter : public FlightStreamWriter {
                            std::shared_ptr<Buffer> app_metadata) override {
     RETURN_NOT_OK(CheckStarted());
     app_metadata_ = app_metadata;
-    return batch_writer_->WriteRecordBatch(batch);
+    auto status = batch_writer_->WriteRecordBatch(batch);
+    if (!status.ok() &&
+        // Only want to Close() if server error, not for client error
+        ServerErrorTagStatusDetail::UnwrapStatus(status)) {
+      return Close();
+    }
+    return status;
   }
 
   Status DoneWriting() override {

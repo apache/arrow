@@ -37,7 +37,8 @@ public class JdbcToArrowConfigBuilder {
   private boolean reuseVectorSchemaRoot;
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
-
+  private Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex;
+  private Map<String, JdbcFieldInfo> explicitTypesByColumnName;
   private int targetBatchSize;
   private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
 
@@ -53,6 +54,8 @@ public class JdbcToArrowConfigBuilder {
     this.reuseVectorSchemaRoot = false;
     this.arraySubTypesByColumnIndex = null;
     this.arraySubTypesByColumnName = null;
+    this.explicitTypesByColumnIndex = null;
+    this.explicitTypesByColumnName = null;
   }
 
   /**
@@ -164,6 +167,16 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  public JdbcToArrowConfigBuilder setExplicitTypesByColumnIndex(Map<Integer, JdbcFieldInfo> map) {
+    this.explicitTypesByColumnIndex = map;
+    return this;
+  }
+
+  public JdbcToArrowConfigBuilder setExplicitTypesByColumnName(Map<String, JdbcFieldInfo> map) {
+    this.explicitTypesByColumnName = map;
+    return this;
+  }
+
   public JdbcToArrowConfigBuilder setTargetBatchSize(int targetBatchSize) {
     this.targetBatchSize = targetBatchSize;
     return this;
@@ -196,6 +209,8 @@ public class JdbcToArrowConfigBuilder {
         arraySubTypesByColumnIndex,
         arraySubTypesByColumnName,
         targetBatchSize,
-        jdbcToArrowTypeConverter);
+        jdbcToArrowTypeConverter,
+        explicitTypesByColumnIndex,
+        explicitTypesByColumnName);
   }
 }

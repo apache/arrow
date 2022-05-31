@@ -555,6 +555,7 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::FLOAT:
     case Type::DATE32:
     case Type::TIME32:
+    case Type::INTERVAL_MONTHS:
       return HashInit<UInt32Type, Action>;
     case Type::INT64:
     case Type::UINT64:
@@ -563,6 +564,7 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::TIME64:
     case Type::TIMESTAMP:
     case Type::DURATION:
+    case Type::INTERVAL_DAY_TIME:
       return HashInit<UInt64Type, Action>;
     case Type::BINARY:
     case Type::STRING:
@@ -574,6 +576,8 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::DECIMAL128:
     case Type::DECIMAL256:
       return HashInit<FixedSizeBinaryType, Action>;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return HashInit<MonthDayNanoIntervalType, Action>;
     default:
       DCHECK(false);
       return nullptr;
@@ -721,6 +725,12 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
   for (auto t : {Type::DECIMAL128, Type::DECIMAL256}) {
     base.init = GetHashInit<Action>(t);
     base.signature = KernelSignature::Make({InputType::Array(t)}, out_ty);
+    DCHECK_OK(func->AddKernel(base));
+  }
+
+  for (const auto& ty : IntervalTypes()) {
+    base.init = GetHashInit<Action>(ty->id());
+    base.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
 }

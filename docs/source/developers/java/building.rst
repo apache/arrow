@@ -78,6 +78,7 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
 
 Building JNI Libraries on MacOS
 -------------------------------
+Note: If you are building on Apple Silicon, be sure to use a JDK version that was compiled for that architecture. See, for example, the `Azul JDK <https://www.azul.com/downloads/?os=macos&architecture=arm-64-bit&package=jdk>`_.
 
 To build only the C Data Interface library:
 
@@ -156,14 +157,14 @@ To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 .. code-block::
 
     $ cd arrow/java
-    $ mvn -Darrow.c.jni.dist.dir=../java-dist/lib -Parrow-c-data clean install
+    $ mvn -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-c-data clean install
 
 To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
 .. code-block::
 
     $ cd arrow/java
-    $ mvn -Darrow.cpp.build.dir=../java-dist/lib -Parrow-jni clean install
+    $ mvn -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-jni clean install
 
 IDE Configuration
 =================

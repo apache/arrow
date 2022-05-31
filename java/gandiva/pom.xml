@@ -25,7 +25,7 @@
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <protobuf.version>2.5.0</protobuf.version>
+        <protobuf.version>3.20.1</protobuf.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
         <arrow.cpp.build.dir>../../../cpp/release-build</arrow.cpp.build.dir>
     </properties>

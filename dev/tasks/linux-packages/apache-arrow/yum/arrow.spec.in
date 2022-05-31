@@ -275,11 +275,11 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/ArrowTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrow.cmake
 %{_libdir}/cmake/arrow/FindBrotli.cmake
-%{_libdir}/cmake/arrow/FindLz4.cmake
 %{_libdir}/cmake/arrow/FindSnappy.cmake
 %if %{use_flight}
 %{_libdir}/cmake/arrow/Findc-aresAlt.cmake
 %endif
+%{_libdir}/cmake/arrow/Findlz4Alt.cmake
 %if %{have_re2}
 %{_libdir}/cmake/arrow/Findre2Alt.cmake
 %endif

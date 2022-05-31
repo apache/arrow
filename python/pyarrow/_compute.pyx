@@ -1748,6 +1748,34 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
+cdef class _CumulativeSumOptions(FunctionOptions):
+    def _set_options(self, start, skip_nulls):
+        if not isinstance(start, Scalar):
+            try:
+                start = lib.scalar(start)
+            except Exception:
+                _raise_invalid_function_option(
+                    start, "`start` type for CumulativeSumOptions", TypeError)
+
+        self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
+
+
+class CumulativeSumOptions(_CumulativeSumOptions):
+    """
+    Options for `cumulative_sum` function.
+
+    Parameters
+    ----------
+    start : Scalar, default 0.0
+        Starting value for sum computation
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=0.0, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):
         self.wrapped.reset(new CArraySortOptions(
@@ -2036,15 +2064,15 @@ cdef class Expression(_Weakrefable):
 
     >>> import pyarrow.compute as pc
     >>> (pc.field("a") < pc.scalar(3)) | (pc.field("b") > 7)
-    <pyarrow.compute.Expression ((a < 3:int64) or (b > 7:int64))>
-    >>> ds.field('a') != 3
+    <pyarrow.compute.Expression ((a < 3) or (b > 7))>
+    >>> pc.field('a') != 3
     <pyarrow.compute.Expression (a != 3)>
-    >>> ds.field('a').isin([1, 2, 3])
-    <pyarrow.compute.Expression (a is in [
+    >>> pc.field('a').isin([1, 2, 3])
+    <pyarrow.compute.Expression is_in(a, {value_set=int64:[
       1,
       2,
       3
-    ])>
+    ], skip_nulls=false})>
     """
 
     def __init__(self):
@@ -2410,7 +2438,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
 
     Examples
     --------
-
+    >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>> 
     >>> func_doc = {}
@@ -2431,9 +2459,9 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     'py_add_func'
     >>> answer = pc.call_function(func_name, [pa.array([20])])
     >>> answer
-    <pyarrow.lib.Int64Array object at 0x10c22e700>
+    <pyarrow.lib.Int64Array object at ...>
     [
-    21
+      21
     ]
     """
     cdef:

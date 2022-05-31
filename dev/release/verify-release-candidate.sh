@@ -632,9 +632,10 @@ test_and_install_cpp() {
 
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
     --exclude-regex "plasma-serialization_tests" \
-    -j$NPROC \
+    --label-regex unittest \
     --output-on-failure \
-    -L unittest
+    --parallel $NPROC \
+    --timeout 300
 
   popd
 }

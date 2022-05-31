@@ -27,6 +27,11 @@ shift
 export ARROW_HOME=${source_dir}
 export CONAN_HOOK_ERROR_LEVEL=40
 
+conan_args=()
+if [ -n "${ARROW_CONAN_WITH_LZ4:-}" ]; then
+  conan_args+=(--options arrow:with_lz4=${ARROW_CONAN_WITH_LZ4})
+fi
+
 version=$(grep '^set(ARROW_VERSION ' ${ARROW_HOME}/cpp/CMakeLists.txt | \
             grep -E -o '([0-9.]*)')
 
@@ -39,4 +44,4 @@ else
   sudo chown -R $(id -u):$(id -g) ${build_dir}/conan/
 fi
 cd ${build_dir}/conan/all
-conan create . arrow/${version}@ "$@"
+conan create . arrow/${version}@ "${conan_args[@]}" "$@"

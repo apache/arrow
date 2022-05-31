@@ -17,18 +17,31 @@
 # under the License.
 #}
 *Archery crossbow report for <{{ report.url(report.job.branch) }}|{{ report.job.branch }}>*
-
+{% if report.tasks_by_state["failure"] %}
 :x: *{{ report.tasks_by_state["failure"] | length }} failed jobs*
 {% for task_name, task in report.tasks_by_state["failure"] | dictsort -%}
 - <{{ report.task_url(task) }}|{{ task_name }}>
 {% endfor %}
+{%- endif -%}
+{% if report.tasks_by_state["error"] %}
 :x: *{{ report.tasks_by_state["error"] | length }} errored jobs*
 {% for task_name, task in report.tasks_by_state["error"] | dictsort -%}
 - <{{ report.task_url(task) }}|{{ task_name }}>
 {% endfor %}
+{%- endif -%}
+{% if report.tasks_by_state["pending"] %}
 :warning: *{{ report.tasks_by_state["pending"] | length }} pending jobs*
+{%- endif -%}
+{% if report.tasks_by_state["success"] %}
 
 :tada: *{{ report.tasks_by_state["success"] | length }} successful jobs*
-{% if extra_message %}
-{{ extra_message }}
+{%- endif -%}
+
+{% if extra_message_success and not report.contains_failures %}
+
+{{ extra_message_success }}
+{%- endif -%}
+{% if extra_message_failure and report.contains_failures %}
+
+{{ extra_message_failure }}
 {% endif %}

@@ -404,8 +404,8 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
-ExecPlan_run <- function(plan, final_node, sort_options, head) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, head)
+ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
 ExecPlan_StopProducing <- function(plan) {
@@ -438,6 +438,10 @@ ExecNode_Aggregate <- function(input, options, target_names, out_field_names, ke
 
 ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
   .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
+}
+
+ExecNode_Union <- function(input, right_data) {
+  .Call(`_arrow_ExecNode_Union`, input, right_data)
 }
 
 ExecNode_SourceNode <- function(plan, reader) {
@@ -600,20 +604,12 @@ dataset___UnionDatasetFactory__Make <- function(children) {
   .Call(`_arrow_dataset___UnionDatasetFactory__Make`, children)
 }
 
-dataset___FileSystemDatasetFactory__Make0 <- function(fs, paths, format) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make0`, fs, paths, format)
+dataset___FileSystemDatasetFactory__Make <- function(fs, selector, format, fsf_options) {
+  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make`, fs, selector, format, fsf_options)
 }
 
-dataset___FileSystemDatasetFactory__Make2 <- function(fs, selector, format, partitioning) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make2`, fs, selector, format, partitioning)
-}
-
-dataset___FileSystemDatasetFactory__Make1 <- function(fs, selector, format) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make1`, fs, selector, format)
-}
-
-dataset___FileSystemDatasetFactory__Make3 <- function(fs, selector, format, factory) {
-  .Call(`_arrow_dataset___FileSystemDatasetFactory__Make3`, fs, selector, format, factory)
+dataset___FileSystemDatasetFactory__MakePaths <- function(fs, paths, format, exclude_invalid_files) {
+  .Call(`_arrow_dataset___FileSystemDatasetFactory__MakePaths`, fs, paths, format, exclude_invalid_files)
 }
 
 dataset___FileFormat__type_name <- function(format) {

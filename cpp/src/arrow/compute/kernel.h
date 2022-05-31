@@ -604,9 +604,6 @@ using VectorFinalize = std::function<Status(KernelContext*, std::vector<Datum>*)
 struct VectorKernel : public ArrayKernel {
   VectorKernel() = default;
 
-  VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec)
-      : ArrayKernel(std::move(sig), std::move(exec)) {}
-
   VectorKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
                KernelInit init = NULLPTR, VectorFinalize finalize = NULLPTR)
       : ArrayKernel(std::move(in_types), std::move(out_type), std::move(exec),

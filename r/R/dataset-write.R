@@ -162,7 +162,7 @@ write_dataset <- function(dataset,
 
   plan <- ExecPlan$create()
   final_node <- plan$Build(dataset)
-  if (!is.null(final_node$sort %||% final_node$head %||% final_node$tail)) {
+  if (!is.null(final_node$extras$sort %||% final_node$extras$head %||% final_node$extras$tail)) {
     # Because sorting and topK are only handled in the SinkNode (or in R!),
     # they wouldn't get picked up in the WriteNode. So let's Run this ExecPlan
     # to capture those, and then create a new plan for writing
@@ -206,20 +206,8 @@ write_dataset <- function(dataset,
   validate_positive_int_value(min_rows_per_group)
   validate_positive_int_value(max_rows_per_group)
 
-  source_schema <- source_data(dataset)$schema
-  # For backwards compatibility with Scanner-based writer (arrow <= 7.0.0):
-  # retain metadata from source dataset
-  output_schema$metadata <- source_schema$metadata
-  new_r_meta <- get_r_metadata_from_old_schema(
-    output_schema,
-    source_schema,
-    drop_attributes = has_aggregation(dataset)
-  )
-  if (!is.null(new_r_meta)) {
-    output_schema$r_metadata <- new_r_meta
-  }
   plan$Write(
-    final_node, prepare_key_value_metadata(output_schema$metadata),
+    final_node,
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,

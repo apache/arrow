@@ -382,7 +382,10 @@ class ArrowConan(ConanFile):
         if self.options.with_bz2:
             self._cmake.definitions["ARROW_BZ2_USE_SHARED"] = self.options["bzip2"].shared
         self._cmake.definitions["ARROW_WITH_LZ4"] = self.options.with_lz4
-        self._cmake.definitions["Lz4_SOURCE"] = "SYSTEM"
+        if tools.Version(self.version) >= "9.0.0":
+            self._cmake.definitions["lz4_SOURCE"] = "SYSTEM"
+        else:
+            self._cmake.definitions["Lz4_SOURCE"] = "SYSTEM"
         if self.options.with_lz4:
             self._cmake.definitions["ARROW_LZ4_USE_SHARED"] = self.options["lz4"].shared
         self._cmake.definitions["ARROW_WITH_SNAPPY"] = self.options.with_snappy

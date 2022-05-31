@@ -29,6 +29,7 @@ fi
 source_dir=${1}
 
 : ${ARROW_FLIGHT:=ON}
+: ${ARROW_SUBSTRAIT:=ON}
 : ${ARROW_S3:=ON}
 : ${CHECK_IMPORTS:=ON}
 : ${CHECK_UNITTESTS:=ON}
@@ -43,6 +44,7 @@ export PYARROW_TEST_ORC=ON
 export PYARROW_TEST_PANDAS=ON
 export PYARROW_TEST_PARQUET=ON
 export PYARROW_TEST_PLASMA=ON
+export PYARROW_TEST_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_TEST_S3=${ARROW_S3}
 export PYARROW_TEST_TENSORFLOW=ON
 
@@ -72,6 +74,9 @@ import pyarrow.plasma
   fi
   if [ "${PYARROW_TEST_FLIGHT}" == "ON" ]; then
     python -c "import pyarrow.flight"
+  fi
+  if [ "${PYARROW_TEST_SUBSTRAIT}" == "ON" ]; then
+    python -c "import pyarrow.substrait"
   fi
 fi
 

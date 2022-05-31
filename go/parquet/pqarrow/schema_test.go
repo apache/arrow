@@ -61,6 +61,37 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 	}
 }
 
+func TestToParquetWriterConfig(t *testing.T) {
+	origSc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.BinaryTypes.String},
+		{Name: "f2", Type: arrow.PrimitiveTypes.Int64},
+	}, nil)
+
+	tests := []struct {
+		name           string
+		rootRepetition parquet.Repetition
+	}{
+		{"test1", parquet.Repetitions.Required},
+		{"test2", parquet.Repetitions.Repeated},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			pqschema, err := pqarrow.ToParquet(origSc,
+				parquet.NewWriterProperties(
+					parquet.WithRootName(tt.name),
+					parquet.WithRootRepetition(tt.rootRepetition),
+				),
+				pqarrow.DefaultWriterProps())
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.name, pqschema.Root().Name())
+			assert.Equal(t, tt.rootRepetition, pqschema.Root().RepetitionType())
+		})
+	}
+}
+
 func TestConvertArrowFlatPrimitives(t *testing.T) {
 	parquetFields := make(schema.FieldList, 0)
 	arrowFields := make([]arrow.Field, 0)

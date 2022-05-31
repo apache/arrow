@@ -43,10 +43,6 @@ parametrize_legacy_dataset_fixed = pytest.mark.parametrize(
      pytest.param(False, marks=pytest.mark.dataset)]
 )
 
-# Marks all of the tests in this module
-# Ignore these with pytest ... -m 'not parquet'
-pytestmark = pytest.mark.parquet
-
 
 def _write_table(table, path, **kwargs):
     # So we see the ImportError somewhere

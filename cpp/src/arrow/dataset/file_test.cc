@@ -18,14 +18,17 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array/array_primitive.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
@@ -33,6 +36,8 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+
+namespace cp = arrow::compute;
 
 namespace arrow {
 
@@ -342,5 +347,107 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
     }
   }
 }
+
+class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>> {
+  using PlanFactory = std::function<std::vector<cp::Declaration>(
+      const FileSystemDatasetWriteOptions&,
+      std::function<Future<util::optional<cp::ExecBatch>>()>*)>;
+
+ protected:
+  bool IsParallel() { return std::get<0>(GetParam()); }
+  bool IsSlow() { return std::get<1>(GetParam()); }
+
+  FileSystemWriteTest() { dataset::internal::Initialize(); }
+
+  void TestDatasetWriteRoundTrip(PlanFactory plan_factory, bool has_output) {
+    // Runs in-memory data through the plan and then scans out the written
+    // data to ensure it matches the source data
+    auto format = std::make_shared<IpcFileFormat>();
+    auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+    FileSystemDatasetWriteOptions write_options;
+    write_options.file_write_options = format->DefaultWriteOptions();
+    write_options.filesystem = fs;
+    write_options.base_dir = "root";
+    write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
+    write_options.basename_template = "{i}.feather";
+    const std::string kExpectedFilename = "root/0.feather";
+
+    cp::BatchesWithSchema source_data;
+    source_data.batches = {
+        cp::ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
+        cp::ExecBatchFromJSON({int32(), boolean()},
+                              "[[5, null], [6, false], [7, false]]")};
+    source_data.schema = schema({field("i32", int32()), field("bool", boolean())});
+
+    AsyncGenerator<util::optional<cp::ExecBatch>> sink_gen;
+
+    ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
+    auto source_decl = cp::Declaration::Sequence(
+        {{"source", cp::SourceNodeOptions{source_data.schema,
+                                          source_data.gen(IsParallel(), IsSlow())}}});
+    auto declarations = plan_factory(write_options, &sink_gen);
+    declarations.insert(declarations.begin(), std::move(source_decl));
+    ASSERT_OK(cp::Declaration::Sequence(std::move(declarations)).AddToPlan(plan.get()));
+
+    if (has_output) {
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto out_batches,
+                                    cp::StartAndCollect(plan.get(), sink_gen));
+      cp::AssertExecBatchesEqual(source_data.schema, source_data.batches, out_batches);
+    } else {
+      ASSERT_FINISHES_OK(cp::StartAndFinish(plan.get()));
+    }
+
+    // Read written dataset and make sure it matches
+    ASSERT_OK_AND_ASSIGN(auto dataset_factory, FileSystemDatasetFactory::Make(
+                                                   fs, {kExpectedFilename}, format, {}));
+    ASSERT_OK_AND_ASSIGN(auto written_dataset, dataset_factory->Finish(FinishOptions{}));
+    AssertSchemaEqual(*source_data.schema, *written_dataset->schema());
+
+    ASSERT_OK_AND_ASSIGN(plan, cp::ExecPlan::Make());
+    ASSERT_OK_AND_ASSIGN(auto scanner_builder, written_dataset->NewScan());
+    ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+    ASSERT_OK(cp::Declaration::Sequence(
+                  {
+                      {"scan", ScanNodeOptions{written_dataset, scanner->options()}},
+                      {"sink", cp::SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
+
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto written_batches,
+                                  cp::StartAndCollect(plan.get(), sink_gen));
+    cp::AssertExecBatchesEqual(source_data.schema, source_data.batches, written_batches);
+  }
+};
+
+TEST_P(FileSystemWriteTest, Write) {
+  auto plan_factory =
+      [](const FileSystemDatasetWriteOptions& write_options,
+         std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen) {
+        return std::vector<cp::Declaration>{{"write", WriteNodeOptions{write_options}}};
+      };
+  TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/false);
+}
+
+TEST_P(FileSystemWriteTest, TeeWrite) {
+  auto plan_factory =
+      [](const FileSystemDatasetWriteOptions& write_options,
+         std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen) {
+        return std::vector<cp::Declaration>{
+            {"tee", WriteNodeOptions{write_options}},
+            {"sink", cp::SinkNodeOptions{sink_gen}},
+        };
+      };
+  TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/true);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    FileSystemWrite, FileSystemWriteTest,
+    testing::Combine(testing::Values(false, true), testing::Values(false, true)),
+    [](const testing::TestParamInfo<FileSystemWriteTest::ParamType>& info) {
+      std::string parallel_desc = std::get<0>(info.param) ? "parallel" : "serial";
+      std::string speed_desc = std::get<1>(info.param) ? "slow" : "fast";
+      return parallel_desc + "_" + speed_desc;
+    });
+
 }  // namespace dataset
 }  // namespace arrow

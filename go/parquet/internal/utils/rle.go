@@ -221,12 +221,12 @@ func (r *RleDecoder) GetBatchSpaced(vals []uint64, nullcount int, validBits []by
 	}
 
 	converter := plainConverter{}
-	blockCounter := NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+	blockCounter := bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 
 	var (
 		totalProcessed int
 		processed      int
-		block          BitBlockCount
+		block          bitutils.BitBlockCount
 		err            error
 	)
 

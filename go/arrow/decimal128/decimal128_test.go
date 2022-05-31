@@ -148,3 +148,247 @@ func TestDecimalToBigInt(t *testing.T) {
 		})
 	}
 }
+
+func ulps64(actual, expected float64) int64 {
+	ulp := math.Nextafter(actual, math.Inf(1)) - actual
+	return int64(math.Abs((expected - actual) / ulp))
+}
+
+func ulps32(actual, expected float32) int64 {
+	ulp := math.Nextafter32(actual, float32(math.Inf(1))) - actual
+	return int64(math.Abs(float64((expected - actual) / ulp)))
+}
+
+func assertFloat32Approx(t *testing.T, x, y float32) bool {
+	const maxulps int64 = 4
+	ulps := ulps32(x, y)
+	return assert.LessOrEqualf(t, ulps, maxulps, "%f not equal to %f (%d ulps)", x, y, ulps)
+}
+
+func assertFloat64Approx(t *testing.T, x, y float64) bool {
+	const maxulps int64 = 4
+	ulps := ulps64(x, y)
+	return assert.LessOrEqualf(t, ulps, maxulps, "%f not equal to %f (%d ulps)", x, y, ulps)
+}
+
+func TestDecimalToReal(t *testing.T) {
+	tests := []struct {
+		decimalVal string
+		scale      int32
+		exp        float64
+	}{
+		{"0", 0, 0},
+		{"0", 10, 0.0},
+		{"0", -10, 0.0},
+		{"1", 0, 1.0},
+		{"12345", 0, 12345.0},
+		{"12345", 1, 1234.5},
+		// 2**62
+		{"4611686018427387904", 0, math.Pow(2, 62)},
+		// 2**63 + 2**62
+		{"13835058055282163712", 0, math.Pow(2, 63) + math.Pow(2, 62)},
+		// 2**64 + 2**62
+		{"23058430092136939520", 0, math.Pow(2, 64) + math.Pow(2, 62)},
+		// 10**38 - 2**103
+		{"99999989858795198174164788026374356992", 0, math.Pow10(38) - math.Pow(2, 103)},
+	}
+
+	t.Run("float32", func(t *testing.T) {
+		checkDecimalToFloat := func(t *testing.T, str string, v float32, scale int32) {
+			bi, _ := (&big.Int{}).SetString(str, 10)
+			dec := decimal128.FromBigInt(bi)
+			assert.Equalf(t, v, dec.ToFloat32(scale), "Decimal Val: %s, Scale: %d", str, scale)
+		}
+		for _, tt := range tests {
+			t.Run(tt.decimalVal, func(t *testing.T) {
+				checkDecimalToFloat(t, tt.decimalVal, float32(tt.exp), tt.scale)
+				if tt.decimalVal != "0" {
+					checkDecimalToFloat(t, "-"+tt.decimalVal, float32(-tt.exp), tt.scale)
+				}
+			})
+		}
+
+		t.Run("precision", func(t *testing.T) {
+			// 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
+			checkDecimalToFloat(t, "9223373136366403584", float32(9.223373e+18), 0)
+			checkDecimalToFloat(t, "-9223373136366403584", float32(-9.223373e+18), 0)
+			// 2**64 + 2**41 exactly representable in a float
+			checkDecimalToFloat(t, "18446746272732807168", float32(1.8446746e+19), 0)
+			checkDecimalToFloat(t, "-18446746272732807168", float32(-1.8446746e+19), 0)
+		})
+
+		t.Run("large values", func(t *testing.T) {
+			checkApproxDecimalToFloat := func(str string, v float32, scale int32) {
+				bi, _ := (&big.Int{}).SetString(str, 10)
+				dec := decimal128.FromBigInt(bi)
+				assertFloat32Approx(t, v, dec.ToFloat32(scale))
+			}
+			// exact comparisons would succeed on most platforms, but not all power-of-ten
+			// factors are exactly representable in binary floating point, so we'll use
+			// approx and ensure that the values are within 4 ULP (unit of least precision)
+			for scale := int32(-38); scale <= 38; scale++ {
+				checkApproxDecimalToFloat("1", float32(math.Pow10(-int(scale))), scale)
+				checkApproxDecimalToFloat("123", float32(123)*float32(math.Pow10(-int(scale))), scale)
+			}
+		})
+	})
+
+	t.Run("float64", func(t *testing.T) {
+		checkDecimalToFloat := func(t *testing.T, str string, v float64, scale int32) {
+			bi, _ := (&big.Int{}).SetString(str, 10)
+			dec := decimal128.FromBigInt(bi)
+			assert.Equalf(t, v, dec.ToFloat64(scale), "Decimal Val: %s, Scale: %d", str, scale)
+		}
+		for _, tt := range tests {
+			t.Run(tt.decimalVal, func(t *testing.T) {
+				checkDecimalToFloat(t, tt.decimalVal, tt.exp, tt.scale)
+				if tt.decimalVal != "0" {
+					checkDecimalToFloat(t, "-"+tt.decimalVal, -tt.exp, tt.scale)
+				}
+			})
+		}
+
+		t.Run("precision", func(t *testing.T) {
+			// 2**63 + 2**11 (exactly representable in float64's 53 bits of precision)
+			checkDecimalToFloat(t, "9223373136366403584", float64(9.223373136366404e+18), 0)
+			checkDecimalToFloat(t, "-9223373136366403584", float64(-9.223373136366404e+18), 0)
+
+			// 2**64 - 2**11 (exactly represntable in a float64)
+			checkDecimalToFloat(t, "18446746272732807168", float64(1.8446746272732807e+19), 0)
+			checkDecimalToFloat(t, "-18446746272732807168", float64(-1.8446746272732807e+19), 0)
+
+			// 2**64 + 2**11 (exactly representable in a float64)
+			checkDecimalToFloat(t, "18446744073709555712", float64(1.8446744073709556e+19), 0)
+			checkDecimalToFloat(t, "-18446744073709555712", float64(-1.8446744073709556e+19), 0)
+
+			// Almost 10**38 (minus 2**73)
+			checkDecimalToFloat(t, "99999999999999978859343891977453174784", 9.999999999999998e+37, 0)
+			checkDecimalToFloat(t, "-99999999999999978859343891977453174784", -9.999999999999998e+37, 0)
+			checkDecimalToFloat(t, "99999999999999978859343891977453174784", 9.999999999999998e+27, 10)
+			checkDecimalToFloat(t, "-99999999999999978859343891977453174784", -9.999999999999998e+27, 10)
+			checkDecimalToFloat(t, "99999999999999978859343891977453174784", 9.999999999999998e+47, -10)
+			checkDecimalToFloat(t, "-99999999999999978859343891977453174784", -9.999999999999998e+47, -10)
+		})
+
+		t.Run("large values", func(t *testing.T) {
+			checkApproxDecimalToFloat := func(str string, v float64, scale int32) {
+				bi, _ := (&big.Int{}).SetString(str, 10)
+				dec := decimal128.FromBigInt(bi)
+				assertFloat64Approx(t, v, dec.ToFloat64(scale))
+			}
+			// exact comparisons would succeed on most platforms, but not all power-of-ten
+			// factors are exactly representable in binary floating point, so we'll use
+			// approx and ensure that the values are within 4 ULP (unit of least precision)
+			for scale := int32(-308); scale <= 306; scale++ {
+				checkApproxDecimalToFloat("1", math.Pow10(-int(scale)), scale)
+				checkApproxDecimalToFloat("123", float64(123)*math.Pow10(-int(scale)), scale)
+			}
+		})
+	})
+}
+
+func TestDecimalFromFloat(t *testing.T) {
+	tests := []struct {
+		val              float64
+		precision, scale int32
+		expected         string
+	}{
+		{0, 1, 0, "0"},
+		{-0, 1, 0, "0"},
+		{0, 19, 4, "0.0000"},
+		{math.Copysign(0.0, -1), 19, 4, "0.0000"},
+		{123, 7, 4, "123.0000"},
+		{-123, 7, 4, "-123.0000"},
+		{456.78, 7, 4, "456.7800"},
+		{-456.78, 7, 4, "-456.7800"},
+		{456.784, 5, 2, "456.78"},
+		{-456.784, 5, 2, "-456.78"},
+		{456.786, 5, 2, "456.79"},
+		{-456.786, 5, 2, "-456.79"},
+		{999.99, 5, 2, "999.99"},
+		{-999.99, 5, 2, "-999.99"},
+		{123, 19, 0, "123"},
+		{-123, 19, 0, "-123"},
+		{123.4, 19, 0, "123"},
+		{-123.4, 19, 0, "-123"},
+		{123.6, 19, 0, "124"},
+		{-123.6, 19, 0, "-124"},
+		// 2**62
+		{4.611686018427387904e+18, 19, 0, "4611686018427387904"},
+		{-4.611686018427387904e+18, 19, 0, "-4611686018427387904"},
+		// 2**63
+		{9.223372036854775808e+18, 19, 0, "9223372036854775808"},
+		{-9.223372036854775808e+18, 19, 0, "-9223372036854775808"},
+		// 2**64
+		{1.8446744073709551616e+19, 20, 0, "18446744073709551616"},
+		{-1.8446744073709551616e+19, 20, 0, "-18446744073709551616"},
+	}
+
+	t.Run("float64", func(t *testing.T) {
+		for _, tt := range tests {
+			t.Run(tt.expected, func(t *testing.T) {
+				n, err := decimal128.FromFloat64(tt.val, tt.precision, tt.scale)
+				assert.NoError(t, err)
+
+				assert.Equal(t, tt.expected, big.NewFloat(n.ToFloat64(tt.scale)).Text('f', int(tt.scale)))
+			})
+		}
+
+		t.Run("large values", func(t *testing.T) {
+			// test entire float64 range
+			for scale := int32(-308); scale <= 308; scale++ {
+				val := math.Pow10(int(scale))
+				n, err := decimal128.FromFloat64(val, 1, -scale)
+				assert.NoError(t, err)
+				assert.Equal(t, "1", n.BigInt().String())
+			}
+
+			for scale := int32(-307); scale <= 306; scale++ {
+				val := 123 * math.Pow10(int(scale))
+				n, err := decimal128.FromFloat64(val, 2, -scale-1)
+				assert.NoError(t, err)
+				assert.Equal(t, "12", n.BigInt().String())
+				n, err = decimal128.FromFloat64(val, 3, -scale)
+				assert.NoError(t, err)
+				assert.Equal(t, "123", n.BigInt().String())
+				n, err = decimal128.FromFloat64(val, 4, -scale+1)
+				assert.NoError(t, err)
+				assert.Equal(t, "1230", n.BigInt().String())
+			}
+		})
+	})
+
+	t.Run("float32", func(t *testing.T) {
+		for _, tt := range tests {
+			t.Run(tt.expected, func(t *testing.T) {
+				n, err := decimal128.FromFloat32(float32(tt.val), tt.precision, tt.scale)
+				assert.NoError(t, err)
+
+				assert.Equal(t, tt.expected, big.NewFloat(float64(n.ToFloat32(tt.scale))).Text('f', int(tt.scale)))
+			})
+		}
+
+		t.Run("large values", func(t *testing.T) {
+			// test entire float32 range
+			for scale := int32(-38); scale <= 38; scale++ {
+				val := float32(math.Pow10(int(scale)))
+				n, err := decimal128.FromFloat32(val, 1, -scale)
+				assert.NoError(t, err)
+				assert.Equal(t, "1", n.BigInt().String())
+			}
+
+			for scale := int32(-37); scale <= 36; scale++ {
+				val := 123 * float32(math.Pow10(int(scale)))
+				n, err := decimal128.FromFloat32(val, 2, -scale-1)
+				assert.NoError(t, err)
+				assert.Equal(t, "12", n.BigInt().String())
+				n, err = decimal128.FromFloat32(val, 3, -scale)
+				assert.NoError(t, err)
+				assert.Equal(t, "123", n.BigInt().String())
+				n, err = decimal128.FromFloat32(val, 4, -scale+1)
+				assert.NoError(t, err)
+				assert.Equal(t, "1230", n.BigInt().String())
+			}
+		})
+	})
+}

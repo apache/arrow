@@ -296,7 +296,6 @@ type serializedPageReader struct {
 	codec    compress.Codec
 
 	curPageHdr        *format.PageHeader
-	buf               *memory.Buffer
 	pageOrd           int16
 	maxPageHeaderSize int
 
@@ -326,7 +325,6 @@ func NewPageReader(r parquet.BufferedReader, nrows int64, compressType compress.
 		nrows:             nrows,
 		mem:               mem,
 		codec:             codec,
-		buf:               memory.NewResizableBuffer(mem),
 	}
 	rdr.decompressBuffer.Grow(defaultPageHeaderSize)
 	if ctx != nil {
@@ -345,7 +343,6 @@ func (p *serializedPageReader) Reset(r parquet.BufferedReader, nrows int64, comp
 	if p.err != nil {
 		return
 	}
-	p.buf.ResizeNoShrink(0)
 	p.decompressBuffer.Reset()
 	if ctx != nil {
 		p.cryptoCtx = *ctx
@@ -488,7 +485,9 @@ func (p *serializedPageReader) Next() bool {
 			p.updateDecryption(p.cryptoCtx.DataDecryptor, encryption.DictPageModule, p.dataPageAad)
 		}
 
-		p.buf.ResizeNoShrink(lenUncompressed)
+		buf := memory.NewResizableBuffer(p.mem)
+		defer buf.Release()
+		buf.ResizeNoShrink(lenUncompressed)
 
 		switch p.curPageHdr.GetType() {
 		case format.PageType_DICTIONARY_PAGE:
@@ -499,7 +498,7 @@ func (p *serializedPageReader) Next() bool {
 				return false
 			}
 
-			data, err := p.decompress(lenCompressed, p.buf.Bytes())
+			data, err := p.decompress(lenCompressed, buf.Bytes())
 			if err != nil {
 				p.err = err
 				return false
@@ -529,7 +528,7 @@ func (p *serializedPageReader) Next() bool {
 			}
 
 			p.rowsSeen += int64(dataHeader.GetNumValues())
-			data, err := p.decompress(lenCompressed, p.buf.Bytes())
+			data, err := p.decompress(lenCompressed, buf.Bytes())
 			if err != nil {
 				p.err = err
 				return false
@@ -574,27 +573,30 @@ func (p *serializedPageReader) Next() bool {
 				return false
 			}
 
-			var data []byte
+			var pagebuf *memory.Buffer
 			if compressed {
 				if levelsBytelen > 0 {
-					io.ReadFull(p.r, p.buf.Bytes()[:levelsBytelen])
+					io.ReadFull(p.r, buf.Bytes()[:levelsBytelen])
 				}
-				if data, p.err = p.decompress(lenCompressed-levelsBytelen, p.buf.Bytes()[levelsBytelen:]); p.err != nil {
+				var data []byte
+				if data, p.err = p.decompress(lenCompressed-levelsBytelen, buf.Bytes()[levelsBytelen:]); p.err != nil {
 					return false
 				}
+				pagebuf = memory.NewBufferBytes(data)
 			} else {
-				io.ReadFull(p.r, p.buf.Bytes())
-				data = p.buf.Bytes()
+				io.ReadFull(p.r, buf.Bytes())
+				pagebuf = buf
+				pagebuf.Retain()
 			}
-			if len(data) != lenUncompressed {
-				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
+			if pagebuf.Len() != lenUncompressed {
+				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, pagebuf.Len())
 				return false
 			}
 
 			// make datapage v2
 			p.curPage = &DataPageV2{
 				page: page{
-					buf:      memory.NewBufferBytes(data),
+					buf:      pagebuf,
 					typ:      p.curPageHdr.Type,
 					nvals:    dataHeader.GetNumValues(),
 					encoding: dataHeader.GetEncoding(),
@@ -611,8 +613,6 @@ func (p *serializedPageReader) Next() bool {
 			// we don't know this page type, we're allowed to skip non-data pages
 			continue
 		}
-
-		p.buf = memory.NewResizableBuffer(p.mem)
 		return true
 	}
 

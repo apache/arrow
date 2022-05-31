@@ -705,6 +705,17 @@ CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 CAST_VARBINARY_FROM_STRING_AND_BINARY(utf8)
 CAST_VARBINARY_FROM_STRING_AND_BINARY(binary)
 
+#define CAST_BINARY_FROM_STRING_AND_BINARY(TYPE)                      \
+  GANDIVA_EXPORT                                                      \
+  const char* castBINARY_##TYPE(const char* data, gdv_int32 data_len, \
+                                int32_t* out_length) {                \
+    *out_length = data_len;                                           \
+    return data;                                                      \
+  }
+
+CAST_BINARY_FROM_STRING_AND_BINARY(utf8)
+CAST_BINARY_FROM_STRING_AND_BINARY(binary)
+
 #undef CAST_VARBINARY_FROM_STRING_AND_BINARY
 
 #define IS_NULL(NAME, TYPE)                                                \

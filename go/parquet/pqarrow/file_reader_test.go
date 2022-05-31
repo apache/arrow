@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v9/arrow/array"
 	"github.com/apache/arrow/go/v9/arrow/decimal128"
 	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/parquet"
 	"github.com/apache/arrow/go/v9/parquet/file"
 	"github.com/apache/arrow/go/v9/parquet/pqarrow"
 	"github.com/stretchr/testify/assert"
@@ -63,7 +64,7 @@ func TestArrowReaderAdHocReadDecimals(t *testing.T) {
 			filename := filepath.Join(dataDir, tt.file+".parquet")
 			require.FileExists(t, filename)
 
-			rdr, err := file.OpenParquetFile(filename, false)
+			rdr, err := file.OpenParquetFile(filename, false, file.WithReadProps(parquet.NewReaderProperties(mem)))
 			require.NoError(t, err)
 			defer rdr.Close()
 			arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
@@ -107,7 +108,7 @@ func TestRecordReaderParallel(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, pqarrow.WriteTable(tbl, &buf, tbl.NumRows(), nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))))
 
-	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()), file.WithReadProps(parquet.NewReaderProperties(mem)))
 	require.NoError(t, err)
 
 	reader, err := pqarrow.NewFileReader(pf, pqarrow.ArrowReadProperties{BatchSize: 3, Parallel: true}, mem)
@@ -153,7 +154,7 @@ func TestRecordReaderSerial(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, pqarrow.WriteTable(tbl, &buf, tbl.NumRows(), nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))))
 
-	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()), file.WithReadProps(parquet.NewReaderProperties(mem)))
 	require.NoError(t, err)
 
 	reader, err := pqarrow.NewFileReader(pf, pqarrow.ArrowReadProperties{BatchSize: 2}, mem)

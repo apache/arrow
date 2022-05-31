@@ -102,7 +102,7 @@ RecordBatch <- R6Class("RecordBatch",
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
     ReplaceSchemaMetadata = function(new) {
-      RecordBatch__ReplaceSchemaMetadata(self, new)
+      RecordBatch__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
@@ -295,6 +295,12 @@ as_record_batch.Table <- function(x, ..., schema = NULL) {
   }
 
   out
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.arrow_dplyr_query <- function(x, ...) {
+  as_record_batch(compute.arrow_dplyr_query(x), ...)
 }
 
 #' @rdname as_record_batch

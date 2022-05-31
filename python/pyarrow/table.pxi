@@ -2886,20 +2886,23 @@ cdef class Table(_PandasConvertible):
         """
         Select rows from the table.
 
-        See :func:`pyarrow.compute.filter` for full usage.
+        The Table can be filtered based on a mask, which will be passed to
+        :func:`pyarrow.compute.filter` to perform the filtering, or it can
+        be filtered through a boolean :class:`.Expression`
 
         Parameters
         ----------
-        mask : Array or array-like
-            The boolean mask to filter the table with.
+        mask : Array or array-like or .Expression
+            The boolean mask or the :class:`.Expression` to filter the table with.
         null_selection_behavior
-            How nulls in the mask should be handled.
+            How nulls in the mask should be handled, does nothing if
+            an :class:`.Expression` is used.
 
         Returns
         -------
         filtered : Table
             A table of the same schema, with only the rows selected
-            by the boolean mask.
+            by applied filtering
 
         Examples
         --------
@@ -2932,7 +2935,11 @@ cdef class Table(_PandasConvertible):
         n_legs: [[2,4,null]]
         animals: [["Flamingo","Horse",null]]
         """
-        return _pc().filter(self, mask, null_selection_behavior)
+        if isinstance(mask, _pc().Expression):
+            return _pc()._exec_plan._filter_table(self, mask,
+                                                  output_type=Table)
+        else:
+            return _pc().filter(self, mask, null_selection_behavior)
 
     def take(self, object indices):
         """
@@ -3359,7 +3366,7 @@ cdef class Table(_PandasConvertible):
         n_legs: int64
         animals: string
         -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 509
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
 
         Define new schema and cast table values:
 
@@ -3705,6 +3712,7 @@ cdef class Table(_PandasConvertible):
         >>> import pyarrow as pa
         >>> n_legs = pa.array([2, 4, 5, 100])
         >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> names = ["n_legs", "animals"]
         >>> batch = pa.record_batch([n_legs, animals], names=names)
         >>> batch.to_pandas()
            n_legs        animals
@@ -3859,7 +3867,7 @@ cdef class Table(_PandasConvertible):
         n_legs: int64
         animals: string
         -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 509
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
         >>> reader.read_all()
         pyarrow.Table
         n_legs: int64
@@ -5271,6 +5279,7 @@ list[tuple(str, str, FunctionOptions)]
 
         Examples
         --------
+        >>> import pyarrow as pa
         >>> t = pa.table([
         ...       pa.array(["a", "a", "b", "b", "c"]),
         ...       pa.array([1, 2, 3, 4, 5]),

@@ -188,7 +188,7 @@ test_that("to_arrow roundtrip, with dataset (without wrapping)", {
     to_duckdb() %>%
     select(-fct) %>%
     mutate(dbl_plus = dbl + 1) %>%
-    to_arrow(as_arrow_query = FALSE)
+    to_arrow()
 
   expect_r6_class(out, "RecordBatchReader")
 })
