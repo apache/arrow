@@ -32,10 +32,7 @@ class ReservationListenableMemoryPool::Impl {
  public:
   explicit Impl(arrow::MemoryPool* pool, std::shared_ptr<ReservationListener> listener,
                 int64_t block_size)
-      : pool_(pool),
-        listener_(listener),
-        block_size_(block_size),
-        blocks_reserved_(0) {}
+      : pool_(pool), listener_(listener), block_size_(block_size), blocks_reserved_(0) {}
 
   arrow::Status Allocate(int64_t size, uint8_t** out) {
     RETURN_NOT_OK(UpdateReservation(size));
