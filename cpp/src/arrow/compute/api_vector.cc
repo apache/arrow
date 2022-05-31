@@ -135,6 +135,10 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
+static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOptions>(
+    DataMember("start", &CumulativeSumOptions::start),
+    DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
+    DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
 }  // namespace
 }  // namespace internal
 
@@ -176,6 +180,18 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
+CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls,
+                                           bool check_overflow)
+    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
+                           check_overflow) {}
+CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls,
+                                           bool check_overflow)
+    : FunctionOptions(internal::kCumulativeSumOptionsType),
+      start(std::move(start)),
+      skip_nulls(skip_nulls),
+      check_overflow(check_overflow) {}
+constexpr char CumulativeSumOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -185,6 +201,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
 }
 }  // namespace internal
 
@@ -323,6 +340,15 @@ Result<Datum> DropNull(const Datum& values, ExecContext* ctx) {
 Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum out, DropNull(Datum(values), ctx));
   return out.make_array();
+}
+
+// ----------------------------------------------------------------------
+// Cumulative functions
+
+Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options,
+                            ExecContext* ctx) {
+  auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
+  return CallFunction(func_name, {Datum(values)}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------
