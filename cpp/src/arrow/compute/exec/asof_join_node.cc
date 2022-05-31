@@ -53,7 +53,7 @@ class ConcurrentQueue {
     return item;
   }
 
-  void push(const T& item) {
+  void Push(const T& item) {
     std::unique_lock<std::mutex> lock(mutex_);
     queue_.push(item);
     cond_.notify_one();
