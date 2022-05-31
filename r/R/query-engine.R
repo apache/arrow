@@ -304,7 +304,7 @@ ExecNode <- R6Class("ExecNode",
       self$preserve_extras(ExecNode_Filter(self, expr))
     },
     Aggregate = function(options, key_names) {
-      self$preserve_sort(
+      out <- self$preserve_extras(
         ExecNode_Aggregate(self, options, key_names)
       )
       # dplyr drops top-level attributes when you call summarize()
