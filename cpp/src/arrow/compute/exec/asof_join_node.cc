@@ -59,7 +59,7 @@ class ConcurrentQueue {
     cond_.notify_one();
   }
 
-  util::optional<T> try_pop() {
+  util::optional<T> TryPop() {
     // Try to pop the oldest value from the queue (or return nullopt if none)
     std::unique_lock<std::mutex> lock(mutex_);
     if (queue_.empty()) {
@@ -71,7 +71,7 @@ class ConcurrentQueue {
     }
   }
 
-  bool empty() const {
+  bool Empty() const {
     std::unique_lock<std::mutex> lock(mutex_);
     return queue_.empty();
   }
@@ -105,7 +105,7 @@ struct MemoStore {
 
   std::unordered_map<KeyType, Entry> _entries;
 
-  void store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, int64_t time,
+  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, int64_t time,
              KeyType key) {
     auto& e = _entries[key];
     // that we can do this assignment optionally, is why we
@@ -116,13 +116,13 @@ struct MemoStore {
     e._time = time;
   }
 
-  util::optional<const Entry*> get_entry_for_key(KeyType key) const {
+  util::optional<const Entry*> GetEntryForKey(KeyType key) const {
     auto e = _entries.find(key);
     if (_entries.end() == e) return util::nullopt;
     return util::optional<const Entry*>(&e->second);
   }
 
-  void remove_entries_with_lesser_time(int64_t ts) {
+  void RemoveEntriesWithLesserTime(int64_t ts) {
     size_t dbg_size0 = _entries.size();
     for (auto e = _entries.begin(); e != _entries.end();)
       if (e->second._time < ts)
@@ -166,7 +166,7 @@ class InputState {
   }
 
   bool is_time_or_key_column(col_index_t i) const {
-    assert(i < schema_->num_fields());
+    DCHECK_LT(i, schema_->num_fields());
     return (i == time_col_index_) || (i == key_col_index_);
   }
 
@@ -203,9 +203,7 @@ class InputState {
   bool advance() {
     // Returns true if able to advance, false if not.
 
-    bool have_active_batch =
-        (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.empty();
-    if (have_active_batch) {
+    if (!empty()) {
       // If we have an active batch
       if (++latest_ref_row_ >= (row_index_t)queue_.unsync_front()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
@@ -213,7 +211,7 @@ class InputState {
         latest_ref_row_ = 0;
         have_active_batch &= !queue_.try_pop();
         if (have_active_batch)
-          assert(queue_.unsync_front()->num_rows() > 0);  // empty batches disallowed
+          DCHECK_GT(queue_.unsync_front()->num_rows(), 0);  // empty batches disallowed
       }
     }
     return have_active_batch;
@@ -266,7 +264,7 @@ class InputState {
 
   util::optional<int64_t> get_memo_time_for_key(KeyType key) {
     auto r = get_memo_entry_for_key(key);
-    return r.has_value() ? util::make_optional((*r)->_time) : util::nullopt;
+    return r.has_value() ? (*r)->_time : util::nullopt;
   }
 
   void remove_memo_entries_with_lesser_time(int64_t ts) {
@@ -347,14 +345,14 @@ class CompositeReferenceTable {
   // - LHS must have a valid key,timestep,and latest rows
   // - RHS must have valid data memo'ed for the key
   void emplace(std::vector<std::unique_ptr<InputState>>& in, int64_t tolerance) {
-    assert(in.size() == n_tables_);
+    DCHECK_EQ(in.size(), n_tables_);
 
     // Get the LHS key
     KeyType key = in[0]->get_latest_key();
 
     // Add row and setup LHS
     // (the LHS state comes just from the latest row of the LHS table)
-    assert(!in[0]->empty());
+    DCHECK(!in[0]->empty());
     const std::shared_ptr<arrow::RecordBatch>& lhs_latest_batch =
         in[0]->get_latest_batch();
     row_index_t lhs_latest_row = in[0]->get_latest_row();
@@ -378,7 +376,7 @@ class CompositeReferenceTable {
       util::optional<const MemoStore::Entry*> opt_entry =
           in[i]->get_memo_entry_for_key(key);
       if (opt_entry.has_value()) {
-        assert(*opt_entry);
+        DCHECK(*opt_entry);
         if ((*opt_entry)->_time + tolerance >= lhs_latest_time) {
           // Have a valid entry
           const MemoStore::Entry* entry = *opt_entry;
@@ -417,8 +415,8 @@ class CompositeReferenceTable {
           col_index_t i_dst_col = *i_dst_col_opt;
           const auto& src_field = state[i_table]->get_schema()->field(i_src_col);
           const auto& dst_field = output_schema->field(i_dst_col);
-          assert(src_field->type()->Equals(dst_field->type()));
-          assert(src_field->name() == dst_field->name());
+          DCHECK(src_field->type()->Equals(dst_field->type()));
+          DCHECK_EQ(src_field->name(), dst_field->name());
           const auto& field_type = src_field->type();
 
           if (field_type->Equals(arrow::int32())) {
@@ -445,7 +443,7 @@ class CompositeReferenceTable {
     }
 
     // Build the result
-    assert(sizeof(size_t) >= sizeof(int64_t));  // Make takes signed int64_t for num_rows
+    DCHECK_GE(sizeof(size_t), sizeof(int64_t)) << "AsofJoinNode requires size_t >= 8 bytes";
 
     // TODO: check n_rows for cast
     std::shared_ptr<arrow::RecordBatch> r =
@@ -718,7 +716,6 @@ class AsofJoinNode : public ExecNode {
     std::cerr << "StopProducing" << std::endl;
     // if(batch_count_.Cancel()) finished_.MarkFinished();
     finished_.MarkFinished();
-    for (auto&& input : inputs_) input->StopProducing(this);
   }
   arrow::Future<> finished() override { return finished_; }
 
