@@ -68,7 +68,7 @@ jobs:
           fi
           echo $PREFIX
 
-          archery crossbow download-artifacts -f r-nightly-packages -t binaries --skip-pattern-validation $PREFIX
+          archery crossbow download-artifacts -f r-nightly-packages -t binaries $PREFIX
 
           if [ -n "$(ls -A binaries/*/*/)" ]; then
             echo "Found files!"
