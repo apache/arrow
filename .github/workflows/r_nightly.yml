@@ -69,7 +69,16 @@ jobs:
           echo $PREFIX
 
           archery crossbow download-artifacts -f r-nightly-packages -t binaries --skip-pattern-validation $PREFIX
+
+          if [ -n "$(ls -A binaries/*/*/)" ]; then
+            echo "Found files!"
+            echo "GOT_FILES=true" >> $GITHUB_ENV
+          else
+            echo "No files found. Stopping upload."
+            echo "GOT_FILES=false" >> $GITHUB_ENV
+          fi
       - name: Build Repository
+        if: env.GOT_FILES == 'true'
         shell: Rscript {0}
         run: |
           art_path <- list.files("binaries",
@@ -110,8 +119,11 @@ jobs:
               dir.create(path, recursive = TRUE, showWarnings = FALSE)
               file.copy(file, file.path(path, match[[3]]))
           }
-      - run: ls -R repo
+      - name: Show repo contents
+        if: env.GOT_FILES == 'true'
+        run: ls -R repo
       - name: Upload Files
+        if: env.GOT_FILES == 'true'
         uses: burnett01/rsync-deployments@5.2
         with:
           switches: -avzr
