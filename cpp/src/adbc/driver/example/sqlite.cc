@@ -23,21 +23,13 @@
 #include <string>
 
 #include "adbc/adbc.h"
+#include "adbc/driver/util.h"
 #include "arrow/builder.h"
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_builder.h"
-
-// XXX: We want to export Adbc* functions, but inside
-// AdbcSqliteDriverInit, we want to always point to the local
-// function, not the global function (so we can cooperate with the
-// driver manager). "protected" visibility gives us this.
-// RTLD_DEEPBIND also works but is glibc-specific and does not work
-// with AddressSanitizer.
-// TODO: should this go in adbc.h instead?
-#define ADBC_DRIVER_EXPORT __attribute__((visibility("protected")))
 
 namespace {
 
@@ -182,7 +174,7 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
     // The statement was stepped once at the start, so step at the end of the loop
     int64_t num_rows = 0;
     for (int64_t row = 0; row < kBatchSize; row++) {
-      for (int64_t col = 0; col < schema_->num_fields(); col++) {
+      for (int col = 0; col < schema_->num_fields(); col++) {
         const auto& field = schema_->field(col);
         switch (field->type()->id()) {
           case arrow::Type::INT64: {
@@ -325,8 +317,8 @@ class SqliteConnectionImpl {
     auto* impl = ptr->get();
 
     sqlite3_stmt* stmt = nullptr;
-    auto rc =
-        sqlite3_prepare_v2(db_, query, std::strlen(query), &stmt, /*pzTail=*/nullptr);
+    auto rc = sqlite3_prepare_v2(db_, query, static_cast<int>(std::strlen(query)), &stmt,
+                                 /*pzTail=*/nullptr);
     if (rc != SQLITE_OK) {
       if (stmt) {
         rc = sqlite3_finalize(stmt);

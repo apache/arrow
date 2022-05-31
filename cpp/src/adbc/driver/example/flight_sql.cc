@@ -33,13 +33,6 @@ namespace flight = arrow::flight;
 namespace flightsql = arrow::flight::sql;
 using arrow::Status;
 
-// XXX: We want to export Adbc* functions, but inside
-// AdbcSqliteDriverInit, we want to always point to the local
-// function, not the global function (so we can cooperate with the
-// driver manager). "protected" visibility gives us this.
-// TODO: should this go in adbc.h instead?
-#define ADBC_DRIVER_EXPORT __attribute__((visibility("protected")))
-
 namespace {
 
 void SetError(const Status& status, struct AdbcError* error) {

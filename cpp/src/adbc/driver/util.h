@@ -21,9 +21,22 @@
 #include "arrow/result.h"
 #include "arrow/util/string_view.h"
 
+// XXX: We want to export Adbc* functions, but inside
+// AdbcSqliteDriverInit, we want to always point to the local
+// function, not the global function (so we can cooperate with the
+// driver manager). "protected" visibility gives us this.
+// RTLD_DEEPBIND also works but is glibc-specific and does not work
+// with AddressSanitizer.
+// TODO: should this go in adbc.h instead?
+#ifdef __linux__
+#define ADBC_DRIVER_EXPORT __attribute__((visibility("protected")))
+#else
+#define ADBC_DRIVER_EXPORT
+#endif  // ifdef __linux__
+
 namespace adbc {
 
-/// \brief
+/// \brief Parse a connection string.
 arrow::Result<std::unordered_map<std::string, std::string>> ParseConnectionString(
     arrow::util::string_view target);
 
