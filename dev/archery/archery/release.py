@@ -85,11 +85,11 @@ class Issue:
 
 class Jira(JIRA):
 
-    def __init__(self, user=None, password=None,
+    def __init__(self, token=None,
                  url='https://issues.apache.org/jira'):
-        user = user or os.environ.get('APACHE_JIRA_USER')
-        password = password or os.environ.get('APACHE_JIRA_PASSWORD')
-        super().__init__(url, basic_auth=(user, password))
+        
+        token = token or os.environ.get('APACHE_JIRA_TOKEN')
+        super().__init__(url, token_auth=(token))
 
     def project_version(self, version_string, project='ARROW'):
         # query version from jira to populated with additional metadata
