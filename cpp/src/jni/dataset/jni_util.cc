@@ -32,11 +32,7 @@ class ReservationListenableMemoryPool::Impl {
  public:
   explicit Impl(arrow::MemoryPool* pool, std::shared_ptr<ReservationListener> listener,
                 int64_t block_size)
-      : pool_(pool),
-        listener_(listener),
-        block_size_(block_size),
-        blocks_reserved_(0),
-        bytes_reserved_(0) {}
+      : pool_(pool), listener_(listener), block_size_(block_size), blocks_reserved_(0) {}
 
   arrow::Status Allocate(int64_t size, uint8_t** out) {
     RETURN_NOT_OK(UpdateReservation(size));
@@ -98,22 +94,23 @@ class ReservationListenableMemoryPool::Impl {
 
   int64_t Reserve(int64_t diff) {
     std::lock_guard<std::mutex> lock(mutex_);
-    bytes_reserved_ += diff;
+    stats_.UpdateAllocatedBytes(diff);
     int64_t new_block_count;
-    if (bytes_reserved_ == 0) {
+    int64_t bytes_reserved = stats_.bytes_allocated();
+    if (bytes_reserved == 0) {
       new_block_count = 0;
     } else {
       // ceil to get the required block number
-      new_block_count = (bytes_reserved_ - 1) / block_size_ + 1;
+      new_block_count = (bytes_reserved - 1) / block_size_ + 1;
     }
     int64_t bytes_granted = (new_block_count - blocks_reserved_) * block_size_;
     blocks_reserved_ = new_block_count;
     return bytes_granted;
   }
 
-  int64_t bytes_allocated() { return pool_->bytes_allocated(); }
+  int64_t bytes_allocated() { return stats_.bytes_allocated(); }
 
-  int64_t max_memory() { return pool_->max_memory(); }
+  int64_t max_memory() { return stats_.max_memory(); }
 
   std::string backend_name() { return pool_->backend_name(); }
 
@@ -124,7 +121,7 @@ class ReservationListenableMemoryPool::Impl {
   std::shared_ptr<ReservationListener> listener_;
   int64_t block_size_;
   int64_t blocks_reserved_;
-  int64_t bytes_reserved_;
+  arrow::internal::MemoryPoolStats stats_;
   std::mutex mutex_;
 };
 
