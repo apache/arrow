@@ -2007,8 +2007,7 @@ class ArrayRanker : public TypeVisitor {
 
         for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
           curr_value = GetView::LogicalValue(arr.GetView(*it));
-          if (it == sorted.non_nulls_begin || it == sorted.non_nulls_end ||
-              curr_value != prev_value) {
+          if (it == sorted.non_nulls_begin || curr_value != prev_value) {
             rank = (it - sorted.overall_begin()) + 1;
           }
           out_begin[*it] = rank;
@@ -2034,17 +2033,14 @@ class ArrayRanker : public TypeVisitor {
           rank = sorted.non_null_count();
         }
 
-        uint64_t times_seen = 0;
         for (auto it = sorted.non_nulls_end - 1; it >= sorted.non_nulls_begin; it--) {
           curr_value = GetView::LogicalValue(arr.GetView(*it));
           if ((it < sorted.non_nulls_end - 1 && (curr_value != prev_value))) {
-            rank -= times_seen;
-            times_seen = 0;
+            rank = length - (sorted.overall_end() - it) + 1;
           }
 
           out_begin[*it] = rank;
           prev_value = curr_value;
-          times_seen++;
         }
 
         if (null_placement_ == NullPlacement::AtStart) {

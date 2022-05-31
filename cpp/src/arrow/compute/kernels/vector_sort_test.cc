@@ -2008,35 +2008,36 @@ void AssertRankAllTiebreakers(const std::shared_ptr<Array>& input) {
 }
 
 TEST(TestRankForReal, RankReal) {
-  for (auto null_placement : AllNullPlacements()) {
-    for (auto tiebreaker : AllTiebreakers()) {
-      for (auto real_type : ::arrow::FloatingPointTypes()) {
+  for (auto real_type : ::arrow::FloatingPointTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
         for (auto order : AllOrders()) {
           AssertRankEmpty(real_type, order, null_placement, tiebreaker);
         }
+
         AssertRankSimple(ArrayFromJSON(real_type, "[2.1, 3.2, 1.0, 0.0, 5.5]"),
                          null_placement, tiebreaker);
-
-        AssertRankAllTiebreakers(
-            ArrayFromJSON(real_type, "[1.2, 0.0, 5.3, null, 5.3, null, 0.0]"));
       }
     }
+
+    AssertRankAllTiebreakers(
+        ArrayFromJSON(real_type, "[1.2, 0.0, 5.3, null, 5.3, null, 0.0]"));
   }
 }
 
 TEST(TestRankForIntegral, RankIntegral) {
-  for (auto null_placement : AllNullPlacements()) {
-    for (auto tiebreaker : AllTiebreakers()) {
-      for (auto integer_type : ::arrow::IntTypes()) {
+  for (auto integer_type : ::arrow::IntTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
         for (auto order : AllOrders()) {
           AssertRankEmpty(integer_type, order, null_placement, tiebreaker);
         }
+
         AssertRankSimple(ArrayFromJSON(integer_type, "[2, 3, 1, 0, 5]"), null_placement,
                          tiebreaker);
-        AssertRankAllTiebreakers(
-            ArrayFromJSON(integer_type, "[1, 0, 5, null, 5, null, 0]"));
       }
     }
+    AssertRankAllTiebreakers(ArrayFromJSON(integer_type, "[1, 0, 5, null, 5, null, 0]"));
   }
 }
 
@@ -2111,57 +2112,53 @@ TEST(TestRankForBool, RankBool) {
 }
 
 TEST(TestRankForTemporal, RankTemporal) {
-  for (auto null_placement : AllNullPlacements()) {
-    for (auto tiebreaker : AllTiebreakers()) {
-      for (auto temporal_type : ::arrow::TemporalTypes()) {
+  for (auto temporal_type : ::arrow::TemporalTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
         for (auto order : AllOrders()) {
           AssertRankEmpty(temporal_type, order, null_placement, tiebreaker);
         }
 
         AssertRankSimple(ArrayFromJSON(temporal_type, "[2, 3, 1, 0, 5]"), null_placement,
                          tiebreaker);
-        AssertRankAllTiebreakers(
-            ArrayFromJSON(temporal_type, "[1, 0, 5, null, 5, null, 0]"));
       }
     }
+    AssertRankAllTiebreakers(ArrayFromJSON(temporal_type, "[1, 0, 5, null, 5, null, 0]"));
   }
 }
 
 TEST(TestRankForStrings, RankStrings) {
-  for (auto null_placement : AllNullPlacements()) {
-    for (auto tiebreaker : AllTiebreakers()) {
-      for (auto string_type : ::arrow::StringTypes()) {
+  for (auto string_type : ::arrow::StringTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
         for (auto order : AllOrders()) {
           AssertRankEmpty(string_type, order, null_placement, tiebreaker);
         }
 
         AssertRankSimple(ArrayFromJSON(string_type, R"(["b", "c", "a", "", "d"])"),
                          null_placement, tiebreaker);
-        AssertRankAllTiebreakers(
-            ArrayFromJSON(string_type, R"(["a", "", "e", null, "e", null, ""])"));
       }
     }
+    AssertRankAllTiebreakers(
+        ArrayFromJSON(string_type, R"(["a", "", "e", null, "e", null, ""])"));
   }
 }
 
 TEST(TestRankForFixedSizeBinary, RankFixedSizeBinary) {
+  auto binary_type = fixed_size_binary(3);
   for (auto null_placement : AllNullPlacements()) {
     for (auto tiebreaker : AllTiebreakers()) {
-      auto binary_type = fixed_size_binary(3);
       for (auto order : AllOrders()) {
         AssertRankEmpty(binary_type, order, null_placement, tiebreaker);
       }
 
-      for (auto order : AllOrders()) {
-        AssertRankEmpty(binary_type, order, null_placement, tiebreaker);
-      }
       AssertRankSimple(
           ArrayFromJSON(binary_type, R"(["bbb", "ccc", "aaa", "   ", "ddd"])"),
           null_placement, tiebreaker);
-      AssertRankAllTiebreakers(ArrayFromJSON(
-          binary_type, R"(["aaa", "   ", "eee", null, "eee", null, "   "])"));
     }
   }
+  AssertRankAllTiebreakers(
+      ArrayFromJSON(binary_type, R"(["aaa", "   ", "eee", null, "eee", null, "   "])"));
 }
 
 // Some first keys will have duplicates, others not

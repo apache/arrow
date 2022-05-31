@@ -219,7 +219,7 @@ CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool s
       skip_nulls(skip_nulls),
       check_overflow(check_overflow) {}
 constexpr char CumulativeSumOptions::kTypeName[];
-RankOptions::RankOptions(SortOrder order, NullPlacement null_placement,
+
 ArrayRankOptions::ArrayRankOptions(SortOrder order, NullPlacement null_placement,
                                    RankOptions::Tiebreaker tiebreaker)
     : FunctionOptions(internal::kArrayRankOptionsType),
