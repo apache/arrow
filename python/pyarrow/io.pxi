@@ -330,8 +330,7 @@ cdef class NativeFile(_Weakrefable):
 
     def write(self, data):
         """
-        Write byte from any object implementing buffer protocol (bytes,
-        bytearray, ndarray, pyarrow.Buffer)
+        Write data to the file.
 
         Parameters
         ----------
@@ -353,8 +352,9 @@ cdef class NativeFile(_Weakrefable):
 
     def read(self, nbytes=None):
         """
-        Read indicated number of bytes from file, or read all remaining bytes
-        if no argument passed
+        Read and return up to n bytes.
+
+        If *nbytes* is None, then the entire remaining file contents are read.
 
         Parameters
         ----------
@@ -440,12 +440,17 @@ cdef class NativeFile(_Weakrefable):
     def read1(self, nbytes=None):
         """Read and return up to n bytes.
 
-        A short result does not imply that EOF is imminent.
+        Unlike read(), if *nbytes* is None then a chunk is read, not the
+        entire file.
 
         Parameters
         ----------
-        nbytes : int
+        nbytes : int, default None
             The maximum number of bytes to read.
+
+        Returns
+        -------
+        data : bytes
         """
         if nbytes is None:
             # The expectation when passing `nbytes=None` is not to read the
@@ -453,8 +458,6 @@ cdef class NativeFile(_Weakrefable):
             # a reasonable size (the use case being to read a bufferable
             # amount of bytes, such as with io.TextIOWrapper).
             nbytes = self._default_chunk_size
-        else:
-            nbytes = min(nbytes, self._default_chunk_size)
         return self.read(nbytes)
 
     def readall(self):

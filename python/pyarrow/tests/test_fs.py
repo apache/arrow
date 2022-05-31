@@ -1649,20 +1649,3 @@ def test_copy_files_directory(tempdir):
     destination_dir5.mkdir()
     copy_files(source_dir, destination_dir5, chunk_size=1, use_threads=False)
     check_copied_files(destination_dir5)
-
-
-@pytest.mark.pandas
-@pytest.mark.s3
-def test_pandas_text_reader_s3(tmpdir):
-    # ARROW-16272: Pandas' read_csv() should not exhaust a S3 input stream
-    # when a small nrows is passed.
-    import pandas as pd
-    from pyarrow.fs import S3FileSystem
-
-    fs = S3FileSystem(anonymous=True, region="us-east-2")
-    f = fs.open_input_file("ursa-qa/nyctaxi/yellow_tripdata_2010-01.csv")
-
-    df = pd.read_csv(f, nrows=2)
-    assert list(df["vendor_id"]) == ["VTS", "DDS"]
-    # Some readahead occurred, but not up to the end of file (which is ~2 GB)
-    assert f.tell() <= 256 * 1024
