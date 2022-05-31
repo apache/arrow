@@ -337,8 +337,8 @@ template <size_t MAX_TABLES>
 class CompositeReferenceTable {
  public:
   explicit CompositeReferenceTable(size_t n_tables) : n_tables_(n_tables) {
-    assert(n_tables_ >= 1);
-    assert(n_tables_ <= MAX_TABLES);
+    DCHECK_GE(n_tables_, 1);
+    DCHECK_LE(n_tables_, MAX_TABLES);
   }
 
   size_t n_rows() const { return rows_.size(); }
