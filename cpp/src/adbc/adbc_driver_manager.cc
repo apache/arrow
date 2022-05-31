@@ -53,8 +53,8 @@ AdbcStatusCode ConnectionSqlPrepare(struct AdbcConnection*, const char*,
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 
-AdbcStatusCode StatementBind(struct AdbcStatement*, struct ArrowArray,
-                             struct AdbcError* error) {
+AdbcStatusCode StatementBind(struct AdbcStatement*, struct ArrowArray*,
+                             struct ArrowSchema*, struct AdbcError* error) {
   return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 
@@ -163,11 +163,12 @@ AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
 }
 
 AdbcStatusCode AdbcStatementBind(struct AdbcStatement* statement,
-                                 struct ArrowArray values, struct AdbcError* error) {
+                                 struct ArrowArray* values, struct ArrowSchema* schema,
+                                 struct AdbcError* error) {
   if (!statement->private_driver) {
     return ADBC_STATUS_UNINITIALIZED;
   }
-  return statement->private_driver->StatementBind(statement, std::move(values), error);
+  return statement->private_driver->StatementBind(statement, values, schema, error);
 }
 
 AdbcStatusCode AdbcStatementExecute(struct AdbcStatement* statement,

@@ -387,8 +387,16 @@ AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
                                     struct AdbcError* error);
 
 /// \brief Bind parameter values for parameterized statements.
+/// \param[in] statement The statement to bind to.
+/// \param[in] values The values to bind. The driver will not call the
+///   release callback itself, although it may not do this until the
+///   statement is released.
+/// \param[in] schema The schema of the values to bind.
+/// \param[out] error An optional location to return an error message
+///   if necessary.
 AdbcStatusCode AdbcStatementBind(struct AdbcStatement* statement,
-                                 struct ArrowArray values, struct AdbcError* error);
+                                 struct ArrowArray* values, struct ArrowSchema* schema,
+                                 struct AdbcError* error);
 
 /// \brief Execute a statement.
 ///
@@ -514,8 +522,8 @@ struct AdbcDriver {
                                   struct AdbcError*);
   AdbcStatusCode (*StatementSetOptionInt64)(struct AdbcStatement*, struct AdbcError*);
   AdbcStatusCode (*StatementRelease)(struct AdbcStatement*, struct AdbcError*);
-  AdbcStatusCode (*StatementBind)(struct AdbcStatement*, struct ArrowArray,
-                                  struct AdbcError*);
+  AdbcStatusCode (*StatementBind)(struct AdbcStatement*, struct ArrowArray*,
+                                  struct ArrowSchema*, struct AdbcError*);
   AdbcStatusCode (*StatementExecute)(struct AdbcStatement*, struct AdbcError*);
   AdbcStatusCode (*StatementGetStream)(struct AdbcStatement*, struct ArrowArrayStream*,
                                        struct AdbcError*);

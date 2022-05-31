@@ -184,7 +184,44 @@ TEST(AdbcSqlite, SqlPrepare) {
                                      }));
   }
 
-  // TODO: parameters
+  {
+    auto param_schema = arrow::schema(
+        {arrow::field("1", arrow::int64()), arrow::field("2", arrow::utf8())});
+    std::string query = "SELECT ?, ?";
+    AdbcStatement statement;
+    ArrowArray export_params;
+    ArrowSchema export_schema;
+    std::memset(&statement, 0, sizeof(statement));
+
+    ASSERT_OK(ExportRecordBatch(
+        *arrow::RecordBatchFromJSON(param_schema, R"([[1, "foo"], [2, "bar"]])"),
+        &export_params));
+    ASSERT_OK(ExportSchema(*param_schema, &export_schema));
+
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                              driver.StatementInit(&connection, &statement, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(
+        &driver, error,
+        driver.ConnectionSqlPrepare(&connection, query.c_str(), &statement, &error));
+
+    ADBC_ASSERT_OK_WITH_ERROR(
+        &driver, error,
+        driver.StatementBind(&statement, &export_params, &export_schema, &error));
+    ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
+                              driver.StatementExecute(&statement, &error));
+
+    std::shared_ptr<arrow::Schema> schema;
+    arrow::RecordBatchVector batches;
+    ASSERT_NO_FATAL_FAILURE(ReadStatement(&driver, &statement, &schema, &batches));
+    arrow::AssertSchemaEqual(*schema, *arrow::schema({arrow::field("?", arrow::int64()),
+                                                      arrow::field("?", arrow::utf8())}));
+    EXPECT_THAT(batches,
+                ::testing::UnorderedPointwise(
+                    PointeesEqual(),
+                    {
+                        arrow::RecordBatchFromJSON(schema, R"([[1, "foo"], [2, "bar"]])"),
+                    }));
+  }
 
   ADBC_ASSERT_OK_WITH_ERROR(&driver, error,
                             driver.ConnectionRelease(&connection, &error));
