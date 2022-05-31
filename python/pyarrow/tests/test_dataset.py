@@ -4556,15 +4556,15 @@ def test_dataset_join(tempdir):
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="parquet")
-    ds1 = ds.dataset(tempdir / "t1")
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
 
     t2 = pa.table({
         "colB": [99, 2, 1],
         "col3": ["Z", "B", "A"]
     })
-    ds.write_dataset(t2, tempdir / "t2", format="parquet")
-    ds2 = ds.dataset(tempdir / "t2")
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
 
     result = ds1.join(ds2, "colA", "colB")
     assert result.to_table() == pa.table({
@@ -4587,15 +4587,15 @@ def test_dataset_join_unique_key(tempdir):
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="parquet")
-    ds1 = ds.dataset(tempdir / "t1")
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
 
     t2 = pa.table({
         "colA": [99, 2, 1],
         "col3": ["Z", "B", "A"]
     })
-    ds.write_dataset(t2, tempdir / "t2", format="parquet")
-    ds2 = ds.dataset(tempdir / "t2")
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
 
     result = ds1.join(ds2, "colA")
     assert result.to_table() == pa.table({
@@ -4619,16 +4619,16 @@ def test_dataset_join_collisions(tempdir):
         "colB": [10, 20, 60],
         "colVals": ["a", "b", "f"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="parquet")
-    ds1 = ds.dataset(tempdir / "t1")
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
 
     t2 = pa.table({
         "colA": [99, 2, 1],
         "colB": [99, 20, 10],
         "colVals": ["Z", "B", "A"]
     })
-    ds.write_dataset(t2, tempdir / "t2", format="parquet")
-    ds2 = ds.dataset(tempdir / "t2")
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
 
     result = ds1.join(ds2, "colA", join_type="full outer", right_suffix="_r")
     assert result.to_table().sort_by("colA") == pa.table([
@@ -4646,8 +4646,8 @@ def test_dataset_filter(tempdir):
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="parquet")
-    ds1 = ds.dataset(tempdir / "t1")
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
 
     result = ds1.scanner(filter=pc.field("colA") < 3)
     assert result.to_table() == pa.table({
