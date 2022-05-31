@@ -396,6 +396,10 @@ public class JdbcToArrowTestHelper {
 
   public static Integer[][] getListValues(String[] values, String dataType) {
     String[] dataArr = getValues(values, dataType);
+    return getListValues(dataArr);
+  }
+
+  public static Integer[][] getListValues(String[] dataArr) {
     Integer[][] valueArr = new Integer[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {

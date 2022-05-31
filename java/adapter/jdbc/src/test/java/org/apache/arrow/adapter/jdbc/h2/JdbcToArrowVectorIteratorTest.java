@@ -104,17 +104,17 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   @Test
   public void testVectorSchemaRootReuse() throws SQLException, IOException {
-    String[] expectedIntColValues = {
-        "[101, 102, 103]",
-        "[104, null, null]",
-        "[107, 108, 109]",
-        "[110]"
+    Integer[][] intValues = {
+          {101, 102, 103},
+          {104, null, null},
+          {107, 108, 109},
+          {110}
     };
-    String[] expectedArrayColValues = {
-        "[[1,2,3], [1,2], [1]]",
-        "[[2,3,4], [2,3], [2]]",
-        "[[3,4,5], [3,4], [3]]",
-        "[[]]"
+    Integer[][][] listValues = {
+          {{1, 2, 3}, {1, 2}, {1}},
+          {{2, 3, 4}, {2, 3}, {2}},
+          {{3, 4, 5}, {3, 4}, {3}},
+          {{}}
     };
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
@@ -134,10 +134,14 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
       assertNotNull(cur);
 
       // verify the first column, with may contain nulls.
-      assertEquals(expectedIntColValues[batchCount], cur.getVector(0).toString());
+      List<IntVector> intVectors = new ArrayList<>();
+      intVectors.add((IntVector) cur.getVector(0));
+      assertIntVectorValues(intVectors, intValues[batchCount].length, intValues[batchCount]);
 
       // verify arrays are handled correctly
-      assertEquals(expectedArrayColValues[batchCount], cur.getVector(18).toString());
+      List<ListVector> listVectors = new ArrayList<>();
+      listVectors.add((ListVector) cur.getVector(18));
+      assertListVectorValues(listVectors, listValues[batchCount].length, listValues[batchCount]);
 
       if (prev != null) {
         // skip the first iteration
