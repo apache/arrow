@@ -1121,29 +1121,6 @@ class ARROW_EXPORT SelectiveIpcFileRecordBatchGenerator {
   int index_;
 };
 
-struct AtomicReadStats {
-  std::atomic<int64_t> num_messages{0};
-  std::atomic<int64_t> num_record_batches{0};
-  std::atomic<int64_t> num_dictionary_batches{0};
-  std::atomic<int64_t> num_dictionary_deltas{0};
-  std::atomic<int64_t> num_replaced_dictionaries{0};
-
-  /// \brief Capture a copy of the current counters
-  ///
-  /// It's possible to get inconsistent values.  For example, if
-  /// this method is called in the middle of a read you might have
-  /// a case where num_messages != num_record_batches + num_dictionary_batches
-  ReadStats poll() const {
-    ReadStats stats;
-    stats.num_messages = num_messages.load();
-    stats.num_record_batches = num_record_batches.load();
-    stats.num_dictionary_batches = num_dictionary_batches.load();
-    stats.num_dictionary_deltas = num_dictionary_deltas.load();
-    stats.num_replaced_dictionaries = num_replaced_dictionaries.load();
-    return stats;
-  }
-};
-
 class RecordBatchFileReaderImpl : public RecordBatchFileReader {
  public:
   RecordBatchFileReaderImpl() : file_(NULLPTR), footer_offset_(0), footer_(NULLPTR) {}
@@ -1396,6 +1373,27 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
  private:
   friend class WholeIpcFileRecordBatchGenerator;
+
+  struct AtomicReadStats {
+    std::atomic<int64_t> num_messages{0};
+    std::atomic<int64_t> num_record_batches{0};
+    std::atomic<int64_t> num_dictionary_batches{0};
+    std::atomic<int64_t> num_dictionary_deltas{0};
+    std::atomic<int64_t> num_replaced_dictionaries{0};
+
+    /// \brief Capture a copy of the current counters
+    ReadStats poll() const {
+      ReadStats stats;
+      stats.num_messages = num_messages.load(std::memory_order_relaxed);
+      stats.num_record_batches = num_record_batches.load(std::memory_order_relaxed);
+      stats.num_dictionary_batches =
+          num_dictionary_batches.load(std::memory_order_relaxed);
+      stats.num_dictionary_deltas = num_dictionary_deltas.load(std::memory_order_relaxed);
+      stats.num_replaced_dictionaries =
+          num_replaced_dictionaries.load(std::memory_order_relaxed);
+      return stats;
+    }
+  };
 
   FileBlock GetRecordBatchBlock(int i) const {
     return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
