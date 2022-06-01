@@ -18,8 +18,16 @@
 import { Table } from '../table.js';
 import { TypeMap } from '../type.js';
 import { isPromise } from '../util/compat.js';
-import { FromArg0, FromArg1, FromArg2, FromArg3, FromArg4, FromArg5, RecordBatchReader } from './reader.js';
+import {
+    FromArg0, FromArg1, FromArg2, FromArg3, FromArg4, FromArg5,
+    RecordBatchReader,
+    RecordBatchFileReader, RecordBatchStreamReader,
+    AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader
+} from './reader.js';
 import { RecordBatchFileWriter, RecordBatchStreamWriter } from './writer.js';
+
+type RecordBatchReaders<T extends TypeMap = any> = RecordBatchFileReader<T> | RecordBatchStreamReader<T>;
+type AsyncRecordBatchReaders<T extends TypeMap = any> = AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>;
 
 /**
  * Deserialize the IPC format into a {@link Table}. This function is a
@@ -27,13 +35,19 @@ import { RecordBatchFileWriter, RecordBatchStreamWriter } from './writer.js';
  */
 export function tableFromIPC<T extends TypeMap = any>(source: FromArg0 | FromArg2): Table<T>;
 export function tableFromIPC<T extends TypeMap = any>(source: FromArg1): Promise<Table<T>>;
-export function tableFromIPC<T extends TypeMap = any>(source: FromArg3 | FromArg4 | FromArg5): Promise<Table<T>> | Table<T>;
+export function tableFromIPC<T extends TypeMap = any>(source: FromArg3 | FromArg4 | FromArg5): Promise<Table<T>>;
+export function tableFromIPC<T extends TypeMap = any>(source: RecordBatchReaders<T>): Table<T>;
+export function tableFromIPC<T extends TypeMap = any>(source: AsyncRecordBatchReaders<T>): Promise<Table<T>>;
+export function tableFromIPC<T extends TypeMap = any>(source: RecordBatchReader<T>): Table<T> | Promise<Table<T>>;
 export function tableFromIPC<T extends TypeMap = any>(input: any): Table<T> | Promise<Table<T>> {
-    const reader = RecordBatchReader.from<T>(input);
-    if (isPromise(reader)) {
-        return (async () => new Table(await (await reader).readAll()))();
+    const reader = RecordBatchReader.from<T>(input) as RecordBatchReader<T> | Promise<RecordBatchReader<T>>;
+    if (isPromise<RecordBatchReader<T>>(reader)) {
+        return reader.then((reader) => tableFromIPC(reader)) as Promise<Table<T>>;
     }
-    return new Table(reader.readAll());
+    if (reader.isAsync()) {
+        return (reader as AsyncRecordBatchReaders<T>).readAll().then((xs) => new Table(xs));
+    }
+    return new Table((reader as RecordBatchReaders<T>).readAll());
 }
 
 /**
