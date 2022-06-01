@@ -4,7 +4,7 @@
 \alias{flight_put}
 \title{Send data to a Flight server}
 \usage{
-flight_put(client, data, path, overwrite = TRUE)
+flight_put(client, data, path, overwrite = TRUE, max_chunksize = NULL)
 }
 \arguments{
 \item{client}{\code{pyarrow.flight.FlightClient}, as returned by \code{\link[=flight_connect]{flight_connect()}}}
