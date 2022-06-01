@@ -579,7 +579,6 @@ add_arrow_lib(arrow
               SHARED_INSTALL_INTERFACE_LIBS
               ${ARROW_SHARED_INSTALL_INTERFACE_LIBS})
 
-target_link_libraries(arrow_shared PUBLIC LibXml2::LibXml2)
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
 if(ARROW_BUILD_STATIC AND WIN32)

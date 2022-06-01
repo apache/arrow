@@ -4631,6 +4631,7 @@ macro(build_azuresdk)
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${AZURESDK_INCLUDE_DIR}")
     set("${_AZURESDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AZURESDK_STATIC_LIBRARY})
+    target_link_libraries(${_AZURESDK_TARGET_NAME} INTERFACE LibXml2::LibXml2)
     list(APPEND AZURESDK_LIBRARIES ${_AZURESDK_TARGET_NAME})
   endforeach()
 
