@@ -4674,20 +4674,13 @@ macro(build_azuresdk)
                       BUILD_BYPRODUCTS ${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY})
   add_dependencies(Azure::azure-storage-files-datalake azure_storage_files_datalake_ep)
 
-  set_property(TARGET Azure::azure-core
-                APPEND
-                PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl LibXml2::LibXml2)
-
   set(AZURESDK_LINK_LIBRARIES ${AZURESDK_LIBRARIES})
 endmacro()
 
 if(ARROW_AZURE)
-  # TODO - use resolve_dependency
   build_azuresdk()
-  foreach(AZURESDK_LIBRARY_CPP ${AZURESDK_LIBRARIES_CPP})
-    find_package(${AZURESDK_LIBRARY_CPP} CONFIG REQUIRED)
-  endforeach()
-  include_directories(SYSTEM ${AZURESDK_INCLUDE_DIR})
+  find_curl()
+  find_package(LibXml2 REQUIRED)
   message(STATUS "Found Azure SDK headers: ${AZURESDK_INCLUDE_DIR}")
   message(STATUS "Found Azure SDK libraries: ${AZURESDK_LINK_LIBRARIES}")
 endif()

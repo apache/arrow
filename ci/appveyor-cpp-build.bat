@@ -94,6 +94,7 @@ pushd cpp\build
 @rem and enable runtime assertions.
 
 cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
+      -DARROW_AZURE=OFF ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
       -DARROW_BUILD_STATIC=OFF ^
@@ -108,7 +109,6 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_PARQUET=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_S3=%ARROW_S3% ^
-      -DARROW_AZURE=OFF ^
       -DARROW_SUBSTRAIT=ON ^
       -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
       -DARROW_WITH_BROTLI=ON ^

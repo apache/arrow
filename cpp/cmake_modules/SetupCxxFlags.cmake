@@ -118,12 +118,16 @@ if(NOT DEFINED CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 11)
 endif()
 
-# This ensures that things like c++11 get passed correctly
+# This ensures that things like c++11/c++14 get passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 11)
+  if(ARROW_AZURE)
+    set(CMAKE_CXX_STANDARD 14)
+  else()
+    set(CMAKE_CXX_STANDARD 11)
+  endif()
 endif()
 
-# We require a C++11 compliant compiler
+# We require a C++11/14 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ARROW-6848: Do not use GNU (or other CXX) extensions

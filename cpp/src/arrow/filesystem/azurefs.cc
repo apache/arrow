@@ -1604,25 +1604,37 @@ Status AzureBlobFileSystem::DeleteDir(const std::string& s) {
   return impl_->DeleteDir(path.container, path.path_to_file_parts);
 }
 
-Status AzureBlobFileSystem::DeleteDirContents(const std::string& s) {
+Status AzureBlobFileSystem::DeleteDirContents(const std::string& s, bool missing_dir_ok) {
   ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
 
   if (path.empty()) {
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
     return Status::IOError("Invalid path provided");
   }
 
   if (path.path_to_file.empty() &&
       !(impl_->ContainerExists(path.container).ValueOrDie())) {
-    return Status::IOError("Invalid path provided1");
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
+    return Status::IOError("Invalid path provided");
   }
 
   if (impl_->FileExists(impl_->dfs_endpoint_url + path.full_path).ValueOrDie()) {
-    return Status::IOError("Invalid path provided2");
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
+    return Status::IOError("Invalid path provided");
   }
 
   if (!(path.path_to_file.empty()) &&
       !(impl_->DirExists(impl_->dfs_endpoint_url + path.full_path).ValueOrDie())) {
-    return Status::IOError("Invalid path provided3");
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
+    return Status::IOError("Invalid path provided");
   }
 
   return impl_->DeleteDirContents(path.container, path.path_to_file,

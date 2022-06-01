@@ -38,31 +38,10 @@ if(ARROW_GCS)
 endif()
 
 if(ARROW_AZURE)
-  set(AZURE_SRCS)
-  list(APPEND
-        AZURE_SRCS
-        azurefs_mock.cc
-        azurefs.cc)
-
-  add_arrow_lib(azurefs
-                SOURCES
-                ${AZURE_SRCS}
-                SHARED_LINK_LIBS
-                ${ARROW_LINK_LIBS}
-                SHARED_PRIVATE_LINK_LIBS
-                ${ARROW_SHARED_PRIVATE_LINK_LIBS}
-                STATIC_LINK_LIBS
-                ${ARROW_STATIC_LINK_LIBS})
-
-  set_target_properties(azurefs_objlib PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-
-  set(TEST_LIBS_AZURE ${ARROW_TEST_LINK_LIBS})
-  list(APPEND TEST_LIBS_AZURE azurefs_shared)
-  add_arrow_test(azurefs_test EXTRA_LABELS filesystem
-                  STATIC_LINK_LIBS
-                  ${TEST_LIBS_AZURE}
-  )
-  set_target_properties(arrow-azurefs-test PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
+  add_arrow_test(azurefs_test
+                EXTRA_LABELS
+                filesystem
+                EXTRA_LINK_LIBS)
 endif()
 
 if(ARROW_S3)

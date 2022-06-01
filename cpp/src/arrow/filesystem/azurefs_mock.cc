@@ -336,16 +336,6 @@ class MockFSInputStream : public io::BufferReader {
 
 }  // namespace
 
-std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
-  return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
-            << "]";
-}
-
-std::ostream& operator<<(std::ostream& os, const MockFileInfo& di) {
-  return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
-            << ", size=" << di.data.length() << "]";
-}
-
 ////////////////////////////////////////////////////////////////////////////
 // MockAzureFileSystem implementation
 
@@ -787,23 +777,35 @@ Status MockAzureFileSystem::DeleteDir(const std::string& s) {
   return impl_->DeleteDir(path.container, path.path_to_file_parts, path.full_path);
 }
 
-Status MockAzureFileSystem::DeleteDirContents(const std::string& s) {
+Status MockAzureFileSystem::DeleteDirContents(const std::string& s, bool missing_dir_ok) {
   ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
 
   if (path.empty()) {
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
     return Status::IOError("Invalid path provided");
   }
 
   if (path.path_to_file.empty() &&
       !(impl_->ContainerExists(path.container).ValueOrDie())) {
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
     return Status::IOError("Invalid path provided1");
   }
 
   if (impl_->FileExists(path.full_path).ValueOrDie()) {
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
     return Status::IOError("Invalid path provided2");
   }
 
   if (!(path.path_to_file.empty()) && !(impl_->DirExists(path.full_path).ValueOrDie())) {
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
     return Status::IOError("Invalid path provided3");
   }
 
@@ -1143,21 +1145,6 @@ Result<std::shared_ptr<FileSystem>> MockAzureFileSystem::Make(
 
   return fs;
 }
-
-FileInfoGenerator MockAsyncFileSystem::GetFileInfoGenerator(const FileSelector& select) {
-  auto maybe_infos = GetFileInfo(select);
-  if (maybe_infos.ok()) {
-    // Return the FileInfo entries one by one
-    const auto& infos = *maybe_infos;
-    std::vector<FileInfoVector> chunks(infos.size());
-    std::transform(infos.begin(), infos.end(), chunks.begin(),
-                   [](const FileInfo& info) { return FileInfoVector{info}; });
-    return MakeVectorGenerator(std::move(chunks));
-  } else {
-    return MakeFailingGenerator(maybe_infos);
-  }
-}
-
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

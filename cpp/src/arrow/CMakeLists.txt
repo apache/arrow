@@ -469,6 +469,12 @@ if(ARROW_FILESYSTEM)
        filesystem/path_util.cc
        filesystem/util_internal.cc)
 
+  if(ARROW_AZURE)
+    list(APPEND ARROW_SRCS filesystem/azurefs.cc filesystem/azurefs_mock.cc)
+    set_source_files_properties(filesystem/azurefs.cc filesystem/azurefs_mock.cc
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                           SKIP_UNITY_BUILD_INCLUSION ON)
+  endif()
   if(ARROW_GCS)
     list(APPEND ARROW_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
     set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
@@ -573,6 +579,7 @@ add_arrow_lib(arrow
               SHARED_INSTALL_INTERFACE_LIBS
               ${ARROW_SHARED_INSTALL_INTERFACE_LIBS})
 
+target_link_libraries(arrow_shared PUBLIC LibXml2::LibXml2)
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
 if(ARROW_BUILD_STATIC AND WIN32)
