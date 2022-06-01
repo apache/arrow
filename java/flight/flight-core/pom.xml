@@ -317,7 +317,7 @@
       <activation>
         <os>
           <family>linux</family>
-          <arch>!s390_64</arch>
+          <arch>!s390x</arch>
         </os>
       </activation>
       <dependencies>
