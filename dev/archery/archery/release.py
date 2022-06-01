@@ -409,7 +409,8 @@ class Release:
                    if key not in within_keys]
 
         return ReleaseCuration(release=self, within=within, outside=outside,
-                               nojira=nojira, parquet=parquet, nopatch=nopatch, minimal=minimal)
+                               nojira=nojira, parquet=parquet, nopatch=nopatch,
+                               minimal=minimal)
 
     def changelog(self):
         issue_commit_pairs = []
