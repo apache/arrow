@@ -491,11 +491,11 @@ def load_configuration():
 
 
 def get_credentials(cmd):
-    token = None, None
+    token = None
 
     config = load_configuration()
     if "jira" in config.sections():
-        username = config["jira"].get("token")
+        token = config["jira"].get("token")
 
     # Fallback to environment variables
     if not token:
