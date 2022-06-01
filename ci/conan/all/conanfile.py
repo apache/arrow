@@ -295,11 +295,7 @@ class ArrowConan(ConanFile):
         if tools.Version(self.version) >= "6.0.0" and \
             self.options.get_safe("simd_level") != None or \
             self.options.get_safe("runtime_simd_level") != None:
-            if tools.Version(self.version) >= "8.0.0":
-                # TODO: Requires xsimd/master
-                pass
-            else:
-                self.requires("xsimd/8.0.3")
+            self.requires("xsimd/8.1.0")
         if self.options.with_zlib:
             self.requires("zlib/1.2.12")
         if self.options.with_zstd:
