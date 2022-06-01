@@ -1940,6 +1940,25 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   }
 }
 
+// Some first keys will have duplicates, others not
+static const auto first_sort_keys = testing::Values("uint8", "int16", "uint64", "float",
+                                                    "boolean", "string", "decimal128");
+
+// Different numbers of sort keys may trigger different algorithms
+static const auto num_sort_keys = testing::Values(1, 3, 7, 9);
+
+INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,
+                         testing::Combine(first_sort_keys, num_sort_keys,
+                                          testing::Values(0.0)));
+
+INSTANTIATE_TEST_SUITE_P(SomeNulls, TestTableSortIndicesRandom,
+                         testing::Combine(first_sort_keys, num_sort_keys,
+                                          testing::Values(0.1, 0.5)));
+
+INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
+                         testing::Combine(first_sort_keys, num_sort_keys,
+                                          testing::Values(1.0)));
+
 // ----------------------------------------------------------------------
 // Tests for Rank
 
@@ -1948,7 +1967,9 @@ void AssertRank(const std::shared_ptr<Array>& input, SortOrder order,
                 const std::shared_ptr<Array>& expected) {
   const std::vector<SortKey> sort_keys{SortKey("foo", order)};
   RankOptions options(sort_keys, null_placement, tiebreaker);
+  ARROW_SCOPED_TRACE("options = ", options.ToString());
   ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {input}, &options));
+  ValidateOutput(actual);
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
 
@@ -2160,25 +2181,6 @@ TEST(TestRankForFixedSizeBinary, RankFixedSizeBinary) {
   AssertRankAllTiebreakers(
       ArrayFromJSON(binary_type, R"(["aaa", "   ", "eee", null, "eee", null, "   "])"));
 }
-
-// Some first keys will have duplicates, others not
-static const auto first_sort_keys = testing::Values("uint8", "int16", "uint64", "float",
-                                                    "boolean", "string", "decimal128");
-
-// Different numbers of sort keys may trigger different algorithms
-static const auto num_sort_keys = testing::Values(1, 3, 7, 9);
-
-INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,
-                         testing::Combine(first_sort_keys, num_sort_keys,
-                                          testing::Values(0.0)));
-
-INSTANTIATE_TEST_SUITE_P(SomeNulls, TestTableSortIndicesRandom,
-                         testing::Combine(first_sort_keys, num_sort_keys,
-                                          testing::Values(0.1, 0.5)));
-
-INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
-                         testing::Combine(first_sort_keys, num_sort_keys,
-                                          testing::Values(1.0)));
 
 }  // namespace compute
 }  // namespace arrow

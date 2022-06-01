@@ -1960,7 +1960,7 @@ class ArrayRanker : public TypeVisitor {
 
     NullPartitionResult sorted =
         array_sorter(sort_begin, sort_end, arr, 0, array_options);
-    uint64_t rank = 0;
+    uint64_t rank;
 
     ARROW_ASSIGN_OR_RAISE(auto rankings,
                           MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
@@ -1969,6 +1969,8 @@ class ArrayRanker : public TypeVisitor {
     switch (tiebreaker_) {
       case RankOptions::Dense: {
         T curr_value, prev_value;
+        rank = 0;
+
         if (null_placement_ == NullPlacement::AtStart && sorted.null_count() > 0) {
           rank++;
           for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
@@ -1994,17 +1996,20 @@ class ArrayRanker : public TypeVisitor {
         }
         break;
       }
+
       case RankOptions::First: {
+        rank = 0;
         for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
           out_begin[*it] = ++rank;
         }
         break;
       }
+
       case RankOptions::Min: {
         T curr_value, prev_value;
 
         if (null_placement_ == NullPlacement::AtStart) {
-          rank++;
+          rank = 1;
           for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
             out_begin[*it] = rank;
           }
@@ -2020,30 +2025,30 @@ class ArrayRanker : public TypeVisitor {
         }
 
         if (null_placement_ == NullPlacement::AtEnd) {
-          rank = sorted.non_nulls_end - sorted.non_nulls_begin + 1;
+          rank = sorted.non_null_count() + 1;
           for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
             out_begin[*it] = rank;
           }
         }
         break;
       }
+
       case RankOptions::Max: {
+        // The algorithm for Max is just like Min, but in reverse order.
         T curr_value, prev_value;
 
-        rank = length;
         if (null_placement_ == NullPlacement::AtEnd) {
+          rank = length;
           for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
             out_begin[*it] = rank;
           }
-          rank = sorted.non_null_count();
         }
 
         for (auto it = sorted.non_nulls_end - 1; it >= sorted.non_nulls_begin; it--) {
           curr_value = GetView::LogicalValue(arr.GetView(*it));
-          if ((it < sorted.non_nulls_end - 1 && (curr_value != prev_value))) {
-            rank = length - (sorted.overall_end() - it) + 1;
+          if (it == sorted.non_nulls_end - 1 || curr_value != prev_value) {
+            rank = (it - sorted.overall_begin()) + 1;
           }
-
           out_begin[*it] = rank;
           prev_value = curr_value;
         }

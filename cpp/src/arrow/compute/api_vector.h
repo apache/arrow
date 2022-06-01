@@ -177,11 +177,29 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
 /// \brief Rank options
 class ARROW_EXPORT RankOptions : public FunctionOptions {
  public:
-  enum Tiebreaker { Min, Max, First, Dense };
+  /// Configure how ties between equal values are handled
+  enum Tiebreaker {
+    /// Ties get the smallest possible rank in sorted order.
+    Min,
+    /// Ties get the largest possible rank in sorted order.
+    Max,
+    /// Ranks are assigned in order of when ties appear in the input.
+    /// This ensures the ranks are a stable permutation of the input.
+    First,
+    /// The ranks span a dense [1, M] interval where M is the number
+    /// of distinct values in the input.
+    Dense
+  };
 
   explicit RankOptions(std::vector<SortKey> sort_keys = {},
                        NullPlacement null_placement = NullPlacement::AtEnd,
-                       Tiebreaker = RankOptions::First);
+                       Tiebreaker tiebreaker = RankOptions::First);
+  /// Convenience constructor for array inputs
+  explicit RankOptions(SortOrder order,
+                       NullPlacement null_placement = NullPlacement::AtEnd,
+                       Tiebreaker tiebreaker = RankOptions::First)
+      : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
+
   static constexpr char const kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
