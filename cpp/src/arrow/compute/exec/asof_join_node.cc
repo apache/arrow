@@ -192,11 +192,13 @@ class InputState {
   const std::shared_ptr<arrow::RecordBatch>& GetLatestBatch() const {
     return queue_.UnsyncFront();
   }
+
   KeyType GetLatestKey() const {
     return queue_.UnsyncFront()
         ->column_data(key_col_index_)
         ->GetValues<KeyType>(1)[latest_ref_row_];
   }
+
   int64_t GetLatestTime() const {
     return queue_.UnsyncFront()
         ->column_data(time_col_index_)
@@ -206,13 +208,14 @@ class InputState {
   bool Finished() const { return batches_processed_ == total_batches_; }
 
   bool Advance() {
+    // Try advancing to the next row and update latest_ref_row_
     // Returns true if able to advance, false if not.
     bool have_active_batch =
         (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.Empty();
 
     if (have_active_batch) {
       // If we have an active batch
-      if (++latest_ref_row_ >= (row_index_t) queue_.UnsyncFront()->num_rows()) {
+      if (++latest_ref_row_ >= (row_index_t)queue_.UnsyncFront()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
@@ -224,9 +227,10 @@ class InputState {
     return have_active_batch;
   }
 
-  // Advance the data to be immediately past the specified TS, updating latest and
-  // latest_ref_row to the latest data prior to that immediate just past Returns true if
-  // updates were made, false if not.
+  // Advance the data to be immediately past the specified timestamp, update
+  // latest_time and latest_ref_row to the value that immediately pass the
+  // specified timestamp.
+  // Returns true if updates were made, false if not.
   bool AdvanceAndMemoize(int64_t ts) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
@@ -240,7 +244,7 @@ class InputState {
     bool updated = false;
     do {
       latest_time = GetLatestTime();
-      // if advance() returns true, then the latest_ts must also be valid
+      // if Advance() returns true, then the latest_ts must also be valid
       // Keep advancing right table until we hit the latest row that has
       // timestamp <= ts. This is because we only need the latest row for the
       // match given a left ts.
@@ -447,8 +451,6 @@ class CompositeReferenceTable {
 
     // Build the result
     DCHECK_GE(sizeof(size_t), sizeof(int64_t)) << "Requires size_t >= 8 bytes";
-
-    // TODO: check n_rows for cast
     std::shared_ptr<arrow::RecordBatch> r =
         arrow::RecordBatch::Make(output_schema, (int64_t)n_rows, arrays);
     return r;
@@ -517,12 +519,11 @@ class AsofJoinNode : public ExecNode {
     for (size_t i = 1; i < state_.size(); ++i) {
       auto& rhs = *state_[i];
       if (!rhs.Finished()) {
-        // If RHS is finished, then we know it's up to date (but if it isn't, it might be
-        // up to date)
+        // If RHS is finished, then we know it's up to date
         if (rhs.Empty())
           return false;  // RHS isn't finished, but is empty --> not up to date
         if (lhs_ts >= rhs.GetLatestTime())
-          return false;  // TS not up to date (and not finished)
+          return false;  // RHS isn't up to date (and not finished)
       }
     }
     return true;
@@ -544,7 +545,11 @@ class AsofJoinNode : public ExecNode {
       // Advance each of the RHS as far as possible to be up to date for the LHS timestamp
       bool any_advanced = UpdateRhs();
 
-      // Only update if we have up-to-date information for the LHS row
+      // If we have received enough inputs to produce the next output batch
+      // (decided by IsUpToDateWithLhsRow), we will perform the join and
+      // materialize the output batch. The join is done by advancing through
+      // the LHS and adding joined row to rows_ (done by Emplace). Finally,
+      // input batches that are no longer needed are removed to free up memory.
       if (IsUpToDateWithLhsRow()) {
         dst.Emplace(state_, options_.tolerance);
         if (!lhs.Advance()) break;  // if we can't advance LHS, we're done for this batch
@@ -557,7 +562,7 @@ class AsofJoinNode : public ExecNode {
     if (!lhs.Empty()) {
       for (size_t i = 1; i < state_.size(); ++i) {
         state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() -
-                                                        options_.tolerance);
+						   options_.tolerance);
       }
     }
 
@@ -624,8 +629,7 @@ class AsofJoinNode : public ExecNode {
  public:
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
                const AsofJoinNodeOptions& join_options,
-               std::shared_ptr<Schema> output_schema,
-               std::unique_ptr<AsofJoinSchema> schema_mgr);
+               std::shared_ptr<Schema> output_schema);
 
   virtual ~AsofJoinNode() {
     process_.Push(false);  // poison pill
@@ -634,13 +638,13 @@ class AsofJoinNode : public ExecNode {
 
   static arrow::Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                        const ExecNodeOptions& options) {
-    std::unique_ptr<AsofJoinSchema> schema_mgr =
-        ::arrow::internal::make_unique<AsofJoinSchema>();
+    AsofJoinSchema schema_mgr;
 
     const auto& join_options = checked_cast<const AsofJoinNodeOptions&>(options);
     std::shared_ptr<Schema> output_schema =
-        schema_mgr->MakeOutputSchema(inputs, join_options);
+        schema_mgr.MakeOutputSchema(inputs, join_options);
 
+    DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
     std::vector<std::string> input_labels(inputs.size());
     input_labels[0] = "left";
     for (size_t i = 1; i < inputs.size(); ++i) {
@@ -648,8 +652,7 @@ class AsofJoinNode : public ExecNode {
     }
 
     return plan->EmplaceNode<AsofJoinNode>(plan, inputs, std::move(input_labels),
-                                           join_options, std::move(output_schema),
-                                           std::move(schema_mgr));
+                                           join_options, std::move(output_schema));
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
@@ -717,7 +720,6 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
-  std::unique_ptr<AsofJoinSchema> schema_mgr_;
   arrow::Future<> finished_;
   // InputStates
   // Each input state correponds to an input table
@@ -761,8 +763,7 @@ std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(
 AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
                            const AsofJoinNodeOptions& join_options,
-                           std::shared_ptr<Schema> output_schema,
-                           std::unique_ptr<AsofJoinSchema> schema_mgr)
+                           std::shared_ptr<Schema> output_schema)
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
