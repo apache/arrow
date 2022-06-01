@@ -260,17 +260,17 @@ def _perform_join(join_type, left_operand not None, left_keys,
     elif join_type == "inner":
         c_join_type = CJoinType_INNER
         right_columns = [
-            col for col in right_columns if col not in set(right_keys)
+            col for col in right_columns if col not in right_keys
         ]
     elif join_type == "left outer":
         c_join_type = CJoinType_LEFT_OUTER
         right_columns = [
-            col for col in right_columns if col not in set(right_keys)
+            col for col in right_columns if col not in right_keys
         ]
     elif join_type == "right outer":
         c_join_type = CJoinType_RIGHT_OUTER
         left_columns = [
-            col for col in left_columns if col not in set(left_keys)
+            col for col in left_columns if col not in left_keys
         ]
     elif join_type == "full outer":
         c_join_type = CJoinType_FULL_OUTER
