@@ -72,5 +72,29 @@ module Arrow
         @field == other.field and
         @data == other.data
     end
+
+    def count(options: nil)
+      @data.count(options: options)
+    end
+
+    def sum(options: nil)
+      @data.sum(options: options)
+    end
+
+    def min(options: nil)
+      @data.min(options: options)
+    end
+
+    def max(options: nil)
+      @data.max(options: options)
+    end
+
+    def unique
+      @data.unique
+    end
+
+    def uniq
+      @data.uniq
+    end
   end
 end

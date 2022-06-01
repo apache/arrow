@@ -67,7 +67,7 @@ rough_n_development_months=$((
 git_tag=apache-arrow-${version}
 git_range=apache-arrow-${previous_version}..${git_tag}
 
-committers_command_line="git shortlog -csn ${git_range}"
+committers_command_line="git shortlog -sn --group=trailer:signed-off-by ${git_range}"
 contributors_command_line="git shortlog -sn ${git_range}"
 
 committers=$(${committers_command_line})

@@ -163,14 +163,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   @Override
   public boolean hasNext() {
-    if (readComplete) {
-      return false;
-    }
-    try {
-      return !resultSet.isLast();
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
-    }
+    return !readComplete;
   }
 
   /**

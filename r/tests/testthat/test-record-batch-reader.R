@@ -15,15 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+tbl <- tibble::tibble(
+  x = 1:10,
+  y = letters[1:10]
+)
+batch <- record_batch(tbl)
+tab <- Table$create(tbl)
 
 test_that("RecordBatchStreamReader / Writer", {
-  tbl <- tibble::tibble(
-    x = 1:10,
-    y = letters[1:10]
-  )
-  batch <- record_batch(tbl)
-  tab <- Table$create(tbl)
-
   sink <- BufferOutputStream$create()
   expect_equal(sink$tell(), 0)
   writer <- RecordBatchStreamWriter$create(sink, batch$schema)
@@ -154,8 +153,14 @@ test_that("reader head method edge cases", {
 
   reader <- RecordBatchStreamReader$create(buf)
   expect_error(head(reader, -1)) # Not (yet) supported
-  expect_equal(head(reader, 0), Table$create(x = integer(0), y = character(0)))
-  expect_equal(head(reader, 100), Table$create(batch, batch))
+  expect_equal(
+    Table$create(head(reader, 0)),
+    Table$create(x = integer(0), y = character(0))
+  )
+  expect_equal(
+    Table$create(head(reader, 100)),
+    Table$create(batch, batch)
+  )
 })
 
 test_that("RBR methods", {

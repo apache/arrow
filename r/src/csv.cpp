@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include "./safe-call-into-r.h"
 
 #include <arrow/csv/reader.h>
@@ -220,5 +218,3 @@ void csv___WriteCSV__RecordBatchReader(
     const std::shared_ptr<arrow::io::OutputStream>& stream) {
   StopIfNotOk(arrow::csv::WriteCSV(reader, *write_options, stream.get()));
 }
-
-#endif

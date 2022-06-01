@@ -70,6 +70,7 @@ RUN \
     python3-pip \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   apt install -y -V -t buster-backports ${quiet} \
     clang-11 \

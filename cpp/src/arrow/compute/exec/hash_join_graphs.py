@@ -148,7 +148,7 @@ def plot_3d(test, sorted_argnames):
     num_cols = int(math.ceil(num_graphs / num_rows))
     graphs = set(test.args[sorted_argnames[0]])
 
-    for j, graph in enumerate(sorted(graphs, key=string_numeric_sort_key)):
+    for j, graph in enumerate(sorted(graphs, key=try_as_numeric)):
         ax = plt.subplot(num_rows, num_cols, j + 1)
         filtered_test = Test()
         indices = range(len(test.times))

@@ -87,11 +87,10 @@ set(SRC_FILES
     interval_holder.cc
     llvm_generator.cc
     llvm_types.cc
-    like_holder.cc
     literal_holder.cc
     projector.cc
     regex_util.cc
-    replace_holder.cc
+    regex_functions_holder.cc
     selection_vector.cc
     tree_expr_builder.cc
     to_date_holder.cc
@@ -99,9 +98,21 @@ set(SRC_FILES
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
-                                     ${GANDIVA_OPENSSL_LIBS})
-
-set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
+                                     ${GANDIVA_OPENSSL_LIBS} Boost::headers)
+set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS}
+                             Boost::headers)
+if(ARROW_WITH_RE2)
+  list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS re2::re2)
+  list(APPEND GANDIVA_STATIC_LINK_LIBS re2::re2)
+endif()
+if(ARROW_WITH_UTF8PROC)
+  list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS utf8proc::utf8proc)
+  list(APPEND GANDIVA_STATIC_LINK_LIBS utf8proc::utf8proc)
+endif()
+if(ARROW_USE_XSIMD)
+  list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS xsimd)
+  list(APPEND GANDIVA_STATIC_LINK_LIBS xsimd)
+endif()
 
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX
                                       ))
@@ -236,8 +247,7 @@ add_gandiva_test(internals-test
                  lru_cache_test.cc
                  to_date_holder_test.cc
                  simple_arena_test.cc
-                 like_holder_test.cc
-                 replace_holder_test.cc
+                 regex_functions_holder_test.cc
                  decimal_type_util_test.cc
                  random_generator_holder_test.cc
                  hash_utils_test.cc

@@ -22,6 +22,8 @@ set -ex
 source_dir=${1}/c_glib
 build_dir=${2}/c_glib
 
+: ${ARROW_GLIB_VALA:=true}
+
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
 export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
@@ -34,18 +36,22 @@ pushd ${source_dir}
 ruby test/run-test.rb
 
 if [[ "$(uname -s)" == "Linux" ]]; then
-    # TODO(kszucs): on osx it fails to load 'lgi.corelgilua51' despite that lgi
-    # was installed by luarocks
-    pushd example/lua
-    lua write-batch.lua
-    lua read-batch.lua
-    lua write-stream.lua
-    lua read-stream.lua
-    popd
+  # TODO(kszucs): on osx it fails to load 'lgi.corelgilua51' despite that lgi
+  # was installed by luarocks
+  pushd example/lua
+  lua write-file.lua
+  lua read-file.lua
+  lua write-stream.lua
+  lua read-stream.lua
+  popd
 fi
 
 popd
 
 pushd ${build_dir}
+example/build
 example/extension-type
+if [ "${ARROW_GLIB_VALA}" = "true" ]; then
+  example/vala/build
+fi
 popd

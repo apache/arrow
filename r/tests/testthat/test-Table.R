@@ -15,6 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Common fixtures used in many tests
+tbl <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  chr = letters[1:10],
+  fct = factor(letters[1:10])
+)
+tab <- Table$create(tbl)
+
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
@@ -89,15 +99,6 @@ test_that("Table $column and $field", {
 })
 
 test_that("[, [[, $ for Table", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   expect_identical(names(tab), names(tbl))
 
   expect_data_frame(tab[6:7, ], tbl[6:7, ])
@@ -148,15 +149,6 @@ test_that("[, [[, $ for Table", {
 })
 
 test_that("[[<- assignment", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   # can remove a column
   tab[["chr"]] <- NULL
   expect_data_frame(tab, tbl[-4])
@@ -217,14 +209,6 @@ test_that("[[<- assignment", {
 })
 
 test_that("Table$Slice", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
   tab2 <- tab$Slice(5)
   expect_data_frame(tab2, tbl[6:10, ])
 
@@ -248,15 +232,6 @@ test_that("Table$Slice", {
 })
 
 test_that("head and tail on Table", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   expect_data_frame(head(tab), head(tbl))
   expect_data_frame(head(tab, 4), head(tbl, 4))
   expect_data_frame(head(tab, 40), head(tbl, 40))
@@ -287,15 +262,6 @@ test_that("Table print method", {
 })
 
 test_that("table active bindings", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   expect_identical(dim(tbl), dim(tab))
   expect_type(tab$columns, "list")
   expect_equal(tab$columns[[1]], tab[[1]])

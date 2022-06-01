@@ -21,6 +21,7 @@ from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import itertools
 import gc
 import gzip
+import math
 import os
 import pathlib
 import pickle
@@ -1199,6 +1200,65 @@ def test_native_file_TextIOWrapper(tmpdir):
     with TextIOWrapper(pa.OSFile(path2, mode='rb')) as fil:
         res = fil.read()
         assert res == data
+
+
+def test_native_file_TextIOWrapper_perf(tmpdir):
+    # ARROW-16272: TextIOWrapper.readline() shouldn't exhaust a large
+    # Arrow input stream.
+    data = b'foo\nquux\n'
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data * 100_000)
+
+    binary_file = pa.OSFile(path, mode='rb')
+    with TextIOWrapper(binary_file) as f:
+        assert binary_file.tell() == 0
+        nbytes = 20_000
+        lines = f.readlines(nbytes)
+        assert len(lines) == math.ceil(2 * nbytes / len(data))
+        assert nbytes <= binary_file.tell() <= nbytes * 2
+
+
+def test_native_file_read1(tmpdir):
+    # ARROW-16272: read1() should not exhaust the input stream if there
+    # is a large amount of data remaining.
+    data = b'123\n' * 1_000_000
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data)
+
+    chunks = []
+    with pa.OSFile(path, mode='rb') as f:
+        while True:
+            b = f.read1()
+            assert len(b) < len(data)
+            chunks.append(b)
+            b = f.read1(30_000)
+            assert len(b) <= 30_000
+            chunks.append(b)
+            if not b:
+                break
+
+    assert b"".join(chunks) == data
+
+
+@pytest.mark.pandas
+def test_native_file_pandas_text_reader(tmpdir):
+    # ARROW-16272: Pandas' read_csv() should not exhaust an Arrow
+    # input stream when a small nrows is passed.
+    import pandas as pd
+    import pandas.testing as tm
+    data = b'a,b\n' * 10_000_000
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data)
+
+    with pa.OSFile(path, mode='rb') as f:
+        df = pd.read_csv(f, nrows=10)
+        expected = pd.DataFrame({'a': ['a'] * 10, 'b': ['b'] * 10})
+        tm.assert_frame_equal(df, expected)
+        # Some readahead occurred, but not up to the end of file
+        assert f.tell() <= 256 * 1024
 
 
 def test_native_file_open_error():

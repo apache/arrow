@@ -138,8 +138,9 @@ class LocalBinaryTask < BinaryTask
     verify_command_line = [
       "docker",
       "run",
-      "--rm",
       "--log-driver", "none",
+      "--rm",
+      "--security-opt", "seccomp=unconfined",
       "--volume", "#{File.expand_path(arrow_source_dir)}:/arrow:delegated",
     ]
     if $stdin.tty?

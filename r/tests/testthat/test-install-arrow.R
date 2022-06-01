@@ -15,23 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-r_only({
-  test_that("arrow_repos", {
-    cran <- "https://cloud.r-project.org/"
-    ours <- "https://dl.example.com/ursalabs/fake_repo"
-    other <- "https://cran.fiocruz.br/"
+test_that("arrow_repos", {
+  cran <- "https://cloud.r-project.org/"
+  ours <- "https://dl.example.com/ursalabs/fake_repo"
+  other <- "https://cran.fiocruz.br/"
 
-    opts <- list(
-      repos = c(CRAN = "@CRAN@"), # Restore defaul
-      arrow.dev_repo = ours
-    )
-    withr::with_options(opts, {
-      expect_identical(arrow_repos(), cran)
-      expect_identical(arrow_repos(c(cran, ours)), cran)
-      expect_identical(arrow_repos(c(ours, other)), other)
-      expect_identical(arrow_repos(nightly = TRUE), c(ours, cran))
-      expect_identical(arrow_repos(c(cran, ours), nightly = TRUE), c(ours, cran))
-      expect_identical(arrow_repos(c(ours, other), nightly = TRUE), c(ours, other))
-    })
+  opts <- list(
+    repos = c(CRAN = "@CRAN@"), # Restore default
+    arrow.dev_repo = ours
+  )
+  withr::with_options(opts, {
+    expect_identical(arrow_repos(), cran)
+    expect_identical(arrow_repos(c(cran, ours)), cran)
+    expect_identical(arrow_repos(c(ours, other)), other)
+    expect_identical(arrow_repos(nightly = TRUE), c(ours, cran))
+    expect_identical(arrow_repos(c(cran, ours), nightly = TRUE), c(ours, cran))
+    expect_identical(arrow_repos(c(ours, other), nightly = TRUE), c(ours, other))
   })
 })

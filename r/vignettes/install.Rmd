@@ -7,6 +7,12 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+TL;DR
+
+In most cases, `install.packages("arrow")` should just work. There are things you can do to make the installation faster (see below). If, for any reason, it doesn't work, set the environment variable `ARROW_R_DEV=true`, retry, and share the logs with us.
+
+----
+
 The Apache Arrow project is implemented in multiple languages, and the R package depends on the Arrow C++ library (referred to from here on as libarrow).  This means that when you install arrow, you need both the R and C++ versions.  If you install arrow from CRAN on a machine running Windows or MacOS, when you call `install.packages("arrow")`, a precompiled binary containing both the R package and libarrow will be downloaded.  However, CRAN does not host R package binaries for Linux, and so you must choose from one of the alternative approaches.  
 
 This vignette outlines the recommend approaches to installing arrow on Linux, starting from the simplest and least customisable to the most complex but with more flexbility to customise your installation.
@@ -37,9 +43,21 @@ If you want a quicker installation process, and by default a more fully-featured
 
 For example, if you are using Ubuntu 20.04 (Focal):
 
-```{r, eval = FALSE}
+```r
+options(
+  HTTPUserAgent =
+    sprintf(
+      "R/%s R (%s)",
+      getRversion(),
+      paste(getRversion(), R.version["platform"], R.version["arch"], R.version["os"])
+    )
+)
+
 install.packages("arrow", repos = "https://packagemanager.rstudio.com/all/__linux__/focal/latest")
 ```
+
+Note that the User Agent header must be specified as in the example above.
+Please check [the RStudio Package Manager: Admin Guide ](https://docs.rstudio.com/rspm/admin/serving-binaries/#using-linux-binary-packages) for more details.
 
 For other Linux distributions, to get the relevant URL, you can visit 
 [the RSPM site](https://packagemanager.rstudio.com/client/#/repos/1/overview),
@@ -253,7 +271,7 @@ from the Ursa Labs repository:
 
 ```r
 Sys.setenv(NOT_CRAN = TRUE)
-install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
+install.packages("arrow", repos = c(arrow = "https://arrow-r-nightly.s3.amazonaws.com", getOption("repos")))
 ```
 
 or for conda users via:

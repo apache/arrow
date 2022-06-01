@@ -83,6 +83,9 @@ struct BatchesWithSchema {
 };
 
 ARROW_TESTING_EXPORT
+Future<> StartAndFinish(ExecPlan* plan);
+
+ARROW_TESTING_EXPORT
 Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen);
 

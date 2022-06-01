@@ -165,6 +165,14 @@
     </chapter>
   </part>
 
+  <part id="memory">
+    <title>Memory</title>
+    <chapter id="memory-pool">
+      <title>Memory pool</title>
+      <xi:include href="xml/memory-pool.xml"><xi:fallback /></xi:include>
+    </chapter>
+  </part>
+
   <part id="misc">
     <title>Misc</title>
     <chapter id="version">

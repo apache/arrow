@@ -107,9 +107,12 @@ ValueDescr Expression::descr() const {
   return CallNotNull(*this)->descr;
 }
 
+// This is a module-global singleton to avoid synchronization costs of a
+// function-static singleton.
+static const std::shared_ptr<DataType> kNoType;
+
 const std::shared_ptr<DataType>& Expression::type() const {
-  static const std::shared_ptr<DataType> no_type;
-  if (impl_ == nullptr) return no_type;
+  if (impl_ == nullptr) return kNoType;
 
   if (auto lit = literal()) {
     return lit->type();

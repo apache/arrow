@@ -212,6 +212,16 @@ class ARROW_EXPORT ExecNode {
   // A node with multiple outputs will also need to ensure it is applying backpressure if
   // any of its outputs is asking to pause
 
+  /// \brief Perform any needed initialization
+  ///
+  /// This hook performs any actions in between creation of ExecPlan and the call to
+  /// StartProducing. An example could be Bloom filter pushdown. The order of ExecNodes
+  /// that executes this method is undefined, but the calls are made synchronously.
+  ///
+  /// At this point a node can rely on all inputs & outputs (and the input schemas)
+  /// being well defined.
+  virtual Status PrepareToProduce() { return Status::OK(); }
+
   /// \brief Start producing
   ///
   /// This must only be called once.  If this fails, then other lifecycle
@@ -292,7 +302,7 @@ class ARROW_EXPORT ExecNode {
 /// takes a batch in and returns a batch.  This simple parallel runner also needs an
 /// executor (use simple synchronous runner if there is no executor)
 
-class MapNode : public ExecNode {
+class ARROW_EXPORT MapNode : public ExecNode {
  public:
   MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema, bool async_mode);
@@ -316,7 +326,7 @@ class MapNode : public ExecNode {
  protected:
   void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
 
-  void Finish(Status finish_st = Status::OK());
+  virtual void Finish(Status finish_st = Status::OK());
 
  protected:
   // Counter for the number of batches received

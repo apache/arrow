@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/reader.h>
 #include <arrow/table.h>
 
@@ -68,7 +67,7 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> RecordBatchReader__Head(
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__Head(
     const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
   std::shared_ptr<arrow::RecordBatch> this_batch;
@@ -78,7 +77,8 @@ std::shared_ptr<arrow::Table> RecordBatchReader__Head(
     batches.push_back(this_batch->Slice(0, num_rows));
     num_rows -= this_batch->num_rows();
   }
-  return ValueOrStop(arrow::Table::FromRecordBatches(reader->schema(), batches));
+  return ValueOrStop(
+      arrow::RecordBatchReader::Make(std::move(batches), reader->schema()));
 }
 
 // -------- RecordBatchStreamReader
@@ -148,5 +148,3 @@ cpp11::list ipc___RecordBatchFileReader__batches(
 
   return arrow::r::to_r_list(res);
 }
-
-#endif

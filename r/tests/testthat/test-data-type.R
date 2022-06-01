@@ -391,14 +391,18 @@ test_that("map type works as expected", {
 })
 
 test_that("map type validates arguments", {
-  expect_error(map_of(field("key", int32(), nullable = TRUE), utf8()),
-               "cannot be nullable")
+  expect_error(
+    map_of(field("key", int32(), nullable = TRUE), utf8()),
+    "cannot be nullable"
+  )
   expect_error(map_of(1L, utf8()), "must be a DataType or Field")
   expect_error(map_of(int32(), 1L), "must be a DataType or Field")
 
   # field construction
-  ty <- map_of(field("the_keys", int32(), nullable = FALSE),
-               field("my_values", utf8(), nullable = FALSE))
+  ty <- map_of(
+    field("the_keys", int32(), nullable = FALSE),
+    field("my_values", utf8(), nullable = FALSE)
+  )
   expect_equal(ty$key_field$name, "the_keys")
   expect_equal(ty$item_field$name, "my_values")
   expect_equal(ty$key_field$nullable, FALSE)
@@ -598,7 +602,6 @@ test_that("DataType$code()", {
       struct(a = DayTimeInterval__initialize())$code()
     ))
   })
-
 })
 
 test_that("as_data_type() works for DataType", {

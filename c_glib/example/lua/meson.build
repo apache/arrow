@@ -18,9 +18,9 @@
 # under the License.
 
 install_data('README.md',
-             'read-batch.lua',
+             'read-file.lua',
              'read-stream.lua',
-             'write-batch.lua',
+             'write-file.lua',
              'write-stream.lua',
              install_dir: join_paths(data_dir,
                                      meson.project_name(),

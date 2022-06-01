@@ -20,8 +20,8 @@ import (
 	"encoding/binary"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/internal/utils"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/internal/utils"
 )
 
 // IsMultipleOf64 returns whether v is a multiple of 64.

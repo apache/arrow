@@ -33,6 +33,7 @@
 #include <arrow-glib/expression.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/interval.hpp>
+#include <arrow-glib/memory-pool.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/scalar.hpp>
 #include <arrow-glib/schema.hpp>

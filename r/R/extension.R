@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 
 
 #' @title class arrow::ExtensionArray
@@ -44,7 +44,6 @@ ExtensionArray <- R6Class("ExtensionArray",
     storage = function() {
       ExtensionArray__storage(self)
     },
-
     as_vector = function() {
       self$type$as_vector(self)
     }
@@ -125,19 +124,15 @@ ExtensionType <- R6Class("ExtensionType",
     r6_class = function() {
       ExtensionType__r6_class(self)
     },
-
     storage_type = function() {
       ExtensionType__storage_type(self)
     },
-
     storage_id = function() {
       self$storage_type()$id
     },
-
     extension_name = function() {
       ExtensionType__extension_name(self)
     },
-
     extension_metadata = function() {
       ExtensionType__Serialize(self)
     },
@@ -148,23 +143,19 @@ ExtensionType <- R6Class("ExtensionType",
       Encoding(metadata_utf8) <- "UTF-8"
       metadata_utf8
     },
-
     WrapArray = function(array) {
       assert_is(array, "Array")
       ExtensionType__MakeArray(self, array$data())
     },
-
     deserialize_instance = function() {
       # Do nothing by default but allow other classes to override this method
       # to populate R6 class members.
     },
-
     ExtensionEquals = function(other) {
       inherits(other, "ExtensionType") &&
         identical(other$extension_name(), self$extension_name()) &&
         identical(other$extension_metadata(), self$extension_metadata())
     },
-
     as_vector = function(extension_array) {
       if (inherits(extension_array, "ChunkedArray")) {
         # Converting one array at a time so that users don't have to remember
@@ -176,7 +167,7 @@ ExtensionType <- R6Class("ExtensionType",
           function(i) self$as_vector(extension_array$chunk(i))
         )
 
-        vctrs::vec_c(!!! storage_vectors)
+        vctrs::vec_c(!!!storage_vectors)
       } else if (inherits(extension_array, "ExtensionArray")) {
         extension_array$storage()$as_vector()
       } else {
@@ -191,7 +182,6 @@ ExtensionType <- R6Class("ExtensionType",
         )
       }
     },
-
     ToString = function() {
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
       # and it's confusing to error when printing the object. This herustic
@@ -212,7 +202,6 @@ ExtensionType <- R6Class("ExtensionType",
             paste(format(metadata_raw), collapse = " ")
           )
         }
-
       } else {
         paste0(class(self)[1], " <", self$extension_metadata_utf8(), ">")
       }
@@ -343,7 +332,6 @@ ExtensionType$create <- function(storage_type,
 #'       private$.scale <- vals[2]
 #'     }
 #'   ),
-#'
 #'   private = list(
 #'     .center = NULL,
 #'     .scale = NULL
@@ -380,8 +368,9 @@ ExtensionType$create <- function(storage_type,
 #' (array <- quantized_array(
 #'   vals,
 #'   center = 20,
-#'   scale = 2 ^ 15 - 1,
-#'   storage_type = int16())
+#'   scale = 2^15 - 1,
+#'   storage_type = int16()
+#' )
 #' )
 #'
 #' array$type$center()
@@ -437,7 +426,6 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
     ptype = function() {
       private$.ptype
     },
-
     ToString = function() {
       tf <- tempfile()
       sink(tf)
@@ -448,11 +436,9 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       print(self$ptype())
       paste0(readLines(tf), collapse = "\n")
     },
-
     deserialize_instance = function() {
       private$.ptype <- unserialize(self$extension_metadata())
     },
-
     ExtensionEquals = function(other) {
       if (!inherits(other, "VctrsExtensionType")) {
         return(FALSE)
@@ -460,7 +446,6 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 
       identical(self$ptype(), other$ptype())
     },
-
     as_vector = function(extension_array) {
       if (inherits(extension_array, "ChunkedArray")) {
         # rather than convert one array at a time, use more Arrow
@@ -469,7 +454,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
           seq_len(extension_array$num_chunks) - 1L,
           function(i) extension_array$chunk(i)$storage()
         )
-        storage <- chunked_array(!!! storage_arrays, type = self$storage_type())
+        storage <- chunked_array(!!!storage_arrays, type = self$storage_type())
 
         vctrs::vec_restore(storage$as_vector(), self$ptype())
       } else if (inherits(extension_array, "Array")) {

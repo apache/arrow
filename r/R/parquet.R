@@ -413,7 +413,7 @@ ParquetWriterProperties$create <- function(column_names,
 #'   [arrow::io::OutputStream][OutputStream] has its own `close()` method.
 #'
 #' @export
-#' @include arrow-package.R
+#' @include arrow-object.R
 ParquetFileWriter <- R6Class("ParquetFileWriter",
   inherit = ArrowObject,
   public = list(
@@ -479,7 +479,7 @@ ParquetFileWriter$create <- function(schema,
 #'   tab <- pq$ReadTable()
 #'   tab$schema
 #' }
-#' @include arrow-package.R
+#' @include arrow-object.R
 ParquetFileReader <- R6Class("ParquetFileReader",
   inherit = ArrowObject,
   active = list(

@@ -25,14 +25,14 @@ WORKDIR=${WORKDIR:-$HOME}
 MINICONDA=$WORKDIR/miniconda-for-arrow
 LIBRARY_INSTALL_DIR=$WORKDIR/local-libs
 CPP_BUILD_DIR=$WORKDIR/arrow-cpp-build
-ARROW_ROOT=$WORKDIR/arrow
+ARROW_ROOT=/arrow
 export ARROW_HOME=$WORKDIR/dist
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 
 python3 -m venv $WORKDIR/venv
 source $WORKDIR/venv/bin/activate
 
-git clone --depth=100 https://github.com/apache/arrow.git $ARROW_ROOT
+git config --global --add safe.directory $ARROW_ROOT
 
 pip install -r $ARROW_ROOT/python/requirements-build.txt
 
@@ -53,7 +53,6 @@ cmake -GNinja \
       -DARROW_WITH_LZ4=ON \
       -DARROW_WITH_SNAPPY=ON \
       -DARROW_WITH_BROTLI=ON \
-      -DARROW_PARQUET=ON \
       -DARROW_PYTHON=ON \
       $ARROW_ROOT/cpp
 
@@ -69,17 +68,11 @@ rm -rf build/  # remove any pesky pre-existing build directory
 
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
-export PYARROW_WITH_PARQUET=1
 
 # You can run either "develop" or "build_ext --inplace". Your pick
 
 # python setup.py build_ext --inplace
 python setup.py develop
-
-# git submodules are required for unit tests
-git submodule update --init
-export PARQUET_TEST_DATA="$ARROW_ROOT/cpp/submodules/parquet-testing/data"
-export ARROW_TEST_DATA="$ARROW_ROOT/testing/data"
 
 pip install -r $ARROW_ROOT/python/requirements-test.txt
 

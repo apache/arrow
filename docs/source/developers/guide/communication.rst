@@ -92,7 +92,7 @@ GitHub
 ~~~~~~
 
 Further options of communicating are provided through GitHub where the project
-is hosted. What we use are GitGub Issues and Pull Requests.
+is hosted. What we use are GitHub Issues and Pull Requests.
 
 When to use GitHub?
 

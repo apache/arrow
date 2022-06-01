@@ -393,7 +393,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
       list(
         selected_columns = agg_field_refs,
         .data = list(
-          schema = schema(!!! agg_field_types)
+          schema = schema(!!!agg_field_types)
         )
       )
     )

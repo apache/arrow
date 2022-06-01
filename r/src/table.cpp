@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-#if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array/array_base.h>
 #include <arrow/table.h>
@@ -313,5 +312,3 @@ std::shared_ptr<arrow::Table> Table__ConcatenateTables(
   options.unify_schemas = unify_schemas;
   return ValueOrStop(arrow::ConcatenateTables(tables, options));
 }
-
-#endif

@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/compute/api.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
@@ -576,5 +574,3 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
 std::vector<std::string> compute__GetFunctionNames() {
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
-
-#endif

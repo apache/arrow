@@ -81,6 +81,14 @@ using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
 
+/// \brief Assert a dataset produces data with the schema
+void AssertDatasetHasSchema(std::shared_ptr<Dataset> ds, std::shared_ptr<Schema> schema) {
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, ds->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  ASSERT_EQ(*table->schema(), *schema);
+}
+
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {

@@ -18,8 +18,10 @@
 check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   if (tolower(Sys.info()[["sysname"]]) == "windows" & locale != "C") {
     # MingW C++ std::locale only supports "C" and "POSIX"
-    stop(paste0("On Windows, time locales other than 'C' are not supported in Arrow. ",
-                "Consider setting `Sys.setlocale('LC_TIME', 'C')`"))
+    stop(paste0(
+      "On Windows, time locales other than 'C' are not supported in Arrow. ",
+      "Consider setting `Sys.setlocale('LC_TIME', 'C')`"
+    ))
   }
   locale
 }
@@ -102,7 +104,6 @@ binding_as_date <- function(x,
                             format = NULL,
                             tryFormats = "%Y-%m-%d",
                             origin = "1970-01-01") {
-
   if (is.null(format) && length(tryFormats) > 1) {
     abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
   }
@@ -142,15 +143,77 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 
   if (origin != "1970-01-01") {
     delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
-    # TODO: revisit once either of these issues is addressed:
-    #   https://issues.apache.org/jira/browse/ARROW-16253 (helper function for
-    #   casting from double to duration) or
-    #   https://issues.apache.org/jira/browse/ARROW-15862 (casting from int32
-    #   -> duration or double -> duration)
-    delta_in_sec <- build_expr("cast", delta_in_sec, options = cast_options(to_type = int64()))
-    delta_in_days <- (delta_in_sec / 86400L)$cast(int32())
+    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15862
+    # (casting from int32 -> duration or double -> duration) is addressed
+    delta_in_days <- (delta_in_sec$cast(int64()) / 86400L)$cast(int32())
     x <- build_expr("+", x, delta_in_days)
   }
 
   x
+}
+
+build_formats <- function(orders) {
+  # only keep the letters and the underscore as separator -> allow the users to
+  # pass strptime-like formats (with "%"). Processing is needed (instead of passing
+  # formats as-is) due to the processing of the character vector in parse_date_time()
+  orders <- gsub("[^A-Za-z_]", "", orders)
+  orders <- gsub("Y", "y", orders)
+
+  # we separate "ym', "my", and "yq" from the rest of the `orders` vector and
+  # transform them. `ym` and `yq` -> `ymd` & `my` -> `myd`
+  # this is needed for 2 reasons:
+  # 1. strptime does not parse "2022-05" -> we add "-01", thus changing the format,
+  # 2. for equivalence to lubridate, which parses `ym` to the first day of the month
+  short_orders <- c("ym", "my")
+
+  if (any(orders %in% short_orders)) {
+    orders1 <- setdiff(orders, short_orders)
+    orders2 <- intersect(orders, short_orders)
+    orders2 <- paste0(orders2, "d")
+    orders <- unique(c(orders1, orders2))
+  }
+
+  if (any(orders == "yq")) {
+    orders1 <- setdiff(orders, "yq")
+    orders2 <- "ymd"
+    orders <- unique(c(orders1, orders2))
+  }
+
+  supported_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
+  unsupported_passed_orders <- setdiff(orders, supported_orders)
+  supported_passed_orders <- intersect(orders, supported_orders)
+
+  # error only if there isn't at least one valid order we can try
+  if (length(supported_passed_orders) == 0) {
+    arrow_not_supported(
+      paste0(
+        oxford_paste(
+          unsupported_passed_orders
+        ),
+        " `orders`"
+      )
+    )
+  }
+
+  formats_list <- map(orders, build_format_from_order)
+  formats <- purrr::flatten_chr(formats_list)
+  unique(formats)
+}
+
+build_format_from_order <- function(order) {
+  year_chars <- c("%y", "%Y")
+  month_chars <- c("%m", "%B", "%b")
+  day_chars <- "%d"
+
+  outcome <- switch(
+    order,
+    "ymd" = expand.grid(year_chars, month_chars, day_chars),
+    "ydm" = expand.grid(year_chars, day_chars, month_chars),
+    "mdy" = expand.grid(month_chars, day_chars, year_chars),
+    "myd" = expand.grid(month_chars, year_chars, day_chars),
+    "dmy" = expand.grid(day_chars, month_chars, year_chars),
+    "dym" = expand.grid(day_chars, year_chars, month_chars)
+  )
+  outcome$format <- paste(outcome$Var1, outcome$Var2, outcome$Var3, sep = "-")
+  outcome$format
 }

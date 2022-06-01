@@ -30,10 +30,10 @@ tbl$verses <- verses[[1]]
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
 tbl$some_grouping <- rep(c(1, 2), 5)
 
+tab <- Table$create(tbl)
+
 
 test_that("implicit_schema with select", {
-  tab <- Table$create(tbl)
-
   expect_equal(
     tab %>%
       select(int, lgl) %>%

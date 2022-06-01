@@ -28,6 +28,9 @@ set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
 set ARROW_DEBUG_MEMORY_POOL=trap
 
+set CMAKE_BUILD_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
+set CTEST_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
+
 @rem
 @rem In the configurations below we disable building the Arrow static library
 @rem to save some time.  Unfortunately this will still build the Parquet static
@@ -51,7 +54,7 @@ if "%JOB%" == "Build_Debug" (
         .. || exit /B
 
   cmake --build . --config Debug || exit /B
-  ctest --output-on-failure -j2 || exit /B
+  ctest --output-on-failure || exit /B
   popd
 
   @rem Finish Debug build successfully
@@ -121,13 +124,13 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DPARQUET_BUILD_EXECUTABLES=ON ^
       -DPARQUET_REQUIRE_ENCRYPTION=ON ^
       ..  || exit /B
-cmake --build . --target install --config %CONFIGURATION%  || exit /B
+cmake --build . --target install --config Release || exit /B
 
 @rem Needed so arrow-python-test.exe works
 set OLD_PYTHONHOME=%PYTHONHOME%
 set PYTHONHOME=%CONDA_PREFIX%
 
-ctest --output-on-failure -j2 || exit /B
+ctest --output-on-failure || exit /B
 
 set PYTHONHOME=%OLD_PYTHONHOME%
 popd

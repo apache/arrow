@@ -27,14 +27,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/decimal128"
-	"github.com/apache/arrow/go/v8/arrow/float16"
-	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v8/arrow/ipc"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/decimal128"
+	"github.com/apache/arrow/go/v9/arrow/float16"
+	"github.com/apache/arrow/go/v9/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v9/arrow/ipc"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 )
 
 type Schema struct {

@@ -68,7 +68,7 @@ class ARROW_EXPORT ExecContext {
   /// default_memory_pool().
   MemoryPool* memory_pool() const { return pool_; }
 
-  ::arrow::internal::CpuInfo* cpu_info() const;
+  const ::arrow::internal::CpuInfo* cpu_info() const;
 
   /// \brief An Executor which may be used to parallelize execution.
   ::arrow::internal::Executor* executor() const { return executor_; }

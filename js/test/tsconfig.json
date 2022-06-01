@@ -2,8 +2,8 @@
   "extends": "../tsconfig.json",
   "include": ["../src/**/*.ts", "../test/**/*.ts"],
   "compilerOptions": {
-    "target": "esnext",
-    "module": "es2020",
+    "target": "ESNext",
+    "module": "NodeNext",
     "rootDir": "../",
     "allowJs": true,
     "declaration": false,

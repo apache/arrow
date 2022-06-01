@@ -73,6 +73,7 @@ RUN \
     python3-pip \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

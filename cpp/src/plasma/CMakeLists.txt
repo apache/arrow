@@ -52,8 +52,8 @@ set(PLASMA_STORE_SRCS
     store.cc
     thirdparty/ae/ae.c)
 
-set(PLASMA_LINK_LIBS arrow_shared)
-set(PLASMA_STATIC_LINK_LIBS arrow_static)
+set(PLASMA_LINK_LIBS arrow::flatbuffers arrow_shared)
+set(PLASMA_STATIC_LINK_LIBS arrow::flatbuffers arrow_static)
 
 if(ARROW_CUDA)
   list(INSERT PLASMA_LINK_LIBS 0 arrow_cuda_shared)
@@ -113,13 +113,13 @@ list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.
 # We use static libraries for the plasma-store-server executable so that it can
 # be copied around and used in different locations.
 add_executable(plasma-store-server ${PLASMA_EXTERNAL_STORE_SOURCES} ${PLASMA_STORE_SRCS})
-target_link_libraries(plasma-store-server ${GFLAGS_LIBRARIES})
 if(ARROW_BUILD_STATIC)
   target_link_libraries(plasma-store-server plasma_static ${PLASMA_STATIC_LINK_LIBS})
 else()
   # Fallback to shared libs in the case that static libraries are not build.
   target_link_libraries(plasma-store-server plasma_shared ${PLASMA_LINK_LIBS})
 endif()
+target_link_libraries(plasma-store-server ${GFLAGS_LIBRARIES})
 add_dependencies(plasma plasma-store-server)
 
 if(ARROW_RPATH_ORIGIN)

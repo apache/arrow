@@ -18,7 +18,6 @@
 #include "./arrow_types.h"
 #include "./arrow_vctrs.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/builder_base.h>
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_decimal.h>
@@ -1563,5 +1562,3 @@ std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(
     const std::shared_ptr<arrow::Array>& dict) {
   return ValueOrStop(arrow::DictionaryArray::FromArrays(type, indices, dict));
 }
-
-#endif

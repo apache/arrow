@@ -23,10 +23,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -334,6 +334,18 @@ func (b *StructBuilder) unmarshalOne(dec *json.Decoder) error {
 				return err
 			}
 		}
+
+		// Append null values to all optional fields that were not presented in the json input
+		for _, field := range b.dtype.(*arrow.StructType).Fields() {
+			if !field.Nullable {
+				continue
+			}
+			idx, _ := b.dtype.(*arrow.StructType).FieldIdx(field.Name)
+			if _, hasKey := keylist[field.Name]; !hasKey {
+				b.fields[idx].AppendNull()
+			}
+		}
+
 		// consume '}'
 		_, err := dec.Token()
 		return err

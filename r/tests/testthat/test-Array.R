@@ -15,6 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Defining some type groups for use here and in the following tests
+int_types <- c(int8(), int16(), int32(), int64())
+uint_types <- c(uint8(), uint16(), uint32(), uint64())
+float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
+
 test_that("Integer Array", {
   ints <- c(1:10, 1:10, 1:5)
   x <- expect_array_roundtrip(ints, int32())
@@ -282,7 +287,8 @@ test_that("array uses local timezone for POSIXct without timezone", {
     times_with_tz <- strptime(
       "2019-02-03 12:34:56",
       format = "%Y-%m-%d %H:%M:%S",
-      tz = "Asia/Katmandu") + 1:10
+      tz = "Asia/Katmandu"
+    ) + 1:10
     expect_equal(attr(times, "tzone"), "Asia/Katmandu")
     expect_array_roundtrip(times, timestamp("us", "Asia/Katmandu"))
   })
@@ -361,11 +367,6 @@ test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
 })
 
 test_that("integer types casts (ARROW-3741)", {
-  # Defining some type groups for use here and in the following tests
-  int_types <- c(int8(), int16(), int32(), int64())
-  uint_types <- c(uint8(), uint16(), uint32(), uint64())
-  float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
-
   a <- Array$create(c(1:10, NA))
   for (type in c(int_types, uint_types)) {
     casted <- a$cast(type)
@@ -598,8 +599,10 @@ test_that("Array$create() handles list of dataframes -> map arrays", {
   expect_r6_class(Array$create(list(), type = map_of(utf8(), boolean())), "MapArray")
 
   # MapType is alias for List<Struct<keys, values>>
-  data <- list(data.frame(key = c("a", "b"), value = c(1, 2), stringsAsFactors = FALSE),
-               data.frame(key = c("a", "c"), value = c(4, 7), stringsAsFactors = FALSE))
+  data <- list(
+    data.frame(key = c("a", "b"), value = c(1, 2), stringsAsFactors = FALSE),
+    data.frame(key = c("a", "c"), value = c(4, 7), stringsAsFactors = FALSE)
+  )
   arr <- Array$create(data, type = map_of(utf8(), int32()))
 
   expect_r6_class(arr, "MapArray")

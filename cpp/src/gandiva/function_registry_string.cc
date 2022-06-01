@@ -255,6 +255,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
 
+      NativeFunction("regexp_extract", {}, DataTypeVector{utf8(), utf8(), int32()},
+                     utf8(), kResultNullIfNull, "gdv_fn_regexp_extract_utf8_utf8_int32",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
       NativeFunction("concatOperator", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "concatOperator_utf8_utf8",
                      NativeFunction::kNeedsContext),
@@ -432,6 +438,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("right", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "right_utf8_int32",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("binary", {}, DataTypeVector{binary()}, binary(), kResultNullIfNull,
+                     "castBINARY_binary"),
+
+      NativeFunction("binary", {}, DataTypeVector{utf8()}, binary(), kResultNullIfNull,
+                     "castBINARY_utf8"),
 
       NativeFunction("castVARBINARY", {}, DataTypeVector{binary(), int64()}, binary(),
                      kResultNullIfNull, "castVARBINARY_binary_int64",

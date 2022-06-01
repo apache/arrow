@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include "./safe-call-into-r.h"
 
 #include <arrow/ipc/feather.h>
@@ -117,5 +115,3 @@ std::shared_ptr<arrow::Schema> ipc___feather___Reader__schema(
     const std::shared_ptr<arrow::ipc::feather::Reader>& reader) {
   return reader->schema();
 }
-
-#endif

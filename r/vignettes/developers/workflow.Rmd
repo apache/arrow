@@ -71,8 +71,8 @@ make style-all # (for all files)
 or in R:
 
 ```r
-# note the two excluded files which should not be styled
-styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R"))
+# note the file that should not be styled
+styler::style_pkg(exclude_files = c("data-raw/codegen.R"))
 ```
 
 The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we intentionally do not style is in `r/.styler_excludes.R`.

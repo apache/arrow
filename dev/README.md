@@ -53,9 +53,9 @@ After installed, it runs the merge script.
 have to install Python dependencies yourself and then run `dev/merge_arrow_pr.py`
 directly)
 
-The merge script uses the GitHub REST API; if you encounter rate limit issues,
-you may set a `ARROW_GITHUB_API_TOKEN` environment variable to use a Personal
-Access Token.
+The merge script uses the GitHub REST API. You must set a
+`ARROW_GITHUB_API_TOKEN` environment variable to use a Personal Access
+Token. You need to add `workflow` scope to the Personal Access Token.
 
 You can specify the username and the password of your JIRA account in
 `APACHE_JIRA_USERNAME` and `APACHE_JIRA_PASSWORD` environment variables.

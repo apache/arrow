@@ -116,21 +116,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "docs/source/_static/versions.json",
-        hunks: [
-          [
-            "-        \"name\": \"#{@release_compatible_version} (dev)\",",
-            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
-            "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
-            "+        \"name\": \"#{@release_compatible_version} (stable)\",",
-            "+    {",
-            "+        \"name\": \"#{@previous_compatible_version}\",",
-            "+        \"version\": \"#{@previous_compatible_version}/\"",
-            "+    },",
-          ]
-        ]
-      },
-      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
@@ -167,20 +152,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+# arrow #{@release_version}",],
         ],
       },
-      {
-        path: "r/pkgdown/assets/versions.json",
-        hunks: [
-          [ "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
-            "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-            "-        \"name\": \"#{@previous_version} (release)\",",
-            "+        \"name\": \"#{@release_version} (release)\",",
-            "+    {",
-            "+        \"name\": \"#{@previous_version}\",",
-            "+        \"version\": \"#{@previous_compatible_version}/\"",
-            "+    },"
-          ]
-        ]
-      },
     ]
 
     Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
@@ -188,6 +159,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       lines = File.readlines(path, chomp: true)
       target_lines = lines.grep(/#{Regexp.escape(import_path)}/)
       next if target_lines.empty?
+      hunks = []
       hunk = []
       target_lines.each do |line|
         hunk << "-#{line}"
@@ -198,7 +170,14 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         end
         hunk << "+#{new_line}"
       end
-      expected_changes << {hunks: [hunk], path: path}
+      hunks << hunk
+      if path == "go/parquet/writer_properties.go"
+        hunks << [
+          "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
+          "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"",
+        ]
+      end
+      expected_changes << {hunks: hunks, path: path}
     end
 
     Dir.glob("java/**/pom.xml") do |path|

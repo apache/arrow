@@ -17,6 +17,7 @@
 
 import pytest
 import pyarrow as pa
+import pyarrow.compute as pc
 
 try:
     import pyarrow.dataset as ds
@@ -189,4 +190,85 @@ def test_table_join_keys_order():
         "colA": [1, 2, 6, 99],
         "colVals_l": ["a", "b", "f", None],
         "colVals_r": ["A", "B", None, "Z"],
+    })
+
+
+def test_filter_table_errors():
+    t = pa.table({
+        "a": [1, 2, 3, 4, 5],
+        "b": [10, 20, 30, 40, 50]
+    })
+
+    with pytest.raises(pa.ArrowTypeError):
+        ep._filter_table(
+            t, pc.divide(pc.field("a"), pc.scalar(2)),
+            output_type=pa.Table
+        )
+
+    with pytest.raises(pa.ArrowInvalid):
+        ep._filter_table(
+            t, (pc.field("Z") <= pc.scalar(2)),
+            output_type=pa.Table
+        )
+
+
+@pytest.mark.parametrize("use_datasets", [False, True])
+def test_filter_table(use_datasets):
+    t = pa.table({
+        "a": [1, 2, 3, 4, 5],
+        "b": [10, 20, 30, 40, 50]
+    })
+    if use_datasets:
+        t = ds.dataset([t])
+
+    result = ep._filter_table(
+        t, (pc.field("a") <= pc.scalar(3)) & (pc.field("b") == pc.scalar(20)),
+        output_type=pa.Table if not use_datasets else ds.InMemoryDataset
+    )
+    if use_datasets:
+        result = result.to_table()
+    assert result == pa.table({
+        "a": [2],
+        "b": [20]
+    })
+
+    result = ep._filter_table(
+        t, pc.field("b") > pc.scalar(30),
+        output_type=pa.Table if not use_datasets else ds.InMemoryDataset
+    )
+    if use_datasets:
+        result = result.to_table()
+    assert result == pa.table({
+        "a": [4, 5],
+        "b": [40, 50]
+    })
+
+
+def test_filter_table_ordering():
+    table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a'] * 4})
+    table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b'] * 4})
+    table = pa.concat_tables([table1, table2])
+
+    for _ in range(20):
+        # 20 seems to consistently cause errors when order is not preserved.
+        # If the order problem is reintroduced this test will become flaky
+        # which is still a signal that the order is not preserved.
+        r = ep._filter_table(table, pc.field('a') == 1)
+        assert r["b"] == pa.chunked_array([["a"], ["b"]])
+
+
+def test_complex_filter_table():
+    t = pa.table({
+        "a": [1, 2, 3, 4, 5, 6, 6],
+        "b": [10, 20, 30, 40, 50, 60, 61]
+    })
+
+    result = ep._filter_table(
+        t, ((pc.bit_wise_and(pc.field("a"), pc.scalar(1)) == pc.scalar(0)) &
+            (pc.multiply(pc.field("a"), pc.scalar(10)) == pc.field("b")))
+    )
+
+    assert result == pa.table({
+        "a": [2, 4, 6],  # second six must be omitted because 6*10 != 61
+        "b": [20, 40, 60]
     })

@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 
 	"github.com/andybalholm/brotli"
-	"github.com/apache/arrow/go/v8/parquet/internal/debug"
+	"github.com/apache/arrow/go/v9/parquet/internal/debug"
 )
 
 type brotliCodec struct{}

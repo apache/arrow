@@ -243,6 +243,7 @@ test_yum() {
     esac
     if ! docker run \
            --rm \
+           --security-opt="seccomp=unconfined" \
            --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
@@ -258,6 +259,7 @@ test_yum() {
       if ! docker run \
              --platform linux/arm64 \
              --rm \
+             --security-opt="seccomp=unconfined" \
              --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
              "${target}" \
              /arrow/dev/release/verify-yum.sh \
@@ -630,9 +632,10 @@ test_and_install_cpp() {
 
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
     --exclude-regex "plasma-serialization_tests" \
-    -j$NPROC \
+    --label-regex unittest \
     --output-on-failure \
-    -L unittest
+    --parallel $NPROC \
+    --timeout 300
 
   popd
 }

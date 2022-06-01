@@ -1,0 +1,27 @@
+From: Sender Reporter <sender@arrow.com>
+To: recipient@arrow.com
+Subject: [NIGHTLY] Arrow Build Report for Job ursabot-1: 2 failed, 1 pending
+
+Arrow Build Report for Job ursabot-1
+
+All tasks: https://github.com/apache/crossbow/branches/all?query=ursabot-1
+
+Failed Tasks:
+
+- wheel-osx-cp37m
+  https://github.com/apache/crossbow/runs/2
+
+Errored Tasks:
+
+- wheel-osx-cp36m
+  https://github.com/apache/crossbow/runs/3
+
+Pending Tasks:
+
+- wheel-win-cp36m
+  https://github.com/apache/crossbow/runs/4
+
+Succeeded Tasks:
+
+- docker-cpp-cmake32
+  https://github.com/apache/crossbow/runs/1

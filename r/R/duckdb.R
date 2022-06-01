@@ -123,11 +123,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #' other processes (like DuckDB).
 #'
 #' @param .data the object to be converted
-#' @param as_arrow_query should the returned object be wrapped as an
-#' `arrow_dplyr_query`? (logical, default: `TRUE`)
-#'
-#' @return a `RecordBatchReader` object, wrapped as an arrow dplyr query which
-#'  can be used in dplyr pipelines.
+#' @return A `RecordBatchReader`.
 #' @export
 #'
 #' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
@@ -142,7 +138,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
 #'   to_arrow() %>%
 #'   collect()
-to_arrow <- function(.data, as_arrow_query = TRUE) {
+to_arrow <- function(.data) {
   # If this is an Arrow object already, return quickly since we're already Arrow
   if (inherits(.data, c("arrow_dplyr_query", "ArrowObject"))) {
     return(.data)
@@ -161,9 +157,5 @@ to_arrow <- function(.data, as_arrow_query = TRUE) {
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  if (as_arrow_query) {
-    arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
-  } else {
-    duckdb::duckdb_fetch_record_batch(res)
-  }
+  duckdb::duckdb_fetch_record_batch(res)
 }

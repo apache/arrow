@@ -48,7 +48,6 @@ test_that("Print method for field", {
     print(field("x", int32(), nullable = FALSE)),
     "Field\nx: int32 not null"
   )
-
 })
 
 test_that("Field to C-interface", {
