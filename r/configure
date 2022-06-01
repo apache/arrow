@@ -177,7 +177,8 @@ else
         # Assume nixlibs.R has handled and messaged about its failure already
         #
         # TODO: what about non-bundled deps?
-        BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
+        # Set CDPATH locally to prevent interference from global CDPATH (if set) 
+        BUNDLED_LIBS=`CDPATH=''; cd $LIB_DIR && ls *.a`
         BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
         PKG_DIRS="-L`pwd`/$LIB_DIR"
 
