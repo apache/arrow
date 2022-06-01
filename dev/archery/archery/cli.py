@@ -807,13 +807,15 @@ def release(obj, src, jira_cache):
 
 @release.command('curate')
 @click.argument('version')
+@click.option('--minimal/--full', '-m/-f',
+              help="Only show actionable Jira issues.", default=False)
 @click.pass_obj
-def release_curate(obj, version):
+def release_curate(obj, version, minimal):
     """Release curation."""
     from .release import Release
 
     release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
-    curation = release.curate()
+    curation = release.curate(minimal)
 
     click.echo(curation.render('console'))
 

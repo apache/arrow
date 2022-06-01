@@ -386,7 +386,7 @@ class Release:
         commit_range = f"{lower}..{upper}"
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
-    def curate(self):
+    def curate(self, minimal):
         # handle commits with parquet issue key specially and query them from
         # jira and add it to the issues
         release_issues = self.issues
@@ -408,7 +408,7 @@ class Release:
                    if key not in within_keys]
 
         return ReleaseCuration(release=self, within=within, outside=outside,
-                               nojira=nojira, parquet=parquet, nopatch=nopatch)
+                               nojira=nojira, parquet=parquet, nopatch=nopatch, minimal=minimal)
 
     def changelog(self):
         issue_commit_pairs = []
