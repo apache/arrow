@@ -577,11 +577,7 @@ class ArrowConan(ConanFile):
         if self.options.with_snappy:
             self.cpp_info.components["libarrow"].requires.append("snappy::snappy")
         if self.options.get_safe("simd_level") != None or self.options.get_safe("runtime_simd_level") != None:
-            if tools.Version(self.version) >= "8.0.0":
-                # Requires xsimd/master
-                pass
-            else:
-                self.cpp_info.components["libarrow"].requires.append("xsimd::xsimd")
+            self.cpp_info.components["libarrow"].requires.append("xsimd::xsimd")
         if self.options.with_zlib:
             self.cpp_info.components["libarrow"].requires.append("zlib::zlib")
         if self.options.with_zstd:
