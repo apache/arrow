@@ -237,7 +237,8 @@ class ReleaseCuration(JinjaReport):
         'outside',
         'nojira',
         'parquet',
-        'nopatch'
+        'nopatch',
+        'minimal'
     ]
 
 
