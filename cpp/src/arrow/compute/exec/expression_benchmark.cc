@@ -202,6 +202,7 @@ struct ComplexExpressionBaseline {
       size_t value = 0;
       for (size_t bit = 0; bit < 64; bit++) {
         value |= input[index * 64 + bit] < 20;
+        value <<= 1;
       }
       less_20[index] = value;
     }
