@@ -80,10 +80,12 @@ class PARQUET_EXPORT ReaderProperties {
   void set_buffer_size(int64_t size) { buffer_size_ = size; }
 
   int32_t thrift_string_size_limit() const { return thrift_string_size_limit_; }
-  void thrift_string_size_limit(int32_t size) { thrift_string_size_limit_ = size; }
+  void set_thrift_string_size_limit(int32_t size) { thrift_string_size_limit_ = size; }
 
   int32_t thrift_container_size_limit() const { return thrift_container_size_limit_; }
-  void thrift_container_size_limit(int32_t size) { thrift_container_size_limit_ = size; }
+  void set_thrift_container_size_limit(int32_t size) {
+    thrift_container_size_limit_ = size;
+  }
 
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);

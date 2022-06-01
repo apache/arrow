@@ -226,6 +226,14 @@ class ParquetFile:
         in nanoseconds.
     decryption_properties : FileDecryptionProperties, default None
         File decryption properties for Parquet Modular Encryption.
+    thrift_string_size_limit : int, default None
+        If not None, override the maximum total string size allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
+    thrift_container_size_limit : int, default None
+        If not None, override the maximum total size of containers allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
 
     Examples
     --------
@@ -269,17 +277,20 @@ class ParquetFile:
     [0,1,2,3,4,5]]
     """
 
-    def __init__(self, source, metadata=None, common_metadata=None,
+    def __init__(self, source, *, metadata=None, common_metadata=None,
                  read_dictionary=None, memory_map=False, buffer_size=0,
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
-                 decryption_properties=None):
+                 decryption_properties=None, thrift_string_size_limit=None,
+                 thrift_container_size_limit=None):
         self.reader = ParquetReader()
         self.reader.open(
             source, use_memory_map=memory_map,
             buffer_size=buffer_size, pre_buffer=pre_buffer,
             read_dictionary=read_dictionary, metadata=metadata,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
-            decryption_properties=decryption_properties
+            decryption_properties=decryption_properties,
+            thrift_string_size_limit=thrift_string_size_limit,
+            thrift_container_size_limit=thrift_container_size_limit,
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -2258,11 +2269,13 @@ class _ParquetDatasetV2:
     1       4  Horse  2022
     """
 
-    def __init__(self, path_or_paths, filesystem=None, filters=None,
+    def __init__(self, path_or_paths, filesystem=None, *, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, ignore_prefixes=None, pre_buffer=True,
                  coerce_int96_timestamp_unit=None, schema=None,
-                 decryption_properties=None, **kwargs):
+                 decryption_properties=None, thrift_string_size_limit=None,
+                 thrift_container_size_limit=None,
+                 **kwargs):
         import pyarrow.dataset as ds
 
         # Raise error for not supported keywords
@@ -2277,7 +2290,9 @@ class _ParquetDatasetV2:
         # map format arguments
         read_options = {
             "pre_buffer": pre_buffer,
-            "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit
+            "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit,
+            "thrift_string_size_limit": thrift_string_size_limit,
+            "thrift_container_size_limit": thrift_container_size_limit,
         }
         if buffer_size:
             read_options.update(use_buffered_stream=True,
@@ -2636,6 +2651,15 @@ decryption_properties : FileDecryptionProperties or None
     File-level decryption properties.
     The decryption properties can be created using
     ``CryptoFactory.file_decryption_properties()``.
+thrift_string_size_limit : int, default None
+    If not None, override the maximum total string size allocated
+    when decoding Thrift structures. The default limit should be
+    sufficient for most Parquet files.
+thrift_container_size_limit : int, default None
+    If not None, override the maximum total size of containers allocated
+    when decoding Thrift structures. The default limit should be
+    sufficient for most Parquet files.
+
 Returns
 -------
 {2}
@@ -2722,13 +2746,14 @@ Read data from a single Parquet file:
 """
 
 
-def read_table(source, columns=None, use_threads=True, metadata=None,
+def read_table(source, *, columns=None, use_threads=True, metadata=None,
                schema=None, use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=False,
                ignore_prefixes=None, pre_buffer=True,
                coerce_int96_timestamp_unit=None,
-               decryption_properties=None):
+               decryption_properties=None, thrift_string_size_limit=None,
+               thrift_container_size_limit=None):
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(
@@ -2749,7 +2774,9 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 filters=filters,
                 ignore_prefixes=ignore_prefixes,
                 pre_buffer=pre_buffer,
-                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+                thrift_string_size_limit=thrift_string_size_limit,
+                thrift_container_size_limit=thrift_container_size_limit,
             )
         except ImportError:
             # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -2778,7 +2805,9 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 memory_map=memory_map, buffer_size=buffer_size,
                 pre_buffer=pre_buffer,
                 coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
-                decryption_properties=decryption_properties
+                decryption_properties=decryption_properties,
+                thrift_string_size_limit=thrift_string_size_limit,
+                thrift_container_size_limit=thrift_container_size_limit,
             )
 
         return dataset.read(columns=columns, use_threads=use_threads,
