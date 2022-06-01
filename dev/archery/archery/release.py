@@ -387,7 +387,7 @@ class Release:
         commit_range = f"{lower}..{upper}"
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
-    def curate(self, minimal):
+    def curate(self, minimal=False):
         # handle commits with parquet issue key specially and query them from
         # jira and add it to the issues
         release_issues = self.issues
