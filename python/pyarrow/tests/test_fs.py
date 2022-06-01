@@ -447,7 +447,7 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
 
     with pytest.raises(pa.ArrowIOError):
         fs.create_dir('new-bucket')
-    
+
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir('existing-bucket')
 
