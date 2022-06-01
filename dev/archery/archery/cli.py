@@ -900,22 +900,16 @@ def release_cherry_pick(obj, version, dry_run, recreate):
     """
     Cherry pick commits.
     """
-    from .release import Release, MinorRelease, PatchRelease
+    from .release import Release
 
     release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
-    if not isinstance(release, (MinorRelease, PatchRelease)):
-        raise click.UsageError('Cherry-pick command only supported for minor '
-                               'and patch releases')
 
     if not dry_run:
         release.cherry_pick_commits(recreate_branch=recreate)
-        click.echo('Executed the following commands:\n')
-
-    click.echo(
-        'git checkout {} -b {}'.format(release.previous.tag, release.branch)
-    )
-    for commit in release.commits_to_pick():
-        click.echo('git cherry-pick {}'.format(commit.hexsha))
+    else:
+        click.echo(f'git checkout -b {release.branch} {release.base_branch}')
+        for commit in release.commits_to_pick():
+            click.echo('git cherry-pick {}'.format(commit.hexsha))
 
 
 @archery.group("linking")

@@ -164,7 +164,6 @@ jobs:
 
   allow_failures:
     - name: "Java on s390x"
-    - name: "Python on s390x"
 
 before_install:
   - eval "$(python ci/detect-changes.py)"

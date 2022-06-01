@@ -33,8 +33,7 @@
 # Configuration environment variables:
 #   - APACHE_JIRA_USERNAME: your Apache JIRA ID
 #   - APACHE_JIRA_PASSWORD: your Apache JIRA password
-#   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests (to
-#                             avoid rate limiting)
+#   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
 #   - PR_REMOTE_NAME: the name of the remote to the Apache git repo (set to
 #                     'apache' by default)
 #   - DEBUG: use for testing to avoid pushing to apache (0 by default)
@@ -71,14 +70,12 @@ if DEBUG:
     print("**************** DEBUGGING ****************")
 
 
-# Prefix added to temporary branches
-BRANCH_PREFIX = "PR_TOOL"
 JIRA_API_BASE = "https://issues.apache.org/jira"
 
 
 def get_json(url, headers=None):
-    req = requests.get(url, headers=headers)
-    return req.json()
+    response = requests.get(url, headers=headers)
+    return response.json()
 
 
 def run_cmd(cmd):
@@ -99,21 +96,6 @@ def run_cmd(cmd):
     if isinstance(output, six.binary_type):
         output = output.decode('utf-8')
     return output
-
-
-original_head = run_cmd("git rev-parse HEAD")[:8]
-
-
-def clean_up():
-    print("Restoring head pointer to %s" % original_head)
-    run_cmd("git checkout %s" % original_head)
-
-    branches = run_cmd("git branch").replace(" ", "").split("\n")
-
-    for branch in [x for x in branches
-                   if x.startswith(BRANCH_PREFIX)]:
-        print("Deleting local branch %s" % branch)
-        run_cmd("git branch -D %s" % branch)
 
 
 _REGEX_CI_DIRECTIVE = re.compile(r'\[[^\]]*\]')
@@ -255,19 +237,47 @@ URL\t\t{}/{}""".format(jira_id, summary, assignee, components, status,
 
 class GitHubAPI(object):
 
-    def __init__(self, project_name):
+    def __init__(self, project_name, cmd):
         self.github_api = ("https://api.github.com/repos/apache/{0}"
                            .format(project_name))
 
-        token = os.environ.get('ARROW_GITHUB_API_TOKEN', None)
-        if token:
-            self.headers = {'Authorization': 'token {0}'.format(token)}
-        else:
-            self.headers = None
+        token = None
+        config = load_configuration()
+        if "github" in config.sections():
+            token = config["github"]["api_token"]
+        if not token:
+            token = os.environ.get('ARROW_GITHUB_API_TOKEN')
+        if not token:
+            token = cmd.prompt('Env ARROW_GITHUB_API_TOKEN not set, '
+                               'please enter your GitHub API token '
+                               '(GitHub personal access token):')
+        headers = {
+            'Accept': 'application/vnd.github.v3+json',
+            'Authorization': 'token {0}'.format(token),
+        }
+        self.headers = headers
 
     def get_pr_data(self, number):
         return get_json("%s/pulls/%s" % (self.github_api, number),
                         headers=self.headers)
+
+    def get_pr_commits(self, number):
+        return get_json("%s/pulls/%s/commits" % (self.github_api, number),
+                        headers=self.headers)
+
+    def merge_pr(self, number, commit_title, commit_message):
+        url = f'{self.github_api}/pulls/{number}/merge'
+        payload = {
+            'commit_title': commit_title,
+            'commit_message': commit_message,
+            'merge_method': 'squash',
+        }
+        response = requests.put(url, headers=self.headers, json=payload)
+        result = response.json()
+        if response.status_code != 200 and 'merged' not in result:
+            result['merged'] = False
+            result['message'] += f': {url}'
+        return result
 
 
 class CommandInput(object):
@@ -276,7 +286,6 @@ class CommandInput(object):
     """
 
     def fail(self, msg):
-        clean_up()
         raise Exception(msg)
 
     def prompt(self, prompt):
@@ -300,6 +309,7 @@ class PullRequest(object):
 
     def __init__(self, cmd, github_api, git_remote, jira_con, number):
         self.cmd = cmd
+        self._github_api = github_api
         self.git_remote = git_remote
         self.con = jira_con
         self.number = number
@@ -358,35 +368,23 @@ class PullRequest(object):
         """
         merge the requested PR and return the merge hash
         """
-        pr_branch_name = "%s_MERGE_PR_%s" % (BRANCH_PREFIX, self.number)
-        target_branch_name = "%s_MERGE_PR_%s_%s" % (BRANCH_PREFIX,
-                                                    self.number,
-                                                    self.target_ref.upper())
-        run_cmd("git fetch %s pull/%s/head:%s" % (self.git_remote,
-                                                  self.number,
-                                                  pr_branch_name))
-        run_cmd("git fetch %s %s:%s" % (self.git_remote, self.target_ref,
-                                        target_branch_name))
-        run_cmd("git checkout %s" % target_branch_name)
+        commits = self._github_api.get_pr_commits(self.number)
 
-        had_conflicts = False
-        try:
-            run_cmd(['git', 'merge', pr_branch_name, '--ff', '--squash'])
-        except Exception as e:
-            msg = ("Error merging: %s\nWould you like to "
-                   "manually fix-up this merge?" % e)
-            self.cmd.continue_maybe(msg)
-            msg = ("Okay, please fix any conflicts and 'git add' "
-                   "conflicting files... Finished?")
-            self.cmd.continue_maybe(msg)
-            had_conflicts = True
+        def format_commit_author(commit):
+            author = commit['commit']['author']
+            name = author['name']
+            email = author['email']
+            return f'{name} <{email}>'
+        commit_authors = [format_commit_author(commit) for commit in commits]
+        co_authored_by_re = re.compile(r'^Co-authored-by:\s*(.*)')
 
-        commit_authors = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                                 '--pretty=format:%an <%ae>']).split("\n")
-        commit_co_authors = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                                    '--pretty=%(trailers:key=Co-authored-by,'
-                                     'valueonly)']).split("\n")
-        commit_co_authors = list(filter(None, commit_co_authors))
+        def extract_co_authors(commit):
+            message = commit['commit']['message']
+            return co_authored_by_re.findall(message)
+        commit_co_authors = []
+        for commit in commits:
+            commit_co_authors.extend(extract_co_authors(commit))
+
         all_commit_authors = commit_authors + commit_co_authors
         distinct_authors = sorted(set(all_commit_authors),
                                   key=lambda x: commit_authors.count(x),
@@ -396,74 +394,51 @@ class PullRequest(object):
             print("Author {}: {}".format(i + 1, author))
 
         if len(distinct_authors) > 1:
-            primary_author, distinct_authors = get_primary_author(
+            primary_author, distinct_other_authors = get_primary_author(
                 self.cmd, distinct_authors)
         else:
             # If there is only one author, do not prompt for a lead author
-            primary_author = distinct_authors[0]
+            primary_author = distinct_authors.pop()
+            distinct_other_authors = []
 
-        merge_message_flags = []
-
-        merge_message_flags += ["-m", self.title]
+        commit_title = f'{self.title} (#{self.number})'
+        commit_message_chunks = []
         if self.body is not None:
-            merge_message_flags += ["-m", self.body]
+            commit_message_chunks.append(self.body)
 
         committer_name = run_cmd("git config --get user.name").strip()
         committer_email = run_cmd("git config --get user.email").strip()
 
-        authors = ("Authored-by:" if len(distinct_authors) == 1
+        authors = ("Authored-by:" if len(distinct_other_authors) == 0
                    else "Lead-authored-by:")
-        authors += " %s" % (distinct_authors.pop(0))
+        authors += " %s" % primary_author
         if len(distinct_authors) > 0:
             authors += "\n" + "\n".join(["Co-authored-by: %s" % a
-                                         for a in distinct_authors])
+                                         for a in distinct_other_authors])
         authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name,
                                                       committer_email)
+        commit_message_chunks.append(authors)
 
-        if had_conflicts:
-            committer_name = run_cmd("git config --get user.name").strip()
-            committer_email = run_cmd("git config --get user.email").strip()
-            message = ("This patch had conflicts when merged, "
-                       "resolved by\nCommitter: %s <%s>" %
-                       (committer_name, committer_email))
-            merge_message_flags += ["-m", message]
-
-        # The string "Closes #%s" string is required for GitHub to correctly
-        # close the PR
-        merge_message_flags += [
-            "-m",
-            "Closes #%s from %s"
-            % (self.number, self.description)]
-        merge_message_flags += ["-m", authors]
+        commit_message = "\n\n".join(commit_message_chunks)
 
         if DEBUG:
-            print("\n".join(merge_message_flags))
+            print(commit_title)
+            print()
+            print(commit_message)
 
-        run_cmd(['git', 'commit',
-                 '--no-verify',  # do not run commit hooks
-                 '--author="%s"' % primary_author] +
-                merge_message_flags)
+        if DEBUG:
+            merge_hash = None
+        else:
+            result = self._github_api.merge_pr(self.number,
+                                               commit_title,
+                                               commit_message)
+            if not result['merged']:
+                message = result['message']
+                self.cmd.fail(f'Failed to merge pull request: {message}')
+            merge_hash = result['sha']
 
-        self.cmd.continue_maybe("Merge complete (local ref %s). Push to %s?"
-                                % (target_branch_name, self.git_remote))
-
-        try:
-            push_cmd = ('git push %s %s:%s' % (self.git_remote,
-                                               target_branch_name,
-                                               self.target_ref))
-            if DEBUG:
-                print(push_cmd)
-            else:
-                run_cmd(push_cmd)
-        except Exception as e:
-            clean_up()
-            self.cmd.fail("Exception while pushing: %s" % e)
-
-        merge_hash = run_cmd("git rev-parse %s" % target_branch_name)[:8]
-        clean_up()
         print("Pull request #%s merged!" % self.number)
         print("Merge hash: %s" % merge_hash)
-        return merge_hash
 
 
 def get_primary_author(cmd, distinct_authors):
@@ -475,7 +450,7 @@ def get_primary_author(cmd, distinct_authors):
             "\"name <email>\" [%s]: " % distinct_authors[0])
 
         if primary_author == "":
-            return distinct_authors[0], distinct_authors
+            return distinct_authors[0], distinct_authors[1:]
 
         if author_pat.match(primary_author):
             break
@@ -483,10 +458,9 @@ def get_primary_author(cmd, distinct_authors):
 
     # When primary author is specified manually, de-dup it from
     # author list and put it at the head of author list.
-    distinct_authors = [x for x in distinct_authors
-                        if x != primary_author]
-    distinct_authors = [primary_author] + distinct_authors
-    return primary_author, distinct_authors
+    distinct_other_authors = [x for x in distinct_authors
+                              if x != primary_author]
+    return primary_author, distinct_other_authors
 
 
 def prompt_for_fix_version(cmd, jira_issue):
@@ -581,25 +555,23 @@ def cli():
 
     os.chdir(ARROW_HOME)
 
-    github_api = GitHubAPI(PROJECT_NAME)
+    github_api = GitHubAPI(PROJECT_NAME, cmd)
 
     jira_con = connect_jira(cmd)
     pr = PullRequest(cmd, github_api, PR_REMOTE_NAME, jira_con, pr_num)
 
     if pr.is_merged:
-        print("Pull request %s has already been merged")
+        print("Pull request %s has already been merged" % pr_num)
         sys.exit(0)
 
     if not pr.is_mergeable:
-        msg = ("Pull request %s is not mergeable in its current form.\n"
-               % pr_num + "Continue? (experts only!)")
-        cmd.continue_maybe(msg)
+        print("Pull request %s is not mergeable in its current form" % pr_num)
+        sys.exit(1)
 
     pr.show()
 
     cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
 
-    # merged hash not used
     pr.merge()
 
     if pr.jira_issue is None:

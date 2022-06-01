@@ -25,6 +25,7 @@ import socket
 import time
 import threading
 import warnings
+import weakref
 
 from cython.operator cimport dereference as deref
 from cython.operator cimport postincrement
@@ -2516,6 +2517,33 @@ cdef class _ServerMiddlewareWrapper(ServerMiddleware):
             instance.call_completed(exception)
 
 
+cdef class _FlightServerFinalizer(_Weakrefable):
+    """
+    A finalizer that shuts down the server on destruction.
+
+    See ARROW-16597. If the server is still active at interpreter
+    exit, the process may segfault.
+    """
+
+    cdef:
+        shared_ptr[PyFlightServer] server
+
+    def finalize(self):
+        cdef:
+            PyFlightServer* server = self.server.get()
+            CStatus status
+        if server == NULL:
+            return
+        try:
+            with nogil:
+                status = server.Shutdown()
+                if status.ok():
+                    status = server.Wait()
+            check_flight_status(status)
+        finally:
+            self.server.reset()
+
+
 cdef class FlightServerBase(_Weakrefable):
     """A Flight service definition.
 
@@ -2550,11 +2578,13 @@ cdef class FlightServerBase(_Weakrefable):
     """
 
     cdef:
-        unique_ptr[PyFlightServer] server
+        shared_ptr[PyFlightServer] server
+        object finalizer
 
     def __init__(self, location=None, auth_handler=None,
                  tls_certificates=None, verify_client=None,
                  root_certificates=None, middleware=None):
+        self.finalizer = None
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -2622,6 +2652,9 @@ cdef class FlightServerBase(_Weakrefable):
         self.server.reset(c_server)
         with nogil:
             check_flight_status(c_server.Init(deref(c_options)))
+        cdef _FlightServerFinalizer finalizer = _FlightServerFinalizer()
+        finalizer.server = self.server
+        self.finalizer = weakref.finalize(self, finalizer.finalize)
 
     @property
     def port(self):
@@ -2843,8 +2876,8 @@ cdef class FlightServerBase(_Weakrefable):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.shutdown()
-        self.wait()
+        if self.finalizer:
+            self.finalizer()
 
 
 def connect(location, **kwargs):

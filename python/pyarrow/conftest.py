@@ -204,6 +204,12 @@ def pytest_ignore_collect(path, config):
             except ImportError:
                 return True
 
+    if getattr(config.option, "doctest_cython", False):
+        if "/pyarrow/tests/" in str(path):
+            return True
+        if "/pyarrow/_parquet_encryption" in str(path):
+            return True
+
     return False
 
 
@@ -211,8 +217,11 @@ def pytest_ignore_collect(path, config):
 @pytest.fixture(autouse=True)
 def _docdir(request):
 
-    # Trigger ONLY for the doctests.
-    if request.config.option.doctestmodules:
+    # Trigger ONLY for the doctests
+    doctest_m = request.config.option.doctestmodules
+    doctest_c = getattr(request.config.option, "doctest_cython", False)
+
+    if doctest_m or doctest_c:
 
         # Get the fixture dynamically by its name.
         tmpdir = request.getfixturevalue('tmpdir')
@@ -222,5 +231,4 @@ def _docdir(request):
             yield
 
     else:
-        # For normal tests, we have to yield, since this is a yield-fixture.
         yield

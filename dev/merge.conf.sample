@@ -23,3 +23,7 @@
 # token credentials. Ensure that the file is properly protected.
 username=johnsmith
 password=123456
+
+[github]
+# GitHub's personal access token. "workflow" scope is needed.
+api_token=ghp_ABC

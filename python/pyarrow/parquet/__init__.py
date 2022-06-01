@@ -1926,7 +1926,7 @@ Examples
         Select pandas metadata:
 
         >>> dataset.read_pandas(columns=["n_legs"]).schema.pandas_metadata
-        {'index_columns': [{'kind': 'range', ... 'pandas_version': '1.4.1'}
+        {'index_columns': [{'kind': 'range', 'name': None, 'start': 0, ...}
         """
         return self.read(use_pandas_metadata=True, **kwargs)
 
@@ -2486,7 +2486,7 @@ class _ParquetDatasetV2:
         n_legs: [[2,2,4,4,5,100]]
 
         >>> dataset.read_pandas(columns=["n_legs"]).schema.pandas_metadata
-        {'index_columns': [{'kind': 'range', ... 'pandas_version': '1.4.1'}
+        {'index_columns': [{'kind': 'range', 'name': None, 'start': 0, ...}
         """
         return self.read(use_pandas_metadata=True, **kwargs)
 
