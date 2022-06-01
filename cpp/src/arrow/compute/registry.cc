@@ -34,7 +34,7 @@ namespace compute {
 
 class FunctionRegistry::FunctionRegistryImpl {
  public:
-  ~FunctionRegistryImpl() {}
+  virtual ~FunctionRegistryImpl() {}
 
  private:
   using FuncAdd = std::function<void(const std::string&, std::shared_ptr<Function>)>;
