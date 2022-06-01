@@ -23,7 +23,10 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -53,6 +56,7 @@ public abstract class AbstractJdbcToArrowTest {
   protected static final String DECIMAL = "DECIMAL_FIELD6";
   protected static final String DOUBLE = "DOUBLE_FIELD7";
   protected static final String INT = "INT_FIELD1";
+  protected static final String LIST = "LIST_FIELD19";
   protected static final String REAL = "REAL_FIELD8";
   protected static final String SMALLINT = "SMALLINT_FIELD4";
   protected static final String TIME = "TIME_FIELD9";
@@ -60,6 +64,11 @@ public abstract class AbstractJdbcToArrowTest {
   protected static final String TINYINT = "TINYINT_FIELD3";
   protected static final String VARCHAR = "VARCHAR_FIELD13";
   protected static final String NULL = "NULL_FIELD18";
+  protected static final Map<String, JdbcFieldInfo> ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP = new HashMap<>();
+
+  static {
+    ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP.put(LIST, new JdbcFieldInfo(Types.INTEGER));
+  }
 
   protected Connection conn = null;
   protected Table table;
@@ -164,12 +173,13 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
    *                      ResultSet and Statement objects.
    */
-  public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BufferAllocator allocator)
+  public VectorSchemaRoot sqlToArrow(Connection connection, String query, BufferAllocator allocator)
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
 
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar());
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar())
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
     return sqlToArrow(connection, query, config);
   }
 
@@ -188,7 +198,7 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
    *                      ResultSet and Statement objects.
    */
-  public static VectorSchemaRoot sqlToArrow(
+  public VectorSchemaRoot sqlToArrow(
       Connection connection,
       String query,
       BufferAllocator allocator,
@@ -197,7 +207,10 @@ public abstract class AbstractJdbcToArrowTest {
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
     Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
-    return sqlToArrow(connection, query, new JdbcToArrowConfig(allocator, calendar));
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, calendar)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
+    return sqlToArrow(connection, query, config);
   }
 
   /**
@@ -254,8 +267,9 @@ public abstract class AbstractJdbcToArrowTest {
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar());
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar())
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
     return sqlToArrow(resultSet, config);
   }
 
@@ -271,7 +285,11 @@ public abstract class AbstractJdbcToArrowTest {
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
-    return sqlToArrow(resultSet, new JdbcToArrowConfig(new RootAllocator(Integer.MAX_VALUE), calendar));
+
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), calendar)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
+    return sqlToArrow(resultSet, config);
   }
 
   /**
@@ -292,7 +310,10 @@ public abstract class AbstractJdbcToArrowTest {
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
-    return sqlToArrow(resultSet, new JdbcToArrowConfig(allocator, calendar));
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, calendar)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
+    return sqlToArrow(resultSet, config);
   }
 
   /**

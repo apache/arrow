@@ -9,38 +9,38 @@
 #OF ANY KIND, either express or implied. See the License for the specific
 #language governing permissions and limitations under the License.
 
-name: 'test1_tinyint_h2'
+name: 'test1_list_h2'
 
-type: 'tinyint'
+type: 'list'
 
-vector: 'TINYINT_FIELD3'
+vector: 'LIST_FIELD19'
 
-create: 'CREATE TABLE table1 (tinyint_field3 TINYINT);'
+create: 'CREATE TABLE table1 (list_field19 ARRAY);'
 
 data:
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
-  - 'INSERT INTO table1 VALUES (45);'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES ((1,2,3));'
 
-query: 'select tinyint_field3 from table1;'
+query: 'select list_field19 from table1;'
 
 drop: 'DROP table table1;'
 
 values:
- - '45'
- - '45'
- - '45'
- - '45'
- - '45'
- - '45'
- - '45'
- - '45'
- - '45'
- - '45'
+ - '(1;2;3)'
+ - '(1;2;3)'
+ - '(1;2;3)'
+ - '(1;2;3)'
+ - '(1;2;3)'
+ - '(1;2;3)'
+ - '(1;2;3)'
+ - '(1;2;3)'
+ - '(1;2;3)'
+ - '(1;2;3)'
