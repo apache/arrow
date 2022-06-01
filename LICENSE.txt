@@ -2195,6 +2195,13 @@ BSD 2-clause license.
 
 --------------------------------------------------------------------------------
 
+The file dev/tasks/r/github.packages.yml contains code from
+
+https://github.com/ursa-labs/arrow-r-nightly
+
+which is made available under the Apache License 2.0.
+--------------------------------------------------------------------------------
+
 The files in cpp/src/arrow/vendored/pcg contain code from
 
 https://github.com/imneme/pcg-cpp

@@ -14,9 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-# This workflow was adapted from https://github.com/ursa-labs/arrow-r-nightly
-# to this templated form.
 
 {% import 'macros.jinja' as macros with context %}
 
