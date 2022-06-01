@@ -19,9 +19,9 @@ import '../../jest-extensions.js';
 import * as generate from '../../generate-test-data.js';
 
 import {
-    Table, Schema, Field, DataType, TypeMap, Dictionary, Int32, Float32, Utf8, Null,
+    Table, Schema, Field, DataType, TypeMap, Dictionary, Int32, Float32, Uint8, Utf8, Null,
     makeVector,
-    tableFromIPC, tableToIPC
+    tableFromIPC, tableToIPC, RecordBatchReader, RecordBatchStreamWriter
 } from 'apache-arrow';
 
 const deepCopy = (t: Table) => tableFromIPC(tableToIPC(t));
@@ -36,6 +36,30 @@ schema1.metadata.set('foo', 'bar');
 function createTable<T extends TypeMap = any>(schema: Schema<T>, chunkLengths: number[]) {
     return generate.table(chunkLengths, schema).table;
 }
+
+describe('tableFromIPC', () => {
+    test('handles AsyncRecordBatchReader input', async () => {
+        type T = { a: Uint8 };
+
+        const sources = [
+            new Table({ a: makeVector(new Uint8Array([1, 2, 3])) }),
+            new Table({ a: makeVector(new Uint8Array([4, 5, 6])) }),
+        ];
+
+        const writer = sources.reduce(
+            (writer, source) => writer.writeAll(source),
+            new RecordBatchStreamWriter<T>({ autoDestroy: false })
+        );
+
+        writer.close();
+
+        let index = 0;
+
+        for await (const reader of RecordBatchReader.readAll<T>(writer[Symbol.asyncIterator]())) {
+            expect(sources[index++]).toEqualTable(await tableFromIPC(reader));
+        }
+    });
+});
 
 describe('tableToIPC()', () => {
 
