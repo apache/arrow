@@ -47,7 +47,7 @@ jobs:
     name: Build C++ Libs MacOS
     runs-on: macos-latest
     env:
-      MACOSX_DEPLOYMENT_TARGET: "10.11"
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
