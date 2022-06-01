@@ -61,7 +61,7 @@ Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
 static Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const std::string& factory_name,
     std::function<std::shared_ptr<compute::ExecNodeOptions>()> options_factory,
-    ExtensionSet* ext_set_out, const ExtensionIdRegistry* registry) {
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan, registry));
@@ -93,7 +93,7 @@ static Result<std::vector<compute::Declaration>> DeserializePlans(
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
-    ExtensionSet* ext_set_out, const ExtensionIdRegistry* registry) {
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
   return DeserializePlans(
       buf,
       "consuming_sink",
@@ -102,23 +102,23 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
               compute::ConsumingSinkNodeOptions{consumer_factory()}
           );
       },
-      ext_set_out,
-      registry
+      registry,
+      ext_set_out
   );
 }
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
-    ExtensionSet* ext_set_out, const ExtensionIdRegistry* registry) {
-  return DeserializePlans(buf, "write", write_options_factory, ext_set_out, registry);
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+  return DeserializePlans(buf, "write", write_options_factory, registry, ext_set_out);
 }
 
 Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
                                           const ConsumerFactory& consumer_factory,
-                                          ExtensionSet* ext_set_out,
-                                          const ExtensionIdRegistry* registry) {
+                                          const ExtensionIdRegistry* registry,
+                                          ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto declarations,
-                        DeserializePlans(buf, consumer_factory, ext_set_out, registry));
+                        DeserializePlans(buf, consumer_factory, registry, ext_set_out));
   if (declarations.size() > 1) {
     return Status::Invalid("DeserializePlan does not support multiple root relations");
   } else {
@@ -151,7 +151,7 @@ Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(
           ARROW_ASSIGN_OR_RAISE(auto output_type, FromProto(udf.output_type(), ext_set));
           decls.push_back(std::move(UdfDeclaration{
             fn.name(),
-	    udf.code(),
+            udf.code(),
             udf.summary(),
             udf.description(),
             std::move(input_types),

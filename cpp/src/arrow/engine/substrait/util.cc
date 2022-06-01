@@ -95,7 +95,6 @@ class SubstraitExecutor {
     ARROW_ASSIGN_OR_RAISE(declarations_,
                           engine::DeserializePlans(substrait_buffer,
                                                    consumer_factory,
-                                                   NULLPTR,
                                                    registry));
     return Status::OK();
   }
@@ -133,7 +132,6 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
   return engine::DeserializePlans(
       buffer,
       []() { return std::make_shared<compute::NullSinkNodeConsumer>(); },
-      NULLPTR,
       registry
   );
 }

@@ -701,7 +701,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
       auto sink_decls,
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+          NULLPTR, &ext_set));
 
   EXPECT_OK_AND_ASSIGN(auto decoded_null_type, ext_set.DecodeType(42));
   EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
@@ -737,7 +737,7 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
       Invalid,
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+          NULLPTR, &ext_set));
 }
 
 Result<std::string> GetSubstraitJSON() {
