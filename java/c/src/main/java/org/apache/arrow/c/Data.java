@@ -259,7 +259,7 @@ public final class Data {
    */
   public static void importIntoVectorSchemaRoot(BufferAllocator allocator, ArrowArray array, VectorSchemaRoot root,
       DictionaryProvider provider) {
-    try (StructVector structVector = StructVector.empty("", allocator)) {
+    try (StructVector structVector = StructVector.emptyWithDuplicates("", allocator)) {
       structVector.initializeChildrenFromFields(root.getSchema().getFields());
       importIntoVector(allocator, array, structVector, provider);
       StructVectorUnloader unloader = new StructVectorUnloader(structVector);
