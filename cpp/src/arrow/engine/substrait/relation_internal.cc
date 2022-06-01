@@ -225,6 +225,88 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       });
     }
 
+    case substrait::Rel::RelTypeCase::kJoin: {
+      const auto& join = rel.join();
+      RETURN_NOT_OK(CheckRelCommon(join));
+
+      if (!join.has_left()) {
+        return Status::Invalid("substrait::JoinRel with no left relation");
+      }
+
+      if (!join.has_right()) {
+        return Status::Invalid("substrait::JoinRel with no right relation");
+      }
+
+      compute::JoinType join_type;
+      switch (join.type()) {
+        case substrait::JoinRel::JOIN_TYPE_UNSPECIFIED:
+          return Status::NotImplemented("Unspecified join type is not supported");
+        case substrait::JoinRel::JOIN_TYPE_INNER:
+          join_type = compute::JoinType::INNER;
+          break;
+        case substrait::JoinRel::JOIN_TYPE_OUTER:
+          join_type = compute::JoinType::FULL_OUTER;
+          break;
+        case substrait::JoinRel::JOIN_TYPE_LEFT:
+          join_type = compute::JoinType::LEFT_OUTER;
+          break;
+        case substrait::JoinRel::JOIN_TYPE_RIGHT:
+          join_type = compute::JoinType::RIGHT_OUTER;
+          break;
+        case substrait::JoinRel::JOIN_TYPE_SEMI:
+          join_type = compute::JoinType::LEFT_SEMI;
+          break;
+        case substrait::JoinRel::JOIN_TYPE_ANTI:
+          join_type = compute::JoinType::LEFT_ANTI;
+          break;
+        default:
+          return Status::Invalid("Unsupported join type");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto left, FromProto(join.left(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto right, FromProto(join.right(), ext_set));
+
+      if (!join.has_expression()) {
+        return Status::Invalid("substrait::JoinRel with no expression");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto expression, FromProto(join.expression(), ext_set));
+
+      const auto* callptr = expression.call();
+      if (!callptr) {
+        return Status::Invalid(
+            "A join rel's expression must be a simple equality between keys but got ",
+            expression.ToString());
+      }
+
+      compute::JoinKeyCmp join_key_cmp;
+      if (callptr->function_name == "equal") {
+        join_key_cmp = compute::JoinKeyCmp::EQ;
+      } else if (callptr->function_name == "is_not_distinct_from") {
+        join_key_cmp = compute::JoinKeyCmp::IS;
+      } else {
+        return Status::Invalid(
+            "Only `equal` or `is_not_distinct_from` are supported for join key "
+            "comparison but got ",
+            callptr->function_name);
+      }
+
+      // TODO: ARROW-166241 Add Suffix support for Substrait
+      const auto* left_keys = callptr->arguments[0].field_ref();
+      const auto* right_keys = callptr->arguments[1].field_ref();
+      if (!left_keys || !right_keys) {
+        return Status::Invalid("Left keys for join cannot be null");
+      }
+      compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
+                                                {std::move(*right_keys)}};
+      join_options.join_type = join_type;
+      join_options.key_cmp = {join_key_cmp};
+      compute::Declaration join_dec{"hashjoin", std::move(join_options)};
+      join_dec.inputs.emplace_back(std::move(left));
+      join_dec.inputs.emplace_back(std::move(right));
+      return std::move(join_dec);
+    }
+
     default:
       break;
   }

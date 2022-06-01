@@ -296,6 +296,19 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       this->key_cmp[i] = JoinKeyCmp::EQ;
     }
   }
+  HashJoinNodeOptions(std::vector<FieldRef> in_left_keys,
+                      std::vector<FieldRef> in_right_keys)
+      : left_keys(std::move(in_left_keys)), right_keys(std::move(in_right_keys)) {
+    this->join_type = JoinType::INNER;
+    this->output_all = true;
+    this->output_suffix_for_left = default_output_suffix_for_left;
+    this->output_suffix_for_right = default_output_suffix_for_right;
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
+    }
+    this->filter = literal(true);
+  }
   HashJoinNodeOptions(
       JoinType join_type, std::vector<FieldRef> left_keys,
       std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,

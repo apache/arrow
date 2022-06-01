@@ -1468,7 +1468,7 @@ cdef class DirectoryPartitioning(KeyValuePartitioning):
     >>> from pyarrow.dataset import DirectoryPartitioning
     >>> partitioning = DirectoryPartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
-    >>> print(partitioning.parse("/2009/11"))
+    >>> print(partitioning.parse("/2009/11/"))
     ((year == 2009) and (month == 11))
     """
 
@@ -1595,7 +1595,7 @@ cdef class HivePartitioning(KeyValuePartitioning):
     >>> from pyarrow.dataset import HivePartitioning
     >>> partitioning = HivePartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
-    >>> print(partitioning.parse("/year=2009/month=11"))
+    >>> print(partitioning.parse("/year=2009/month=11/"))
     ((year == 2009) and (month == 11))
 
     """
@@ -1719,7 +1719,7 @@ cdef class FilenamePartitioning(KeyValuePartitioning):
     >>> from pyarrow.dataset import FilenamePartitioning
     >>> partitioning = FilenamePartitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]))
-    >>> print(partitioning.parse("2009_11_"))
+    >>> print(partitioning.parse("2009_11_data.parquet"))
     ((year == 2009) and (month == 11))
     """
 

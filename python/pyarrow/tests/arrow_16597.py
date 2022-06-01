@@ -15,15 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Configuration for the merge_arrow_pr.py tool
-# Install a copy of this file at ~/.config/arrow/merge.conf
+# This file is called from a test in test_flight.py.
+import time
 
-[jira]
-# issues.apache.org JIRA credentials. Sadly, the jira instance doesn't offer
-# token credentials. Ensure that the file is properly protected.
-username=johnsmith
-password=123456
+import pyarrow as pa
+import pyarrow.flight as flight
 
-[github]
-# GitHub's personal access token. "workflow" scope is needed.
-api_token=ghp_ABC
+
+class Server(flight.FlightServerBase):
+    def do_put(self, context, descriptor, reader, writer):
+        time.sleep(1)
+        raise flight.FlightCancelledError("")
+
+
+if __name__ == "__main__":
+    server = Server("grpc://localhost:0")
+    client = flight.connect(f"grpc://localhost:{server.port}")
+    schema = pa.schema([])
+    writer, reader = client.do_put(
+        flight.FlightDescriptor.for_command(b""), schema)
+    writer.done_writing()

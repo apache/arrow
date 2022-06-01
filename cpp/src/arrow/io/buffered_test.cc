@@ -293,6 +293,14 @@ TEST_F(TestBufferedOutputStream, Tell) {
 
   ASSERT_OK(buffered_->Close());
 
+  // write long bytes after raw_pos is cached
+  OpenBuffered(/*buffer_size=*/3);
+  AssertTell(0);
+  ASSERT_OK(buffered_->Write("1234568790", 5));
+  AssertTell(5);
+
+  ASSERT_OK(buffered_->Close());
+
   OpenBuffered();
   AssertTell(0);
 }
