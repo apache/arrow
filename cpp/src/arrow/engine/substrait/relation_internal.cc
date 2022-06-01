@@ -324,7 +324,6 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
 Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& declaration,
                                                 ExtensionSet* ext_set) {
   auto out = internal::make_unique<substrait::Rel>();
-
   return nullptr;
 }
 
