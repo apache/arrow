@@ -20,9 +20,12 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/string_view.h"
+
+#include "arrow/engine/substrait/expression_internal.h"
 
 namespace arrow {
 namespace engine {
@@ -457,6 +460,257 @@ std::shared_ptr<ExtensionIdRegistry> nested_extension_id_registry(
     const ExtensionIdRegistry* parent) {
   return std::make_shared<NestedExtensionIdRegistryImpl>(parent);
 }
+
+SubstraitToArrow substrait_add_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(1);
+  auto value_2 = call.args(2);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));
+  auto options = call.args(0);
+  if (options.has_enum_()) {
+    auto overflow_handling = options.enum_();
+    if(overflow_handling.has_specified()){
+    std::string overflow_type = overflow_handling.specified();
+    if(overflow_type == "SILENT"){
+      return arrow::compute::call("add", {expression_1,expression_2}, compute::ArithmeticOptions());
+    } else if (overflow_type == "SATURATE") {
+      return Status::Invalid("Arrow does not support a saturating add");
+    } else {
+      return arrow::compute::call("add_checked", {expression_1,expression_2}, compute::ArithmeticOptions(true));
+    }
+  } else {
+    return arrow::compute::call("add", {expression_1,expression_2}, compute::ArithmeticOptions());
+  }
+  } else {
+      return Status::Invalid("Substrait Function Options should be an enum");
+  }
+};
+
+ArrowToSubstrait arrow_add_to_substrait = [] (const arrow::compute::Expression::Call& call, arrow::engine::ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("add"));
+  substrait_call.set_function_reference(function_reference);
+
+  substrait::Expression::Enum options;
+  std::string overflow_handling = "ERROR";
+  options.set_specified(overflow_handling);
+  substrait_call.add_args()->set_allocated_enum_(&options);
+  
+  auto expression_1 = call.arguments[0];
+  auto expression_2 = call.arguments[1];
+  
+  ARROW_ASSIGN_OR_RAISE(auto value_1, ToProto(expression_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto value_2, ToProto(expression_2, ext_set_));
+
+  substrait_call.add_args()->CopyFrom(*value_1);
+  substrait_call.add_args()->CopyFrom(*value_2);
+  return std::move(substrait_call);
+};
+
+ArrowToSubstrait arrow_unchecked_add_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("add"));
+  substrait_call.set_function_reference(function_reference);
+
+  substrait::Expression::Enum options;
+  std::string overflow_handling = "SILENT";
+  options.set_specified(overflow_handling);
+  substrait_call.add_args()->set_allocated_enum_(&options);
+  
+  auto expression_1 = call.arguments[0];
+  auto expression_2 = call.arguments[1];
+  
+  ARROW_ASSIGN_OR_RAISE(auto value_1, ToProto(expression_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto value_2, ToProto(expression_2, ext_set_));
+
+  substrait_call.add_args()->CopyFrom(*value_1);
+  substrait_call.add_args()->CopyFrom(*value_2);
+  return std::move(substrait_call);
+};
+
+
+// Boolean Functions mapping
+SubstraitToArrow substrait_not_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  return arrow::compute::call("invert", {expression_1});
+};
+
+SubstraitToArrow substrait_or_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));
+  return arrow::compute::call("or_kleene", {expression_1, expression_2});
+};
+
+SubstraitToArrow substrait_and_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));
+  return arrow::compute::call("and_kleene", {expression_1, expression_2});
+};
+
+SubstraitToArrow substrait_xor_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));
+  return arrow::compute::call("xor", {expression_1, expression_2});
+};
+
+ArrowToSubstrait arrow_invert_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("not"));
+  substrait_call.set_function_reference(function_reference);
+  
+  auto expression_1 = call.arguments[0];
+  auto expression_2 = call.arguments[1];
+  
+  ARROW_ASSIGN_OR_RAISE(auto value_1, ToProto(expression_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto value_2, ToProto(expression_2, ext_set_));
+
+  substrait_call.add_args()->CopyFrom(*value_1);
+  substrait_call.add_args()->CopyFrom(*value_2);
+  return std::move(substrait_call);
+
+};
+
+ArrowToSubstrait arrow_or_kleene_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("or"));
+  substrait_call.set_function_reference(function_reference);
+  
+  auto expression_1 = call.arguments[0];
+  auto expression_2 = call.arguments[1];
+  
+  ARROW_ASSIGN_OR_RAISE(auto value_1, ToProto(expression_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto value_2, ToProto(expression_2, ext_set_));
+
+  substrait_call.add_args()->CopyFrom(*value_1);
+  substrait_call.add_args()->CopyFrom(*value_2);
+  return std::move(substrait_call);
+};
+
+
+ArrowToSubstrait arrow_and_kleene_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("and"));
+  substrait_call.set_function_reference(function_reference);
+  
+  auto expression_1 = call.arguments[0];
+  auto expression_2 = call.arguments[1];
+  
+  ARROW_ASSIGN_OR_RAISE(auto value_1, ToProto(expression_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto value_2, ToProto(expression_2, ext_set_));
+
+  substrait_call.add_args()->CopyFrom(*value_1);
+  substrait_call.add_args()->CopyFrom(*value_2);
+
+  return std::move(substrait_call);
+};
+
+ArrowToSubstrait arrow_xor_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("xor"));
+  substrait_call.set_function_reference(function_reference);
+  
+  auto expression_1 = call.arguments[0];
+  auto expression_2 = call.arguments[1];
+  
+  ARROW_ASSIGN_OR_RAISE(auto value_1, ToProto(expression_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto value_2, ToProto(expression_2, ext_set_));
+
+  substrait_call.add_args()->CopyFrom(*value_1);
+  substrait_call.add_args()->CopyFrom(*value_2);
+  return std::move(substrait_call);
+};
+
+// Comparison Functions mapping
+SubstraitToArrow substrait_lt_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));
+  return arrow::compute::call("less", {expression_1, expression_2});
+};
+
+SubstraitToArrow substrait_gt_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));
+  return arrow::compute::call("greater", {expression_1, expression_2});
+};
+
+SubstraitToArrow substrait_lte_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));  
+  return arrow::compute::call("less_equal", {expression_1, expression_2});
+};
+
+SubstraitToArrow substrait_not_equal_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));  
+  return arrow::compute::call("not_equal", {expression_1, expression_2});
+};
+
+SubstraitToArrow substrait_equal_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_));    
+  return arrow::compute::call("equal", {expression_1, expression_2});
+};
+
+SubstraitToArrow substrait_is_null_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  return arrow::compute::call("is_null", {expression_1});
+};
+
+SubstraitToArrow substrait_is_not_null_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  return arrow::compute::call("is_valid", {expression_1});
+};
+
+SubstraitToArrow substrait_is_not_distinct_from_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto value_1 = call.args(0);
+  auto value_2 = call.args(1);
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto expression_1, FromProto(value_1, ext_set_));
+  ARROW_ASSIGN_OR_RAISE(auto expression_2, FromProto(value_2, ext_set_)); 
+  auto null_check_1 = arrow::compute::call("is_null", {expression_1});
+  auto null_check_2 = arrow::compute::call("is_null", {expression_2});
+  if(null_check_1.IsNullLiteral() && null_check_1.IsNullLiteral()){
+    return arrow::compute::call("not_equal", {null_check_1, null_check_2});
+  }
+  return arrow::compute::call("not_equal", {expression_1, expression_2});
+};
 
 }  // namespace engine
 }  // namespace arrow

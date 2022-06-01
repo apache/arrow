@@ -159,21 +159,11 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
 
       ARROW_ASSIGN_OR_RAISE(auto decoded_function,
                             ext_set.DecodeFunction(scalar_fn.function_reference()));
+      
+      auto arrow_function = ext_set.functions_map.GetArrowFromSubstrait(static_cast<std::string>(decoded_function.name));
 
-      std::vector<compute::Expression> arguments(scalar_fn.args_size());
-      for (int i = 0; i < scalar_fn.args_size(); ++i) {
-        ARROW_ASSIGN_OR_RAISE(arguments[i], FromProto(scalar_fn.args(i), ext_set));
-      }
+      return arrow_function(scalar_fn);                      
 
-      auto func_name = decoded_function.name.to_string();
-      if (func_name != "cast") {
-        return compute::call(func_name, std::move(arguments));
-      } else {
-        ARROW_ASSIGN_OR_RAISE(auto output_type_desc,
-                              FromProto(scalar_fn.output_type(), ext_set));
-        auto cast_options = compute::CastOptions::Safe(std::move(output_type_desc.first));
-        return compute::call(func_name, std::move(arguments), std::move(cast_options));
-      }
     }
 
     default:
