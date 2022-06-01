@@ -819,6 +819,9 @@ class MultiHeaderClientMiddleware(ClientMiddleware):
     EXPECTED = {
         "x-text": ["foo", "bar"],
         "x-binary-bin": [b"\x00", b"\x01"],
+        # ARROW-16606: ensure mixed-case headers are accepted
+        "x-MIXED-case": ["baz"],
+        b"x-other-MIXED-case": ["baz"],
     }
 
     def __init__(self, factory):
@@ -1910,6 +1913,9 @@ def test_middleware_multi_header():
             client_headers = ast.literal_eval(raw_headers)
             # Don't directly compare; gRPC may add headers like User-Agent.
             for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
+                header = header.lower()
+                if isinstance(header, bytes):
+                    header = header.decode("ascii")
                 assert client_headers.get(header) == values
                 assert headers.last_headers.get(header) == values
 
