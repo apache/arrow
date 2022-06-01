@@ -361,7 +361,6 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   Expression filter;
 };
 
-
 /// \brief Make a node which implements asof join operation
 ///
 /// This node takes one left table and (n-1) right tables, and asof joins them

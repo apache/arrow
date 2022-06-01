@@ -157,8 +157,7 @@ class InputState {
             schema->GetFieldIndex(time_col_name)),  // TODO: handle missing field name
         key_col_index_(schema->GetFieldIndex(key_col_name)) {}
 
-  col_index_t InitSrcToDstMapping(col_index_t dst_offset,
-                                      bool skip_time_and_key_fields) {
+  col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
     src_to_dst_.resize(schema_->num_fields());
     for (int i = 0; i < schema_->num_fields(); ++i)
       if (!(skip_time_and_key_fields && IsTimeOrKeyColumn(i)))
@@ -181,8 +180,7 @@ class InputState {
   bool Empty() const {
     // cannot be empty if ref row is >0 -- can avoid slow queue lock
     // below
-    if (latest_ref_row_ > 0)
-      return false;
+    if (latest_ref_row_ > 0) return false;
     return queue_.Empty();
   }
 
@@ -360,8 +358,7 @@ class CompositeReferenceTable {
     // Add row and setup LHS
     // (the LHS state comes just from the latest row of the LHS table)
     DCHECK(!in[0]->Empty());
-    const std::shared_ptr<arrow::RecordBatch>& lhs_latest_batch =
-        in[0]->GetLatestBatch();
+    const std::shared_ptr<arrow::RecordBatch>& lhs_latest_batch = in[0]->GetLatestBatch();
     row_index_t lhs_latest_row = in[0]->GetLatestRow();
     int64_t lhs_latest_time = in[0]->GetLatestTime();
     if (0 == lhs_latest_row) {
@@ -380,8 +377,7 @@ class CompositeReferenceTable {
     // Get the state for that key from all on the RHS -- assumes it's up to date
     // (the RHS state comes from the memoized row references)
     for (size_t i = 1; i < in.size(); ++i) {
-      util::optional<const MemoStore::Entry*> opt_entry =
-          in[i]->GetMemoEntryForKey(key);
+      util::optional<const MemoStore::Entry*> opt_entry = in[i]->GetMemoEntryForKey(key);
       if (opt_entry.has_value()) {
         DCHECK(*opt_entry);
         if ((*opt_entry)->_time + tolerance >= lhs_latest_time) {
@@ -430,17 +426,17 @@ class CompositeReferenceTable {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
                 (MaterializePrimitiveColumn<arrow::Int32Builder, int32_t>(i_table,
-									  i_src_col)));
+                                                                          i_src_col)));
           } else if (field_type->Equals(arrow::int64())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
                 (MaterializePrimitiveColumn<arrow::Int64Builder, int64_t>(i_table,
-									  i_src_col)));
+                                                                          i_src_col)));
           } else if (field_type->Equals(arrow::float64())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
                 (MaterializePrimitiveColumn<arrow::DoubleBuilder, double>(i_table,
-									  i_src_col)));
+                                                                          i_src_col)));
           } else {
             ARROW_RETURN_NOT_OK(
                 Status::Invalid("Unsupported data type: ", src_field->name()));
@@ -476,7 +472,7 @@ class CompositeReferenceTable {
 
   template <class Builder, class PrimitiveType>
   Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(size_t i_table,
-							    col_index_t i_col) {
+                                                            col_index_t i_col) {
     Builder builder;
     ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
@@ -562,7 +558,7 @@ class AsofJoinNode : public ExecNode {
     if (!lhs.Empty()) {
       for (size_t i = 1; i < state_.size(); ++i) {
         state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() -
-						   options_.tolerance);
+                                                   options_.tolerance);
       }
     }
 
