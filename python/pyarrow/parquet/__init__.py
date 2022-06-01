@@ -674,7 +674,7 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "1.0"
+_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.4"
     Determine which Parquet logical types are available for use, whether the
     reduced set from the Parquet 1.x.x format or the expanded logical types
     added in later format versions.
@@ -862,7 +862,7 @@ Examples
 
     def __init__(self, where, schema, filesystem=None,
                  flavor=None,
-                 version='1.0',
+                 version='2.4',
                  use_dictionary=True,
                  compression='snappy',
                  write_statistics=True,
@@ -2854,7 +2854,7 @@ read_pandas.__doc__ = _read_table_docstring.format(
     _DNF_filter_doc, "")
 
 
-def write_table(table, where, row_group_size=None, version='1.0',
+def write_table(table, where, row_group_size=None, version='2.4',
                 use_dictionary=True, compression='snappy',
                 write_statistics=True,
                 use_deprecated_int96_timestamps=None,
@@ -3336,7 +3336,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
       num_columns: 2
       num_rows: 3
       num_row_groups: 1
-      format_version: 1.0
+      format_version: 2.6
       serialized_size: 561
     """
     return ParquetFile(where, memory_map=memory_map,
