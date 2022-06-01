@@ -33,6 +33,9 @@ namespace arrow {
 namespace compute {
 
 class FunctionRegistry::FunctionRegistryImpl {
+ public:
+  ~FunctionRegistryImpl() {}
+
  private:
   using FuncAdd = std::function<void(const std::string&, std::shared_ptr<Function>)>;
 
