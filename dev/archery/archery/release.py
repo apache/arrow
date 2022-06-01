@@ -87,7 +87,7 @@ class Jira(JIRA):
 
     def __init__(self, token=None,
                  url='https://issues.apache.org/jira'):
-        
+
         token = token or os.environ.get('APACHE_JIRA_TOKEN')
         super().__init__(url, token_auth=token)
 
